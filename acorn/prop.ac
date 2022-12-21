@@ -1,0 +1,11 @@
+// The basics of propositional logic.
+// The kernel provides Prop, True, False.
+
+// How do we tell it that p and q are props?
+
+axiom and_intro(p, q): p && q
+axiom and_elim_left(p && q): p
+axiom and_elim_right(p && q): q
+
+axiom or_intro_left(p): p || q
+axiom or_intro_right(q): p || q
