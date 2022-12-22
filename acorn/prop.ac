@@ -1,11 +1,15 @@
 // The basics of propositional logic.
-// The kernel provides Prop, True, False.
+// See Metamath book, page 70.
+// This uses Church's "system P2".
 
-// How do we tell it that p and q are props?
+let p: bool
+let q: bool
+let r: bool
 
-axiom and_intro(p, q): p && q
-axiom and_elim_left(p && q): p
-axiom and_elim_right(p && q): q
+axiom simplification: p -> (q -> p)
+axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))
+axiom contraposition: (!p -> !q) -> (q -> p)
+axiom modus_ponens(p, p -> q): q
 
-axiom or_intro_left(p): p || q
-axiom or_intro_right(q): p || q
+// How do we know that anything exists in the first place?
+// Like how would we define "true" and "false"?
