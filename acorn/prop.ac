@@ -11,5 +11,11 @@ axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))
 axiom contraposition: (!p -> !q) -> (q -> p)
 axiom modus_ponens(p, p -> q): q
 
-// How do we know that anything exists in the first place?
-// Like how would we define "true" and "false"?
+define (p | q) = !p -> q
+define (p & q) = !(p -> !q)
+define (p <-> q) = (p -> q) & (q -> p)
+
+theorem and_comm: p & q <-> q & p
+theorem and_assoc: (p & q) & r <-> p & (q & r)
+theorem or_comm: p | q <-> q | p
+theorem or_assoc: (p | q) | r <-> p | (q | r)
