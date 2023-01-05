@@ -103,3 +103,14 @@ pub fn scan(input: String) -> Vec<Token> {
 
     tokens
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scanning() {
+        let tokens = scan("theorem t:A->B".to_string());
+        assert!(tokens.len() == 7);
+    }
+}
