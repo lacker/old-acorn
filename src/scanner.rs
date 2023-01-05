@@ -15,6 +15,10 @@ pub enum Token {
     Ampersand,
     LeftRightArrow,
     Equals,
+    Let,
+    Axiom,
+    Define,
+    Theorem,
 }
 
 impl fmt::Display for Token {
@@ -33,6 +37,10 @@ impl fmt::Display for Token {
             Token::Ampersand => write!(f, "&"),
             Token::LeftRightArrow => write!(f, "<->"),
             Token::Equals => write!(f, "="),
+            Token::Let => write!(f, "let"),
+            Token::Axiom => write!(f, "axiom"),
+            Token::Define => write!(f, "define"),
+            Token::Theorem => write!(f, "theorem"),
         }
     }
 }
@@ -92,7 +100,13 @@ pub fn scan(input: &str) -> Vec<Token> {
                         break;
                     }
                 }
-                Token::Identifier(identifier)
+                match identifier.as_str() {
+                    "let" => Token::Let,
+                    "axiom" => Token::Axiom,
+                    "define" => Token::Define,
+                    "theorem" => Token::Theorem,
+                    _ => Token::Identifier(identifier),
+                }
             }
             _ => Token::Invalid(format!("{}", ch)),
         };
