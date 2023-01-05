@@ -37,7 +37,11 @@ impl fmt::Display for Token {
     }
 }
 
-pub fn scan(input: String) -> Vec<Token> {
+fn identifierish(ch: char) -> bool {
+    ch.is_alphanumeric() || ch == '_'
+}
+
+pub fn scan(input: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut char_indices = input.char_indices().peekable();
 
@@ -77,11 +81,11 @@ pub fn scan(input: String) -> Vec<Token> {
                 }
                 None => Token::Invalid("/".to_string()),
             },
-            t if t.is_alphabetic() => {
+            t if identifierish(t) => {
                 let mut identifier = String::new();
                 identifier.push(t);
                 while let Some((_, ch)) = char_indices.peek() {
-                    if ch.is_alphanumeric() || ch == &'_' {
+                    if identifierish(*ch) {
                         identifier.push(*ch);
                         char_indices.next();
                     } else {
@@ -110,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_scanning() {
-        let tokens = scan("theorem t:A->B".to_string());
-        assert!(tokens.len() == 7);
+        assert!(scan("theorem t:A->B").len() == 7);
+        assert!(scan("theorem _t:A->B").len() == 7);
     }
 }
