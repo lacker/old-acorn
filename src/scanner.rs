@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Token {
     Identifier(String),
     Invalid(String),
@@ -67,7 +67,7 @@ impl Token {
     // Higher precedence operators are evaluated first.
     // It is an error to not specify the order when the precedence is the same.
     // Only unary and binary operators should have precedences.
-    pub fn precedence(&self) -> u8 {
+    pub fn precedence(&self) -> i8 {
         match self {
             Token::Exclam => 4,
             Token::Pipe => 3,

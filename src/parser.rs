@@ -28,7 +28,8 @@ fn parse_partial_expressions(
     while let Some(token) = tokens.next() {
         match token {
             Token::LeftParen => {
-                panic!("XXX");
+                let subexpression = parse_expression(tokens, true);
+                partial_expressions.push(PartialExpression::Expression(subexpression));
             }
             Token::Identifier(_) => {
                 partial_expressions.push(PartialExpression::Expression(Expression::Identifier(
@@ -62,8 +63,48 @@ fn parse_partial_expressions(
     panic!("unexpected end of input");
 }
 
+// Combines partial expressions into a single expression.
+// Operators work in precedence order, and left-to-right within a single precedence.
+// This algorithm is quadratic, so perhaps we should improve it at some point.
 fn combine_partial_expressions(partials: &[PartialExpression]) -> Expression {
-    panic!("XXX");
+    // Find the index of the operator that should operate last
+    let (neg_precedence, index) = partials
+        .iter()
+        .enumerate()
+        .filter_map(|(i, partial)| match partial {
+            PartialExpression::Expression(_) => None,
+            PartialExpression::Unary(token) => {
+                // Only a unary operator at the beginning of the expression can operate last
+                if i == 0 {
+                    Some((-token.precedence(), i))
+                } else {
+                    None
+                }
+            }
+            PartialExpression::Binary(token) => Some((-token.precedence(), i)),
+        })
+        .max()
+        .unwrap();
+    if neg_precedence == 0 {
+        panic!("operators should not have precedence 0");
+    }
+
+    if index == 0 {
+        if let PartialExpression::Unary(token) = &partials[0] {
+            return Expression::Unary(
+                token.clone(),
+                Box::new(combine_partial_expressions(&partials[1..])),
+            );
+        }
+        panic!("expected unary operator");
+    }
+
+    if let PartialExpression::Binary(token) = &partials[index] {
+        let left = combine_partial_expressions(&partials[..index]);
+        let right = combine_partial_expressions(&partials[index + 1..]);
+        return Expression::Binary(token.clone(), Box::new(left), Box::new(right));
+    }
+    panic!("expected binary operator");
 }
 
 // Parses a single expression from the provided tokens.
