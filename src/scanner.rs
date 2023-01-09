@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Token {
     Identifier(String),
     Invalid(String),
@@ -41,6 +41,41 @@ impl fmt::Display for Token {
             Token::Axiom => write!(f, "axiom"),
             Token::Define => write!(f, "define"),
             Token::Theorem => write!(f, "theorem"),
+        }
+    }
+}
+
+impl Token {
+    pub fn is_unary(&self) -> bool {
+        match self {
+            Token::Exclam => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_binary(&self) -> bool {
+        match self {
+            Token::RightArrow => true,
+            Token::Pipe => true,
+            Token::Ampersand => true,
+            Token::LeftRightArrow => true,
+            Token::Equals => true,
+            _ => false,
+        }
+    }
+
+    // Higher precedence operators are evaluated first.
+    // It is an error to not specify the order when the precedence is the same.
+    // Only unary and binary operators should have precedences.
+    pub fn precedence(&self) -> u8 {
+        match self {
+            Token::Exclam => 4,
+            Token::Pipe => 3,
+            Token::Ampersand => 3,
+            Token::LeftRightArrow => 2,
+            Token::RightArrow => 2,
+            Token::Equals => 1,
+            _ => 0,
         }
     }
 }
