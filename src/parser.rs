@@ -148,5 +148,15 @@ mod tests {
     #[test]
     fn test_expression_parsing() {
         parse_ok("bool");
+        parse_ok("p -> (q -> p)");
+        parse_ok("(p -> (q -> r)) -> ((p -> q) -> (p -> r))");
+        parse_ok("(!p -> !q) -> (q -> p)");
+        parse_ok("(p | q) = !p -> q");
+        parse_ok("(p & q) = !(p -> !q)");
+        parse_ok("(p <-> q) = (p -> q) & (q -> p)");
+        parse_ok("p & q <-> q & p");
+        parse_ok("(p & q) & r <-> p & (q & r)");
+        parse_ok("p | q <-> q | p");
+        parse_ok("(p | q) | r <-> p | (q | r)");
     }
 }
