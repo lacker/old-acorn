@@ -69,10 +69,10 @@ impl Token {
     // Only unary and binary operators should have precedences.
     pub fn precedence(&self) -> i8 {
         match self {
-            Token::Exclam => 4,
-            Token::Pipe => 3,
-            Token::Ampersand => 3,
-            Token::LeftRightArrow => 2,
+            Token::Exclam => 5,
+            Token::Pipe => 4,
+            Token::Ampersand => 4,
+            Token::LeftRightArrow => 3,
             Token::RightArrow => 2,
             Token::Equals => 1,
             _ => 0,

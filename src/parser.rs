@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, fmt};
 
 use crate::scanner::Token;
 
@@ -9,9 +9,57 @@ pub enum Expression<'a> {
     Binary(&'a Token, Box<Expression<'a>>, Box<Expression<'a>>),
 }
 
+impl fmt::Display for Expression<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_helper(f, 0, 0)
+    }
+}
+
+impl Expression<'_> {
+    // Prints out this expression, parenthesizing only if necessary.
+    // left_p and right_p are the precedences of the expressions to either side of this one.
+    // They must happen after this one.
+    fn fmt_helper(&self, f: &mut fmt::Formatter<'_>, left_p: i8, right_p: i8) -> fmt::Result {
+        match self {
+            Expression::Identifier(token) => write!(f, "{}", token),
+            Expression::Unary(token, subexpression) => {
+                let p = token.precedence();
+                if right_p > p {
+                    // If we didn't parenthesize, the right operator would happen first.
+                    // So we do need to parenthesize.
+                    write!(f, "({}", token)?;
+                    subexpression.fmt_helper(f, p, 0)?;
+                    write!(f, ")")
+                } else {
+                    // We don't need to parenthesize.
+                    write!(f, "{}", token)?;
+                    subexpression.fmt_helper(f, p, right_p)
+                }
+            }
+            Expression::Binary(token, left, right) => {
+                let p = token.precedence();
+                if p <= left_p || p <= right_p {
+                    // We need to parenthesize.
+                    // We are a bit conservative so that we don't rely on left- or right-associativity.
+                    write!(f, "(")?;
+                    left.fmt_helper(f, 0, p)?;
+                    write!(f, " {} ", token)?;
+                    right.fmt_helper(f, p, 0)?;
+                    write!(f, ")")
+                } else {
+                    // We don't need to parenthesize.
+                    left.fmt_helper(f, left_p, p)?;
+                    write!(f, " {} ", token)?;
+                    right.fmt_helper(f, p, right_p)
+                }
+            }
+        }
+    }
+}
+
 // A PartialExpression represents a state in the middle of parsing, where we can have
 // either subexpressions or operators, and we haven't prioritized operators yet.
-// A list of partial expressions can be turned into an expression, according to operator priority.
+// A list of partial expressions can be turned into an expression, according to operator precedence.
 enum PartialExpression<'a> {
     Expression(Expression<'a>),
     Unary(&'a Token),
@@ -139,24 +187,26 @@ mod tests {
 
     use super::*;
 
-    fn parse_ok(input: &str) {
+    fn expect_optimal(input: &str) {
         let tokens = scan(input);
         let mut tokens = tokens.iter();
-        parse_expression(&mut tokens, false);
+        let exp = parse_expression(&mut tokens, false);
+        let output = exp.to_string();
+        assert_eq!(input, output);
     }
 
     #[test]
     fn test_expression_parsing() {
-        parse_ok("bool");
-        parse_ok("p -> (q -> p)");
-        parse_ok("(p -> (q -> r)) -> ((p -> q) -> (p -> r))");
-        parse_ok("(!p -> !q) -> (q -> p)");
-        parse_ok("(p | q) = !p -> q");
-        parse_ok("(p & q) = !(p -> !q)");
-        parse_ok("(p <-> q) = (p -> q) & (q -> p)");
-        parse_ok("p & q <-> q & p");
-        parse_ok("(p & q) & r <-> p & (q & r)");
-        parse_ok("p | q <-> q | p");
-        parse_ok("(p | q) | r <-> p | (q | r)");
+        expect_optimal("bool");
+        expect_optimal("p -> (q -> p)");
+        expect_optimal("(p -> (q -> r)) -> ((p -> q) -> (p -> r))");
+        expect_optimal("(!p -> !q) -> (q -> p)");
+        expect_optimal("p | q = !p -> q");
+        expect_optimal("p & q = !(p -> !q)");
+        expect_optimal("p <-> q = (p -> q) & (q -> p)");
+        expect_optimal("p & q <-> q & p");
+        expect_optimal("(p & q) & r <-> p & (q & r)");
+        expect_optimal("p | q <-> q | p");
+        expect_optimal("(p | q) | r <-> p | (q | r)");
     }
 }
