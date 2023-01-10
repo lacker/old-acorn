@@ -27,29 +27,14 @@ impl fmt::Display for Statement<'_> {
 }
 
 // Parses a single statement from the provided tokens.
-// Whenever we expect a statement, we could also get an indicator of "no more statements".
-// If expect_brace is true, we expect the end of statements to be indicated by a }, which
-// is then consumed.
-// If expect_brace is false, "no more statements" is indicated by the end of the iterator.
+//
 pub fn parse_statement<'a>(
     tokens: &mut impl Iterator<Item = &'a Token>,
-    expect_brace: bool,
+    terminator: Option<&Token>,
 ) -> Option<Statement<'a>> {
     loop {
         match tokens.next() {
-            None => {
-                if expect_brace {
-                    panic!("expected right brace");
-                }
-                return None;
-            }
             Some(Token::NewLine) => continue,
-            Some(Token::RightBrace) => {
-                if expect_brace {
-                    return None;
-                }
-                panic!("got right brace when not expected");
-            }
             Some(Token::Let) => {
                 let name = if let Some(Token::Identifier(name)) = tokens.next() {
                     name
@@ -66,14 +51,19 @@ pub fn parse_statement<'a>(
                     panic!("expected identifier after let colon");
                 };
                 let value = match tokens.next() {
-                    Some(Token::Equals) => Some(parse_expression(tokens, expect_brace)),
+                    Some(Token::Equals) => Some(parse_expression(tokens, &Token::NewLine)),
                     Some(Token::NewLine) => None,
                     Some(token) => panic!("unexpected token after let type: {}", token),
                     None => panic!("unexpected end of input after let type"),
                 };
                 return Some(Statement::Let(name, type_name, value));
             }
-            Some(token) => panic!("unexpected token starting a statement: {}", token),
+            t => {
+                if t == terminator {
+                    return None;
+                }
+                panic!("unexpected token instead of a statement: {:?}", t)
+            }
         }
     }
 }
@@ -87,7 +77,7 @@ mod tests {
     fn expect_optimal(input: &str) {
         let tokens = scan(input);
         let mut tokens = tokens.iter();
-        let stmt = parse_statement(&mut tokens, false);
+        let stmt = parse_statement(&mut tokens, None);
         let output = stmt.unwrap().to_string();
         assert_eq!(input, output);
     }

@@ -67,36 +67,21 @@ enum PartialExpression<'a> {
 }
 
 // Create partial expressions from tokens.
-// If expect_paren is set, we expect the list of partial expressions to end with a right paren.
-// Otherwise, we expect it to end with a newline.
-// Either way, this ending token is consumed.
+// terminator is the token we expect to end the expression, which is consumed.
 fn parse_partial_expressions<'a>(
     tokens: &mut impl Iterator<Item = &'a Token>,
-    expect_paren: bool,
+    terminator: &Token,
 ) -> VecDeque<PartialExpression<'a>> {
     let mut partial_expressions = VecDeque::new();
     while let Some(token) = tokens.next() {
         match token {
             Token::LeftParen => {
-                let subexpression = parse_expression(tokens, true);
+                let subexpression = parse_expression(tokens, &Token::RightParen);
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
             }
             Token::Identifier(s) => {
                 partial_expressions
                     .push_back(PartialExpression::Expression(Expression::Identifier(s)));
-            }
-            Token::NewLine => {
-                if expect_paren {
-                    // We can ignore newlines that are inside parentheses, Python-style.
-                    continue;
-                }
-                return partial_expressions;
-            }
-            Token::RightParen => {
-                if expect_paren {
-                    return partial_expressions;
-                }
-                panic!("extra right parenthesis");
             }
             token if token.is_binary() => {
                 partial_expressions.push_back(PartialExpression::Binary(token));
@@ -105,6 +90,9 @@ fn parse_partial_expressions<'a>(
                 partial_expressions.push_back(PartialExpression::Unary(token));
             }
             token => {
+                if token == terminator {
+                    return partial_expressions;
+                }
                 panic!("unexpected token: {:?}", token);
             }
         }
@@ -169,14 +157,12 @@ fn combine_partial_expressions<'a>(
 }
 
 // Parses a single expression from the provided tokens.
-// If expect_paren is set, we expect this expression to end with a right paren.
-// Otherwise, we expect it to end with a newline.
-// Either way, this ending token is consumed.
+// terminator is the token we expect to end the expression, which is consumed.
 pub fn parse_expression<'a>(
     tokens: &mut impl Iterator<Item = &'a Token>,
-    expect_paren: bool,
+    terminator: &Token,
 ) -> Expression<'a> {
-    let partial_expressions = parse_partial_expressions(tokens, expect_paren);
+    let partial_expressions = parse_partial_expressions(tokens, terminator);
     combine_partial_expressions(partial_expressions)
 }
 
@@ -189,7 +175,7 @@ mod tests {
     fn expect_optimal(input: &str) {
         let tokens = scan(input);
         let mut tokens = tokens.iter();
-        let exp = parse_expression(&mut tokens, false);
+        let exp = parse_expression(&mut tokens, &Token::NewLine);
         let output = exp.to_string();
         assert_eq!(input, output);
     }
