@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use acorn::scanner::{scan, Token};
+use acorn::token::{scan, Token};
 
 fn main() {
     let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

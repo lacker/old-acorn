@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fmt};
 
-use crate::scanner::Token;
+use crate::token::Token;
 
 // An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
 pub enum Expression<'a> {
@@ -183,7 +183,7 @@ pub fn parse_expression<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::scanner::scan;
+    use crate::token::scan;
 
     use super::*;
 
