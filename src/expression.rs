@@ -67,16 +67,17 @@ enum PartialExpression<'a> {
 }
 
 // Create partial expressions from tokens.
-// terminator is the token we expect to end the expression, which is consumed.
+// termination determines what tokens are allowed to be the terminator.
+// The terminating token is returned.
 fn parse_partial_expressions<'a>(
     tokens: &mut impl Iterator<Item = &'a Token>,
-    terminator: &Token,
-) -> VecDeque<PartialExpression<'a>> {
+    termination: fn(&Token) -> bool,
+) -> (VecDeque<PartialExpression<'a>>, &'a Token) {
     let mut partial_expressions = VecDeque::new();
     while let Some(token) = tokens.next() {
         match token {
             Token::LeftParen => {
-                let subexpression = parse_expression(tokens, &Token::RightParen);
+                let (subexpression, _) = parse_expression(tokens, |t| t == &Token::RightParen);
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
             }
             Token::Identifier(s) => {
@@ -90,8 +91,8 @@ fn parse_partial_expressions<'a>(
                 partial_expressions.push_back(PartialExpression::Unary(token));
             }
             token => {
-                if token == terminator {
-                    return partial_expressions;
+                if termination(token) {
+                    return (partial_expressions, token);
                 }
                 panic!("unexpected token: {:?}", token);
             }
@@ -157,13 +158,14 @@ fn combine_partial_expressions<'a>(
 }
 
 // Parses a single expression from the provided tokens.
-// terminator is the token we expect to end the expression, which is consumed.
+// termination determines what tokens are allowed to be the terminator.
+// The terminating token is returned.
 pub fn parse_expression<'a>(
     tokens: &mut impl Iterator<Item = &'a Token>,
-    terminator: &Token,
-) -> Expression<'a> {
-    let partial_expressions = parse_partial_expressions(tokens, terminator);
-    combine_partial_expressions(partial_expressions)
+    termination: fn(&Token) -> bool,
+) -> (Expression<'a>, &'a Token) {
+    let (partial_expressions, terminator) = parse_partial_expressions(tokens, termination);
+    (combine_partial_expressions(partial_expressions), terminator)
 }
 
 #[cfg(test)]
@@ -175,7 +177,7 @@ mod tests {
     fn expect_optimal(input: &str) {
         let tokens = scan(input);
         let mut tokens = tokens.iter();
-        let exp = parse_expression(&mut tokens, &Token::NewLine);
+        let (exp, _) = parse_expression(&mut tokens, |t| t == &Token::NewLine);
         let output = exp.to_string();
         assert_eq!(input, output);
     }

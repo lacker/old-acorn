@@ -13,9 +13,23 @@ pub struct LetStatement<'a> {
     value: Option<Expression<'a>>,
 }
 
+// There are two keywords for theorems.
+// "axiom" indicates theorems that are axiomatic.
+// "theorem" is used for the vast majority of normal theorems.
+// For example, in:
+//   axiom foo(p, q): p -> (q -> p)
+// axiomatic would be "true", the name is "foo", the args are p, q, and the claim is "p -> (q -> p)".
+pub struct TheoremStatement<'a> {
+    axiomatic: bool,
+    name: &'a str,
+    args: Vec<Expression<'a>>,
+    claim: Expression<'a>,
+}
+
 // Acorn is a statement-based language. There are several types.
 pub enum Statement<'a> {
     Let(LetStatement<'a>),
+    Theorem(TheoremStatement<'a>),
 }
 
 impl fmt::Display for Statement<'_> {
@@ -28,12 +42,69 @@ impl fmt::Display for Statement<'_> {
                 }
                 Ok(())
             }
+
+            Statement::Theorem(ts) => {
+                if ts.axiomatic {
+                    write!(f, "axiom")?;
+                } else {
+                    write!(f, "theorem")?;
+                }
+                write!(f, " {}", ts.name)?;
+                if ts.args.len() > 0 {
+                    write!(f, "(")?;
+                    for (i, arg) in ts.args.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", arg)?;
+                    }
+                    write!(f, ")")?;
+                }
+                write!(f, ": {}", ts.claim)
+            }
         }
     }
 }
 
+pub fn parse_theorem_statement<'a>(
+    tokens: &mut impl Iterator<Item = &'a Token>,
+    axiomatic: bool,
+) -> TheoremStatement<'a> {
+    let name = if let Some(Token::Identifier(name)) = tokens.next() {
+        name
+    } else {
+        panic!("expected identifier after theorem");
+    };
+    let mut args = Vec::new();
+    match tokens.next() {
+        Some(Token::LeftParen) => {
+            // Parse an arguments list
+            loop {
+                let (exp, terminator) =
+                    parse_expression(tokens, |t| t == &Token::Comma || t == &Token::RightParen);
+                args.push(exp);
+                if terminator == &Token::RightParen {
+                    if let Some(Token::Colon) = tokens.next() {
+                        break;
+                    } else {
+                        panic!("expected colon after theorem arguments");
+                    }
+                }
+            }
+        }
+        Some(Token::Colon) => {}
+        t => panic!("unexpected token after theorem name: {:?}", t),
+    }
+    let (claim, _) = parse_expression(tokens, |t| t == &Token::NewLine);
+    TheoremStatement {
+        axiomatic,
+        name,
+        args,
+        claim,
+    }
+}
+
 // Parses a single statement from the provided tokens.
-//
 pub fn parse_statement<'a>(
     tokens: &mut impl Iterator<Item = &'a Token>,
     terminator: Option<&Token>,
@@ -57,7 +128,10 @@ pub fn parse_statement<'a>(
                     panic!("expected identifier after let colon");
                 };
                 let value = match tokens.next() {
-                    Some(Token::Equals) => Some(parse_expression(tokens, &Token::NewLine)),
+                    Some(Token::Equals) => {
+                        let (exp, _) = parse_expression(tokens, |t| t == &Token::NewLine);
+                        Some(exp)
+                    }
                     Some(Token::NewLine) => None,
                     Some(token) => panic!("unexpected token after let type: {}", token),
                     None => panic!("unexpected end of input after let type"),
@@ -67,6 +141,12 @@ pub fn parse_statement<'a>(
                     type_name,
                     value,
                 }));
+            }
+            Some(Token::Axiom) => {
+                return Some(Statement::Theorem(parse_theorem_statement(tokens, true)));
+            }
+            Some(Token::Theorem) => {
+                return Some(Statement::Theorem(parse_theorem_statement(tokens, false)));
             }
             t => {
                 if t == terminator {
@@ -96,5 +176,13 @@ mod tests {
     fn test_statement_parsing() {
         expect_optimal("let p: bool");
         expect_optimal("let a: int = x + 2");
+        expect_optimal("axiom simplification: p -> (q -> p)");
+        expect_optimal("axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))");
+        expect_optimal("axiom contraposition: (!p -> !q) -> (q -> p)");
+        expect_optimal("axiom modus_ponens(p, p -> q): q");
+        expect_optimal("theorem and_comm: p & q <-> q & p");
+        expect_optimal("theorem and_assoc: (p & q) & r <-> p & (q & r)");
+        expect_optimal("theorem or_comm: p | q <-> q | p");
+        expect_optimal("theorem or_assoc: (p | q) | r <-> p | (q | r)");
     }
 }
