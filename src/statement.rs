@@ -3,21 +3,27 @@ use std::fmt;
 use crate::expression::{parse_expression, Expression};
 use crate::token::Token;
 
+// For example, in:
+//   let a: int = x + 2
+// The first token is the variable name "a", the second is the type "int",
+// and the expression is the "x + 2".
+pub struct LetStatement<'a> {
+    name: &'a str,
+    type_name: &'a str,
+    value: Option<Expression<'a>>,
+}
+
 // Acorn is a statement-based language. There are several types.
 pub enum Statement<'a> {
-    // For example:
-    //   let a: int = x + 2
-    // The first token is the variable name "a", the second is the type "int",
-    // and the expression is the "x + 2".
-    Let(&'a str, &'a str, Option<Expression<'a>>),
+    Let(LetStatement<'a>),
 }
 
 impl fmt::Display for Statement<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Statement::Let(name, type_name, value) => {
-                write!(f, "let {}: {}", name, type_name)?;
-                if let Some(value) = value {
+            Statement::Let(ls) => {
+                write!(f, "let {}: {}", ls.name, ls.type_name)?;
+                if let Some(value) = &ls.value {
                     write!(f, " = {}", value)?;
                 }
                 Ok(())
@@ -56,7 +62,11 @@ pub fn parse_statement<'a>(
                     Some(token) => panic!("unexpected token after let type: {}", token),
                     None => panic!("unexpected end of input after let type"),
                 };
-                return Some(Statement::Let(name, type_name, value));
+                return Some(Statement::Let(LetStatement {
+                    name,
+                    type_name,
+                    value,
+                }));
             }
             t => {
                 if t == terminator {
