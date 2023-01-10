@@ -4,7 +4,7 @@ use crate::token::Token;
 
 // An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
 pub enum Expression<'a> {
-    Identifier(&'a Token),
+    Identifier(&'a str),
     Unary(&'a Token, Box<Expression<'a>>),
     Binary(&'a Token, Box<Expression<'a>>, Box<Expression<'a>>),
 }
@@ -81,10 +81,9 @@ fn parse_partial_expressions<'a>(
                 let subexpression = parse_expression(tokens, true);
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
             }
-            Token::Identifier(_) => {
-                partial_expressions.push_back(PartialExpression::Expression(
-                    Expression::Identifier(&token),
-                ));
+            Token::Identifier(s) => {
+                partial_expressions
+                    .push_back(PartialExpression::Expression(Expression::Identifier(s)));
             }
             Token::NewLine => {
                 if expect_paren {

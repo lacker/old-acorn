@@ -6,6 +6,8 @@ pub enum Token {
     Invalid(String),
     LeftParen,
     RightParen,
+    LeftBrace,
+    RightBrace,
     NewLine,
     Comma,
     Colon,
@@ -15,6 +17,8 @@ pub enum Token {
     Ampersand,
     LeftRightArrow,
     Equals,
+    Plus,
+    Minus,
     Let,
     Axiom,
     Define,
@@ -28,6 +32,8 @@ impl fmt::Display for Token {
             Token::Invalid(s) => write!(f, "Invalid({})", s),
             Token::LeftParen => write!(f, "("),
             Token::RightParen => write!(f, ")"),
+            Token::LeftBrace => write!(f, "{{"),
+            Token::RightBrace => write!(f, "}}"),
             Token::NewLine => write!(f, "\\n"),
             Token::Comma => write!(f, ","),
             Token::Colon => write!(f, ":"),
@@ -37,6 +43,8 @@ impl fmt::Display for Token {
             Token::Ampersand => write!(f, "&"),
             Token::LeftRightArrow => write!(f, "<->"),
             Token::Equals => write!(f, "="),
+            Token::Plus => write!(f, "+"),
+            Token::Minus => write!(f, "-"),
             Token::Let => write!(f, "let"),
             Token::Axiom => write!(f, "axiom"),
             Token::Define => write!(f, "define"),
@@ -55,6 +63,8 @@ impl Token {
 
     pub fn is_binary(&self) -> bool {
         match self {
+            Token::Plus => true,
+            Token::Minus => true,
             Token::RightArrow => true,
             Token::Pipe => true,
             Token::Ampersand => true,
@@ -69,6 +79,8 @@ impl Token {
     // Only unary and binary operators should have precedences.
     pub fn precedence(&self) -> i8 {
         match self {
+            Token::Plus => 6,
+            Token::Minus => 6,
             Token::Exclam => 5,
             Token::Pipe => 4,
             Token::Ampersand => 4,
@@ -101,9 +113,10 @@ pub fn scan(input: &str) -> Vec<Token> {
             '|' => Token::Pipe,
             '&' => Token::Ampersand,
             '=' => Token::Equals,
+            '+' => Token::Plus,
             '-' => match char_indices.next_if_eq(&(pos + 1, '>')) {
                 Some(_) => Token::RightArrow,
-                None => Token::Invalid("-".to_string()),
+                None => Token::Minus,
             },
             '<' => match char_indices.next_if_eq(&(pos + 1, '-')) {
                 Some(_) => match char_indices.next_if_eq(&(pos + 2, '>')) {
