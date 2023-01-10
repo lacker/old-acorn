@@ -21,7 +21,7 @@ pub enum Token {
     Minus,
     Let,
     Axiom,
-    Define,
+    Def,
     Theorem,
 }
 
@@ -47,7 +47,7 @@ impl fmt::Display for Token {
             Token::Minus => write!(f, "-"),
             Token::Let => write!(f, "let"),
             Token::Axiom => write!(f, "axiom"),
-            Token::Define => write!(f, "define"),
+            Token::Def => write!(f, "def"),
             Token::Theorem => write!(f, "theorem"),
         }
     }
@@ -151,7 +151,7 @@ pub fn scan(input: &str) -> Vec<Token> {
                 match identifier.as_str() {
                     "let" => Token::Let,
                     "axiom" => Token::Axiom,
-                    "define" => Token::Define,
+                    "def" => Token::Def,
                     "theorem" => Token::Theorem,
                     _ => Token::Identifier(identifier),
                 }

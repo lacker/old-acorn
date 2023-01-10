@@ -26,10 +26,20 @@ pub struct TheoremStatement<'a> {
     claim: Expression<'a>,
 }
 
+// Def statements are the keyword "def" followed by an expression with an equals.
+// For example, in:
+//   def (p | q) = !p -> q
+// the left expression is "p | q" and the right expression is "!p -> q".
+pub struct DefStatement<'a> {
+    left: Expression<'a>,
+    right: Expression<'a>,
+}
+
 // Acorn is a statement-based language. There are several types.
 pub enum Statement<'a> {
     Let(LetStatement<'a>),
     Theorem(TheoremStatement<'a>),
+    Def(DefStatement<'a>),
 }
 
 impl fmt::Display for Statement<'_> {
@@ -62,11 +72,15 @@ impl fmt::Display for Statement<'_> {
                 }
                 write!(f, ": {}", ts.claim)
             }
+
+            Statement::Def(ds) => {
+                write!(f, "def {} = {}", ds.left, ds.right)
+            }
         }
     }
 }
 
-pub fn parse_theorem_statement<'a>(
+fn parse_theorem_statement<'a>(
     tokens: &mut impl Iterator<Item = &'a Token>,
     axiomatic: bool,
 ) -> TheoremStatement<'a> {
@@ -147,6 +161,18 @@ pub fn parse_statement<'a>(
             }
             Some(Token::Theorem) => {
                 return Some(Statement::Theorem(parse_theorem_statement(tokens, false)));
+            }
+            Some(Token::Def) => {
+                let (exp, _) = parse_expression(tokens, |t| t == &Token::NewLine);
+                if let Expression::Binary(op, left, right) = exp {
+                    if op == &Token::Equals {
+                        return Some(Statement::Def(DefStatement {
+                            left: *left,
+                            right: *right,
+                        }));
+                    }
+                }
+                panic!("expected equals expression after def");
             }
             t => {
                 if t == terminator {
