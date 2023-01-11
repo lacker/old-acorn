@@ -1,4 +1,5 @@
 use std::fmt;
+use std::iter::Peekable;
 
 use crate::expression::{parse_expression, Expression};
 use crate::token::Token;
@@ -26,16 +27,24 @@ pub struct TheoremStatement<'a> {
     claim: Expression<'a>,
 }
 
+// Acorn is a statement-based language. There are several types.
+// Some have their own struct. For the others:
+//
 // Def statements are the keyword "def" followed by an expression with an equals.
 // For example, in:
 //   def (p | q) = !p -> q
 // the equality is the whole "(p | q) = !p -> q",
-
-// Acorn is a statement-based language. There are several types.
+//
+// Prop statements are just an expression. We're implicitly asserting that it is true and provable.
+//
+// "EndBlock" is maybe not really a statement; it indicates a } ending a block with
+// a bunch of statements.
 pub enum Statement<'a> {
     Let(LetStatement<'a>),
     Theorem(TheoremStatement<'a>),
     Def(Expression<'a>),
+    Prop(Expression<'a>),
+    EndBlock,
 }
 
 impl fmt::Display for Statement<'_> {
@@ -71,6 +80,14 @@ impl fmt::Display for Statement<'_> {
 
             Statement::Def(ds) => {
                 write!(f, "def {}", ds)
+            }
+
+            Statement::Prop(ps) => {
+                write!(f, "{}", ps)
+            }
+
+            Statement::EndBlock => {
+                write!(f, "}}")
             }
         }
     }
@@ -114,15 +131,21 @@ fn parse_theorem_statement<'a>(
     }
 }
 
-// Parses a single statement from the provided tokens.
-pub fn parse_statement<'a>(
-    tokens: &mut impl Iterator<Item = &'a Token>,
-    terminator: Option<&Token>,
-) -> Option<Statement<'a>> {
+// Tries to parse a single statement from the provided tokens.
+// A statement should end with a newline, which is consumed.
+// The iterator may also end, in which case this returns None.
+pub fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Statement<'a>>
+where
+    I: Iterator<Item = &'a Token>,
+{
     loop {
-        match tokens.next() {
-            Some(Token::NewLine) => continue,
+        match tokens.peek() {
+            Some(Token::NewLine) => {
+                tokens.next();
+                continue;
+            }
             Some(Token::Let) => {
+                tokens.next();
                 let name = if let Some(Token::Identifier(name)) = tokens.next() {
                     name
                 } else {
@@ -153,12 +176,15 @@ pub fn parse_statement<'a>(
                 }));
             }
             Some(Token::Axiom) => {
+                tokens.next();
                 return Some(Statement::Theorem(parse_theorem_statement(tokens, true)));
             }
             Some(Token::Theorem) => {
+                tokens.next();
                 return Some(Statement::Theorem(parse_theorem_statement(tokens, false)));
             }
             Some(Token::Def) => {
+                tokens.next();
                 let (exp, _) = parse_expression(tokens, |t| t == &Token::NewLine);
                 if let Expression::Binary(op, _, _) = exp {
                     if op == &Token::Equals {
@@ -167,11 +193,17 @@ pub fn parse_statement<'a>(
                 }
                 panic!("expected equals expression after def");
             }
-            t => {
-                if t == terminator {
-                    return None;
+            Some(Token::RightBrace) => {
+                tokens.next();
+                if let Some(Token::NewLine) = tokens.next() {
+                    return Some(Statement::EndBlock);
                 }
-                panic!("unexpected token instead of a statement: {:?}", t)
+                panic!("expected newline after end of block");
+            }
+            None => return None,
+            _ => {
+                let (exp, _) = parse_expression(tokens, |t| t == &Token::NewLine);
+                return Some(Statement::Prop(exp));
             }
         }
     }
@@ -185,8 +217,8 @@ mod tests {
 
     fn expect_optimal(input: &str) {
         let tokens = scan(input);
-        let mut tokens = tokens.iter();
-        let stmt = parse_statement(&mut tokens, None);
+        let mut tokens = tokens.iter().peekable();
+        let stmt = parse_statement(&mut tokens);
         let output = stmt.unwrap().to_string();
         assert_eq!(input, output);
     }
