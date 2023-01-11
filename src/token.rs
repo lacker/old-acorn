@@ -82,11 +82,11 @@ impl Token {
             Token::Plus => 6,
             Token::Minus => 6,
             Token::Exclam => 5,
-            Token::Pipe => 4,
-            Token::Ampersand => 4,
-            Token::LeftRightArrow => 3,
-            Token::RightArrow => 2,
-            Token::Equals => 1,
+            Token::Equals => 4,
+            Token::Pipe => 3,
+            Token::Ampersand => 3,
+            Token::LeftRightArrow => 2,
+            Token::RightArrow => 1,
             _ => 0,
         }
     }

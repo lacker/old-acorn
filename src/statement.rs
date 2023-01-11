@@ -29,17 +29,13 @@ pub struct TheoremStatement<'a> {
 // Def statements are the keyword "def" followed by an expression with an equals.
 // For example, in:
 //   def (p | q) = !p -> q
-// the left expression is "p | q" and the right expression is "!p -> q".
-pub struct DefStatement<'a> {
-    left: Expression<'a>,
-    right: Expression<'a>,
-}
+// the equality is the whole "(p | q) = !p -> q",
 
 // Acorn is a statement-based language. There are several types.
 pub enum Statement<'a> {
     Let(LetStatement<'a>),
     Theorem(TheoremStatement<'a>),
-    Def(DefStatement<'a>),
+    Def(Expression<'a>),
 }
 
 impl fmt::Display for Statement<'_> {
@@ -74,7 +70,7 @@ impl fmt::Display for Statement<'_> {
             }
 
             Statement::Def(ds) => {
-                write!(f, "def {} = {}", ds.left, ds.right)
+                write!(f, "def {}", ds)
             }
         }
     }
@@ -164,12 +160,9 @@ pub fn parse_statement<'a>(
             }
             Some(Token::Def) => {
                 let (exp, _) = parse_expression(tokens, |t| t == &Token::NewLine);
-                if let Expression::Binary(op, left, right) = exp {
+                if let Expression::Binary(op, _, _) = exp {
                     if op == &Token::Equals {
-                        return Some(Statement::Def(DefStatement {
-                            left: *left,
-                            right: *right,
-                        }));
+                        return Some(Statement::Def(exp));
                     }
                 }
                 panic!("expected equals expression after def");
@@ -210,5 +203,8 @@ mod tests {
         expect_optimal("theorem and_assoc: (p & q) & r <-> p & (q & r)");
         expect_optimal("theorem or_comm: p | q <-> q | p");
         expect_optimal("theorem or_assoc: (p | q) | r <-> p | (q | r)");
+        expect_optimal("def (p | q) = (!p -> q)");
+        expect_optimal("def (p & q) = !(p -> !q)");
+        expect_optimal("def (p <-> q) = ((p -> q) & (q -> p))");
     }
 }
