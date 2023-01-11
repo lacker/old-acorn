@@ -238,5 +238,6 @@ mod tests {
         expect_optimal("def (p | q) = (!p -> q)");
         expect_optimal("def (p & q) = !(p -> !q)");
         expect_optimal("def (p <-> q) = ((p -> q) & (q -> p))");
+        expect_optimal("p -> p");
     }
 }
