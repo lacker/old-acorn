@@ -5,8 +5,8 @@ use crate::token::Token;
 // An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
 pub enum Expression<'a> {
     Identifier(&'a str),
-    Unary(&'a Token, Box<Expression<'a>>),
-    Binary(&'a Token, Box<Expression<'a>>, Box<Expression<'a>>),
+    Unary(Token<'a>, Box<Expression<'a>>),
+    Binary(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
 }
 
 impl fmt::Display for Expression<'_> {
@@ -62,22 +62,22 @@ impl Expression<'_> {
 // A list of partial expressions can be turned into an expression, according to operator precedence.
 enum PartialExpression<'a> {
     Expression(Expression<'a>),
-    Unary(&'a Token),
-    Binary(&'a Token),
+    Unary(Token<'a>),
+    Binary(Token<'a>),
 }
 
 // Create partial expressions from tokens.
 // termination determines what tokens are allowed to be the terminator.
 // The terminating token is returned.
 fn parse_partial_expressions<'a>(
-    tokens: &mut impl Iterator<Item = &'a Token>,
-    termination: fn(&Token) -> bool,
-) -> (VecDeque<PartialExpression<'a>>, &'a Token) {
+    tokens: &mut impl Iterator<Item = Token<'a>>,
+    termination: fn(Token) -> bool,
+) -> (VecDeque<PartialExpression<'a>>, Token<'a>) {
     let mut partial_expressions = VecDeque::new();
     while let Some(token) = tokens.next() {
         match token {
             Token::LeftParen => {
-                let (subexpression, _) = parse_expression(tokens, |t| t == &Token::RightParen);
+                let (subexpression, _) = parse_expression(tokens, |t| t == Token::RightParen);
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
             }
             Token::Identifier(s) => {
@@ -161,9 +161,9 @@ fn combine_partial_expressions<'a>(
 // termination determines what tokens are allowed to be the terminator.
 // The terminating token is returned.
 pub fn parse_expression<'a>(
-    tokens: &mut impl Iterator<Item = &'a Token>,
-    termination: fn(&Token) -> bool,
-) -> (Expression<'a>, &'a Token) {
+    tokens: &mut impl Iterator<Item = Token<'a>>,
+    termination: fn(Token) -> bool,
+) -> (Expression<'a>, Token<'a>) {
     let (partial_expressions, terminator) = parse_partial_expressions(tokens, termination);
     (combine_partial_expressions(partial_expressions), terminator)
 }
@@ -176,8 +176,8 @@ mod tests {
 
     fn expect_optimal(input: &str) {
         let tokens = scan(input);
-        let mut tokens = tokens.iter();
-        let (exp, _) = parse_expression(&mut tokens, |t| t == &Token::NewLine);
+        let mut tokens = tokens.into_iter();
+        let (exp, _) = parse_expression(&mut tokens, |t| t == Token::NewLine);
         let output = exp.to_string();
         assert_eq!(input, output);
     }

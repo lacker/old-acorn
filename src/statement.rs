@@ -94,7 +94,7 @@ impl fmt::Display for Statement<'_> {
 }
 
 fn parse_theorem_statement<'a>(
-    tokens: &mut impl Iterator<Item = &'a Token>,
+    tokens: &mut impl Iterator<Item = Token<'a>>,
     axiomatic: bool,
 ) -> TheoremStatement<'a> {
     let name = if let Some(Token::Identifier(name)) = tokens.next() {
@@ -108,9 +108,9 @@ fn parse_theorem_statement<'a>(
             // Parse an arguments list
             loop {
                 let (exp, terminator) =
-                    parse_expression(tokens, |t| t == &Token::Comma || t == &Token::RightParen);
+                    parse_expression(tokens, |t| t == Token::Comma || t == Token::RightParen);
                 args.push(exp);
-                if terminator == &Token::RightParen {
+                if terminator == Token::RightParen {
                     if let Some(Token::Colon) = tokens.next() {
                         break;
                     } else {
@@ -122,7 +122,7 @@ fn parse_theorem_statement<'a>(
         Some(Token::Colon) => {}
         t => panic!("unexpected token after theorem name: {:?}", t),
     }
-    let (claim, _) = parse_expression(tokens, |t| t == &Token::NewLine);
+    let (claim, _) = parse_expression(tokens, |t| t == Token::NewLine);
     TheoremStatement {
         axiomatic,
         name,
@@ -136,7 +136,7 @@ fn parse_theorem_statement<'a>(
 // The iterator may also end, in which case this returns None.
 pub fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Statement<'a>>
 where
-    I: Iterator<Item = &'a Token>,
+    I: Iterator<Item = Token<'a>>,
 {
     loop {
         match tokens.peek() {
@@ -162,7 +162,7 @@ where
                 };
                 let value = match tokens.next() {
                     Some(Token::Equals) => {
-                        let (exp, _) = parse_expression(tokens, |t| t == &Token::NewLine);
+                        let (exp, _) = parse_expression(tokens, |t| t == Token::NewLine);
                         Some(exp)
                     }
                     Some(Token::NewLine) => None,
@@ -185,9 +185,9 @@ where
             }
             Some(Token::Def) => {
                 tokens.next();
-                let (exp, _) = parse_expression(tokens, |t| t == &Token::NewLine);
+                let (exp, _) = parse_expression(tokens, |t| t == Token::NewLine);
                 if let Expression::Binary(op, _, _) = exp {
-                    if op == &Token::Equals {
+                    if op == Token::Equals {
                         return Some(Statement::Def(exp));
                     }
                 }
@@ -202,7 +202,7 @@ where
             }
             None => return None,
             _ => {
-                let (exp, _) = parse_expression(tokens, |t| t == &Token::NewLine);
+                let (exp, _) = parse_expression(tokens, |t| t == Token::NewLine);
                 return Some(Statement::Prop(exp));
             }
         }
@@ -217,7 +217,7 @@ mod tests {
 
     fn expect_optimal(input: &str) {
         let tokens = scan(input);
-        let mut tokens = tokens.iter().peekable();
+        let mut tokens = tokens.into_iter().peekable();
         let stmt = parse_statement(&mut tokens);
         let output = stmt.unwrap().to_string();
         assert_eq!(input, output);

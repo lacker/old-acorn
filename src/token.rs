@@ -1,9 +1,9 @@
-use std::fmt;
+use std::{fmt, iter::Peekable, str::CharIndices};
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Token {
-    Identifier(String),
-    Invalid(String),
+#[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum Token<'a> {
+    Identifier(&'a str),
+    Invalid(&'a str),
     LeftParen,
     RightParen,
     LeftBrace,
@@ -25,7 +25,7 @@ pub enum Token {
     Theorem,
 }
 
-impl fmt::Display for Token {
+impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Token::Identifier(s) => write!(f, "{}", s),
@@ -53,7 +53,7 @@ impl fmt::Display for Token {
     }
 }
 
-impl Token {
+impl Token<'_> {
     pub fn is_unary(&self) -> bool {
         match self {
             Token::Exclam => true,
@@ -96,6 +96,16 @@ fn identifierish(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '_'
 }
 
+// Returns the slice ending at this iterator.
+fn get_slice<'a>(input: &'a str, begin: usize, iter: &mut Peekable<CharIndices<'_>>) -> &'a str {
+    let end = if let Some((pos, _)) = iter.peek() {
+        *pos
+    } else {
+        input.len()
+    };
+    &input[begin..end]
+}
+
 pub fn scan(input: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut char_indices = input.char_indices().peekable();
@@ -121,9 +131,9 @@ pub fn scan(input: &str) -> Vec<Token> {
             '<' => match char_indices.next_if_eq(&(pos + 1, '-')) {
                 Some(_) => match char_indices.next_if_eq(&(pos + 2, '>')) {
                     Some(_) => Token::LeftRightArrow,
-                    None => Token::Invalid("<-".to_string()),
+                    None => Token::Invalid(get_slice(input, pos, &mut char_indices)),
                 },
-                None => Token::Invalid("<".to_string()),
+                None => Token::Invalid(get_slice(input, pos, &mut char_indices)),
             },
             '/' => match char_indices.next_if_eq(&(pos + 1, '/')) {
                 Some(_) => {
@@ -135,20 +145,20 @@ pub fn scan(input: &str) -> Vec<Token> {
                     }
                     Token::NewLine
                 }
-                None => Token::Invalid("/".to_string()),
+                None => Token::Invalid(get_slice(input, pos, &mut char_indices)),
             },
             t if identifierish(t) => {
-                let mut identifier = String::new();
-                identifier.push(t);
-                while let Some((_, ch)) = char_indices.peek() {
-                    if identifierish(*ch) {
-                        identifier.push(*ch);
-                        char_indices.next();
-                    } else {
-                        break;
+                let end = loop {
+                    match char_indices.peek() {
+                        Some((_, ch)) if identifierish(*ch) => {
+                            char_indices.next();
+                        }
+                        Some((end, _)) => break *end,
+                        None => break input.len(),
                     }
-                }
-                match identifier.as_str() {
+                };
+                let identifier = &input[pos..end];
+                match identifier {
                     "let" => Token::Let,
                     "axiom" => Token::Axiom,
                     "def" => Token::Def,
@@ -156,7 +166,7 @@ pub fn scan(input: &str) -> Vec<Token> {
                     _ => Token::Identifier(identifier),
                 }
             }
-            _ => Token::Invalid(format!("{}", ch)),
+            _ => Token::Invalid(get_slice(input, pos, &mut char_indices)),
         };
         tokens.push(token);
     }
