@@ -14,6 +14,16 @@ pub struct LetStatement<'a> {
     value: Option<Expression<'a>>,
 }
 
+impl fmt::Display for LetStatement<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "let {}: {}", self.name, self.type_name)?;
+        if let Some(value) = &self.value {
+            write!(f, " = {}", value)?;
+        }
+        Ok(())
+    }
+}
+
 // There are two keywords for theorems.
 // "axiom" indicates theorems that are axiomatic.
 // "theorem" is used for the vast majority of normal theorems.
@@ -28,6 +38,13 @@ pub struct TheoremStatement<'a> {
     body: Vec<Statement<'a>>,
 }
 
+// Prop statements are an expression, with an optional block.
+// We're implicitly asserting that it is true and provable.
+pub struct PropStatement<'a> {
+    claim: Expression<'a>,
+    body: Vec<Statement<'a>>,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Some have their own struct. For the others:
 //
@@ -36,7 +53,7 @@ pub struct TheoremStatement<'a> {
 //   def (p | q) = !p -> q
 // the equality is the whole "(p | q) = !p -> q",
 //
-// Prop statements are just an expression. We're implicitly asserting that it is true and provable.
+
 //
 // "EndBlock" is maybe not really a statement; it indicates a } ending a block with
 // a bunch of statements.
@@ -44,8 +61,23 @@ pub enum Statement<'a> {
     Let(LetStatement<'a>),
     Theorem(TheoremStatement<'a>),
     Def(Expression<'a>),
-    Prop(Expression<'a>),
+    Prop(PropStatement<'a>),
     EndBlock,
+}
+
+const INDENT_WIDTH: u8 = 4;
+
+// Writes out a block, starting with the space before the open-brace, indenting the rest.
+fn write_block(f: &mut fmt::Formatter, statements: &[Statement], indent: u8) -> fmt::Result {
+    write!(f, " {{\n")?;
+    for s in statements {
+        s.fmt_helper(f, indent + INDENT_WIDTH)?;
+        write!(f, "\n")?;
+    }
+    for _ in 0..indent {
+        write!(f, " ")?;
+    }
+    write!(f, "}}")
 }
 
 impl fmt::Display for Statement<'_> {
@@ -54,21 +86,13 @@ impl fmt::Display for Statement<'_> {
     }
 }
 
-const INDENT_WIDTH: u8 = 4;
-
 impl Statement<'_> {
     fn fmt_helper(&self, f: &mut fmt::Formatter<'_>, indent: u8) -> fmt::Result {
         for _ in 0..indent {
             write!(f, " ")?;
         }
         match self {
-            Statement::Let(ls) => {
-                write!(f, "let {}: {}", ls.name, ls.type_name)?;
-                if let Some(value) = &ls.value {
-                    write!(f, " = {}", value)?;
-                }
-                Ok(())
-            }
+            Statement::Let(ls) => write!(f, "{}", ls),
 
             Statement::Theorem(ts) => {
                 if ts.axiomatic {
@@ -89,15 +113,7 @@ impl Statement<'_> {
                 }
                 write!(f, ": {}", ts.claim)?;
                 if ts.body.len() > 0 {
-                    write!(f, " {{\n")?;
-                    for s in &ts.body {
-                        s.fmt_helper(f, indent + INDENT_WIDTH)?;
-                        write!(f, "\n")?;
-                    }
-                    for _ in 0..indent {
-                        write!(f, " ")?;
-                    }
-                    write!(f, "}}")?;
+                    write_block(f, &ts.body, indent)?;
                 }
                 Ok(())
             }
@@ -107,7 +123,11 @@ impl Statement<'_> {
             }
 
             Statement::Prop(ps) => {
-                write!(f, "{}", ps)
+                write!(f, "{}", ps.claim)?;
+                if ps.body.len() > 0 {
+                    write_block(f, &ps.body, indent)?;
+                }
+                Ok(())
             }
 
             Statement::EndBlock => {
@@ -248,8 +268,14 @@ where
             }
             None => return None,
             _ => {
-                let (exp, _) = parse_expression(tokens, |t| t == Token::NewLine);
-                return Some(Statement::Prop(exp));
+                let (claim, terminator) =
+                    parse_expression(tokens, |t| t == Token::NewLine || t == Token::LeftBrace);
+                let body = if terminator == Token::LeftBrace {
+                    parse_block(tokens)
+                } else {
+                    Vec::new()
+                };
+                return Some(Statement::Prop(PropStatement { claim, body }));
             }
         }
     }
@@ -292,6 +318,10 @@ mod tests {
         expect_optimal(indoc! {"
             theorem foo: bar {
                 baz
-            }"})
+            }"});
+        expect_optimal(indoc! {"
+            foo {
+                bar
+            }"});
     }
 }
