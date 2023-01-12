@@ -116,6 +116,8 @@ pub fn scan(input: &str) -> Vec<Token> {
             '\t' => continue,
             '(' => Token::LeftParen,
             ')' => Token::RightParen,
+            '{' => Token::LeftBrace,
+            '}' => Token::RightBrace,
             '\n' => Token::NewLine,
             ',' => Token::Comma,
             ':' => Token::Colon,

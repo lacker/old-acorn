@@ -1,8 +1,8 @@
-use std::fmt;
-use std::iter::Peekable;
-
 use crate::expression::{parse_expression, Expression};
 use crate::token::Token;
+
+use std::fmt;
+use std::iter::Peekable;
 
 // For example, in:
 //   let a: int = x + 2
@@ -25,6 +25,7 @@ pub struct TheoremStatement<'a> {
     name: &'a str,
     args: Vec<Expression<'a>>,
     claim: Expression<'a>,
+    body: Vec<Statement<'a>>,
 }
 
 // Acorn is a statement-based language. There are several types.
@@ -49,6 +50,17 @@ pub enum Statement<'a> {
 
 impl fmt::Display for Statement<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_helper(f, 0)
+    }
+}
+
+const INDENT_WIDTH: u8 = 4;
+
+impl Statement<'_> {
+    fn fmt_helper(&self, f: &mut fmt::Formatter<'_>, indent: u8) -> fmt::Result {
+        for _ in 0..indent {
+            write!(f, " ")?;
+        }
         match self {
             Statement::Let(ls) => {
                 write!(f, "let {}: {}", ls.name, ls.type_name)?;
@@ -75,7 +87,19 @@ impl fmt::Display for Statement<'_> {
                     }
                     write!(f, ")")?;
                 }
-                write!(f, ": {}", ts.claim)
+                write!(f, ": {}", ts.claim)?;
+                if ts.body.len() > 0 {
+                    write!(f, " {{\n")?;
+                    for s in &ts.body {
+                        s.fmt_helper(f, indent + INDENT_WIDTH)?;
+                        write!(f, "\n")?;
+                    }
+                    for _ in 0..indent {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "}}")?;
+                }
+                Ok(())
             }
 
             Statement::Def(ds) => {
@@ -93,10 +117,25 @@ impl fmt::Display for Statement<'_> {
     }
 }
 
-fn parse_theorem_statement<'a>(
-    tokens: &mut impl Iterator<Item = Token<'a>>,
-    axiomatic: bool,
-) -> TheoremStatement<'a> {
+fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> Vec<Statement<'a>>
+where
+    I: Iterator<Item = Token<'a>>,
+{
+    let mut body = Vec::new();
+    loop {
+        match parse_statement(tokens) {
+            Some(Statement::EndBlock) => break,
+            Some(s) => body.push(s),
+            None => panic!("unexpected end of file in block body"),
+        }
+    }
+    body
+}
+
+fn parse_theorem_statement<'a, I>(tokens: &mut Peekable<I>, axiomatic: bool) -> TheoremStatement<'a>
+where
+    I: Iterator<Item = Token<'a>>,
+{
     let name = if let Some(Token::Identifier(name)) = tokens.next() {
         name
     } else {
@@ -122,12 +161,19 @@ fn parse_theorem_statement<'a>(
         Some(Token::Colon) => {}
         t => panic!("unexpected token after theorem name: {:?}", t),
     }
-    let (claim, _) = parse_expression(tokens, |t| t == Token::NewLine);
+    let (claim, terminator) =
+        parse_expression(tokens, |t| t == Token::NewLine || t == Token::LeftBrace);
+    let body = if terminator == Token::LeftBrace {
+        parse_block(tokens)
+    } else {
+        Vec::new()
+    };
     TheoremStatement {
         axiomatic,
         name,
         args,
         claim,
+        body,
     }
 }
 
@@ -211,9 +257,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::token::scan;
-
     use super::*;
+    use crate::token::scan;
+    use indoc::indoc;
 
     fn expect_optimal(input: &str) {
         let tokens = scan(input);
@@ -239,5 +285,13 @@ mod tests {
         expect_optimal("def (p & q) = !(p -> !q)");
         expect_optimal("def (p <-> q) = ((p -> q) & (q -> p))");
         expect_optimal("p -> p");
+    }
+
+    #[test]
+    fn test_block_parsing() {
+        expect_optimal(indoc! {"
+            theorem foo: bar {
+                baz
+            }"})
     }
 }
