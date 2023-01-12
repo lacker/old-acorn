@@ -160,7 +160,7 @@ fn parse_theorem_statement<'a, I>(
 where
     I: Iterator<Item = Token<'a>>,
 {
-    let token = expect_type(tokens, TokenType::Identifier).unwrap();
+    let token = expect_type(tokens, TokenType::Identifier)?;
     let name = token.text;
     let mut args = Vec::new();
     let token = expect_token(tokens)?;
@@ -173,7 +173,7 @@ where
                 })?;
                 args.push(exp);
                 if terminator.token_type == TokenType::RightParen {
-                    expect_type(tokens, TokenType::Colon).unwrap();
+                    expect_type(tokens, TokenType::Colon)?;
                     break;
                 }
             }
