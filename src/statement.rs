@@ -1,5 +1,5 @@
 use crate::expression::{parse_expression, Expression};
-use crate::token::{expect_token, expect_type, Token, TokenType};
+use crate::token::{self, expect_token, expect_type, Token, TokenType};
 
 use std::fmt;
 use std::iter::Peekable;
@@ -142,7 +142,7 @@ where
 {
     let mut body = Vec::new();
     loop {
-        match parse_statement(tokens) {
+        match parse_statement(tokens).unwrap() {
             Some(Statement::EndBlock) => break,
             Some(s) => body.push(s),
             None => panic!("unexpected end of file in block body"),
@@ -157,7 +157,7 @@ fn parse_theorem_statement<'a, I>(tokens: &mut Peekable<I>, axiomatic: bool) -> 
 where
     I: Iterator<Item = Token<'a>>,
 {
-    let token = expect_type(tokens, TokenType::Identifier);
+    let token = expect_type(tokens, TokenType::Identifier).unwrap();
     let name = token.text;
     let mut args = Vec::new();
     let token = expect_token(tokens);
@@ -170,7 +170,7 @@ where
                 });
                 args.push(exp);
                 if terminator.token_type == TokenType::RightParen {
-                    expect_type(tokens, TokenType::Colon);
+                    expect_type(tokens, TokenType::Colon).unwrap();
                     break;
                 }
             }
@@ -198,7 +198,7 @@ where
 // Tries to parse a single statement from the provided tokens.
 // A statement should end with a newline, which is consumed.
 // The iterator may also end, in which case this returns None.
-pub fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Statement<'a>>
+pub fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> token::Result<Option<Statement<'a>>>
 where
     I: Iterator<Item = Token<'a>>,
 {
@@ -211,9 +211,10 @@ where
                 }
                 TokenType::Let => {
                     tokens.next();
-                    let name = expect_type(tokens, TokenType::Identifier).text;
-                    expect_type(tokens, TokenType::Colon);
-                    let type_name = expect_type(tokens, TokenType::Identifier).text;
+                    let name = expect_type(tokens, TokenType::Identifier)?.text;
+                    expect_type(tokens, TokenType::Colon)?;
+                    let identifier = expect_type(tokens, TokenType::Identifier)?;
+                    let type_name = identifier.text;
                     let token = expect_token(tokens);
                     let value = match token.token_type {
                         TokenType::Equals => {
@@ -223,34 +224,38 @@ where
                         TokenType::NewLine => None,
                         _ => panic!("unexpected token after let type: {}", token),
                     };
-                    return Some(Statement::Let(LetStatement {
+                    return Ok(Some(Statement::Let(LetStatement {
                         name,
                         type_name,
                         value,
-                    }));
+                    })));
                 }
                 TokenType::Axiom => {
                     tokens.next();
-                    return Some(Statement::Theorem(parse_theorem_statement(tokens, true)));
+                    return Ok(Some(Statement::Theorem(parse_theorem_statement(
+                        tokens, true,
+                    ))));
                 }
                 TokenType::Theorem => {
                     tokens.next();
-                    return Some(Statement::Theorem(parse_theorem_statement(tokens, false)));
+                    return Ok(Some(Statement::Theorem(parse_theorem_statement(
+                        tokens, false,
+                    ))));
                 }
                 TokenType::Def => {
                     tokens.next();
                     let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine);
                     if let Expression::Binary(op, _, _) = exp {
                         if op.token_type == TokenType::Equals {
-                            return Some(Statement::Def(exp));
+                            return Ok(Some(Statement::Def(exp)));
                         }
                     }
                     panic!("expected equals expression after def");
                 }
                 TokenType::RightBrace => {
                     tokens.next();
-                    expect_type(tokens, TokenType::NewLine);
-                    return Some(Statement::EndBlock);
+                    expect_type(tokens, TokenType::NewLine)?;
+                    return Ok(Some(Statement::EndBlock));
                 }
                 _ => {
                     let (claim, terminator) = parse_expression(tokens, |t| {
@@ -261,11 +266,11 @@ where
                     } else {
                         Vec::new()
                     };
-                    return Some(Statement::Prop(PropStatement { claim, body }));
+                    return Ok(Some(Statement::Prop(PropStatement { claim, body })));
                 }
             }
         } else {
-            return None;
+            return Ok(None);
         }
     }
 }
@@ -277,9 +282,9 @@ mod tests {
     use indoc::indoc;
 
     fn expect_optimal(input: &str) {
-        let tokens = scan(input);
+        let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter().peekable();
-        let stmt = parse_statement(&mut tokens);
+        let stmt = parse_statement(&mut tokens).unwrap();
         let output = stmt.unwrap().to_string();
         assert_eq!(input, output);
     }

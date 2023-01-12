@@ -176,7 +176,7 @@ mod tests {
     use super::*;
 
     fn expect_optimal(input: &str) {
-        let tokens = scan(input);
+        let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let (exp, _) = parse_expression(&mut tokens, |t| t == TokenType::NewLine);
         let output = exp.to_string();
