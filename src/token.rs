@@ -108,30 +108,39 @@ impl Token<'_> {
 }
 
 #[derive(Debug)]
-pub struct Error {
-    pub message: String,
-    pub token_type: TokenType,
-    pub text: String,
-    pub line: String,
-    pub index: usize,
+pub enum Error {
+    Token(TokenError),
+    EOF,
+}
+
+#[derive(Debug)]
+pub struct TokenError {
+    message: String,
+    text: String,
+    line: String,
+    index: usize,
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Error: {}\n", self.message)?;
-        fmt_line_part(f, &self.text, &self.line, self.index)
+        match self {
+            Error::Token(e) => {
+                write!(f, "{}\n", e.message)?;
+                fmt_line_part(f, &e.text, &e.line, e.index)
+            }
+            Error::EOF => write!(f, "unexpected end of file"),
+        }
     }
 }
 
 impl Error {
     pub fn new(token: &Token, message: String) -> Self {
-        Self {
+        Error::Token(TokenError {
             message,
-            token_type: token.token_type,
             text: token.text.to_string(),
             line: token.line.to_string(),
             index: token.index,
-        }
+        })
     }
 }
 
@@ -251,7 +260,7 @@ where
 {
     let token = tokens.next().expect("unexpected EOF");
     if token.token_type != expected {
-        panic!("expected {:?}, got {:?}", expected, token.token_type);
+        return Err(Error::new(&token, format!("expected {:?}", expected)));
     }
     Ok(token)
 }

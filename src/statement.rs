@@ -136,19 +136,19 @@ impl Statement<'_> {
 }
 
 // Parses a block (a list of statements) where the left brace has already been consumed.
-fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> Vec<Statement<'a>>
+fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> token::Result<Vec<Statement<'a>>>
 where
     I: Iterator<Item = Token<'a>>,
 {
     let mut body = Vec::new();
     loop {
-        match parse_statement(tokens).unwrap() {
+        match parse_statement(tokens)? {
             Some(Statement::EndBlock) => break,
             Some(s) => body.push(s),
-            None => panic!("unexpected end of file in block body"),
+            None => return Err(token::Error::EOF),
         }
     }
-    body
+    Ok(body)
 }
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been consumed.
@@ -185,7 +185,7 @@ where
         t == TokenType::NewLine || t == TokenType::LeftBrace
     });
     let body = if terminator.token_type == TokenType::LeftBrace {
-        parse_block(tokens)
+        parse_block(tokens)?
     } else {
         Vec::new()
     };
@@ -265,7 +265,7 @@ where
                         t == TokenType::NewLine || t == TokenType::LeftBrace
                     });
                     let body = if terminator.token_type == TokenType::LeftBrace {
-                        parse_block(tokens)
+                        parse_block(tokens)?
                     } else {
                         Vec::new()
                     };
