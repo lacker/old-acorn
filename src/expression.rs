@@ -95,7 +95,10 @@ fn parse_partial_expressions<'a>(
                 if termination(token_type) {
                     return Ok((partial_expressions, token));
                 }
-                panic!("unexpected token: {:?}", token);
+                return Err(Error::new(
+                    &token,
+                    format!("expected partial expression or terminator: {:?}", token),
+                ));
             }
         }
     }

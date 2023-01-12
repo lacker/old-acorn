@@ -250,7 +250,7 @@ pub fn expect_token<'a, I>(tokens: &mut Peekable<I>) -> Result<Token<'a>>
 where
     I: Iterator<Item = Token<'a>>,
 {
-    Ok(tokens.next().expect("unexpected EOF"))
+    tokens.next().ok_or(Error::EOF)
 }
 
 // Pops off one token, expecting it to be of a known type.
@@ -258,7 +258,10 @@ pub fn expect_type<'a, I>(tokens: &mut Peekable<I>, expected: TokenType) -> Resu
 where
     I: Iterator<Item = Token<'a>>,
 {
-    let token = tokens.next().expect("unexpected EOF");
+    let token = match tokens.next() {
+        Some(t) => t,
+        None => return Err(Error::EOF),
+    };
     if token.token_type != expected {
         return Err(Error::new(&token, format!("expected {:?}", expected)));
     }
