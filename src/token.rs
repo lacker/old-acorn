@@ -277,8 +277,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_scanning() {
+    fn test_scanning_ok() {
         assert_eq!(scan("theorem t:A->B").unwrap().len(), 7);
         assert_eq!(scan("theorem _t:A->B").unwrap().len(), 7);
+    }
+
+    #[test]
+    fn test_scanning_errors() {
+        assert!(scan("#$@%(#@)(#").is_err());
     }
 }

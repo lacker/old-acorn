@@ -305,6 +305,13 @@ mod tests {
         assert_eq!(input, output);
     }
 
+    // Expects an error parsing the input into a statement, but not a lex error
+    fn expect_error(input: &str) {
+        let tokens = scan(input).unwrap();
+        let mut tokens = tokens.into_iter().peekable();
+        assert!(parse_statement(&mut tokens).is_err());
+    }
+
     #[test]
     fn test_statement_parsing() {
         expect_optimal("let p: bool");
@@ -333,5 +340,10 @@ mod tests {
             foo {
                 bar
             }"});
+    }
+
+    #[test]
+    fn test_statement_errors() {
+        expect_error("+ + +");
     }
 }

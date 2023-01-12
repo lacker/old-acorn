@@ -216,6 +216,13 @@ mod tests {
         assert_eq!(input, output);
     }
 
+    // Expects a parse error, or not-an-expression, but not a lex error
+    fn expect_error(input: &str) {
+        let tokens = scan(input).unwrap();
+        let mut tokens = tokens.into_iter();
+        assert!(parse_expression(&mut tokens, |t| t == TokenType::NewLine).is_err());
+    }
+
     #[test]
     fn test_expression_parsing() {
         expect_optimal("bool");
@@ -229,5 +236,15 @@ mod tests {
         expect_optimal("(p & q) & r <-> p & (q & r)");
         expect_optimal("p | q <-> q | p");
         expect_optimal("(p | q) | r <-> p | (q | r)");
+    }
+
+    #[test]
+    fn test_expression_errors() {
+        expect_error("+ + +");
+
+        // Not expressions
+        expect_error("let a: int = x + 2");
+        expect_error("axiom contraposition: (!p -> !q) -> (q -> p)");
+        expect_error("def (p & q) = !(p -> !q)");
     }
 }
