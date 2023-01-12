@@ -137,6 +137,7 @@ impl Statement<'_> {
     }
 }
 
+// Parses a block (a list of statements) where the left brace has already been consumed.
 fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> Vec<Statement<'a>>
 where
     I: Iterator<Item = Token<'a>>,
@@ -152,6 +153,8 @@ where
     body
 }
 
+// Parses a theorem where the keyword identifier (axiom or theorem) has already been consumed.
+// "axiomatic" is whether this is an axiom.
 fn parse_theorem_statement<'a, I>(tokens: &mut Peekable<I>, axiomatic: bool) -> TheoremStatement<'a>
 where
     I: Iterator<Item = Token<'a>>,
