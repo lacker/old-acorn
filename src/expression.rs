@@ -66,6 +66,16 @@ enum PartialExpression<'a> {
     Binary(Token<'a>),
 }
 
+impl PartialExpression<'_> {
+    fn token(&self) -> &Token<'_> {
+        match self {
+            PartialExpression::Expression(_) => panic!("no token for expression"),
+            PartialExpression::Unary(token) => token,
+            PartialExpression::Binary(token) => token,
+        }
+    }
+}
+
 // Create partial expressions from tokens.
 // termination determines what tokens are allowed to be the terminator.
 // The terminating token is returned.
@@ -112,13 +122,17 @@ fn combine_partial_expressions<'a>(
     mut partials: VecDeque<PartialExpression<'a>>,
 ) -> Result<Expression<'a>> {
     if partials.len() == 0 {
-        panic!("no partial expressions to combine");
+        return Err(Error::Misc("no partial expressions to combine".to_string()));
     }
     if partials.len() == 1 {
-        if let Some(PartialExpression::Expression(e)) = partials.pop_back() {
+        let partial = partials.pop_back().unwrap();
+        if let PartialExpression::Expression(e) = partial {
             return Ok(e);
         }
-        panic!("expected an expression");
+        return Err(Error::new(
+            partial.token(),
+            "expected an expression".to_string(),
+        ));
     }
 
     // Find the index of the operator that should operate last
