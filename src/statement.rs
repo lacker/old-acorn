@@ -153,14 +153,17 @@ where
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been consumed.
 // "axiomatic" is whether this is an axiom.
-fn parse_theorem_statement<'a, I>(tokens: &mut Peekable<I>, axiomatic: bool) -> TheoremStatement<'a>
+fn parse_theorem_statement<'a, I>(
+    tokens: &mut Peekable<I>,
+    axiomatic: bool,
+) -> token::Result<TheoremStatement<'a>>
 where
     I: Iterator<Item = Token<'a>>,
 {
     let token = expect_type(tokens, TokenType::Identifier).unwrap();
     let name = token.text;
     let mut args = Vec::new();
-    let token = expect_token(tokens);
+    let token = expect_token(tokens)?;
     match token.token_type {
         TokenType::LeftParen => {
             // Parse an arguments list
@@ -186,13 +189,13 @@ where
     } else {
         Vec::new()
     };
-    TheoremStatement {
+    Ok(TheoremStatement {
         axiomatic,
         name,
         args,
         claim,
         body,
-    }
+    })
 }
 
 // Tries to parse a single statement from the provided tokens.
@@ -215,7 +218,7 @@ where
                     expect_type(tokens, TokenType::Colon)?;
                     let identifier = expect_type(tokens, TokenType::Identifier)?;
                     let type_name = identifier.text;
-                    let token = expect_token(tokens);
+                    let token = expect_token(tokens)?;
                     let value = match token.token_type {
                         TokenType::Equals => {
                             let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine);
@@ -234,13 +237,13 @@ where
                     tokens.next();
                     return Ok(Some(Statement::Theorem(parse_theorem_statement(
                         tokens, true,
-                    ))));
+                    )?)));
                 }
                 TokenType::Theorem => {
                     tokens.next();
                     return Ok(Some(Statement::Theorem(parse_theorem_statement(
                         tokens, false,
-                    ))));
+                    )?)));
                 }
                 TokenType::Def => {
                     tokens.next();

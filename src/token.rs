@@ -237,11 +237,11 @@ pub fn scan(input: &str) -> Result<Vec<Token>> {
 }
 
 // Pops off one token, expecting it to be there.
-pub fn expect_token<'a, I>(tokens: &mut Peekable<I>) -> Token<'a>
+pub fn expect_token<'a, I>(tokens: &mut Peekable<I>) -> Result<Token<'a>>
 where
     I: Iterator<Item = Token<'a>>,
 {
-    tokens.next().expect("unexpected EOF")
+    Ok(tokens.next().expect("unexpected EOF"))
 }
 
 // Pops off one token, expecting it to be of a known type.
