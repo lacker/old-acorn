@@ -1,5 +1,5 @@
 use crate::expression::{parse_expression, Expression};
-use crate::token::Token;
+use crate::token::{expect_token, expect_type, Token, TokenType};
 
 use std::fmt;
 use std::iter::Peekable;
@@ -51,9 +51,7 @@ pub struct PropStatement<'a> {
 // Def statements are the keyword "def" followed by an expression with an equals.
 // For example, in:
 //   def (p | q) = !p -> q
-// the equality is the whole "(p | q) = !p -> q",
-//
-
+// the equality is the whole "(p | q) = !p -> q".
 //
 // "EndBlock" is maybe not really a statement; it indicates a } ending a block with
 // a bunch of statements.
@@ -159,34 +157,31 @@ fn parse_theorem_statement<'a, I>(tokens: &mut Peekable<I>, axiomatic: bool) -> 
 where
     I: Iterator<Item = Token<'a>>,
 {
-    let name = if let Some(Token::Identifier(name)) = tokens.next() {
-        name
-    } else {
-        panic!("expected identifier after theorem");
-    };
+    let token = expect_type(tokens, TokenType::Identifier);
+    let name = token.text;
     let mut args = Vec::new();
-    match tokens.next() {
-        Some(Token::LeftParen) => {
+    let token = expect_token(tokens);
+    match token.token_type {
+        TokenType::LeftParen => {
             // Parse an arguments list
             loop {
-                let (exp, terminator) =
-                    parse_expression(tokens, |t| t == Token::Comma || t == Token::RightParen);
+                let (exp, terminator) = parse_expression(tokens, |t| {
+                    t == TokenType::Comma || t == TokenType::RightParen
+                });
                 args.push(exp);
-                if terminator == Token::RightParen {
-                    if let Some(Token::Colon) = tokens.next() {
-                        break;
-                    } else {
-                        panic!("expected colon after theorem arguments");
-                    }
+                if terminator.token_type == TokenType::RightParen {
+                    expect_type(tokens, TokenType::Colon);
+                    break;
                 }
             }
         }
-        Some(Token::Colon) => {}
-        t => panic!("unexpected token after theorem name: {:?}", t),
+        TokenType::Colon => {}
+        _ => panic!("unexpected token after theorem name: {}", token),
     }
-    let (claim, terminator) =
-        parse_expression(tokens, |t| t == Token::NewLine || t == Token::LeftBrace);
-    let body = if terminator == Token::LeftBrace {
+    let (claim, terminator) = parse_expression(tokens, |t| {
+        t == TokenType::NewLine || t == TokenType::LeftBrace
+    });
+    let body = if terminator.token_type == TokenType::LeftBrace {
         parse_block(tokens)
     } else {
         Vec::new()
@@ -208,78 +203,69 @@ where
     I: Iterator<Item = Token<'a>>,
 {
     loop {
-        match tokens.peek() {
-            Some(Token::NewLine) => {
-                tokens.next();
-                continue;
-            }
-            Some(Token::Let) => {
-                tokens.next();
-                let name = if let Some(Token::Identifier(name)) = tokens.next() {
-                    name
-                } else {
-                    panic!("expected identifier after let");
-                };
-                if let Some(Token::Colon) = tokens.next() {
-                } else {
-                    panic!("expected colon after let identifier");
+        if let Some(token) = tokens.peek() {
+            match token.token_type {
+                TokenType::NewLine => {
+                    tokens.next();
+                    continue;
                 }
-                let type_name = if let Some(Token::Identifier(type_name)) = tokens.next() {
-                    type_name
-                } else {
-                    panic!("expected identifier after let colon");
-                };
-                let value = match tokens.next() {
-                    Some(Token::Equals) => {
-                        let (exp, _) = parse_expression(tokens, |t| t == Token::NewLine);
-                        Some(exp)
-                    }
-                    Some(Token::NewLine) => None,
-                    Some(token) => panic!("unexpected token after let type: {}", token),
-                    None => panic!("unexpected end of input after let type"),
-                };
-                return Some(Statement::Let(LetStatement {
-                    name,
-                    type_name,
-                    value,
-                }));
-            }
-            Some(Token::Axiom) => {
-                tokens.next();
-                return Some(Statement::Theorem(parse_theorem_statement(tokens, true)));
-            }
-            Some(Token::Theorem) => {
-                tokens.next();
-                return Some(Statement::Theorem(parse_theorem_statement(tokens, false)));
-            }
-            Some(Token::Def) => {
-                tokens.next();
-                let (exp, _) = parse_expression(tokens, |t| t == Token::NewLine);
-                if let Expression::Binary(op, _, _) = exp {
-                    if op == Token::Equals {
-                        return Some(Statement::Def(exp));
-                    }
+                TokenType::Let => {
+                    tokens.next();
+                    let name = expect_type(tokens, TokenType::Identifier).text;
+                    expect_type(tokens, TokenType::Colon);
+                    let type_name = expect_type(tokens, TokenType::Identifier).text;
+                    let token = expect_token(tokens);
+                    let value = match token.token_type {
+                        TokenType::Equals => {
+                            let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine);
+                            Some(exp)
+                        }
+                        TokenType::NewLine => None,
+                        _ => panic!("unexpected token after let type: {}", token),
+                    };
+                    return Some(Statement::Let(LetStatement {
+                        name,
+                        type_name,
+                        value,
+                    }));
                 }
-                panic!("expected equals expression after def");
-            }
-            Some(Token::RightBrace) => {
-                tokens.next();
-                if let Some(Token::NewLine) = tokens.next() {
+                TokenType::Axiom => {
+                    tokens.next();
+                    return Some(Statement::Theorem(parse_theorem_statement(tokens, true)));
+                }
+                TokenType::Theorem => {
+                    tokens.next();
+                    return Some(Statement::Theorem(parse_theorem_statement(tokens, false)));
+                }
+                TokenType::Def => {
+                    tokens.next();
+                    let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine);
+                    if let Expression::Binary(op, _, _) = exp {
+                        if op.token_type == TokenType::Equals {
+                            return Some(Statement::Def(exp));
+                        }
+                    }
+                    panic!("expected equals expression after def");
+                }
+                TokenType::RightBrace => {
+                    tokens.next();
+                    expect_type(tokens, TokenType::NewLine);
                     return Some(Statement::EndBlock);
                 }
-                panic!("expected newline after end of block");
+                _ => {
+                    let (claim, terminator) = parse_expression(tokens, |t| {
+                        t == TokenType::NewLine || t == TokenType::LeftBrace
+                    });
+                    let body = if terminator.token_type == TokenType::LeftBrace {
+                        parse_block(tokens)
+                    } else {
+                        Vec::new()
+                    };
+                    return Some(Statement::Prop(PropStatement { claim, body }));
+                }
             }
-            None => return None,
-            _ => {
-                let (claim, terminator) =
-                    parse_expression(tokens, |t| t == Token::NewLine || t == Token::LeftBrace);
-                let body = if terminator == Token::LeftBrace {
-                    parse_block(tokens)
-                } else {
-                    Vec::new()
-                };
-                return Some(Statement::Prop(PropStatement { claim, body }));
-            }
+        } else {
+            return None;
         }
     }
 }

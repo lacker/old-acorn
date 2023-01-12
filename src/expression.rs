@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fmt};
 
-use crate::token::Token;
+use crate::token::{Token, TokenType};
 
 // An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
 pub enum Expression<'a> {
@@ -71,27 +71,28 @@ enum PartialExpression<'a> {
 // The terminating token is returned.
 fn parse_partial_expressions<'a>(
     tokens: &mut impl Iterator<Item = Token<'a>>,
-    termination: fn(Token) -> bool,
+    termination: fn(TokenType) -> bool,
 ) -> (VecDeque<PartialExpression<'a>>, Token<'a>) {
     let mut partial_expressions = VecDeque::new();
     while let Some(token) = tokens.next() {
-        match token {
-            Token::LeftParen => {
-                let (subexpression, _) = parse_expression(tokens, |t| t == Token::RightParen);
+        match token.token_type {
+            TokenType::LeftParen => {
+                let (subexpression, _) = parse_expression(tokens, |t| t == TokenType::RightParen);
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
             }
-            Token::Identifier(s) => {
-                partial_expressions
-                    .push_back(PartialExpression::Expression(Expression::Identifier(s)));
+            TokenType::Identifier => {
+                partial_expressions.push_back(PartialExpression::Expression(
+                    Expression::Identifier(token.text),
+                ));
             }
-            token if token.is_binary() => {
+            token_type if token_type.is_binary() => {
                 partial_expressions.push_back(PartialExpression::Binary(token));
             }
-            token if token.is_unary() => {
+            token_type if token_type.is_unary() => {
                 partial_expressions.push_back(PartialExpression::Unary(token));
             }
-            token => {
-                if termination(token) {
+            token_type => {
+                if termination(token_type) {
                     return (partial_expressions, token);
                 }
                 panic!("unexpected token: {:?}", token);
@@ -162,7 +163,7 @@ fn combine_partial_expressions<'a>(
 // The terminating token is returned.
 pub fn parse_expression<'a>(
     tokens: &mut impl Iterator<Item = Token<'a>>,
-    termination: fn(Token) -> bool,
+    termination: fn(TokenType) -> bool,
 ) -> (Expression<'a>, Token<'a>) {
     let (partial_expressions, terminator) = parse_partial_expressions(tokens, termination);
     (combine_partial_expressions(partial_expressions), terminator)
@@ -177,7 +178,7 @@ mod tests {
     fn expect_optimal(input: &str) {
         let tokens = scan(input);
         let mut tokens = tokens.into_iter();
-        let (exp, _) = parse_expression(&mut tokens, |t| t == Token::NewLine);
+        let (exp, _) = parse_expression(&mut tokens, |t| t == TokenType::NewLine);
         let output = exp.to_string();
         assert_eq!(input, output);
     }
