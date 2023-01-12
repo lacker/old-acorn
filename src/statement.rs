@@ -1,5 +1,5 @@
 use crate::expression::{parse_expression, Expression};
-use crate::token::{self, expect_token, expect_type, Token, TokenType};
+use crate::token::{self, expect_token, expect_type, Error, Result, Token, TokenType};
 
 use std::fmt;
 use std::iter::Peekable;
@@ -136,7 +136,7 @@ impl Statement<'_> {
 }
 
 // Parses a block (a list of statements) where the left brace has already been consumed.
-fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> token::Result<Vec<Statement<'a>>>
+fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> Result<Vec<Statement<'a>>>
 where
     I: Iterator<Item = Token<'a>>,
 {
@@ -156,7 +156,7 @@ where
 fn parse_theorem_statement<'a, I>(
     tokens: &mut Peekable<I>,
     axiomatic: bool,
-) -> token::Result<TheoremStatement<'a>>
+) -> Result<TheoremStatement<'a>>
 where
     I: Iterator<Item = Token<'a>>,
 {
@@ -179,7 +179,15 @@ where
             }
         }
         TokenType::Colon => {}
-        _ => panic!("unexpected token after theorem name: {}", token),
+        _ => {
+            return Err(Error::new(
+                &token,
+                &format!(
+                    "unexpected token after {} keyword",
+                    if axiomatic { "axiom" } else { "theorem" }
+                ),
+            ))
+        }
     }
     let (claim, terminator) = parse_expression(tokens, |t| {
         t == TokenType::NewLine || t == TokenType::LeftBrace
@@ -201,7 +209,7 @@ where
 // Tries to parse a single statement from the provided tokens.
 // A statement should end with a newline, which is consumed.
 // The iterator may also end, in which case this returns None.
-pub fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> token::Result<Option<Statement<'a>>>
+pub fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Statement<'a>>>
 where
     I: Iterator<Item = Token<'a>>,
 {
@@ -225,7 +233,9 @@ where
                             Some(exp)
                         }
                         TokenType::NewLine => None,
-                        _ => panic!("unexpected token after let type: {}", token),
+                        _ => {
+                            return Err(Error::new(&token, "unexpected token after let keyword"));
+                        }
                     };
                     return Ok(Some(Statement::Let(LetStatement {
                         name,
@@ -253,7 +263,10 @@ where
                             return Ok(Some(Statement::Def(exp)));
                         }
                     }
-                    panic!("expected equals expression after def");
+                    return Err(Error::new(
+                        exp.token(),
+                        "expected equals expression after def",
+                    ));
                 }
                 TokenType::RightBrace => {
                     tokens.next();

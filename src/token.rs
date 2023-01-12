@@ -128,7 +128,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Token(e) => {
-                write!(f, "{}\n", e.message)?;
+                write!(f, "{}:\n", e.message)?;
                 fmt_line_part(f, &e.text, &e.line, e.index)
             }
             Error::EOF => write!(f, "unexpected end of file"),
@@ -138,9 +138,9 @@ impl fmt::Display for Error {
 }
 
 impl Error {
-    pub fn new(token: &Token, message: String) -> Self {
+    pub fn new(token: &Token, message: &str) -> Self {
         Error::Token(TokenError {
-            message,
+            message: message.to_string(),
             text: token.text.to_string(),
             line: token.line.to_string(),
             index: token.index,
@@ -232,7 +232,7 @@ pub fn scan(input: &str) -> Result<Vec<Token>> {
                 index,
             };
             if token.token_type == TokenType::Invalid {
-                return Err(Error::new(&token, format!("invalid token: {}", text)));
+                return Err(Error::new(&token, &format!("invalid token: {}", text)));
             }
             tokens.push(token);
         }
@@ -267,7 +267,7 @@ where
         None => return Err(Error::EOF),
     };
     if token.token_type != expected {
-        return Err(Error::new(&token, format!("expected {:?}", expected)));
+        return Err(Error::new(&token, &format!("expected {:?}", expected)));
     }
     Ok(token)
 }

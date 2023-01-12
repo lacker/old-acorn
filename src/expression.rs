@@ -56,7 +56,7 @@ impl Expression<'_> {
         }
     }
 
-    fn token(&self) -> &Token<'_> {
+    pub fn token(&self) -> &Token<'_> {
         match self {
             Expression::Identifier(token) => token,
             Expression::Unary(token, _) => token,
@@ -114,7 +114,7 @@ fn parse_partial_expressions<'a>(
                 }
                 return Err(Error::new(
                     &token,
-                    format!("expected partial expression or terminator: {:?}", token),
+                    &format!("expected partial expression or terminator: {:?}", token),
                 ));
             }
         }
@@ -136,10 +136,7 @@ fn combine_partial_expressions<'a>(
         if let PartialExpression::Expression(e) = partial {
             return Ok(e);
         }
-        return Err(Error::new(
-            partial.token(),
-            "expected an expression".to_string(),
-        ));
+        return Err(Error::new(partial.token(), "expected an expression"));
     }
 
     // Find the index of the operator that should operate last
@@ -164,7 +161,7 @@ fn combine_partial_expressions<'a>(
         let token = partials[index].token();
         return Err(Error::new(
             token,
-            format!("operator {} has precedence 0", token),
+            &format!("operator {} has precedence 0", token),
         ));
     }
 
@@ -176,10 +173,7 @@ fn combine_partial_expressions<'a>(
                 Box::new(combine_partial_expressions(partials)?),
             ));
         }
-        return Err(Error::new(
-            partial.token(),
-            "expected unary operator".to_string(),
-        ));
+        return Err(Error::new(partial.token(), "expected unary operator"));
     }
 
     let mut right_partials = partials.split_off(index);
@@ -191,10 +185,7 @@ fn combine_partial_expressions<'a>(
             Box::new(combine_partial_expressions(right_partials)?),
         ));
     }
-    return Err(Error::new(
-        partial.token(),
-        "expected binary operator".to_string(),
-    ));
+    return Err(Error::new(partial.token(), "expected binary operator"));
 }
 
 // Parses a single expression from the provided tokens.
