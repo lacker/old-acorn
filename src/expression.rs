@@ -4,7 +4,7 @@ use crate::token::{Error, Result, Token, TokenType};
 
 // An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
 pub enum Expression<'a> {
-    Identifier(&'a str),
+    Identifier(Token<'a>),
     Unary(Token<'a>, Box<Expression<'a>>),
     Binary(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
 }
@@ -55,6 +55,14 @@ impl Expression<'_> {
             }
         }
     }
+
+    fn token(&self) -> &Token<'_> {
+        match self {
+            Expression::Identifier(token) => token,
+            Expression::Unary(token, _) => token,
+            Expression::Binary(token, _, _) => token,
+        }
+    }
 }
 
 // A PartialExpression represents a state in the middle of parsing, where we can have
@@ -69,7 +77,7 @@ enum PartialExpression<'a> {
 impl PartialExpression<'_> {
     fn token(&self) -> &Token<'_> {
         match self {
-            PartialExpression::Expression(_) => panic!("no token for expression"),
+            PartialExpression::Expression(e) => e.token(),
             PartialExpression::Unary(token) => token,
             PartialExpression::Binary(token) => token,
         }
@@ -91,9 +99,8 @@ fn parse_partial_expressions<'a>(
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
             }
             TokenType::Identifier => {
-                partial_expressions.push_back(PartialExpression::Expression(
-                    Expression::Identifier(token.text),
-                ));
+                partial_expressions
+                    .push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
             token_type if token_type.is_binary() => {
                 partial_expressions.push_back(PartialExpression::Binary(token));
@@ -154,28 +161,40 @@ fn combine_partial_expressions<'a>(
         .max()
         .unwrap();
     if neg_precedence == 0 {
-        panic!("operators should not have precedence 0");
+        let token = partials[index].token();
+        return Err(Error::new(
+            token,
+            format!("operator {} has precedence 0", token),
+        ));
     }
 
     if index == 0 {
-        if let Some(PartialExpression::Unary(token)) = partials.pop_front() {
+        let partial = partials.pop_front().unwrap();
+        if let PartialExpression::Unary(token) = partial {
             return Ok(Expression::Unary(
                 token,
                 Box::new(combine_partial_expressions(partials)?),
             ));
         }
-        panic!("expected unary operator");
+        return Err(Error::new(
+            partial.token(),
+            "expected unary operator".to_string(),
+        ));
     }
 
     let mut right_partials = partials.split_off(index);
-    if let Some(PartialExpression::Binary(token)) = right_partials.pop_front() {
+    let partial = right_partials.pop_front().unwrap();
+    if let PartialExpression::Binary(token) = partial {
         return Ok(Expression::Binary(
             token,
             Box::new(combine_partial_expressions(partials)?),
             Box::new(combine_partial_expressions(right_partials)?),
         ));
     }
-    panic!("expected binary operator");
+    return Err(Error::new(
+        partial.token(),
+        "expected binary operator".to_string(),
+    ));
 }
 
 // Parses a single expression from the provided tokens.
