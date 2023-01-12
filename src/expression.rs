@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fmt};
 
-use crate::token::{Token, TokenType};
+use crate::token::{Error, Result, Token, TokenType};
 
 // An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
 pub enum Expression<'a> {
@@ -72,12 +72,12 @@ enum PartialExpression<'a> {
 fn parse_partial_expressions<'a>(
     tokens: &mut impl Iterator<Item = Token<'a>>,
     termination: fn(TokenType) -> bool,
-) -> (VecDeque<PartialExpression<'a>>, Token<'a>) {
+) -> Result<(VecDeque<PartialExpression<'a>>, Token<'a>)> {
     let mut partial_expressions = VecDeque::new();
     while let Some(token) = tokens.next() {
         match token.token_type {
             TokenType::LeftParen => {
-                let (subexpression, _) = parse_expression(tokens, |t| t == TokenType::RightParen);
+                let (subexpression, _) = parse_expression(tokens, |t| t == TokenType::RightParen)?;
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
             }
             TokenType::Identifier => {
@@ -93,13 +93,13 @@ fn parse_partial_expressions<'a>(
             }
             token_type => {
                 if termination(token_type) {
-                    return (partial_expressions, token);
+                    return Ok((partial_expressions, token));
                 }
                 panic!("unexpected token: {:?}", token);
             }
         }
     }
-    panic!("unexpected end of input");
+    Err(Error::EOF)
 }
 
 // Combines partial expressions into a single expression.
@@ -107,13 +107,13 @@ fn parse_partial_expressions<'a>(
 // This algorithm is quadratic, so perhaps we should improve it at some point.
 fn combine_partial_expressions<'a>(
     mut partials: VecDeque<PartialExpression<'a>>,
-) -> Expression<'a> {
+) -> Result<Expression<'a>> {
     if partials.len() == 0 {
         panic!("no partial expressions to combine");
     }
     if partials.len() == 1 {
         if let Some(PartialExpression::Expression(e)) = partials.pop_back() {
-            return e;
+            return Ok(e);
         }
         panic!("expected an expression");
     }
@@ -142,18 +142,21 @@ fn combine_partial_expressions<'a>(
 
     if index == 0 {
         if let Some(PartialExpression::Unary(token)) = partials.pop_front() {
-            return Expression::Unary(token, Box::new(combine_partial_expressions(partials)));
+            return Ok(Expression::Unary(
+                token,
+                Box::new(combine_partial_expressions(partials)?),
+            ));
         }
         panic!("expected unary operator");
     }
 
     let mut right_partials = partials.split_off(index);
     if let Some(PartialExpression::Binary(token)) = right_partials.pop_front() {
-        return Expression::Binary(
+        return Ok(Expression::Binary(
             token,
-            Box::new(combine_partial_expressions(partials)),
-            Box::new(combine_partial_expressions(right_partials)),
-        );
+            Box::new(combine_partial_expressions(partials)?),
+            Box::new(combine_partial_expressions(right_partials)?),
+        ));
     }
     panic!("expected binary operator");
 }
@@ -164,9 +167,12 @@ fn combine_partial_expressions<'a>(
 pub fn parse_expression<'a>(
     tokens: &mut impl Iterator<Item = Token<'a>>,
     termination: fn(TokenType) -> bool,
-) -> (Expression<'a>, Token<'a>) {
-    let (partial_expressions, terminator) = parse_partial_expressions(tokens, termination);
-    (combine_partial_expressions(partial_expressions), terminator)
+) -> Result<(Expression<'a>, Token<'a>)> {
+    let (partial_expressions, terminator) = parse_partial_expressions(tokens, termination)?;
+    Ok((
+        combine_partial_expressions(partial_expressions)?,
+        terminator,
+    ))
 }
 
 #[cfg(test)]
@@ -178,7 +184,7 @@ mod tests {
     fn expect_optimal(input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
-        let (exp, _) = parse_expression(&mut tokens, |t| t == TokenType::NewLine);
+        let (exp, _) = parse_expression(&mut tokens, |t| t == TokenType::NewLine).unwrap();
         let output = exp.to_string();
         assert_eq!(input, output);
     }

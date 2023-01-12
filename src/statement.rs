@@ -170,7 +170,7 @@ where
             loop {
                 let (exp, terminator) = parse_expression(tokens, |t| {
                     t == TokenType::Comma || t == TokenType::RightParen
-                });
+                })?;
                 args.push(exp);
                 if terminator.token_type == TokenType::RightParen {
                     expect_type(tokens, TokenType::Colon).unwrap();
@@ -183,7 +183,7 @@ where
     }
     let (claim, terminator) = parse_expression(tokens, |t| {
         t == TokenType::NewLine || t == TokenType::LeftBrace
-    });
+    })?;
     let body = if terminator.token_type == TokenType::LeftBrace {
         parse_block(tokens)?
     } else {
@@ -221,7 +221,7 @@ where
                     let token = expect_token(tokens)?;
                     let value = match token.token_type {
                         TokenType::Equals => {
-                            let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine);
+                            let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
                             Some(exp)
                         }
                         TokenType::NewLine => None,
@@ -247,7 +247,7 @@ where
                 }
                 TokenType::Def => {
                     tokens.next();
-                    let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine);
+                    let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
                     if let Expression::Binary(op, _, _) = exp {
                         if op.token_type == TokenType::Equals {
                             return Ok(Some(Statement::Def(exp)));
@@ -263,7 +263,7 @@ where
                 _ => {
                     let (claim, terminator) = parse_expression(tokens, |t| {
                         t == TokenType::NewLine || t == TokenType::LeftBrace
-                    });
+                    })?;
                     let body = if terminator.token_type == TokenType::LeftBrace {
                         parse_block(tokens)?
                     } else {
