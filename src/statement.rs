@@ -345,5 +345,9 @@ mod tests {
     #[test]
     fn test_statement_errors() {
         expect_error("+ + +");
+        expect_error("let p: bool =");
+        expect_error("let p: bool = (");
+        expect_error("let p: bool = (x + 2");
+        expect_error("let p: bool = x + 2)");
     }
 }
