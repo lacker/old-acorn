@@ -10,13 +10,16 @@ use std::iter::Peekable;
 // and the expression is the "x + 2".
 pub struct LetStatement<'a> {
     name: &'a str,
-    type_name: &'a str,
+    type_name: Option<&'a str>,
     value: Option<Expression<'a>>,
 }
 
 impl fmt::Display for LetStatement<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "let {}: {}", self.name, self.type_name)?;
+        write!(f, "let {}", self.name)?;
+        if let Some(type_name) = &self.type_name {
+            write!(f, ": {}", type_name)?;
+        }
         if let Some(value) = &self.value {
             write!(f, " = {}", value)?;
         }
@@ -206,6 +209,47 @@ where
     })
 }
 
+// Parses a let statement where the "let" keyword has already been consumed.
+fn parse_let_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<LetStatement<'a>>
+where
+    I: Iterator<Item = Token<'a>>,
+{
+    let name = expect_type(tokens, TokenType::Identifier)?.text;
+    let type_name = if let Some(type_token) = tokens.peek() {
+        match type_token.token_type {
+            TokenType::Colon => {
+                tokens.next();
+                Some(expect_type(tokens, TokenType::Identifier)?.text)
+            }
+            TokenType::Equals => None,
+            _ => {
+                return Err(Error::new(
+                    &type_token,
+                    "unexpected token after let keyword",
+                ))
+            }
+        }
+    } else {
+        return Err(token::Error::EOF);
+    };
+    let token = expect_token(tokens)?;
+    let value = match token.token_type {
+        TokenType::Equals => {
+            let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
+            Some(exp)
+        }
+        TokenType::NewLine => None,
+        _ => {
+            return Err(Error::new(&token, "unexpected token after let keyword"));
+        }
+    };
+    Ok(LetStatement {
+        name,
+        type_name,
+        value,
+    })
+}
+
 // Tries to parse a single statement from the provided tokens.
 // A statement should end with a newline, which is consumed.
 // The iterator may also end, in which case this returns None.
@@ -222,26 +266,7 @@ where
                 }
                 TokenType::Let => {
                     tokens.next();
-                    let name = expect_type(tokens, TokenType::Identifier)?.text;
-                    expect_type(tokens, TokenType::Colon)?;
-                    let identifier = expect_type(tokens, TokenType::Identifier)?;
-                    let type_name = identifier.text;
-                    let token = expect_token(tokens)?;
-                    let value = match token.token_type {
-                        TokenType::Equals => {
-                            let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
-                            Some(exp)
-                        }
-                        TokenType::NewLine => None,
-                        _ => {
-                            return Err(Error::new(&token, "unexpected token after let keyword"));
-                        }
-                    };
-                    return Ok(Some(Statement::Let(LetStatement {
-                        name,
-                        type_name,
-                        value,
-                    })));
+                    return Ok(Some(Statement::Let(parse_let_statement(tokens)?)));
                 }
                 TokenType::Axiom => {
                     tokens.next();
@@ -316,6 +341,7 @@ mod tests {
     fn test_statement_parsing() {
         expect_optimal("let p: bool");
         expect_optimal("let a: int = x + 2");
+        expect_optimal("let a = x + 2");
         expect_optimal("axiom simplification: p -> (q -> p)");
         expect_optimal("axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))");
         expect_optimal("axiom contraposition: (!p -> !q) -> (q -> p)");
