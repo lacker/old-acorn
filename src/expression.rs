@@ -91,9 +91,12 @@ fn parse_partial_expressions<'a>(
     tokens: &mut impl Iterator<Item = Token<'a>>,
     termination: fn(TokenType) -> bool,
 ) -> Result<(VecDeque<PartialExpression<'a>>, Token<'a>)> {
-    let mut partial_expressions = VecDeque::new();
+    let mut partial_expressions = VecDeque::<PartialExpression<'a>>::new();
     while let Some(token) = tokens.next() {
         match token.token_type {
+            token_type if termination(token_type) => {
+                return Ok((partial_expressions, token));
+            }
             TokenType::LeftParen => {
                 let (subexpression, _) = parse_expression(tokens, |t| t == TokenType::RightParen)?;
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
@@ -108,10 +111,7 @@ fn parse_partial_expressions<'a>(
             token_type if token_type.is_unary() => {
                 partial_expressions.push_back(PartialExpression::Unary(token));
             }
-            token_type => {
-                if termination(token_type) {
-                    return Ok((partial_expressions, token));
-                }
+            _ => {
                 return Err(Error::new(
                     &token,
                     &format!("expected partial expression or terminator: {:?}", token),
