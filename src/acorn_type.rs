@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct AcornFunctionType {
     args: Vec<AcornType>,
     value: Box<AcornType>,
@@ -24,6 +25,7 @@ impl fmt::Display for AcornFunctionType {
     }
 }
 
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
     Bool,
     Nat,
