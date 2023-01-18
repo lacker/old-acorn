@@ -43,13 +43,19 @@ impl Expression<'_> {
                     // We are a bit conservative so that we don't rely on left- or right-associativity.
                     write!(f, "(")?;
                     left.fmt_helper(f, 0, p)?;
-                    write!(f, " {} ", token)?;
+                    if token.token_type.left_space() {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{} ", token)?;
                     right.fmt_helper(f, p, 0)?;
                     write!(f, ")")
                 } else {
                     // We don't need to parenthesize.
                     left.fmt_helper(f, left_p, p)?;
-                    write!(f, " {} ", token)?;
+                    if token.token_type.left_space() {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{} ", token)?;
                     right.fmt_helper(f, p, right_p)
                 }
             }

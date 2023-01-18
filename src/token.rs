@@ -42,6 +42,7 @@ impl TokenType {
             TokenType::Ampersand => true,
             TokenType::LeftRightArrow => true,
             TokenType::Equals => true,
+            TokenType::Comma => true,
             _ => false,
         }
     }
@@ -51,15 +52,24 @@ impl TokenType {
     // Only unary and binary operators should have precedences.
     pub fn precedence(&self) -> i8 {
         match self {
-            TokenType::Plus => 6,
-            TokenType::Minus => 6,
-            TokenType::Exclam => 5,
-            TokenType::Equals => 4,
-            TokenType::Pipe => 3,
-            TokenType::Ampersand => 3,
-            TokenType::LeftRightArrow => 2,
-            TokenType::RightArrow => 1,
+            TokenType::Plus => 7,
+            TokenType::Minus => 7,
+            TokenType::Exclam => 6,
+            TokenType::Equals => 5,
+            TokenType::Pipe => 4,
+            TokenType::Ampersand => 4,
+            TokenType::LeftRightArrow => 3,
+            TokenType::RightArrow => 2,
+            TokenType::Comma => 1,
             _ => 0,
+        }
+    }
+
+    // Whether we put a space to the left of this operator in the canonical style.
+    pub fn left_space(&self) -> bool {
+        match self {
+            TokenType::Comma => false,
+            _ => true,
         }
     }
 }
