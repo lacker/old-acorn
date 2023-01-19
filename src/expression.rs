@@ -3,6 +3,7 @@ use std::{collections::VecDeque, fmt};
 use crate::token::{Error, Result, Token, TokenType};
 
 // An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
+// It can represent either a type, like (int -> bool), or a value, like (2 + 2).
 pub enum Expression<'a> {
     Identifier(Token<'a>),
     Unary(Token<'a>, Box<Expression<'a>>),
