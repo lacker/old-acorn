@@ -2,8 +2,8 @@ use std::fmt;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct AcornFunctionType {
-    args: Vec<AcornType>,
-    value: Box<AcornType>,
+    pub args: Vec<AcornType>,
+    pub value: Box<AcornType>,
 }
 
 impl fmt::Display for AcornFunctionType {

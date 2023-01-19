@@ -6,9 +6,6 @@ let p: bool
 let q: bool
 let r: bool
 
-let f: int -> bool
-let g: (int, int) -> bool
-
 axiom simplification: p -> (q -> p)
 axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))
 axiom contraposition: (!p -> !q) -> (q -> p)

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::acorn_type::AcornType;
+use crate::acorn_type::{AcornFunctionType, AcornType};
 use crate::expression::Expression;
-use crate::token::{Error, Result};
+use crate::token::{Error, Result, TokenType};
 
 pub struct Environment {
     // Types that are named in this scope
@@ -48,8 +48,24 @@ impl Environment {
                     Err(Error::new(token, "expected type name"))
                 }
             }
-            _ => {
-                panic!("TODO: implement")
+            Expression::Unary(token, _) => Err(Error::new(
+                token,
+                "unexpected unary operator in type expression",
+            )),
+            Expression::Binary(token, left, right) => {
+                if token.token_type != TokenType::RightArrow {
+                    return Err(Error::new(
+                        token,
+                        "unexpected binary operator in type expression",
+                    ));
+                }
+                let left_type = self.evaluate_type_expression(left)?;
+                let right_type = self.evaluate_type_expression(right)?;
+                let function_type = AcornFunctionType {
+                    args: vec![left_type],
+                    value: Box::new(right_type),
+                };
+                Ok(AcornType::Function(function_type))
             }
         }
     }
@@ -75,5 +91,6 @@ mod tests {
     fn test_environment() {
         let env = Environment::new();
         expect_valid_type(&env, "bool");
+        expect_valid_type(&env, "nat -> bool")
     }
 }
