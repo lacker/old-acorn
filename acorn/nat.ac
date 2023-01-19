@@ -1,0 +1,13 @@
+// The axioms of Peano arithmetic.
+
+typedef Nat: axiom
+
+let Zero: Nat = axiom
+
+let Suc: Nat -> Nat = axiom
+
+axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
+
+axiom suc_neq_zero(x: Nat): Suc(x) != Zero
+
+axiom induction(f: Nat -> bool, n: Nat): f(Zero) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n) 
