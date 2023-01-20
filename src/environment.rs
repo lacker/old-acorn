@@ -134,5 +134,6 @@ mod tests {
         check_type(&env, "(bool, bool) -> bool");
 
         check_bad_type(&env, "bool, bool -> bool");
+        check_bad_type(&env, "(bool, bool)");
     }
 }
