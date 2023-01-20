@@ -48,6 +48,12 @@ pub struct PropStatement<'a> {
     body: Vec<Statement<'a>>,
 }
 
+// Typedef statements associate a name with a type expression
+pub struct TypedefStatement<'a> {
+    name: &'a str,
+    type_expr: Expression<'a>,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Some have their own struct. For the others:
 //
@@ -63,6 +69,7 @@ pub enum Statement<'a> {
     Theorem(TheoremStatement<'a>),
     Define(Expression<'a>),
     Prop(PropStatement<'a>),
+    Typedef(TypedefStatement<'a>),
     EndBlock,
 }
 
@@ -129,6 +136,10 @@ impl Statement<'_> {
                     write_block(f, &ps.body, indent)?;
                 }
                 Ok(())
+            }
+
+            Statement::Typedef(ts) => {
+                write!(f, "typedef {}: {}", ts.name, ts.type_expr)
             }
 
             Statement::EndBlock => {
@@ -255,6 +266,17 @@ where
     })
 }
 
+// Parses a typedef statement where the "typedef" keyword has already been consumed.
+fn parse_typedef_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<TypedefStatement<'a>>
+where
+    I: Iterator<Item = Token<'a>>,
+{
+    let name = expect_type(tokens, TokenType::Identifier)?.text;
+    expect_type(tokens, TokenType::Colon)?;
+    let (type_expr, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
+    Ok(TypedefStatement { name, type_expr })
+}
+
 // Tries to parse a single statement from the provided tokens.
 // A statement should end with a newline, which is consumed.
 // The iterator may also end, in which case this returns None.
@@ -298,6 +320,10 @@ where
                         "expected equals expression after def",
                     ));
                 }
+                TokenType::Typedef => {
+                    tokens.next();
+                    return Ok(Some(Statement::Typedef(parse_typedef_statement(tokens)?)));
+                }
                 TokenType::RightBrace => {
                     tokens.next();
                     expect_type(tokens, TokenType::NewLine)?;
@@ -330,9 +356,12 @@ mod tests {
     fn expect_optimal(input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter().peekable();
-        let stmt = parse_statement(&mut tokens).unwrap();
-        let output = stmt.unwrap().to_string();
-        assert_eq!(input, output);
+        let statement = match parse_statement(&mut tokens) {
+            Ok(Some(statement)) => statement,
+            Ok(None) => panic!("expected statement, got EOF"),
+            Err(e) => panic!("expected statement, got error: {}", e),
+        };
+        assert_eq!(input, statement.to_string());
     }
 
     // Expects an error parsing the input into a statement, but not a lex error
@@ -343,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn test_statement_parsing() {
+    fn test_basic_statement_parsing() {
         expect_optimal("let p: bool");
         expect_optimal("let a: int = x + 2");
         expect_optimal("let a = x + 2");
@@ -362,6 +391,11 @@ mod tests {
         expect_optimal("define (p & q) = !(p -> !q)");
         expect_optimal("define (p <-> q) = ((p -> q) & (q -> p))");
         expect_optimal("p -> p");
+    }
+
+    #[test]
+    fn test_nat_ac_statements() {
+        expect_optimal("typedef Nat: axiom");
     }
 
     #[test]

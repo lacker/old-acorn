@@ -4,6 +4,7 @@ use crate::token::{Error, Result, Token, TokenType};
 
 // An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
 // It can represent either a type, like (int -> bool), or a value, like (2 + 2).
+// An identifier can also be the keyword "axiom".
 pub enum Expression<'a> {
     Identifier(Token<'a>),
     Unary(Token<'a>, Box<Expression<'a>>),
@@ -109,6 +110,10 @@ fn parse_partial_expressions<'a>(
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
             }
             TokenType::Identifier => {
+                partial_expressions
+                    .push_back(PartialExpression::Expression(Expression::Identifier(token)));
+            }
+            TokenType::Axiom => {
                 partial_expressions
                     .push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
@@ -253,5 +258,6 @@ mod tests {
         expect_error("let a: int = x + 2");
         expect_error("axiom contraposition: (!p -> !q) -> (q -> p)");
         expect_error("define (p & q) = !(p -> !q)");
+        expect_error("typedef Nat: axiom");
     }
 }

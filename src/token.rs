@@ -23,6 +23,7 @@ pub enum TokenType {
     Axiom,
     Define,
     Theorem,
+    Typedef,
 }
 
 impl TokenType {
@@ -224,6 +225,7 @@ pub fn scan(input: &str) -> Result<Vec<Token>> {
                         "axiom" => TokenType::Axiom,
                         "define" => TokenType::Define,
                         "theorem" => TokenType::Theorem,
+                        "typedef" => TokenType::Typedef,
                         _ => TokenType::Identifier,
                     }
                 }
