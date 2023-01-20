@@ -44,24 +44,35 @@ impl TokenType {
             TokenType::LeftRightArrow => true,
             TokenType::Equals => true,
             TokenType::Comma => true,
+            TokenType::Colon => true,
             _ => false,
         }
     }
 
-    // Higher precedence operators are evaluated first.
+    // Higher precedence operators are bound to arguments first.
     // It is an error to not specify the order when the precedence is the same.
     // Only unary and binary operators should have precedences.
-    pub fn precedence(&self) -> i8 {
+    // There are two precedences: for operators in a value, like 2 + 2, and operators in
+    // a type expression, like (int -> int) -> int.
+    // Operators that are not allowed in an expression have a precedence of 0.
+    pub fn value_precedence(&self) -> i8 {
         match self {
             TokenType::Plus => 7,
             TokenType::Minus => 7,
-            TokenType::Exclam => 6,
-            TokenType::Equals => 5,
+            TokenType::Equals => 6,
+            TokenType::Exclam => 5,
             TokenType::Pipe => 4,
             TokenType::Ampersand => 4,
             TokenType::LeftRightArrow => 3,
             TokenType::RightArrow => 2,
-            TokenType::Comma => 1,
+            _ => 0,
+        }
+    }
+
+    pub fn type_precedence(&self) -> i8 {
+        match self {
+            TokenType::RightArrow => 2,
+            TokenType::Colon => 1,
             _ => 0,
         }
     }
@@ -70,6 +81,7 @@ impl TokenType {
     pub fn left_space(&self) -> bool {
         match self {
             TokenType::Comma => false,
+            TokenType::Colon => false,
             _ => true,
         }
     }
@@ -113,8 +125,20 @@ impl fmt::Display for Token<'_> {
 }
 
 impl Token<'_> {
-    pub fn precedence(&self) -> i8 {
-        self.token_type.precedence()
+    pub fn value_precedence(&self) -> i8 {
+        self.token_type.value_precedence()
+    }
+
+    pub fn type_precedence(&self) -> i8 {
+        self.token_type.type_precedence()
+    }
+
+    pub fn precedence(&self, is_value: bool) -> i8 {
+        if is_value {
+            self.value_precedence()
+        } else {
+            self.type_precedence()
+        }
     }
 }
 

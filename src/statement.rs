@@ -182,7 +182,7 @@ where
         TokenType::LeftParen => {
             // Parse an arguments list
             loop {
-                let (exp, terminator) = parse_expression(tokens, |t| {
+                let (exp, terminator) = parse_expression(tokens, false, |t| {
                     t == TokenType::Comma || t == TokenType::RightParen
                 })?;
                 args.push(exp);
@@ -203,7 +203,7 @@ where
             ))
         }
     }
-    let (claim, terminator) = parse_expression(tokens, |t| {
+    let (claim, terminator) = parse_expression(tokens, true, |t| {
         t == TokenType::NewLine || t == TokenType::LeftBrace
     })?;
     let body = if terminator.token_type == TokenType::LeftBrace {
@@ -231,7 +231,7 @@ where
         match type_token.token_type {
             TokenType::Colon => {
                 tokens.next();
-                let (type_expr, terminator) = parse_expression(tokens, |t| {
+                let (type_expr, terminator) = parse_expression(tokens, false, |t| {
                     t == TokenType::Equals || t == TokenType::NewLine
                 })?;
                 if terminator.token_type == TokenType::NewLine {
@@ -239,14 +239,14 @@ where
                     (Some(type_expr), None)
                 } else {
                     // This is a definition, with both a type and a value
-                    let (value, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
+                    let (value, _) = parse_expression(tokens, true, |t| t == TokenType::NewLine)?;
                     (Some(type_expr), Some(value))
                 }
             }
             TokenType::Equals => {
                 // This is a definition, with no type but a value
                 tokens.next();
-                let (value, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
+                let (value, _) = parse_expression(tokens, true, |t| t == TokenType::NewLine)?;
                 (None, Some(value))
             }
             _ => {
@@ -273,7 +273,7 @@ where
 {
     let name = expect_type(tokens, TokenType::Identifier)?.text;
     expect_type(tokens, TokenType::Colon)?;
-    let (type_expr, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
+    let (type_expr, _) = parse_expression(tokens, false, |t| t == TokenType::NewLine)?;
     Ok(TypedefStatement { name, type_expr })
 }
 
@@ -309,7 +309,8 @@ where
                 }
                 TokenType::Define => {
                     tokens.next();
-                    let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
+                    // TODO: we need to change this with the new way of defining
+                    let (exp, _) = parse_expression(tokens, true, |t| t == TokenType::NewLine)?;
                     if let Expression::Binary(op, _, _) = exp {
                         if op.token_type == TokenType::Equals {
                             return Ok(Some(Statement::Define(exp)));
@@ -330,7 +331,7 @@ where
                     return Ok(Some(Statement::EndBlock));
                 }
                 _ => {
-                    let (claim, terminator) = parse_expression(tokens, |t| {
+                    let (claim, terminator) = parse_expression(tokens, true, |t| {
                         t == TokenType::NewLine || t == TokenType::LeftBrace
                     })?;
                     let body = if terminator.token_type == TokenType::LeftBrace {
@@ -387,15 +388,21 @@ mod tests {
         expect_optimal("theorem and_assoc: (p & q) & r <-> p & (q & r)");
         expect_optimal("theorem or_comm: p | q <-> q | p");
         expect_optimal("theorem or_assoc: (p | q) | r <-> p | (q | r)");
-        expect_optimal("define (p | q) = (!p -> q)");
-        expect_optimal("define (p & q) = !(p -> !q)");
-        expect_optimal("define (p <-> q) = ((p -> q) & (q -> p))");
+
+        // TODO: replace these with prefix versions
+        // expect_optimal("define (p | q) = (!p -> q)");
+        // expect_optimal("define (p & q) = !(p -> !q)");
+        // expect_optimal("define (p <-> q) = ((p -> q) & (q -> p))");
+
         expect_optimal("p -> p");
     }
 
     #[test]
     fn test_nat_ac_statements() {
         expect_optimal("typedef Nat: axiom");
+
+        // TODO: make this work
+        // expect_optimal("define 0: Nat = axiom");
     }
 
     #[test]

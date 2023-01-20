@@ -4,6 +4,7 @@ use crate::token::{Error, Result, Token, TokenType};
 
 // An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
 // It can represent either a type, like (int -> bool), or a value, like (2 + 2).
+// It can also represent a declaration, like "a: bool".
 // An identifier can also be the keyword "axiom".
 pub enum Expression<'a> {
     Identifier(Token<'a>),
@@ -13,54 +14,72 @@ pub enum Expression<'a> {
 
 impl fmt::Display for Expression<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_helper(f, 0, 0)
+        self.fmt_helper(f, 0, 0, self.guess_is_value())
     }
 }
 
 impl Expression<'_> {
     // Prints out this expression, parenthesizing only if necessary.
     // left_p and right_p are the precedences of the expressions to either side of this one.
+    // value is whether this expression is a value (as opposed to a type)
     // They must happen after this one.
-    fn fmt_helper(&self, f: &mut fmt::Formatter<'_>, left_p: i8, right_p: i8) -> fmt::Result {
+    fn fmt_helper(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        left_p: i8,
+        right_p: i8,
+        is_value: bool,
+    ) -> fmt::Result {
         match self {
             Expression::Identifier(token) => write!(f, "{}", token),
             Expression::Unary(token, subexpression) => {
-                let p = token.precedence();
+                let p = token.precedence(is_value);
                 if right_p > p {
                     // If we didn't parenthesize, the right operator would happen first.
                     // So we do need to parenthesize.
                     write!(f, "({}", token)?;
-                    subexpression.fmt_helper(f, p, 0)?;
+                    subexpression.fmt_helper(f, p, 0, is_value)?;
                     write!(f, ")")
                 } else {
                     // We don't need to parenthesize.
                     write!(f, "{}", token)?;
-                    subexpression.fmt_helper(f, p, right_p)
+                    subexpression.fmt_helper(f, p, right_p, is_value)
                 }
             }
             Expression::Binary(token, left, right) => {
-                let p = token.precedence();
+                let p = token.precedence(is_value);
+                println!(
+                    "formatting at {}, is_value {}, p {} with left_p {} and right_p {}",
+                    token, is_value, p, left_p, right_p
+                );
                 if p <= left_p || p <= right_p {
                     // We need to parenthesize.
                     // We are a bit conservative so that we don't rely on left- or right-associativity.
                     write!(f, "(")?;
-                    left.fmt_helper(f, 0, p)?;
+                    left.fmt_helper(f, 0, p, is_value)?;
                     if token.token_type.left_space() {
                         write!(f, " ")?;
                     }
                     write!(f, "{} ", token)?;
-                    right.fmt_helper(f, p, 0)?;
+                    right.fmt_helper(f, p, 0, is_value)?;
                     write!(f, ")")
                 } else {
                     // We don't need to parenthesize.
-                    left.fmt_helper(f, left_p, p)?;
+                    left.fmt_helper(f, left_p, p, is_value)?;
                     if token.token_type.left_space() {
                         write!(f, " ")?;
                     }
                     write!(f, "{} ", token)?;
-                    right.fmt_helper(f, p, right_p)
+                    right.fmt_helper(f, p, right_p, is_value)
                 }
             }
+        }
+    }
+
+    pub fn guess_is_value(&self) -> bool {
+        match self {
+            Expression::Binary(token, _, _) => token.token_type != TokenType::Colon,
+            _ => true,
         }
     }
 
@@ -97,6 +116,7 @@ impl PartialExpression<'_> {
 // The terminating token is returned.
 fn parse_partial_expressions<'a>(
     tokens: &mut impl Iterator<Item = Token<'a>>,
+    is_value: bool,
     termination: fn(TokenType) -> bool,
 ) -> Result<(VecDeque<PartialExpression<'a>>, Token<'a>)> {
     let mut partial_expressions = VecDeque::<PartialExpression<'a>>::new();
@@ -106,7 +126,8 @@ fn parse_partial_expressions<'a>(
                 return Ok((partial_expressions, token));
             }
             TokenType::LeftParen => {
-                let (subexpression, _) = parse_expression(tokens, |t| t == TokenType::RightParen)?;
+                let (subexpression, _) =
+                    parse_expression(tokens, is_value, |t| t == TokenType::RightParen)?;
                 partial_expressions.push_back(PartialExpression::Expression(subexpression));
             }
             TokenType::Identifier => {
@@ -139,6 +160,7 @@ fn parse_partial_expressions<'a>(
 // This algorithm is quadratic, so perhaps we should improve it at some point.
 fn combine_partial_expressions<'a>(
     mut partials: VecDeque<PartialExpression<'a>>,
+    is_value: bool,
 ) -> Result<Expression<'a>> {
     if partials.len() == 0 {
         return Err(Error::Misc("no partial expressions to combine".to_string()));
@@ -160,12 +182,12 @@ fn combine_partial_expressions<'a>(
             PartialExpression::Unary(token) => {
                 // Only a unary operator at the beginning of the expression can operate last
                 if i == 0 {
-                    Some((-token.precedence(), i))
+                    Some((-token.precedence(is_value), i))
                 } else {
                     None
                 }
             }
-            PartialExpression::Binary(token) => Some((-token.precedence(), i)),
+            PartialExpression::Binary(token) => Some((-token.precedence(is_value), i)),
         })
         .max()
         .unwrap();
@@ -182,7 +204,7 @@ fn combine_partial_expressions<'a>(
         if let PartialExpression::Unary(token) = partial {
             return Ok(Expression::Unary(
                 token,
-                Box::new(combine_partial_expressions(partials)?),
+                Box::new(combine_partial_expressions(partials, is_value)?),
             ));
         }
         return Err(Error::new(partial.token(), "expected unary operator"));
@@ -193,8 +215,8 @@ fn combine_partial_expressions<'a>(
     if let PartialExpression::Binary(token) = partial {
         return Ok(Expression::Binary(
             token,
-            Box::new(combine_partial_expressions(partials)?),
-            Box::new(combine_partial_expressions(right_partials)?),
+            Box::new(combine_partial_expressions(partials, is_value)?),
+            Box::new(combine_partial_expressions(right_partials, is_value)?),
         ));
     }
     return Err(Error::new(partial.token(), "expected binary operator"));
@@ -205,11 +227,13 @@ fn combine_partial_expressions<'a>(
 // The terminating token is returned.
 pub fn parse_expression<'a>(
     tokens: &mut impl Iterator<Item = Token<'a>>,
+    is_value: bool,
     termination: fn(TokenType) -> bool,
 ) -> Result<(Expression<'a>, Token<'a>)> {
-    let (partial_expressions, terminator) = parse_partial_expressions(tokens, termination)?;
+    let (partial_expressions, terminator) =
+        parse_partial_expressions(tokens, is_value, termination)?;
     Ok((
-        combine_partial_expressions(partial_expressions)?,
+        combine_partial_expressions(partial_expressions, is_value)?,
         terminator,
     ))
 }
@@ -220,34 +244,44 @@ mod tests {
 
     use super::*;
 
-    fn expect_optimal(input: &str) {
+    fn expect_optimal(input: &str, is_value: bool) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
-        let (exp, _) = parse_expression(&mut tokens, |t| t == TokenType::NewLine).unwrap();
+        let (exp, _) =
+            parse_expression(&mut tokens, is_value, |t| t == TokenType::NewLine).unwrap();
         let output = exp.to_string();
         assert_eq!(input, output);
+    }
+
+    fn check_value(input: &str) {
+        expect_optimal(input, true);
+    }
+
+    fn check_type(input: &str) {
+        expect_optimal(input, false);
     }
 
     // Expects a parse error, or not-an-expression, but not a lex error
     fn expect_error(input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
-        assert!(parse_expression(&mut tokens, |t| t == TokenType::NewLine).is_err());
+        assert!(parse_expression(&mut tokens, true, |t| t == TokenType::NewLine).is_err());
     }
 
     #[test]
-    fn test_expression_parsing() {
-        expect_optimal("bool");
-        expect_optimal("p -> (q -> p)");
-        expect_optimal("(p -> (q -> r)) -> ((p -> q) -> (p -> r))");
-        expect_optimal("(!p -> !q) -> (q -> p)");
-        expect_optimal("p | q = !p -> q");
-        expect_optimal("p & q = !(p -> !q)");
-        expect_optimal("p <-> q = (p -> q) & (q -> p)");
-        expect_optimal("p & q <-> q & p");
-        expect_optimal("(p & q) & r <-> p & (q & r)");
-        expect_optimal("p | q <-> q | p");
-        expect_optimal("(p | q) | r <-> p | (q | r)");
+    fn test_value_parsing() {
+        check_value("p -> (q -> p)");
+        check_value("(p -> (q -> r)) -> ((p -> q) -> (p -> r))");
+        check_value("(p <-> q) = ((p -> q) & (q -> p))");
+        check_value("p & q <-> q & p");
+        check_value("(p & q) & r <-> p & (q & r)");
+        check_value("p | q <-> q | p");
+        check_value("(p | q) | r <-> p | (q | r)");
+    }
+
+    #[test]
+    fn test_type_parsing() {
+        check_type("bool");
     }
 
     #[test]

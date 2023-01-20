@@ -79,7 +79,8 @@ mod tests {
     fn expect_valid_type(env: &Environment, input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
-        let (expression, _) = parse_expression(&mut tokens, |t| t == TokenType::NewLine).unwrap();
+        let (expression, _) =
+            parse_expression(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
         assert!(env.evaluate_type_expression(&expression).is_ok());
     }
 
