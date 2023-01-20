@@ -2,6 +2,8 @@
 // See Metamath book, page 70.
 // This uses Church's "system P2".
 
+// We might not want to allow declaring top-level variables that then implicitly
+// are universally quantified for the following theorems.
 let p: bool
 let q: bool
 let r: bool
@@ -9,11 +11,14 @@ let r: bool
 axiom simplification: p -> (q -> p)
 axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))
 axiom contraposition: (!p -> !q) -> (q -> p)
-axiom modus_ponens(p, p -> q): q
 
-def (p | q) = !p -> q
-def (p & q) = !(p -> !q)
-def (p <-> q) = (p -> q) & (q -> p)
+// I think we are going to disallow this syntax. It really only makes sense
+// for specifying modus ponens in the first place.
+// axiom modus_ponens(p, p -> q): q
+
+define (p | q) = !p -> q
+define (p & q) = !(p -> !q)
+define (p <-> q) = (p -> q) & (q -> p)
 
 theorem and_comm: p & q <-> q & p
 theorem and_assoc: (p & q) & r <-> p & (q & r)
