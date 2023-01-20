@@ -61,7 +61,7 @@ pub struct PropStatement<'a> {
 pub enum Statement<'a> {
     Let(LetStatement<'a>),
     Theorem(TheoremStatement<'a>),
-    Def(Expression<'a>),
+    Define(Expression<'a>),
     Prop(PropStatement<'a>),
     EndBlock,
 }
@@ -119,8 +119,8 @@ impl Statement<'_> {
                 Ok(())
             }
 
-            Statement::Def(ds) => {
-                write!(f, "def {}", ds)
+            Statement::Define(ds) => {
+                write!(f, "define {}", ds)
             }
 
             Statement::Prop(ps) => {
@@ -285,12 +285,12 @@ where
                         tokens, false,
                     )?)));
                 }
-                TokenType::Def => {
+                TokenType::Define => {
                     tokens.next();
                     let (exp, _) = parse_expression(tokens, |t| t == TokenType::NewLine)?;
                     if let Expression::Binary(op, _, _) = exp {
                         if op.token_type == TokenType::Equals {
-                            return Ok(Some(Statement::Def(exp)));
+                            return Ok(Some(Statement::Define(exp)));
                         }
                     }
                     return Err(Error::new(
@@ -358,9 +358,9 @@ mod tests {
         expect_optimal("theorem and_assoc: (p & q) & r <-> p & (q & r)");
         expect_optimal("theorem or_comm: p | q <-> q | p");
         expect_optimal("theorem or_assoc: (p | q) | r <-> p | (q | r)");
-        expect_optimal("def (p | q) = (!p -> q)");
-        expect_optimal("def (p & q) = !(p -> !q)");
-        expect_optimal("def (p <-> q) = ((p -> q) & (q -> p))");
+        expect_optimal("define (p | q) = (!p -> q)");
+        expect_optimal("define (p & q) = !(p -> !q)");
+        expect_optimal("define (p <-> q) = ((p -> q) & (q -> p))");
         expect_optimal("p -> p");
     }
 

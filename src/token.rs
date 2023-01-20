@@ -21,7 +21,7 @@ pub enum TokenType {
     Minus,
     Let,
     Axiom,
-    Def,
+    Define,
     Theorem,
 }
 
@@ -222,7 +222,7 @@ pub fn scan(input: &str) -> Result<Vec<Token>> {
                     match identifier {
                         "let" => TokenType::Let,
                         "axiom" => TokenType::Axiom,
-                        "def" => TokenType::Def,
+                        "define" => TokenType::Define,
                         "theorem" => TokenType::Theorem,
                         _ => TokenType::Identifier,
                     }

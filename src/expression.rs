@@ -252,6 +252,6 @@ mod tests {
         // Not expressions
         expect_error("let a: int = x + 2");
         expect_error("axiom contraposition: (!p -> !q) -> (q -> p)");
-        expect_error("def (p & q) = !(p -> !q)");
+        expect_error("define (p & q) = !(p -> !q)");
     }
 }

@@ -15,7 +15,7 @@ axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat, f(k) -> f(Suc(k))
 
 // Ideally a and f would be templated rather than just Nat.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat): Nat = axiom
-axiom recursion_base(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, 0) = a
+axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
 axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))
 
 define add(a: Nat, b: Nat): Nat = recursion(Suc, a, b)
