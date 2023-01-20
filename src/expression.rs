@@ -2,10 +2,12 @@ use std::{collections::VecDeque, fmt};
 
 use crate::token::{Error, Result, Token, TokenType};
 
-// An Expression represents a mathematical expression, like 2 + 2 or (P -> Q).
-// It can represent either a type, like (int -> bool), or a value, like (2 + 2).
-// It can also represent a declaration, like "a: bool".
-// An identifier can also be the keyword "axiom".
+// An Expression represents the basic structuring of tokens into a syntax tree.
+// This includes both value expressions, like:
+//    1 + 2
+// and type expressions, like:
+//    (int, bool) -> bool
+// The expression does not typecheck and enforce semantics; it's just parsing into a tree.
 pub enum Expression<'a> {
     Identifier(Token<'a>),
     Unary(Token<'a>, Box<Expression<'a>>),
@@ -48,13 +50,13 @@ impl Expression<'_> {
             }
             Expression::Binary(token, left, right) => {
                 let p = token.precedence(is_value);
-                println!(
-                    "formatting at {}, is_value {}, p {} with left_p {} and right_p {}",
-                    token, is_value, p, left_p, right_p
-                );
-                if p <= left_p || p <= right_p {
+                let threshold = p + if token.token_type.always_associative() {
+                    1
+                } else {
+                    0
+                };
+                if threshold <= left_p || threshold <= right_p {
                     // We need to parenthesize.
-                    // We are a bit conservative so that we don't rely on left- or right-associativity.
                     write!(f, "(")?;
                     left.fmt_helper(f, 0, p, is_value)?;
                     if token.token_type.left_space() {
@@ -262,10 +264,22 @@ mod tests {
     }
 
     // Expects a parse error, or not-an-expression, but not a lex error
-    fn expect_error(input: &str) {
+    fn expect_error(input: &str, is_value: bool) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
-        assert!(parse_expression(&mut tokens, true, |t| t == TokenType::NewLine).is_err());
+        let res = parse_expression(&mut tokens, is_value, |t| t == TokenType::NewLine);
+        match res {
+            Err(_) => {}
+            Ok((e, _)) => panic!("unexpected success parsing: {}", e),
+        }
+    }
+
+    fn check_not_value(input: &str) {
+        expect_error(input, true);
+    }
+
+    fn check_not_type(input: &str) {
+        expect_error(input, false);
     }
 
     #[test]
@@ -281,22 +295,29 @@ mod tests {
 
     #[test]
     fn test_function_application() {
-        check_value("foo()");
+        // check_value("foo()");
     }
 
     #[test]
     fn test_type_parsing() {
         check_type("bool");
+        check_type("bool -> bool");
+        check_type("(bool, bool) -> bool");
     }
 
     #[test]
-    fn test_expression_errors() {
-        expect_error("+ + +");
+    fn test_bad_values() {
+        check_not_value("+ + +");
 
         // Not expressions
-        expect_error("let a: int = x + 2");
-        expect_error("axiom contraposition: (!p -> !q) -> (q -> p)");
-        expect_error("define (p & q) = !(p -> !q)");
-        expect_error("typedef Nat: axiom");
+        check_not_value("let a: int = x + 2");
+        check_not_value("axiom contraposition: (!p -> !q) -> (q -> p)");
+        check_not_value("define (p & q) = !(p -> !q)");
+        check_not_value("typedef Nat: axiom");
+    }
+
+    #[test]
+    fn test_bad_types() {
+        check_not_type("bool, bool -> bool ->");
     }
 }

@@ -25,10 +25,13 @@ impl fmt::Display for AcornFunctionType {
     }
 }
 
+// An argument list isn't really a type, but it's part of a type.
+// It's used when we have more than one argument to a function.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
     Bool,
     Function(AcornFunctionType),
+    ArgList(Vec<AcornType>),
 }
 
 impl fmt::Display for AcornType {
@@ -36,6 +39,25 @@ impl fmt::Display for AcornType {
         match self {
             AcornType::Bool => write!(f, "bool"),
             AcornType::Function(t) => write!(f, "{}", t),
+            AcornType::ArgList(t) => {
+                write!(f, "(")?;
+                for (i, item) in t.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", item)?;
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
+
+impl AcornType {
+    pub fn into_arg_list(self) -> Vec<AcornType> {
+        match self {
+            AcornType::ArgList(t) => t,
+            _ => vec![self],
         }
     }
 }

@@ -34,8 +34,8 @@ impl Environment {
         }
     }
 
-    // Evaluates an expression that we expect to be indicating a type
-    pub fn evaluate_type_expression(&self, expression: &Expression) -> Result<AcornType> {
+    // Evaluates an expression that we expect to be indicating either a type or an arg list
+    pub fn evaluate_partial_type_expression(&self, expression: &Expression) -> Result<AcornType> {
         match expression {
             Expression::Identifier(token) => {
                 if let Some(acorn_type) = self.named_types.get(token.text) {
@@ -48,21 +48,45 @@ impl Environment {
                 token,
                 "unexpected unary operator in type expression",
             )),
-            Expression::Binary(token, left, right) => {
-                if token.token_type != TokenType::RightArrow {
+            Expression::Binary(token, left, right) => match token.token_type {
+                TokenType::RightArrow => {
+                    let left_type = self.evaluate_partial_type_expression(left)?;
+                    let right_type = self.evaluate_partial_type_expression(right)?;
+                    let function_type = AcornFunctionType {
+                        args: left_type.into_arg_list(),
+                        value: Box::new(right_type),
+                    };
+                    Ok(AcornType::Function(function_type))
+                }
+                TokenType::Comma => {
+                    // Flatten the types on either side, assumed to be arg lists
+                    let mut args = self.evaluate_partial_type_expression(left)?.into_arg_list();
+                    args.extend(
+                        self.evaluate_partial_type_expression(right)?
+                            .into_arg_list(),
+                    );
+                    Ok(AcornType::ArgList(args))
+                }
+                _ => {
                     return Err(Error::new(
                         token,
                         "unexpected binary operator in type expression",
-                    ));
+                    ))
                 }
-                let left_type = self.evaluate_type_expression(left)?;
-                let right_type = self.evaluate_type_expression(right)?;
-                let function_type = AcornFunctionType {
-                    args: vec![left_type],
-                    value: Box::new(right_type),
-                };
-                Ok(AcornType::Function(function_type))
-            }
+            },
+        }
+    }
+
+    // Evaluates an expression that indicates a complete type, not an arg list
+    pub fn evaluate_type_expression(&self, expression: &Expression) -> Result<AcornType> {
+        let acorn_type = self.evaluate_partial_type_expression(expression)?;
+        if let AcornType::ArgList(_) = acorn_type {
+            Err(Error::new(
+                expression.token(),
+                "expected a complete type, not arg list",
+            ))
+        } else {
+            Ok(acorn_type)
         }
     }
 }
@@ -76,20 +100,39 @@ mod tests {
 
     use super::*;
 
-    fn expect_valid_type(env: &Environment, input: &str) {
+    fn check_type(env: &Environment, input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let (expression, _) =
             parse_expression(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
-        assert!(env.evaluate_type_expression(&expression).is_ok());
+        match env.evaluate_type_expression(&expression) {
+            Ok(_) => {}
+            Err(error) => panic!("Error evaluating type expression: {}", error),
+        }
+    }
+
+    fn check_bad_type(env: &Environment, input: &str) {
+        let tokens = scan(input).unwrap();
+        let mut tokens = tokens.into_iter();
+        let expression = match parse_expression(&mut tokens, false, |t| t == TokenType::NewLine) {
+            Ok((expression, _)) => expression,
+            Err(_) => {
+                // We expect a bad type so this is fine
+                return;
+            }
+        };
+        assert!(env.evaluate_type_expression(&expression).is_err());
     }
 
     #[test]
-    fn test_environment() {
+    fn test_env_types() {
         let env = Environment::new();
-        expect_valid_type(&env, "bool");
-        expect_valid_type(&env, "bool -> bool");
-        expect_valid_type(&env, "bool -> (bool -> bool)");
-        expect_valid_type(&env, "(bool -> bool) -> (bool -> bool)");
+        check_type(&env, "bool");
+        check_type(&env, "bool -> bool");
+        check_type(&env, "bool -> (bool -> bool)");
+        check_type(&env, "(bool -> bool) -> (bool -> bool)");
+        check_type(&env, "(bool, bool) -> bool");
+
+        check_bad_type(&env, "bool, bool -> bool");
     }
 }

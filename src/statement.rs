@@ -380,6 +380,7 @@ mod tests {
         expect_optimal("let f: int -> bool");
         expect_optimal("let f: int -> int = x -> x + 1");
         expect_optimal("let g: (int, int) -> int");
+        expect_optimal("let g: (int, int, int) -> bool");
         expect_optimal("axiom simplification: p -> (q -> p)");
         expect_optimal("axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))");
         expect_optimal("axiom contraposition: (!p -> !q) -> (q -> p)");

@@ -49,6 +49,14 @@ impl TokenType {
         }
     }
 
+    // Associative operators don't have to be parenthesized in a sequence because it doesn't matter.
+    pub fn always_associative(&self) -> bool {
+        match self {
+            TokenType::Comma => true,
+            _ => false,
+        }
+    }
+
     // Higher precedence operators are bound to arguments first.
     // It is an error to not specify the order when the precedence is the same.
     // Only unary and binary operators should have precedences.
@@ -65,6 +73,7 @@ impl TokenType {
             TokenType::Ampersand => 4,
             TokenType::LeftRightArrow => 3,
             TokenType::RightArrow => 2,
+            TokenType::Comma => 1,
             _ => 0,
         }
     }
@@ -72,8 +81,8 @@ impl TokenType {
     pub fn type_precedence(&self) -> i8 {
         match self {
             TokenType::RightArrow => 3,
-            TokenType::Comma => 2,
-            TokenType::Colon => 1,
+            TokenType::Colon => 2,
+            TokenType::Comma => 1,
             _ => 0,
         }
     }
