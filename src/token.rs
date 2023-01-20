@@ -71,7 +71,8 @@ impl TokenType {
 
     pub fn type_precedence(&self) -> i8 {
         match self {
-            TokenType::RightArrow => 2,
+            TokenType::RightArrow => 3,
+            TokenType::Comma => 2,
             TokenType::Colon => 1,
             _ => 0,
         }

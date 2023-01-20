@@ -280,6 +280,11 @@ mod tests {
     }
 
     #[test]
+    fn test_function_application() {
+        check_value("foo()");
+    }
+
+    #[test]
     fn test_type_parsing() {
         check_type("bool");
     }
