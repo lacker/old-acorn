@@ -29,11 +29,7 @@ impl fmt::Display for Environment {
 impl Environment {
     pub fn new() -> Self {
         Environment {
-            named_types: HashMap::from([
-                ("bool".to_string(), AcornType::Bool),
-                ("nat".to_string(), AcornType::Nat),
-                ("int".to_string(), AcornType::Int),
-            ]),
+            named_types: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             declarations: HashMap::new(),
         }
     }
@@ -91,6 +87,8 @@ mod tests {
     fn test_environment() {
         let env = Environment::new();
         expect_valid_type(&env, "bool");
-        expect_valid_type(&env, "nat -> bool")
+        expect_valid_type(&env, "bool -> bool");
+        expect_valid_type(&env, "bool -> (bool -> bool)");
+        expect_valid_type(&env, "(bool -> bool) -> (bool -> bool)");
     }
 }

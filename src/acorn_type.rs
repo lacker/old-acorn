@@ -28,8 +28,6 @@ impl fmt::Display for AcornFunctionType {
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
     Bool,
-    Nat,
-    Int,
     Function(AcornFunctionType),
 }
 
@@ -37,8 +35,6 @@ impl fmt::Display for AcornType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AcornType::Bool => write!(f, "bool"),
-            AcornType::Nat => write!(f, "nat"),
-            AcornType::Int => write!(f, "int"),
             AcornType::Function(t) => write!(f, "{}", t),
         }
     }
