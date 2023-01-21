@@ -48,8 +48,8 @@ pub struct PropStatement<'a> {
     body: Vec<Statement<'a>>,
 }
 
-// Typedef statements associate a name with a type expression
-pub struct TypedefStatement<'a> {
+// Type statements associate a name with a type expression
+pub struct TypeStatement<'a> {
     name: &'a str,
     type_expr: Expression<'a>,
 }
@@ -69,7 +69,7 @@ pub enum Statement<'a> {
     Theorem(TheoremStatement<'a>),
     Define(Expression<'a>),
     Prop(PropStatement<'a>),
-    Typedef(TypedefStatement<'a>),
+    Type(TypeStatement<'a>),
     EndBlock,
 }
 
@@ -138,8 +138,8 @@ impl Statement<'_> {
                 Ok(())
             }
 
-            Statement::Typedef(ts) => {
-                write!(f, "typedef {}: {}", ts.name, ts.type_expr)
+            Statement::Type(ts) => {
+                write!(f, "type {}: {}", ts.name, ts.type_expr)
             }
 
             Statement::EndBlock => {
@@ -266,15 +266,15 @@ where
     })
 }
 
-// Parses a typedef statement where the "typedef" keyword has already been consumed.
-fn parse_typedef_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<TypedefStatement<'a>>
+// Parses a type statement where the "type" keyword has already been consumed.
+fn parse_type_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<TypeStatement<'a>>
 where
     I: Iterator<Item = Token<'a>>,
 {
     let name = expect_type(tokens, TokenType::Identifier)?.text;
     expect_type(tokens, TokenType::Colon)?;
     let (type_expr, _) = parse_expression(tokens, false, |t| t == TokenType::NewLine)?;
-    Ok(TypedefStatement { name, type_expr })
+    Ok(TypeStatement { name, type_expr })
 }
 
 // Tries to parse a single statement from the provided tokens.
@@ -321,9 +321,9 @@ where
                         "expected equals expression after def",
                     ));
                 }
-                TokenType::Typedef => {
+                TokenType::Type => {
                     tokens.next();
-                    return Ok(Some(Statement::Typedef(parse_typedef_statement(tokens)?)));
+                    return Ok(Some(Statement::Type(parse_type_statement(tokens)?)));
                 }
                 TokenType::RightBrace => {
                     tokens.next();
@@ -400,7 +400,7 @@ mod tests {
 
     #[test]
     fn test_nat_ac_statements() {
-        expect_optimal("typedef Nat: axiom");
+        expect_optimal("type Nat: axiom");
 
         // TODO: make this work
         // expect_optimal("define 0: Nat = axiom");

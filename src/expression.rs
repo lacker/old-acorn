@@ -347,7 +347,10 @@ mod tests {
         check_not_value("let a: int = x + 2");
         check_not_value("axiom contraposition: (!p -> !q) -> (q -> p)");
         check_not_value("define (p & q) = !(p -> !q)");
-        check_not_value("typedef Nat: axiom");
+        check_not_value("type Nat: axiom");
+
+        // A math-function has to have arguments
+        check_not_value("f()");
     }
 
     #[test]

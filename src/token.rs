@@ -23,7 +23,7 @@ pub enum TokenType {
     Axiom,
     Define,
     Theorem,
-    Typedef,
+    Type,
 }
 
 pub const MAX_PRECEDENCE: i8 = 100;
@@ -261,7 +261,7 @@ pub fn scan(input: &str) -> Result<Vec<Token>> {
                         "axiom" => TokenType::Axiom,
                         "define" => TokenType::Define,
                         "theorem" => TokenType::Theorem,
-                        "typedef" => TokenType::Typedef,
+                        "type" => TokenType::Type,
                         _ => TokenType::Identifier,
                     }
                 }

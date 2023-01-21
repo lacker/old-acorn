@@ -1,6 +1,6 @@
 // The axioms of Peano arithmetic.
 
-typedef Nat: axiom
+type Nat: axiom
 
 define 0: Nat = axiom
 
