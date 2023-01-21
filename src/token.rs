@@ -26,6 +26,8 @@ pub enum TokenType {
     Typedef,
 }
 
+pub const MAX_PRECEDENCE: i8 = 100;
+
 impl TokenType {
     pub fn is_unary(&self) -> bool {
         match self {

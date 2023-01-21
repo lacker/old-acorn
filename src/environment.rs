@@ -67,13 +67,15 @@ impl Environment {
                     );
                     Ok(AcornType::ArgList(args))
                 }
-                _ => {
-                    return Err(Error::new(
-                        token,
-                        "unexpected binary operator in type expression",
-                    ))
-                }
+                _ => Err(Error::new(
+                    token,
+                    "unexpected binary operator in type expression",
+                )),
             },
+            Expression::Apply(left, _) => Err(Error::new(
+                left.token(),
+                "unexpected function application in type expression",
+            )),
         }
     }
 

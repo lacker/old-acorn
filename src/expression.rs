@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fmt};
 
-use crate::token::{Error, Result, Token, TokenType};
+use crate::token::{Error, Result, Token, TokenType, MAX_PRECEDENCE};
 
 // An Expression represents the basic structuring of tokens into a syntax tree.
 // This includes both value expressions, like:
@@ -8,10 +8,13 @@ use crate::token::{Error, Result, Token, TokenType};
 // and type expressions, like:
 //    (int, bool) -> bool
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
+// "Apply" is a function application which doesn't really have a natural token to pick, so we
+// just pick an arbitrary one for debugging.
 pub enum Expression<'a> {
     Identifier(Token<'a>),
     Unary(Token<'a>, Box<Expression<'a>>),
     Binary(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
+    Apply(Box<Expression<'a>>, Box<Expression<'a>>),
 }
 
 impl fmt::Display for Expression<'_> {
@@ -75,6 +78,13 @@ impl Expression<'_> {
                     right.fmt_helper(f, p, right_p, is_value)
                 }
             }
+            Expression::Apply(left, right) => {
+                // Function application is essentially the maximum precedence.
+                left.fmt_helper(f, left_p, MAX_PRECEDENCE, is_value)?;
+                write!(f, "(")?;
+                right.fmt_helper(f, 0, 0, is_value)?;
+                write!(f, ")")
+            }
         }
     }
 
@@ -90,6 +100,7 @@ impl Expression<'_> {
             Expression::Identifier(token) => token,
             Expression::Unary(token, _) => token,
             Expression::Binary(token, _, _) => token,
+            Expression::Apply(left, _) => left.token(),
         }
     }
 }
@@ -176,7 +187,7 @@ fn combine_partial_expressions<'a>(
     }
 
     // Find the index of the operator that should operate last
-    let (neg_precedence, index) = partials
+    let (neg_precedence, index) = match partials
         .iter()
         .enumerate()
         .filter_map(|(i, partial)| match partial {
@@ -192,7 +203,25 @@ fn combine_partial_expressions<'a>(
             PartialExpression::Binary(token) => Some((-token.precedence(is_value), i)),
         })
         .max()
-        .unwrap();
+    {
+        Some((neg_precedence, index)) => (neg_precedence, index),
+        None => {
+            // There are no operators in partials. This must be a sequence of function applications.
+            let first_partial = partials.pop_front().unwrap();
+            let mut answer = match first_partial {
+                PartialExpression::Expression(e) => e,
+                _ => return Err(Error::new(first_partial.token(), "expected an expression")),
+            };
+            for partial in partials.into_iter() {
+                if let PartialExpression::Expression(expr) = partial {
+                    answer = Expression::Apply(Box::new(answer), Box::new(expr));
+                } else {
+                    return Err(Error::new(partial.token(), "unexpected operator"));
+                }
+            }
+            return Ok(answer);
+        }
+    };
     if neg_precedence == 0 {
         let token = partials[index].token();
         return Err(Error::new(
@@ -249,8 +278,10 @@ mod tests {
     fn expect_optimal(input: &str, is_value: bool) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
-        let (exp, _) =
-            parse_expression(&mut tokens, is_value, |t| t == TokenType::NewLine).unwrap();
+        let exp = match parse_expression(&mut tokens, is_value, |t| t == TokenType::NewLine) {
+            Ok((e, _)) => e,
+            Err(e) => panic!("unexpected error parsing: {}", e),
+        };
         let output = exp.to_string();
         assert_eq!(input, output);
     }
@@ -295,7 +326,10 @@ mod tests {
 
     #[test]
     fn test_function_application() {
-        // check_value("foo()");
+        check_value("f(x)");
+        check_value("foo(x, y)");
+        check_value("foo(x)(y)");
+        check_value("foo(x, y + z, w)");
     }
 
     #[test]
