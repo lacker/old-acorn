@@ -67,14 +67,15 @@ impl TokenType {
     // Operators that are not allowed in an expression have a precedence of 0.
     pub fn value_precedence(&self) -> i8 {
         match self {
-            TokenType::Plus => 7,
-            TokenType::Minus => 7,
-            TokenType::Equals => 6,
-            TokenType::Exclam => 5,
-            TokenType::Pipe => 4,
-            TokenType::Ampersand => 4,
-            TokenType::LeftRightArrow => 3,
-            TokenType::RightArrow => 2,
+            TokenType::Plus => 8,
+            TokenType::Minus => 8,
+            TokenType::Equals => 7,
+            TokenType::Exclam => 6,
+            TokenType::Pipe => 5,
+            TokenType::Ampersand => 5,
+            TokenType::LeftRightArrow => 4,
+            TokenType::RightArrow => 3,
+            TokenType::Colon => 2,
             TokenType::Comma => 1,
             _ => 0,
         }
