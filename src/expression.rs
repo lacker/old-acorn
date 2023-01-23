@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fmt};
 
-use crate::token::{Error, Result, Token, TokenType, MAX_PRECEDENCE};
+use crate::token::{Error, Result, Token, TokenType};
 
 // An Expression represents the basic structuring of tokens into a syntax tree.
 // This includes both value expressions, like:
@@ -21,7 +21,7 @@ pub enum Expression<'a> {
 
 impl fmt::Display for Expression<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_helper(f, 0, 0, self.guess_is_value())
+        self.fmt_helper(f)
     }
 }
 
@@ -30,41 +30,29 @@ impl Expression<'_> {
     // left_p and right_p are the precedences of the expressions to either side of this one.
     // value is whether this expression is a value (as opposed to a type)
     // They must happen after this one.
-    fn fmt_helper(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        left_p: i8,
-        right_p: i8,
-        is_value: bool,
-    ) -> fmt::Result {
+    fn fmt_helper(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expression::Identifier(token) => write!(f, "{}", token),
             Expression::Unary(token, subexpression) => {
-                let p = token.precedence(is_value);
                 write!(f, "{}", token)?;
-                subexpression.fmt_helper(f, p, right_p, is_value)
+                subexpression.fmt_helper(f)
             }
             Expression::Binary(token, left, right) => {
-                let p = token.precedence(is_value);
-
-                // If the operator is a colon, then the right side is definitely a type
-                let right_is_value = is_value && token.token_type != TokenType::Colon;
-
-                left.fmt_helper(f, left_p, p, is_value)?;
+                left.fmt_helper(f)?;
                 if token.token_type.left_space() {
                     write!(f, " ")?;
                 }
                 write!(f, "{} ", token)?;
-                right.fmt_helper(f, p, right_p, right_is_value)
+                right.fmt_helper(f)
             }
             Expression::Apply(left, right) => {
                 // Function application is essentially the maximum precedence.
-                left.fmt_helper(f, left_p, MAX_PRECEDENCE, is_value)?;
-                right.fmt_helper(f, 0, 0, is_value)
+                left.fmt_helper(f)?;
+                right.fmt_helper(f)
             }
             Expression::Grouping(e) => {
                 write!(f, "(")?;
-                e.fmt_helper(f, 0, 0, is_value)?;
+                e.fmt_helper(f)?;
                 write!(f, ")")
             }
         }
