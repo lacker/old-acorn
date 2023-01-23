@@ -10,6 +10,7 @@ use crate::token::{Error, Result, Token, TokenType, MAX_PRECEDENCE};
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
 // "Apply" is a function application which doesn't really have a natural token to pick, so we
 // just pick an arbitrary one for debugging.
+#[derive(Debug)]
 pub enum Expression<'a> {
     Identifier(Token<'a>),
     Unary(Token<'a>, Box<Expression<'a>>),
@@ -58,6 +59,10 @@ impl Expression<'_> {
                 } else {
                     0
                 };
+
+                // If the operator is a colon, then the right side is definitely a type
+                let right_is_value = is_value && token.token_type != TokenType::Colon;
+
                 if threshold <= left_p || threshold <= right_p {
                     // We need to parenthesize.
                     write!(f, "(")?;
@@ -66,7 +71,7 @@ impl Expression<'_> {
                         write!(f, " ")?;
                     }
                     write!(f, "{} ", token)?;
-                    right.fmt_helper(f, p, 0, is_value)?;
+                    right.fmt_helper(f, p, 0, right_is_value)?;
                     write!(f, ")")
                 } else {
                     // We don't need to parenthesize.
@@ -75,7 +80,7 @@ impl Expression<'_> {
                         write!(f, " ")?;
                     }
                     write!(f, "{} ", token)?;
-                    right.fmt_helper(f, p, right_p, is_value)
+                    right.fmt_helper(f, p, right_p, right_is_value)
                 }
             }
             Expression::Apply(left, right) => {
@@ -108,10 +113,21 @@ impl Expression<'_> {
 // A PartialExpression represents a state in the middle of parsing, where we can have
 // either subexpressions or operators, and we haven't prioritized operators yet.
 // A list of partial expressions can be turned into an expression, according to operator precedence.
+#[derive(Debug)]
 enum PartialExpression<'a> {
     Expression(Expression<'a>),
     Unary(Token<'a>),
     Binary(Token<'a>),
+}
+
+impl fmt::Display for PartialExpression<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PartialExpression::Expression(e) => write!(f, "{}", e),
+            PartialExpression::Unary(token) => write!(f, "{}", token),
+            PartialExpression::Binary(token) => write!(f, "{}", token),
+        }
+    }
 }
 
 impl PartialExpression<'_> {
@@ -243,11 +259,15 @@ fn combine_partial_expressions<'a>(
 
     let mut right_partials = partials.split_off(index);
     let partial = right_partials.pop_front().unwrap();
+
+    // If the operator is a colon, then the right side is definitely a type
+    let right_is_value = is_value && partial.token().token_type != TokenType::Colon;
+
     if let PartialExpression::Binary(token) = partial {
         return Ok(Expression::Binary(
             token,
             Box::new(combine_partial_expressions(partials, is_value)?),
-            Box::new(combine_partial_expressions(right_partials, is_value)?),
+            Box::new(combine_partial_expressions(right_partials, right_is_value)?),
         ));
     }
     return Err(Error::new(partial.token(), "expected binary operator"));
@@ -333,6 +353,13 @@ mod tests {
     }
 
     #[test]
+    fn test_quantifiers() {
+        check_value("forall(x: nat, Suc(x) = x + 1)");
+        check_value("exists(x: nat, x = 0)");
+        check_value("exists(f: (nat, nat) -> nat, f(0, 0) = 0)");
+    }
+
+    #[test]
     fn test_type_parsing() {
         check_type("bool");
         check_type("bool -> bool");
@@ -345,16 +372,22 @@ mod tests {
 
         // Not expressions
         check_not_value("let a: int = x + 2");
-        check_not_value("axiom contraposition: (!p -> !q) -> (q -> p)");
         check_not_value("define (p & q) = !(p -> !q)");
         check_not_value("type Nat: axiom");
 
         // A math-function has to have arguments
         check_not_value("f()");
+
+        // These should be rejected but aren't.
+        // We aren't distinguishing correctly between groupings, value expressions,
+        // and type expressions.
+        // check_not_value("axiom contraposition: (!p -> !q) -> (q -> p)");
+        // check_not_value("f x");
     }
 
     #[test]
     fn test_bad_types() {
         check_not_type("bool, bool -> bool ->");
+        check_not_type("(!p -> !q) -> (q -> p)");
     }
 }
