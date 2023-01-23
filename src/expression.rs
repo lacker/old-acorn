@@ -8,14 +8,15 @@ use crate::token::{Error, Result, Token, TokenType, MAX_PRECEDENCE};
 // and type expressions, like:
 //    (int, bool) -> bool
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
-// "Apply" is a function application which doesn't really have a natural token to pick, so we
-// just pick an arbitrary one for debugging.
+// "Apply" is a function application which doesn't have a top-level token.
+// "Grouping" is another expression enclosed in parentheses.
 #[derive(Debug)]
 pub enum Expression<'a> {
     Identifier(Token<'a>),
     Unary(Token<'a>, Box<Expression<'a>>),
     Binary(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
     Apply(Box<Expression<'a>>, Box<Expression<'a>>),
+    Grouping(Box<Expression<'a>>),
 }
 
 impl fmt::Display for Expression<'_> {
@@ -63,7 +64,7 @@ impl Expression<'_> {
                 // If the operator is a colon, then the right side is definitely a type
                 let right_is_value = is_value && token.token_type != TokenType::Colon;
 
-                if threshold <= left_p || threshold <= right_p {
+                if false && threshold <= left_p || threshold <= right_p {
                     // We need to parenthesize.
                     write!(f, "(")?;
                     left.fmt_helper(f, 0, p, is_value)?;
@@ -86,8 +87,11 @@ impl Expression<'_> {
             Expression::Apply(left, right) => {
                 // Function application is essentially the maximum precedence.
                 left.fmt_helper(f, left_p, MAX_PRECEDENCE, is_value)?;
+                right.fmt_helper(f, 0, 0, is_value)
+            }
+            Expression::Grouping(e) => {
                 write!(f, "(")?;
-                right.fmt_helper(f, 0, 0, is_value)?;
+                e.fmt_helper(f, 0, 0, is_value)?;
                 write!(f, ")")
             }
         }
@@ -106,6 +110,7 @@ impl Expression<'_> {
             Expression::Unary(token, _) => token,
             Expression::Binary(token, _, _) => token,
             Expression::Apply(left, _) => left.token(),
+            Expression::Grouping(e) => e.token(),
         }
     }
 }
@@ -157,7 +162,8 @@ fn parse_partial_expressions<'a>(
             TokenType::LeftParen => {
                 let (subexpression, _) =
                     parse_expression(tokens, is_value, |t| t == TokenType::RightParen)?;
-                partial_expressions.push_back(PartialExpression::Expression(subexpression));
+                let group = Expression::Grouping(Box::new(subexpression));
+                partial_expressions.push_back(PartialExpression::Expression(group));
             }
             TokenType::Identifier => {
                 partial_expressions

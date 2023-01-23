@@ -76,6 +76,7 @@ impl Environment {
                 left.token(),
                 "unexpected function application in type expression",
             )),
+            Expression::Grouping(e) => self.evaluate_partial_type_expression(e),
         }
     }
 
