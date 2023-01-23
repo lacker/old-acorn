@@ -55,34 +55,17 @@ impl Expression<'_> {
             }
             Expression::Binary(token, left, right) => {
                 let p = token.precedence(is_value);
-                let threshold = p + if token.token_type.always_associative() {
-                    1
-                } else {
-                    0
-                };
 
                 // If the operator is a colon, then the right side is definitely a type
                 let right_is_value = is_value && token.token_type != TokenType::Colon;
 
-                if false && threshold <= left_p || threshold <= right_p {
-                    // We need to parenthesize.
-                    write!(f, "(")?;
-                    left.fmt_helper(f, 0, p, is_value)?;
-                    if token.token_type.left_space() {
-                        write!(f, " ")?;
-                    }
-                    write!(f, "{} ", token)?;
-                    right.fmt_helper(f, p, 0, right_is_value)?;
-                    write!(f, ")")
-                } else {
-                    // We don't need to parenthesize.
-                    left.fmt_helper(f, left_p, p, is_value)?;
-                    if token.token_type.left_space() {
-                        write!(f, " ")?;
-                    }
-                    write!(f, "{} ", token)?;
-                    right.fmt_helper(f, p, right_p, right_is_value)
+                // We don't need to parenthesize.
+                left.fmt_helper(f, left_p, p, is_value)?;
+                if token.token_type.left_space() {
+                    write!(f, " ")?;
                 }
+                write!(f, "{} ", token)?;
+                right.fmt_helper(f, p, right_p, right_is_value)
             }
             Expression::Apply(left, right) => {
                 // Function application is essentially the maximum precedence.
