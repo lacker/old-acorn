@@ -314,6 +314,11 @@ mod tests {
     }
 
     #[test]
+    fn test_function_signatures() {
+        check_type("foo(a: bool, b: nat) -> bool");
+    }
+
+    #[test]
     fn test_type_parsing() {
         check_type("bool");
         check_type("bool -> bool");
