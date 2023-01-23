@@ -21,50 +21,30 @@ pub enum Expression<'a> {
 
 impl fmt::Display for Expression<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_helper(f)
+        match self {
+            Expression::Identifier(token) => write!(f, "{}", token),
+            Expression::Unary(token, subexpression) => {
+                write!(f, "{}{}", token, subexpression)
+            }
+            Expression::Binary(token, left, right) => {
+                let spacer = if token.token_type.left_space() {
+                    " "
+                } else {
+                    ""
+                };
+                write!(f, "{}{}{} {}", left, spacer, token, right)
+            }
+            Expression::Apply(left, right) => {
+                write!(f, "{}{}", left, right)
+            }
+            Expression::Grouping(e) => {
+                write!(f, "({})", e)
+            }
+        }
     }
 }
 
 impl Expression<'_> {
-    // Prints out this expression, parenthesizing only if necessary.
-    // left_p and right_p are the precedences of the expressions to either side of this one.
-    // value is whether this expression is a value (as opposed to a type)
-    // They must happen after this one.
-    fn fmt_helper(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Expression::Identifier(token) => write!(f, "{}", token),
-            Expression::Unary(token, subexpression) => {
-                write!(f, "{}", token)?;
-                subexpression.fmt_helper(f)
-            }
-            Expression::Binary(token, left, right) => {
-                left.fmt_helper(f)?;
-                if token.token_type.left_space() {
-                    write!(f, " ")?;
-                }
-                write!(f, "{} ", token)?;
-                right.fmt_helper(f)
-            }
-            Expression::Apply(left, right) => {
-                // Function application is essentially the maximum precedence.
-                left.fmt_helper(f)?;
-                right.fmt_helper(f)
-            }
-            Expression::Grouping(e) => {
-                write!(f, "(")?;
-                e.fmt_helper(f)?;
-                write!(f, ")")
-            }
-        }
-    }
-
-    pub fn guess_is_value(&self) -> bool {
-        match self {
-            Expression::Binary(token, _, _) => token.token_type != TokenType::Colon,
-            _ => true,
-        }
-    }
-
     pub fn token(&self) -> &Token<'_> {
         match self {
             Expression::Identifier(token) => token,
@@ -197,7 +177,14 @@ fn combine_partial_expressions<'a>(
             };
             for partial in partials.into_iter() {
                 if let PartialExpression::Expression(expr) = partial {
-                    answer = Expression::Apply(Box::new(answer), Box::new(expr));
+                    if let Expression::Grouping(_) = expr {
+                        answer = Expression::Apply(Box::new(answer), Box::new(expr));
+                    } else {
+                        return Err(Error::new(
+                            expr.token(),
+                            "function arguments must be parenthesized",
+                        ));
+                    }
                 } else {
                     return Err(Error::new(partial.token(), "unexpected operator"));
                 }
@@ -345,11 +332,8 @@ mod tests {
         // A math-function has to have arguments
         check_not_value("f()");
 
-        // These should be rejected but aren't.
-        // We aren't distinguishing correctly between groupings, value expressions,
-        // and type expressions.
-        // check_not_value("axiom contraposition: (!p -> !q) -> (q -> p)");
-        // check_not_value("f x");
+        check_not_value("axiom contraposition: (!p -> !q) -> (q -> p)");
+        check_not_value("f x");
     }
 
     #[test]
