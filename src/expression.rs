@@ -41,17 +41,8 @@ impl Expression<'_> {
             Expression::Identifier(token) => write!(f, "{}", token),
             Expression::Unary(token, subexpression) => {
                 let p = token.precedence(is_value);
-                if right_p > p {
-                    // If we didn't parenthesize, the right operator would happen first.
-                    // So we do need to parenthesize.
-                    write!(f, "({}", token)?;
-                    subexpression.fmt_helper(f, p, 0, is_value)?;
-                    write!(f, ")")
-                } else {
-                    // We don't need to parenthesize.
-                    write!(f, "{}", token)?;
-                    subexpression.fmt_helper(f, p, right_p, is_value)
-                }
+                write!(f, "{}", token)?;
+                subexpression.fmt_helper(f, p, right_p, is_value)
             }
             Expression::Binary(token, left, right) => {
                 let p = token.precedence(is_value);
@@ -59,7 +50,6 @@ impl Expression<'_> {
                 // If the operator is a colon, then the right side is definitely a type
                 let right_is_value = is_value && token.token_type != TokenType::Colon;
 
-                // We don't need to parenthesize.
                 left.fmt_helper(f, left_p, p, is_value)?;
                 if token.token_type.left_space() {
                     write!(f, " ")?;
