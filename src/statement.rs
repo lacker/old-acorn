@@ -8,15 +8,18 @@ use std::iter::Peekable;
 //   let a: int = x + 2
 // The first token is the variable name "a", the second is the type "int",
 // and the expression is the "x + 2".
-pub struct LetStatement<'a> {
+// "let" indicates a private definition, and "define" indicates a public definition.
+pub struct DefinitionStatement<'a> {
     name: &'a str,
     type_expr: Option<Expression<'a>>,
     value: Option<Expression<'a>>,
+    public: bool,
 }
 
-impl fmt::Display for LetStatement<'_> {
+impl fmt::Display for DefinitionStatement<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "let {}", self.name)?;
+        let keyword = if self.public { "define" } else { "let" };
+        write!(f, "{} {}", keyword, self.name)?;
         if let Some(type_expr) = &self.type_expr {
             write!(f, ": {}", type_expr)?;
         }
@@ -65,9 +68,8 @@ pub struct TypeStatement<'a> {
 // "EndBlock" is maybe not really a statement; it indicates a } ending a block with
 // a bunch of statements.
 pub enum Statement<'a> {
-    Let(LetStatement<'a>),
+    Definition(DefinitionStatement<'a>),
     Theorem(TheoremStatement<'a>),
-    Define(Expression<'a>),
     Prop(PropStatement<'a>),
     Type(TypeStatement<'a>),
     EndBlock,
@@ -100,7 +102,7 @@ impl Statement<'_> {
             write!(f, " ")?;
         }
         match self {
-            Statement::Let(ls) => write!(f, "{}", ls),
+            Statement::Definition(ds) => write!(f, "{}", ds),
 
             Statement::Theorem(ts) => {
                 if ts.axiomatic {
@@ -124,10 +126,6 @@ impl Statement<'_> {
                     write_block(f, &ts.body, indent)?;
                 }
                 Ok(())
-            }
-
-            Statement::Define(ds) => {
-                write!(f, "define {}", ds)
             }
 
             Statement::Prop(ps) => {
@@ -220,8 +218,11 @@ where
     })
 }
 
-// Parses a let statement where the "let" keyword has already been consumed.
-fn parse_let_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<LetStatement<'a>>
+// Parses a let statement where the "let" or "define" keyword has already been consumed.
+fn parse_definition_statement<'a, I>(
+    tokens: &mut Peekable<I>,
+    public: bool,
+) -> Result<DefinitionStatement<'a>>
 where
     I: Iterator<Item = Token<'a>>,
 {
@@ -259,10 +260,11 @@ where
     } else {
         return Err(token::Error::EOF);
     };
-    Ok(LetStatement {
+    Ok(DefinitionStatement {
         name,
         type_expr,
         value,
+        public,
     })
 }
 
@@ -293,7 +295,9 @@ where
                 }
                 TokenType::Let => {
                     tokens.next();
-                    return Ok(Some(Statement::Let(parse_let_statement(tokens)?)));
+                    return Ok(Some(Statement::Definition(parse_definition_statement(
+                        tokens, false,
+                    )?)));
                 }
                 TokenType::Axiom => {
                     tokens.next();
@@ -309,17 +313,9 @@ where
                 }
                 TokenType::Define => {
                     tokens.next();
-                    // TODO: we need to change this with the new way of defining
-                    let (exp, _) = parse_expression(tokens, true, |t| t == TokenType::NewLine)?;
-                    if let Expression::Binary(op, _, _) = exp {
-                        if op.token_type == TokenType::Equals {
-                            return Ok(Some(Statement::Define(exp)));
-                        }
-                    }
-                    return Err(Error::new(
-                        exp.token(),
-                        "expected equals expression after def",
-                    ));
+                    return Ok(Some(Statement::Definition(parse_definition_statement(
+                        tokens, true,
+                    )?)));
                 }
                 TokenType::Type => {
                     tokens.next();

@@ -3,10 +3,13 @@ use std::{collections::VecDeque, fmt};
 use crate::token::{Error, Result, Token, TokenType};
 
 // An Expression represents the basic structuring of tokens into a syntax tree.
-// This includes both value expressions, like:
+// There are three sorts of expressions.
+// Value expressions, like:
 //    1 + 2
-// and type expressions, like:
+// Type expressions, like:
 //    (int, bool) -> bool
+// And declaration expressions, like
+//   p: bool
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
 // "Apply" is a function application which doesn't have a top-level token.
 // "Grouping" is another expression enclosed in parentheses.
