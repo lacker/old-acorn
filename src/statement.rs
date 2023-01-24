@@ -10,8 +10,7 @@ use std::iter::Peekable;
 // and the expression is the "x + 2".
 // "let" indicates a private definition, and "define" indicates a public definition.
 pub struct DefinitionStatement<'a> {
-    name: &'a str,
-    type_expr: Option<Expression<'a>>,
+    declaration: Expression<'a>,
     value: Option<Expression<'a>>,
     public: bool,
 }
@@ -19,10 +18,7 @@ pub struct DefinitionStatement<'a> {
 impl fmt::Display for DefinitionStatement<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let keyword = if self.public { "define" } else { "let" };
-        write!(f, "{} {}", keyword, self.name)?;
-        if let Some(type_expr) = &self.type_expr {
-            write!(f, ": {}", type_expr)?;
-        }
+        write!(f, "{} {}", keyword, self.declaration)?;
         if let Some(value) = &self.value {
             write!(f, " = {}", value)?;
         }
@@ -226,46 +222,26 @@ fn parse_definition_statement<'a, I>(
 where
     I: Iterator<Item = Token<'a>>,
 {
-    let name = expect_type(tokens, TokenType::Identifier)?.text;
+    let (declaration, terminator) = parse_expression(tokens, false, |t| {
+        t == TokenType::NewLine || t == TokenType::Equals
+    })?;
 
-    let (type_expr, value) = if let Some(type_token) = tokens.peek() {
-        match type_token.token_type {
-            TokenType::Colon => {
-                tokens.next();
-                let (type_expr, terminator) = parse_expression(tokens, false, |t| {
-                    t == TokenType::Equals || t == TokenType::NewLine
-                })?;
-                if terminator.token_type == TokenType::NewLine {
-                    // This is a declaration, with a type but no value
-                    (Some(type_expr), None)
-                } else {
-                    // This is a definition, with both a type and a value
-                    let (value, _) = parse_expression(tokens, true, |t| t == TokenType::NewLine)?;
-                    (Some(type_expr), Some(value))
-                }
-            }
-            TokenType::Equals => {
-                // This is a definition, with no type but a value
-                tokens.next();
-                let (value, _) = parse_expression(tokens, true, |t| t == TokenType::NewLine)?;
-                (None, Some(value))
-            }
-            _ => {
-                return Err(Error::new(
-                    &type_token,
-                    "unexpected token after identifier in definition",
-                ))
-            }
-        }
+    if terminator.token_type == TokenType::NewLine {
+        // This is a declaration, with no value
+        Ok(DefinitionStatement {
+            public,
+            declaration,
+            value: None,
+        })
     } else {
-        return Err(token::Error::EOF);
-    };
-    Ok(DefinitionStatement {
-        name,
-        type_expr,
-        value,
-        public,
-    })
+        // This is a definition, with both a declaration and a value
+        let (value, _) = parse_expression(tokens, true, |t| t == TokenType::NewLine)?;
+        Ok(DefinitionStatement {
+            public,
+            declaration,
+            value: Some(value),
+        })
+    }
 }
 
 // Parses a type statement where the "type" keyword has already been consumed.
@@ -350,7 +326,7 @@ mod tests {
     use crate::token::scan;
     use indoc::indoc;
 
-    fn expect_optimal(input: &str) {
+    fn ok(input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter().peekable();
         let statement = match parse_statement(&mut tokens) {
@@ -362,7 +338,7 @@ mod tests {
     }
 
     // Expects an error parsing the input into a statement, but not a lex error
-    fn expect_error(input: &str) {
+    fn fail(input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter().peekable();
         assert!(parse_statement(&mut tokens).is_err());
@@ -370,41 +346,38 @@ mod tests {
 
     #[test]
     fn test_definition_statements() {
-        expect_optimal("let p: bool");
-        expect_optimal("let a: int = x + 2");
-        expect_optimal("let a = x + 2");
-        expect_optimal("let f: int -> bool");
-        expect_optimal("let f: int -> int = x -> x + 1");
-        expect_optimal("let g: (int, int) -> int");
-        expect_optimal("let g: (int, int, int) -> bool");
-
-        // TODO: implement
-        // expect_optimal("define or(p: bool, q: bool) -> bool = (!p -> q)");
-
-        // expect_optimal("define (p & q) = !(p -> !q)");
-        // expect_optimal("define (p <-> q) = ((p -> q) & (q -> p))");
+        ok("let p: bool");
+        ok("let a: int = x + 2");
+        ok("let a = x + 2");
+        ok("let f: int -> bool");
+        ok("let f: int -> int = x -> x + 1");
+        ok("let g: (int, int) -> int");
+        ok("let g: (int, int, int) -> bool");
+        ok("define or(p: bool, q: bool) -> bool = (!p -> q)");
+        ok("define and(p: bool, q: bool) -> bool = !(p -> !q)");
+        ok("define iff(p: bool, q: bool) -> bool = (p -> q) & (q -> p)");
     }
 
     #[test]
     fn test_theorem_statements() {
-        expect_optimal("axiom simplification: p -> (q -> p)");
-        expect_optimal("axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))");
-        expect_optimal("axiom contraposition: (!p -> !q) -> (q -> p)");
-        expect_optimal("axiom modus_ponens(p, p -> q): q");
-        expect_optimal("theorem and_comm: p & q <-> q & p");
-        expect_optimal("theorem and_assoc: (p & q) & r <-> p & (q & r)");
-        expect_optimal("theorem or_comm: p | q <-> q | p");
-        expect_optimal("theorem or_assoc: (p | q) | r <-> p | (q | r)");
+        ok("axiom simplification: p -> (q -> p)");
+        ok("axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))");
+        ok("axiom contraposition: (!p -> !q) -> (q -> p)");
+        ok("axiom modus_ponens(p, p -> q): q");
+        ok("theorem and_comm: p & q <-> q & p");
+        ok("theorem and_assoc: (p & q) & r <-> p & (q & r)");
+        ok("theorem or_comm: p | q <-> q | p");
+        ok("theorem or_assoc: (p | q) | r <-> p | (q | r)");
     }
 
     #[test]
     fn test_prop_statements() {
-        expect_optimal("p -> p");
+        ok("p -> p");
     }
 
     #[test]
     fn test_nat_ac_statements() {
-        expect_optimal("type Nat: axiom");
+        ok("type Nat: axiom");
 
         // TODO: make this work
         // expect_optimal("define 0: Nat = axiom");
@@ -412,11 +385,11 @@ mod tests {
 
     #[test]
     fn test_block_parsing() {
-        expect_optimal(indoc! {"
+        ok(indoc! {"
             theorem foo: bar {
                 baz
             }"});
-        expect_optimal(indoc! {"
+        ok(indoc! {"
             foo {
                 bar
             }"});
@@ -424,10 +397,10 @@ mod tests {
 
     #[test]
     fn test_statement_errors() {
-        expect_error("+ + +");
-        expect_error("let p: bool =");
-        expect_error("let p: bool = (");
-        expect_error("let p: bool = (x + 2");
-        expect_error("let p: bool = x + 2)");
+        fail("+ + +");
+        fail("let p: bool =");
+        fail("let p: bool = (");
+        fail("let p: bool = (x + 2");
+        fail("let p: bool = x + 2)");
     }
 }
