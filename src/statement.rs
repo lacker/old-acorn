@@ -253,7 +253,7 @@ where
             _ => {
                 return Err(Error::new(
                     &type_token,
-                    "unexpected token after let <identifier>",
+                    "unexpected token after identifier in definition",
                 ))
             }
         }
@@ -369,7 +369,7 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_statement_parsing() {
+    fn test_definition_statements() {
         expect_optimal("let p: bool");
         expect_optimal("let a: int = x + 2");
         expect_optimal("let a = x + 2");
@@ -377,6 +377,16 @@ mod tests {
         expect_optimal("let f: int -> int = x -> x + 1");
         expect_optimal("let g: (int, int) -> int");
         expect_optimal("let g: (int, int, int) -> bool");
+
+        // TODO: implement
+        // expect_optimal("define or(p: bool, q: bool) -> bool = (!p -> q)");
+
+        // expect_optimal("define (p & q) = !(p -> !q)");
+        // expect_optimal("define (p <-> q) = ((p -> q) & (q -> p))");
+    }
+
+    #[test]
+    fn test_theorem_statements() {
         expect_optimal("axiom simplification: p -> (q -> p)");
         expect_optimal("axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))");
         expect_optimal("axiom contraposition: (!p -> !q) -> (q -> p)");
@@ -385,12 +395,10 @@ mod tests {
         expect_optimal("theorem and_assoc: (p & q) & r <-> p & (q & r)");
         expect_optimal("theorem or_comm: p | q <-> q | p");
         expect_optimal("theorem or_assoc: (p | q) | r <-> p | (q | r)");
+    }
 
-        // TODO: replace these with prefix versions
-        // expect_optimal("define (p | q) = (!p -> q)");
-        // expect_optimal("define (p & q) = !(p -> !q)");
-        // expect_optimal("define (p <-> q) = ((p -> q) & (q -> p))");
-
+    #[test]
+    fn test_prop_statements() {
         expect_optimal("p -> p");
     }
 

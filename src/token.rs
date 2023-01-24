@@ -65,6 +65,7 @@ impl TokenType {
     // There are two precedences: for operators in a value, like 2 + 2, and operators in
     // a type expression, like (int -> int) -> int.
     // Operators that are not allowed in an expression have a precedence of 0.
+    // "Value" expressions also include "declarations" which is why colons are allowed.
     pub fn value_precedence(&self) -> i8 {
         match self {
             TokenType::Plus => 8,
