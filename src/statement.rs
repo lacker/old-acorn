@@ -378,9 +378,7 @@ mod tests {
     #[test]
     fn test_nat_ac_statements() {
         ok("type Nat: axiom");
-
-        // TODO: make this work
-        // expect_optimal("define 0: Nat = axiom");
+        ok("define 0: Nat = axiom");
     }
 
     #[test]
