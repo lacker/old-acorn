@@ -379,6 +379,7 @@ mod tests {
     fn test_nat_ac_statements() {
         ok("type Nat: axiom");
         ok("define 0: Nat = axiom");
+        ok("define Suc: Nat -> Nat = axiom");
     }
 
     #[test]
