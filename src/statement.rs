@@ -380,6 +380,7 @@ mod tests {
         ok("type Nat: axiom");
         ok("define 0: Nat = axiom");
         ok("define Suc: Nat -> Nat = axiom");
+        ok("define 1: Nat = Suc(0)");
     }
 
     #[test]
