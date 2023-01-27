@@ -381,6 +381,7 @@ mod tests {
         ok("define 0: Nat = axiom");
         ok("define Suc: Nat -> Nat = axiom");
         ok("define 1: Nat = Suc(0)");
+        ok("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
     }
 
     #[test]
