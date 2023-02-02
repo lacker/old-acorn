@@ -384,6 +384,7 @@ mod tests {
         ok("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         ok("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         ok("axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)");
+        ok("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
     }
 
     #[test]
