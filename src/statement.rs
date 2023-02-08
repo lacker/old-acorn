@@ -389,6 +389,7 @@ mod tests {
         ok("axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))");
         ok("define add(x: Nat, y: Nat) -> Nat = recursion(Suc, x, y)");
         ok("theorem add_zero_right(a: Nat): add(a, 0) = a");
+        ok("theorem add_zero_left(a: Nat): add(0, a) = a");
     }
 
     #[test]
