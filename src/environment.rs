@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::acorn_type::{AcornFunctionType, AcornType};
+use crate::acorn_value::AcornValue;
 use crate::expression::Expression;
 use crate::statement::Statement;
 use crate::token::{Error, Result, TokenType};
@@ -9,6 +10,9 @@ use crate::token::{Error, Result, TokenType};
 pub struct Environment {
     // How many axiomatic types have been defined in this scope
     axiomatic_type_count: usize,
+
+    // How many axiomatic values have been defined in this scope
+    axiomatic_value_count: usize,
 
     // Types that are named in this scope
     named_types: HashMap<String, AcornType>,
@@ -34,6 +38,7 @@ impl Environment {
     pub fn new() -> Self {
         Environment {
             axiomatic_type_count: 0,
+            axiomatic_value_count: 0,
             named_types: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             declarations: HashMap::new(),
         }
@@ -43,6 +48,12 @@ impl Environment {
         let axiomatic_type = AcornType::Axiomatic(self.axiomatic_type_count);
         self.axiomatic_type_count += 1;
         axiomatic_type
+    }
+
+    pub fn new_axiomatic_value(&mut self) -> AcornValue {
+        let axiomatic_value = AcornValue::Axiomatic(self.axiomatic_value_count);
+        self.axiomatic_value_count += 1;
+        axiomatic_value
     }
 
     // Evaluates an expression that we expect to be indicating either a type or an arg list
