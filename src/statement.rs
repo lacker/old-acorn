@@ -390,6 +390,10 @@ mod tests {
         ok("define add(x: Nat, y: Nat) -> Nat = recursion(Suc, x, y)");
         ok("theorem add_zero_right(a: Nat): add(a, 0) = a");
         ok("theorem add_zero_left(a: Nat): add(0, a) = a");
+        ok("theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))");
+        ok("theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))");
+        ok("theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)");
+        ok("theorem add_assoc(a: Nat, b: Nat, c: Nat): add(a, add(b, c)) = add(add(a, b), c)");
     }
 
     #[test]
