@@ -6,13 +6,17 @@ use std::iter::Peekable;
 
 // For example, in:
 //   let a: int = x + 2
-// The first token is the variable name "a", the second is the type "int",
-// and the expression is the "x + 2".
+// The declaration is "a: int" and the expression is the "x + 2".
+//
+// The declaration can also be a function form, like in
+//   define foo(a: int, b: int) -> int = a + a + b
+// where the declaration is "foo(a: int, b: int) -> int".
+//
 // "let" indicates a private definition, and "define" indicates a public definition.
 pub struct DefinitionStatement<'a> {
-    declaration: Expression<'a>,
-    value: Option<Expression<'a>>,
-    public: bool,
+    pub declaration: Expression<'a>,
+    pub value: Option<Expression<'a>>,
+    pub public: bool,
 }
 
 impl fmt::Display for DefinitionStatement<'_> {

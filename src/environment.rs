@@ -17,8 +17,11 @@ pub struct Environment {
     // Types that are named in this scope
     named_types: HashMap<String, AcornType>,
 
-    // Variables that have names and types but not values
+    // Variables that have names and types
     declarations: HashMap<String, AcornType>,
+
+    // Declared variables that also have values.
+    values: HashMap<String, AcornValue>,
 }
 
 impl fmt::Display for Environment {
@@ -41,6 +44,7 @@ impl Environment {
             axiomatic_value_count: 0,
             named_types: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             declarations: HashMap::new(),
+            values: HashMap::new(),
         }
     }
 
@@ -121,6 +125,37 @@ impl Environment {
         }
     }
 
+    pub fn evaluate_value_expression(&mut self, expression: &Expression) -> Result<AcornValue> {
+        match expression {
+            Expression::Identifier(token) => {
+                if token.token_type == TokenType::Axiom {
+                    return Ok(self.new_axiomatic_value());
+                }
+                if let Some(acorn_value) = self.values.get(token.text) {
+                    Ok(acorn_value.clone())
+                } else {
+                    Err(Error::new(token, "expected value name"))
+                }
+            }
+            Expression::Unary(token, _) => Err(Error::new(
+                token,
+                "TODO: handle unary operator in value expression",
+            )),
+            Expression::Binary(token, _, _) => Err(Error::new(
+                token,
+                "TODO: handle binary operators in value expression",
+            )),
+            Expression::Apply(left, _) => Err(Error::new(
+                left.token(),
+                "TODO: handle function application in value expression",
+            )),
+            _ => Err(Error::new(
+                expression.token(),
+                "TODO: handle fallthrough case in value expression",
+            )),
+        }
+    }
+
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
         match statement {
             Statement::Type(ts) => {
@@ -134,6 +169,34 @@ impl Environment {
                 self.named_types.insert(ts.name.to_string(), acorn_type);
                 Ok(())
             }
+            Statement::Definition(ds) => match &ds.declaration {
+                Expression::Binary(token, left, right) => match token.token_type {
+                    TokenType::Colon => {
+                        let name = left.token().text.to_string();
+                        if self.declarations.contains_key(&name) {
+                            return Err(Error::new(
+                                token,
+                                "variable name already defined in this scope",
+                            ));
+                        }
+                        let acorn_type = self.evaluate_type_expression(right)?;
+                        if let Some(value_expr) = &ds.value {
+                            let acorn_value = self.evaluate_value_expression(value_expr)?;
+                            self.values.insert(name.clone(), acorn_value);
+                        }
+                        self.declarations.insert(name, acorn_type);
+                        Ok(())
+                    }
+                    TokenType::RightArrow => {
+                        panic!("TODO: handle function definitions")
+                    }
+                    _ => Err(Error::new(token, "invalid binary declaration")),
+                },
+                _ => Err(Error::new(
+                    &ds.declaration.token(),
+                    "invalid nonbinary declaration",
+                )),
+            },
             _ => panic!("TODO"),
         }
     }
@@ -201,5 +264,7 @@ mod tests {
         add_statement(&mut env, "type Nat: axiom");
         bad_statement(&mut env, "type Borf: Gorf");
         bad_statement(&mut env, "type Nat: axiom");
+
+        add_statement(&mut env, "define 0: Nat = axiom");
     }
 }
