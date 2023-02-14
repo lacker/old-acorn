@@ -172,6 +172,12 @@ impl Environment {
             Statement::Definition(ds) => match &ds.declaration {
                 Expression::Binary(token, left, right) => match token.token_type {
                     TokenType::Colon => {
+                        if left.token().token_type != TokenType::Identifier {
+                            return Err(Error::new(
+                                left.token(),
+                                "expected an identifier in this declaration",
+                            ));
+                        }
                         let name = left.token().text.to_string();
                         if self.declarations.contains_key(&name) {
                             return Err(Error::new(
@@ -255,7 +261,11 @@ mod tests {
 
     fn bad_statement(env: &mut Environment, input: &str) {
         let statement = Statement::parse_str(input).unwrap();
-        assert!(env.add_statement(&statement).is_err());
+        assert!(
+            env.add_statement(&statement).is_err(),
+            "expected error in: {}",
+            input
+        );
     }
 
     #[test]
@@ -266,5 +276,7 @@ mod tests {
         bad_statement(&mut env, "type Nat: axiom");
 
         add_statement(&mut env, "define 0: Nat = axiom");
+        bad_statement(&mut env, "define Nat: 0 = axiom");
+        bad_statement(&mut env, "define axiom: Nat = 0");
     }
 }
