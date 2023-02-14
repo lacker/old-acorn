@@ -368,6 +368,7 @@ mod tests {
         ok("theorem and_assoc: (p & q) & r <-> p & (q & r)");
         ok("theorem or_comm: p | q <-> q | p");
         ok("theorem or_assoc: (p | q) | r <-> p | (q | r)");
+        ok("theorem suc_gt_zero(x: nat): Suc(x) > 0");
     }
 
     #[test]
@@ -415,5 +416,10 @@ mod tests {
         fail("let p: bool = (");
         fail("let p: bool = (x + 2");
         fail("let p: bool = x + 2)");
+    }
+
+    #[test]
+    fn test_only_declarations_in_signatures() {
+        // fail("theorem foo(x: int, x > 0): x + 1 > 0");
     }
 }
