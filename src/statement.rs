@@ -420,6 +420,6 @@ mod tests {
 
     #[test]
     fn test_only_declarations_in_signatures() {
-        // fail("theorem foo(x: int, x > 0): x + 1 > 0");
+        fail("theorem foo(x: int, x > 0): x + 1 > 0");
     }
 }
