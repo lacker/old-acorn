@@ -1,5 +1,5 @@
 use crate::expression::{parse_expression, Expression};
-use crate::token::{self, expect_token, expect_type, Error, Result, Token, TokenType};
+use crate::token::{self, expect_token, expect_type, scan, Error, Result, Token, TokenType};
 
 use std::fmt;
 use std::iter::Peekable;
@@ -92,57 +92,6 @@ impl fmt::Display for Statement<'_> {
     }
 }
 
-impl Statement<'_> {
-    fn fmt_helper(&self, f: &mut fmt::Formatter<'_>, indent: u8) -> fmt::Result {
-        for _ in 0..indent {
-            write!(f, " ")?;
-        }
-        match self {
-            Statement::Definition(ds) => write!(f, "{}", ds),
-
-            Statement::Theorem(ts) => {
-                if ts.axiomatic {
-                    write!(f, "axiom")?;
-                } else {
-                    write!(f, "theorem")?;
-                }
-                write!(f, " {}", ts.name)?;
-                if ts.args.len() > 0 {
-                    write!(f, "(")?;
-                    for (i, arg) in ts.args.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ", ")?;
-                        }
-                        write!(f, "{}", arg)?;
-                    }
-                    write!(f, ")")?;
-                }
-                write!(f, ": {}", ts.claim)?;
-                if ts.body.len() > 0 {
-                    write_block(f, &ts.body, indent)?;
-                }
-                Ok(())
-            }
-
-            Statement::Prop(ps) => {
-                write!(f, "{}", ps.claim)?;
-                if ps.body.len() > 0 {
-                    write_block(f, &ps.body, indent)?;
-                }
-                Ok(())
-            }
-
-            Statement::Type(ts) => {
-                write!(f, "type {}: {}", ts.name, ts.type_expr)
-            }
-
-            Statement::EndBlock => {
-                write!(f, "}}")
-            }
-        }
-    }
-}
-
 // Parses a block (a list of statements) where the left brace has already been consumed.
 fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> Result<Vec<Statement<'a>>>
 where
@@ -150,7 +99,7 @@ where
 {
     let mut body = Vec::new();
     loop {
-        match parse_statement(tokens)? {
+        match Statement::parse(tokens)? {
             Some(Statement::EndBlock) => break,
             Some(s) => body.push(s),
             None => return Err(token::Error::EOF),
@@ -255,67 +204,128 @@ where
     Ok(TypeStatement { name, type_expr })
 }
 
-// Tries to parse a single statement from the provided tokens.
-// A statement should end with a newline, which is consumed.
-// The iterator may also end, in which case this returns None.
-pub fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Statement<'a>>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
-    loop {
-        if let Some(token) = tokens.peek() {
-            match token.token_type {
-                TokenType::NewLine => {
-                    tokens.next();
-                    continue;
+impl Statement<'_> {
+    fn fmt_helper(&self, f: &mut fmt::Formatter<'_>, indent: u8) -> fmt::Result {
+        for _ in 0..indent {
+            write!(f, " ")?;
+        }
+        match self {
+            Statement::Definition(ds) => write!(f, "{}", ds),
+
+            Statement::Theorem(ts) => {
+                if ts.axiomatic {
+                    write!(f, "axiom")?;
+                } else {
+                    write!(f, "theorem")?;
                 }
-                TokenType::Let => {
-                    tokens.next();
-                    return Ok(Some(Statement::Definition(parse_definition_statement(
-                        tokens, false,
-                    )?)));
+                write!(f, " {}", ts.name)?;
+                if ts.args.len() > 0 {
+                    write!(f, "(")?;
+                    for (i, arg) in ts.args.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", arg)?;
+                    }
+                    write!(f, ")")?;
                 }
-                TokenType::Axiom => {
-                    tokens.next();
-                    return Ok(Some(Statement::Theorem(parse_theorem_statement(
-                        tokens, true,
-                    )?)));
+                write!(f, ": {}", ts.claim)?;
+                if ts.body.len() > 0 {
+                    write_block(f, &ts.body, indent)?;
                 }
-                TokenType::Theorem => {
-                    tokens.next();
-                    return Ok(Some(Statement::Theorem(parse_theorem_statement(
-                        tokens, false,
-                    )?)));
-                }
-                TokenType::Define => {
-                    tokens.next();
-                    return Ok(Some(Statement::Definition(parse_definition_statement(
-                        tokens, true,
-                    )?)));
-                }
-                TokenType::Type => {
-                    tokens.next();
-                    return Ok(Some(Statement::Type(parse_type_statement(tokens)?)));
-                }
-                TokenType::RightBrace => {
-                    tokens.next();
-                    expect_type(tokens, TokenType::NewLine)?;
-                    return Ok(Some(Statement::EndBlock));
-                }
-                _ => {
-                    let (claim, terminator) = parse_expression(tokens, true, |t| {
-                        t == TokenType::NewLine || t == TokenType::LeftBrace
-                    })?;
-                    let body = if terminator.token_type == TokenType::LeftBrace {
-                        parse_block(tokens)?
-                    } else {
-                        Vec::new()
-                    };
-                    return Ok(Some(Statement::Prop(PropStatement { claim, body })));
-                }
+                Ok(())
             }
-        } else {
-            return Ok(None);
+
+            Statement::Prop(ps) => {
+                write!(f, "{}", ps.claim)?;
+                if ps.body.len() > 0 {
+                    write_block(f, &ps.body, indent)?;
+                }
+                Ok(())
+            }
+
+            Statement::Type(ts) => {
+                write!(f, "type {}: {}", ts.name, ts.type_expr)
+            }
+
+            Statement::EndBlock => {
+                write!(f, "}}")
+            }
+        }
+    }
+
+    // Tries to parse a single statement from the provided tokens.
+    // A statement should end with a newline, which is consumed.
+    // The iterator may also end, in which case this returns None.
+    pub fn parse<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Statement<'a>>>
+    where
+        I: Iterator<Item = Token<'a>>,
+    {
+        loop {
+            if let Some(token) = tokens.peek() {
+                match token.token_type {
+                    TokenType::NewLine => {
+                        tokens.next();
+                        continue;
+                    }
+                    TokenType::Let => {
+                        tokens.next();
+                        return Ok(Some(Statement::Definition(parse_definition_statement(
+                            tokens, false,
+                        )?)));
+                    }
+                    TokenType::Axiom => {
+                        tokens.next();
+                        return Ok(Some(Statement::Theorem(parse_theorem_statement(
+                            tokens, true,
+                        )?)));
+                    }
+                    TokenType::Theorem => {
+                        tokens.next();
+                        return Ok(Some(Statement::Theorem(parse_theorem_statement(
+                            tokens, false,
+                        )?)));
+                    }
+                    TokenType::Define => {
+                        tokens.next();
+                        return Ok(Some(Statement::Definition(parse_definition_statement(
+                            tokens, true,
+                        )?)));
+                    }
+                    TokenType::Type => {
+                        tokens.next();
+                        return Ok(Some(Statement::Type(parse_type_statement(tokens)?)));
+                    }
+                    TokenType::RightBrace => {
+                        tokens.next();
+                        expect_type(tokens, TokenType::NewLine)?;
+                        return Ok(Some(Statement::EndBlock));
+                    }
+                    _ => {
+                        let (claim, terminator) = parse_expression(tokens, true, |t| {
+                            t == TokenType::NewLine || t == TokenType::LeftBrace
+                        })?;
+                        let body = if terminator.token_type == TokenType::LeftBrace {
+                            parse_block(tokens)?
+                        } else {
+                            Vec::new()
+                        };
+                        return Ok(Some(Statement::Prop(PropStatement { claim, body })));
+                    }
+                }
+            } else {
+                return Ok(None);
+            }
+        }
+    }
+
+    // Helper for tests; don't use in production code
+    pub fn parse_str(input: &str) -> Result<Statement> {
+        let tokens = scan(input)?;
+        let mut tokens = tokens.into_iter().peekable();
+        match Statement::parse(&mut tokens)? {
+            Some(statement) => Ok(statement),
+            None => panic!("expected statement, got EOF"),
         }
     }
 }
@@ -323,25 +333,16 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::token::scan;
     use indoc::indoc;
 
     fn ok(input: &str) {
-        let tokens = scan(input).unwrap();
-        let mut tokens = tokens.into_iter().peekable();
-        let statement = match parse_statement(&mut tokens) {
-            Ok(Some(statement)) => statement,
-            Ok(None) => panic!("expected statement, got EOF"),
-            Err(e) => panic!("expected statement, got error: {}", e),
-        };
+        let statement = Statement::parse_str(input).unwrap();
         assert_eq!(input, statement.to_string());
     }
 
     // Expects an error parsing the input into a statement, but not a lex error
     fn fail(input: &str) {
-        let tokens = scan(input).unwrap();
-        let mut tokens = tokens.into_iter().peekable();
-        assert!(parse_statement(&mut tokens).is_err());
+        assert!(Statement::parse_str(input).is_err());
     }
 
     #[test]

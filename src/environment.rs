@@ -113,6 +113,12 @@ impl Environment {
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
         match statement {
             Statement::Type(ts) => {
+                if self.named_types.contains_key(&ts.name.to_string()) {
+                    return Err(Error::new(
+                        &ts.type_expr.token(),
+                        "type name already defined in this scope",
+                    ));
+                }
                 let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
                 self.named_types.insert(ts.name.to_string(), acorn_type);
                 Ok(())
@@ -126,7 +132,6 @@ impl Environment {
 mod tests {
     use crate::{
         expression::parse_expression,
-        statement::parse_statement,
         token::{scan, TokenType},
     };
 
@@ -170,19 +175,20 @@ mod tests {
     }
 
     fn add_statement(env: &mut Environment, input: &str) {
-        let tokens = scan(input).unwrap();
-        let mut tokens = tokens.into_iter().peekable();
-        let statement = match parse_statement(&mut tokens) {
-            Ok(Some(statement)) => statement,
-            Ok(None) => panic!("Expected statement, got EOF"),
-            Err(error) => panic!("Error parsing statement: {}", error),
-        };
+        let statement = Statement::parse_str(input).unwrap();
         env.add_statement(&statement).unwrap();
+    }
+
+    fn bad_statement(env: &mut Environment, input: &str) {
+        let statement = Statement::parse_str(input).unwrap();
+        assert!(env.add_statement(&statement).is_err());
     }
 
     #[test]
     fn test_nat_ac() {
         let mut env = Environment::new();
         add_statement(&mut env, "type Nat: axiom");
+        bad_statement(&mut env, "type Borf: Gorf");
+        bad_statement(&mut env, "type Nat: axiom");
     }
 }
