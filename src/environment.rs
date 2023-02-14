@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::acorn_type::{AcornFunctionType, AcornType};
-use crate::acorn_value::AcornValue;
+use crate::acorn_type::{AcornType, FunctionType};
+use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::expression::Expression;
 use crate::statement::Statement;
 use crate::token::{Error, Result, TokenType};
@@ -84,7 +84,7 @@ impl Environment {
                 TokenType::RightArrow => {
                     let left_type = self.evaluate_partial_type_expression(left)?;
                     let right_type = self.evaluate_partial_type_expression(right)?;
-                    let function_type = AcornFunctionType {
+                    let function_type = FunctionType {
                         args: left_type.into_arg_list(),
                         value: Box::new(right_type),
                     };
@@ -125,6 +125,7 @@ impl Environment {
         }
     }
 
+    // Could be either a value or an argument list
     pub fn evaluate_value_expression(&mut self, expression: &Expression) -> Result<AcornValue> {
         match expression {
             Expression::Identifier(token) => {
@@ -141,18 +142,25 @@ impl Environment {
                 token,
                 "TODO: handle unary operator in value expression",
             )),
-            Expression::Binary(token, _, _) => Err(Error::new(
-                token,
-                "TODO: handle binary operators in value expression",
-            )),
-            Expression::Apply(left, _) => Err(Error::new(
-                left.token(),
-                "TODO: handle function application in value expression",
-            )),
-            _ => Err(Error::new(
-                expression.token(),
-                "TODO: handle fallthrough case in value expression",
-            )),
+            Expression::Binary(token, left, right) => {
+                if token.token_type == TokenType::Comma {
+                    // Flatten the values on either side, assumed to be arg lists
+                    let mut args = self.evaluate_value_expression(left)?.into_arg_list();
+                    args.extend(self.evaluate_value_expression(right)?.into_arg_list());
+                    Ok(AcornValue::ArgList(args))
+                } else {
+                    Err(Error::new(
+                        token,
+                        "unhandled binary operator in value expression",
+                    ))
+                }
+            }
+            Expression::Apply(function_expr, args_expr) => {
+                let function = Box::new(self.evaluate_value_expression(function_expr)?);
+                let args = self.evaluate_value_expression(args_expr)?.into_arg_list();
+                Ok(AcornValue::Function(FunctionApplication { function, args }))
+            }
+            Expression::Grouping(e) => self.evaluate_value_expression(e),
         }
     }
 

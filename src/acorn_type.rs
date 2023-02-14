@@ -1,12 +1,12 @@
 use std::fmt;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct AcornFunctionType {
+pub struct FunctionType {
     pub args: Vec<AcornType>,
     pub value: Box<AcornType>,
 }
 
-impl fmt::Display for AcornFunctionType {
+impl fmt::Display for FunctionType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let parens = self.args.len() > 1;
         if parens {
@@ -31,7 +31,7 @@ impl fmt::Display for AcornFunctionType {
 pub enum AcornType {
     Bool,
     Axiomatic(usize),
-    Function(AcornFunctionType),
+    Function(FunctionType),
     ArgList(Vec<AcornType>),
 }
 
