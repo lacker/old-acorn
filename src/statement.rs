@@ -49,8 +49,8 @@ pub struct PropStatement<'a> {
 
 // Type statements associate a name with a type expression
 pub struct TypeStatement<'a> {
-    name: &'a str,
-    type_expr: Expression<'a>,
+    pub name: &'a str,
+    pub type_expr: Expression<'a>,
 }
 
 // Acorn is a statement-based language. There are several types.

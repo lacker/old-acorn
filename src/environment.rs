@@ -3,9 +3,13 @@ use std::fmt;
 
 use crate::acorn_type::{AcornFunctionType, AcornType};
 use crate::expression::Expression;
+use crate::statement::Statement;
 use crate::token::{Error, Result, TokenType};
 
 pub struct Environment {
+    // How many axiomatic types have been defined in this scope
+    axiomatic_type_count: usize,
+
     // Types that are named in this scope
     named_types: HashMap<String, AcornType>,
 
@@ -29,15 +33,28 @@ impl fmt::Display for Environment {
 impl Environment {
     pub fn new() -> Self {
         Environment {
+            axiomatic_type_count: 0,
             named_types: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             declarations: HashMap::new(),
         }
     }
 
+    pub fn new_axiomatic_type(&mut self) -> AcornType {
+        let axiomatic_type = AcornType::Axiomatic(self.axiomatic_type_count);
+        self.axiomatic_type_count += 1;
+        axiomatic_type
+    }
+
     // Evaluates an expression that we expect to be indicating either a type or an arg list
-    pub fn evaluate_partial_type_expression(&self, expression: &Expression) -> Result<AcornType> {
+    pub fn evaluate_partial_type_expression(
+        &mut self,
+        expression: &Expression,
+    ) -> Result<AcornType> {
         match expression {
             Expression::Identifier(token) => {
+                if token.token_type == TokenType::Axiom {
+                    return Ok(self.new_axiomatic_type());
+                }
                 if let Some(acorn_type) = self.named_types.get(token.text) {
                     Ok(acorn_type.clone())
                 } else {
@@ -81,7 +98,7 @@ impl Environment {
     }
 
     // Evaluates an expression that indicates a complete type, not an arg list
-    pub fn evaluate_type_expression(&self, expression: &Expression) -> Result<AcornType> {
+    pub fn evaluate_type_expression(&mut self, expression: &Expression) -> Result<AcornType> {
         let acorn_type = self.evaluate_partial_type_expression(expression)?;
         if let AcornType::ArgList(_) = acorn_type {
             Err(Error::new(
@@ -92,18 +109,30 @@ impl Environment {
             Ok(acorn_type)
         }
     }
+
+    pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
+        match statement {
+            Statement::Type(ts) => {
+                let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
+                self.named_types.insert(ts.name.to_string(), acorn_type);
+                Ok(())
+            }
+            _ => panic!("TODO"),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
         expression::parse_expression,
+        statement::parse_statement,
         token::{scan, TokenType},
     };
 
     use super::*;
 
-    fn check_type(env: &Environment, input: &str) {
+    fn check_type(env: &mut Environment, input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let (expression, _) =
@@ -114,7 +143,7 @@ mod tests {
         }
     }
 
-    fn check_bad_type(env: &Environment, input: &str) {
+    fn check_bad_type(env: &mut Environment, input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let expression = match parse_expression(&mut tokens, false, |t| t == TokenType::NewLine) {
@@ -129,14 +158,31 @@ mod tests {
 
     #[test]
     fn test_env_types() {
-        let env = Environment::new();
-        check_type(&env, "bool");
-        check_type(&env, "bool -> bool");
-        check_type(&env, "bool -> (bool -> bool)");
-        check_type(&env, "(bool -> bool) -> (bool -> bool)");
-        check_type(&env, "(bool, bool) -> bool");
+        let mut env = Environment::new();
+        check_type(&mut env, "bool");
+        check_type(&mut env, "bool -> bool");
+        check_type(&mut env, "bool -> (bool -> bool)");
+        check_type(&mut env, "(bool -> bool) -> (bool -> bool)");
+        check_type(&mut env, "(bool, bool) -> bool");
 
-        check_bad_type(&env, "bool, bool -> bool");
-        check_bad_type(&env, "(bool, bool)");
+        check_bad_type(&mut env, "bool, bool -> bool");
+        check_bad_type(&mut env, "(bool, bool)");
+    }
+
+    fn add_statement(env: &mut Environment, input: &str) {
+        let tokens = scan(input).unwrap();
+        let mut tokens = tokens.into_iter().peekable();
+        let statement = match parse_statement(&mut tokens) {
+            Ok(Some(statement)) => statement,
+            Ok(None) => panic!("Expected statement, got EOF"),
+            Err(error) => panic!("Error parsing statement: {}", error),
+        };
+        env.add_statement(&statement).unwrap();
+    }
+
+    #[test]
+    fn test_nat_ac() {
+        let mut env = Environment::new();
+        add_statement(&mut env, "type Nat: axiom");
     }
 }
