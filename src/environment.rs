@@ -278,5 +278,8 @@ mod tests {
         add_statement(&mut env, "define 0: Nat = axiom");
         bad_statement(&mut env, "define Nat: 0 = axiom");
         bad_statement(&mut env, "define axiom: Nat = 0");
+
+        add_statement(&mut env, "define Suc: Nat -> Nat = axiom");
+        add_statement(&mut env, "define 1: Nat = Suc(0)");
     }
 }
