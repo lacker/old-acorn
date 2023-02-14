@@ -329,6 +329,16 @@ mod tests {
     }
 
     #[test]
+    fn test_comparisons() {
+        check_value("p = q");
+        check_value("p != q");
+        check_value("p < q");
+        check_value("p <= q");
+        check_value("p > q");
+        check_value("p >= q");
+    }
+
+    #[test]
     fn test_bad_values() {
         check_not_value("+ + +");
 
