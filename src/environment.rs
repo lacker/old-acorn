@@ -149,8 +149,11 @@ impl Environment {
                 }
                 if let Some(acorn_value) = self.values.get(token.text) {
                     Ok(acorn_value.clone())
+                } else if let Some(stack_depth) = self.stack.get(token.text) {
+                    let binding_depth = self.stack.len() - stack_depth - 1;
+                    Ok(AcornValue::Binding(binding_depth))
                 } else {
-                    Err(Error::new(token, "expected value name"))
+                    Err(Error::new(token, "name appears to be unbound"))
                 }
             }
             Expression::Unary(token, _) => Err(Error::new(
@@ -166,7 +169,20 @@ impl Environment {
                         Ok(AcornValue::ArgList(args))
                     }
                     TokenType::RightArrow => {
-                        panic!("TODO: handle ->");
+                        let left_value = self.evaluate_value_expression(left)?;
+                        let right_value = self.evaluate_value_expression(right)?;
+                        Ok(AcornValue::Implies(
+                            Box::new(left_value),
+                            Box::new(right_value),
+                        ))
+                    }
+                    TokenType::Equals => {
+                        let left_value = self.evaluate_value_expression(left)?;
+                        let right_value = self.evaluate_value_expression(right)?;
+                        Ok(AcornValue::Equals(
+                            Box::new(left_value),
+                            Box::new(right_value),
+                        ))
                     }
                     _ => Err(Error::new(
                         token,

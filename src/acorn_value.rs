@@ -22,6 +22,10 @@ pub enum AcornValue {
 
     // A function definition that introduces a certain number of variables onto the stack.
     Lambda(usize, Box<AcornValue>),
+
+    // Some functions are hardcoded because we want to treat them specially during inference.
+    Implies(Box<AcornValue>, Box<AcornValue>),
+    Equals(Box<AcornValue>, Box<AcornValue>),
 }
 
 impl AcornValue {
