@@ -371,5 +371,6 @@ mod tests {
             &mut env,
             "axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y",
         );
+        bad_statement(&mut env, "axiom bad_types(x: Nat, y: Nat): x -> y");
     }
 }
