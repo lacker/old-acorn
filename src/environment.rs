@@ -17,11 +17,15 @@ pub struct Environment {
     // Types that are named in this scope
     named_types: HashMap<String, AcornType>,
 
-    // Variables that have names and types
+    // Variables that have names and types.
+    // Includes both variables defined on the stack and variables defined in a larger scope.
     declarations: HashMap<String, AcornType>,
 
     // Declared variables that also have values.
     values: HashMap<String, AcornValue>,
+
+    // For variables on the stack, we keep track of their depth from the top.
+    stack: HashMap<String, usize>,
 }
 
 impl fmt::Display for Environment {
@@ -45,6 +49,7 @@ impl Environment {
             named_types: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             declarations: HashMap::new(),
             values: HashMap::new(),
+            stack: HashMap::new(),
         }
     }
 
@@ -58,6 +63,16 @@ impl Environment {
         let axiomatic_value = AcornValue::Axiomatic(self.axiomatic_value_count);
         self.axiomatic_value_count += 1;
         axiomatic_value
+    }
+
+    fn push_stack_variable(&mut self, name: &str, acorn_type: AcornType) {
+        self.stack.insert(name.to_string(), self.stack.len());
+        self.declarations.insert(name.to_string(), acorn_type);
+    }
+
+    fn pop_stack_variable(&mut self, name: &str) {
+        self.stack.remove(name);
+        self.declarations.remove(name);
     }
 
     // Evaluates an expression that we expect to be indicating either a type or an arg list
@@ -143,24 +158,51 @@ impl Environment {
                 "TODO: handle unary operator in value expression",
             )),
             Expression::Binary(token, left, right) => {
-                if token.token_type == TokenType::Comma {
-                    // Flatten the values on either side, assumed to be arg lists
-                    let mut args = self.evaluate_value_expression(left)?.into_arg_list();
-                    args.extend(self.evaluate_value_expression(right)?.into_arg_list());
-                    Ok(AcornValue::ArgList(args))
-                } else {
-                    Err(Error::new(
+                match token.token_type {
+                    TokenType::Comma => {
+                        // Flatten the values on either side, assumed to be arg lists
+                        let mut args = self.evaluate_value_expression(left)?.into_arg_list();
+                        args.extend(self.evaluate_value_expression(right)?.into_arg_list());
+                        Ok(AcornValue::ArgList(args))
+                    }
+                    TokenType::RightArrow => {
+                        panic!("TODO: handle ->");
+                    }
+                    _ => Err(Error::new(
                         token,
                         "unhandled binary operator in value expression",
-                    ))
+                    )),
                 }
             }
             Expression::Apply(function_expr, args_expr) => {
                 let function = Box::new(self.evaluate_value_expression(function_expr)?);
                 let args = self.evaluate_value_expression(args_expr)?.into_arg_list();
-                Ok(AcornValue::Function(FunctionApplication { function, args }))
+                Ok(AcornValue::Application(FunctionApplication {
+                    function,
+                    args,
+                }))
             }
             Expression::Grouping(e) => self.evaluate_value_expression(e),
+        }
+    }
+
+    fn parse_declaration(&mut self, declaration: &Expression) -> Result<(String, AcornType)> {
+        match declaration {
+            Expression::Binary(token, left, right) => match token.token_type {
+                TokenType::Colon => {
+                    if left.token().token_type != TokenType::Identifier {
+                        return Err(Error::new(
+                            left.token(),
+                            "expected an identifier in this declaration",
+                        ));
+                    }
+                    let name = left.token().text.to_string();
+                    let acorn_type = self.evaluate_type_expression(right)?;
+                    Ok((name, acorn_type))
+                }
+                _ => Err(Error::new(token, "expected a colon in this declaration")),
+            },
+            _ => Err(Error::new(declaration.token(), "expected a declaration")),
         }
     }
 
@@ -177,40 +219,57 @@ impl Environment {
                 self.named_types.insert(ts.name.to_string(), acorn_type);
                 Ok(())
             }
-            Statement::Definition(ds) => match &ds.declaration {
-                Expression::Binary(token, left, right) => match token.token_type {
-                    TokenType::Colon => {
-                        if left.token().token_type != TokenType::Identifier {
-                            return Err(Error::new(
-                                left.token(),
-                                "expected an identifier in this declaration",
-                            ));
-                        }
-                        let name = left.token().text.to_string();
-                        if self.declarations.contains_key(&name) {
-                            return Err(Error::new(
-                                token,
-                                "variable name already defined in this scope",
-                            ));
-                        }
-                        let acorn_type = self.evaluate_type_expression(right)?;
-                        if let Some(value_expr) = &ds.value {
-                            let acorn_value = self.evaluate_value_expression(value_expr)?;
-                            self.values.insert(name.clone(), acorn_value);
-                        }
-                        self.declarations.insert(name, acorn_type);
-                        Ok(())
+            Statement::Definition(ds) => {
+                let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
+                if self.declarations.contains_key(&name) {
+                    return Err(Error::new(
+                        ds.declaration.token(),
+                        "variable name already defined in this scope",
+                    ));
+                }
+                if let Some(value_expr) = &ds.value {
+                    let acorn_value = self.evaluate_value_expression(value_expr)?;
+                    self.values.insert(name.clone(), acorn_value);
+                }
+                self.declarations.insert(name, acorn_type);
+                Ok(())
+            }
+            Statement::Theorem(ts) => {
+                // A theorem is two things. It's a function from a list of arguments to a boolean,
+                // and it's implying that the function always returns true.
+                // Here we are typechecking the function, but not proving it's always true.
+                let mut names = Vec::new();
+                let mut types = Vec::new();
+                for arg in &ts.args {
+                    let (name, acorn_type) = self.parse_declaration(arg)?;
+                    if self.declarations.contains_key(&name) {
+                        return Err(Error::new(
+                            arg.token(),
+                            "variable name already defined in this scope",
+                        ));
                     }
-                    TokenType::RightArrow => {
-                        panic!("TODO: handle function definitions")
-                    }
-                    _ => Err(Error::new(token, "invalid binary declaration")),
-                },
-                _ => Err(Error::new(
-                    &ds.declaration.token(),
-                    "invalid nonbinary declaration",
-                )),
-            },
+                    self.push_stack_variable(&name, acorn_type.clone());
+                    names.push(name);
+                    types.push(acorn_type);
+                }
+
+                // Handle the claim
+                let claim_value = self.evaluate_value_expression(&ts.claim)?;
+                // TODO: validate that the claim is a boolean
+                let theorem_value = AcornValue::Lambda(names.len(), Box::new(claim_value));
+                let theorem_type = AcornType::Function(FunctionType {
+                    args: types,
+                    value: Box::new(AcornType::Bool),
+                });
+                self.declarations.insert(ts.name.to_string(), theorem_type);
+                self.values.insert(ts.name.to_string(), theorem_value);
+
+                // Reset the stack
+                for name in names {
+                    self.pop_stack_variable(&name);
+                }
+                Ok(())
+            }
             _ => panic!("TODO"),
         }
     }
@@ -291,5 +350,10 @@ mod tests {
         add_statement(&mut env, "define 1: Nat = Suc(0)");
         bad_statement(&mut env, "define 1: Nat = Suc(1)");
         bad_statement(&mut env, "define 1: Nat = Borf");
+
+        add_statement(
+            &mut env,
+            "axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y",
+        );
     }
 }

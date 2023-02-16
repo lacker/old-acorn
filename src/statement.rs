@@ -37,15 +37,16 @@ impl fmt::Display for DefinitionStatement<'_> {
 //   axiom foo(p, q): p -> (q -> p)
 // axiomatic would be "true", the name is "foo", the args are p, q, and the claim is "p -> (q -> p)".
 pub struct TheoremStatement<'a> {
-    axiomatic: bool,
-    name: &'a str,
-    args: Vec<Expression<'a>>,
-    claim: Expression<'a>,
-    body: Vec<Statement<'a>>,
+    pub axiomatic: bool,
+    pub name: &'a str,
+    pub args: Vec<Expression<'a>>,
+    pub claim: Expression<'a>,
+    pub body: Vec<Statement<'a>>,
 }
 
 // Prop statements are an expression, with an optional block.
 // We're implicitly asserting that it is true and provable.
+// It's like an unnamed theorem.
 pub struct PropStatement<'a> {
     claim: Expression<'a>,
     body: Vec<Statement<'a>>,
