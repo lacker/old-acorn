@@ -14,27 +14,26 @@ pub struct Environment {
     // How many axiomatic values have been defined in this scope
     axiomatic_value_count: usize,
 
-    // Types that are named in this scope
-    named_types: HashMap<String, AcornType>,
+    // Maps the name of a type to the type object.
+    typenames: HashMap<String, AcornType>,
 
-    // Variables that have names and types.
-    // Includes both variables defined on the stack and variables defined in a larger scope.
-    declarations: HashMap<String, AcornType>,
+    // Maps an identifier name to its type.
+    types: HashMap<String, AcornType>,
 
-    // Declared variables that also have values.
-    values: HashMap<String, AcornValue>,
+    // Maps the name of a constant to its value.
+    constants: HashMap<String, AcornValue>,
 
-    // For variables on the stack, we keep track of their depth from the top.
+    // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, usize>,
 }
 
 impl fmt::Display for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Environment {{\n")?;
-        for (name, acorn_type) in &self.named_types {
+        for (name, acorn_type) in &self.typenames {
             write!(f, "  typedef {}: {}\n", name, acorn_type)?;
         }
-        for (name, acorn_type) in &self.declarations {
+        for (name, acorn_type) in &self.types {
             write!(f, "  let {}: {}\n", name, acorn_type)?;
         }
         write!(f, "}}")
@@ -46,9 +45,9 @@ impl Environment {
         Environment {
             axiomatic_type_count: 0,
             axiomatic_value_count: 0,
-            named_types: HashMap::from([("bool".to_string(), AcornType::Bool)]),
-            declarations: HashMap::new(),
-            values: HashMap::new(),
+            typenames: HashMap::from([("bool".to_string(), AcornType::Bool)]),
+            types: HashMap::new(),
+            constants: HashMap::new(),
             stack: HashMap::new(),
         }
     }
@@ -67,12 +66,12 @@ impl Environment {
 
     fn push_stack_variable(&mut self, name: &str, acorn_type: AcornType) {
         self.stack.insert(name.to_string(), self.stack.len());
-        self.declarations.insert(name.to_string(), acorn_type);
+        self.types.insert(name.to_string(), acorn_type);
     }
 
     fn pop_stack_variable(&mut self, name: &str) {
         self.stack.remove(name);
-        self.declarations.remove(name);
+        self.types.remove(name);
     }
 
     // Evaluates an expression that we expect to be indicating either a type or an arg list
@@ -85,7 +84,7 @@ impl Environment {
                 if token.token_type == TokenType::Axiom {
                     return Ok(self.new_axiomatic_type());
                 }
-                if let Some(acorn_type) = self.named_types.get(token.text) {
+                if let Some(acorn_type) = self.typenames.get(token.text) {
                     Ok(acorn_type.clone())
                 } else {
                     Err(Error::new(token, "expected type name"))
@@ -140,20 +139,55 @@ impl Environment {
         }
     }
 
-    // Could be either a value or an argument list
-    pub fn evaluate_value_expression(&mut self, expression: &Expression) -> Result<AcornValue> {
+    // A value expression could be either a value or an argument list.
+    // Returns the value along with its type.
+    pub fn evaluate_value_expression(
+        &mut self,
+        expression: &Expression,
+        expected_type: Option<&AcornType>,
+    ) -> Result<(AcornValue, AcornType)> {
         match expression {
             Expression::Identifier(token) => {
                 if token.token_type == TokenType::Axiom {
-                    return Ok(self.new_axiomatic_value());
+                    return match expected_type {
+                        Some(AcornType::ArgList(_)) => Err(Error::new(
+                            token,
+                            "axiomatic objects cannot be argument lists",
+                        )),
+                        Some(t) => Ok((self.new_axiomatic_value(), t.clone())),
+                        None => Err(Error::new(
+                            token,
+                            "axiomatic objects can only be created with known types",
+                        )),
+                    };
                 }
-                if let Some(acorn_value) = self.values.get(token.text) {
-                    Ok(acorn_value.clone())
+
+                // Check the type for this identifier
+                let return_type = match self.types.get(token.text) {
+                    Some(t) => {
+                        if let Some(e) = expected_type {
+                            if e != t {
+                                return Err(Error::new(token, "unexpected type"));
+                            }
+                        }
+                        t.clone()
+                    }
+                    None => {
+                        return Err(Error::new(token, "name appears to be unbound"));
+                    }
+                };
+
+                // Figure out the value for this identifier
+                if let Some(acorn_value) = self.constants.get(token.text) {
+                    Ok((acorn_value.clone(), return_type))
                 } else if let Some(stack_depth) = self.stack.get(token.text) {
                     let binding_depth = self.stack.len() - stack_depth - 1;
-                    Ok(AcornValue::Binding(binding_depth))
+                    Ok((AcornValue::Binding(binding_depth), return_type))
                 } else {
-                    Err(Error::new(token, "name appears to be unbound"))
+                    Err(Error::new(
+                        token,
+                        "name is bound but we can't find its type. this is an interpreter bug",
+                    ))
                 }
             }
             Expression::Unary(token, _) => Err(Error::new(
@@ -164,24 +198,32 @@ impl Environment {
                 match token.token_type {
                     TokenType::Comma => {
                         // Flatten the values on either side, assumed to be arg lists
-                        let mut args = self.evaluate_value_expression(left)?.into_arg_list();
-                        args.extend(self.evaluate_value_expression(right)?.into_arg_list());
-                        Ok(AcornValue::ArgList(args))
+                        let (left_args, left_types) = self.evaluate_value_expression(left, None)?;
+                        let (right_args, right_types) =
+                            self.evaluate_value_expression(right, None)?;
+                        let mut args = left_args.into_arg_list();
+                        args.extend(right_args.into_arg_list());
+                        let mut types = left_types.into_arg_list();
+                        types.extend(right_types.into_arg_list());
+                        Ok((AcornValue::ArgList(args), AcornType::ArgList(types)))
                     }
                     TokenType::RightArrow => {
-                        let left_value = self.evaluate_value_expression(left)?;
-                        let right_value = self.evaluate_value_expression(right)?;
-                        Ok(AcornValue::Implies(
-                            Box::new(left_value),
-                            Box::new(right_value),
+                        let (left_value, _) =
+                            self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
+                        let (right_value, _) =
+                            self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
+                        Ok((
+                            AcornValue::Implies(Box::new(left_value), Box::new(right_value)),
+                            AcornType::Bool,
                         ))
                     }
                     TokenType::Equals => {
-                        let left_value = self.evaluate_value_expression(left)?;
-                        let right_value = self.evaluate_value_expression(right)?;
-                        Ok(AcornValue::Equals(
-                            Box::new(left_value),
-                            Box::new(right_value),
+                        let (left_value, left_type) = self.evaluate_value_expression(left, None)?;
+                        let (right_value, _) =
+                            self.evaluate_value_expression(right, Some(&left_type))?;
+                        Ok((
+                            AcornValue::Equals(Box::new(left_value), Box::new(right_value)),
+                            AcornType::Bool,
                         ))
                     }
                     _ => Err(Error::new(
@@ -191,14 +233,24 @@ impl Environment {
                 }
             }
             Expression::Apply(function_expr, args_expr) => {
-                let function = Box::new(self.evaluate_value_expression(function_expr)?);
-                let args = self.evaluate_value_expression(args_expr)?.into_arg_list();
-                Ok(AcornValue::Application(FunctionApplication {
-                    function,
-                    args,
-                }))
+                let (function, function_type) =
+                    self.evaluate_value_expression(function_expr, None)?;
+                let function_type = match function_type {
+                    AcornType::Function(f) => f,
+                    _ => {
+                        return Err(Error::new(function_expr.token(), "expected a function"));
+                    }
+                };
+                let (args, _) = self.evaluate_value_expression(args_expr, None)?;
+                Ok((
+                    AcornValue::Application(FunctionApplication {
+                        function: Box::new(function),
+                        args: args.into_arg_list(),
+                    }),
+                    *function_type.value,
+                ))
             }
-            Expression::Grouping(e) => self.evaluate_value_expression(e),
+            Expression::Grouping(e) => self.evaluate_value_expression(e, None),
         }
     }
 
@@ -225,29 +277,30 @@ impl Environment {
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
         match statement {
             Statement::Type(ts) => {
-                if self.named_types.contains_key(&ts.name.to_string()) {
+                if self.typenames.contains_key(&ts.name.to_string()) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
                         "type name already defined in this scope",
                     ));
                 }
                 let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
-                self.named_types.insert(ts.name.to_string(), acorn_type);
+                self.typenames.insert(ts.name.to_string(), acorn_type);
                 Ok(())
             }
             Statement::Definition(ds) => {
                 let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
-                if self.declarations.contains_key(&name) {
+                if self.types.contains_key(&name) {
                     return Err(Error::new(
                         ds.declaration.token(),
                         "variable name already defined in this scope",
                     ));
                 }
                 if let Some(value_expr) = &ds.value {
-                    let acorn_value = self.evaluate_value_expression(value_expr)?;
-                    self.values.insert(name.clone(), acorn_value);
+                    let (acorn_value, _) =
+                        self.evaluate_value_expression(value_expr, Some(&acorn_type))?;
+                    self.constants.insert(name.clone(), acorn_value);
                 }
-                self.declarations.insert(name, acorn_type);
+                self.types.insert(name, acorn_type);
                 Ok(())
             }
             Statement::Theorem(ts) => {
@@ -258,7 +311,7 @@ impl Environment {
                 let mut types = Vec::new();
                 for arg in &ts.args {
                     let (name, acorn_type) = self.parse_declaration(arg)?;
-                    if self.declarations.contains_key(&name) {
+                    if self.types.contains_key(&name) {
                         return Err(Error::new(
                             arg.token(),
                             "variable name already defined in this scope",
@@ -270,15 +323,15 @@ impl Environment {
                 }
 
                 // Handle the claim
-                let claim_value = self.evaluate_value_expression(&ts.claim)?;
-                // TODO: validate that the claim is a boolean
+                let (claim_value, _) =
+                    self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))?;
                 let theorem_value = AcornValue::Lambda(names.len(), Box::new(claim_value));
                 let theorem_type = AcornType::Function(FunctionType {
                     args: types,
                     value: Box::new(AcornType::Bool),
                 });
-                self.declarations.insert(ts.name.to_string(), theorem_type);
-                self.values.insert(ts.name.to_string(), theorem_value);
+                self.types.insert(ts.name.to_string(), theorem_type);
+                self.constants.insert(ts.name.to_string(), theorem_value);
 
                 // Reset the stack
                 for name in names {
@@ -355,15 +408,20 @@ mod tests {
     fn test_nat_ac() {
         let mut env = Environment::new();
         add_statement(&mut env, "type Nat: axiom");
+
         bad_statement(&mut env, "type Borf: Gorf");
         bad_statement(&mut env, "type Nat: axiom");
 
         add_statement(&mut env, "define 0: Nat = axiom");
+
         bad_statement(&mut env, "define Nat: 0 = axiom");
         bad_statement(&mut env, "define axiom: Nat = 0");
+        bad_statement(&mut env, "define foo: bool = (axiom = axiom)");
+        bad_statement(&mut env, "define foo: bool = 0");
 
         add_statement(&mut env, "define Suc: Nat -> Nat = axiom");
         add_statement(&mut env, "define 1: Nat = Suc(0)");
+
         bad_statement(&mut env, "define 1: Nat = Suc(1)");
         bad_statement(&mut env, "define 1: Nat = Borf");
 
@@ -371,6 +429,7 @@ mod tests {
             &mut env,
             "axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y",
         );
+
         bad_statement(&mut env, "axiom bad_types(x: Nat, y: Nat): x -> y");
     }
 }
