@@ -345,21 +345,28 @@ impl Environment {
                 }
 
                 // Handle the claim
-                let (claim_value, _) =
-                    self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))?;
-                let theorem_value = AcornValue::Lambda(names.len(), Box::new(claim_value));
-                let theorem_type = AcornType::Function(FunctionType {
-                    args: types,
-                    value: Box::new(AcornType::Bool),
-                });
-                self.types.insert(ts.name.to_string(), theorem_type);
-                self.constants.insert(ts.name.to_string(), theorem_value);
+                let ret_val = match self
+                    .evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))
+                {
+                    Ok((claim_value, _)) => {
+                        let theorem_value = AcornValue::Lambda(names.len(), Box::new(claim_value));
+                        let theorem_type = AcornType::Function(FunctionType {
+                            args: types,
+                            value: Box::new(AcornType::Bool),
+                        });
+                        self.types.insert(ts.name.to_string(), theorem_type);
+                        self.constants.insert(ts.name.to_string(), theorem_value);
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
 
                 // Reset the stack
                 for name in names {
                     self.pop_stack_variable(&name);
                 }
-                Ok(())
+
+                ret_val
             }
             _ => panic!("TODO"),
         }
@@ -453,9 +460,15 @@ mod tests {
         );
 
         bad(&mut env, "axiom bad_types(x: Nat, y: Nat): x -> y");
+
+        // We don't want failed typechecks to leave the environment in a bad state
+        assert!(!env.types.contains_key("x"));
+
         bad(&mut env, "define foo: bool = Suc(0)");
         bad(&mut env, "define foo: Nat = Suc(0 = 0)");
         bad(&mut env, "define foo: Nat = Suc(0, 0)");
+
+        // add(&mut env, "axiom suc_neq_zero(x: Nat): Suc(x) != 0");
 
         assert!(env.typenames.contains_key("Nat"));
         assert!(!env.types.contains_key("Nat"));
