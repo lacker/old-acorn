@@ -390,12 +390,12 @@ mod tests {
         check_bad_type(&mut env, "(bool, bool)");
     }
 
-    fn add_statement(env: &mut Environment, input: &str) {
+    fn add(env: &mut Environment, input: &str) {
         let statement = Statement::parse_str(input).unwrap();
         env.add_statement(&statement).unwrap();
     }
 
-    fn bad_statement(env: &mut Environment, input: &str) {
+    fn bad(env: &mut Environment, input: &str) {
         let statement = Statement::parse_str(input).unwrap();
         assert!(
             env.add_statement(&statement).is_err(),
@@ -407,30 +407,30 @@ mod tests {
     #[test]
     fn test_nat_ac() {
         let mut env = Environment::new();
-        add_statement(&mut env, "type Nat: axiom");
+        add(&mut env, "type Nat: axiom");
 
-        bad_statement(&mut env, "type Borf: Gorf");
-        bad_statement(&mut env, "type Nat: axiom");
+        bad(&mut env, "type Borf: Gorf");
+        bad(&mut env, "type Nat: axiom");
 
-        add_statement(&mut env, "define 0: Nat = axiom");
+        add(&mut env, "define 0: Nat = axiom");
 
-        bad_statement(&mut env, "define Nat: 0 = axiom");
-        bad_statement(&mut env, "define axiom: Nat = 0");
-        bad_statement(&mut env, "define foo: bool = (axiom = axiom)");
-        bad_statement(&mut env, "define foo: bool = 0");
+        bad(&mut env, "define Nat: 0 = axiom");
+        bad(&mut env, "define axiom: Nat = 0");
+        bad(&mut env, "define foo: bool = (axiom = axiom)");
+        bad(&mut env, "define foo: bool = 0");
 
-        add_statement(&mut env, "define Suc: Nat -> Nat = axiom");
-        add_statement(&mut env, "define 1: Nat = Suc(0)");
+        add(&mut env, "define Suc: Nat -> Nat = axiom");
+        add(&mut env, "define 1: Nat = Suc(0)");
 
-        bad_statement(&mut env, "define 1: Nat = Suc(1)");
-        bad_statement(&mut env, "define 1: Nat = Borf");
+        bad(&mut env, "define 1: Nat = Suc(1)");
+        bad(&mut env, "define 1: Nat = Borf");
 
-        add_statement(
+        add(
             &mut env,
             "axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y",
         );
 
-        bad_statement(&mut env, "axiom bad_types(x: Nat, y: Nat): x -> y");
+        bad(&mut env, "axiom bad_types(x: Nat, y: Nat): x -> y");
 
         assert!(env.typenames.contains_key("Nat"));
         assert!(!env.types.contains_key("Nat"));
