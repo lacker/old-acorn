@@ -56,10 +56,14 @@ impl fmt::Display for AcornType {
 }
 
 impl AcornType {
-    pub fn into_arg_list(self) -> Vec<AcornType> {
+    pub fn into_vec(self) -> Vec<AcornType> {
         match self {
             AcornType::ArgList(t) => t,
             _ => vec![self],
         }
+    }
+
+    pub fn into_arg_list(self) -> AcornType {
+        AcornType::ArgList(self.into_vec())
     }
 }

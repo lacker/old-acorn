@@ -29,7 +29,7 @@ pub enum AcornValue {
 }
 
 impl AcornValue {
-    pub fn into_arg_list(self) -> Vec<AcornValue> {
+    pub fn into_vec(self) -> Vec<AcornValue> {
         match self {
             AcornValue::ArgList(t) => t,
             _ => vec![self],

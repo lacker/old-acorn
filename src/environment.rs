@@ -5,7 +5,7 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::expression::Expression;
 use crate::statement::Statement;
-use crate::token::{Error, Result, TokenType};
+use crate::token::{Error, Result, Token, TokenType};
 
 pub struct Environment {
     // How many axiomatic types have been defined in this scope
@@ -37,6 +37,26 @@ impl fmt::Display for Environment {
             write!(f, "  let {}: {}\n", name, acorn_type)?;
         }
         write!(f, "}}")
+    }
+}
+
+fn check_type<'a>(
+    token: &Token<'a>,
+    expected_type: Option<&AcornType>,
+    actual_type: &AcornType,
+) -> Result<'a, ()> {
+    match expected_type {
+        Some(e) => {
+            if e != actual_type {
+                Err(Error::new(
+                    token,
+                    &format!("Expected type {}, but got {}", e, actual_type),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        None => Ok(()),
     }
 }
 
@@ -99,18 +119,15 @@ impl Environment {
                     let left_type = self.evaluate_partial_type_expression(left)?;
                     let right_type = self.evaluate_partial_type_expression(right)?;
                     let function_type = FunctionType {
-                        args: left_type.into_arg_list(),
+                        args: left_type.into_vec(),
                         value: Box::new(right_type),
                     };
                     Ok(AcornType::Function(function_type))
                 }
                 TokenType::Comma => {
                     // Flatten the types on either side, assumed to be arg lists
-                    let mut args = self.evaluate_partial_type_expression(left)?.into_arg_list();
-                    args.extend(
-                        self.evaluate_partial_type_expression(right)?
-                            .into_arg_list(),
-                    );
+                    let mut args = self.evaluate_partial_type_expression(left)?.into_vec();
+                    args.extend(self.evaluate_partial_type_expression(right)?.into_vec());
                     Ok(AcornType::ArgList(args))
                 }
                 _ => Err(Error::new(
@@ -165,11 +182,7 @@ impl Environment {
                 // Check the type for this identifier
                 let return_type = match self.types.get(token.text) {
                     Some(t) => {
-                        if let Some(e) = expected_type {
-                            if e != t {
-                                return Err(Error::new(token, "unexpected type"));
-                            }
-                        }
+                        check_type(token, expected_type, t)?;
                         t.clone()
                     }
                     None => {
@@ -201,10 +214,10 @@ impl Environment {
                         let (left_args, left_types) = self.evaluate_value_expression(left, None)?;
                         let (right_args, right_types) =
                             self.evaluate_value_expression(right, None)?;
-                        let mut args = left_args.into_arg_list();
-                        args.extend(right_args.into_arg_list());
-                        let mut types = left_types.into_arg_list();
-                        types.extend(right_types.into_arg_list());
+                        let mut args = left_args.into_vec();
+                        args.extend(right_args.into_vec());
+                        let mut types = left_types.into_vec();
+                        types.extend(right_types.into_vec());
                         Ok((AcornValue::ArgList(args), AcornType::ArgList(types)))
                     }
                     TokenType::RightArrow => {
@@ -241,16 +254,25 @@ impl Environment {
                         return Err(Error::new(function_expr.token(), "expected a function"));
                     }
                 };
-                let (args, _) = self.evaluate_value_expression(args_expr, None)?;
+                check_type(function_expr.token(), expected_type, &*function_type.value)?;
+
+                let (args, args_type) = self.evaluate_value_expression(args_expr, None)?;
+
+                check_type(
+                    args_expr.token(),
+                    Some(&AcornType::ArgList(function_type.args)),
+                    &args_type.into_arg_list(),
+                )?;
+
                 Ok((
                     AcornValue::Application(FunctionApplication {
                         function: Box::new(function),
-                        args: args.into_arg_list(),
+                        args: args.into_vec(),
                     }),
                     *function_type.value,
                 ))
             }
-            Expression::Grouping(e) => self.evaluate_value_expression(e, None),
+            Expression::Grouping(e) => self.evaluate_value_expression(e, expected_type),
         }
     }
 
@@ -431,6 +453,9 @@ mod tests {
         );
 
         bad(&mut env, "axiom bad_types(x: Nat, y: Nat): x -> y");
+        bad(&mut env, "define foo: bool = Suc(0)");
+        bad(&mut env, "define foo: Nat = Suc(0 = 0)");
+        bad(&mut env, "define foo: Nat = Suc(0, 0)");
 
         assert!(env.typenames.contains_key("Nat"));
         assert!(!env.types.contains_key("Nat"));
