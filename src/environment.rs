@@ -431,5 +431,20 @@ mod tests {
         );
 
         bad_statement(&mut env, "axiom bad_types(x: Nat, y: Nat): x -> y");
+
+        assert!(env.typenames.contains_key("Nat"));
+        assert!(!env.types.contains_key("Nat"));
+
+        assert!(!env.typenames.contains_key("0"));
+        assert!(env.types.contains_key("0"));
+
+        assert!(!env.typenames.contains_key("1"));
+        assert!(env.types.contains_key("1"));
+
+        assert!(!env.typenames.contains_key("Suc"));
+        assert!(env.types.contains_key("Suc"));
+
+        assert!(!env.typenames.contains_key("foo"));
+        assert!(!env.types.contains_key("foo"));
     }
 }
