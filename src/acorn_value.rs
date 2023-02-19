@@ -26,6 +26,7 @@ pub enum AcornValue {
     // Some functions are hardcoded because we want to treat them specially during inference.
     Implies(Box<AcornValue>, Box<AcornValue>),
     Equals(Box<AcornValue>, Box<AcornValue>),
+    NotEquals(Box<AcornValue>, Box<AcornValue>),
 }
 
 impl AcornValue {

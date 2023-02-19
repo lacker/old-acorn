@@ -239,6 +239,15 @@ impl Environment {
                             AcornType::Bool,
                         ))
                     }
+                    TokenType::NotEquals => {
+                        let (left_value, left_type) = self.evaluate_value_expression(left, None)?;
+                        let (right_value, _) =
+                            self.evaluate_value_expression(right, Some(&left_type))?;
+                        Ok((
+                            AcornValue::NotEquals(Box::new(left_value), Box::new(right_value)),
+                            AcornType::Bool,
+                        ))
+                    }
                     _ => Err(Error::new(
                         token,
                         "unhandled binary operator in value expression",
@@ -468,7 +477,7 @@ mod tests {
         bad(&mut env, "define foo: Nat = Suc(0 = 0)");
         bad(&mut env, "define foo: Nat = Suc(0, 0)");
 
-        // add(&mut env, "axiom suc_neq_zero(x: Nat): Suc(x) != 0");
+        add(&mut env, "axiom suc_neq_zero(x: Nat): Suc(x) != 0");
 
         assert!(env.typenames.contains_key("Nat"));
         assert!(!env.types.contains_key("Nat"));
