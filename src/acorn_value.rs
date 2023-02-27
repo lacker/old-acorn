@@ -27,6 +27,8 @@ pub enum AcornValue {
     Implies(Box<AcornValue>, Box<AcornValue>),
     Equals(Box<AcornValue>, Box<AcornValue>),
     NotEquals(Box<AcornValue>, Box<AcornValue>),
+    And(Box<AcornValue>, Box<AcornValue>),
+    Or(Box<AcornValue>, Box<AcornValue>),
 }
 
 impl AcornValue {
