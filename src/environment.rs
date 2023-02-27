@@ -481,7 +481,9 @@ mod tests {
 
     fn add(env: &mut Environment, input: &str) {
         let statement = Statement::parse_str(input).unwrap();
-        env.add_statement(&statement).unwrap();
+        if let Err(r) = env.add_statement(&statement) {
+            panic!("Error adding statement:\n\n{}", r);
+        }
     }
 
     fn bad(env: &mut Environment, input: &str) {
@@ -551,5 +553,10 @@ mod tests {
         bad(&mut env, "theorem foo(x: Nat): 0");
         bad(&mut env, "theorem foo(x: Nat): forall(0, 0)");
         bad(&mut env, "theorem foo(x: Nat): forall(y: Nat, 0)");
+
+        add(
+            &mut env,
+            "define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom",
+        );
     }
 }
