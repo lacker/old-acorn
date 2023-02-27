@@ -369,22 +369,32 @@ impl Environment {
                 self.typenames.insert(ts.name.to_string(), acorn_type);
                 Ok(())
             }
-            Statement::Definition(ds) => {
-                let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
-                if self.types.contains_key(&name) {
-                    return Err(Error::new(
-                        ds.declaration.token(),
-                        "variable name already defined in this scope",
-                    ));
+            Statement::Definition(ds) => match ds.declaration.token().token_type {
+                TokenType::Colon => {
+                    let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
+                    if self.types.contains_key(&name) {
+                        return Err(Error::new(
+                            ds.declaration.token(),
+                            "variable name already defined in this scope",
+                        ));
+                    }
+                    if let Some(value_expr) = &ds.value {
+                        let (acorn_value, _) =
+                            self.evaluate_value_expression(value_expr, Some(&acorn_type))?;
+                        self.constants.insert(name.clone(), acorn_value);
+                    }
+                    self.types.insert(name, acorn_type);
+                    Ok(())
                 }
-                if let Some(value_expr) = &ds.value {
-                    let (acorn_value, _) =
-                        self.evaluate_value_expression(value_expr, Some(&acorn_type))?;
-                    self.constants.insert(name.clone(), acorn_value);
-                }
-                self.types.insert(name, acorn_type);
-                Ok(())
-            }
+                TokenType::RightArrow => Err(Error::new(
+                    ds.declaration.token(),
+                    "TODO: handle function definitions with named arguments",
+                )),
+                _ => Err(Error::new(
+                    ds.declaration.token(),
+                    "unexpected top-level token in declaration",
+                )),
+            },
             Statement::Theorem(ts) => {
                 // A theorem is two things. It's a function from a list of arguments to a boolean,
                 // and it's implying that the function always returns true.
