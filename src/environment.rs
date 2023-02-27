@@ -547,5 +547,9 @@ mod tests {
 
         add(&mut env,
         "axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)");
+
+        bad(&mut env, "theorem foo(x: Nat): 0");
+        bad(&mut env, "theorem foo(x: Nat): forall(0, 0)");
+        bad(&mut env, "theorem foo(x: Nat): forall(y: Nat, 0)");
     }
 }
