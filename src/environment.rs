@@ -180,11 +180,11 @@ impl Environment {
                 }
 
                 if token.token_type == TokenType::ForAll {
-                    return Ok((AcornValue::ForAll, AcornType::Macro));
+                    return Ok((AcornValue::ForAllMacro, AcornType::Macro));
                 }
 
                 if token.token_type == TokenType::Exists {
-                    return Ok((AcornValue::Exists, AcornType::Macro));
+                    return Ok((AcornValue::ExistsMacro, AcornType::Macro));
                 }
 
                 // Check the type for this identifier
@@ -285,6 +285,29 @@ impl Environment {
             Expression::Apply(function_expr, args_expr) => {
                 let (function, function_type) =
                     self.evaluate_value_expression(function_expr, None)?;
+
+                if function_type == AcornType::Macro {
+                    let (declaration, condition_expr) = args_expr.split_two_args()?;
+                    let (name, acorn_type) = self.parse_declaration(declaration)?;
+                    self.push_stack_variable(&name, acorn_type.clone());
+                    let ret_val = match self
+                        .evaluate_value_expression(condition_expr, Some(&AcornType::Bool))
+                    {
+                        Ok((value, _)) => match function {
+                            AcornValue::ForAllMacro => {
+                                Ok((AcornValue::ForAll(Box::new(value)), AcornType::Bool))
+                            }
+                            AcornValue::ExistsMacro => {
+                                Ok((AcornValue::Exists(Box::new(value)), AcornType::Bool))
+                            }
+                            _ => Err(Error::new(function_expr.token(), "expected a macro")),
+                        },
+                        Err(e) => Err(e),
+                    };
+                    self.pop_stack_variable(&name);
+                    return ret_val;
+                }
+
                 let function_type = match function_type {
                     AcornType::Function(f) => f,
                     _ => {
