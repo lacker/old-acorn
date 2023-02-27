@@ -29,6 +29,10 @@ pub enum AcornValue {
     NotEquals(Box<AcornValue>, Box<AcornValue>),
     And(Box<AcornValue>, Box<AcornValue>),
     Or(Box<AcornValue>, Box<AcornValue>),
+
+    // The unbound macros themselves
+    ForAll,
+    Exists,
 }
 
 impl AcornValue {

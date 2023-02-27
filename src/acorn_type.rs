@@ -27,12 +27,14 @@ impl fmt::Display for FunctionType {
 
 // An argument list isn't really a type, but it's part of a type.
 // It's used when we have more than one argument to a function.
+// "Macro" indicates either "forall" or "exists".
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
     Bool,
     Axiomatic(usize),
     Function(FunctionType),
     ArgList(Vec<AcornType>),
+    Macro,
 }
 
 impl fmt::Display for AcornType {
@@ -51,6 +53,7 @@ impl fmt::Display for AcornType {
                 }
                 write!(f, ")")
             }
+            AcornType::Macro => write!(f, "macro"),
         }
     }
 }

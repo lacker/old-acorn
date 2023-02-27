@@ -179,6 +179,14 @@ impl Environment {
                     };
                 }
 
+                if token.token_type == TokenType::ForAll {
+                    return Ok((AcornValue::ForAll, AcornType::Macro));
+                }
+
+                if token.token_type == TokenType::Exists {
+                    return Ok((AcornValue::Exists, AcornType::Macro));
+                }
+
                 // Check the type for this identifier
                 let return_type = match self.types.get(token.text) {
                     Some(t) => {

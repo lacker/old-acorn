@@ -57,6 +57,21 @@ impl Expression<'_> {
             Expression::Grouping(e) => e.token(),
         }
     }
+
+    // Expects the expression to be two comma-separated arguments
+    pub fn split_two_args(&self) -> Result<(&Expression<'_>, &Expression<'_>)> {
+        match self {
+            Expression::Binary(token, left, right) => {
+                if token.token_type == TokenType::Comma {
+                    Ok((left, right))
+                } else {
+                    Err(Error::new(self.token(), "expected comma"))
+                }
+            }
+            Expression::Grouping(e) => e.split_two_args(),
+            _ => Err(Error::new(self.token(), "expected two arguments")),
+        }
+    }
 }
 
 // A PartialExpression represents a state in the middle of parsing, where we can have
