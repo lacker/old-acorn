@@ -117,6 +117,14 @@ fn parse_partial_expressions<'a>(
                 partial_expressions
                     .push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
+            TokenType::ForAll => {
+                partial_expressions
+                    .push_back(PartialExpression::Expression(Expression::Identifier(token)));
+            }
+            TokenType::Exists => {
+                partial_expressions
+                    .push_back(PartialExpression::Expression(Expression::Identifier(token)));
+            }
             token_type if token_type.is_binary() => {
                 partial_expressions.push_back(PartialExpression::Binary(token));
             }

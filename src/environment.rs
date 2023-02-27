@@ -515,6 +515,6 @@ mod tests {
         assert!(!env.types.contains_key("foo"));
 
         add(&mut env,
-"axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)");
+        "axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)");
     }
 }

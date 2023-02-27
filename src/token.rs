@@ -29,6 +29,8 @@ pub enum TokenType {
     Define,
     Theorem,
     Type,
+    ForAll,
+    Exists,
 }
 
 pub const MAX_PRECEDENCE: i8 = 100;
@@ -289,6 +291,8 @@ pub fn scan(input: &str) -> Result<Vec<Token>> {
                         "define" => TokenType::Define,
                         "theorem" => TokenType::Theorem,
                         "type" => TokenType::Type,
+                        "forall" => TokenType::ForAll,
+                        "exists" => TokenType::Exists,
                         _ => TokenType::Identifier,
                     }
                 }
