@@ -31,7 +31,7 @@ impl fmt::Display for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Environment {{\n")?;
         for (name, acorn_type) in &self.typenames {
-            write!(f, "  typedef {}: {}\n", name, acorn_type)?;
+            write!(f, "  type {}: {}\n", name, acorn_type)?;
         }
         for (name, acorn_type) in &self.types {
             write!(f, "  let {}: {}\n", name, acorn_type)?;
@@ -95,14 +95,14 @@ impl Environment {
     }
 
     // Evaluates an expression that we expect to be indicating either a type or an arg list
-    pub fn evaluate_partial_type_expression(
-        &mut self,
-        expression: &Expression,
-    ) -> Result<AcornType> {
+    pub fn evaluate_partial_type_expression(&self, expression: &Expression) -> Result<AcornType> {
         match expression {
             Expression::Identifier(token) => {
                 if token.token_type == TokenType::Axiom {
-                    return Ok(self.new_axiomatic_type());
+                    return Err(Error::new(
+                        token,
+                        "axiomatic types can only be created at the top level",
+                    ));
                 }
                 if let Some(acorn_type) = self.typenames.get(token.text) {
                     Ok(acorn_type.clone())
@@ -460,7 +460,11 @@ impl Environment {
                         "type name already defined in this scope",
                     ));
                 }
-                let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
+                let acorn_type = if ts.type_expr.token().token_type == TokenType::Axiom {
+                    self.new_axiomatic_type()
+                } else {
+                    self.evaluate_type_expression(&ts.type_expr)?
+                };
                 self.typenames.insert(ts.name.to_string(), acorn_type);
                 Ok(())
             }
