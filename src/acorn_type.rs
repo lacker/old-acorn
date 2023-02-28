@@ -3,7 +3,7 @@ use std::fmt;
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FunctionType {
     pub args: Vec<AcornType>,
-    pub value: Box<AcornType>,
+    pub return_type: Box<AcornType>,
 }
 
 impl fmt::Display for FunctionType {
@@ -21,7 +21,7 @@ impl fmt::Display for FunctionType {
         if parens {
             write!(f, ")")?;
         }
-        write!(f, " -> {}", self.value)
+        write!(f, " -> {}", self.return_type)
     }
 }
 

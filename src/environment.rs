@@ -120,7 +120,7 @@ impl Environment {
                     let right_type = self.evaluate_partial_type_expression(right)?;
                     let function_type = FunctionType {
                         args: left_type.into_vec(),
-                        value: Box::new(right_type),
+                        return_type: Box::new(right_type),
                     };
                     Ok(AcornType::Function(function_type))
                 }
@@ -322,7 +322,11 @@ impl Environment {
                         return Err(Error::new(function_expr.token(), "expected a function"));
                     }
                 };
-                check_type(function_expr.token(), expected_type, &*function_type.value)?;
+                check_type(
+                    function_expr.token(),
+                    expected_type,
+                    &*function_type.return_type,
+                )?;
 
                 let (args, args_type) = self.evaluate_value_expression(args_expr, None)?;
 
@@ -337,7 +341,7 @@ impl Environment {
                         function: Box::new(function),
                         args: args.into_vec(),
                     }),
-                    *function_type.value,
+                    *function_type.return_type,
                 ))
             }
             Expression::Grouping(e) => self.evaluate_value_expression(e, expected_type),
@@ -366,7 +370,7 @@ impl Environment {
     }
 
     // Parses a list of named arguments like "(x: Nat, f: Nat -> Nat)".
-    fn parse_named_args(&mut self, arg_list: &Expression) -> Result<Vec<(String, AcornType)>> {
+    fn parse_named_args(&self, arg_list: &Expression) -> Result<Vec<(String, AcornType)>> {
         let exprs = arg_list.flatten_arg_list();
         let mut declarations = Vec::new();
         for expr in exprs {
@@ -376,10 +380,15 @@ impl Environment {
         Ok(declarations)
     }
 
+    // Handle function definitions with named arguments.
+    // "declaration" is something like:
+    //   add(a: Nat, b:Nat) -> Nat
+    // "body" is something like:
+    //   a + b
     fn define_function(
         &mut self,
         declaration: &Expression,
-        value: &Expression,
+        body: &Expression,
     ) -> Result<(String, AcornValue, AcornType)> {
         let (fn_appl, ret_type) = match declaration {
             Expression::Binary(token, left, right) => match token.token_type {
@@ -434,12 +443,12 @@ impl Environment {
             self.push_stack_variable(&name, arg_type.clone());
         }
 
-        let ret_val = match self.evaluate_value_expression(value, Some(&ret_type)) {
+        let ret_val = match self.evaluate_value_expression(body, Some(&ret_type)) {
             Ok((value, _)) => {
                 let fn_value = AcornValue::Lambda(named_args_len, Box::new(value));
                 let fn_type = AcornType::Function(FunctionType {
                     args: named_args.iter().map(|(_, t)| t.clone()).collect(),
-                    value: Box::new(ret_type),
+                    return_type: Box::new(ret_type),
                 });
                 Ok((fn_name, fn_value, fn_type))
             }
@@ -535,7 +544,7 @@ impl Environment {
                         let theorem_value = AcornValue::Lambda(names.len(), Box::new(claim_value));
                         let theorem_type = AcornType::Function(FunctionType {
                             args: types,
-                            value: Box::new(AcornType::Bool),
+                            return_type: Box::new(AcornType::Bool),
                         });
                         self.types.insert(ts.name.to_string(), theorem_type);
                         self.constants.insert(ts.name.to_string(), theorem_value);
