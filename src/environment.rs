@@ -289,6 +289,12 @@ impl Environment {
                 if function_type == AcornType::Macro {
                     let (declaration, condition_expr) = args_expr.split_two_args()?;
                     let (name, acorn_type) = self.parse_declaration(declaration)?;
+                    if self.types.contains_key(&name) {
+                        return Err(Error::new(
+                            declaration.token(),
+                            "cannot redeclare a name in a macro",
+                        ));
+                    }
                     self.push_stack_variable(&name, acorn_type.clone());
                     let ret_val = match self
                         .evaluate_value_expression(condition_expr, Some(&AcornType::Bool))
@@ -669,5 +675,7 @@ mod tests {
             &mut env,
             "define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom",
         );
+
+        bad(&mut env, "theorem foo(x: Nat): forall(0: Nat, 0 = 0)");
     }
 }
