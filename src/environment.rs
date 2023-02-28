@@ -144,7 +144,7 @@ impl Environment {
     }
 
     // Evaluates an expression that indicates a complete type, not an arg list
-    pub fn evaluate_type_expression(&mut self, expression: &Expression) -> Result<AcornType> {
+    pub fn evaluate_type_expression(&self, expression: &Expression) -> Result<AcornType> {
         let acorn_type = self.evaluate_partial_type_expression(expression)?;
         if let AcornType::ArgList(_) = acorn_type {
             Err(Error::new(
