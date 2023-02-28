@@ -336,6 +336,7 @@ impl Environment {
         }
     }
 
+    // Parses the "x: Nat" sort of declaration.
     fn parse_declaration(&mut self, declaration: &Expression) -> Result<(String, AcornType)> {
         match declaration {
             Expression::Binary(token, left, right) => match token.token_type {
@@ -354,6 +355,14 @@ impl Environment {
             },
             _ => Err(Error::new(declaration.token(), "expected a declaration")),
         }
+    }
+
+    fn define_function(
+        &mut self,
+        declaration: &Expression,
+        value: &Expression,
+    ) -> Result<(String, AcornValue, AcornType)> {
+        panic!("XXX");
     }
 
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
@@ -386,10 +395,22 @@ impl Environment {
                     self.types.insert(name, acorn_type);
                     Ok(())
                 }
-                TokenType::RightArrow => Err(Error::new(
-                    ds.declaration.token(),
-                    "TODO: handle function definitions with named arguments",
-                )),
+                TokenType::RightArrow => {
+                    let value = match &ds.value {
+                        Some(v) => v,
+                        None => {
+                            return Err(Error::new(
+                                ds.declaration.token(),
+                                "expected a value in this definition",
+                            ));
+                        }
+                    };
+                    let (name, acorn_value, acorn_type) =
+                        self.define_function(&ds.declaration, value)?;
+                    self.constants.insert(name.clone(), acorn_value);
+                    self.types.insert(name, acorn_type);
+                    Ok(())
+                }
                 _ => Err(Error::new(
                     ds.declaration.token(),
                     "unexpected top-level token in declaration",
