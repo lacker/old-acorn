@@ -357,12 +357,92 @@ impl Environment {
         }
     }
 
+    // Parses a list of named arguments like "(x: Nat, f: Nat -> Nat)".
+    fn parse_named_args(&mut self, arg_list: &Expression) -> Result<Vec<(String, AcornType)>> {
+        let exprs = arg_list.flatten_arg_list();
+        let mut declarations = Vec::new();
+        for expr in exprs {
+            let (name, acorn_type) = self.parse_declaration(expr)?;
+            declarations.push((name, acorn_type));
+        }
+        Ok(declarations)
+    }
+
     fn define_function(
         &mut self,
         declaration: &Expression,
         value: &Expression,
     ) -> Result<(String, AcornValue, AcornType)> {
-        panic!("XXX");
+        let (fn_appl, ret_type) = match declaration {
+            Expression::Binary(token, left, right) => match token.token_type {
+                TokenType::RightArrow => {
+                    let ret_type = self.evaluate_type_expression(right)?;
+                    (&**left, ret_type)
+                }
+                _ => return Err(Error::new(token, "expected a right arrow here")),
+            },
+            _ => {
+                return Err(Error::new(
+                    declaration.token(),
+                    "expected a function declaration",
+                ))
+            }
+        };
+
+        let (fn_name, arg_list) = match fn_appl {
+            Expression::Apply(ident, arg_list) => {
+                if ident.token().token_type != TokenType::Identifier {
+                    return Err(Error::new(
+                        ident.token(),
+                        "expected an identifier in this function declaration",
+                    ));
+                }
+                let name = ident.token().text.to_string();
+                if self.types.contains_key(&name) {
+                    return Err(Error::new(
+                        ident.token(),
+                        "function name already defined in this scope",
+                    ));
+                }
+                (name, &**arg_list)
+            }
+            _ => {
+                return Err(Error::new(
+                    fn_appl.token(),
+                    "expected a function declaration",
+                ))
+            }
+        };
+
+        let named_args = self.parse_named_args(&arg_list)?;
+        let named_args_len = named_args.len();
+        for (name, arg_type) in &named_args {
+            if self.types.contains_key(name) {
+                return Err(Error::new(
+                    declaration.token(),
+                    &format!("argument name already defined in this scope: {}", name),
+                ));
+            }
+            self.push_stack_variable(&name, arg_type.clone());
+        }
+
+        let ret_val = match self.evaluate_value_expression(value, Some(&ret_type)) {
+            Ok((value, _)) => {
+                let fn_value = AcornValue::Lambda(named_args_len, Box::new(value));
+                let fn_type = AcornType::Function(FunctionType {
+                    args: named_args.iter().map(|(_, t)| t.clone()).collect(),
+                    value: Box::new(ret_type),
+                });
+                Ok((fn_name, fn_value, fn_type))
+            }
+            Err(e) => Err(e),
+        };
+
+        for (name, _) in &named_args {
+            self.pop_stack_variable(&name);
+        }
+
+        ret_val
     }
 
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
