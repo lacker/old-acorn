@@ -679,8 +679,10 @@ mod tests {
         assert!(!env.typenames.contains_key("foo"));
         assert!(!env.types.contains_key("foo"));
 
-        add(&mut env,
-        "axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)");
+        add(
+            &mut env,
+            "axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)",
+        );
 
         bad(&mut env, "theorem foo(x: Nat): 0");
         bad(&mut env, "theorem foo(x: Nat): forall(0, 0)");
@@ -692,5 +694,37 @@ mod tests {
         );
 
         bad(&mut env, "theorem foo(x: Nat): forall(0: Nat, 0 = 0)");
+
+        add(
+            &mut env,
+            "axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a",
+        );
+        add(
+            &mut env,
+    "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
+        );
+
+        add(
+            &mut env,
+            "define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)",
+        );
+        add(&mut env, "theorem add_zero_right(a: Nat): add(a, 0) = a");
+        add(&mut env, "theorem add_zero_left(a: Nat): add(0, a) = a");
+        add(
+            &mut env,
+            "theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))",
+        );
+        add(
+            &mut env,
+            "theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))",
+        );
+        add(
+            &mut env,
+            "theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)",
+        );
+        add(
+            &mut env,
+            "theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))",
+        );
     }
 }
