@@ -157,6 +157,8 @@ impl Environment {
     }
 
     // A value expression could be either a value or an argument list.
+    // We mutate the environment to account for the stack, so self has to be mut.
+    // It might be better to use some fancier data structure.
     // Returns the value along with its type.
     pub fn evaluate_value_expression(
         &mut self,
@@ -343,7 +345,7 @@ impl Environment {
     }
 
     // Parses the "x: Nat" sort of declaration.
-    fn parse_declaration(&mut self, declaration: &Expression) -> Result<(String, AcornType)> {
+    fn parse_declaration(&self, declaration: &Expression) -> Result<(String, AcornType)> {
         match declaration {
             Expression::Binary(token, left, right) => match token.token_type {
                 TokenType::Colon => {
