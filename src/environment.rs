@@ -205,7 +205,7 @@ impl Environment {
                     Ok((acorn_value.clone(), return_type))
                 } else if let Some(stack_depth) = self.stack.get(token.text) {
                     let binding_depth = self.stack.len() - stack_depth - 1;
-                    Ok((AcornValue::Binding(binding_depth), return_type))
+                    Ok((AcornValue::Reference(binding_depth), return_type))
                 } else {
                     Err(Error::new(
                         token,
@@ -370,14 +370,16 @@ impl Environment {
     }
 
     // Parses a list of named arguments like "(x: Nat, f: Nat -> Nat)".
-    fn parse_named_args(&self, arg_list: &Expression) -> Result<Vec<(String, AcornType)>> {
+    fn parse_named_args(&self, arg_list: &Expression) -> Result<(Vec<String>, Vec<AcornType>)> {
         let exprs = arg_list.flatten_arg_list();
-        let mut declarations = Vec::new();
+        let mut names = Vec::new();
+        let mut types = Vec::new();
         for expr in exprs {
             let (name, acorn_type) = self.parse_declaration(expr)?;
-            declarations.push((name, acorn_type));
+            names.push(name);
+            types.push(acorn_type);
         }
-        Ok(declarations)
+        Ok((names, types))
     }
 
     // Handle function definitions with named arguments.
@@ -431,9 +433,8 @@ impl Environment {
             }
         };
 
-        let named_args = self.parse_named_args(&arg_list)?;
-        let named_args_len = named_args.len();
-        for (name, arg_type) in &named_args {
+        let (arg_names, arg_types) = self.parse_named_args(arg_list)?;
+        for (name, arg_type) in arg_names.iter().zip(arg_types.iter()) {
             if self.types.contains_key(name) {
                 return Err(Error::new(
                     declaration.token(),
@@ -445,9 +446,9 @@ impl Environment {
 
         let ret_val = match self.evaluate_value_expression(body, Some(&ret_type)) {
             Ok((value, _)) => {
-                let fn_value = AcornValue::Lambda(named_args_len, Box::new(value));
+                let fn_value = AcornValue::Lambda(arg_types.clone(), Box::new(value));
                 let fn_type = AcornType::Function(FunctionType {
-                    args: named_args.iter().map(|(_, t)| t.clone()).collect(),
+                    args: arg_types,
                     return_type: Box::new(ret_type),
                 });
                 Ok((fn_name, fn_value, fn_type))
@@ -455,7 +456,7 @@ impl Environment {
             Err(e) => Err(e),
         };
 
-        for (name, _) in &named_args {
+        for name in arg_names {
             self.pop_stack_variable(&name);
         }
 
@@ -537,21 +538,21 @@ impl Environment {
                 }
 
                 // Handle the claim
-                let ret_val = match self
-                    .evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))
-                {
-                    Ok((claim_value, _)) => {
-                        let theorem_value = AcornValue::Lambda(names.len(), Box::new(claim_value));
-                        let theorem_type = AcornType::Function(FunctionType {
-                            args: types,
-                            return_type: Box::new(AcornType::Bool),
-                        });
-                        self.types.insert(ts.name.to_string(), theorem_type);
-                        self.constants.insert(ts.name.to_string(), theorem_value);
-                        Ok(())
-                    }
-                    Err(e) => Err(e),
-                };
+                let ret_val =
+                    match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
+                        Ok((claim_value, _)) => {
+                            let theorem_value =
+                                AcornValue::Lambda(types.clone(), Box::new(claim_value));
+                            let theorem_type = AcornType::Function(FunctionType {
+                                args: types,
+                                return_type: Box::new(AcornType::Bool),
+                            });
+                            self.types.insert(ts.name.to_string(), theorem_type);
+                            self.constants.insert(ts.name.to_string(), theorem_value);
+                            Ok(())
+                        }
+                        Err(e) => Err(e),
+                    };
 
                 // Reset the stack
                 for name in names {
@@ -625,6 +626,18 @@ mod tests {
             "expected error in: {}",
             input
         );
+    }
+
+    #[test]
+    fn test_fn_equality() {
+        let mut env = Environment::new();
+        add(&mut env, "define idb1(x: bool) -> bool = x");
+        add(&mut env, "define idb2(y: bool) -> bool = y");
+        assert_eq!(env.constants["idb1"], env.constants["idb2"]);
+
+        add(&mut env, "type Nat: axiom");
+        add(&mut env, "define idn1(x: Nat) -> Nat = x");
+        assert_ne!(env.constants["idb1"], env.constants["idn1"]);
     }
 
     #[test]
