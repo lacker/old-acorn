@@ -534,8 +534,8 @@ impl Environment {
                 )),
             },
             Statement::Theorem(ts) => {
-                // A theorem is several things. It's a list of arguments, a claim of things that are true,
-                // and and implicit statement that there is a proof for this claim.
+                // A theorem has two parts. It's a list of arguments that act like variable bindings,
+                // and a boolean value representing a claim of things that are true.
                 // Here we are typechecking the arguments and the claim, but not proving it's always true.
                 let (arg_names, arg_types) = self.bind_args(ts.args.iter().collect())?;
 
@@ -544,12 +544,8 @@ impl Environment {
                     match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
                         Ok((claim_value, _)) => {
                             let theorem_value =
-                                AcornValue::Lambda(arg_types.clone(), Box::new(claim_value));
-                            let theorem_type = AcornType::Function(FunctionType {
-                                args: arg_types,
-                                return_type: Box::new(AcornType::Bool),
-                            });
-                            self.types.insert(ts.name.to_string(), theorem_type);
+                                AcornValue::ForAll(arg_types.clone(), Box::new(claim_value));
+                            self.types.insert(ts.name.to_string(), AcornType::Bool);
                             self.constants.insert(ts.name.to_string(), theorem_value);
                             Ok(())
                         }
