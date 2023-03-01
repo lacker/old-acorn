@@ -664,6 +664,25 @@ mod tests {
     }
 
     #[test]
+    fn test_arg_binding() {
+        let mut env = Environment::new();
+        bad(&mut env, "define id(x: bool, x: bool) -> bool = x");
+        assert!(env.types.get("x").is_none());
+        bad(&mut env, "theorem foo(x: bool, x: bool): x");
+        assert!(env.types.get("x").is_none());
+        bad(
+            &mut env,
+            "define bar: bool = forall(x: bool, x: bool, x = x)",
+        );
+        assert!(env.types.get("x").is_none());
+        bad(
+            &mut env,
+            "define baz: bool = exists(x: bool, x: bool, x = x)",
+        );
+        assert!(env.types.get("x").is_none());
+    }
+
+    #[test]
     fn test_nat_ac() {
         let mut env = Environment::new();
         add(&mut env, "type Nat: axiom");
