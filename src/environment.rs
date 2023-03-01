@@ -94,6 +94,43 @@ impl Environment {
         self.types.remove(name);
     }
 
+    // Parses a list of named argument declarations and adds them to the stack.
+    fn bind_args(
+        &mut self,
+        declarations: Vec<&Expression>,
+    ) -> Result<(Vec<String>, Vec<AcornType>)> {
+        let mut names = Vec::new();
+        let mut types = Vec::new();
+        for declaration in declarations {
+            let (name, acorn_type) = self.parse_declaration(declaration)?;
+            if self.types.contains_key(&name) {
+                return Err(Error::new(
+                    declaration.token(),
+                    "cannot redeclare a name in an argument list",
+                ));
+            }
+            if names.contains(&name) {
+                return Err(Error::new(
+                    declaration.token(),
+                    "cannot declare a name twice in one argument list",
+                ));
+            }
+            names.push(name);
+            types.push(acorn_type);
+        }
+        for (name, acorn_type) in names.iter().zip(types.iter()) {
+            self.push_stack_variable(name, acorn_type.clone());
+        }
+        Ok((names, types))
+    }
+
+    // There should be a call to unbind_args for every call to bind_args.
+    fn unbind_args(&mut self, names: Vec<String>) {
+        for name in names {
+            self.pop_stack_variable(&name);
+        }
+    }
+
     // Evaluates an expression that we expect to be indicating either a type or an arg list
     pub fn evaluate_partial_type_expression(&self, expression: &Expression) -> Result<AcornType> {
         match expression {
@@ -297,11 +334,7 @@ impl Environment {
                         ));
                     }
                     let body = macro_args.pop().unwrap();
-                    let (arg_names, arg_types) = self.parse_named_args(macro_args)?;
-
-                    for (name, arg_type) in arg_names.iter().zip(arg_types.iter()) {
-                        self.push_stack_variable(name, arg_type.clone());
-                    }
+                    let (arg_names, arg_types) = self.bind_args(macro_args)?;
 
                     let ret_val = match self.evaluate_value_expression(body, Some(&AcornType::Bool))
                     {
@@ -318,9 +351,7 @@ impl Environment {
                         },
                         Err(e) => Err(e),
                     };
-                    for name in arg_names {
-                        self.pop_stack_variable(&name);
-                    }
+                    self.unbind_args(arg_names);
                     return ret_val;
                 }
 
@@ -377,33 +408,6 @@ impl Environment {
         }
     }
 
-    // Parses a list of named argument declarations like "(x: Nat, f: Nat -> Nat)".
-    fn parse_named_args(
-        &self,
-        declarations: Vec<&Expression>,
-    ) -> Result<(Vec<String>, Vec<AcornType>)> {
-        let mut names = Vec::new();
-        let mut types = Vec::new();
-        for declaration in declarations {
-            let (name, acorn_type) = self.parse_declaration(declaration)?;
-            if self.types.contains_key(&name) {
-                return Err(Error::new(
-                    declaration.token(),
-                    "cannot redeclare a name in an argument list",
-                ));
-            }
-            if names.contains(&name) {
-                return Err(Error::new(
-                    declaration.token(),
-                    "cannot declare a name twice in one argument list",
-                ));
-            }
-            names.push(name);
-            types.push(acorn_type);
-        }
-        Ok((names, types))
-    }
-
     // Handle function definitions with named arguments.
     // "declaration" is something like:
     //   add(a: Nat, b:Nat) -> Nat
@@ -455,10 +459,7 @@ impl Environment {
             }
         };
 
-        let (arg_names, arg_types) = self.parse_named_args(arg_list.flatten_arg_list())?;
-        for (name, arg_type) in arg_names.iter().zip(arg_types.iter()) {
-            self.push_stack_variable(&name, arg_type.clone());
-        }
+        let (arg_names, arg_types) = self.bind_args(arg_list.flatten_arg_list())?;
 
         let ret_val = match self.evaluate_value_expression(body, Some(&ret_type)) {
             Ok((value, _)) => {
@@ -472,9 +473,7 @@ impl Environment {
             Err(e) => Err(e),
         };
 
-        for name in arg_names {
-            self.pop_stack_variable(&name);
-        }
+        self.unbind_args(arg_names);
 
         ret_val
     }
@@ -538,10 +537,7 @@ impl Environment {
                 // A theorem is several things. It's a list of arguments, a claim of things that are true,
                 // and and implicit statement that there is a proof for this claim.
                 // Here we are typechecking the arguments and the claim, but not proving it's always true.
-                let (arg_names, arg_types) = self.parse_named_args(ts.args.iter().collect())?;
-                for (name, arg_type) in arg_names.iter().zip(arg_types.iter()) {
-                    self.push_stack_variable(&name, arg_type.clone());
-                }
+                let (arg_names, arg_types) = self.bind_args(ts.args.iter().collect())?;
 
                 // Handle the claim
                 let ret_val =
@@ -560,10 +556,7 @@ impl Environment {
                         Err(e) => Err(e),
                     };
 
-                // Reset the stack
-                for name in arg_names {
-                    self.pop_stack_variable(&name);
-                }
+                self.unbind_args(arg_names);
 
                 ret_val
             }
