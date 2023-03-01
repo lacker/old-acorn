@@ -302,12 +302,14 @@ impl Environment {
                         .evaluate_value_expression(condition_expr, Some(&AcornType::Bool))
                     {
                         Ok((value, _)) => match function {
-                            AcornValue::ForAllMacro => {
-                                Ok((AcornValue::ForAll(Box::new(value)), AcornType::Bool))
-                            }
-                            AcornValue::ExistsMacro => {
-                                Ok((AcornValue::Exists(Box::new(value)), AcornType::Bool))
-                            }
+                            AcornValue::ForAllMacro => Ok((
+                                AcornValue::ForAll(Box::new(acorn_type), Box::new(value)),
+                                AcornType::Bool,
+                            )),
+                            AcornValue::ExistsMacro => Ok((
+                                AcornValue::Exists(Box::new(acorn_type), Box::new(value)),
+                                AcornType::Bool,
+                            )),
                             _ => Err(Error::new(function_expr.token(), "expected a macro")),
                         },
                         Err(e) => Err(e),
@@ -638,6 +640,30 @@ mod tests {
         add(&mut env, "type Nat: axiom");
         add(&mut env, "define idn1(x: Nat) -> Nat = x");
         assert_ne!(env.constants["idb1"], env.constants["idn1"]);
+    }
+
+    #[test]
+    fn test_forall_equality() {
+        let mut env = Environment::new();
+        add(&mut env, "define bsym1: bool = forall(x: bool, x = x)");
+        add(&mut env, "define bsym2: bool = forall(y: bool, y = y)");
+        assert_eq!(env.constants["bsym1"], env.constants["bsym2"]);
+
+        add(&mut env, "type Nat: axiom");
+        add(&mut env, "define nsym1: bool = forall(x: Nat, x = x)");
+        assert_ne!(env.constants["bsym1"], env.constants["nsym1"]);
+    }
+
+    #[test]
+    fn test_exists_equality() {
+        let mut env = Environment::new();
+        add(&mut env, "define bex1: bool = exists(x: bool, x = x)");
+        add(&mut env, "define bex2: bool = exists(y: bool, y = y)");
+        assert_eq!(env.constants["bex1"], env.constants["bex2"]);
+
+        add(&mut env, "type Nat: axiom");
+        add(&mut env, "define nex1: bool = exists(x: Nat, x = x)");
+        assert_ne!(env.constants["bex1"], env.constants["nex1"]);
     }
 
     #[test]
