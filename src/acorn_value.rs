@@ -34,8 +34,8 @@ pub enum AcornValue {
     NotEquals(Box<AcornValue>, Box<AcornValue>),
     And(Box<AcornValue>, Box<AcornValue>),
     Or(Box<AcornValue>, Box<AcornValue>),
-    ForAll(Box<AcornType>, Box<AcornValue>),
-    Exists(Box<AcornType>, Box<AcornValue>),
+    ForAll(Vec<AcornType>, Box<AcornValue>),
+    Exists(Vec<AcornType>, Box<AcornValue>),
 
     // The unbound macros themselves
     ForAllMacro,

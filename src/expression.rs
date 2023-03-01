@@ -58,21 +58,6 @@ impl Expression<'_> {
         }
     }
 
-    // Expects the expression to be two comma-separated arguments
-    pub fn split_two_args(&self) -> Result<(&Expression<'_>, &Expression<'_>)> {
-        match self {
-            Expression::Binary(token, left, right) => {
-                if token.token_type == TokenType::Comma {
-                    Ok((left, right))
-                } else {
-                    Err(Error::new(self.token(), "expected comma"))
-                }
-            }
-            Expression::Grouping(e) => e.split_two_args(),
-            _ => Err(Error::new(self.token(), "expected two arguments")),
-        }
-    }
-
     // Expects the expression to be a list of comma-separated expressions
     // Gets rid of commas and groupings
     pub fn flatten_arg_list(&self) -> Vec<&Expression<'_>> {

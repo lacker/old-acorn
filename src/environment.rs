@@ -289,32 +289,58 @@ impl Environment {
                     self.evaluate_value_expression(function_expr, None)?;
 
                 if function_type == AcornType::Macro {
-                    let (declaration, condition_expr) = args_expr.split_two_args()?;
-                    let (name, acorn_type) = self.parse_declaration(declaration)?;
-                    if self.types.contains_key(&name) {
+                    let mut macro_args = args_expr.flatten_arg_list();
+                    if macro_args.len() < 2 {
                         return Err(Error::new(
-                            declaration.token(),
-                            "cannot redeclare a name in a macro",
+                            args_expr.token(),
+                            "quantifier macros must have at least two arguments",
                         ));
                     }
-                    self.push_stack_variable(&name, acorn_type.clone());
-                    let ret_val = match self
-                        .evaluate_value_expression(condition_expr, Some(&AcornType::Bool))
-                    {
-                        Ok((value, _)) => match function {
-                            AcornValue::ForAllMacro => Ok((
-                                AcornValue::ForAll(Box::new(acorn_type), Box::new(value)),
-                                AcornType::Bool,
-                            )),
-                            AcornValue::ExistsMacro => Ok((
-                                AcornValue::Exists(Box::new(acorn_type), Box::new(value)),
-                                AcornType::Bool,
-                            )),
-                            _ => Err(Error::new(function_expr.token(), "expected a macro")),
-                        },
-                        Err(e) => Err(e),
-                    };
-                    self.pop_stack_variable(&name);
+                    let last_arg = macro_args.pop().unwrap();
+
+                    // The non-last arguments are new variables to quantify over
+                    let mut arg_names = Vec::new();
+                    let mut arg_types = Vec::new();
+                    for arg in macro_args {
+                        let (name, acorn_type) = self.parse_declaration(arg)?;
+                        if self.types.contains_key(&name) {
+                            return Err(Error::new(
+                                arg.token(),
+                                "cannot redeclare a name in a macro",
+                            ));
+                        }
+                        if arg_names.contains(&name) {
+                            return Err(Error::new(
+                                arg.token(),
+                                "cannot declare a name twice in a macro",
+                            ));
+                        }
+                        arg_names.push(name);
+                        arg_types.push(acorn_type);
+                    }
+
+                    for (name, arg_type) in arg_names.iter().zip(arg_types.iter()) {
+                        self.push_stack_variable(name, arg_type.clone());
+                    }
+
+                    let ret_val =
+                        match self.evaluate_value_expression(last_arg, Some(&AcornType::Bool)) {
+                            Ok((value, _)) => match function {
+                                AcornValue::ForAllMacro => Ok((
+                                    AcornValue::ForAll(arg_types, Box::new(value)),
+                                    AcornType::Bool,
+                                )),
+                                AcornValue::ExistsMacro => Ok((
+                                    AcornValue::Exists(arg_types, Box::new(value)),
+                                    AcornType::Bool,
+                                )),
+                                _ => Err(Error::new(function_expr.token(), "expected a macro")),
+                            },
+                            Err(e) => Err(e),
+                        };
+                    for name in arg_names {
+                        self.pop_stack_variable(&name);
+                    }
                     return ret_val;
                 }
 
@@ -372,8 +398,7 @@ impl Environment {
     }
 
     // Parses a list of named arguments like "(x: Nat, f: Nat -> Nat)".
-    fn parse_named_args(&self, arg_list: &Expression) -> Result<(Vec<String>, Vec<AcornType>)> {
-        let exprs = arg_list.flatten_arg_list();
+    fn parse_named_args(&self, exprs: Vec<&Expression>) -> Result<(Vec<String>, Vec<AcornType>)> {
         let mut names = Vec::new();
         let mut types = Vec::new();
         for expr in exprs {
@@ -435,7 +460,7 @@ impl Environment {
             }
         };
 
-        let (arg_names, arg_types) = self.parse_named_args(arg_list)?;
+        let (arg_names, arg_types) = self.parse_named_args(arg_list.flatten_arg_list())?;
         for (name, arg_type) in arg_names.iter().zip(arg_types.iter()) {
             if self.types.contains_key(name) {
                 return Err(Error::new(
