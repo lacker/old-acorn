@@ -535,22 +535,12 @@ impl Environment {
                 )),
             },
             Statement::Theorem(ts) => {
-                // A theorem is two things. It's a function from a list of arguments to a boolean,
-                // and it's implying that the function always returns true.
-                // Here we are typechecking the function, but not proving it's always true.
-                let mut names = Vec::new();
-                let mut types = Vec::new();
-                for arg in &ts.args {
-                    let (name, acorn_type) = self.parse_declaration(arg)?;
-                    if self.types.contains_key(&name) {
-                        return Err(Error::new(
-                            arg.token(),
-                            "variable name already defined in this scope",
-                        ));
-                    }
-                    self.push_stack_variable(&name, acorn_type.clone());
-                    names.push(name);
-                    types.push(acorn_type);
+                // A theorem is several things. It's a list of arguments, a claim of things that are true,
+                // and and implicit statement that there is a proof for this claim.
+                // Here we are typechecking the arguments and the claim, but not proving it's always true.
+                let (arg_names, arg_types) = self.parse_named_args(ts.args.iter().collect())?;
+                for (name, arg_type) in arg_names.iter().zip(arg_types.iter()) {
+                    self.push_stack_variable(&name, arg_type.clone());
                 }
 
                 // Handle the claim
@@ -558,9 +548,9 @@ impl Environment {
                     match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
                         Ok((claim_value, _)) => {
                             let theorem_value =
-                                AcornValue::Lambda(types.clone(), Box::new(claim_value));
+                                AcornValue::Lambda(arg_types.clone(), Box::new(claim_value));
                             let theorem_type = AcornType::Function(FunctionType {
-                                args: types,
+                                args: arg_types,
                                 return_type: Box::new(AcornType::Bool),
                             });
                             self.types.insert(ts.name.to_string(), theorem_type);
@@ -571,7 +561,7 @@ impl Environment {
                     };
 
                 // Reset the stack
-                for name in names {
+                for name in arg_names {
                     self.pop_stack_variable(&name);
                 }
 
