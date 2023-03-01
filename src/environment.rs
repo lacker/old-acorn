@@ -666,20 +666,33 @@ mod tests {
     #[test]
     fn test_arg_binding() {
         let mut env = Environment::new();
-        bad(&mut env, "define id(x: bool, x: bool) -> bool = x");
+        bad(&mut env, "define qux(x: bool, x: bool) -> bool = x");
         assert!(env.types.get("x").is_none());
+        add(&mut env, "define qux(x: bool, y: bool) -> bool = x");
+
         bad(&mut env, "theorem foo(x: bool, x: bool): x");
         assert!(env.types.get("x").is_none());
+        add(&mut env, "theorem foo(x: bool, y: bool): x");
+
         bad(
             &mut env,
             "define bar: bool = forall(x: bool, x: bool, x = x)",
         );
         assert!(env.types.get("x").is_none());
+        add(
+            &mut env,
+            "define bar: bool = forall(x: bool, y: bool, x = x)",
+        );
+
         bad(
             &mut env,
             "define baz: bool = exists(x: bool, x: bool, x = x)",
         );
         assert!(env.types.get("x").is_none());
+        add(
+            &mut env,
+            "define baz: bool = exists(x: bool, y: bool, x = x)",
+        );
     }
 
     #[test]
