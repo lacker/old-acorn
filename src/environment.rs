@@ -702,6 +702,7 @@ mod tests {
         env.add("define idb1(x: bool) -> bool = x");
         env.typecheck("idb1", "bool -> bool");
         env.add("define idb2(y: bool) -> bool = y");
+        env.typecheck("idb2", "bool -> bool");
         assert_eq!(env.constants["idb1"], env.constants["idb2"]);
 
         env.add("type Nat: axiom");
@@ -714,11 +715,14 @@ mod tests {
     fn test_forall_equality() {
         let mut env = Environment::new();
         env.add("define bsym1: bool = forall(x: bool, x = x)");
+        env.typecheck("bsym1", "bool");
         env.add("define bsym2: bool = forall(y: bool, y = y)");
+        env.typecheck("bsym2", "bool");
         assert_eq!(env.constants["bsym1"], env.constants["bsym2"]);
 
         env.add("type Nat: axiom");
         env.add("define nsym1: bool = forall(x: Nat, x = x)");
+        env.typecheck("nsym1", "bool");
         assert_ne!(env.constants["bsym1"], env.constants["nsym1"]);
     }
 
@@ -740,10 +744,12 @@ mod tests {
         env.bad("define qux(x: bool, x: bool) -> bool = x");
         assert!(env.types.get("x").is_none());
         env.add("define qux(x: bool, y: bool) -> bool = x");
+        env.typecheck("qux", "(bool, bool) -> bool");
 
         env.bad("theorem foo(x: bool, x: bool): x");
         assert!(env.types.get("x").is_none());
         env.add("theorem foo(x: bool, y: bool): x");
+        env.typecheck("foo", "(bool, bool) -> bool");
 
         env.bad("define bar: bool = forall(x: bool, x: bool, x = x)");
         assert!(env.types.get("x").is_none());
