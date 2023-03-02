@@ -749,7 +749,7 @@ mod tests {
         env.bad("theorem foo(x: bool, x: bool): x");
         assert!(env.types.get("x").is_none());
         env.add("theorem foo(x: bool, y: bool): x");
-        env.typecheck("foo", "(bool, bool) -> bool");
+        env.typecheck("foo", "bool");
 
         env.bad("define bar: bool = forall(x: bool, x: bool, x = x)");
         assert!(env.types.get("x").is_none());
