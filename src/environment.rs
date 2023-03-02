@@ -612,29 +612,25 @@ impl Environment {
             _ => panic!("TODO"),
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use crate::{
-        expression::parse_expression,
-        token::{scan, TokenType},
-    };
+    #[cfg(test)]
+    fn assert_type_ok(&mut self, input: &str) {
+        use crate::{expression::parse_expression, token::scan};
 
-    use super::*;
-
-    fn check_type(env: &mut Environment, input: &str) {
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let (expression, _) =
             parse_expression(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
-        match env.evaluate_type_expression(&expression) {
+        match self.evaluate_type_expression(&expression) {
             Ok(_) => {}
             Err(error) => panic!("Error evaluating type expression: {}", error),
         }
     }
 
-    fn check_bad_type(env: &mut Environment, input: &str) {
+    #[cfg(test)]
+    fn assert_type_bad(&mut self, input: &str) {
+        use crate::{expression::parse_expression, token::scan};
+
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let expression = match parse_expression(&mut tokens, false, |t| t == TokenType::NewLine) {
@@ -644,142 +640,140 @@ mod tests {
                 return;
             }
         };
-        assert!(env.evaluate_type_expression(&expression).is_err());
+        assert!(self.evaluate_type_expression(&expression).is_err());
     }
 
-    #[test]
-    fn test_env_types() {
-        let mut env = Environment::new();
-        check_type(&mut env, "bool");
-        check_type(&mut env, "bool -> bool");
-        check_type(&mut env, "bool -> (bool -> bool)");
-        check_type(&mut env, "(bool -> bool) -> (bool -> bool)");
-        check_type(&mut env, "(bool, bool) -> bool");
-
-        check_bad_type(&mut env, "bool, bool -> bool");
-        check_bad_type(&mut env, "(bool, bool)");
-    }
-
-    fn add(env: &mut Environment, input: &str) {
+    #[cfg(test)]
+    fn add(&mut self, input: &str) {
         let statement = Statement::parse_str(input).unwrap();
-        if let Err(r) = env.add_statement(&statement) {
+        if let Err(r) = self.add_statement(&statement) {
             panic!("Error adding statement:\n\n{}", r);
         }
     }
 
-    fn bad(env: &mut Environment, input: &str) {
+    #[cfg(test)]
+    fn add_joined(&mut self, input1: &str, input2: &str) {
+        let input = format!("{} {}", input1, input2);
+        self.add(&input);
+    }
+
+    #[cfg(test)]
+    fn bad(&mut self, input: &str) {
         let statement = Statement::parse_str(input).unwrap();
         assert!(
-            env.add_statement(&statement).is_err(),
+            self.add_statement(&statement).is_err(),
             "expected error in: {}",
             input
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_env_types() {
+        let mut env = Environment::new();
+        env.assert_type_ok("bool");
+        env.assert_type_ok("bool -> bool");
+        env.assert_type_ok("bool -> (bool -> bool)");
+        env.assert_type_ok("(bool -> bool) -> (bool -> bool)");
+        env.assert_type_ok("(bool, bool) -> bool");
+
+        env.assert_type_bad("bool, bool -> bool");
+        env.assert_type_bad("(bool, bool)");
     }
 
     #[test]
     fn test_fn_equality() {
         let mut env = Environment::new();
-        add(&mut env, "define idb1(x: bool) -> bool = x");
-        add(&mut env, "define idb2(y: bool) -> bool = y");
+        env.add("define idb1(x: bool) -> bool = x");
+        env.add("define idb2(y: bool) -> bool = y");
         assert_eq!(env.constants["idb1"], env.constants["idb2"]);
 
-        add(&mut env, "type Nat: axiom");
-        add(&mut env, "define idn1(x: Nat) -> Nat = x");
+        env.add("type Nat: axiom");
+        env.add("define idn1(x: Nat) -> Nat = x");
         assert_ne!(env.constants["idb1"], env.constants["idn1"]);
     }
 
     #[test]
     fn test_forall_equality() {
         let mut env = Environment::new();
-        add(&mut env, "define bsym1: bool = forall(x: bool, x = x)");
-        add(&mut env, "define bsym2: bool = forall(y: bool, y = y)");
+        env.add("define bsym1: bool = forall(x: bool, x = x)");
+        env.add("define bsym2: bool = forall(y: bool, y = y)");
         assert_eq!(env.constants["bsym1"], env.constants["bsym2"]);
 
-        add(&mut env, "type Nat: axiom");
-        add(&mut env, "define nsym1: bool = forall(x: Nat, x = x)");
+        env.add("type Nat: axiom");
+        env.add("define nsym1: bool = forall(x: Nat, x = x)");
         assert_ne!(env.constants["bsym1"], env.constants["nsym1"]);
     }
 
     #[test]
     fn test_exists_equality() {
         let mut env = Environment::new();
-        add(&mut env, "define bex1: bool = exists(x: bool, x = x)");
-        add(&mut env, "define bex2: bool = exists(y: bool, y = y)");
+        env.add("define bex1: bool = exists(x: bool, x = x)");
+        env.add("define bex2: bool = exists(y: bool, y = y)");
         assert_eq!(env.constants["bex1"], env.constants["bex2"]);
 
-        add(&mut env, "type Nat: axiom");
-        add(&mut env, "define nex1: bool = exists(x: Nat, x = x)");
+        env.add("type Nat: axiom");
+        env.add("define nex1: bool = exists(x: Nat, x = x)");
         assert_ne!(env.constants["bex1"], env.constants["nex1"]);
     }
 
     #[test]
     fn test_arg_binding() {
         let mut env = Environment::new();
-        bad(&mut env, "define qux(x: bool, x: bool) -> bool = x");
+        env.bad("define qux(x: bool, x: bool) -> bool = x");
         assert!(env.types.get("x").is_none());
-        add(&mut env, "define qux(x: bool, y: bool) -> bool = x");
+        env.add("define qux(x: bool, y: bool) -> bool = x");
 
-        bad(&mut env, "theorem foo(x: bool, x: bool): x");
+        env.bad("theorem foo(x: bool, x: bool): x");
         assert!(env.types.get("x").is_none());
-        add(&mut env, "theorem foo(x: bool, y: bool): x");
+        env.add("theorem foo(x: bool, y: bool): x");
 
-        bad(
-            &mut env,
-            "define bar: bool = forall(x: bool, x: bool, x = x)",
-        );
+        env.bad("define bar: bool = forall(x: bool, x: bool, x = x)");
         assert!(env.types.get("x").is_none());
-        add(
-            &mut env,
-            "define bar: bool = forall(x: bool, y: bool, x = x)",
-        );
+        env.add("define bar: bool = forall(x: bool, y: bool, x = x)");
 
-        bad(
-            &mut env,
-            "define baz: bool = exists(x: bool, x: bool, x = x)",
-        );
+        env.bad("define baz: bool = exists(x: bool, x: bool, x = x)");
         assert!(env.types.get("x").is_none());
-        add(
-            &mut env,
-            "define baz: bool = exists(x: bool, y: bool, x = x)",
-        );
+        env.add("define baz: bool = exists(x: bool, y: bool, x = x)");
     }
 
     #[test]
     fn test_nat_ac() {
         let mut env = Environment::new();
-        add(&mut env, "type Nat: axiom");
+        env.add("type Nat: axiom");
 
-        bad(&mut env, "type Borf: Gorf");
-        bad(&mut env, "type Nat: axiom");
+        env.bad("type Borf: Gorf");
+        env.bad("type Nat: axiom");
 
-        add(&mut env, "define 0: Nat = axiom");
+        env.add("define 0: Nat = axiom");
 
-        bad(&mut env, "define Nat: 0 = axiom");
-        bad(&mut env, "define axiom: Nat = 0");
-        bad(&mut env, "define foo: bool = (axiom = axiom)");
-        bad(&mut env, "define foo: bool = 0");
+        env.bad("define Nat: 0 = axiom");
+        env.bad("define axiom: Nat = 0");
+        env.bad("define foo: bool = (axiom = axiom)");
+        env.bad("define foo: bool = 0");
 
-        add(&mut env, "define Suc: Nat -> Nat = axiom");
-        add(&mut env, "define 1: Nat = Suc(0)");
+        env.add("define Suc: Nat -> Nat = axiom");
+        env.add("define 1: Nat = Suc(0)");
 
-        bad(&mut env, "define 1: Nat = Suc(1)");
-        bad(&mut env, "define 1: Nat = Borf");
+        env.bad("define 1: Nat = Suc(1)");
+        env.bad("define 1: Nat = Borf");
 
-        add(
-            &mut env,
-            "axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y",
-        );
+        env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
 
-        bad(&mut env, "axiom bad_types(x: Nat, y: Nat): x -> y");
+        env.bad("axiom bad_types(x: Nat, y: Nat): x -> y");
 
         // We don't want failed typechecks to leave the environment in a bad state
         assert!(!env.types.contains_key("x"));
 
-        bad(&mut env, "define foo: bool = Suc(0)");
-        bad(&mut env, "define foo: Nat = Suc(0 = 0)");
-        bad(&mut env, "define foo: Nat = Suc(0, 0)");
+        env.bad("define foo: bool = Suc(0)");
+        env.bad("define foo: Nat = Suc(0 = 0)");
+        env.bad("define foo: Nat = Suc(0, 0)");
 
-        add(&mut env, "axiom suc_neq_zero(x: Nat): Suc(x) != 0");
+        env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
 
         assert!(env.typenames.contains_key("Nat"));
         assert!(!env.types.contains_key("Nat"));
@@ -796,54 +790,32 @@ mod tests {
         assert!(!env.typenames.contains_key("foo"));
         assert!(!env.types.contains_key("foo"));
 
-        add(
-            &mut env,
-            "axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)",
+        env.add_joined(
+            "axiom induction(f: Nat -> bool, n: Nat):",
+            "f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)",
         );
 
-        bad(&mut env, "theorem foo(x: Nat): 0");
-        bad(&mut env, "theorem foo(x: Nat): forall(0, 0)");
-        bad(&mut env, "theorem foo(x: Nat): forall(y: Nat, 0)");
+        env.bad("theorem foo(x: Nat): 0");
+        env.bad("theorem foo(x: Nat): forall(0, 0)");
+        env.bad("theorem foo(x: Nat): forall(y: Nat, 0)");
 
-        add(
-            &mut env,
-            "define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom",
-        );
+        env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
 
-        bad(&mut env, "theorem foo(x: Nat): forall(0: Nat, 0 = 0)");
+        env.bad("theorem foo(x: Nat): forall(0: Nat, 0 = 0)");
 
-        add(
-            &mut env,
-            "axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a",
-        );
-        add(
-            &mut env,
-    "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
+        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
+        env.add_joined(
+            "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):",
+            "recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
         );
 
-        add(
-            &mut env,
-            "define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)",
-        );
-        add(&mut env, "theorem add_zero_right(a: Nat): add(a, 0) = a");
-        add(&mut env, "theorem add_zero_left(a: Nat): add(0, a) = a");
-        add(
-            &mut env,
-            "theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))",
-        );
-        add(
-            &mut env,
-            "theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))",
-        );
-        add(
-            &mut env,
-            "theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)",
-        );
-        add(
-            &mut env,
-            "theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))",
-        );
-
-        add(&mut env, "theorem not_suc_eq_zero(x: Nat): !(Suc(x) = 0)");
+        env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
+        env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
+        env.add("theorem add_zero_left(a: Nat): add(0, a) = a");
+        env.add("theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))");
+        env.add("theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))");
+        env.add("theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)");
+        env.add("theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))");
+        env.add("theorem not_suc_eq_zero(x: Nat): !(Suc(x) = 0)");
     }
 }
