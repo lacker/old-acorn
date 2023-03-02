@@ -250,10 +250,18 @@ impl Environment {
                     ))
                 }
             }
-            Expression::Unary(token, _) => Err(Error::new(
-                token,
-                "TODO: handle unary operator in value expression",
-            )),
+            Expression::Unary(token, expr) => match token.token_type {
+                TokenType::Exclam => {
+                    check_type(token, expected_type, &AcornType::Bool)?;
+                    let (value, _) =
+                        self.evaluate_value_expression(expr, Some(&AcornType::Bool))?;
+                    Ok((AcornValue::Not(Box::new(value)), AcornType::Bool))
+                }
+                _ => Err(Error::new(
+                    token,
+                    "unexpected unary operator in value expression",
+                )),
+            },
             Expression::Binary(token, left, right) => {
                 match token.token_type {
                     TokenType::Comma => {
@@ -790,5 +798,7 @@ mod tests {
             &mut env,
             "theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))",
         );
+
+        add(&mut env, "theorem not_suc_eq_zero(x: Nat): !(Suc(x) = 0)");
     }
 }
