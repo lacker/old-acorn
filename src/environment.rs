@@ -79,7 +79,7 @@ impl Environment {
     }
 
     pub fn new_axiomatic_value(&mut self) -> AcornValue {
-        let axiomatic_value = AcornValue::Axiomatic(self.axiomatic_value_count);
+        let axiomatic_value = AcornValue::Atomic(self.axiomatic_value_count);
         self.axiomatic_value_count += 1;
         axiomatic_value
     }

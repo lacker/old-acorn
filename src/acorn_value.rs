@@ -10,7 +10,12 @@ pub struct FunctionApplication {
 // Comparison doesn't do any evaluations.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornValue {
-    Axiomatic(usize),
+    // An atomic value could be an axiom.
+    // It could be a defined value that we don't want to expand inline.
+    // It could be a function produced by skolemization.
+    // Basically anything that isn't composed of smaller parts.
+    Atomic(usize),
+
     Application(FunctionApplication),
     ArgList(Vec<AcornValue>),
 
