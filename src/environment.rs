@@ -8,8 +8,9 @@ use crate::statement::Statement;
 use crate::token::{Error, Result, Token, TokenType};
 
 pub struct Environment {
-    // How many axiomatic types have been defined by name in this scope
-    axiomatic_type_count: usize,
+    // The names of the axiomatic types that have been defined in this scope
+    // The axiomatic types can be stored as ids that are indices into this vector.
+    axiomatic_types: Vec<String>,
 
     // How many axiomatic values have been defined by name in this scope
     axiomatic_value_count: usize,
@@ -43,7 +44,7 @@ impl fmt::Display for Environment {
 impl Environment {
     pub fn new() -> Self {
         Environment {
-            axiomatic_type_count: 0,
+            axiomatic_types: Vec::new(),
             axiomatic_value_count: 0,
             typenames: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             types: HashMap::new(),
@@ -52,10 +53,10 @@ impl Environment {
         }
     }
 
-    pub fn new_axiomatic_type(&mut self) -> AcornType {
-        let axiomatic_type = AcornType::Axiomatic(self.axiomatic_type_count);
-        self.axiomatic_type_count += 1;
-        axiomatic_type
+    pub fn add_axiomatic_type(&mut self, name: &str) {
+        let axiomatic_type = AcornType::Axiomatic(self.axiomatic_types.len());
+        self.axiomatic_types.push(name.to_string());
+        self.typenames.insert(name.to_string(), axiomatic_type);
     }
 
     pub fn new_axiomatic_value(&mut self, acorn_type: &AcornType) -> AcornValue {
@@ -92,7 +93,7 @@ impl Environment {
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
         match acorn_type {
             AcornType::Bool => "bool".to_string(),
-            AcornType::Axiomatic(i) => format!("axiomatic{}", i),
+            AcornType::Axiomatic(i) => self.axiomatic_types[*i].to_string(),
             AcornType::Function(function_type) => {
                 let s = if function_type.args.len() > 1 {
                     self.type_list_str(&function_type.args)
@@ -539,12 +540,12 @@ impl Environment {
                         "type name already defined in this scope",
                     ));
                 }
-                let acorn_type = if ts.type_expr.token().token_type == TokenType::Axiom {
-                    self.new_axiomatic_type()
+                if ts.type_expr.token().token_type == TokenType::Axiom {
+                    self.add_axiomatic_type(ts.name);
                 } else {
-                    self.evaluate_type_expression(&ts.type_expr)?
+                    let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
+                    self.typenames.insert(ts.name.to_string(), acorn_type);
                 };
-                self.typenames.insert(ts.name.to_string(), acorn_type);
                 Ok(())
             }
             Statement::Definition(ds) => match ds.declaration.token().token_type {
@@ -666,6 +667,16 @@ impl Environment {
             input
         );
     }
+
+    // Check that the given name actually does have this type in the environment.
+    #[cfg(test)]
+    fn typecheck(&mut self, name: &str, type_string: &str) {
+        let env_type = match self.types.get(name) {
+            Some(t) => t,
+            None => panic!("{} not found in environment", name),
+        };
+        assert_eq!(self.type_str(env_type), type_string);
+    }
 }
 
 #[cfg(test)]
@@ -689,11 +700,13 @@ mod tests {
     fn test_fn_equality() {
         let mut env = Environment::new();
         env.add("define idb1(x: bool) -> bool = x");
+        env.typecheck("idb1", "bool -> bool");
         env.add("define idb2(y: bool) -> bool = y");
         assert_eq!(env.constants["idb1"], env.constants["idb2"]);
 
         env.add("type Nat: axiom");
         env.add("define idn1(x: Nat) -> Nat = x");
+        env.typecheck("idn1", "Nat -> Nat");
         assert_ne!(env.constants["idb1"], env.constants["idn1"]);
     }
 
