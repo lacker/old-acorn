@@ -31,32 +31,12 @@ impl fmt::Display for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Environment {{\n")?;
         for (name, acorn_type) in &self.typenames {
-            write!(f, "  type {}: {}\n", name, acorn_type)?;
+            write!(f, "  type {}: {}\n", name, self.type_str(acorn_type))?;
         }
         for (name, acorn_type) in &self.types {
-            write!(f, "  let {}: {}\n", name, acorn_type)?;
+            write!(f, "  let {}: {}\n", name, self.type_str(acorn_type))?;
         }
         write!(f, "}}")
-    }
-}
-
-fn check_type<'a>(
-    token: &Token<'a>,
-    expected_type: Option<&AcornType>,
-    actual_type: &AcornType,
-) -> Result<'a, ()> {
-    match expected_type {
-        Some(e) => {
-            if e != actual_type {
-                Err(Error::new(
-                    token,
-                    &format!("Expected type {}, but got {}", e, actual_type),
-                ))
-            } else {
-                Ok(())
-            }
-        }
-        None => Ok(()),
     }
 }
 
@@ -95,6 +75,60 @@ impl Environment {
     fn pop_stack_variable(&mut self, name: &str) {
         self.stack.remove(name);
         self.types.remove(name);
+    }
+
+    pub fn type_list_str(&self, types: &[AcornType]) -> String {
+        let mut s = "(".to_string();
+        for (i, acorn_type) in types.iter().enumerate() {
+            if i > 0 {
+                s.push_str(", ");
+            }
+            s.push_str(&self.type_str(acorn_type));
+        }
+        s.push_str(")");
+        s
+    }
+
+    pub fn type_str(&self, acorn_type: &AcornType) -> String {
+        match acorn_type {
+            AcornType::Bool => "bool".to_string(),
+            AcornType::Axiomatic(i) => format!("axiomatic{}", i),
+            AcornType::Function(function_type) => {
+                let s = if function_type.args.len() > 1 {
+                    self.type_list_str(&function_type.args)
+                } else {
+                    self.type_str(&function_type.args[0])
+                };
+                format!("{} -> {}", s, self.type_str(&function_type.return_type))
+            }
+            AcornType::ArgList(types) => self.type_list_str(types),
+            AcornType::Macro => "macro".to_string(),
+        }
+    }
+
+    fn check_type<'a>(
+        &self,
+        token: &Token<'a>,
+        expected_type: Option<&AcornType>,
+        actual_type: &AcornType,
+    ) -> Result<'a, ()> {
+        match expected_type {
+            Some(e) => {
+                if e != actual_type {
+                    Err(Error::new(
+                        token,
+                        &format!(
+                            "Expected type {}, but got {}",
+                            self.type_str(e),
+                            self.type_str(actual_type)
+                        ),
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            None => Ok(()),
+        }
     }
 
     // Parses a list of named argument declarations and adds them to the stack.
@@ -232,7 +266,7 @@ impl Environment {
                 // Check the type for this identifier
                 let return_type = match self.types.get(token.text) {
                     Some(t) => {
-                        check_type(token, expected_type, t)?;
+                        self.check_type(token, expected_type, t)?;
                         t.clone()
                     }
                     None => {
@@ -260,7 +294,7 @@ impl Environment {
             }
             Expression::Unary(token, expr) => match token.token_type {
                 TokenType::Exclam => {
-                    check_type(token, expected_type, &AcornType::Bool)?;
+                    self.check_type(token, expected_type, &AcornType::Bool)?;
                     let (value, _) =
                         self.evaluate_value_expression(expr, Some(&AcornType::Bool))?;
                     Ok((AcornValue::Not(Box::new(value)), AcornType::Bool))
@@ -377,7 +411,7 @@ impl Environment {
                         return Err(Error::new(function_expr.token(), "expected a function"));
                     }
                 };
-                check_type(
+                self.check_type(
                     function_expr.token(),
                     expected_type,
                     &*function_type.return_type,
@@ -385,7 +419,7 @@ impl Environment {
 
                 let (args, args_type) = self.evaluate_value_expression(args_expr, None)?;
 
-                check_type(
+                self.check_type(
                     args_expr.token(),
                     Some(&AcornType::ArgList(function_type.args)),
                     &args_type.into_arg_list(),
@@ -429,6 +463,8 @@ impl Environment {
     //   add(a: Nat, b:Nat) -> Nat
     // "body" is something like:
     //   a + b
+    // This doesn't bind the function name into the environment, but it does mutate the environment
+    // to use the stack.
     fn define_function(
         &mut self,
         declaration: &Expression,
@@ -542,6 +578,7 @@ impl Environment {
                         self.define_function(&ds.declaration, value)?;
                     self.constants.insert(name.clone(), acorn_value);
                     self.types.insert(name, acorn_type);
+
                     Ok(())
                 }
                 _ => Err(Error::new(
