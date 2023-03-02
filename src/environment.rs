@@ -2,16 +2,16 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, FunctionApplication};
+use crate::acorn_value::{AcornValue, Atom, FunctionApplication};
 use crate::expression::Expression;
 use crate::statement::Statement;
 use crate::token::{Error, Result, Token, TokenType};
 
 pub struct Environment {
-    // How many axiomatic types have been defined in this scope
+    // How many axiomatic types have been defined by name in this scope
     axiomatic_type_count: usize,
 
-    // How many axiomatic values have been defined in this scope
+    // How many axiomatic values have been defined been name in this scope
     axiomatic_value_count: usize,
 
     // Maps the name of a type to the type object.
@@ -19,6 +19,9 @@ pub struct Environment {
 
     // Maps an identifier name to its type.
     types: HashMap<String, AcornType>,
+
+    // The types of all the skolem functions.
+    skolem_types: Vec<FunctionType>,
 
     // Maps the name of a constant to its value.
     constants: HashMap<String, AcornValue>,
@@ -67,19 +70,20 @@ impl Environment {
             axiomatic_value_count: 0,
             typenames: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             types: HashMap::new(),
+            skolem_types: Vec::new(),
             constants: HashMap::new(),
             stack: HashMap::new(),
         }
     }
 
     pub fn new_axiomatic_type(&mut self) -> AcornType {
-        let axiomatic_type = AcornType::Axiomatic(self.axiomatic_type_count);
+        let axiomatic_type = AcornType::Atomic(self.axiomatic_type_count);
         self.axiomatic_type_count += 1;
         axiomatic_type
     }
 
     pub fn new_axiomatic_value(&mut self) -> AcornValue {
-        let axiomatic_value = AcornValue::Atomic(self.axiomatic_value_count);
+        let axiomatic_value = AcornValue::Atom(Atom::Axiomatic(self.axiomatic_value_count));
         self.axiomatic_value_count += 1;
         axiomatic_value
     }

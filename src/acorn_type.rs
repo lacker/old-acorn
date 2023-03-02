@@ -31,7 +31,7 @@ impl fmt::Display for FunctionType {
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
     Bool,
-    Axiomatic(usize),
+    Atomic(usize),
     Function(FunctionType),
     ArgList(Vec<AcornType>),
     Macro,
@@ -41,7 +41,7 @@ impl fmt::Display for AcornType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AcornType::Bool => write!(f, "bool"),
-            AcornType::Axiomatic(_) => write!(f, "axiom"),
+            AcornType::Atomic(_) => write!(f, "axiom"),
             AcornType::Function(t) => write!(f, "{}", t),
             AcornType::ArgList(t) => {
                 write!(f, "(")?;

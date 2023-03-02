@@ -6,6 +6,18 @@ pub struct FunctionApplication {
     pub args: Vec<AcornValue>,
 }
 
+// An atomic value is one that we don't want to expand inline.
+// We could add more things here, like defined constants.
+// For now, we expand everything we can inline.
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum Atom {
+    // Values defined like "define 0: Nat = axiom"
+    Axiomatic(usize),
+
+    // Functions created in the normalization process
+    Skolem(usize),
+}
+
 // Two AcornValue compare to equal if they are structurally identical.
 // Comparison doesn't do any evaluations.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -14,7 +26,7 @@ pub enum AcornValue {
     // It could be a defined value that we don't want to expand inline.
     // It could be a function produced by skolemization.
     // Basically anything that isn't composed of smaller parts.
-    Atomic(usize),
+    Atom(Atom),
 
     Application(FunctionApplication),
     ArgList(Vec<AcornValue>),
