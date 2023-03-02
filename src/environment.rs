@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, Atom, FunctionApplication};
+use crate::acorn_value::{AcornValue, Atom, FunctionApplication, TypedAtom};
 use crate::expression::Expression;
 use crate::statement::Statement;
 use crate::token::{Error, Result, Token, TokenType};
@@ -11,7 +11,7 @@ pub struct Environment {
     // How many axiomatic types have been defined by name in this scope
     axiomatic_type_count: usize,
 
-    // How many axiomatic values have been defined been name in this scope
+    // How many axiomatic values have been defined by name in this scope
     axiomatic_value_count: usize,
 
     // Maps the name of a type to the type object.
@@ -19,9 +19,6 @@ pub struct Environment {
 
     // Maps an identifier name to its type.
     types: HashMap<String, AcornType>,
-
-    // The types of all the skolem functions.
-    skolem_types: Vec<FunctionType>,
 
     // Maps the name of a constant to its value.
     constants: HashMap<String, AcornValue>,
@@ -70,22 +67,24 @@ impl Environment {
             axiomatic_value_count: 0,
             typenames: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             types: HashMap::new(),
-            skolem_types: Vec::new(),
             constants: HashMap::new(),
             stack: HashMap::new(),
         }
     }
 
     pub fn new_axiomatic_type(&mut self) -> AcornType {
-        let axiomatic_type = AcornType::Atomic(self.axiomatic_type_count);
+        let axiomatic_type = AcornType::Axiomatic(self.axiomatic_type_count);
         self.axiomatic_type_count += 1;
         axiomatic_type
     }
 
-    pub fn new_axiomatic_value(&mut self) -> AcornValue {
-        let axiomatic_value = AcornValue::Atom(Atom::Axiomatic(self.axiomatic_value_count));
+    pub fn new_axiomatic_value(&mut self, acorn_type: &AcornType) -> AcornValue {
+        let atom = Atom::Axiomatic(self.axiomatic_value_count);
         self.axiomatic_value_count += 1;
-        axiomatic_value
+        AcornValue::Atom(TypedAtom {
+            atom,
+            acorn_type: acorn_type.clone(),
+        })
     }
 
     fn push_stack_variable(&mut self, name: &str, acorn_type: AcornType) {
@@ -214,7 +213,7 @@ impl Environment {
                             token,
                             "axiomatic objects cannot be argument lists",
                         )),
-                        Some(t) => Ok((self.new_axiomatic_value(), t.clone())),
+                        Some(t) => Ok((self.new_axiomatic_value(&t), t.clone())),
                         None => Err(Error::new(
                             token,
                             "axiomatic objects can only be created with known types",
@@ -246,7 +245,12 @@ impl Environment {
                     Ok((acorn_value.clone(), return_type))
                 } else if let Some(stack_depth) = self.stack.get(token.text) {
                     let binding_depth = self.stack.len() - stack_depth - 1;
-                    Ok((AcornValue::Reference(binding_depth), return_type))
+                    let atom = Atom::Reference(binding_depth);
+                    let typed_atom = TypedAtom {
+                        atom,
+                        acorn_type: return_type.clone(),
+                    };
+                    Ok((AcornValue::Atom(typed_atom), return_type))
                 } else {
                     Err(Error::new(
                         token,
