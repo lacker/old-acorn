@@ -310,8 +310,10 @@ impl Environment {
                     TokenType::Comma => {
                         // Flatten the values on either side, assumed to be arg lists
                         let (left_args, left_types) = self.evaluate_value_expression(left, None)?;
+                        assert_eq!(left_args.get_type(), left_types);
                         let (right_args, right_types) =
                             self.evaluate_value_expression(right, None)?;
+                        assert_eq!(right_args.get_type(), right_types);
                         let mut args = left_args.into_vec();
                         args.extend(right_args.into_vec());
                         let mut types = left_types.into_vec();
@@ -330,6 +332,7 @@ impl Environment {
                     }
                     TokenType::Equals => {
                         let (left_value, left_type) = self.evaluate_value_expression(left, None)?;
+                        assert_eq!(left_value.get_type(), left_type);
                         let (right_value, _) =
                             self.evaluate_value_expression(right, Some(&left_type))?;
                         Ok((
@@ -339,6 +342,8 @@ impl Environment {
                     }
                     TokenType::NotEquals => {
                         let (left_value, left_type) = self.evaluate_value_expression(left, None)?;
+                        assert_eq!(left_value.get_type(), left_type);
+
                         let (right_value, _) =
                             self.evaluate_value_expression(right, Some(&left_type))?;
                         Ok((
@@ -375,6 +380,7 @@ impl Environment {
             Expression::Apply(function_expr, args_expr) => {
                 let (function, function_type) =
                     self.evaluate_value_expression(function_expr, None)?;
+                assert_eq!(function.get_type(), function_type);
 
                 if function_type == AcornType::Macro {
                     let mut macro_args = args_expr.flatten_arg_list();
@@ -419,6 +425,7 @@ impl Environment {
                 )?;
 
                 let (args, args_type) = self.evaluate_value_expression(args_expr, None)?;
+                assert_eq!(args.get_type(), args_type);
 
                 self.check_type(
                     args_expr.token(),
