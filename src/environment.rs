@@ -13,7 +13,7 @@ pub struct Environment {
     axiomatic_types: Vec<String>,
 
     // How many axiomatic values have been defined by name in this scope
-    axiomatic_value_count: usize,
+    axiomatic_values: Vec<String>,
 
     // Maps the name of a type to the type object.
     typenames: HashMap<String, AcornType>,
@@ -45,7 +45,7 @@ impl Environment {
     pub fn new() -> Self {
         Environment {
             axiomatic_types: Vec::new(),
-            axiomatic_value_count: 0,
+            axiomatic_values: Vec::new(),
             typenames: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             types: HashMap::new(),
             constants: HashMap::new(),
@@ -53,15 +53,15 @@ impl Environment {
         }
     }
 
-    pub fn add_axiomatic_type(&mut self, name: &str) {
+    fn add_axiomatic_type(&mut self, name: &str) {
         let axiomatic_type = AcornType::Axiomatic(self.axiomatic_types.len());
         self.axiomatic_types.push(name.to_string());
         self.typenames.insert(name.to_string(), axiomatic_type);
     }
 
-    pub fn new_axiomatic_value(&mut self, acorn_type: &AcornType) -> AcornValue {
-        let atom = Atom::Axiomatic(self.axiomatic_value_count);
-        self.axiomatic_value_count += 1;
+    // This creates the next axiomatic value, but does not bind it to any name.
+    fn next_axiomatic_value(&self, acorn_type: &AcornType) -> AcornValue {
+        let atom = Atom::Axiomatic(self.axiomatic_values.len());
         AcornValue::Atom(TypedAtom {
             atom,
             acorn_type: acorn_type.clone(),
@@ -76,6 +76,25 @@ impl Environment {
     fn pop_stack_variable(&mut self, name: &str) {
         self.stack.remove(name);
         self.types.remove(name);
+    }
+
+    fn bind_name(&mut self, name: &str, value: AcornValue) {
+        if self.types.contains_key(name) {
+            panic!("name {} already bound to a type", name);
+        }
+        if self.constants.contains_key(name) {
+            panic!("name {} already bound to a value", name);
+        }
+
+        if let Some(i) = value.axiom_index() {
+            if i == self.axiomatic_values.len() {
+                self.axiomatic_values.push(name.to_string());
+            } else if i > self.axiomatic_values.len() {
+                panic!("axiom index {} unexpectedly high", i);
+            }
+        }
+        self.types.insert(name.to_string(), value.get_type());
+        self.constants.insert(name.to_string(), value);
     }
 
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
@@ -248,7 +267,7 @@ impl Environment {
                             token,
                             "axiomatic objects cannot be argument lists",
                         )),
-                        Some(t) => Ok(self.new_axiomatic_value(&t)),
+                        Some(t) => Ok(self.next_axiomatic_value(&t)),
                         None => Err(Error::new(
                             token,
                             "axiomatic objects can only be created with known types",
@@ -545,12 +564,12 @@ impl Environment {
                             "variable name already defined in this scope",
                         ));
                     }
-                    if let Some(value_expr) = &ds.value {
-                        let acorn_value =
-                            self.evaluate_value_expression(value_expr, Some(&acorn_type))?;
-                        self.constants.insert(name.clone(), acorn_value);
-                    }
-                    self.types.insert(name, acorn_type);
+                    let acorn_value = if let Some(value_expr) = &ds.value {
+                        self.evaluate_value_expression(value_expr, Some(&acorn_type))?
+                    } else {
+                        panic!("TODO: handle definitions without values");
+                    };
+                    self.bind_name(&name, acorn_value);
                     Ok(())
                 }
                 TokenType::RightArrow => {
@@ -564,10 +583,7 @@ impl Environment {
                         }
                     };
                     let (name, acorn_value) = self.define_function(&ds.declaration, value)?;
-                    let acorn_type = acorn_value.get_type();
-                    self.constants.insert(name.clone(), acorn_value);
-                    self.types.insert(name, acorn_type);
-
+                    self.bind_name(&name, acorn_value);
                     Ok(())
                 }
                 _ => Err(Error::new(
@@ -587,8 +603,7 @@ impl Environment {
                         Ok(claim_value) => {
                             let theorem_value =
                                 AcornValue::ForAll(arg_types.clone(), Box::new(claim_value));
-                            self.types.insert(ts.name.to_string(), AcornType::Bool);
-                            self.constants.insert(ts.name.to_string(), theorem_value);
+                            self.bind_name(&ts.name, theorem_value);
                             Ok(())
                         }
                         Err(e) => Err(e),
@@ -746,6 +761,14 @@ mod tests {
         env.bad("define baz: bool = exists(x: bool, x: bool, x = x)");
         assert!(env.types.get("x").is_none());
         env.add("define baz: bool = exists(x: bool, y: bool, x = x)");
+    }
+
+    #[test]
+    fn test_axiomatic_values_distinct() {
+        let mut env = Environment::new();
+        env.add("define x: bool = axiom");
+        env.add("define y: bool = axiom");
+        assert_ne!(env.constants["x"], env.constants["y"]);
     }
 
     #[test]
