@@ -6,6 +6,15 @@ pub struct FunctionApplication {
     pub args: Vec<AcornValue>,
 }
 
+impl FunctionApplication {
+    pub fn return_type(&self) -> AcornType {
+        match self.function.get_type() {
+            AcornType::Function(FunctionType { return_type, .. }) => *return_type,
+            _ => panic!("FunctionApplication's function is not a function type"),
+        }
+    }
+}
+
 // An atomic value is one that we don't want to expand inline.
 // We could add more things here, like defined constants.
 // For now, we expand everything we can inline.
@@ -26,6 +35,7 @@ pub enum Atom {
     // In bar(x, y), the binding for x is at depth 1, and the binding for y is at depth 0.
     // We do this counting-backwards thing so that we can clone an AcornValue to use it in other
     // values without having to account for different stacks.
+    // (This might be premature optimization.)
     Reference(usize),
 }
 
@@ -77,7 +87,7 @@ impl AcornValue {
     pub fn get_type(&self) -> AcornType {
         match self {
             AcornValue::Atom(t) => t.acorn_type.clone(),
-            AcornValue::Application(t) => t.function.get_type(),
+            AcornValue::Application(t) => t.return_type(),
             AcornValue::ArgList(t) => {
                 AcornType::ArgList(t.into_iter().map(|x| x.get_type()).collect())
             }

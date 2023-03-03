@@ -577,6 +577,20 @@ impl Environment {
                     };
                     let (name, acorn_value, acorn_type) =
                         self.define_function(&ds.declaration, value)?;
+
+                    // XXX
+                    let left_type = self.type_str(&acorn_value.get_type());
+                    let right_type = self.type_str(&acorn_type);
+                    if left_type != right_type {
+                        return Err(Error::new(
+                            ds.declaration.token(),
+                            &format!(
+                                "the value for {} has alleged type {} but the inspected type is {}",
+                                name, right_type, left_type
+                            ),
+                        ));
+                    }
+
                     self.constants.insert(name.clone(), acorn_value);
                     self.types.insert(name, acorn_type);
 
@@ -588,9 +602,9 @@ impl Environment {
                 )),
             },
             Statement::Theorem(ts) => {
-                // A theorem has two parts. It's a list of arguments that act like variable bindings,
-                // and a boolean value representing a claim of things that are true.
-                // Here we are typechecking the arguments and the claim, but not proving it's always true.
+                // A theorem has two parts. It's a list of arguments that are being universally
+                // quantified, and a boolean expression representing a claim of things that are true.
+                // The value of the theorem is a ForAll expression representing its claim.
                 let (arg_names, arg_types) = self.bind_args(ts.args.iter().collect())?;
 
                 // Handle the claim
@@ -829,6 +843,7 @@ mod tests {
         );
 
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
+
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
         env.add("theorem add_zero_left(a: Nat): add(0, a) = a");
         env.add("theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))");
