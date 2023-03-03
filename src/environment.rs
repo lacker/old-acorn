@@ -897,6 +897,7 @@ mod tests {
         env.bad("define foo: Nat = Suc(0, 0)");
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
+        env.valuecheck("suc_neq_zero", "forall(x0: Nat, (Suc(x0) != 0))");
 
         assert!(env.typenames.contains_key("Nat"));
         assert!(!env.types.contains_key("Nat"));
@@ -917,6 +918,7 @@ mod tests {
             "axiom induction(f: Nat -> bool, n: Nat):",
             "f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)",
         );
+        env.valuecheck("induction", "forall(x0: Nat -> bool, x1: Nat, ((x0(0) & forall(x2: Nat, (x0(x2) -> x0(Suc(x2))))) -> x0(x1)))");
 
         env.bad("theorem foo(x: Nat): 0");
         env.bad("theorem foo(x: Nat): forall(0, 0)");
