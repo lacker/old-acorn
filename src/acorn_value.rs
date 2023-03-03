@@ -103,11 +103,83 @@ impl AcornValue {
             AcornValue::NotEquals(_, _) => AcornType::Bool,
             AcornValue::And(_, _) => AcornType::Bool,
             AcornValue::Or(_, _) => AcornType::Bool,
+            AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
-            AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAllMacro => AcornType::Macro,
             AcornValue::ExistsMacro => AcornType::Macro,
+        }
+    }
+
+    // Simplifies at the top level but does not recurse.
+    pub fn maybe_negate(self, negate: bool) -> AcornValue {
+        if !negate {
+            return self;
+        }
+        match self {
+            AcornValue::Not(x) => *x,
+            AcornValue::Equals(x, y) => AcornValue::NotEquals(x, y),
+            AcornValue::NotEquals(x, y) => AcornValue::Equals(x, y),
+            _ => AcornValue::Not(Box::new(self)),
+        }
+    }
+
+    // Normalizes a boolean expression by moving all negations inwards.
+    pub fn move_negation_inwards(self, negate: bool) -> AcornValue {
+        match self {
+            AcornValue::Implies(left, right) => {
+                // (left -> right) is equivalent to (!left | right)
+                let equivalent = AcornValue::Or(Box::new(AcornValue::Not(left)), right);
+                equivalent.move_negation_inwards(negate)
+            }
+            AcornValue::And(left, right) => {
+                if negate {
+                    // !(left & right) is equivalent to (!left | !right)
+                    let equivalent = AcornValue::Or(
+                        Box::new(AcornValue::Not(left)),
+                        Box::new(AcornValue::Not(right)),
+                    );
+                    equivalent.move_negation_inwards(false)
+                } else {
+                    AcornValue::And(
+                        Box::new(left.move_negation_inwards(false)),
+                        Box::new(right.move_negation_inwards(false)),
+                    )
+                }
+            }
+            AcornValue::Or(left, right) => {
+                if negate {
+                    // !(left | right) is equivalent to (!left & !right)
+                    let equivalent = AcornValue::And(
+                        Box::new(AcornValue::Not(left)),
+                        Box::new(AcornValue::Not(right)),
+                    );
+                    equivalent.move_negation_inwards(false)
+                } else {
+                    AcornValue::Or(
+                        Box::new(left.move_negation_inwards(false)),
+                        Box::new(right.move_negation_inwards(false)),
+                    )
+                }
+            }
+            AcornValue::Not(x) => x.move_negation_inwards(!negate),
+            AcornValue::ForAll(quants, value) => {
+                if negate {
+                    // "not forall x, foo(x)" is equivalent to "exists x, not foo(x)"
+                    AcornValue::Exists(quants, Box::new(value.move_negation_inwards(true)))
+                } else {
+                    AcornValue::ForAll(quants, Box::new(value.move_negation_inwards(false)))
+                }
+            }
+            AcornValue::Exists(quants, value) => {
+                if negate {
+                    // "not exists x, foo(x)" is equivalent to "forall x, not foo(x)"
+                    AcornValue::ForAll(quants, Box::new(value.move_negation_inwards(true)))
+                } else {
+                    AcornValue::Exists(quants, Box::new(value.move_negation_inwards(false)))
+                }
+            }
+            _ => self.maybe_negate(negate),
         }
     }
 }
@@ -127,7 +199,7 @@ pub enum Literal {
     NotEquals(Term, Term),
 }
 
-// A clause is a disjunction of literals, universally quantified over some variables.
+// A clause is a disjunction (an "or") of literals, universally quantified over some variables.
 // We include the types of the universal variables it is quantified over.
 // It cannot contain existential quantifiers.
 pub struct Clause {
