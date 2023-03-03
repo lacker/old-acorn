@@ -239,7 +239,7 @@ impl Environment {
         &mut self,
         expression: &Expression,
         expected_type: Option<&AcornType>,
-    ) -> Result<(AcornValue, AcornType)> {
+    ) -> Result<AcornValue> {
         match expression {
             Expression::Identifier(token) => {
                 if token.token_type == TokenType::Axiom {
@@ -248,7 +248,7 @@ impl Environment {
                             token,
                             "axiomatic objects cannot be argument lists",
                         )),
-                        Some(t) => Ok((self.new_axiomatic_value(&t), t.clone())),
+                        Some(t) => Ok(self.new_axiomatic_value(&t)),
                         None => Err(Error::new(
                             token,
                             "axiomatic objects can only be created with known types",
@@ -257,11 +257,11 @@ impl Environment {
                 }
 
                 if token.token_type == TokenType::ForAll {
-                    return Ok((AcornValue::ForAllMacro, AcornType::Macro));
+                    return Ok(AcornValue::ForAllMacro);
                 }
 
                 if token.token_type == TokenType::Exists {
-                    return Ok((AcornValue::ExistsMacro, AcornType::Macro));
+                    return Ok(AcornValue::ExistsMacro);
                 }
 
                 // Check the type for this identifier
@@ -277,7 +277,7 @@ impl Environment {
 
                 // Figure out the value for this identifier
                 if let Some(acorn_value) = self.constants.get(token.text) {
-                    Ok((acorn_value.clone(), return_type))
+                    Ok(acorn_value.clone())
                 } else if let Some(stack_depth) = self.stack.get(token.text) {
                     let binding_depth = self.stack.len() - stack_depth - 1;
                     let atom = Atom::Reference(binding_depth);
@@ -285,7 +285,7 @@ impl Environment {
                         atom,
                         acorn_type: return_type.clone(),
                     };
-                    Ok((AcornValue::Atom(typed_atom), return_type))
+                    Ok(AcornValue::Atom(typed_atom))
                 } else {
                     Err(Error::new(
                         token,
@@ -296,9 +296,8 @@ impl Environment {
             Expression::Unary(token, expr) => match token.token_type {
                 TokenType::Exclam => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
-                    let (value, _) =
-                        self.evaluate_value_expression(expr, Some(&AcornType::Bool))?;
-                    Ok((AcornValue::Not(Box::new(value)), AcornType::Bool))
+                    let value = self.evaluate_value_expression(expr, Some(&AcornType::Bool))?;
+                    Ok(AcornValue::Not(Box::new(value)))
                 }
                 _ => Err(Error::new(
                     token,
@@ -309,67 +308,58 @@ impl Environment {
                 match token.token_type {
                     TokenType::Comma => {
                         // Flatten the values on either side, assumed to be arg lists
-                        let (left_args, left_types) = self.evaluate_value_expression(left, None)?;
-                        assert_eq!(left_args.get_type(), left_types);
-                        let (right_args, right_types) =
-                            self.evaluate_value_expression(right, None)?;
-                        assert_eq!(right_args.get_type(), right_types);
+                        let left_args = self.evaluate_value_expression(left, None)?;
+                        let left_type = left_args.get_type();
+                        let right_args = self.evaluate_value_expression(right, None)?;
+                        let right_type = right_args.get_type();
                         let mut args = left_args.into_vec();
                         args.extend(right_args.into_vec());
-                        let mut types = left_types.into_vec();
-                        types.extend(right_types.into_vec());
-                        Ok((AcornValue::ArgList(args), AcornType::ArgList(types)))
+                        let mut types = left_type.into_vec();
+                        types.extend(right_type.into_vec());
+                        Ok(AcornValue::ArgList(args))
                     }
                     TokenType::RightArrow => {
-                        let (left_value, _) =
+                        let left_value =
                             self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                        let (right_value, _) =
+                        let right_value =
                             self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
-                        Ok((
-                            AcornValue::Implies(Box::new(left_value), Box::new(right_value)),
-                            AcornType::Bool,
+                        Ok(AcornValue::Implies(
+                            Box::new(left_value),
+                            Box::new(right_value),
                         ))
                     }
                     TokenType::Equals => {
-                        let (left_value, left_type) = self.evaluate_value_expression(left, None)?;
-                        assert_eq!(left_value.get_type(), left_type);
-                        let (right_value, _) =
-                            self.evaluate_value_expression(right, Some(&left_type))?;
-                        Ok((
-                            AcornValue::Equals(Box::new(left_value), Box::new(right_value)),
-                            AcornType::Bool,
+                        let left_value = self.evaluate_value_expression(left, None)?;
+                        let right_value =
+                            self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
+                        Ok(AcornValue::Equals(
+                            Box::new(left_value),
+                            Box::new(right_value),
                         ))
                     }
                     TokenType::NotEquals => {
-                        let (left_value, left_type) = self.evaluate_value_expression(left, None)?;
-                        assert_eq!(left_value.get_type(), left_type);
+                        let left_value = self.evaluate_value_expression(left, None)?;
 
-                        let (right_value, _) =
-                            self.evaluate_value_expression(right, Some(&left_type))?;
-                        Ok((
-                            AcornValue::NotEquals(Box::new(left_value), Box::new(right_value)),
-                            AcornType::Bool,
+                        let right_value =
+                            self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
+                        Ok(AcornValue::NotEquals(
+                            Box::new(left_value),
+                            Box::new(right_value),
                         ))
                     }
                     TokenType::Ampersand => {
-                        let (left_value, _) =
+                        let left_value =
                             self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                        let (right_value, _) =
+                        let right_value =
                             self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
-                        Ok((
-                            AcornValue::And(Box::new(left_value), Box::new(right_value)),
-                            AcornType::Bool,
-                        ))
+                        Ok(AcornValue::And(Box::new(left_value), Box::new(right_value)))
                     }
                     TokenType::Pipe => {
-                        let (left_value, _) =
+                        let left_value =
                             self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                        let (right_value, _) =
+                        let right_value =
                             self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
-                        Ok((
-                            AcornValue::Or(Box::new(left_value), Box::new(right_value)),
-                            AcornType::Bool,
-                        ))
+                        Ok(AcornValue::Or(Box::new(left_value), Box::new(right_value)))
                     }
                     _ => Err(Error::new(
                         token,
@@ -378,9 +368,8 @@ impl Environment {
                 }
             }
             Expression::Apply(function_expr, args_expr) => {
-                let (function, function_type) =
-                    self.evaluate_value_expression(function_expr, None)?;
-                assert_eq!(function.get_type(), function_type);
+                let function = self.evaluate_value_expression(function_expr, None)?;
+                let function_type = function.get_type();
 
                 if function_type == AcornType::Macro {
                     let mut macro_args = args_expr.flatten_arg_list();
@@ -395,15 +384,13 @@ impl Environment {
 
                     let ret_val = match self.evaluate_value_expression(body, Some(&AcornType::Bool))
                     {
-                        Ok((value, _)) => match function {
-                            AcornValue::ForAllMacro => Ok((
-                                AcornValue::ForAll(arg_types, Box::new(value)),
-                                AcornType::Bool,
-                            )),
-                            AcornValue::ExistsMacro => Ok((
-                                AcornValue::Exists(arg_types, Box::new(value)),
-                                AcornType::Bool,
-                            )),
+                        Ok(value) => match function {
+                            AcornValue::ForAllMacro => {
+                                Ok(AcornValue::ForAll(arg_types, Box::new(value)))
+                            }
+                            AcornValue::ExistsMacro => {
+                                Ok(AcornValue::Exists(arg_types, Box::new(value)))
+                            }
                             _ => Err(Error::new(function_expr.token(), "expected a macro")),
                         },
                         Err(e) => Err(e),
@@ -424,8 +411,8 @@ impl Environment {
                     &*function_type.return_type,
                 )?;
 
-                let (args, args_type) = self.evaluate_value_expression(args_expr, None)?;
-                assert_eq!(args.get_type(), args_type);
+                let args = self.evaluate_value_expression(args_expr, None)?;
+                let args_type = args.get_type();
 
                 self.check_type(
                     args_expr.token(),
@@ -433,13 +420,10 @@ impl Environment {
                     &args_type.into_arg_list(),
                 )?;
 
-                Ok((
-                    AcornValue::Application(FunctionApplication {
-                        function: Box::new(function),
-                        args: args.into_vec(),
-                    }),
-                    *function_type.return_type,
-                ))
+                Ok(AcornValue::Application(FunctionApplication {
+                    function: Box::new(function),
+                    args: args.into_vec(),
+                }))
             }
             Expression::Grouping(e) => self.evaluate_value_expression(e, expected_type),
         }
@@ -523,7 +507,7 @@ impl Environment {
         let (arg_names, arg_types) = self.bind_args(arg_list.flatten_arg_list())?;
 
         let ret_val = match self.evaluate_value_expression(body, Some(&ret_type)) {
-            Ok((value, _)) => {
+            Ok(value) => {
                 let fn_value = AcornValue::Lambda(arg_types, Box::new(value));
                 Ok((fn_name, fn_value))
             }
@@ -562,7 +546,7 @@ impl Environment {
                         ));
                     }
                     if let Some(value_expr) = &ds.value {
-                        let (acorn_value, _) =
+                        let acorn_value =
                             self.evaluate_value_expression(value_expr, Some(&acorn_type))?;
                         self.constants.insert(name.clone(), acorn_value);
                     }
@@ -600,7 +584,7 @@ impl Environment {
                 // Handle the claim
                 let ret_val =
                     match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
-                        Ok((claim_value, _)) => {
+                        Ok(claim_value) => {
                             let theorem_value =
                                 AcornValue::ForAll(arg_types.clone(), Box::new(claim_value));
                             self.types.insert(ts.name.to_string(), AcornType::Bool);
