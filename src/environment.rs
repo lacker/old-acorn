@@ -21,8 +21,9 @@ pub struct Environment {
     // Maps an identifier name to its type.
     types: HashMap<String, AcornType>,
 
-    // Maps the name of a constant to its value.
-    constants: HashMap<String, AcornValue>,
+    // Maps a name to its value.
+    // Doesn't handle variables defined on the stack, only ones in the top level environment.
+    values: HashMap<String, AcornValue>,
 
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, usize>,
@@ -48,7 +49,7 @@ impl Environment {
             axiomatic_values: Vec::new(),
             typenames: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             types: HashMap::new(),
-            constants: HashMap::new(),
+            values: HashMap::new(),
             stack: HashMap::new(),
         }
     }
@@ -82,7 +83,7 @@ impl Environment {
         if self.types.contains_key(name) {
             panic!("name {} already bound to a type", name);
         }
-        if self.constants.contains_key(name) {
+        if self.values.contains_key(name) {
             panic!("name {} already bound to a value", name);
         }
 
@@ -94,7 +95,7 @@ impl Environment {
             }
         }
         self.types.insert(name.to_string(), value.get_type());
-        self.constants.insert(name.to_string(), value);
+        self.values.insert(name.to_string(), value);
     }
 
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
@@ -370,11 +371,10 @@ impl Environment {
                 };
 
                 // Figure out the value for this identifier
-                if let Some(acorn_value) = self.constants.get(token.text) {
+                if let Some(acorn_value) = self.values.get(token.text) {
                     Ok(acorn_value.clone())
-                } else if let Some(stack_depth) = self.stack.get(token.text) {
-                    let binding_depth = self.stack.len() - stack_depth - 1;
-                    let atom = Atom::Reference(binding_depth);
+                } else if let Some(stack_index) = self.stack.get(token.text) {
+                    let atom = Atom::Reference(*stack_index);
                     let typed_atom = TypedAtom {
                         atom,
                         acorn_type: return_type.clone(),
@@ -755,6 +755,16 @@ impl Environment {
         };
         assert_eq!(self.type_str(env_type), type_string);
     }
+
+    // Check that the given name has this normalized value in the environment
+    #[cfg(test)]
+    fn valuecheck(&mut self, name: &str, value_string: &str) {
+        let env_value = match self.values.get(name) {
+            Some(t) => t,
+            None => panic!("{} not found in environment", name),
+        };
+        assert_eq!(self.value_str(env_value), value_string);
+    }
 }
 
 #[cfg(test)]
@@ -781,12 +791,12 @@ mod tests {
         env.typecheck("idb1", "bool -> bool");
         env.add("define idb2(y: bool) -> bool = y");
         env.typecheck("idb2", "bool -> bool");
-        assert_eq!(env.constants["idb1"], env.constants["idb2"]);
+        assert_eq!(env.values["idb1"], env.values["idb2"]);
 
         env.add("type Nat: axiom");
         env.add("define idn1(x: Nat) -> Nat = x");
         env.typecheck("idn1", "Nat -> Nat");
-        assert_ne!(env.constants["idb1"], env.constants["idn1"]);
+        assert_ne!(env.values["idb1"], env.values["idn1"]);
     }
 
     #[test]
@@ -796,12 +806,12 @@ mod tests {
         env.typecheck("bsym1", "bool");
         env.add("define bsym2: bool = forall(y: bool, y = y)");
         env.typecheck("bsym2", "bool");
-        assert_eq!(env.constants["bsym1"], env.constants["bsym2"]);
+        assert_eq!(env.values["bsym1"], env.values["bsym2"]);
 
         env.add("type Nat: axiom");
         env.add("define nsym1: bool = forall(x: Nat, x = x)");
         env.typecheck("nsym1", "bool");
-        assert_ne!(env.constants["bsym1"], env.constants["nsym1"]);
+        assert_ne!(env.values["bsym1"], env.values["nsym1"]);
     }
 
     #[test]
@@ -809,11 +819,11 @@ mod tests {
         let mut env = Environment::new();
         env.add("define bex1: bool = exists(x: bool, x = x)");
         env.add("define bex2: bool = exists(y: bool, y = y)");
-        assert_eq!(env.constants["bex1"], env.constants["bex2"]);
+        assert_eq!(env.values["bex1"], env.values["bex2"]);
 
         env.add("type Nat: axiom");
         env.add("define nex1: bool = exists(x: Nat, x = x)");
-        assert_ne!(env.constants["bex1"], env.constants["nex1"]);
+        assert_ne!(env.values["bex1"], env.values["nex1"]);
     }
 
     #[test]
@@ -843,7 +853,7 @@ mod tests {
         let mut env = Environment::new();
         env.add("define x: bool = axiom");
         env.add("define y: bool = axiom");
-        assert_ne!(env.constants["x"], env.constants["y"]);
+        assert_ne!(env.values["x"], env.values["y"]);
     }
 
     #[test]
@@ -855,6 +865,7 @@ mod tests {
         env.bad("type Nat: axiom");
 
         env.add("define 0: Nat = axiom");
+        env.valuecheck("0", "0");
 
         env.bad("define Nat: 0 = axiom");
         env.bad("define axiom: Nat = 0");
@@ -862,13 +873,19 @@ mod tests {
         env.bad("define foo: bool = 0");
 
         env.add("define Suc: Nat -> Nat = axiom");
+        env.valuecheck("Suc", "Suc");
         env.add("define 1: Nat = Suc(0)");
+        env.valuecheck("1", "Suc(0)");
 
         env.bad("define 1: Nat = Suc(1)");
         env.bad("define 1: Nat = Borf");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         env.typecheck("suc_injective", "bool");
+        env.valuecheck(
+            "suc_injective",
+            "forall(x0: Nat, x1: Nat, ((Suc(x0) = Suc(x1)) -> (x0 = x1)))",
+        );
 
         env.bad("axiom bad_types(x: Nat, y: Nat): x -> y");
 
