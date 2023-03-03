@@ -126,6 +126,81 @@ impl Environment {
         }
     }
 
+    fn atom_str(&self, atom: &Atom) -> String {
+        match atom {
+            Atom::Axiomatic(i) => self.axiomatic_values[*i].to_string(),
+            Atom::Skolem(i) => format!("skolem{}", i),
+            Atom::Reference(i) => format!("x{}", i),
+        }
+    }
+
+    fn macro_str_stacked(
+        &self,
+        macro_name: &str,
+        types: &Vec<AcornType>,
+        value: &AcornValue,
+        stack_size: usize,
+    ) -> String {
+        let mut parts: Vec<_> = types
+            .iter()
+            .enumerate()
+            .map(|(i, t)| format!("x{}: {}", i + stack_size, self.type_str(t)))
+            .collect();
+        parts.push(self.value_str_stacked(value, stack_size + types.len()));
+        format!("{}({})", macro_name, parts.join(", "))
+    }
+
+    fn value_str_stacked(&self, value: &AcornValue, stack_size: usize) -> String {
+        match value {
+            AcornValue::Atom(a) => self.atom_str(&a.atom),
+            AcornValue::Application(app) => {
+                let fn_name = self.value_str_stacked(&app.function, stack_size);
+                let args: Vec<_> = app
+                    .args
+                    .iter()
+                    .map(|a| self.value_str_stacked(a, stack_size))
+                    .collect();
+                format!("{}({})", fn_name, args.join(", "))
+            }
+            AcornValue::Implies(left, right) => format!(
+                "({} -> {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::Equals(left, right) => format!(
+                "({} = {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::NotEquals(left, right) => format!(
+                "({} != {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::And(left, right) => format!(
+                "({} & {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::Or(left, right) => format!(
+                "({} | {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::ForAll(types, values) => {
+                self.macro_str_stacked("forall", types, values, stack_size)
+            }
+            AcornValue::Exists(types, values) => {
+                self.macro_str_stacked("exists", types, values, stack_size)
+            }
+            _ => format!("unhandled({:?})", value),
+        }
+    }
+
+    pub fn value_str(&self, value: &AcornValue) -> String {
+        self.value_str_stacked(value, 0)
+    }
+
     fn check_type<'a>(
         &self,
         token: &Token<'a>,

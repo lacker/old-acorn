@@ -60,9 +60,9 @@ pub enum AcornValue {
     NotEquals(Box<AcornValue>, Box<AcornValue>),
     And(Box<AcornValue>, Box<AcornValue>),
     Or(Box<AcornValue>, Box<AcornValue>),
+    Not(Box<AcornValue>),
     ForAll(Vec<AcornType>, Box<AcornValue>),
     Exists(Vec<AcornType>, Box<AcornValue>),
-    Not(Box<AcornValue>),
 
     // The unbound macros themselves
     ForAllMacro,
