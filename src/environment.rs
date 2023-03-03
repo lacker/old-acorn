@@ -466,11 +466,12 @@ impl Environment {
     //   a + b
     // This doesn't bind the function name into the environment, but it does mutate the environment
     // to use the stack.
+    // Returns the name of the function and the value of the function.
     fn define_function(
         &mut self,
         declaration: &Expression,
         body: &Expression,
-    ) -> Result<(String, AcornValue, AcornType)> {
+    ) -> Result<(String, AcornValue)> {
         let (fn_appl, ret_type) = match declaration {
             Expression::Binary(token, left, right) => match token.token_type {
                 TokenType::RightArrow => {
@@ -516,12 +517,8 @@ impl Environment {
 
         let ret_val = match self.evaluate_value_expression(body, Some(&ret_type)) {
             Ok((value, _)) => {
-                let fn_value = AcornValue::Lambda(arg_types.clone(), Box::new(value));
-                let fn_type = AcornType::Function(FunctionType {
-                    args: arg_types,
-                    return_type: Box::new(ret_type),
-                });
-                Ok((fn_name, fn_value, fn_type))
+                let fn_value = AcornValue::Lambda(arg_types, Box::new(value));
+                Ok((fn_name, fn_value))
             }
             Err(e) => Err(e),
         };
@@ -575,22 +572,8 @@ impl Environment {
                             ));
                         }
                     };
-                    let (name, acorn_value, acorn_type) =
-                        self.define_function(&ds.declaration, value)?;
-
-                    // XXX
-                    let left_type = self.type_str(&acorn_value.get_type());
-                    let right_type = self.type_str(&acorn_type);
-                    if left_type != right_type {
-                        return Err(Error::new(
-                            ds.declaration.token(),
-                            &format!(
-                                "the value for {} has alleged type {} but the inspected type is {}",
-                                name, right_type, left_type
-                            ),
-                        ));
-                    }
-
+                    let (name, acorn_value) = self.define_function(&ds.declaration, value)?;
+                    let acorn_type = acorn_value.get_type();
                     self.constants.insert(name.clone(), acorn_value);
                     self.types.insert(name, acorn_type);
 
