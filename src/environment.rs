@@ -779,6 +779,7 @@ mod tests {
         env.bad("define 1: Nat = Borf");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
+        env.typecheck("suc_injective", "bool");
 
         env.bad("axiom bad_types(x: Nat, y: Nat): x -> y");
 
@@ -816,6 +817,7 @@ mod tests {
         env.bad("theorem foo(x: Nat): forall(y: Nat, 0)");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
+        env.typecheck("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
         env.bad("theorem foo(x: Nat): forall(0: Nat, 0 = 0)");
 
@@ -826,6 +828,7 @@ mod tests {
         );
 
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
+        env.typecheck("add", "(Nat, Nat) -> Nat");
 
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
         env.add("theorem add_zero_left(a: Nat): add(0, a) = a");
