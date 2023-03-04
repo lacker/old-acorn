@@ -38,6 +38,33 @@ pub struct TypedAtom {
     pub acorn_type: AcornType,
 }
 
+impl TypedAtom {
+    // Binds this atom if it matches one of the new stack values.
+    // They start at the provided stack index.
+    // Since stack references are stored by height on the stack, this will also change the
+    // reference id if this is a reference to a subsequent stack value.
+    pub fn bind_values(self, stack_index: usize, values: &Vec<AcornValue>) -> AcornValue {
+        match self.atom {
+            Atom::Reference(i) => {
+                if i < stack_index {
+                    // This reference is unchanged
+                    return AcornValue::Atom(self);
+                }
+                if i < stack_index + values.len() {
+                    // This reference is bound to a new value
+                    return values[i - stack_index].clone();
+                }
+                // This reference just needs to be shifted
+                AcornValue::Atom(TypedAtom {
+                    atom: Atom::Reference(i - values.len()),
+                    acorn_type: self.acorn_type,
+                })
+            }
+            _ => AcornValue::Atom(self),
+        }
+    }
+}
+
 // Two AcornValue compare to equal if they are structurally identical.
 // Comparison doesn't do any evaluations.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -182,6 +209,97 @@ impl AcornValue {
                 }
             }
             _ => self.maybe_negate(negate),
+        }
+    }
+
+    // Binds the provided values to stack variables, starting at the provided stack index.
+    // Since stack references are stored by height on the stack, this will also change the
+    // references for any subsequent stack variables.
+    pub fn bind_values(self, stack_index: usize, values: &Vec<AcornValue>) -> AcornValue {
+        match self {
+            AcornValue::Atom(a) => a.bind_values(stack_index, values),
+            AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
+                function: Box::new(app.function.bind_values(stack_index, values)),
+                args: app
+                    .args
+                    .into_iter()
+                    .map(|x| x.bind_values(stack_index, values))
+                    .collect(),
+            }),
+            AcornValue::Lambda(args, return_value) => AcornValue::Lambda(
+                args,
+                Box::new(return_value.bind_values(stack_index, values)),
+            ),
+            AcornValue::Implies(left, right) => AcornValue::Implies(
+                Box::new(left.bind_values(stack_index, values)),
+                Box::new(right.bind_values(stack_index, values)),
+            ),
+            AcornValue::Equals(left, right) => AcornValue::Equals(
+                Box::new(left.bind_values(stack_index, values)),
+                Box::new(right.bind_values(stack_index, values)),
+            ),
+            AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
+                Box::new(left.bind_values(stack_index, values)),
+                Box::new(right.bind_values(stack_index, values)),
+            ),
+            AcornValue::And(left, right) => AcornValue::And(
+                Box::new(left.bind_values(stack_index, values)),
+                Box::new(right.bind_values(stack_index, values)),
+            ),
+            AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.bind_values(stack_index, values)),
+                Box::new(right.bind_values(stack_index, values)),
+            ),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.bind_values(stack_index, values))),
+            AcornValue::ForAll(quants, value) => {
+                AcornValue::ForAll(quants, Box::new(value.bind_values(stack_index, values)))
+            }
+            AcornValue::Exists(quants, value) => {
+                AcornValue::Exists(quants, Box::new(value.bind_values(stack_index, values)))
+            }
+            _ => panic!("unhandled case in bind_values: {:?}", self),
+        }
+    }
+
+    // The stack size tracks how many variables are on the stack already, when converting this to a term.
+    // TODO: don't panic on failure
+    pub fn into_term(self, stack_size: usize) -> Term {
+        match self {
+            AcornValue::Atom(t) => Term {
+                atom: t,
+                args: vec![],
+            },
+            AcornValue::Application(app) => match *app.function {
+                AcornValue::Atom(atom) => Term {
+                    atom,
+                    args: app
+                        .args
+                        .into_iter()
+                        .map(|x| x.into_term(stack_size))
+                        .collect(),
+                },
+                AcornValue::Lambda(args, return_value) => {
+                    // I'm not sure if we need to typecheck here.
+                    // Let's do it anyway.
+                    for (lambda_arg_type, actual_arg_type) in
+                        args.iter().zip(app.args.iter().map(|x| x.get_type()))
+                    {
+                        if lambda_arg_type != &actual_arg_type {
+                            panic!(
+                                "type mismatch in function application: expected {:?}, got {:?}",
+                                lambda_arg_type, actual_arg_type
+                            );
+                        }
+                    }
+
+                    let expanded = return_value.bind_values(stack_size, &app.args);
+                    // Note the stack size has not expanded, since we aren't putting these args
+                    // on the stack, we're just inlining them.
+                    expanded.into_term(stack_size)
+                }
+                _ => panic!("unable to expand function application: {:?}", app),
+            },
+            _ => panic!("expected a term, got {:?}", self),
         }
     }
 }
