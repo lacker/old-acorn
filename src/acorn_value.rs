@@ -152,6 +152,7 @@ impl AcornValue {
     }
 
     // Normalizes a boolean expression by moving all negations inwards.
+    // If 'negate' is set then we also negate this expression.
     // See https://www.csd.uwo.ca/~lkari/prenex.pdf
     // page 3, steps 1 and 2.
     pub fn move_negation_inwards(self, negate: bool) -> AcornValue {

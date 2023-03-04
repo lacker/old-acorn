@@ -10,4 +10,9 @@ impl Skolemizer {
     pub fn new() -> Skolemizer {
         Skolemizer { types: vec![] }
     }
+
+    // The input should already have negations moved inwards.
+    pub fn skolemize(&mut self, value: AcornValue) -> AcornValue {
+        panic!("TODO")
+    }
 }
