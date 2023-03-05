@@ -78,7 +78,7 @@ pub enum AcornValue {
     Application(FunctionApplication),
     ArgList(Vec<AcornValue>),
 
-    // A function definition that introduces a certain number of variables onto the stack.
+    // A function definition that introduces variables onto the stack.
     Lambda(Vec<AcornType>, Box<AcornValue>),
 
     // Some functions are hardcoded because we want to treat them specially during inference.
@@ -88,6 +88,8 @@ pub enum AcornValue {
     And(Box<AcornValue>, Box<AcornValue>),
     Or(Box<AcornValue>, Box<AcornValue>),
     Not(Box<AcornValue>),
+
+    // Quantifiers that introduce variables onto the stack.
     ForAll(Vec<AcornType>, Box<AcornValue>),
     Exists(Vec<AcornType>, Box<AcornValue>),
 

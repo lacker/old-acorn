@@ -1,5 +1,6 @@
 #![allow(dead_code)]
-use crate::acorn_type::FunctionType;
+use crate::acorn_type::{AcornType, FunctionType};
+use crate::acorn_value::AcornValue;
 
 pub struct Skolemizer {
     // Types of the skolem functions produced
@@ -12,7 +13,11 @@ impl Skolemizer {
     }
 
     // The input should already have negations moved inwards.
-    pub fn skolemize(&mut self, value: AcornValue) -> AcornValue {
-        panic!("TODO")
+    // The stack must be entirely universal quantifiers.
+    pub fn skolemize(&mut self, stack: &Vec<AcornType>, value: AcornValue) -> AcornValue {
+        match value {
+            AcornValue::Lambda(_, _) => panic!("cannot skolemize a lambda"),
+            _ => panic!("TODO"),
+        }
     }
 }
