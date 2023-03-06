@@ -7,6 +7,13 @@ use crate::expression::Expression;
 use crate::statement::Statement;
 use crate::token::{Error, Result, Token, TokenType};
 
+// The Environment takes in a bunch of statements that make sense on their own,
+// and combines them while doing typechecking and similar validation.
+// It is not responsible for proving anything, or for logically manipulating
+// proofs or values.
+// It does not have to be efficient enough to run in the inner loop of the prover.
+// It does keep track of names, with the goal of being able to show nice debug information
+// for its values and types.
 pub struct Environment {
     // The names of the axiomatic types that have been defined in this scope
     // The axiomatic types can be stored as ids that are indices into this vector.

@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, Atom, FunctionApplication, TypedAtom};
 
