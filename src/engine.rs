@@ -24,6 +24,7 @@ impl Engine {
         let expanded = proposition.expand_lambdas(0);
         let neg_in = expanded.move_negation_inwards(false);
         let skolemized = self.normalizer.skolemize(&vec![], neg_in);
-        panic!("TODO")
+        self.clauses
+            .extend(self.normalizer.make_clauses(&vec![], skolemized));
     }
 }

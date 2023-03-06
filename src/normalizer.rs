@@ -1,5 +1,5 @@
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, Atom, FunctionApplication, TypedAtom};
+use crate::acorn_value::{AcornValue, Atom, Clause, FunctionApplication, TypedAtom};
 
 pub struct Normalizer {
     // Types of the skolem functions produced
@@ -97,5 +97,10 @@ impl Normalizer {
                 value
             ),
         }
+    }
+
+    // The input value should already be skolemized
+    pub fn make_clauses(&self, stack: &Vec<AcornType>, value: AcornValue) -> Vec<Clause> {
+        panic!("TODO");
     }
 }
