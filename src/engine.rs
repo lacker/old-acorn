@@ -1,9 +1,10 @@
+use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, Clause};
-use crate::skolemizer::Skolemizer;
+use crate::normalizer::Normalizer;
 
 // The Engine handles normalizing propositions and proving them.
 pub struct Engine {
-    pub skolemizer: Skolemizer,
+    pub normalizer: Normalizer,
 
     pub clauses: Vec<Clause>,
 }
@@ -11,15 +12,18 @@ pub struct Engine {
 impl Engine {
     pub fn new() -> Engine {
         Engine {
-            skolemizer: Skolemizer::new(),
+            normalizer: Normalizer::new(),
             clauses: vec![],
         }
     }
 
-    // Normalizes the value and adds it to our clause list.
-    pub fn add_value(&mut self, value: AcornValue) {
-        let neg_in = value.move_negation_inwards(false);
-        let skolemized = self.skolemizer.skolemize(&vec![], neg_in);
+    // Normalizes the proposition and adds it to our clause list.
+    pub fn add_proposition(&mut self, proposition: AcornValue) {
+        assert_eq!(proposition.get_type(), AcornType::Bool);
+
+        let expanded = proposition.expand_lambdas(0);
+        let neg_in = expanded.move_negation_inwards(false);
+        let skolemized = self.normalizer.skolemize(&vec![], neg_in);
         panic!("TODO")
     }
 }

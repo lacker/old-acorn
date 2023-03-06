@@ -1,14 +1,16 @@
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, Atom, FunctionApplication, TypedAtom};
 
-pub struct Skolemizer {
+pub struct Normalizer {
     // Types of the skolem functions produced
-    types: Vec<FunctionType>,
+    skolem_types: Vec<FunctionType>,
 }
 
-impl Skolemizer {
-    pub fn new() -> Skolemizer {
-        Skolemizer { types: vec![] }
+impl Normalizer {
+    pub fn new() -> Normalizer {
+        Normalizer {
+            skolem_types: vec![],
+        }
     }
 
     // The input should already have negations moved inwards.
@@ -51,11 +53,11 @@ impl Skolemizer {
                 let mut replacements = vec![];
                 for quant in quants {
                     let skolem_type = FunctionType {
-                        args: stack.clone(),
+                        arg_types: stack.clone(),
                         return_type: Box::new(quant),
                     };
-                    let skolem_index = self.types.len();
-                    self.types.push(skolem_type.clone());
+                    let skolem_index = self.skolem_types.len();
+                    self.skolem_types.push(skolem_type.clone());
                     let function = AcornValue::Atom(TypedAtom {
                         atom: Atom::Skolem(skolem_index),
                         acorn_type: AcornType::Function(skolem_type),

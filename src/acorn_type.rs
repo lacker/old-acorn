@@ -1,6 +1,6 @@
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FunctionType {
-    pub args: Vec<AcornType>,
+    pub arg_types: Vec<AcornType>,
     pub return_type: Box<AcornType>,
 }
 

@@ -122,10 +122,10 @@ impl Environment {
             AcornType::Bool => "bool".to_string(),
             AcornType::Axiomatic(i) => self.axiomatic_types[*i].to_string(),
             AcornType::Function(function_type) => {
-                let s = if function_type.args.len() > 1 {
-                    self.type_list_str(&function_type.args)
+                let s = if function_type.arg_types.len() > 1 {
+                    self.type_list_str(&function_type.arg_types)
                 } else {
-                    self.type_str(&function_type.args[0])
+                    self.type_str(&function_type.arg_types[0])
                 };
                 format!("{} -> {}", s, self.type_str(&function_type.return_type))
             }
@@ -296,7 +296,7 @@ impl Environment {
                     let left_type = self.evaluate_partial_type_expression(left)?;
                     let right_type = self.evaluate_partial_type_expression(right)?;
                     let function_type = FunctionType {
-                        args: left_type.into_vec(),
+                        arg_types: left_type.into_vec(),
                         return_type: Box::new(right_type),
                     };
                     Ok(AcornType::Function(function_type))
@@ -517,7 +517,7 @@ impl Environment {
 
                 self.check_type(
                     args_expr.token(),
-                    Some(&AcornType::ArgList(function_type.args)),
+                    Some(&AcornType::ArgList(function_type.arg_types)),
                     &args_type.into_arg_list(),
                 )?;
 

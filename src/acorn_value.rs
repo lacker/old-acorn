@@ -124,7 +124,7 @@ impl AcornValue {
                 AcornType::ArgList(t.into_iter().map(|x| x.get_type()).collect())
             }
             AcornValue::Lambda(args, return_value) => AcornType::Function(FunctionType {
-                args: args.clone(),
+                arg_types: args.clone(),
                 return_type: Box::new(return_value.get_type()),
             }),
             AcornValue::Implies(_, _) => AcornType::Bool,
@@ -264,45 +264,55 @@ impl AcornValue {
         }
     }
 
-    // The stack size tracks how many variables are on the stack already, when converting this to a term.
-    // TODO: don't panic on failure
-    pub fn into_term(self, stack_size: usize) -> Term {
+    // stack_size is the number of variables that are already on the stack.
+    pub fn expand_lambdas(self, stack_size: usize) -> AcornValue {
         match self {
-            AcornValue::Atom(t) => Term {
-                atom: t,
-                args: vec![],
-            },
-            AcornValue::Application(app) => match *app.function {
-                AcornValue::Atom(atom) => Term {
-                    atom,
-                    args: app
-                        .args
-                        .into_iter()
-                        .map(|x| x.into_term(stack_size))
-                        .collect(),
-                },
-                AcornValue::Lambda(args, return_value) => {
-                    // I'm not sure if we need to typecheck here.
-                    // Let's do it anyway.
-                    for (lambda_arg_type, actual_arg_type) in
-                        args.iter().zip(app.args.iter().map(|x| x.get_type()))
-                    {
-                        if lambda_arg_type != &actual_arg_type {
-                            panic!(
-                                "type mismatch in function application: expected {:?}, got {:?}",
-                                lambda_arg_type, actual_arg_type
-                            );
-                        }
-                    }
-
+            AcornValue::Application(app) => {
+                if let AcornValue::Lambda(_, return_value) = *app.function {
+                    // Expand the lambda
                     let expanded = return_value.bind_values(stack_size, &app.args);
-                    // Note the stack size has not expanded, since we aren't putting these args
-                    // on the stack, we're just inlining them.
-                    expanded.into_term(stack_size)
+                    expanded.expand_lambdas(stack_size)
+                } else {
+                    AcornValue::Application(FunctionApplication {
+                        function: app.function,
+                        args: app
+                            .args
+                            .into_iter()
+                            .map(|x| x.expand_lambdas(stack_size))
+                            .collect(),
+                    })
                 }
-                _ => panic!("unable to expand function application: {:?}", app),
-            },
-            _ => panic!("expected a term, got {:?}", self),
+            }
+            AcornValue::Implies(left, right) => AcornValue::Implies(
+                Box::new(left.expand_lambdas(stack_size)),
+                Box::new(right.expand_lambdas(stack_size)),
+            ),
+            AcornValue::Equals(left, right) => AcornValue::Equals(
+                Box::new(left.expand_lambdas(stack_size)),
+                Box::new(right.expand_lambdas(stack_size)),
+            ),
+            AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
+                Box::new(left.expand_lambdas(stack_size)),
+                Box::new(right.expand_lambdas(stack_size)),
+            ),
+            AcornValue::And(left, right) => AcornValue::And(
+                Box::new(left.expand_lambdas(stack_size)),
+                Box::new(right.expand_lambdas(stack_size)),
+            ),
+            AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.expand_lambdas(stack_size)),
+                Box::new(right.expand_lambdas(stack_size)),
+            ),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.expand_lambdas(stack_size))),
+            AcornValue::ForAll(quants, value) => {
+                let new_stack_size = stack_size + quants.len();
+                AcornValue::ForAll(quants, Box::new(value.expand_lambdas(new_stack_size)))
+            }
+            AcornValue::Exists(quants, value) => {
+                let new_stack_size = stack_size + quants.len();
+                AcornValue::Exists(quants, Box::new(value.expand_lambdas(new_stack_size)))
+            }
+            _ => self,
         }
     }
 }
