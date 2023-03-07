@@ -332,6 +332,15 @@ pub enum Literal {
     NotEquals(Term, Term),
 }
 
+impl Literal {
+    pub fn from_atom(atom: TypedAtom) -> Literal {
+        Literal::Positive(Term {
+            atom,
+            args: Vec::new(),
+        })
+    }
+}
+
 // A clause is a disjunction (an "or") of literals, universally quantified over some variables.
 // We include the types of the universal variables it is quantified over.
 // It cannot contain existential quantifiers.
