@@ -324,21 +324,41 @@ pub struct Term {
     pub args: Vec<Term>,
 }
 
+impl Term {
+    pub fn from_atom(atom: TypedAtom) -> Term {
+        Term {
+            atom,
+            args: Vec::new(),
+        }
+    }
+
+    pub fn from_application(app: FunctionApplication) -> Term {
+        let atom = match *app.function {
+            AcornValue::Atom(atom) => atom,
+            _ => panic!("cannot convert {:?} to a term", app.function),
+        };
+        Term {
+            atom: atom,
+            args: app.args.into_iter().map(|x| Term::from_value(x)).collect(),
+        }
+    }
+
+    // Panics if this value cannot be converted to a term.
+    pub fn from_value(value: AcornValue) -> Term {
+        match value {
+            AcornValue::Atom(atom) => Term::from_atom(atom),
+            AcornValue::Application(app) => Term::from_application(app),
+            _ => panic!("cannot convert {:?} to a term", value),
+        }
+    }
+}
+
 // Literals are always boolean-valued.
 pub enum Literal {
     Positive(Term),
     Negative(Term),
     Equals(Term, Term),
     NotEquals(Term, Term),
-}
-
-impl Literal {
-    pub fn from_atom(atom: TypedAtom) -> Literal {
-        Literal::Positive(Term {
-            atom,
-            args: Vec::new(),
-        })
-    }
 }
 
 // A clause is a disjunction (an "or") of literals, universally quantified over some variables.

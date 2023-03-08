@@ -1,5 +1,5 @@
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, Atom, Clause, FunctionApplication, Literal, TypedAtom};
+use crate::acorn_value::{AcornValue, Atom, Clause, FunctionApplication, Literal, Term, TypedAtom};
 
 pub struct Normalizer {
     // Types of the skolem functions produced
@@ -104,7 +104,11 @@ impl Normalizer {
         match value {
             AcornValue::Atom(a) => vec![Clause {
                 universal: stack.clone(),
-                literals: vec![Literal::from_atom(a)],
+                literals: vec![Literal::Positive(Term::from_atom(a))],
+            }],
+            AcornValue::Application(_) => vec![Clause {
+                universal: stack.clone(),
+                literals: vec![Literal::Positive(Term::from_application(app))],
             }],
             _ => panic!("cannot make clauses from node: {:?}", value),
         }
