@@ -319,6 +319,8 @@ impl AcornValue {
 
 // If args is not empty, then atom should be treated as a function.
 // Otherwise, the term is just the atom.
+// This is more general than typical first-order logic terms, because the
+// function can be quantified.
 pub struct Term {
     pub atom: TypedAtom,
     pub args: Vec<Term>,

@@ -106,7 +106,7 @@ impl Normalizer {
                 universal: stack.clone(),
                 literals: vec![Literal::Positive(Term::from_atom(a))],
             }],
-            AcornValue::Application(_) => vec![Clause {
+            AcornValue::Application(app) => vec![Clause {
                 universal: stack.clone(),
                 literals: vec![Literal::Positive(Term::from_application(app))],
             }],
