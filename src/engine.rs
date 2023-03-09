@@ -21,10 +21,10 @@ impl Engine {
     pub fn add_proposition(&mut self, proposition: AcornValue) {
         assert_eq!(proposition.get_type(), AcornType::Bool);
 
-        let expanded = proposition.expand_lambdas(0);
-        let neg_in = expanded.move_negation_inwards(false);
-        let skolemized = self.normalizer.skolemize(&vec![], neg_in);
-        self.clauses
-            .extend(self.normalizer.make_clauses(&vec![], skolemized));
+        let new_clauses = self.normalizer.normalize(proposition);
+        for clause in new_clauses {
+            println!("adding clause: {:?}", clause);
+            self.clauses.push(clause);
+        }
     }
 }

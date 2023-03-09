@@ -63,6 +63,23 @@ impl TypedAtom {
             _ => AcornValue::Atom(self),
         }
     }
+
+    pub fn insert_stack(self, index: usize, increment: usize) -> AcornValue {
+        match self.atom {
+            Atom::Reference(i) => {
+                if i < index {
+                    // This reference is unchanged
+                    return AcornValue::Atom(self);
+                }
+                // This reference just needs to be shifted
+                AcornValue::Atom(TypedAtom {
+                    atom: Atom::Reference(i + increment),
+                    acorn_type: self.acorn_type,
+                })
+            }
+            _ => AcornValue::Atom(self),
+        }
+    }
 }
 
 // Two AcornValue compare to equal if they are structurally identical.
@@ -264,6 +281,54 @@ impl AcornValue {
         }
     }
 
+    // Inserts 'increment' stack entries, starting with the provided index, that this value
+    // doesn't use.
+    // Every reference at index or higher should be incremented by increment.
+    pub fn insert_stack(self, index: usize, increment: usize) -> AcornValue {
+        match self {
+            AcornValue::Atom(a) => a.insert_stack(index, increment),
+            AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
+                function: Box::new(app.function.insert_stack(index, increment)),
+                args: app
+                    .args
+                    .into_iter()
+                    .map(|x| x.insert_stack(index, increment))
+                    .collect(),
+            }),
+            AcornValue::Lambda(args, return_value) => {
+                AcornValue::Lambda(args, Box::new(return_value.insert_stack(index, increment)))
+            }
+            AcornValue::Implies(left, right) => AcornValue::Implies(
+                Box::new(left.insert_stack(index, increment)),
+                Box::new(right.insert_stack(index, increment)),
+            ),
+            AcornValue::Equals(left, right) => AcornValue::Equals(
+                Box::new(left.insert_stack(index, increment)),
+                Box::new(right.insert_stack(index, increment)),
+            ),
+            AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
+                Box::new(left.insert_stack(index, increment)),
+                Box::new(right.insert_stack(index, increment)),
+            ),
+            AcornValue::And(left, right) => AcornValue::And(
+                Box::new(left.insert_stack(index, increment)),
+                Box::new(right.insert_stack(index, increment)),
+            ),
+            AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.insert_stack(index, increment)),
+                Box::new(right.insert_stack(index, increment)),
+            ),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.insert_stack(index, increment))),
+            AcornValue::ForAll(quants, value) => {
+                AcornValue::ForAll(quants, Box::new(value.insert_stack(index, increment)))
+            }
+            AcornValue::Exists(quants, value) => {
+                AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
+            }
+            _ => panic!("unhandled case in insert_stack: {:?}", self),
+        }
+    }
+
     // stack_size is the number of variables that are already on the stack.
     pub fn expand_lambdas(self, stack_size: usize) -> AcornValue {
         match self {
@@ -315,12 +380,42 @@ impl AcornValue {
             _ => self,
         }
     }
+
+    // Removes all "forall" nodes, collecting the quantified types into quantifiers.
+    pub fn remove_forall(self, quantifiers: &mut Vec<AcornType>) -> AcornValue {
+        match self {
+            AcornValue::And(left, right) => {
+                let original_num_quants = quantifiers.len();
+                let new_left = left.remove_forall(quantifiers);
+                let added_quants = quantifiers.len() - original_num_quants;
+
+                let shifted_right = right.insert_stack(original_num_quants, added_quants);
+                let new_right = shifted_right.remove_forall(quantifiers);
+                AcornValue::And(Box::new(new_left), Box::new(new_right))
+            }
+            AcornValue::Or(left, right) => {
+                let original_num_quants = quantifiers.len();
+                let new_left = left.remove_forall(quantifiers);
+                let added_quants = quantifiers.len() - original_num_quants;
+
+                let shifted_right = right.insert_stack(original_num_quants, added_quants);
+                let new_right = shifted_right.remove_forall(quantifiers);
+                AcornValue::Or(Box::new(new_left), Box::new(new_right))
+            }
+            AcornValue::ForAll(new_quants, value) => {
+                quantifiers.extend(new_quants);
+                value.remove_forall(quantifiers)
+            }
+            _ => self,
+        }
+    }
 }
 
 // If args is not empty, then atom should be treated as a function.
 // Otherwise, the term is just the atom.
 // This is more general than typical first-order logic terms, because the
 // function can be quantified.
+#[derive(Clone, Debug)]
 pub struct Term {
     pub atom: TypedAtom,
     pub args: Vec<Term>,
@@ -356,6 +451,7 @@ impl Term {
 }
 
 // Literals are always boolean-valued.
+#[derive(Clone, Debug)]
 pub enum Literal {
     Positive(Term),
     Negative(Term),
@@ -363,9 +459,55 @@ pub enum Literal {
     NotEquals(Term, Term),
 }
 
+impl Literal {
+    // Panics if this value cannot be converted to a literal.
+    pub fn from_value(value: AcornValue) -> Literal {
+        match value {
+            AcornValue::Atom(atom) => Literal::Positive(Term::from_atom(atom)),
+            AcornValue::Application(app) => Literal::Positive(Term::from_application(app)),
+            AcornValue::Equals(left, right) => {
+                Literal::Equals(Term::from_value(*left), Term::from_value(*right))
+            }
+            AcornValue::NotEquals(left, right) => {
+                Literal::NotEquals(Term::from_value(*left), Term::from_value(*right))
+            }
+            AcornValue::Not(subvalue) => Literal::Negative(Term::from_value(*subvalue)),
+            _ => panic!("cannot convert {:?} to a literal", value),
+        }
+    }
+
+    // Everything below "and" and "or" nodes must be literals.
+    // Appends all results found.
+    pub fn into_cnf(value: AcornValue, results: &mut Vec<Vec<Literal>>) {
+        match value {
+            AcornValue::And(left, right) => {
+                Literal::into_cnf(*left, results);
+                Literal::into_cnf(*right, results);
+            }
+            AcornValue::Or(left, right) => {
+                let mut left_results = Vec::new();
+                Literal::into_cnf(*left, &mut left_results);
+                let mut right_results = Vec::new();
+                Literal::into_cnf(*right, &mut right_results);
+                for left_result in left_results {
+                    for right_result in &right_results {
+                        let mut combined = left_result.clone();
+                        combined.extend(right_result.clone());
+                        results.push(combined);
+                    }
+                }
+            }
+            _ => {
+                results.push(vec![Literal::from_value(value)]);
+            }
+        }
+    }
+}
+
 // A clause is a disjunction (an "or") of literals, universally quantified over some variables.
 // We include the types of the universal variables it is quantified over.
 // It cannot contain existential quantifiers.
+#[derive(Debug)]
 pub struct Clause {
     pub universal: Vec<AcornType>,
     pub literals: Vec<Literal>,

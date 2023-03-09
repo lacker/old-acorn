@@ -1,5 +1,5 @@
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, Atom, Clause, FunctionApplication, Literal, Term, TypedAtom};
+use crate::acorn_value::{AcornValue, Atom, Clause, FunctionApplication, Literal, TypedAtom};
 
 pub struct Normalizer {
     // Types of the skolem functions produced
@@ -99,18 +99,22 @@ impl Normalizer {
         }
     }
 
-    // The input value should already be skolemized
-    pub fn make_clauses(&self, stack: &Vec<AcornType>, value: AcornValue) -> Vec<Clause> {
-        match value {
-            AcornValue::Atom(a) => vec![Clause {
-                universal: stack.clone(),
-                literals: vec![Literal::Positive(Term::from_atom(a))],
-            }],
-            AcornValue::Application(app) => vec![Clause {
-                universal: stack.clone(),
-                literals: vec![Literal::Positive(Term::from_application(app))],
-            }],
-            _ => panic!("cannot make clauses from node: {:?}", value),
+    pub fn normalize(&mut self, value: AcornValue) -> Vec<Clause> {
+        let expanded = value.expand_lambdas(0);
+        let neg_in = expanded.move_negation_inwards(false);
+        let skolemized = self.skolemize(&vec![], neg_in);
+        let mut universal = vec![];
+        let dequantified = skolemized.remove_forall(&mut universal);
+        let mut literal_lists = vec![];
+        Literal::into_cnf(dequantified, &mut literal_lists);
+
+        let mut clauses = vec![];
+        for literals in literal_lists {
+            clauses.push(Clause {
+                universal: universal.clone(),
+                literals,
+            });
         }
+        clauses
     }
 }
