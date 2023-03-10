@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::acorn_type::{AcornType, FunctionType};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -36,6 +38,16 @@ pub enum Atom {
 pub struct TypedAtom {
     pub atom: Atom,
     pub acorn_type: AcornType,
+}
+
+impl fmt::Display for TypedAtom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.atom {
+            Atom::Axiomatic(i) => write!(f, "a{}", i),
+            Atom::Skolem(i) => write!(f, "s{}", i),
+            Atom::Reference(i) => write!(f, "x{}", i),
+        }
+    }
 }
 
 impl TypedAtom {
@@ -421,6 +433,23 @@ pub struct Term {
     pub args: Vec<Term>,
 }
 
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.args.is_empty() {
+            write!(f, "{}", self.atom)
+        } else {
+            write!(f, "{}(", self.atom)?;
+            for (i, arg) in self.args.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", arg)?;
+            }
+            write!(f, ")")
+        }
+    }
+}
+
 impl Term {
     pub fn from_atom(atom: TypedAtom) -> Term {
         Term {
@@ -457,6 +486,17 @@ pub enum Literal {
     Negative(Term),
     Equals(Term, Term),
     NotEquals(Term, Term),
+}
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Literal::Positive(term) => write!(f, "{}", term),
+            Literal::Negative(term) => write!(f, "!{}", term),
+            Literal::Equals(left, right) => write!(f, "{} = {}", left, right),
+            Literal::NotEquals(left, right) => write!(f, "{} != {}", left, right),
+        }
+    }
 }
 
 impl Literal {
@@ -511,4 +551,19 @@ impl Literal {
 pub struct Clause {
     pub universal: Vec<AcornType>,
     pub literals: Vec<Literal>,
+}
+
+impl fmt::Display for Clause {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.universal.is_empty() {
+            return write!(f, "<empty>");
+        }
+        for (i, literal) in self.literals.iter().enumerate() {
+            if i > 0 {
+                write!(f, " | ")?;
+            }
+            write!(f, "{}", literal)?;
+        }
+        Ok(())
+    }
 }
