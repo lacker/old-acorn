@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::acorn_type::{AcornType, FunctionType};
+use crate::acorn_type::{declarations_to_str, AcornType, FunctionType};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FunctionApplication {
@@ -14,6 +14,13 @@ impl FunctionApplication {
             AcornType::Function(FunctionType { return_type, .. }) => *return_type,
             _ => panic!("FunctionApplication's function is not a function type"),
         }
+    }
+
+    fn fmt_helper(&self, f: &mut fmt::Formatter, stack_size: usize) -> fmt::Result {
+        self.function.fmt_helper(f, stack_size)?;
+        write!(f, "(")?;
+        fmt_values(&self.args, f, stack_size)?;
+        write!(f, ")")
     }
 }
 
@@ -127,7 +134,74 @@ pub enum AcornValue {
     ExistsMacro,
 }
 
+impl fmt::Display for AcornValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.fmt_helper(f, 0)
+    }
+}
+
+fn fmt_values(v: &Vec<AcornValue>, f: &mut fmt::Formatter, stack_size: usize) -> fmt::Result {
+    for (i, item) in v.iter().enumerate() {
+        if i > 0 {
+            write!(f, ", ")?;
+        }
+        item.fmt_helper(f, stack_size)?;
+    }
+    Ok(())
+}
+
+fn fmt_macro(
+    f: &mut fmt::Formatter,
+    name: &str,
+    decs: &Vec<AcornType>,
+    body: &AcornValue,
+    stack_size: usize,
+) -> fmt::Result {
+    write!(f, "{}({}, ", name, declarations_to_str(decs, stack_size))?;
+    body.fmt_helper(f, stack_size + decs.len())?;
+    write!(f, ")")
+}
+
+fn fmt_binary(
+    f: &mut fmt::Formatter,
+    op: &str,
+    left: &AcornValue,
+    right: &AcornValue,
+) -> fmt::Result {
+    write!(f, "(")?;
+    left.fmt_helper(f, 0)?;
+    write!(f, " {} ", op)?;
+    right.fmt_helper(f, 0)?;
+    write!(f, ")")
+}
+
 impl AcornValue {
+    fn fmt_helper(&self, f: &mut fmt::Formatter, stack_size: usize) -> fmt::Result {
+        match self {
+            AcornValue::Atom(a) => write!(f, "{}", a),
+            AcornValue::Application(a) => a.fmt_helper(f, stack_size),
+            AcornValue::ArgList(args) => {
+                write!(f, "(")?;
+                fmt_values(args, f, stack_size)?;
+                write!(f, ")")
+            }
+            AcornValue::Lambda(args, body) => fmt_macro(f, "lambda", args, body, stack_size),
+            AcornValue::Implies(a, b) => fmt_binary(f, "=>", a, b),
+            AcornValue::Equals(a, b) => fmt_binary(f, "=", a, b),
+            AcornValue::NotEquals(a, b) => fmt_binary(f, "!=", a, b),
+            AcornValue::And(a, b) => fmt_binary(f, "&", a, b),
+            AcornValue::Or(a, b) => fmt_binary(f, "|", a, b),
+            AcornValue::Not(a) => {
+                write!(f, "!")?;
+                a.fmt_helper(f, stack_size)
+            }
+            AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, stack_size),
+            AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, stack_size),
+            AcornValue::ForAllMacro => write!(f, "forall"),
+            AcornValue::ExistsMacro => write!(f, "exists"),
+        }
+    }
+
     pub fn into_vec(self) -> Vec<AcornValue> {
         match self {
             AcornValue::ArgList(t) => t,
