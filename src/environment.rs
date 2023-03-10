@@ -86,7 +86,10 @@ impl Environment {
         self.types.remove(name);
     }
 
+    // This can be a new axiomatic value that is being bound for the first time,
+    // in which case we track the name
     fn bind_name(&mut self, name: &str, value: AcornValue) {
+        println!("XXX binding name {} to value {}", name, value);
         if self.types.contains_key(name) {
             panic!("name {} already bound to a type", name);
         }
@@ -568,6 +571,7 @@ impl Environment {
         declaration: &Expression,
         body: &Expression,
     ) -> Result<(String, AcornValue)> {
+        println!("XXX defining {}", declaration);
         let (fn_appl, ret_type) = match declaration {
             Expression::Binary(token, left, right) => match token.token_type {
                 TokenType::RightArrow => {
@@ -611,12 +615,21 @@ impl Environment {
 
         let (arg_names, arg_types) = self.bind_args(arg_list.flatten_arg_list())?;
 
-        let ret_val = match self.evaluate_value_expression(body, Some(&ret_type)) {
-            Ok(value) => {
-                let fn_value = AcornValue::Lambda(arg_types, Box::new(value));
-                Ok((fn_name, fn_value))
+        let ret_val = if body.token().token_type == TokenType::Axiom {
+            let new_axiom_type = AcornType::Function(FunctionType {
+                arg_types: arg_types.clone(),
+                return_type: Box::new(ret_type.clone()),
+            });
+            let fn_value = self.next_axiomatic_value(&new_axiom_type);
+            Ok((fn_name, fn_value))
+        } else {
+            match self.evaluate_value_expression(body, Some(&ret_type)) {
+                Ok(value) => {
+                    let fn_value = AcornValue::Lambda(arg_types, Box::new(value));
+                    Ok((fn_name, fn_value))
+                }
+                Err(e) => Err(e),
             }
-            Err(e) => Err(e),
         };
 
         self.unbind_args(arg_names);
@@ -742,7 +755,7 @@ impl Environment {
     }
 
     #[cfg(test)]
-    fn add_joined(&mut self, input1: &str, input2: &str) {
+    pub fn add_joined(&mut self, input1: &str, input2: &str) {
         let input = format!("{} {}", input1, input2);
         self.add(&input);
     }
@@ -775,6 +788,16 @@ impl Environment {
             None => panic!("{} not found in environment", name),
         };
         assert_eq!(self.value_str(env_value), value_string);
+    }
+
+    // Check the name of the given axiomatic value
+    #[cfg(test)]
+    pub fn axiomcheck(&mut self, id: usize, name: &str) {
+        let axiom = match self.axiomatic_values.get(id) {
+            Some(axiom) => axiom,
+            None => panic!("axiom {} not found in environment", id),
+        };
+        assert_eq!(axiom, name);
     }
 }
 

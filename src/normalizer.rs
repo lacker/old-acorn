@@ -102,16 +102,16 @@ impl Normalizer {
     }
 
     pub fn normalize(&mut self, value: AcornValue) -> Vec<Clause> {
-        println!("value: {}", value);
+        // println!("value: {}", value);
         let expanded = value.expand_lambdas(0);
-        println!("expanded: {}", expanded);
+        // println!("expanded: {}", expanded);
         let neg_in = expanded.move_negation_inwards(false);
-        println!("negin: {}", neg_in);
+        // println!("negin: {}", neg_in);
         let skolemized = self.skolemize(&vec![], neg_in);
-        println!("skolemized: {}", skolemized);
+        // println!("skolemized: {}", skolemized);
         let mut universal = vec![];
         let dequantified = skolemized.remove_forall(&mut universal);
-        println!("universal: {}", AcornType::vec_to_str(&universal));
+        // println!("universal: {}", AcornType::vec_to_str(&universal));
         let mut literal_lists = vec![];
         Literal::into_cnf(dequantified, &mut literal_lists);
 
@@ -156,12 +156,34 @@ mod tests {
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("define 0: Nat = axiom");
+        env.axiomcheck(0, "0");
         env.add("define Suc: Nat -> Nat = axiom");
+        env.axiomcheck(1, "Suc");
         env.add("define 1: Nat = Suc(0)");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         norm.check(&env, "suc_injective", &["a1(x0) != a1(x1) | x0 = x1"]);
 
-        // env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
+        env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
+        norm.check(&env, "suc_neq_zero", &["a1(x0) != a0"]);
+
+        env.add_joined(
+            "axiom induction(f: Nat -> bool):",
+            "f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> forall(n: Nat, f(n))",
+        );
+        norm.check(
+            &env,
+            "induction",
+            &[
+                "!x0(a0) | x0(s0(x0)) | x0(x1)",
+                "!x0(a0) | !x0(a1(s0(x0))) | x0(x1)",
+            ],
+        );
+
+        env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
+        env.axiomcheck(2, "recursion");
+
+        // env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
+        // norm.check(&env, "recursion_base", &[""]);
     }
 }

@@ -57,7 +57,7 @@ impl fmt::Display for AcornType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             AcornType::Bool => write!(f, "bool"),
-            AcornType::Axiomatic(index) => write!(f, "a{}", index),
+            AcornType::Axiomatic(index) => write!(f, "T{}", index),
             AcornType::Function(function_type) => {
                 write!(
                     f,

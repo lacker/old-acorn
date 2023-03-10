@@ -41,6 +41,15 @@ pub enum Atom {
     Reference(usize),
 }
 
+impl Atom {
+    pub fn is_axiomatic(&self) -> bool {
+        match self {
+            Atom::Axiomatic(_) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct TypedAtom {
     pub atom: Atom,
@@ -98,6 +107,10 @@ impl TypedAtom {
             }
             _ => AcornValue::Atom(self),
         }
+    }
+
+    pub fn is_axiomatic(&self) -> bool {
+        self.atom.is_axiomatic()
     }
 }
 
@@ -206,6 +219,13 @@ impl AcornValue {
         match self {
             AcornValue::ArgList(t) => t,
             _ => vec![self],
+        }
+    }
+
+    pub fn is_axiomatic(&self) -> bool {
+        match self {
+            AcornValue::Atom(t) => t.is_axiomatic(),
+            _ => false,
         }
     }
 
