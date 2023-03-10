@@ -105,6 +105,10 @@ impl Environment {
         self.values.insert(name.to_string(), value);
     }
 
+    pub fn get_value(&self, name: &str) -> Option<&AcornValue> {
+        self.values.get(name)
+    }
+
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
         let mut s = "(".to_string();
         for (i, acorn_type) in types.iter().enumerate() {
@@ -730,7 +734,7 @@ impl Environment {
     }
 
     #[cfg(test)]
-    fn add(&mut self, input: &str) {
+    pub fn add(&mut self, input: &str) {
         let statement = Statement::parse_str(input).unwrap();
         if let Err(r) = self.add_statement(&statement) {
             panic!("Error adding statement:\n\n{}", r);

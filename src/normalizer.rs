@@ -118,3 +118,28 @@ impl Normalizer {
         clauses
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::environment::Environment;
+
+    use super::*;
+
+    #[test]
+    fn test_nat_normalization() {
+        let mut env = Environment::new();
+        let mut norm = Normalizer::new();
+        env.add("type Nat: axiom");
+        env.add("define 0: Nat = axiom");
+        env.add("define Suc: Nat -> Nat = axiom");
+        env.add("define 1: Nat = Suc(0)");
+
+        env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
+        let clauses = norm.normalize(env.get_value("suc_injective").unwrap().clone());
+
+        assert_eq!(clauses.len(), 1);
+        assert_ne!(format!("{}", clauses[0]), "<empty>");
+
+        // env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
+    }
+}
