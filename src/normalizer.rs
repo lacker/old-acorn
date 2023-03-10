@@ -183,7 +183,7 @@ mod tests {
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
         env.axiomcheck(2, "recursion");
 
-        // env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        // norm.check(&env, "recursion_base", &[""]);
+        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
+        norm.check(&env, "recursion_base", &["a2(x0, x1, a0) = x1"]);
     }
 }

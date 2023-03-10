@@ -89,7 +89,6 @@ impl Environment {
     // This can be a new axiomatic value that is being bound for the first time,
     // in which case we track the name
     fn bind_name(&mut self, name: &str, value: AcornValue) {
-        println!("XXX binding name {} to value {}", name, value);
         if self.types.contains_key(name) {
             panic!("name {} already bound to a type", name);
         }
@@ -571,7 +570,6 @@ impl Environment {
         declaration: &Expression,
         body: &Expression,
     ) -> Result<(String, AcornValue)> {
-        println!("XXX defining {}", declaration);
         let (fn_appl, ret_type) = match declaration {
             Expression::Binary(token, left, right) => match token.token_type {
                 TokenType::RightArrow => {
