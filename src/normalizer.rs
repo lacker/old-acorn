@@ -199,4 +199,15 @@ mod tests {
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
         norm.check(&env, "add_zero_right", &["a2(a1, x0, x0) = x0"]);
     }
+
+    #[test]
+    fn test_bool_formulas() {
+        let mut env = Environment::new();
+        let mut norm = Normalizer::new();
+        env.add("theorem one(a: bool): a -> a | (a | a)");
+        norm.check(&env, "one", &["!x0 | x0 | x0 | x0"]);
+
+        env.add("theorem two(a: bool): a -> a & (a & a)");
+        norm.check(&env, "two", &["!x0 | x0", "!x0 | x0", "!x0 | x0"]);
+    }
 }
