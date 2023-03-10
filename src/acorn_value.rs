@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::acorn_type::{declarations_to_str, AcornType, FunctionType};
+use crate::acorn_type::{AcornType, FunctionType};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FunctionApplication {
@@ -157,7 +157,7 @@ fn fmt_macro(
     body: &AcornValue,
     stack_size: usize,
 ) -> fmt::Result {
-    write!(f, "{}({}, ", name, declarations_to_str(decs, stack_size))?;
+    write!(f, "{}({}, ", name, AcornType::decs_to_str(decs, stack_size))?;
     body.fmt_helper(f, stack_size + decs.len())?;
     write!(f, ")")
 }

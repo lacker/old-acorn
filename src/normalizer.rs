@@ -1,5 +1,6 @@
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, Atom, Clause, FunctionApplication, Literal, TypedAtom};
+use crate::environment::Environment;
 
 pub struct Normalizer {
     // Types of the skolem functions produced
@@ -34,8 +35,9 @@ impl Normalizer {
         match value {
             AcornValue::ForAll(quants, subvalue) => {
                 let mut new_stack = stack.clone();
-                new_stack.extend(quants);
-                self.skolemize(&new_stack, *subvalue)
+                new_stack.extend(quants.clone());
+                let new_subvalue = self.skolemize(&new_stack, *subvalue);
+                AcornValue::ForAll(quants, Box::new(new_subvalue))
             }
 
             AcornValue::Exists(quants, subvalue) => {
@@ -100,11 +102,16 @@ impl Normalizer {
     }
 
     pub fn normalize(&mut self, value: AcornValue) -> Vec<Clause> {
+        println!("value: {}", value);
         let expanded = value.expand_lambdas(0);
+        println!("expanded: {}", expanded);
         let neg_in = expanded.move_negation_inwards(false);
+        println!("negin: {}", neg_in);
         let skolemized = self.skolemize(&vec![], neg_in);
+        println!("skolemized: {}", skolemized);
         let mut universal = vec![];
         let dequantified = skolemized.remove_forall(&mut universal);
+        println!("universal: {}", AcornType::vec_to_str(&universal));
         let mut literal_lists = vec![];
         Literal::into_cnf(dequantified, &mut literal_lists);
 
@@ -117,12 +124,30 @@ impl Normalizer {
         }
         clauses
     }
+
+    #[allow(dead_code)]
+    fn check(&mut self, env: &Environment, name: &str, expected: &[&str]) {
+        let actual = self.normalize(env.get_value(name).unwrap().clone());
+        if actual.len() != expected.len() {
+            panic!(
+                "expected {} clauses, got {}:\n{}",
+                expected.len(),
+                actual.len(),
+                actual
+                    .iter()
+                    .map(|c| format!("{}", c))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            );
+        }
+        for i in 0..actual.len() {
+            assert_eq!(format!("{}", actual[i]), expected[i]);
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::environment::Environment;
-
     use super::*;
 
     #[test]
@@ -135,10 +160,7 @@ mod tests {
         env.add("define 1: Nat = Suc(0)");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
-        let clauses = norm.normalize(env.get_value("suc_injective").unwrap().clone());
-
-        assert_eq!(clauses.len(), 1);
-        assert_ne!(format!("{}", clauses[0]), "<empty>");
+        norm.check(&env, "suc_injective", &["a1(x0) != a1(x1) | x0 = x1"]);
 
         // env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
     }
