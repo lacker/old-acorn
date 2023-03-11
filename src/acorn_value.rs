@@ -92,20 +92,20 @@ impl TypedAtom {
         }
     }
 
-    pub fn insert_stack(self, index: usize, increment: usize) -> AcornValue {
+    pub fn insert_stack(self, index: usize, increment: usize) -> TypedAtom {
         match self.atom {
             Atom::Reference(i) => {
                 if i < index {
                     // This reference is unchanged
-                    return AcornValue::Atom(self);
+                    return self;
                 }
                 // This reference just needs to be shifted
-                AcornValue::Atom(TypedAtom {
+                TypedAtom {
                     atom: Atom::Reference(i + increment),
                     acorn_type: self.acorn_type,
-                })
+                }
             }
-            _ => AcornValue::Atom(self),
+            _ => self,
         }
     }
 
@@ -392,7 +392,7 @@ impl AcornValue {
     // Every reference at index or higher should be incremented by increment.
     pub fn insert_stack(self, index: usize, increment: usize) -> AcornValue {
         match self {
-            AcornValue::Atom(a) => a.insert_stack(index, increment),
+            AcornValue::Atom(a) => AcornValue::Atom(a.insert_stack(index, increment)),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.insert_stack(index, increment)),
                 args: app
