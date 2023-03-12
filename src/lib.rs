@@ -1,5 +1,6 @@
 pub mod acorn_type;
 pub mod acorn_value;
+pub mod atom;
 pub mod engine;
 pub mod environment;
 pub mod expression;

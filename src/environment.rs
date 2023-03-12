@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, Atom, FunctionApplication, TypedAtom};
+use crate::acorn_value::{AcornValue, FunctionApplication};
+use crate::atom::{Atom, TypedAtom};
 use crate::expression::Expression;
 use crate::statement::Statement;
 use crate::token::{Error, Result, Token, TokenType};
