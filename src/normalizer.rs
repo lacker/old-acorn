@@ -167,7 +167,7 @@ mod tests {
         norm.check(&env, "suc_injective", &["a1(x0) != a1(x1) | x0 = x1"]);
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        norm.check(&env, "suc_neq_zero", &["a1(x0) != a0"]);
+        norm.check(&env, "suc_neq_zero", &["a0 != a1(x0)"]);
 
         env.add_joined(
             "axiom induction(f: Nat -> bool):",

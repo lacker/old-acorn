@@ -11,13 +11,13 @@ pub enum Atom {
     // Values defined like "define 0: Nat = axiom"
     Axiomatic(usize),
 
-    // Functions created in the normalization process
-    Skolem(usize),
-
     // A Reference is a reference to a variable on the stack.
     // We drop the variable name. Instead we track the index on the stack of the binding.
     // This does mean that you must be careful when moving values between different stack environments.
     Reference(usize),
+
+    // Functions created in the normalization process
+    Skolem(usize),
 }
 
 impl Atom {
@@ -90,5 +90,15 @@ impl TypedAtom {
 
     pub fn is_axiomatic(&self) -> bool {
         self.atom.is_axiomatic()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_atom_ordering() {
+        assert!(Atom::Axiomatic(0) < Atom::Axiomatic(1));
     }
 }

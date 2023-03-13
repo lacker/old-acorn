@@ -92,7 +92,7 @@ impl Literal {
             AcornValue::Equals(left, right) => {
                 let left_term = Term::from_value(*left);
                 let right_term = Term::from_value(*right);
-                if left_term < right_term {
+                if left_term <= right_term {
                     Literal::Equals(left_term, right_term)
                 } else {
                     Literal::Equals(right_term, left_term)
@@ -101,7 +101,7 @@ impl Literal {
             AcornValue::NotEquals(left, right) => {
                 let left_term = Term::from_value(*left);
                 let right_term = Term::from_value(*right);
-                if left_term < right_term {
+                if left_term <= right_term {
                     Literal::NotEquals(left_term, right_term)
                 } else {
                     Literal::NotEquals(right_term, left_term)
