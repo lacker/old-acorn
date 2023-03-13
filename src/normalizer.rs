@@ -119,10 +119,7 @@ impl Normalizer {
 
         let mut clauses = vec![];
         for literals in literal_lists {
-            clauses.push(Clause {
-                universal: universal.clone(),
-                literals,
-            });
+            clauses.push(Clause::new(&universal, literals));
         }
         clauses
     }
@@ -164,7 +161,7 @@ mod tests {
         env.add("define 1: Nat = Suc(0)");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
-        norm.check(&env, "suc_injective", &["a1(x0) != a1(x1) | x0 = x1"]);
+        norm.check(&env, "suc_injective", &["x0 = x1 | a1(x0) != a1(x1)"]);
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         norm.check(&env, "suc_neq_zero", &["a0 != a1(x0)"]);
@@ -177,8 +174,8 @@ mod tests {
             &env,
             "induction",
             &[
-                "!x0(a0) | x0(s0(x0)) | x0(x1)",
-                "!x0(a0) | !x0(a1(s0(x0))) | x0(x1)",
+                "x0(x1) | x0(s0(x0)) | !x0(a0)",
+                "x0(x1) | !x0(a0) | !x0(a1(s0(x0)))",
             ],
         );
 
@@ -207,10 +204,10 @@ mod tests {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
         env.add("theorem one(a: bool): a -> a | (a | a)");
-        norm.check(&env, "one", &["!x0 | x0 | x0 | x0"]);
+        norm.check(&env, "one", &["x0 | !x0"]);
 
         env.add("theorem two(a: bool): a -> a & (a & a)");
-        norm.check(&env, "two", &["!x0 | x0", "!x0 | x0", "!x0 | x0"]);
+        norm.check(&env, "two", &["x0 | !x0", "x0 | !x0", "x0 | !x0"]);
     }
 
     #[test]
