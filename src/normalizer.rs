@@ -1,6 +1,7 @@
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, Clause, FunctionApplication, Literal};
+use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, TypedAtom};
+use crate::clause::{Clause, Literal};
 use crate::environment::Environment;
 
 pub struct Normalizer {
