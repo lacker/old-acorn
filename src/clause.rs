@@ -113,6 +113,7 @@ impl Literal {
     }
 
     // Everything below "and" and "or" nodes must be literals.
+    // Skips any tautologies.
     // Appends all results found.
     pub fn into_cnf(value: AcornValue, results: &mut Vec<Vec<Literal>>) {
         match value {
@@ -134,9 +135,28 @@ impl Literal {
                 }
             }
             _ => {
-                results.push(vec![Literal::from_value(value)]);
+                let literal = Literal::from_value(value);
+                if !literal.is_tautology() {
+                    results.push(vec![literal]);
+                }
             }
         }
+    }
+
+    // Returns true if this literal is a tautology, i.e. foo = foo
+    pub fn is_tautology(&self) -> bool {
+        if let Literal::Equals(left, right) = self {
+            return left == right;
+        }
+        false
+    }
+
+    // Returns whether this clause is syntactically impossible, i.e. foo != foo
+    pub fn is_impossible(&self) -> bool {
+        if let Literal::NotEquals(left, right) = self {
+            return left == right;
+        }
+        false
     }
 }
 
@@ -161,5 +181,22 @@ impl fmt::Display for Clause {
             write!(f, "{}", literal)?;
         }
         Ok(())
+    }
+}
+
+impl Clause {
+    // Sorts literals.
+    // Removes any duplicate or impossible literals.
+    pub fn new(universal: &Vec<AcornType>, literals: Vec<Literal>) -> Clause {
+        let mut literals = literals
+            .into_iter()
+            .filter(|x| !x.is_impossible())
+            .collect::<Vec<_>>();
+        literals.sort();
+        literals.dedup();
+        Clause {
+            universal: universal.clone(),
+            literals,
+        }
     }
 }

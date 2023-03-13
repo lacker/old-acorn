@@ -212,4 +212,16 @@ mod tests {
         env.add("theorem two(a: bool): a -> a & (a & a)");
         norm.check(&env, "two", &["!x0 | x0", "!x0 | x0", "!x0 | x0"]);
     }
+
+    #[test]
+    fn test_tautology_elimination() {
+        let mut env = Environment::new();
+        let mut norm = Normalizer::new();
+        env.add("type Nat: axiom");
+        env.add("theorem one(n: Nat): n = n");
+        norm.check(&env, "one", &[]);
+
+        env.add("theorem two(n: Nat): n = n | n != n");
+        norm.check(&env, "two", &[]);
+    }
 }
