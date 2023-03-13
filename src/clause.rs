@@ -10,7 +10,7 @@ use crate::atom::TypedAtom;
 // Otherwise, the term is just the atom.
 // This is more general than typical first-order logic terms, because the
 // function can be quantified.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Term {
     pub atom: TypedAtom,
     pub args: Vec<Term>,
@@ -63,7 +63,7 @@ impl Term {
 }
 
 // Literals are always boolean-valued.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Literal {
     Positive(Term),
     Negative(Term),
@@ -84,15 +84,28 @@ impl fmt::Display for Literal {
 
 impl Literal {
     // Panics if this value cannot be converted to a literal.
+    // Swaps left and right if needed, to sort.
     pub fn from_value(value: AcornValue) -> Literal {
         match value {
             AcornValue::Atom(atom) => Literal::Positive(Term::from_atom(atom)),
             AcornValue::Application(app) => Literal::Positive(Term::from_application(app)),
             AcornValue::Equals(left, right) => {
-                Literal::Equals(Term::from_value(*left), Term::from_value(*right))
+                let left_term = Term::from_value(*left);
+                let right_term = Term::from_value(*right);
+                if left_term < right_term {
+                    Literal::Equals(left_term, right_term)
+                } else {
+                    Literal::Equals(right_term, left_term)
+                }
             }
             AcornValue::NotEquals(left, right) => {
-                Literal::NotEquals(Term::from_value(*left), Term::from_value(*right))
+                let left_term = Term::from_value(*left);
+                let right_term = Term::from_value(*right);
+                if left_term < right_term {
+                    Literal::NotEquals(left_term, right_term)
+                } else {
+                    Literal::NotEquals(right_term, left_term)
+                }
             }
             AcornValue::Not(subvalue) => Literal::Negative(Term::from_value(*subvalue)),
             _ => panic!("cannot convert {:?} to a literal", value),
