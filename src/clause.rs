@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::TypedAtom;
+use crate::atom::{Atom, TypedAtom};
 
 // Clauses and their parts, like Literals and Terms.
 
@@ -34,6 +34,10 @@ impl fmt::Display for Term {
 }
 
 impl Term {
+    pub fn new(atom: TypedAtom, args: Vec<Term>) -> Term {
+        Term { atom, args }
+    }
+
     pub fn from_atom(atom: TypedAtom) -> Term {
         Term {
             atom,
@@ -58,6 +62,85 @@ impl Term {
             AcornValue::Atom(atom) => Term::from_atom(atom),
             AcornValue::Application(app) => Term::from_application(app),
             _ => panic!("cannot convert {:?} to a term", value),
+        }
+    }
+
+    // Whether this term contains a reference with this index, anywhere in its body, recursively.
+    pub fn has_reference(&self, index: usize) -> bool {
+        if let Atom::Reference(i) = self.atom.atom {
+            if i == index {
+                return true;
+            }
+        }
+        for arg in &self.args {
+            if arg.has_reference(index) {
+                return true;
+            }
+        }
+        false
+    }
+
+    // Whether this term is purely an atomic reference
+    pub fn atomic_reference(&self) -> Option<usize> {
+        if self.args.is_empty() {
+            if let Atom::Reference(i) = self.atom.atom {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    // value should already not contain a reference to index
+    pub fn replace_reference(&self, index: usize, value: &Term) -> Term {
+        if let Atom::Reference(i) = self.atom.atom {
+            if i == index {
+                if self.args.is_empty() {
+                    return value.clone();
+                }
+                if !value.args.is_empty() {
+                    panic!("we can't create terms of the form f(x)(y)");
+                }
+                return Term {
+                    atom: value.atom.clone(),
+                    args: self.args.clone(),
+                };
+            }
+        }
+        Term {
+            atom: self.atom.clone(),
+            args: self
+                .args
+                .iter()
+                .map(|x| x.replace_reference(index, value))
+                .collect(),
+        }
+    }
+
+    // For testing, make a boolean reference
+    #[cfg(test)]
+    pub fn bref(index: usize) -> Term {
+        Term::from_atom(TypedAtom {
+            atom: Atom::Reference(index),
+            acorn_type: AcornType::Bool,
+        })
+    }
+
+    // For testing, make a function with this atom, typed (bool^n) -> bool
+    #[cfg(test)]
+    pub fn bfn(atom: Atom, args: Vec<Term>) -> Term {
+        use crate::acorn_type::FunctionType;
+
+        let ftype = AcornType::Function(FunctionType {
+            arg_types: args.iter().map(|_| AcornType::Bool).collect(),
+            return_type: Box::new(AcornType::Bool),
+        });
+
+        Term {
+            atom: TypedAtom {
+                atom,
+                acorn_type: ftype,
+            },
+            args,
         }
     }
 }
@@ -198,5 +281,115 @@ impl Clause {
             universal: universal.clone(),
             literals,
         }
+    }
+}
+
+pub struct Substitution {
+    // terms[i] is the replacement for Reference(i), if it should be replaced.
+    pub terms: Vec<Option<Term>>,
+}
+
+impl Substitution {
+    // Make a substitution over n universal variables that doesn't substitute anything.
+    //
+    // In general, we produce substitutions via several steps of unification, where we
+    // specify some entities that we want to be the same, in the resulting substitution.
+    //
+    // Unification should be a "narrowing" process, in the sense that if sub(x) = sub(y),
+    // then sub(x) = sub(y) continues to be true after subsequent unifications.
+    pub fn new(n: usize) -> Substitution {
+        Substitution {
+            terms: vec![None; n],
+        }
+    }
+
+    // Fails if we try to replace an atom with a non-atom.
+    // This doesn't work if we try to generate functional terms like:
+    //   f = g(x) and y = f(z)
+    // implies
+    //   y = g(x)(z).
+    pub fn sub_atom(&self, atom: &TypedAtom) -> TypedAtom {
+        if let Atom::Reference(index) = atom.atom {
+            if let Some(term) = &self.terms[index] {
+                if term.args.len() > 0 {
+                    panic!("cannot substitute a functional atom into a non-atomic term");
+                }
+                return TypedAtom {
+                    atom: term.atom.atom.clone(),
+                    acorn_type: atom.acorn_type.clone(),
+                };
+            }
+        }
+        atom.clone()
+    }
+
+    pub fn sub_term(&self, term: &Term) -> Term {
+        if let Some(i) = term.atomic_reference() {
+            if let Some(t) = &self.terms[i] {
+                return t.clone();
+            }
+            return term.clone();
+        }
+        Term {
+            atom: self.sub_atom(&term.atom),
+            args: term.args.iter().map(|x| self.sub_term(x)).collect(),
+        }
+    }
+
+    // Unifies a reference atom with a term.
+    // Returns whether this is possible.
+    pub fn unify_reference(&mut self, index: usize, term: &Term) -> bool {
+        if let Some(existing_term) = &self.terms[index] {
+            return self.unify_terms(&existing_term.clone(), term);
+        }
+
+        // This reference isn't bound to anything, so it should be okay to bind it,
+        // as long as that doesn't create any circular references.
+        let simplified_term = self.sub_term(term);
+        if simplified_term.has_reference(index) {
+            return false;
+        }
+
+        // Replace any mentions of this reference in the current substitution map, so
+        // that we don't have to recursively substitute in the future.
+        for existing_term in self.terms.iter_mut() {
+            if let Some(t) = existing_term {
+                *existing_term = Some(t.replace_reference(index, &simplified_term));
+            }
+        }
+
+        self.terms[index] = Some(simplified_term);
+        true
+    }
+
+    // Unifies two terms.
+    // Returns whether this is possible.
+    pub fn unify_terms(&mut self, term1: &Term, term2: &Term) -> bool {
+        if let Some(i) = term1.atomic_reference() {
+            return self.unify_reference(i, term2);
+        }
+        if let Some(i) = term2.atomic_reference() {
+            return self.unify_reference(i, term1);
+        }
+
+        panic!("TODO");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unify_reference() {
+        let bool0 = Term::bref(0);
+        let bool1 = Term::bref(1);
+        let fterm = Term::bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
+        let mut sub = Substitution::new(2);
+
+        // Replace x0 with x1
+        assert!(sub.unify_reference(0, &bool1));
+        let term = sub.sub_term(&fterm);
+        assert_eq!(format!("{}", term), "a0(x1, x1)");
     }
 }
