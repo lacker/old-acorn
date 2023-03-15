@@ -362,17 +362,56 @@ impl Substitution {
         true
     }
 
+    // Unifies two atoms.
+    // Returns whether this is possible.
+    pub fn unify_atoms(&mut self, atom1: &TypedAtom, atom2: &TypedAtom) -> bool {
+        if atom1.acorn_type != atom2.acorn_type {
+            return false;
+        }
+        if atom1.atom == atom2.atom {
+            return true;
+        }
+
+        // If we're just making two references equal, change the second one, to tend
+        // toward sticking with lower numbers.
+        // Either should be logically correct.
+        if let Atom::Reference(index) = atom2.atom {
+            return self.unify_reference(index, &Term::from_atom(atom1.clone()));
+        }
+        if let Atom::Reference(index) = atom1.atom {
+            return self.unify_reference(index, &Term::from_atom(atom2.clone()));
+        }
+
+        false
+    }
+
     // Unifies two terms.
     // Returns whether this is possible.
     pub fn unify_terms(&mut self, term1: &Term, term2: &Term) -> bool {
-        if let Some(i) = term1.atomic_reference() {
-            return self.unify_reference(i, term2);
-        }
+        // If we're just making two references equal, change the second one, to tend
+        // toward sticking with lower numbers.
+        // Either should be logically correct.
         if let Some(i) = term2.atomic_reference() {
             return self.unify_reference(i, term1);
         }
+        if let Some(i) = term1.atomic_reference() {
+            return self.unify_reference(i, term2);
+        }
 
-        panic!("TODO");
+        if term1.args.len() != term2.args.len() {
+            return false;
+        }
+
+        if !self.unify_atoms(&term1.atom, &term2.atom) {
+            return false;
+        }
+
+        for (arg1, arg2) in term1.args.iter().zip(term2.args.iter()) {
+            if !self.unify_terms(arg1, arg2) {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -391,5 +430,22 @@ mod tests {
         assert!(sub.unify_reference(0, &bool1));
         let term = sub.sub_term(&fterm);
         assert_eq!(format!("{}", term), "a0(x1, x1)");
+    }
+
+    #[test]
+    fn test_unify_terms() {
+        let bool0 = Term::bref(0);
+        let bool1 = Term::bref(1);
+        let bool2 = Term::bref(2);
+        let term1 = Term::bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
+        let term2 = Term::bfn(Atom::Axiomatic(0), vec![bool1.clone(), bool2.clone()]);
+        let mut sub = Substitution::new(3);
+
+        // Replace x0 with x1
+        assert!(sub.unify_terms(&term1, &term2));
+        let new1 = sub.sub_term(&term1);
+        assert_eq!(format!("{}", new1), "a0(x0, x0)");
+        let new2 = sub.sub_term(&term2);
+        assert_eq!(format!("{}", new2), "a0(x0, x0)");
     }
 }
