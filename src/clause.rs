@@ -116,6 +116,18 @@ impl Term {
         }
     }
 
+    // The subindex is a slice of indices so that the subterm can be deeply nested.
+    pub fn get_subterm(&self, subindex: &[usize]) -> &Term {
+        if subindex.is_empty() {
+            return self;
+        }
+        let i = subindex[0];
+        if i >= self.args.len() {
+            panic!("subindex {:?} is too long for term {:?}", subindex, self);
+        }
+        self.args[i].get_subterm(&subindex[1..])
+    }
+
     // For testing, make a boolean reference
     #[cfg(test)]
     pub fn bref(index: usize) -> Term {
