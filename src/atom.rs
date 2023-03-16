@@ -20,6 +20,16 @@ pub enum Atom {
     Skolem(usize),
 }
 
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Atom::Axiomatic(i) => write!(f, "a{}", i),
+            Atom::Skolem(i) => write!(f, "s{}", i),
+            Atom::Reference(i) => write!(f, "x{}", i),
+        }
+    }
+}
+
 impl Atom {
     pub fn is_axiomatic(&self) -> bool {
         match self {
@@ -37,11 +47,7 @@ pub struct TypedAtom {
 
 impl fmt::Display for TypedAtom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.atom {
-            Atom::Axiomatic(i) => write!(f, "a{}", i),
-            Atom::Skolem(i) => write!(f, "s{}", i),
-            Atom::Reference(i) => write!(f, "x{}", i),
-        }
+        self.atom.fmt(f)
     }
 }
 

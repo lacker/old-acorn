@@ -1,7 +1,7 @@
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
-use crate::clause::Clause;
 use crate::normalizer::Normalizer;
+use crate::term::Clause;
 
 // The Engine handles normalizing propositions and proving them.
 pub struct Engine {
