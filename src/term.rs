@@ -233,6 +233,31 @@ impl Term {
             }
         }
     }
+
+    // for_subterm calls f(subindex, subterm) on each subterm of the term.
+    // The calls are in preorder.
+    // The _helper version is provided a subindex that got to this point in the term.
+    fn for_subterm_helper<F>(&self, subindex: &mut Vec<usize>, mut f: F)
+    where
+        F: FnMut(&[usize], &Term),
+    {
+        f(subindex, self);
+        if let UntypedTerm::Composite(ref subterms) = self.term {
+            for (i, subterm) in subterms.iter().enumerate() {
+                subindex.push(i);
+                subterm.for_subterm_helper(subindex, &mut f);
+                subindex.pop();
+            }
+        }
+    }
+
+    pub fn for_subterm<F>(&self, mut f: F)
+    where
+        F: FnMut(&[usize], &Term),
+    {
+        let mut subindex = vec![];
+        self.for_subterm_helper(&mut subindex, &mut f);
+    }
 }
 
 // Literals are always boolean-valued.
