@@ -3,16 +3,15 @@ use crate::acorn_value::AcornValue;
 use crate::normalizer::Normalizer;
 use crate::term::Clause;
 
-// The Engine handles normalizing propositions and proving them.
-pub struct Engine {
+pub struct Prover {
     pub normalizer: Normalizer,
 
     pub clauses: Vec<Clause>,
 }
 
-impl Engine {
-    pub fn new() -> Engine {
-        Engine {
+impl Prover {
+    pub fn new() -> Prover {
+        Prover {
             normalizer: Normalizer::new(),
             clauses: vec![],
         }
