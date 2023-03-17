@@ -282,10 +282,10 @@ pub fn scan(input: &str) -> Result<Vec<Token>> {
                                 char_indices.next();
                             }
                             Some((end, _)) => break *end,
-                            None => break input.len(),
+                            None => break line.len(),
                         }
                     };
-                    let identifier = &input[index..end];
+                    let identifier = &line[index..end];
                     match identifier {
                         "let" => TokenType::Let,
                         "axiom" => TokenType::Axiom,

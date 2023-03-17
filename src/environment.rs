@@ -723,9 +723,6 @@ impl Environment {
     // Adds a possibly multi-line statement to the environment
     pub fn add(&mut self, input: &str) {
         let tokens = scan(input).unwrap();
-        for t in &tokens {
-            println!("XXX: {:?}", t);
-        }
         let mut tokens = tokens.into_iter().peekable();
         while let Some(statement) = Statement::parse(&mut tokens).unwrap() {
             if let Err(e) = self.add_statement(&statement) {
@@ -1000,8 +997,7 @@ mod tests {
         env.add("theorem not_suc_eq_zero(x: Nat): !(Suc(x) = 0)");
     }
 
-    // #[test]
-    /*
+    #[test]
     fn test_nat_ac_together() {
         let mut env = Environment::new();
         env.add(indoc! {"
@@ -1009,5 +1005,4 @@ mod tests {
             define 0: Nat = axiom
         "});
     }
-    */
 }
