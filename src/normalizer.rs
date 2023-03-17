@@ -156,17 +156,17 @@ mod tests {
     fn test_nat_normalization() {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
-        env.add("type Nat: axiom");
-        env.add("define 0: Nat = axiom");
+        env.add_old("type Nat: axiom");
+        env.add_old("define 0: Nat = axiom");
         env.axiomcheck(0, "0");
-        env.add("define Suc: Nat -> Nat = axiom");
+        env.add_old("define Suc: Nat -> Nat = axiom");
         env.axiomcheck(1, "Suc");
-        env.add("define 1: Nat = Suc(0)");
+        env.add_old("define 1: Nat = Suc(0)");
 
-        env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
+        env.add_old("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         norm.check(&env, "suc_injective", &["x0 = x1 | a1(x0) != a1(x1)"]);
 
-        env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
+        env.add_old("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         norm.check(&env, "suc_neq_zero", &["a0 != a1(x0)"]);
 
         env.add_joined(
@@ -182,10 +182,10 @@ mod tests {
             ],
         );
 
-        env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
+        env.add_old("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
         env.axiomcheck(2, "recursion");
 
-        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
+        env.add_old("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
         norm.check(&env, "recursion_base", &["x1 = a2(x0, x1, a0)"]);
 
         env.add_joined(
@@ -197,8 +197,8 @@ mod tests {
             "recursion_step",
             &["x0(a2(x0, x1, x2)) = a2(x0, x1, a1(x2))"],
         );
-        env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
-        env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
+        env.add_old("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
+        env.add_old("theorem add_zero_right(a: Nat): add(a, 0) = a");
         norm.check(&env, "add_zero_right", &["x0 = a2(a1, x0, x0)"]);
     }
 
@@ -206,10 +206,10 @@ mod tests {
     fn test_bool_formulas() {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
-        env.add("theorem one(a: bool): a -> a | (a | a)");
+        env.add_old("theorem one(a: bool): a -> a | (a | a)");
         norm.check(&env, "one", &["x0 | !x0"]);
 
-        env.add("theorem two(a: bool): a -> a & (a & a)");
+        env.add_old("theorem two(a: bool): a -> a & (a & a)");
         norm.check(&env, "two", &["x0 | !x0", "x0 | !x0", "x0 | !x0"]);
     }
 
@@ -217,11 +217,11 @@ mod tests {
     fn test_tautology_elimination() {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
-        env.add("type Nat: axiom");
-        env.add("theorem one(n: Nat): n = n");
+        env.add_old("type Nat: axiom");
+        env.add_old("theorem one(n: Nat): n = n");
         norm.check(&env, "one", &[]);
 
-        env.add("theorem two(n: Nat): n = n | n != n");
+        env.add_old("theorem two(n: Nat): n = n | n != n");
         norm.check(&env, "two", &[]);
     }
 }

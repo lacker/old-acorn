@@ -6,7 +6,7 @@ use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, TypedAtom};
 use crate::expression::Expression;
 use crate::statement::Statement;
-use crate::token::{Error, Result, Token, TokenType};
+use crate::token::{scan, Error, Result, Token, TokenType};
 
 // The Environment takes in a bunch of statements that make sense on their own,
 // and combines them while doing typechecking and similar validation.
@@ -35,6 +35,9 @@ pub struct Environment {
 
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, usize>,
+
+    // All named theorems, in order.
+    theorems: Vec<String>,
 }
 
 impl fmt::Display for Environment {
@@ -59,6 +62,7 @@ impl Environment {
             types: HashMap::new(),
             values: HashMap::new(),
             stack: HashMap::new(),
+            theorems: Vec::new(),
         }
     }
 
@@ -702,6 +706,7 @@ impl Environment {
                             let theorem_value =
                                 AcornValue::ForAll(arg_types.clone(), Box::new(claim_value));
                             self.bind_name(&ts.name, theorem_value);
+                            self.theorems.push(ts.name.to_string());
                             Ok(())
                         }
                         Err(e) => Err(e),
@@ -715,9 +720,23 @@ impl Environment {
         }
     }
 
+    // Adds a possibly multi-line statement to the environment
+    pub fn add(&mut self, input: &str) {
+        let tokens = scan(input).unwrap();
+        for t in &tokens {
+            println!("XXX: {:?}", t);
+        }
+        let mut tokens = tokens.into_iter().peekable();
+        while let Some(statement) = Statement::parse(&mut tokens).unwrap() {
+            if let Err(e) = self.add_statement(&statement) {
+                panic!("\nerror adding statement:\n{}\n{}", statement, e);
+            }
+        }
+    }
+
     #[cfg(test)]
     fn assert_type_ok(&mut self, input: &str) {
-        use crate::{expression::parse_expression, token::scan};
+        use crate::expression::parse_expression;
 
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
@@ -731,7 +750,7 @@ impl Environment {
 
     #[cfg(test)]
     fn assert_type_bad(&mut self, input: &str) {
-        use crate::{expression::parse_expression, token::scan};
+        use crate::expression::parse_expression;
 
         let tokens = scan(input).unwrap();
         let mut tokens = tokens.into_iter();
@@ -745,20 +764,19 @@ impl Environment {
         assert!(self.evaluate_type_expression(&expression).is_err());
     }
 
-    #[cfg(test)]
-    pub fn add(&mut self, input: &str) {
+    pub fn add_old(&mut self, input: &str) {
         let statement = Statement::parse_str(input).unwrap();
         if let Err(r) = self.add_statement(&statement) {
             panic!("Error adding statement:\n\n{}", r);
         }
     }
 
-    #[cfg(test)]
     pub fn add_joined(&mut self, input1: &str, input2: &str) {
         let input = format!("{} {}", input1, input2);
-        self.add(&input);
+        self.add_old(&input);
     }
 
+    // Expects the given line to be bad
     #[cfg(test)]
     fn bad(&mut self, input: &str) {
         let statement = Statement::parse_str(input).unwrap();
@@ -803,6 +821,8 @@ impl Environment {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use indoc::indoc;
 
     #[test]
     fn test_env_types() {
@@ -890,7 +910,7 @@ mod tests {
     }
 
     #[test]
-    fn test_nat_ac() {
+    fn test_nat_ac_piecewise() {
         let mut env = Environment::new();
         env.add("type Nat: axiom");
 
@@ -947,9 +967,9 @@ mod tests {
         assert!(!env.typenames.contains_key("foo"));
         assert!(!env.types.contains_key("foo"));
 
-        env.add_joined(
-            "axiom induction(f: Nat -> bool, n: Nat):",
-            "f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)",
+        env.add(
+            "axiom induction(f: Nat -> bool, n: Nat):\
+            f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)",
         );
         env.valuecheck("induction", "forall(x0: Nat -> bool, x1: Nat, ((x0(0) & forall(x2: Nat, (x0(x2) -> x0(Suc(x2))))) -> x0(x1)))");
 
@@ -979,4 +999,15 @@ mod tests {
         env.add("theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))");
         env.add("theorem not_suc_eq_zero(x: Nat): !(Suc(x) = 0)");
     }
+
+    // #[test]
+    /*
+    fn test_nat_ac_together() {
+        let mut env = Environment::new();
+        env.add(indoc! {"
+            type Nat: axiom
+            define 0: Nat = axiom
+        "});
+    }
+    */
 }

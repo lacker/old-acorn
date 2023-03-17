@@ -220,6 +220,7 @@ fn identifierish(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '_'
 }
 
+// scan always puts a NewLine token at the end of the input.
 pub fn scan(input: &str) -> Result<Vec<Token>> {
     let mut tokens = Vec::new();
 
@@ -364,5 +365,13 @@ mod tests {
     #[test]
     fn test_scanning_errors() {
         assert!(scan("#$@%(#@)(#").is_err());
+    }
+
+    #[test]
+    fn test_token_types() {
+        let tokens = scan("type Nat: axiom\ndefine 0: Nat = axiom").unwrap();
+        assert_eq!(tokens.len(), 12);
+        assert_eq!(tokens[3].token_type, TokenType::Axiom);
+        assert_eq!(tokens[4].token_type, TokenType::NewLine);
     }
 }
