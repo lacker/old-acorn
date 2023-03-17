@@ -205,6 +205,7 @@ where
 {
     let name = expect_type(tokens, TokenType::Identifier)?.text;
     expect_type(tokens, TokenType::Colon)?;
+    Token::skip_newlines(tokens);
     let (type_expr, _) = parse_expression(tokens, false, |t| t == TokenType::NewLine)?;
     Ok(TypeStatement { name, type_expr })
 }
