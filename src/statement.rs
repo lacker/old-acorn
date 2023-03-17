@@ -404,6 +404,11 @@ mod tests {
     }
 
     #[test]
+    fn test_multiline_at_colon() {
+        Statement::parse_str("type Nat:\naxiom").unwrap();
+    }
+
+    #[test]
     fn test_block_parsing() {
         ok(indoc! {"
             theorem foo: bar {

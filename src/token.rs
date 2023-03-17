@@ -171,6 +171,19 @@ impl Token<'_> {
             self.type_precedence()
         }
     }
+
+    pub fn skip_newlines<'a, I>(tokens: &mut Peekable<I>)
+    where
+        I: Iterator<Item = Token<'a>>,
+    {
+        while let Some(token) = tokens.peek() {
+            if token.token_type == TokenType::NewLine {
+                tokens.next();
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
