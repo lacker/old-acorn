@@ -75,6 +75,22 @@ impl Expression<'_> {
             _ => vec![&self],
         }
     }
+
+    // Parses a single expression from the provided tokens.
+    // termination determines what tokens are allowed to be the terminator.
+    // The terminating token is returned.
+    pub fn parse<'a>(
+        tokens: &mut impl Iterator<Item = Token<'a>>,
+        is_value: bool,
+        termination: fn(TokenType) -> bool,
+    ) -> Result<(Expression<'a>, Token<'a>)> {
+        let (partial_expressions, terminator) =
+            parse_partial_expressions(tokens, is_value, termination)?;
+        Ok((
+            combine_partial_expressions(partial_expressions, is_value)?,
+            terminator,
+        ))
+    }
 }
 
 // A PartialExpression represents a state in the middle of parsing, where we can have
@@ -123,7 +139,7 @@ fn parse_partial_expressions<'a>(
             }
             TokenType::LeftParen => {
                 let (subexpression, _) =
-                    parse_expression(tokens, is_value, |t| t == TokenType::RightParen)?;
+                    Expression::parse(tokens, is_value, |t| t == TokenType::RightParen)?;
                 let group = Expression::Grouping(Box::new(subexpression));
                 partial_expressions.push_back(PartialExpression::Expression(group));
             }
@@ -256,22 +272,6 @@ fn combine_partial_expressions<'a>(
     return Err(Error::new(partial.token(), "expected binary operator"));
 }
 
-// Parses a single expression from the provided tokens.
-// termination determines what tokens are allowed to be the terminator.
-// The terminating token is returned.
-pub fn parse_expression<'a>(
-    tokens: &mut impl Iterator<Item = Token<'a>>,
-    is_value: bool,
-    termination: fn(TokenType) -> bool,
-) -> Result<(Expression<'a>, Token<'a>)> {
-    let (partial_expressions, terminator) =
-        parse_partial_expressions(tokens, is_value, termination)?;
-    Ok((
-        combine_partial_expressions(partial_expressions, is_value)?,
-        terminator,
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,7 +279,7 @@ mod tests {
     fn expect_optimal(input: &str, is_value: bool) {
         let tokens = Token::scan(input).unwrap();
         let mut tokens = tokens.into_iter();
-        let exp = match parse_expression(&mut tokens, is_value, |t| t == TokenType::NewLine) {
+        let exp = match Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine) {
             Ok((e, _)) => e,
             Err(e) => panic!("unexpected error parsing: {}", e),
         };
@@ -299,7 +299,7 @@ mod tests {
     fn expect_error(input: &str, is_value: bool) {
         let tokens = Token::scan(input).unwrap();
         let mut tokens = tokens.into_iter();
-        let res = parse_expression(&mut tokens, is_value, |t| t == TokenType::NewLine);
+        let res = Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine);
         match res {
             Err(_) => {}
             Ok((e, _)) => panic!("unexpected success parsing: {}", e),

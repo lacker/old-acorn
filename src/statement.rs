@@ -1,4 +1,4 @@
-use crate::expression::{parse_expression, Expression};
+use crate::expression::Expression;
 use crate::token::{Error, Result, Token, TokenType};
 
 use std::fmt;
@@ -130,7 +130,7 @@ where
         TokenType::LeftParen => {
             // Parse an arguments list
             loop {
-                let (exp, terminator) = parse_expression(tokens, false, |t| {
+                let (exp, terminator) = Expression::parse(tokens, false, |t| {
                     t == TokenType::Comma || t == TokenType::RightParen
                 })?;
                 args.push(exp);
@@ -152,7 +152,7 @@ where
         }
     }
     Token::skip_newlines(tokens);
-    let (claim, terminator) = parse_expression(tokens, true, |t| {
+    let (claim, terminator) = Expression::parse(tokens, true, |t| {
         t == TokenType::NewLine || t == TokenType::LeftBrace
     })?;
     let body = if terminator.token_type == TokenType::LeftBrace {
@@ -177,7 +177,7 @@ fn parse_definition_statement<'a, I>(
 where
     I: Iterator<Item = Token<'a>>,
 {
-    let (declaration, terminator) = parse_expression(tokens, false, |t| {
+    let (declaration, terminator) = Expression::parse(tokens, false, |t| {
         t == TokenType::NewLine || t == TokenType::Equals
     })?;
 
@@ -190,7 +190,7 @@ where
         })
     } else {
         // This is a definition, with both a declaration and a value
-        let (value, _) = parse_expression(tokens, true, |t| t == TokenType::NewLine)?;
+        let (value, _) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
         Ok(DefinitionStatement {
             public,
             declaration,
@@ -207,7 +207,7 @@ where
     let name = Token::expect_type(tokens, TokenType::Identifier)?.text;
     Token::expect_type(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
-    let (type_expr, _) = parse_expression(tokens, false, |t| t == TokenType::NewLine)?;
+    let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::NewLine)?;
     Ok(TypeStatement { name, type_expr })
 }
 
@@ -309,7 +309,7 @@ impl Statement<'_> {
                         return Ok(Some(Statement::EndBlock));
                     }
                     _ => {
-                        let (claim, terminator) = parse_expression(tokens, true, |t| {
+                        let (claim, terminator) = Expression::parse(tokens, true, |t| {
                             t == TokenType::NewLine || t == TokenType::LeftBrace
                         })?;
                         let body = if terminator.token_type == TokenType::LeftBrace {

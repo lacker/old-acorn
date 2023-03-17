@@ -733,12 +733,10 @@ impl Environment {
 
     #[cfg(test)]
     fn assert_type_ok(&mut self, input: &str) {
-        use crate::expression::parse_expression;
-
         let tokens = Token::scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let (expression, _) =
-            parse_expression(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
+            Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
         match self.evaluate_type_expression(&expression) {
             Ok(_) => {}
             Err(error) => panic!("Error evaluating type expression: {}", error),
@@ -747,11 +745,9 @@ impl Environment {
 
     #[cfg(test)]
     fn assert_type_bad(&mut self, input: &str) {
-        use crate::expression::parse_expression;
-
         let tokens = Token::scan(input).unwrap();
         let mut tokens = tokens.into_iter();
-        let expression = match parse_expression(&mut tokens, false, |t| t == TokenType::NewLine) {
+        let expression = match Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine) {
             Ok((expression, _)) => expression,
             Err(_) => {
                 // We expect a bad type so this is fine
