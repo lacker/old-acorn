@@ -761,18 +761,6 @@ impl Environment {
         assert!(self.evaluate_type_expression(&expression).is_err());
     }
 
-    pub fn add_old(&mut self, input: &str) {
-        let statement = Statement::parse_str(input).unwrap();
-        if let Err(r) = self.add_statement(&statement) {
-            panic!("Error adding statement:\n\n{}", r);
-        }
-    }
-
-    pub fn add_joined(&mut self, input1: &str, input2: &str) {
-        let input = format!("{} {}", input1, input2);
-        self.add_old(&input);
-    }
-
     // Expects the given line to be bad
     #[cfg(test)]
     fn bad(&mut self, input: &str) {
@@ -980,9 +968,9 @@ mod tests {
         env.bad("theorem foo(x: Nat): forall(0: Nat, 0 = 0)");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        env.add_joined(
-            "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):",
-            "recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
+        env.add(
+            "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
+            recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
         );
 
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
