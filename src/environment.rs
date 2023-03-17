@@ -953,7 +953,7 @@ mod tests {
         assert!(!env.types.contains_key("foo"));
 
         env.add(
-            "axiom induction(f: Nat -> bool, n: Nat):\
+            "axiom induction(f: Nat -> bool, n: Nat):
             f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)",
         );
         env.valuecheck("induction", "forall(x0: Nat -> bool, x1: Nat, ((x0(0) & forall(x2: Nat, (x0(x2) -> x0(Suc(x2))))) -> x0(x1)))");
@@ -969,7 +969,7 @@ mod tests {
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
         env.add(
-            "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
+            "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):
             recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
         );
 
