@@ -274,12 +274,10 @@ pub fn parse_expression<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::token::scan;
-
     use super::*;
 
     fn expect_optimal(input: &str, is_value: bool) {
-        let tokens = scan(input).unwrap();
+        let tokens = Token::scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let exp = match parse_expression(&mut tokens, is_value, |t| t == TokenType::NewLine) {
             Ok((e, _)) => e,
@@ -299,7 +297,7 @@ mod tests {
 
     // Expects a parse error, or not-an-expression, but not a lex error
     fn expect_error(input: &str, is_value: bool) {
-        let tokens = scan(input).unwrap();
+        let tokens = Token::scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let res = parse_expression(&mut tokens, is_value, |t| t == TokenType::NewLine);
         match res {

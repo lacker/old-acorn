@@ -6,7 +6,7 @@ use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, TypedAtom};
 use crate::expression::Expression;
 use crate::statement::Statement;
-use crate::token::{scan, Error, Result, Token, TokenType};
+use crate::token::{Error, Result, Token, TokenType};
 
 // The Environment takes in a bunch of statements that make sense on their own,
 // and combines them while doing typechecking and similar validation.
@@ -722,7 +722,7 @@ impl Environment {
 
     // Adds a possibly multi-line statement to the environment
     pub fn add(&mut self, input: &str) {
-        let tokens = scan(input).unwrap();
+        let tokens = Token::scan(input).unwrap();
         let mut tokens = tokens.into_iter().peekable();
         while let Some(statement) = Statement::parse(&mut tokens).unwrap() {
             if let Err(e) = self.add_statement(&statement) {
@@ -735,7 +735,7 @@ impl Environment {
     fn assert_type_ok(&mut self, input: &str) {
         use crate::expression::parse_expression;
 
-        let tokens = scan(input).unwrap();
+        let tokens = Token::scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let (expression, _) =
             parse_expression(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
@@ -749,7 +749,7 @@ impl Environment {
     fn assert_type_bad(&mut self, input: &str) {
         use crate::expression::parse_expression;
 
-        let tokens = scan(input).unwrap();
+        let tokens = Token::scan(input).unwrap();
         let mut tokens = tokens.into_iter();
         let expression = match parse_expression(&mut tokens, false, |t| t == TokenType::NewLine) {
             Ok((expression, _)) => expression,

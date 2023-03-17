@@ -155,37 +155,6 @@ impl fmt::Display for Token<'_> {
     }
 }
 
-impl Token<'_> {
-    pub fn value_precedence(&self) -> i8 {
-        self.token_type.value_precedence()
-    }
-
-    pub fn type_precedence(&self) -> i8 {
-        self.token_type.type_precedence()
-    }
-
-    pub fn precedence(&self, is_value: bool) -> i8 {
-        if is_value {
-            self.value_precedence()
-        } else {
-            self.type_precedence()
-        }
-    }
-
-    pub fn skip_newlines<'a, I>(tokens: &mut Peekable<I>)
-    where
-        I: Iterator<Item = Token<'a>>,
-    {
-        while let Some(token) = tokens.peek() {
-            if token.token_type == TokenType::NewLine {
-                tokens.next();
-            } else {
-                break;
-            }
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum Error {
     Token(TokenError),
@@ -229,140 +198,171 @@ impl Error {
 
 pub type Result<'a, T> = std::result::Result<T, Error>;
 
-fn identifierish(ch: char) -> bool {
-    ch.is_alphanumeric() || ch == '_'
-}
+impl Token<'_> {
+    pub fn value_precedence(&self) -> i8 {
+        self.token_type.value_precedence()
+    }
 
-// scan always puts a NewLine token at the end of the input.
-pub fn scan(input: &str) -> Result<Vec<Token>> {
-    let mut tokens = Vec::new();
+    pub fn type_precedence(&self) -> i8 {
+        self.token_type.type_precedence()
+    }
 
-    for line in input.lines() {
-        let mut char_indices = line.char_indices().peekable();
-        while let Some((index, ch)) = char_indices.next() {
-            let token_type = match ch {
-                ' ' => continue,
-                '\t' => continue,
-                '(' => TokenType::LeftParen,
-                ')' => TokenType::RightParen,
-                '{' => TokenType::LeftBrace,
-                '}' => TokenType::RightBrace,
-                '\n' => TokenType::NewLine,
-                ',' => TokenType::Comma,
-                ':' => TokenType::Colon,
-                '!' => match char_indices.next_if_eq(&(index + 1, '=')) {
-                    Some(_) => TokenType::NotEquals,
-                    None => TokenType::Exclam,
-                },
-                '|' => TokenType::Pipe,
-                '&' => TokenType::Ampersand,
-                '=' => TokenType::Equals,
-                '+' => TokenType::Plus,
-                '-' => match char_indices.next_if_eq(&(index + 1, '>')) {
-                    Some(_) => TokenType::RightArrow,
-                    None => TokenType::Minus,
-                },
-                '<' => match char_indices.next_if_eq(&(index + 1, '-')) {
-                    Some(_) => match char_indices.next_if_eq(&(index + 2, '>')) {
-                        Some(_) => TokenType::LeftRightArrow,
+    pub fn precedence(&self, is_value: bool) -> i8 {
+        if is_value {
+            self.value_precedence()
+        } else {
+            self.type_precedence()
+        }
+    }
+
+    pub fn skip_newlines<'a, I>(tokens: &mut Peekable<I>)
+    where
+        I: Iterator<Item = Token<'a>>,
+    {
+        while let Some(token) = tokens.peek() {
+            if token.token_type == TokenType::NewLine {
+                tokens.next();
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn identifierish(ch: char) -> bool {
+        ch.is_alphanumeric() || ch == '_'
+    }
+
+    // scanning always puts a NewLine token at the end of the input.
+    pub fn scan(input: &str) -> Result<Vec<Token>> {
+        let mut tokens = Vec::new();
+
+        for line in input.lines() {
+            let mut char_indices = line.char_indices().peekable();
+            while let Some((index, ch)) = char_indices.next() {
+                let token_type = match ch {
+                    ' ' => continue,
+                    '\t' => continue,
+                    '(' => TokenType::LeftParen,
+                    ')' => TokenType::RightParen,
+                    '{' => TokenType::LeftBrace,
+                    '}' => TokenType::RightBrace,
+                    '\n' => TokenType::NewLine,
+                    ',' => TokenType::Comma,
+                    ':' => TokenType::Colon,
+                    '!' => match char_indices.next_if_eq(&(index + 1, '=')) {
+                        Some(_) => TokenType::NotEquals,
+                        None => TokenType::Exclam,
+                    },
+                    '|' => TokenType::Pipe,
+                    '&' => TokenType::Ampersand,
+                    '=' => TokenType::Equals,
+                    '+' => TokenType::Plus,
+                    '-' => match char_indices.next_if_eq(&(index + 1, '>')) {
+                        Some(_) => TokenType::RightArrow,
+                        None => TokenType::Minus,
+                    },
+                    '<' => match char_indices.next_if_eq(&(index + 1, '-')) {
+                        Some(_) => match char_indices.next_if_eq(&(index + 2, '>')) {
+                            Some(_) => TokenType::LeftRightArrow,
+                            None => TokenType::Invalid,
+                        },
+                        None => match char_indices.next_if_eq(&(index + 1, '=')) {
+                            Some(_) => TokenType::LessThanOrEquals,
+                            None => TokenType::LessThan,
+                        },
+                    },
+                    '>' => match char_indices.next_if_eq(&(index + 1, '=')) {
+                        Some(_) => TokenType::GreaterThanOrEquals,
+                        None => TokenType::GreaterThan,
+                    },
+                    '/' => match char_indices.next_if_eq(&(index + 1, '/')) {
+                        Some(_) => {
+                            // Advance to the end of the line
+                            while let Some((_, ch)) = char_indices.next() {
+                                if ch == '\n' {
+                                    break;
+                                }
+                            }
+                            TokenType::NewLine
+                        }
                         None => TokenType::Invalid,
                     },
-                    None => match char_indices.next_if_eq(&(index + 1, '=')) {
-                        Some(_) => TokenType::LessThanOrEquals,
-                        None => TokenType::LessThan,
-                    },
-                },
-                '>' => match char_indices.next_if_eq(&(index + 1, '=')) {
-                    Some(_) => TokenType::GreaterThanOrEquals,
-                    None => TokenType::GreaterThan,
-                },
-                '/' => match char_indices.next_if_eq(&(index + 1, '/')) {
-                    Some(_) => {
-                        // Advance to the end of the line
-                        while let Some((_, ch)) = char_indices.next() {
-                            if ch == '\n' {
-                                break;
+                    t if Token::identifierish(t) => {
+                        let end = loop {
+                            match char_indices.peek() {
+                                Some((_, ch)) if Token::identifierish(*ch) => {
+                                    char_indices.next();
+                                }
+                                Some((end, _)) => break *end,
+                                None => break line.len(),
                             }
+                        };
+                        let identifier = &line[index..end];
+                        match identifier {
+                            "let" => TokenType::Let,
+                            "axiom" => TokenType::Axiom,
+                            "define" => TokenType::Define,
+                            "theorem" => TokenType::Theorem,
+                            "type" => TokenType::Type,
+                            "forall" => TokenType::ForAll,
+                            "exists" => TokenType::Exists,
+                            _ => TokenType::Identifier,
                         }
-                        TokenType::NewLine
                     }
-                    None => TokenType::Invalid,
-                },
-                t if identifierish(t) => {
-                    let end = loop {
-                        match char_indices.peek() {
-                            Some((_, ch)) if identifierish(*ch) => {
-                                char_indices.next();
-                            }
-                            Some((end, _)) => break *end,
-                            None => break line.len(),
-                        }
-                    };
-                    let identifier = &line[index..end];
-                    match identifier {
-                        "let" => TokenType::Let,
-                        "axiom" => TokenType::Axiom,
-                        "define" => TokenType::Define,
-                        "theorem" => TokenType::Theorem,
-                        "type" => TokenType::Type,
-                        "forall" => TokenType::ForAll,
-                        "exists" => TokenType::Exists,
-                        _ => TokenType::Identifier,
-                    }
+                    _ => TokenType::Invalid,
+                };
+                let end = if let Some((pos, _)) = char_indices.peek() {
+                    *pos
+                } else {
+                    line.len()
+                };
+                let text = &line[index..end];
+                let token = Token {
+                    token_type,
+                    text,
+                    line,
+                    index,
+                };
+                if token.token_type == TokenType::Invalid {
+                    return Err(Error::new(&token, &format!("invalid token: {}", text)));
                 }
-                _ => TokenType::Invalid,
-            };
-            let end = if let Some((pos, _)) = char_indices.peek() {
-                *pos
-            } else {
-                line.len()
-            };
-            let text = &line[index..end];
-            let token = Token {
-                token_type,
-                text,
-                line,
-                index,
-            };
-            if token.token_type == TokenType::Invalid {
-                return Err(Error::new(&token, &format!("invalid token: {}", text)));
+                tokens.push(token);
             }
-            tokens.push(token);
+
+            // Add a newline
+            tokens.push(Token {
+                token_type: TokenType::NewLine,
+                text: "\n",
+                line,
+                index: input.len(),
+            });
         }
 
-        // Add a newline
-        tokens.push(Token {
-            token_type: TokenType::NewLine,
-            text: "\n",
-            line,
-            index: input.len(),
-        });
+        Ok(tokens)
     }
 
-    Ok(tokens)
-}
-
-// Pops off one token, expecting it to be there.
-pub fn expect_token<'a, I>(tokens: &mut Peekable<I>) -> Result<Token<'a>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
-    tokens.next().ok_or(Error::EOF)
-}
-
-// Pops off one token, expecting it to be of a known type.
-pub fn expect_type<'a, I>(tokens: &mut Peekable<I>, expected: TokenType) -> Result<Token<'a>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
-    let token = match tokens.next() {
-        Some(t) => t,
-        None => return Err(Error::EOF),
-    };
-    if token.token_type != expected {
-        return Err(Error::new(&token, &format!("expected {:?}", expected)));
+    // Pops off one token, expecting it to be there.
+    pub fn expect_token<'a, I>(tokens: &mut Peekable<I>) -> Result<Token<'a>>
+    where
+        I: Iterator<Item = Token<'a>>,
+    {
+        tokens.next().ok_or(Error::EOF)
     }
-    Ok(token)
+
+    // Pops off one token, expecting it to be of a known type.
+    pub fn expect_type<'a, I>(tokens: &mut Peekable<I>, expected: TokenType) -> Result<Token<'a>>
+    where
+        I: Iterator<Item = Token<'a>>,
+    {
+        let token = match tokens.next() {
+            Some(t) => t,
+            None => return Err(Error::EOF),
+        };
+        if token.token_type != expected {
+            return Err(Error::new(&token, &format!("expected {:?}", expected)));
+        }
+        Ok(token)
+    }
 }
 
 #[cfg(test)]
@@ -371,18 +371,18 @@ mod tests {
 
     #[test]
     fn test_scanning_ok() {
-        assert_eq!(scan("theorem t:A->B").unwrap().len(), 7);
-        assert_eq!(scan("theorem _t:A->B").unwrap().len(), 7);
+        assert_eq!(Token::scan("theorem t:A->B").unwrap().len(), 7);
+        assert_eq!(Token::scan("theorem _t:A->B").unwrap().len(), 7);
     }
 
     #[test]
     fn test_scanning_errors() {
-        assert!(scan("#$@%(#@)(#").is_err());
+        assert!(Token::scan("#$@%(#@)(#").is_err());
     }
 
     #[test]
     fn test_token_types() {
-        let tokens = scan("type Nat: axiom\ndefine 0: Nat = axiom").unwrap();
+        let tokens = Token::scan("type Nat: axiom\ndefine 0: Nat = axiom").unwrap();
         assert_eq!(tokens.len(), 12);
         assert_eq!(tokens[3].token_type, TokenType::Axiom);
         assert_eq!(tokens[4].token_type, TokenType::NewLine);

@@ -1,5 +1,5 @@
 use crate::expression::{parse_expression, Expression};
-use crate::token::{self, expect_token, expect_type, scan, Error, Result, Token, TokenType};
+use crate::token::{Error, Result, Token, TokenType};
 
 use std::fmt;
 use std::iter::Peekable;
@@ -107,7 +107,7 @@ where
         match Statement::parse(tokens)? {
             Some(Statement::EndBlock) => break,
             Some(s) => body.push(s),
-            None => return Err(token::Error::EOF),
+            None => return Err(Error::EOF),
         }
     }
     Ok(body)
@@ -122,10 +122,10 @@ fn parse_theorem_statement<'a, I>(
 where
     I: Iterator<Item = Token<'a>>,
 {
-    let token = expect_type(tokens, TokenType::Identifier)?;
+    let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text;
     let mut args = Vec::new();
-    let token = expect_token(tokens)?;
+    let token = Token::expect_token(tokens)?;
     match token.token_type {
         TokenType::LeftParen => {
             // Parse an arguments list
@@ -135,7 +135,7 @@ where
                 })?;
                 args.push(exp);
                 if terminator.token_type == TokenType::RightParen {
-                    expect_type(tokens, TokenType::Colon)?;
+                    Token::expect_type(tokens, TokenType::Colon)?;
                     break;
                 }
             }
@@ -204,8 +204,8 @@ fn parse_type_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<TypeStatement
 where
     I: Iterator<Item = Token<'a>>,
 {
-    let name = expect_type(tokens, TokenType::Identifier)?.text;
-    expect_type(tokens, TokenType::Colon)?;
+    let name = Token::expect_type(tokens, TokenType::Identifier)?.text;
+    Token::expect_type(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
     let (type_expr, _) = parse_expression(tokens, false, |t| t == TokenType::NewLine)?;
     Ok(TypeStatement { name, type_expr })
@@ -305,7 +305,7 @@ impl Statement<'_> {
                     }
                     TokenType::RightBrace => {
                         tokens.next();
-                        expect_type(tokens, TokenType::NewLine)?;
+                        Token::expect_type(tokens, TokenType::NewLine)?;
                         return Ok(Some(Statement::EndBlock));
                     }
                     _ => {
@@ -328,7 +328,7 @@ impl Statement<'_> {
 
     // Helper for tests; don't use in production code
     pub fn parse_str(input: &str) -> Result<Statement> {
-        let tokens = scan(input)?;
+        let tokens = Token::scan(input)?;
         let mut tokens = tokens.into_iter().peekable();
         match Statement::parse(&mut tokens)? {
             Some(statement) => Ok(statement),
