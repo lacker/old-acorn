@@ -382,13 +382,8 @@ pub struct Substitution {
 }
 
 impl Substitution {
-    // Make a substitution over n universal variables that doesn't substitute anything.
-    //
-    // In general, we produce substitutions via several steps of unification, where we
-    // specify some entities that we want to be the same, in the resulting substitution.
-    //
-    // Unification should be a "narrowing" process, in the sense that if sub(x) = sub(y),
-    // then sub(x) = sub(y) continues to be true after subsequent unifications.
+    // Make a substitution that doesn't substitute anything.
+    // We instantiate variables as needed, so we don't need to know how many there are up front.
     pub fn new() -> Substitution {
         Substitution { terms: vec![] }
     }
@@ -425,8 +420,17 @@ impl Substitution {
         }
     }
 
+    pub fn set_term(&mut self, i: usize, term: Term) {
+        if i >= self.terms.len() {
+            self.terms.resize(i + 1, None);
+        }
+        self.terms[i] = Some(term);
+    }
+
     // Unifies a reference atom with a term, shifting the term's references first.
-    // Returns whether this is possible.
+    // If this succeeds:
+    //   self.sub(ref(index)) = self.sub(term, shift)
+    // Subsequent calls to identify or unify will maintain this property.
     pub fn unify_reference(&mut self, index: usize, term: &Term, shift: usize) -> bool {
         if let Some(existing_term) = self.get_term(index) {
             return self.unify_terms(&existing_term.clone(), term, shift);
@@ -447,16 +451,14 @@ impl Substitution {
             }
         }
 
-        while self.terms.len() <= index {
-            self.terms.push(None);
-        }
-        self.terms[index] = Some(simplified_term);
+        self.set_term(index, simplified_term);
         true
     }
 
     // Unifies two terms, after shifting term2's references by shift2.
-    // Returns whether this is possible.
-    // Typechecks.
+    // If this succeeds:
+    //   self.sub(term1, 0) = self.sub(term2, shift2)
+    // Subsequent calls to identify or unify will maintain this property.
     pub fn unify_terms(&mut self, term1: &Term, term2: &Term, shift2: usize) -> bool {
         if term1.itype != term2.itype {
             return false;
@@ -480,6 +482,41 @@ impl Substitution {
                 }
                 for (subterm1, subterm2) in subterms1.iter().zip(subterms2.iter()) {
                     if !self.unify_terms(subterm1, subterm2, shift2) {
+                        return false;
+                    }
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    // Updates this substitution to identify terms.
+    // If this succeeds:
+    //   self.sub(term1) = term2
+    // Subsequent unification will break this constraint, but subsequent calls to identify will not.
+    pub fn identify_terms(&mut self, term1: &Term, term2: &Term) -> bool {
+        if term1.itype != term2.itype {
+            return false;
+        }
+
+        // Atomic references in term1 must exactly substitute to term2
+        if let Some(i) = term1.atomic_reference() {
+            if let Some(existing_term) = self.get_term(i) {
+                return existing_term == term2;
+            }
+            self.set_term(i, term2.clone());
+            return true;
+        }
+
+        match (&term1.term, &term2.term) {
+            (UntypedTerm::Atom(a1), UntypedTerm::Atom(a2)) => a1 == a2,
+            (UntypedTerm::Composite(subterms1), UntypedTerm::Composite(subterms2)) => {
+                if subterms1.len() != subterms2.len() {
+                    return false;
+                }
+                for (subterm1, subterm2) in subterms1.iter().zip(subterms2.iter()) {
+                    if !self.identify_terms(subterm1, subterm2) {
                         return false;
                     }
                 }
