@@ -1,7 +1,7 @@
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::normalizer::Normalizer;
-use crate::term::{Clause, Literal, Term};
+use crate::term::{Clause, Literal, Substitution, Term};
 
 pub struct Prover {
     pub normalizer: Normalizer,
@@ -42,16 +42,24 @@ impl Prover {
             if clause.literals.len() != 1 {
                 continue;
             }
-            match &clause.literals[0] {
-                Literal::NotEquals(left, right) => {
-                    //
-                }
-                Literal::Equals(left, right) => {
-                    //
-                }
+            let (left, right, answer) = match &clause.literals[0] {
+                Literal::NotEquals(left, right) => (left, right, Compare::NotEqual),
+                Literal::Equals(left, right) => (left, right, Compare::Equal),
                 _ => continue,
+            };
+
+            // Check if (left, right) specializes to (term1, term2)
+            let mut sub = Substitution::new();
+            if sub.identify_terms(left, term1) && sub.identify_terms(right, term2) {
+                return answer;
+            }
+
+            // Check if (left, right) specializes to (term2, term1)
+            sub = Substitution::new();
+            if sub.identify_terms(left, term2) && sub.identify_terms(right, term1) {
+                return answer;
             }
         }
-        panic!("TODO")
+        Compare::Unknown
     }
 }
