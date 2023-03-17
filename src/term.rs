@@ -255,7 +255,7 @@ impl Term {
     // The _helper version is provided a subindex that got to this point in the term.
     fn for_subterm_helper<F>(&self, subindex: &mut Vec<usize>, mut f: F)
     where
-        F: FnMut(&[usize], &Term),
+        F: FnMut(&Vec<usize>, &Term),
     {
         f(subindex, self);
         if let UntypedTerm::Composite(ref subterms) = self.term {
@@ -269,7 +269,7 @@ impl Term {
 
     pub fn for_subterm<F>(&self, mut f: F)
     where
-        F: FnMut(&[usize], &Term),
+        F: FnMut(&Vec<usize>, &Term),
     {
         let mut subindex = vec![];
         self.for_subterm_helper(&mut subindex, &mut f);
