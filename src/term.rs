@@ -234,6 +234,22 @@ impl Term {
         }
     }
 
+    // The subindex is a series of indices.
+    pub fn subterm(&self, subindex: &[usize]) -> Option<&Term> {
+        let mut term = self;
+        for i in subindex {
+            if let UntypedTerm::Composite(ref subterms) = term.term {
+                if *i >= subterms.len() {
+                    return None;
+                }
+                term = &subterms[*i];
+            } else {
+                return None;
+            }
+        }
+        Some(term)
+    }
+
     // for_subterm calls f(subindex, subterm) on each subterm of the term.
     // The calls are in preorder.
     // The _helper version is provided a subindex that got to this point in the term.
