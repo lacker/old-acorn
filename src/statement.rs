@@ -151,6 +151,7 @@ where
             ))
         }
     }
+    Token::skip_newlines(tokens);
     let (claim, terminator) = parse_expression(tokens, true, |t| {
         t == TokenType::NewLine || t == TokenType::LeftBrace
     })?;
@@ -406,7 +407,8 @@ mod tests {
 
     #[test]
     fn test_multiline_at_colon() {
-        Statement::parse_str("type Nat:\naxiom").unwrap();
+        Statement::parse_str("type Nat:\n  axiom").unwrap();
+        Statement::parse_str("theorem foo(b: bool):\nb | !b").unwrap();
     }
 
     #[test]
