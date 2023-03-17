@@ -274,6 +274,27 @@ impl Term {
         let mut subindex = vec![];
         self.for_subterm_helper(&mut subindex, &mut f);
     }
+
+    // Make a copy of this term that shifts all of its reference ids.
+    pub fn shift_references(&self, shift: usize) -> Term {
+        match self.term {
+            UntypedTerm::Atom(Atom::Reference(i)) => Term {
+                itype: self.itype,
+                term: UntypedTerm::Atom(Atom::Reference(i + shift)),
+            },
+            UntypedTerm::Atom(_) => self.clone(),
+            UntypedTerm::Composite(ref subterms) => {
+                let mut new_subterms = vec![];
+                for subterm in subterms {
+                    new_subterms.push(subterm.shift_references(shift));
+                }
+                Term {
+                    itype: self.itype,
+                    term: UntypedTerm::Composite(new_subterms),
+                }
+            }
+        }
+    }
 }
 
 // Literals are always boolean-valued.
@@ -368,46 +389,52 @@ impl Substitution {
     //
     // Unification should be a "narrowing" process, in the sense that if sub(x) = sub(y),
     // then sub(x) = sub(y) continues to be true after subsequent unifications.
-    pub fn new(n: usize) -> Substitution {
-        Substitution {
-            terms: vec![None; n],
+    pub fn new() -> Substitution {
+        Substitution { terms: vec![] }
+    }
+
+    pub fn get_term(&self, i: usize) -> Option<&Term> {
+        match self.terms.get(i) {
+            Some(t) => t.as_ref(),
+            None => None,
         }
     }
 
-    pub fn sub(&self, term: &Term) -> Term {
+    // Substitutes into this term, shifting its references first.
+    pub fn sub(&self, term: &Term, shift: usize) -> Term {
         match &term.term {
             UntypedTerm::Atom(a) => {
                 if let Atom::Reference(i) = a {
-                    if let Some(t) = &self.terms[*i] {
+                    if let Some(t) = self.get_term(i + shift) {
                         return t.clone();
                     }
                 }
                 // This is an atom, but not a reference to anything we're substituting.
-                // So leave the whole term unchanged.
-                term.clone()
+                // So we just need to shift it, if it's a reference.
+                term.shift_references(shift)
             }
             UntypedTerm::Composite(subterms) => Term {
                 itype: term.itype,
                 term: UntypedTerm::Composite(
                     subterms
                         .into_iter()
-                        .map(|t| self.sub(&t))
+                        .map(|t| self.sub(&t, shift))
                         .collect::<Vec<_>>(),
                 ),
             },
         }
     }
 
-    // Unifies a reference atom with a term.
+    // Unifies a reference atom with a term, shifting the term's references first.
     // Returns whether this is possible.
-    pub fn unify_reference(&mut self, index: usize, term: &Term) -> bool {
-        if let Some(existing_term) = &self.terms[index] {
-            return self.unify_terms(&existing_term.clone(), term);
+    pub fn unify_reference(&mut self, index: usize, term: &Term, shift: usize) -> bool {
+        if let Some(existing_term) = self.get_term(index) {
+            return self.unify_terms(&existing_term.clone(), term, shift);
         }
 
         // This reference isn't bound to anything, so it should be okay to bind it,
         // as long as that doesn't create any circular references.
-        let simplified_term = self.sub(term);
+        let simplified_term = self.sub(term, shift);
         if simplified_term.has_reference(index) {
             return false;
         }
@@ -420,14 +447,17 @@ impl Substitution {
             }
         }
 
+        while self.terms.len() <= index {
+            self.terms.push(None);
+        }
         self.terms[index] = Some(simplified_term);
         true
     }
 
-    // Unifies two terms.
+    // Unifies two terms, after shifting term2's references by shift2.
     // Returns whether this is possible.
     // Typechecks.
-    pub fn unify_terms(&mut self, term1: &Term, term2: &Term) -> bool {
+    pub fn unify_terms(&mut self, term1: &Term, term2: &Term, shift2: usize) -> bool {
         if term1.itype != term2.itype {
             return false;
         }
@@ -436,10 +466,10 @@ impl Substitution {
         // toward sticking with lower numbers.
         // Either should be logically correct.
         if let Some(i) = term2.atomic_reference() {
-            return self.unify_reference(i, term1);
+            return self.unify_reference(i + shift2, term1, 0);
         }
         if let Some(i) = term1.atomic_reference() {
-            return self.unify_reference(i, term2);
+            return self.unify_reference(i, term2, shift2);
         }
 
         match (&term1.term, &term2.term) {
@@ -449,7 +479,7 @@ impl Substitution {
                     return false;
                 }
                 for (subterm1, subterm2) in subterms1.iter().zip(subterms2.iter()) {
-                    if !self.unify_terms(subterm1, subterm2) {
+                    if !self.unify_terms(subterm1, subterm2, shift2) {
                         return false;
                     }
                 }
@@ -470,11 +500,11 @@ mod tests {
         let bool0 = s.bref(0);
         let bool1 = s.bref(1);
         let fterm = s.bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
-        let mut sub = Substitution::new(2);
+        let mut sub = Substitution::new();
 
         // Replace x0 with x1
-        assert!(sub.unify_reference(0, &bool1));
-        let term = sub.sub(&fterm);
+        assert!(sub.unify_reference(0, &bool1, 0));
+        let term = sub.sub(&fterm, 0);
         assert_eq!(format!("{}", term), "a0(x1, x1)");
     }
 
@@ -486,13 +516,13 @@ mod tests {
         let bool2 = s.bref(2);
         let term1 = s.bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
         let term2 = s.bfn(Atom::Axiomatic(0), vec![bool1.clone(), bool2.clone()]);
-        let mut sub = Substitution::new(3);
+        let mut sub = Substitution::new();
 
         // Replace x0 with x1
-        assert!(sub.unify_terms(&term1, &term2));
-        let new1 = sub.sub(&term1);
+        assert!(sub.unify_terms(&term1, &term2, 0));
+        let new1 = sub.sub(&term1, 0);
         assert_eq!(format!("{}", new1), "a0(x0, x0)");
-        let new2 = sub.sub(&term2);
+        let new2 = sub.sub(&term2, 0);
         assert_eq!(format!("{}", new2), "a0(x0, x0)");
     }
 }
