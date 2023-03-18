@@ -186,6 +186,19 @@ impl fmt::Display for Term {
 }
 
 impl Term {
+    pub fn weight(&self) -> u32 {
+        match self.term {
+            UntypedTerm::Atom(_) => 1,
+            UntypedTerm::Composite(ref terms) => {
+                let mut weight = 0;
+                for term in terms {
+                    weight += term.weight();
+                }
+                weight
+            }
+        }
+    }
+
     // Whether this term contains a reference with this index, anywhere in its body, recursively.
     pub fn has_reference(&self, index: usize) -> bool {
         match self.term {
