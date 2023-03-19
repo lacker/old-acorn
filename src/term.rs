@@ -308,6 +308,21 @@ impl Term {
             }
         }
     }
+
+    pub fn set_subterm(&mut self, subindex: &[usize], value: Term) {
+        let mut term = self;
+        for i in subindex {
+            if let UntypedTerm::Composite(ref mut subterms) = term.term {
+                if *i >= subterms.len() {
+                    panic!("subindex out of bounds");
+                }
+                term = &mut subterms[*i];
+            } else {
+                panic!("subindex out of bounds");
+            }
+        }
+        *term = value;
+    }
 }
 
 // Literals are always boolean-valued.
