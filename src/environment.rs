@@ -803,8 +803,6 @@ impl Environment {
 mod tests {
     use super::*;
 
-    use indoc::indoc;
-
     #[test]
     fn test_env_types() {
         let mut env = Environment::new();
