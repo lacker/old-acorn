@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::environment::Environment;
@@ -5,14 +7,28 @@ use crate::normalizer::Normalizer;
 use crate::term::{Clause, Literal, Substitution, Term};
 
 pub struct Prover<'a> {
-    pub normalizer: Normalizer,
-
-    pub clauses: Vec<Clause>,
-
     env: &'a Environment,
+    normalizer: Normalizer,
+
+    // The "active" clauses are the ones we use for reasoning.
+    // The "passive" clauses are a queue of pending clauses that
+    // we will add to the active clauses in the future.
+    active: Vec<Clause>,
+    passive: VecDeque<Clause>,
 
     // A prover is dirty when it has had false propositions added to it.
     dirty: bool,
+}
+
+// The result of a prover operation.
+// "Success" or "Failure" generally terminate the proof process.
+// "Unknown" can mean either that we should continue working, or that we just
+// couldn't figure out the answer.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Result {
+    Success,
+    Failure,
+    Unknown,
 }
 
 pub enum Compare {
@@ -25,20 +41,21 @@ impl Prover<'_> {
     pub fn new(env: &Environment) -> Prover {
         Prover {
             normalizer: Normalizer::new(),
-            clauses: vec![],
+            active: Vec::new(),
+            passive: VecDeque::new(),
             env,
             dirty: false,
         }
     }
 
-    // Normalizes the proposition and adds it to our clause list.
+    // Normalizes the proposition and adds it as a passive clause.
     fn add_proposition(&mut self, proposition: AcornValue) {
         assert_eq!(proposition.get_type(), AcornType::Bool);
 
         let new_clauses = self.normalizer.normalize(proposition);
         for clause in new_clauses {
             println!("adding clause: {:?}", clause);
-            self.clauses.push(clause);
+            self.passive.push_back(clause);
         }
     }
 
@@ -53,7 +70,7 @@ impl Prover<'_> {
     // This only does exact comparisons, so if we already know x = y,
     // this won't find that f(x) = f(y).
     pub fn exact_compare(&self, term1: &Term, term2: &Term) -> Compare {
-        for clause in &self.clauses {
+        for clause in &self.active {
             if clause.literals.len() != 1 {
                 continue;
             }
@@ -78,8 +95,33 @@ impl Prover<'_> {
         Compare::Unknown
     }
 
-    // Returns whether we could prove this statement.
-    pub fn prove(&mut self, theorem_name: &str) -> bool {
+    // Activates the next clause from the queue.
+    fn activate_next(&mut self) -> Result {
+        let clause = if let Some(clause) = self.passive.pop_front() {
+            clause
+        } else {
+            // We're out of clauses to process, so we can't make any more progress.
+            return Result::Failure;
+        };
+
+        // TODO: simplify the clause
+
+        self.active.push(clause);
+        Result::Unknown
+    }
+
+    fn search_for_contradiction(&mut self) -> Result {
+        let start_time = std::time::Instant::now();
+        while start_time.elapsed().as_secs() < 3 {
+            let result = self.activate_next();
+            if result != Result::Unknown {
+                return result;
+            }
+        }
+        Result::Unknown
+    }
+
+    pub fn prove(&mut self, theorem_name: &str) -> Result {
         if self.dirty {
             panic!("prove called on a dirty prover");
         }
@@ -88,8 +130,7 @@ impl Prover<'_> {
                 // To prove a statement, we negate, then search for a contradiction.
                 self.add_negated(value.clone());
 
-                // TODO: search for a contradiction
-                return false;
+                return self.search_for_contradiction();
             }
 
             self.add_proposition(value.clone());
