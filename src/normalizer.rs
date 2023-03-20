@@ -107,9 +107,9 @@ impl Normalizer {
     }
 
     pub fn normalize(&mut self, value: AcornValue) -> Vec<Clause> {
-        // println!("value: {}", value);
+        println!("\nvalue: {}", value);
         let expanded = value.expand_lambdas(0);
-        // println!("expanded: {}", expanded);
+        println!("expanded: {}", expanded);
         let neg_in = expanded.move_negation_inwards(false);
         // println!("negin: {}", neg_in);
         let skolemized = self.skolemize(&vec![], neg_in);
@@ -199,7 +199,7 @@ mod tests {
         );
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
-        norm.check(&env, "add_zero_right", &["x0 = a2(a1, x0, x0)"]);
+        norm.check(&env, "add_zero_right", &["x0 = a2(a1, x0, a0)"]);
     }
 
     #[test]

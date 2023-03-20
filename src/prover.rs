@@ -31,12 +31,6 @@ pub enum Result {
     Unknown,
 }
 
-pub enum Compare {
-    Equal,
-    NotEqual,
-    Unknown,
-}
-
 impl Prover<'_> {
     pub fn new(env: &Environment) -> Prover {
         Prover {
@@ -51,10 +45,11 @@ impl Prover<'_> {
     // Normalizes the proposition and adds it as a passive clause.
     fn add_proposition(&mut self, proposition: AcornValue) {
         assert_eq!(proposition.get_type(), AcornType::Bool);
+        println!("adding prop: {}", proposition);
 
         let new_clauses = self.normalizer.normalize(proposition);
         for clause in new_clauses {
-            println!("adding clause: {:?}", clause);
+            println!("adding clause: {}", clause);
             self.passive.push_back(clause);
         }
     }
@@ -66,17 +61,22 @@ impl Prover<'_> {
         self.add_proposition(negated);
     }
 
-    // Checks whether we already know whether these two terms are equal.
+    // Checks whether we already know how to compare these two terms.
     // This only does exact comparisons, so if we already know x = y,
     // this won't find that f(x) = f(y).
-    pub fn exact_compare(&self, term1: &Term, term2: &Term) -> Compare {
+    //
+    // Meaning of the return value:
+    // Some(true): term1 = term2
+    // Some(false): term1 != term2
+    // None: we don't know anything
+    fn exact_compare(&self, term1: &Term, term2: &Term) -> Option<bool> {
         for clause in &self.active {
             if clause.literals.len() != 1 {
                 continue;
             }
             let (left, right, answer) = match &clause.literals[0] {
-                Literal::NotEquals(left, right) => (left, right, Compare::NotEqual),
-                Literal::Equals(left, right) => (left, right, Compare::Equal),
+                Literal::NotEquals(left, right) => (left, right, Some(false)),
+                Literal::Equals(left, right) => (left, right, Some(true)),
                 _ => continue,
             };
 
@@ -92,7 +92,42 @@ impl Prover<'_> {
                 return answer;
             }
         }
-        Compare::Unknown
+        None
+    }
+
+    // Meaning of the return value:
+    // Some(true): term is true
+    // Some(false): !term is true
+    // None: we don't know anything
+    fn evaluate_term(&self, term: &Term) -> Option<bool> {
+        for clause in &self.active {
+            if clause.literals.len() != 1 {
+                continue;
+            }
+            let (known_term, answer) = match &clause.literals[0] {
+                Literal::Positive(t) => (t, Some(true)),
+                Literal::Negative(t) => (t, Some(false)),
+                _ => continue,
+            };
+            let mut sub = Substitution::new();
+            if sub.identify_terms(known_term, term) {
+                return answer;
+            }
+        }
+        None
+    }
+
+    // Meaning of the return value:
+    // Some(true): literal is true
+    // Some(false): !literal is true
+    // None: we don't know anything
+    fn evaluate_literal(&self, literal: &Literal) -> Option<bool> {
+        match literal {
+            Literal::Positive(term) => self.evaluate_term(term),
+            Literal::Negative(term) => self.evaluate_term(term).map(|x| !x),
+            Literal::Equals(left, right) => self.exact_compare(left, right),
+            Literal::NotEquals(left, right) => self.exact_compare(left, right).map(|x| !x),
+        }
     }
 
     // Activates the next clause from the queue.
@@ -104,9 +139,31 @@ impl Prover<'_> {
             return Result::Failure;
         };
 
-        // TODO: simplify the clause
+        // Simplify the clause
+        let mut literals = Vec::new();
+        for literal in clause.literals {
+            match self.evaluate_literal(&literal) {
+                Some(true) => {
+                    // This clause is true, so activating it is a no-op.
+                    return Result::Unknown;
+                }
+                Some(false) => {
+                    // This literal is false, so we can leave it out of the new active clause.
+                    continue;
+                }
+                None => {
+                    // We don't know anything about this literal, so we'll keep it.
+                    literals.push(literal);
+                }
+            }
+        }
+        if literals.is_empty() {
+            // All the literals were false, so this clause is false.
+            // That means we have successfully proven a contradiction.
+            return Result::Success;
+        }
 
-        self.active.push(clause);
+        self.active.push(Clause::new(&clause.universal, literals));
         Result::Unknown
     }
 
@@ -191,6 +248,6 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_proving_add_zero_right() {
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
-        prover.prove("add_zero_right");
+        assert_eq!(prover.prove("add_zero_right"), Result::Success);
     }
 }

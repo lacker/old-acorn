@@ -219,6 +219,9 @@ impl Environment {
             AcornValue::Exists(types, values) => {
                 self.macro_str_stacked("exists", types, values, stack_size)
             }
+            AcornValue::Not(subvalue) => {
+                format!("!{}", self.value_str_stacked(subvalue, stack_size))
+            }
             _ => format!("unhandled({:?})", value),
         }
     }
@@ -397,7 +400,9 @@ impl Environment {
 
                 // Figure out the value for this identifier
                 if let Some(acorn_value) = self.values.get(token.text) {
-                    Ok(acorn_value.clone())
+                    // We need to shift any stack variables that this value uses,
+                    // so that they don't squash existing ones.
+                    Ok(acorn_value.clone().insert_stack(0, self.stack.len()))
                 } else if let Some(stack_index) = self.stack.get(token.text) {
                     let atom = Atom::Reference(*stack_index);
                     let typed_atom = TypedAtom {
@@ -885,6 +890,14 @@ mod tests {
         env.bad("define baz: bool = exists(x: bool, x: bool, x = x)");
         assert!(env.types.get("x").is_none());
         env.add("define baz: bool = exists(x: bool, y: bool, x = x)");
+    }
+
+    #[test]
+    fn test_nested_binding() {
+        let mut env = Environment::new();
+        env.add("define p: bool = forall(b: bool, b | !b)");
+        env.add("define q: bool = forall(b: bool, p)");
+        env.valuecheck("q", "forall(x0: bool, forall(x1: bool, (x1 | !x1)))");
     }
 
     #[test]
