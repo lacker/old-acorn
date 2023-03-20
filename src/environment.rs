@@ -984,9 +984,44 @@ mod tests {
     #[test]
     fn test_nat_ac_together() {
         let mut env = Environment::new();
-        env.add(indoc! {"
-            type Nat: axiom
-            define 0: Nat = axiom
-        "});
+        env.add(
+            r#"
+// The axioms of Peano arithmetic.
+        
+type Nat: axiom
+
+define 0: Nat = axiom
+
+define Suc: Nat -> Nat = axiom
+define 1: Nat = Suc(0)
+
+axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
+
+axiom suc_neq_zero(x: Nat): Suc(x) != 0
+
+axiom induction(f: Nat -> bool): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> forall(n: Nat, f(n))
+
+// Ideally a and f would be templated rather than just Nat.
+define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom
+axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
+axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))
+
+define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)
+
+// Now let's have some theorems.
+
+theorem add_zero_right(a: Nat): add(a, 0) = a
+
+theorem add_zero_left(a: Nat): add(0, a) = a
+
+theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
+
+theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))
+
+theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
+
+theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
+"#,
+        );
     }
 }
