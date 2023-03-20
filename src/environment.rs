@@ -116,6 +116,13 @@ impl Environment {
         self.values.get(name)
     }
 
+    // Iterates through (name, value) pairs for all theorems in this environment.
+    pub fn iter_theorems(&self) -> impl Iterator<Item = (&String, &AcornValue)> {
+        self.theorems
+            .iter()
+            .map(move |name| (name, self.values.get(name).unwrap()))
+    }
+
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
         let mut s = "(".to_string();
         for (i, acorn_type) in types.iter().enumerate() {
