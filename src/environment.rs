@@ -715,8 +715,11 @@ impl Environment {
                 let ret_val =
                     match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
                         Ok(claim_value) => {
-                            let theorem_value =
-                                AcornValue::ForAll(arg_types.clone(), Box::new(claim_value));
+                            let theorem_value = if arg_types.is_empty() {
+                                claim_value
+                            } else {
+                                AcornValue::ForAll(arg_types.clone(), Box::new(claim_value))
+                            };
                             self.bind_name(&ts.name, theorem_value);
                             self.theorems.push(ts.name.to_string());
                             Ok(())
