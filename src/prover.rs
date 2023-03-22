@@ -200,6 +200,18 @@ impl Prover<'_> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_specialization() {
+        let mut env = Environment::new();
+        env.add("type Thing: axiom");
+        env.add("define t: Thing = axiom");
+        env.add("define f: Thing -> bool = axiom");
+        env.add("axiom f_all(x: Thing): f(x)");
+        env.add("theorem goal: f(t)");
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
     fn nat_ac_env() -> Environment {
         let mut env = Environment::new();
         env.add(
