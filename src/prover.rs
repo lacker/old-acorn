@@ -203,11 +203,15 @@ mod tests {
     #[test]
     fn test_specialization() {
         let mut env = Environment::new();
-        env.add("type Thing: axiom");
-        env.add("define t: Thing = axiom");
-        env.add("define f: Thing -> bool = axiom");
-        env.add("axiom f_all(x: Thing): f(x)");
-        env.add("theorem goal: f(t)");
+        env.add(
+            r#"
+        type Thing: axiom
+        define t: Thing = axiom
+        define f: Thing -> bool = axiom
+        axiom f_all(x: Thing): f(x)
+        theorem goal: f(t)
+        "#,
+        );
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("goal"), Result::Success);
     }
