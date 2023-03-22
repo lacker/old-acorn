@@ -216,6 +216,38 @@ mod tests {
         assert_eq!(prover.prove("goal"), Result::Success);
     }
 
+    #[test]
+    fn test_backward_specialization_fails() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+        type Thing: axiom
+        define t: Thing = axiom
+        define f: Thing -> bool = axiom
+        axiom f_one: f(t)
+        theorem goal(x: Thing): f(x)
+        "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Failure);
+    }
+
+    #[test]
+    fn test_finds_example() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+        type Thing: axiom
+        define t: Thing = axiom
+        define f: Thing -> bool = axiom
+        axiom f_one: f(t)
+        theorem goal: exists(x: Thing, f(x))
+        "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
     fn nat_ac_env() -> Environment {
         let mut env = Environment::new();
         env.add(

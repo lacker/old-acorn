@@ -893,6 +893,14 @@ mod tests {
     }
 
     #[test]
+    fn test_argless_theorem() {
+        let mut env = Environment::new();
+        env.add("define b: bool = axiom");
+        env.add("theorem foo: b | !b");
+        env.valuecheck("foo", "(b | !b)");
+    }
+
+    #[test]
     fn test_nested_binding() {
         let mut env = Environment::new();
         env.add("define p: bool = forall(b: bool, b | !b)");
