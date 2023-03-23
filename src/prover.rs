@@ -199,14 +199,23 @@ impl Prover<'_> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_specialization() {
+    fn thing_env() -> Environment {
         let mut env = Environment::new();
         env.add(
             r#"
         type Thing: axiom
         define t: Thing = axiom
         define f: Thing -> bool = axiom
+        "#,
+        );
+        env
+    }
+
+    #[test]
+    fn test_specialization() {
+        let mut env = thing_env();
+        env.add(
+            r#"
         axiom f_all(x: Thing): f(x)
         theorem goal: f(t)
         "#,
@@ -217,12 +226,9 @@ mod tests {
 
     #[test]
     fn test_backward_specialization_fails() {
-        let mut env = Environment::new();
+        let mut env = thing_env();
         env.add(
             r#"
-        type Thing: axiom
-        define t: Thing = axiom
-        define f: Thing -> bool = axiom
         axiom f_one: f(t)
         theorem goal(x: Thing): f(x)
         "#,
@@ -233,12 +239,9 @@ mod tests {
 
     #[test]
     fn test_finds_example() {
-        let mut env = Environment::new();
+        let mut env = thing_env();
         env.add(
             r#"
-        type Thing: axiom
-        define t: Thing = axiom
-        define f: Thing -> bool = axiom
         axiom f_one: f(t)
         theorem goal: exists(x: Thing, f(x))
         "#,
