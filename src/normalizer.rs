@@ -107,7 +107,7 @@ impl Normalizer {
     }
 
     pub fn normalize(&mut self, value: AcornValue) -> Vec<Clause> {
-        println!("\nvalue: {}", value);
+        println!("value: {}", value);
         let expanded = value.expand_lambdas(0);
         println!("expanded: {}", expanded);
         let neg_in = expanded.move_negation_inwards(false);
@@ -122,6 +122,7 @@ impl Normalizer {
 
         let mut clauses = vec![];
         for literals in literal_lists {
+            assert!(literals.len() > 0);
             clauses.push(Clause::new(&universal, literals));
         }
         clauses

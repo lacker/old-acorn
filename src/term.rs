@@ -374,7 +374,7 @@ pub struct Clause {
 
 impl fmt::Display for Clause {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.universal.is_empty() {
+        if self.literals.is_empty() {
             return write!(f, "<empty>");
         }
         for (i, literal) in self.literals.iter().enumerate() {

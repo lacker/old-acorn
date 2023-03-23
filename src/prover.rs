@@ -45,8 +45,7 @@ impl Prover<'_> {
     // Normalizes the proposition and adds it as a passive clause.
     fn add_proposition(&mut self, proposition: AcornValue) {
         assert_eq!(proposition.get_type(), AcornType::Bool);
-        println!("adding prop: {}", proposition);
-
+        println!("\nadding prop: {}", proposition);
         let new_clauses = self.normalizer.normalize(proposition);
         for clause in new_clauses {
             println!("adding clause: {}", clause);
