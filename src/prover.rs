@@ -69,7 +69,6 @@ impl Prover<'_> {
     // Some(false): there is a counterexample where (term1 = term2) != equal
     // None: we don't know
     fn exact_compare(&self, term1: &Term, term2: &Term, equal: bool) -> Option<bool> {
-        println!("\nexact_compare {} = {}, equal = {}", term1, term2, equal);
         for clause in &self.active {
             if clause.literals.len() != 1 {
                 continue;
@@ -80,11 +79,8 @@ impl Prover<'_> {
                 _ => continue,
             };
 
-            println!("testing against {} = {}", left, right);
-
             if sign == equal {
                 // Signs match.
-                println!("signs match, checking specialization");
                 // Check for a proof by specialization.
                 // Check if (left, right) specializes to (term1, term2)
                 let mut sub = Substitution::new();
@@ -99,37 +95,24 @@ impl Prover<'_> {
                 }
             } else {
                 // Signs don't match.
-                println!("signs don't match, checking contradiction");
                 // Check for a contradiction.
                 // Check if (left, right) unifies to (term1, term2).
-                println!(
-                    "check if {} = {} unifies against {} = {}",
-                    left, right, term1, term2
-                );
                 // Note that "shift" is the size for left/right so we have to shift term1 and term2.
                 let shift = clause.universal.len();
                 let mut sub = Substitution::new();
                 if sub.unify_terms(left, term1, shift) && sub.unify_terms(right, term2, shift) {
                     return Some(false);
                 }
-                println!("nope 1");
 
                 // Check if (left, right) unifies to (term2, term1).
-                println!(
-                    "check if {} = {} unifies against {} = {}",
-                    left, right, term2, term1
-                );
                 sub = Substitution::new();
                 if sub.unify_terms(left, term2, shift) {
-                    println!("left ok. sub = {}", sub);
                     if sub.unify_terms(right, term1, shift) {
                         return Some(false);
                     }
                 }
-                println!("nope 2");
             }
         }
-        println!("nothing");
         None
     }
 

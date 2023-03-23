@@ -481,6 +481,13 @@ impl Substitution {
             return self.unify_terms(&existing_term.clone(), term, shift);
         }
 
+        if let Some(i) = term.atomic_reference() {
+            if index == i + shift {
+                // References unify with themselves without any update needed
+                return true;
+            }
+        }
+
         // This reference isn't bound to anything, so it should be okay to bind it,
         // as long as that doesn't create any circular references.
         let simplified_term = self.sub(term, shift);
