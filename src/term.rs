@@ -29,21 +29,22 @@ impl TermSpace {
     pub fn term_from_atom(&mut self, atom: TypedAtom) -> Term {
         Term {
             itype: self.add_type(atom.acorn_type),
-            term: UntypedTerm::Atom(atom.atom),
+            head: atom.atom,
+            args: vec![],
         }
     }
 
     // Constructs a new term from a function application
+    // Function applications that are nested like f(x)(y) are flattened to f(x, y)
     pub fn term_from_application(&mut self, application: FunctionApplication) -> Term {
         let itype = self.add_type(application.return_type());
-        let mut subterms = vec![self.term_from_value(*application.function)];
+        let func_term = self.term_from_value(*application.function);
+        let head = func_term.head;
+        let mut args = func_term.args;
         for arg in application.args {
-            subterms.push(self.term_from_value(arg));
+            args.push(self.term_from_value(arg));
         }
-        Term {
-            itype,
-            term: UntypedTerm::Composite(subterms),
-        }
+        Term { itype, head, args }
     }
 
     // Constructs a new term from an AcornValue
@@ -125,162 +126,103 @@ impl TermSpace {
         })
     }
 
-    // For testing, make a function application with this atom, typed (bool^n) -> bool
+    // For testing, make a function application with this head, return type bool
     #[cfg(test)]
-    pub fn bfn(&mut self, atom: Atom, args: Vec<Term>) -> Term {
-        use crate::acorn_type::FunctionType;
-
-        let acorn_type = AcornType::Function(FunctionType {
-            arg_types: args.iter().map(|_| AcornType::Bool).collect(),
-            return_type: Box::new(AcornType::Bool),
-        });
-
-        let fterm = self.term_from_atom(TypedAtom { atom, acorn_type });
-
-        let mut subterms = vec![fterm];
-        subterms.extend(args);
-
+    pub fn bfn(&mut self, head: Atom, args: Vec<Term>) -> Term {
         Term {
             itype: self.add_type(AcornType::Bool),
-            term: UntypedTerm::Composite(subterms),
+            head,
+            args,
         }
     }
 }
 
-#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
-pub enum UntypedTerm {
-    Atom(Atom),
-    Composite(Vec<Term>),
-}
-
-impl fmt::Display for UntypedTerm {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            UntypedTerm::Atom(atom) => write!(f, "{}", atom),
-            UntypedTerm::Composite(composite) => {
-                for (i, term) in composite.iter().enumerate() {
-                    if i > 1 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", term)?;
-                    if i == 0 {
-                        write!(f, "(")?;
-                    }
-                }
-                write!(f, ")")
-            }
-        }
-    }
-}
-
+// A term with no args is a plain atom.
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Term {
     pub itype: usize,
-    term: UntypedTerm,
+    head: Atom,
+    args: Vec<Term>,
 }
 
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.term.fmt(f)
+        write!(f, "{}", self.head)?;
+        if self.args.len() > 0 {
+            write!(f, "(")?;
+            for (i, arg) in self.args.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", arg)?;
+            }
+            write!(f, ")")?;
+        }
+        Ok(())
     }
 }
 
 impl Term {
-    pub fn weight(&self) -> u32 {
-        match self.term {
-            UntypedTerm::Atom(_) => 1,
-            UntypedTerm::Composite(ref terms) => {
-                let mut weight = 0;
-                for term in terms {
-                    weight += term.weight();
-                }
-                weight
-            }
-        }
-    }
-
     // Whether this term contains a reference with this index, anywhere in its body, recursively.
     pub fn has_reference(&self, index: usize) -> bool {
-        match self.term {
-            UntypedTerm::Atom(Atom::Reference(i)) => i == index,
-            UntypedTerm::Atom(_) => false,
-            UntypedTerm::Composite(ref terms) => {
-                for term in terms {
-                    if term.has_reference(index) {
-                        return true;
-                    }
-                }
-                false
+        if let Atom::Reference(i) = self.head {
+            if i == index {
+                return true;
             }
         }
+        for arg in &self.args {
+            if arg.has_reference(index) {
+                return true;
+            }
+        }
+        false
     }
 
     // If this term is a reference to the given index, return that index.
     pub fn atomic_reference(&self) -> Option<usize> {
-        match self.term {
-            UntypedTerm::Atom(Atom::Reference(i)) => Some(i),
+        if self.args.len() > 0 {
+            return None;
+        }
+        match self.head {
+            Atom::Reference(i) => Some(i),
             _ => None,
         }
     }
 
-    // value should already not contain a reference to index
+    // value should have no references to index
     pub fn replace_reference(&self, index: usize, value: &Term) -> Term {
-        match self.term {
-            UntypedTerm::Atom(Atom::Reference(i)) => {
-                if i == index {
-                    value.clone()
-                } else {
-                    self.clone()
-                }
+        // Start with just the head (but keep the itype correct for the answer)
+        let mut answer = if self.head == Atom::Reference(index) {
+            Term {
+                itype: self.itype,
+                head: value.head.clone(),
+                args: value.args.clone(),
             }
-            UntypedTerm::Atom(_) => self.clone(),
-            UntypedTerm::Composite(ref terms) => {
-                let mut new_terms = vec![];
-                for term in terms {
-                    new_terms.push(term.replace_reference(index, value));
-                }
-                return Term {
-                    itype: self.itype,
-                    term: UntypedTerm::Composite(new_terms),
-                };
+        } else {
+            Term {
+                itype: self.itype,
+                head: self.head,
+                args: vec![],
             }
-        }
-    }
+        };
 
-    // The subindex is a series of indices.
-    pub fn subterm(&self, subindex: &[usize]) -> Option<&Term> {
-        let mut term = self;
-        for i in subindex {
-            if let UntypedTerm::Composite(ref subterms) = term.term {
-                if *i >= subterms.len() {
-                    return None;
-                }
-                term = &subterms[*i];
-            } else {
-                return None;
-            }
+        for arg in &self.args {
+            answer.args.push(arg.replace_reference(index, value));
         }
-        Some(term)
+
+        answer
     }
 
     // Make a copy of this term that shifts all of its reference ids.
     pub fn shift_references(&self, shift: usize) -> Term {
-        match self.term {
-            UntypedTerm::Atom(Atom::Reference(i)) => Term {
-                itype: self.itype,
-                term: UntypedTerm::Atom(Atom::Reference(i + shift)),
-            },
-            UntypedTerm::Atom(_) => self.clone(),
-            UntypedTerm::Composite(ref subterms) => {
-                let mut new_subterms = vec![];
-                for subterm in subterms {
-                    new_subterms.push(subterm.shift_references(shift));
-                }
-                Term {
-                    itype: self.itype,
-                    term: UntypedTerm::Composite(new_subterms),
-                }
-            }
+        Term {
+            itype: self.itype,
+            head: self.head.shift_references(shift),
+            args: self
+                .args
+                .iter()
+                .map(|arg| arg.shift_references(shift))
+                .collect(),
         }
     }
 }
@@ -400,29 +342,36 @@ impl Substitution {
         }
     }
 
-    // Substitutes into this term, shifting its references first.
-    pub fn sub(&self, term: &Term, shift: usize) -> Term {
-        match &term.term {
-            UntypedTerm::Atom(a) => {
-                if let Atom::Reference(i) = a {
-                    if let Some(t) = self.get_term(i + shift) {
-                        return t.clone();
-                    }
-                }
-                // This is an atom, but not a reference to anything we're substituting.
-                // So we just need to shift it, if it's a reference.
-                term.shift_references(shift)
-            }
-            UntypedTerm::Composite(subterms) => Term {
-                itype: term.itype,
-                term: UntypedTerm::Composite(
-                    subterms
-                        .into_iter()
-                        .map(|t| self.sub(&t, shift))
-                        .collect::<Vec<_>>(),
-                ),
-            },
+    // Returns the term that this atom refers to, if there is any.
+    pub fn dereference(&self, atom: &Atom, shift: usize) -> Option<&Term> {
+        match atom {
+            Atom::Reference(i) => self.get_term(*i + shift),
+            _ => None,
         }
+    }
+
+    // Substitutes into this term, shifting its references first.
+    pub fn sub_term(&self, term: &Term, shift: usize) -> Term {
+        // Start with just the head (but keep the itype correct for the answer)
+        let mut answer = if let Some(t) = self.dereference(&term.head, shift) {
+            Term {
+                itype: term.itype,
+                head: t.head.clone(),
+                args: t.args.clone(),
+            }
+        } else {
+            Term {
+                itype: term.itype,
+                head: term.head.clone(),
+                args: vec![],
+            }
+        };
+
+        for arg in &term.args {
+            answer.args.push(self.sub_term(arg, shift))
+        }
+
+        answer
     }
 
     pub fn set_term(&mut self, i: usize, term: Term) {
@@ -450,7 +399,7 @@ impl Substitution {
 
         // This reference isn't bound to anything, so it should be okay to bind it,
         // as long as that doesn't create any circular references.
-        let simplified_term = self.sub(term, shift);
+        let simplified_term = self.sub_term(term, shift);
         if simplified_term.has_reference(index) {
             return false;
         }
@@ -486,27 +435,30 @@ impl Substitution {
             return self.unify_reference(i, term2, shift2);
         }
 
-        match (&term1.term, &term2.term) {
-            (UntypedTerm::Atom(a1), UntypedTerm::Atom(a2)) => a1 == a2,
-            (UntypedTerm::Composite(subterms1), UntypedTerm::Composite(subterms2)) => {
-                if subterms1.len() != subterms2.len() {
-                    return false;
-                }
-                for (subterm1, subterm2) in subterms1.iter().zip(subterms2.iter()) {
-                    if !self.unify_terms(subterm1, subterm2, shift2) {
-                        return false;
-                    }
-                }
-                true
-            }
-            _ => false,
+        if term1.head != term2.head {
+            return false;
         }
+
+        // TODO: figure out how to unify terms with different lengths.
+        // This should be possible in higher-order logic!
+        if term1.args.len() != term2.args.len() {
+            return false;
+        }
+
+        for (arg1, arg2) in term1.args.iter().zip(term2.args.iter()) {
+            if !self.unify_terms(arg1, arg2, shift2) {
+                return false;
+            }
+        }
+        true
     }
 
     // Updates this substitution to identify terms.
     // If this succeeds:
     //   self.sub(term1) = term2
     // Subsequent unification will break this constraint, but subsequent calls to identify will not.
+    // TODO: is that claim true? It seems like it could fail if some sub-part of term1 gets
+    // identified with something else.
     pub fn identify_terms(&mut self, term1: &Term, term2: &Term) -> bool {
         if term1.itype != term2.itype {
             return false;
@@ -521,21 +473,22 @@ impl Substitution {
             return true;
         }
 
-        match (&term1.term, &term2.term) {
-            (UntypedTerm::Atom(a1), UntypedTerm::Atom(a2)) => a1 == a2,
-            (UntypedTerm::Composite(subterms1), UntypedTerm::Composite(subterms2)) => {
-                if subterms1.len() != subterms2.len() {
-                    return false;
-                }
-                for (subterm1, subterm2) in subterms1.iter().zip(subterms2.iter()) {
-                    if !self.identify_terms(subterm1, subterm2) {
-                        return false;
-                    }
-                }
-                true
-            }
-            _ => false,
+        if term1.head != term2.head {
+            return false;
         }
+
+        // TODO: figure out how to unify terms with different lengths.
+        // This should be possible in higher-order logic!
+        if term1.args.len() != term2.args.len() {
+            return false;
+        }
+
+        for (arg1, arg2) in term1.args.iter().zip(term2.args.iter()) {
+            if !self.identify_terms(arg1, arg2) {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -553,7 +506,7 @@ mod tests {
 
         // Replace x0 with x1
         assert!(sub.unify_reference(0, &bool1, 0));
-        let term = sub.sub(&fterm, 0);
+        let term = sub.sub_term(&fterm, 0);
         assert_eq!(format!("{}", term), "a0(x1, x1)");
     }
 
@@ -569,9 +522,9 @@ mod tests {
 
         // Replace x0 with x1
         assert!(sub.unify_terms(&term1, &term2, 0));
-        let new1 = sub.sub(&term1, 0);
+        let new1 = sub.sub_term(&term1, 0);
         assert_eq!(format!("{}", new1), "a0(x0, x0)");
-        let new2 = sub.sub(&term2, 0);
+        let new2 = sub.sub_term(&term2, 0);
         assert_eq!(format!("{}", new2), "a0(x0, x0)");
     }
 }

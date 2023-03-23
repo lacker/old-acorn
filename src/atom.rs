@@ -6,7 +6,7 @@ use crate::acorn_value::AcornValue;
 // An atomic value is one that we don't want to expand inline.
 // We could add more things here, like defined constants.
 // For now, we expand everything we can inline.
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Atom {
     // Values defined like "define 0: Nat = axiom"
     Axiomatic(usize),
@@ -35,6 +35,13 @@ impl Atom {
         match self {
             Atom::Axiomatic(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn shift_references(self, shift: usize) -> Atom {
+        match self {
+            Atom::Reference(i) => Atom::Reference(i + shift),
+            _ => self,
         }
     }
 }

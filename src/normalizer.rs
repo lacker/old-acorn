@@ -187,7 +187,7 @@ mod tests {
         env.axiomcheck(2, "recursion");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        norm.check(&env, "recursion_base", &["x1 = a2(x0, x1, a0)"]);
+        norm.check(&env, "recursion_base", &["a2(x0, x1, a0) = x1"]);
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
@@ -196,11 +196,11 @@ mod tests {
         norm.check(
             &env,
             "recursion_step",
-            &["x0(a2(x0, x1, x2)) = a2(x0, x1, a1(x2))"],
+            &["a2(x0, x1, a1(x2)) = x0(a2(x0, x1, x2))"],
         );
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
-        norm.check(&env, "add_zero_right", &["x0 = a2(a1, x0, a0)"]);
+        norm.check(&env, "add_zero_right", &["a2(a1, x0, a0) = x0"]);
     }
 
     #[test]
