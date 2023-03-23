@@ -240,6 +240,7 @@ mod tests {
             r#"
         type Thing: axiom
         define t: Thing = axiom
+        define t2: Thing = axiom
         define f: Thing -> bool = axiom
         "#,
         );
@@ -279,6 +280,33 @@ mod tests {
             r#"
         axiom f_one: f(t)
         theorem goal: exists(x: Thing, f(x))
+        "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
+    #[test]
+    fn test_finds_negative_example() {
+        let mut env = thing_env();
+        env.add(
+            r#"
+        axiom not_f(x: Thing): !f(x)
+        theorem goal: !f(t)
+        "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
+    // #[test]
+    #[allow(dead_code)]
+    fn test_extends_equality() {
+        let mut env = thing_env();
+        env.add(
+            r#"
+            axiom t_eq_t2: t = t2
+            theorem goal: f(t) = f(t2) 
         "#,
         );
         let mut prover = Prover::new(&env);
