@@ -94,23 +94,36 @@ impl Prover<'_> {
         None
     }
 
+    // Check whether term = valuation for all values of the universally quantified variables.
     // Meaning of the return value:
-    // Some(true): term is true
-    // Some(false): !term is true
-    // None: we don't know anything
-    fn evaluate_term(&self, term: &Term) -> Option<bool> {
+    // Some(true): term = evaluation always
+    // Some(false): there is some counterexample where term != evaluation
+    // None: we don't know
+    fn evaluate_term(&self, term: &Term, evaluation: bool) -> Option<bool> {
         for clause in &self.active {
             if clause.literals.len() != 1 {
                 continue;
             }
-            let (known_term, answer) = match &clause.literals[0] {
-                Literal::Positive(t) => (t, Some(true)),
-                Literal::Negative(t) => (t, Some(false)),
+            let (sign, known_term) = match &clause.literals[0] {
+                Literal::Positive(t) => (true, t),
+                Literal::Negative(t) => (false, t),
                 _ => continue,
             };
-            let mut sub = Substitution::new();
-            if sub.identify_terms(known_term, term) {
-                return answer;
+            if sign == evaluation {
+                // Signs match.
+                // If this term is a generalization of the known term, then term = evaluation.
+                let mut sub = Substitution::new();
+                if sub.identify_terms(term, known_term) {
+                    return Some(true);
+                }
+            } else {
+                // Signs don't match.
+                // If these terms can unify, this is a counterexample.
+                // Note that this depends on the fact that every type is occupied.
+                let mut sub = Substitution::new();
+                if sub.unify_terms(term, known_term, clause.universal.len()) {
+                    return Some(false);
+                }
             }
         }
         None
@@ -122,8 +135,8 @@ impl Prover<'_> {
     // None: we don't know anything
     fn evaluate_literal(&self, literal: &Literal) -> Option<bool> {
         match literal {
-            Literal::Positive(term) => self.evaluate_term(term),
-            Literal::Negative(term) => self.evaluate_term(term).map(|x| !x),
+            Literal::Positive(term) => self.evaluate_term(term, true),
+            Literal::Negative(term) => self.evaluate_term(term, false),
             Literal::Equals(left, right) => self.exact_compare(left, right),
             Literal::NotEquals(left, right) => self.exact_compare(left, right).map(|x| !x),
         }
