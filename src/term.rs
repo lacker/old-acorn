@@ -176,7 +176,7 @@ impl fmt::Display for UntypedTerm {
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Term {
     pub itype: usize,
-    pub term: UntypedTerm,
+    term: UntypedTerm,
 }
 
 impl fmt::Display for Term {
@@ -263,31 +263,6 @@ impl Term {
         Some(term)
     }
 
-    // for_subterm calls f(subindex, subterm) on each subterm of the term.
-    // The calls are in preorder.
-    // The _helper version is provided a subindex that got to this point in the term.
-    fn for_subterm_helper<F>(&self, subindex: &mut Vec<usize>, mut f: F)
-    where
-        F: FnMut(&Vec<usize>, &Term),
-    {
-        f(subindex, self);
-        if let UntypedTerm::Composite(ref subterms) = self.term {
-            for (i, subterm) in subterms.iter().enumerate() {
-                subindex.push(i);
-                subterm.for_subterm_helper(subindex, &mut f);
-                subindex.pop();
-            }
-        }
-    }
-
-    pub fn for_subterm<F>(&self, mut f: F)
-    where
-        F: FnMut(&Vec<usize>, &Term),
-    {
-        let mut subindex = vec![];
-        self.for_subterm_helper(&mut subindex, &mut f);
-    }
-
     // Make a copy of this term that shifts all of its reference ids.
     pub fn shift_references(&self, shift: usize) -> Term {
         match self.term {
@@ -307,21 +282,6 @@ impl Term {
                 }
             }
         }
-    }
-
-    pub fn set_subterm(&mut self, subindex: &[usize], value: Term) {
-        let mut term = self;
-        for i in subindex {
-            if let UntypedTerm::Composite(ref mut subterms) = term.term {
-                if *i >= subterms.len() {
-                    panic!("subindex out of bounds");
-                }
-                term = &mut subterms[*i];
-            } else {
-                panic!("subindex out of bounds");
-            }
-        }
-        *term = value;
     }
 }
 
