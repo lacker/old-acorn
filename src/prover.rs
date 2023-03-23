@@ -60,37 +60,76 @@ impl Prover<'_> {
         self.add_proposition(negated);
     }
 
-    // Checks whether we already know how to compare these two terms.
+    // Checks whether (term1 = term) = equal for all values of the universally quantified variables.
     // This only does exact comparisons, so if we already know x = y,
     // this won't find that f(x) = f(y).
     //
     // Meaning of the return value:
-    // Some(true): term1 = term2
-    // Some(false): term1 != term2
-    // None: we don't know anything
-    fn exact_compare(&self, term1: &Term, term2: &Term) -> Option<bool> {
+    // Some(true): (term1 = term2) = equal always
+    // Some(false): there is a counterexample where (term1 = term2) != equal
+    // None: we don't know
+    fn exact_compare(&self, term1: &Term, term2: &Term, equal: bool) -> Option<bool> {
+        println!("\nexact_compare {} = {}, equal = {}", term1, term2, equal);
         for clause in &self.active {
             if clause.literals.len() != 1 {
                 continue;
             }
-            let (left, right, answer) = match &clause.literals[0] {
-                Literal::NotEquals(left, right) => (left, right, Some(false)),
-                Literal::Equals(left, right) => (left, right, Some(true)),
+            let (sign, left, right) = match &clause.literals[0] {
+                Literal::NotEquals(left, right) => (false, left, right),
+                Literal::Equals(left, right) => (true, left, right),
                 _ => continue,
             };
 
-            // Check if (left, right) specializes to (term1, term2)
-            let mut sub = Substitution::new();
-            if sub.identify_terms(left, term1) && sub.identify_terms(right, term2) {
-                return answer;
-            }
+            println!("testing against {} = {}", left, right);
 
-            // Check if (left, right) specializes to (term2, term1)
-            sub = Substitution::new();
-            if sub.identify_terms(left, term2) && sub.identify_terms(right, term1) {
-                return answer;
+            if sign == equal {
+                // Signs match.
+                println!("signs match, checking specialization");
+                // Check for a proof by specialization.
+                // Check if (left, right) specializes to (term1, term2)
+                let mut sub = Substitution::new();
+                if sub.identify_terms(left, term1) && sub.identify_terms(right, term2) {
+                    return Some(true);
+                }
+
+                // Check if (left, right) specializes to (term2, term1)
+                sub = Substitution::new();
+                if sub.identify_terms(left, term2) && sub.identify_terms(right, term1) {
+                    return Some(true);
+                }
+            } else {
+                // Signs don't match.
+                println!("signs don't match, checking contradiction");
+                // Check for a contradiction.
+                // Check if (left, right) unifies to (term1, term2).
+                println!(
+                    "check if {} = {} unifies against {} = {}",
+                    left, right, term1, term2
+                );
+                // Note that "shift" is the size for left/right so we have to shift term1 and term2.
+                let shift = clause.universal.len();
+                let mut sub = Substitution::new();
+                if sub.unify_terms(left, term1, shift) && sub.unify_terms(right, term2, shift) {
+                    return Some(false);
+                }
+                println!("nope 1");
+
+                // Check if (left, right) unifies to (term2, term1).
+                println!(
+                    "check if {} = {} unifies against {} = {}",
+                    left, right, term2, term1
+                );
+                sub = Substitution::new();
+                if sub.unify_terms(left, term2, shift) {
+                    println!("left ok. sub = {}", sub);
+                    if sub.unify_terms(right, term1, shift) {
+                        return Some(false);
+                    }
+                }
+                println!("nope 2");
             }
         }
+        println!("nothing");
         None
     }
 
@@ -121,7 +160,7 @@ impl Prover<'_> {
                 // If these terms can unify, this is a counterexample.
                 // Note that this depends on the fact that every type is occupied.
                 let mut sub = Substitution::new();
-                if sub.unify_terms(term, known_term, clause.universal.len()) {
+                if sub.unify_terms(known_term, term, clause.universal.len()) {
                     return Some(false);
                 }
             }
@@ -130,15 +169,15 @@ impl Prover<'_> {
     }
 
     // Meaning of the return value:
-    // Some(true): literal is true
-    // Some(false): !literal is true
+    // Some(true): literal is true over the (implicit) universal quantifiers
+    // Some(false): literal is false, there is some counterexample
     // None: we don't know anything
     fn evaluate_literal(&self, literal: &Literal) -> Option<bool> {
         match literal {
             Literal::Positive(term) => self.evaluate_term(term, true),
             Literal::Negative(term) => self.evaluate_term(term, false),
-            Literal::Equals(left, right) => self.exact_compare(left, right),
-            Literal::NotEquals(left, right) => self.exact_compare(left, right).map(|x| !x),
+            Literal::Equals(left, right) => self.exact_compare(left, right, true),
+            Literal::NotEquals(left, right) => self.exact_compare(left, right, false),
         }
     }
 

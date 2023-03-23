@@ -409,6 +409,23 @@ pub struct Substitution {
     pub terms: Vec<Option<Term>>,
 }
 
+impl fmt::Display for Substitution {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[")?;
+        for (i, term) in self.terms.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            if let Some(t) = term {
+                write!(f, "{}", t)?;
+            } else {
+                write!(f, "_")?;
+            }
+        }
+        write!(f, "]")
+    }
+}
+
 impl Substitution {
     // Make a substitution that doesn't substitute anything.
     // We instantiate variables as needed, so we don't need to know how many there are up front.
