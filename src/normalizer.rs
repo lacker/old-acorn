@@ -153,7 +153,7 @@ impl Normalizer {
 mod tests {
     use super::*;
 
-    // #[test]
+    #[test]
     fn test_nat_normalization() {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
@@ -168,7 +168,7 @@ mod tests {
         norm.check(&env, "suc_injective", &["x0 = x1 | a1(x0) != a1(x1)"]);
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        norm.check(&env, "suc_neq_zero", &["a0 != a1(x0)"]);
+        norm.check(&env, "suc_neq_zero", &["a1(x0) != a0"]);
 
         env.add(
             "axiom induction(f: Nat -> bool):\
@@ -196,7 +196,7 @@ mod tests {
         norm.check(
             &env,
             "recursion_step",
-            &["a2(x0, x1, a1(x2)) = x0(a2(x0, x1, x2))"],
+            &["x0(a2(x0, x1, x2)) = a2(x0, x1, a1(x2))"],
         );
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");

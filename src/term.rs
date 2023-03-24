@@ -325,7 +325,7 @@ impl Term {
     // Does a total ordering, not stable under variable renaming.
     // Only run this after the partial tiebreak.
     fn total_tiebreak(&self, other: &Term) -> Ordering {
-        let head_cmp = self.head.cmp(&other.head);
+        let head_cmp = other.head.cmp(&self.head);
         if head_cmp != Ordering::Equal {
             return head_cmp;
         }
