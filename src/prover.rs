@@ -166,6 +166,9 @@ impl Prover<'_> {
             Literal::Positive(term) => self.evaluate_term(term, true),
             Literal::Negative(term) => self.evaluate_term(term, false),
             Literal::Equals(left, right) => {
+                if left == right {
+                    return Some(true);
+                }
                 if let Some((subleft, subright)) = left.matches_but_one(right) {
                     // If a = b, then that proves f(a) = f(b).
                     if self.exact_compare(subleft, subright, true, false) == Some(true) {
@@ -175,14 +178,51 @@ impl Prover<'_> {
                 self.exact_compare(left, right, true, true)
             }
             Literal::NotEquals(left, right) => {
+                if left == right {
+                    return Some(false);
+                }
                 if let Some((subleft, subright)) = left.matches_but_one(right) {
                     // If a = b, that contradicts f(a) != f(b)
-                    // TODO: this seems like it should be true for unification, not just exact comparison
+                    // TODO: this seems like it should be true for unification as well
                     if self.exact_compare(subleft, subright, true, false) == Some(true) {
                         return Some(false);
                     }
                 }
                 self.exact_compare(left, right, false, true)
+            }
+        }
+    }
+
+    fn rewrite_term(&self, term: Term) -> Term {
+        let mut answer = term;
+        loop {
+            for clause in &self.active {
+                if clause.literals.len() != 1 {
+                    continue;
+                }
+                if let Literal::Equals(left, right) = &clause.literals[0] {
+                    match answer.rewrite(left, right) {
+                        Some(new_term) => {
+                            answer = new_term;
+                            continue;
+                        }
+                        None => {}
+                    }
+                }
+            }
+            return answer;
+        }
+    }
+
+    fn rewrite_literal(&self, literal: Literal) -> Literal {
+        match literal {
+            Literal::Positive(term) => Literal::Positive(self.rewrite_term(term)),
+            Literal::Negative(term) => Literal::Negative(self.rewrite_term(term)),
+            Literal::Equals(left, right) => {
+                Literal::Equals(self.rewrite_term(left), self.rewrite_term(right))
+            }
+            Literal::NotEquals(left, right) => {
+                Literal::NotEquals(self.rewrite_term(left), self.rewrite_term(right))
             }
         }
     }
@@ -199,6 +239,7 @@ impl Prover<'_> {
         // Simplify the clause
         let mut literals = Vec::new();
         for literal in clause.literals {
+            let literal = self.rewrite_literal(literal);
             match self.evaluate_literal(&literal) {
                 Some(true) => {
                     // This clause is true, so activating it is a no-op.
