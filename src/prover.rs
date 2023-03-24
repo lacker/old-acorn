@@ -435,6 +435,10 @@ define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)
 
 theorem add_zero_right(a: Nat): add(a, 0) = a
 
+define 2: Nat = Suc(1)
+
+theorem one_plus_one: add(1, 1) = 2
+
 theorem add_zero_left(a: Nat): add(0, a) = a
 
 theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
@@ -454,5 +458,12 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("add_zero_right"), Result::Success);
+    }
+
+    #[test]
+    fn test_proving_one_plus_one() {
+        let env = nat_ac_env();
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("one_plus_one"), Result::Success);
     }
 }
