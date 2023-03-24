@@ -90,13 +90,13 @@ impl Prover<'_> {
                 // Check for a proof by specialization.
                 // Check if (left, right) specializes to (term1, term2)
                 let mut sub = Substitution::new();
-                if sub.identify_terms(left, term1) && sub.identify_terms(right, term2) {
+                if sub.match_terms(left, term1) && sub.match_terms(right, term2) {
                     return Some(true);
                 }
 
                 // Check if (left, right) specializes to (term2, term1)
                 sub = Substitution::new();
-                if sub.identify_terms(left, term2) && sub.identify_terms(right, term1) {
+                if sub.match_terms(left, term2) && sub.match_terms(right, term1) {
                     return Some(true);
                 }
             } else if find_counterexamples {
@@ -141,7 +141,7 @@ impl Prover<'_> {
                 // Signs match.
                 // If this term is a generalization of the known term, then term = evaluation.
                 let mut sub = Substitution::new();
-                if sub.identify_terms(term, known_term) {
+                if sub.match_terms(term, known_term) {
                     return Some(true);
                 }
             } else {

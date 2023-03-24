@@ -342,6 +342,33 @@ impl Term {
 
         Ordering::Equal
     }
+
+    // Once this finds a single rewrite, it stops and returns the new term.
+    pub fn rewrite(&self, find: &Term, replace: &Term) -> Option<Term> {
+        // See if this entire term matches
+        let mut sub = Substitution::new();
+        if sub.match_terms(find, self) {
+            let candidate = sub.sub_term(replace, 0);
+            if &candidate < self {
+                return Some(candidate);
+            }
+        }
+
+        for (i, arg) in self.args.iter().enumerate() {
+            if let Some(new_arg) = arg.rewrite(find, replace) {
+                let mut answer = self.clone();
+                answer.args[i] = new_arg;
+
+                // The ordering should be designed so that this is the case, but
+                // let's just make sure.
+                assert!(&answer < self);
+
+                return Some(answer);
+            }
+        }
+
+        None
+    }
 }
 
 // Literals are always boolean-valued.
@@ -574,13 +601,14 @@ impl Substitution {
         true
     }
 
-    // Updates this substitution to identify terms.
+    // Updates this substitution to match terms.
     // If this succeeds:
     //   self.sub(term1) = term2
+    // Every variable must be substituted out of term1.
     // Subsequent unification will break this constraint, but subsequent calls to identify will not.
     // TODO: is that claim true? It seems like it could fail if some sub-part of term1 gets
     // identified with something else.
-    pub fn identify_terms(&mut self, term1: &Term, term2: &Term) -> bool {
+    pub fn match_terms(&mut self, term1: &Term, term2: &Term) -> bool {
         if term1.itype != term2.itype {
             return false;
         }
@@ -594,6 +622,7 @@ impl Substitution {
             return true;
         }
 
+        // TODO: this should also work if term1.head is a reference
         if term1.head != term2.head {
             return false;
         }
@@ -605,7 +634,7 @@ impl Substitution {
         }
 
         for (arg1, arg2) in term1.args.iter().zip(term2.args.iter()) {
-            if !self.identify_terms(arg1, arg2) {
+            if !self.match_terms(arg1, arg2) {
                 return false;
             }
         }
