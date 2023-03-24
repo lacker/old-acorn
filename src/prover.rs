@@ -174,7 +174,16 @@ impl Prover<'_> {
                 }
                 self.exact_compare(left, right, true, true)
             }
-            Literal::NotEquals(left, right) => self.exact_compare(left, right, false, true),
+            Literal::NotEquals(left, right) => {
+                if let Some((subleft, subright)) = left.matches_but_one(right) {
+                    // If a = b, that contradicts f(a) != f(b)
+                    // TODO: this seems like it should be true for unification, not just exact comparison
+                    if self.exact_compare(subleft, subright, true, false) == Some(true) {
+                        return Some(false);
+                    }
+                }
+                self.exact_compare(left, right, false, true)
+            }
         }
     }
 
@@ -313,8 +322,7 @@ mod tests {
         assert_eq!(prover.prove("goal"), Result::Success);
     }
 
-    // #[test]
-    #[allow(dead_code)]
+    #[test]
     fn test_extends_equality() {
         let mut env = thing_env();
         env.add(
