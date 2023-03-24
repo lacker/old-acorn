@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt;
 
 use crate::acorn_type::AcornType;
@@ -11,13 +12,13 @@ pub enum Atom {
     // Values defined like "define 0: Nat = axiom"
     Axiomatic(usize),
 
+    // Functions created in the normalization process
+    Skolem(usize),
+
     // A Reference is a reference to a variable on the stack.
     // We drop the variable name. Instead we track the index on the stack of the binding.
     // This does mean that you must be careful when moving values between different stack environments.
     Reference(usize),
-
-    // Functions created in the normalization process
-    Skolem(usize),
 }
 
 impl fmt::Display for Atom {
@@ -42,6 +43,15 @@ impl Atom {
         match self {
             Atom::Reference(i) => Atom::Reference(i + shift),
             _ => self,
+        }
+    }
+
+    // Orders two atoms, but considers all references the same, so that the ordering
+    // is stable under variable renaming.
+    pub fn stable_partial_order(&self, other: &Atom) -> Ordering {
+        match (self, other) {
+            (Atom::Reference(_), Atom::Reference(_)) => Ordering::Equal,
+            (x, y) => x.cmp(y),
         }
     }
 }
@@ -113,5 +123,27 @@ mod tests {
     #[test]
     fn test_atom_ordering() {
         assert!(Atom::Axiomatic(0) < Atom::Axiomatic(1));
+        assert!(Atom::Axiomatic(1) < Atom::Skolem(0));
+        assert!(Atom::Skolem(1) < Atom::Reference(0));
+    }
+
+    #[test]
+    fn test_atom_stable_partial_ordering() {
+        assert_eq!(
+            Atom::Axiomatic(0).stable_partial_order(&Atom::Axiomatic(1)),
+            Ordering::Less
+        );
+        assert_eq!(
+            Atom::Axiomatic(1).stable_partial_order(&Atom::Skolem(0)),
+            Ordering::Less
+        );
+        assert_eq!(
+            Atom::Skolem(1).stable_partial_order(&Atom::Reference(0)),
+            Ordering::Less
+        );
+        assert_eq!(
+            Atom::Reference(0).stable_partial_order(&Atom::Reference(1)),
+            Ordering::Equal
+        );
     }
 }

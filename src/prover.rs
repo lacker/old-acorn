@@ -104,7 +104,7 @@ impl Prover<'_> {
                 // Check for a counterexample.
                 // Check if (left, right) unifies to (term1, term2).
                 // Note that "shift" is the size for left/right so we have to shift term1 and term2.
-                let shift = clause.universal.len();
+                let shift = clause.num_quantifiers();
                 let mut sub = Substitution::new();
                 if sub.unify_terms(left, term1, shift) && sub.unify_terms(right, term2, shift) {
                     return Some(false);
@@ -149,7 +149,7 @@ impl Prover<'_> {
                 // If these terms can unify, this is a counterexample.
                 // Note that this depends on the fact that every type is occupied.
                 let mut sub = Substitution::new();
-                if sub.unify_terms(known_term, term, clause.universal.len()) {
+                if sub.unify_terms(known_term, term, clause.num_quantifiers()) {
                     return Some(false);
                 }
             }

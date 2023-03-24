@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt;
 
 use crate::acorn_type::AcornType;
@@ -58,6 +59,8 @@ impl TermSpace {
 
     // Panics if this value cannot be converted to a literal.
     // Swaps left and right if needed, to sort.
+    // Normalizes literals to <larger> = <smaller>, because that's the logical direction
+    // to do rewrite-type lookups, on the larger literal first.
     pub fn literal_from_value(&mut self, value: AcornValue) -> Literal {
         match value {
             AcornValue::Atom(atom) => Literal::Positive(self.term_from_atom(atom)),
@@ -65,7 +68,7 @@ impl TermSpace {
             AcornValue::Equals(left, right) => {
                 let left_term = self.term_from_value(*left);
                 let right_term = self.term_from_value(*right);
-                if left_term <= right_term {
+                if left_term >= right_term {
                     Literal::Equals(left_term, right_term)
                 } else {
                     Literal::Equals(right_term, left_term)
@@ -74,7 +77,7 @@ impl TermSpace {
             AcornValue::NotEquals(left, right) => {
                 let left_term = self.term_from_value(*left);
                 let right_term = self.term_from_value(*right);
-                if left_term <= right_term {
+                if left_term >= right_term {
                     Literal::NotEquals(left_term, right_term)
                 } else {
                     Literal::NotEquals(right_term, left_term)
@@ -138,7 +141,7 @@ impl TermSpace {
 }
 
 // A term with no args is a plain atom.
-#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Term {
     pub itype: usize,
     head: Atom,
@@ -159,6 +162,33 @@ impl fmt::Display for Term {
             write!(f, ")")?;
         }
         Ok(())
+    }
+}
+
+impl PartialOrd for Term {
+    fn partial_cmp(&self, other: &Term) -> Option<Ordering> {
+        let atom_cmp = self.atom_weight().cmp(&other.atom_weight());
+        if atom_cmp != Ordering::Equal {
+            return Some(atom_cmp);
+        }
+
+        let var_cmp = self.var_weight().cmp(&other.var_weight());
+        if var_cmp != Ordering::Equal {
+            return Some(var_cmp);
+        }
+
+        let tiebreak = self.partial_tiebreak(other);
+        if tiebreak != Ordering::Equal {
+            return Some(tiebreak);
+        }
+
+        Some(self.total_tiebreak(other))
+    }
+}
+
+impl Ord for Term {
+    fn cmp(&self, other: &Term) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 
@@ -245,6 +275,73 @@ impl Term {
         }
         answer
     }
+
+    // Total number of atoms in this term, including the head.
+    fn atom_weight(&self) -> u32 {
+        let mut answer = 1;
+        for arg in &self.args {
+            answer += arg.atom_weight();
+        }
+        answer
+    }
+
+    // Total number of occurrences of variables in this term, including the head.
+    fn var_weight(&self) -> u32 {
+        let mut answer = 0;
+        if let Atom::Reference(_) = self.head {
+            answer += 1;
+        }
+        for arg in &self.args {
+            answer += arg.var_weight();
+        }
+        answer
+    }
+
+    // Does a partial ordering that is stable under variable renaming.
+    // This is less good than using a weight, so just use it as a tiebreak.
+    fn partial_tiebreak(&self, other: &Term) -> Ordering {
+        let head_cmp = self.head.stable_partial_order(&other.head);
+        if head_cmp != Ordering::Equal {
+            return head_cmp;
+        }
+
+        // I feel like a top-level function with more arguments is more "flattened",
+        // and thus simpler.
+        let len_cmp = other.args.len().cmp(&self.args.len());
+        if len_cmp != Ordering::Equal {
+            return len_cmp;
+        }
+
+        for (arg1, arg2) in self.args.iter().zip(other.args.iter()) {
+            let arg_cmp = arg1.partial_tiebreak(arg2);
+            if arg_cmp != Ordering::Equal {
+                return arg_cmp;
+            }
+        }
+
+        Ordering::Equal
+    }
+
+    // Does a total ordering, not stable under variable renaming.
+    // Only run this after the partial tiebreak.
+    fn total_tiebreak(&self, other: &Term) -> Ordering {
+        let head_cmp = self.head.cmp(&other.head);
+        if head_cmp != Ordering::Equal {
+            return head_cmp;
+        }
+
+        // The partial tiebreak should have caught this
+        assert!(self.args.len() == other.args.len());
+
+        for (arg1, arg2) in self.args.iter().zip(other.args.iter()) {
+            let arg_cmp = arg1.cmp(arg2);
+            if arg_cmp != Ordering::Equal {
+                return arg_cmp;
+            }
+        }
+
+        Ordering::Equal
+    }
 }
 
 // Literals are always boolean-valued.
@@ -323,6 +420,10 @@ impl Clause {
             universal: universal.clone(),
             literals,
         }
+    }
+
+    pub fn num_quantifiers(&self) -> usize {
+        self.universal.len()
     }
 }
 
