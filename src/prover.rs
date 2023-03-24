@@ -306,6 +306,7 @@ mod tests {
         define t: Thing = axiom
         define t2: Thing = axiom
         define f: Thing -> bool = axiom
+        define g: (Thing, Thing) -> Thing = axiom
         "#,
         );
         env
@@ -374,6 +375,34 @@ mod tests {
         );
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
+    #[test]
+    fn test_rewriting() {
+        let mut env = thing_env();
+        env.add(
+            r#"
+        axiom f_t: f(t)
+        axiom g_id(x: Thing): g(x, x) = x
+        theorem goal: f(g(t, t))
+        "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
+    #[test]
+    fn test_rewrites_can_fail() {
+        let mut env = thing_env();
+        env.add(
+            r#"
+        axiom f_t: f(t)
+        axiom g_id(x: Thing): g(x, x) = x
+        theorem goal: f(g(t, t2))
+        "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Failure);
     }
 
     fn nat_ac_env() -> Environment {
