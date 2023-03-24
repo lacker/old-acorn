@@ -225,6 +225,26 @@ impl Term {
                 .collect(),
         }
     }
+
+    // If these two terms differ in only one subterm, return references to those subterms.
+    pub fn matches_but_one<'a, 'b>(&'a self, other: &'b Term) -> Option<(&'a Term, &'b Term)> {
+        if self.head != other.head {
+            return None;
+        }
+        if self.args.len() != other.args.len() {
+            return None;
+        }
+        let mut answer = None;
+        for (arg1, arg2) in self.args.iter().zip(other.args.iter()) {
+            if arg1 != arg2 {
+                if answer.is_some() {
+                    return None;
+                }
+                answer = Some((arg1, arg2));
+            }
+        }
+        answer
+    }
 }
 
 // Literals are always boolean-valued.

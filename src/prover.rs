@@ -68,7 +68,13 @@ impl Prover<'_> {
     // Some(true): (term1 = term2) = equal always
     // Some(false): there is a counterexample where (term1 = term2) != equal
     // None: we don't know
-    fn exact_compare(&self, term1: &Term, term2: &Term, equal: bool) -> Option<bool> {
+    fn exact_compare(
+        &self,
+        term1: &Term,
+        term2: &Term,
+        equal: bool,
+        find_counterexamples: bool,
+    ) -> Option<bool> {
         for clause in &self.active {
             if clause.literals.len() != 1 {
                 continue;
@@ -93,9 +99,9 @@ impl Prover<'_> {
                 if sub.identify_terms(left, term2) && sub.identify_terms(right, term1) {
                     return Some(true);
                 }
-            } else {
+            } else if find_counterexamples {
                 // Signs don't match.
-                // Check for a contradiction.
+                // Check for a counterexample.
                 // Check if (left, right) unifies to (term1, term2).
                 // Note that "shift" is the size for left/right so we have to shift term1 and term2.
                 let shift = clause.universal.len();
@@ -159,8 +165,16 @@ impl Prover<'_> {
         match literal {
             Literal::Positive(term) => self.evaluate_term(term, true),
             Literal::Negative(term) => self.evaluate_term(term, false),
-            Literal::Equals(left, right) => self.exact_compare(left, right, true),
-            Literal::NotEquals(left, right) => self.exact_compare(left, right, false),
+            Literal::Equals(left, right) => {
+                if let Some((subleft, subright)) = left.matches_but_one(right) {
+                    // If a = b, then that proves f(a) = f(b).
+                    if self.exact_compare(subleft, subright, true, false) == Some(true) {
+                        return Some(true);
+                    }
+                }
+                self.exact_compare(left, right, true, true)
+            }
+            Literal::NotEquals(left, right) => self.exact_compare(left, right, false, true),
         }
     }
 
