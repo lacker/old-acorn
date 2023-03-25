@@ -405,6 +405,20 @@ mod tests {
         assert_eq!(prover.prove("goal"), Result::Failure);
     }
 
+    #[test]
+    fn test_negative_rewriting() {
+        let mut env = thing_env();
+        env.add(
+            r#"
+            axiom not_f_t: !f(t)
+            axiom g_id(x: Thing): g(x, x) = x
+            theorem goal: !f(g(t, t))
+        "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
     fn nat_ac_env() -> Environment {
         let mut env = Environment::new();
         env.add(
