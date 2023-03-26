@@ -32,6 +32,18 @@ impl fmt::Display for Atom {
 }
 
 impl Atom {
+    pub fn from_string(s: &str) -> Atom {
+        let mut chars = s.chars();
+        let first = chars.next().unwrap();
+        let rest = chars.as_str();
+        match first {
+            'a' => Atom::Axiomatic(rest.parse().unwrap()),
+            's' => Atom::Skolem(rest.parse().unwrap()),
+            'x' => Atom::Reference(rest.parse().unwrap()),
+            _ => panic!("Invalid atom string: {}", s),
+        }
+    }
+
     pub fn is_axiomatic(&self) -> bool {
         match self {
             Atom::Axiomatic(_) => true,
