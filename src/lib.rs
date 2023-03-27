@@ -6,5 +6,6 @@ pub mod expression;
 pub mod normalizer;
 pub mod prover;
 pub mod statement;
+pub mod substitution;
 pub mod term;
 pub mod token;
