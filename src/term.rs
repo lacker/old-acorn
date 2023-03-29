@@ -58,6 +58,57 @@ impl Ord for Term {
 }
 
 impl Term {
+    // This creates an untyped term, good for testing but not for real use.
+    // For example, this parses
+    //   a0(a1, a2(x0, x1))
+    // into a term with head a0 and args [a1, a2(x0, x1)].
+    pub fn parse(s: &str) -> Term {
+        let first_paren = match s.find('(') {
+            Some(i) => i,
+            None => {
+                return Term {
+                    itype: 0,
+                    head: Atom::from_string(s),
+                    args: vec![],
+                };
+            }
+        };
+
+        // Figure out which commas are inside precisely one level of parentheses.
+        let mut comma_indices = vec![];
+        let mut num_parens = 0;
+        for (i, c) in s.chars().enumerate() {
+            match c {
+                '(' => num_parens += 1,
+                ')' => num_parens -= 1,
+                ',' => {
+                    if num_parens == 1 {
+                        comma_indices.push(i);
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        // Split the string into the head and the args.
+        let head = &s[0..first_paren];
+        let mut args = vec![];
+        for (i, comma_index) in comma_indices.iter().enumerate() {
+            let start = if i == 0 {
+                first_paren + 1
+            } else {
+                comma_indices[i - 1] + 1
+            };
+            args.push(Term::parse(&s[start..*comma_index]));
+        }
+
+        Term {
+            itype: 0,
+            head: Atom::from_string(head),
+            args,
+        }
+    }
+
     // Whether this term contains a reference with this index, anywhere in its body, recursively.
     pub fn has_reference(&self, index: usize) -> bool {
         if let Atom::Reference(i) = self.head {
@@ -316,5 +367,16 @@ impl Clause {
 
     pub fn num_quantifiers(&self) -> usize {
         self.universal.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_term_ordering() {
+        assert!(Term::parse("a0") < Term::parse("a1"));
+        assert!(Term::parse("a2") > Term::parse("a0(a1)"));
     }
 }
