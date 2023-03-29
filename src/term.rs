@@ -6,14 +6,17 @@ use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, TypedAtom};
 use crate::substitution::Substitution;
 
-// A TermSpace contains information about a set of terms.
-pub struct TermSpace {
+// A TypeSpace lets us represent types uniquely as unsigned integers.
+// Zero always means "any", which is a type we try to avoid, but it's handy for testing.
+pub struct TypeSpace {
     types: Vec<AcornType>,
 }
 
-impl TermSpace {
-    pub fn new() -> TermSpace {
-        TermSpace { types: vec![] }
+impl TypeSpace {
+    pub fn new() -> TypeSpace {
+        TypeSpace {
+            types: vec![AcornType::Any],
+        }
     }
 
     // Returns the index of the type, or "itype".

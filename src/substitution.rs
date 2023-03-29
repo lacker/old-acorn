@@ -193,13 +193,13 @@ impl Substitution {
 
 #[cfg(test)]
 mod tests {
-    use crate::term::TermSpace;
+    use crate::term::TypeSpace;
 
     use super::*;
 
     #[test]
     fn test_unify_reference() {
-        let mut s = TermSpace::new();
+        let mut s = TypeSpace::new();
         let bool0 = s.bref(0);
         let bool1 = s.bref(1);
         let fterm = s.bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_unify_terms() {
-        let mut s = TermSpace::new();
+        let mut s = TypeSpace::new();
         let bool0 = s.bref(0);
         let bool1 = s.bref(1);
         let bool2 = s.bref(2);

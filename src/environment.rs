@@ -149,6 +149,7 @@ impl Environment {
             }
             AcornType::ArgList(types) => self.type_list_str(types),
             AcornType::Macro => "macro".to_string(),
+            AcornType::Any => "any".to_string(),
         }
     }
 

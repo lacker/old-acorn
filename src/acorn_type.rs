@@ -16,6 +16,7 @@ pub enum AcornType {
     Function(FunctionType),
     ArgList(Vec<AcornType>),
     Macro,
+    Any,
 }
 
 impl AcornType {
@@ -70,6 +71,7 @@ impl fmt::Display for AcornType {
                 write!(f, "({})", AcornType::vec_to_str(arg_types))
             }
             AcornType::Macro => write!(f, "macro"),
+            AcornType::Any => write!(f, "any"),
         }
     }
 }

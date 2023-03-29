@@ -2,20 +2,20 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, TypedAtom};
 use crate::environment::Environment;
-use crate::term::{Clause, TermSpace};
+use crate::term::{Clause, TypeSpace};
 
 pub struct Normalizer {
     // Types of the skolem functions produced
     skolem_types: Vec<FunctionType>,
 
-    termspace: TermSpace,
+    typespace: TypeSpace,
 }
 
 impl Normalizer {
     pub fn new() -> Normalizer {
         Normalizer {
             skolem_types: vec![],
-            termspace: TermSpace::new(),
+            typespace: TypeSpace::new(),
         }
     }
 
@@ -118,7 +118,7 @@ impl Normalizer {
         let dequantified = skolemized.remove_forall(&mut universal);
         // println!("universal: {}", AcornType::vec_to_str(&universal));
         let mut literal_lists = vec![];
-        self.termspace.into_cnf(dequantified, &mut literal_lists);
+        self.typespace.into_cnf(dequantified, &mut literal_lists);
 
         let mut clauses = vec![];
         for literals in literal_lists {
