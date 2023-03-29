@@ -30,16 +30,13 @@ impl fmt::Display for Term {
     }
 }
 
+// The comparison for terms is an extension of the Knuth-Bendix ordering.
+// This comparison is total, whereas the KBO is not.
 impl PartialOrd for Term {
     fn partial_cmp(&self, other: &Term) -> Option<Ordering> {
-        let atom_cmp = self.atom_weight().cmp(&other.atom_weight());
-        if atom_cmp != Ordering::Equal {
-            return Some(atom_cmp);
-        }
-
-        let var_cmp = self.var_weight().cmp(&other.var_weight());
-        if var_cmp != Ordering::Equal {
-            return Some(var_cmp);
+        let kbo_cmp = self.kbo_helper(other, false);
+        if kbo_cmp != Ordering::Equal {
+            return Some(kbo_cmp);
         }
 
         let tiebreak = self.partial_tiebreak(other);
@@ -55,6 +52,20 @@ impl Ord for Term {
     fn cmp(&self, other: &Term) -> Ordering {
         self.partial_cmp(other).unwrap()
     }
+}
+
+// Returns true if a[i] >= b[i] for all i, defaulting to zero.
+// Can be assumed the last element of each array is not zero.
+fn dominates(a: &Vec<u8>, b: &Vec<u8>) -> bool {
+    if b.len() > a.len() {
+        return false;
+    }
+    for i in 0..b.len() {
+        if a[i] < b[i] {
+            return false;
+        }
+    }
+    true
 }
 
 impl Term {
@@ -75,15 +86,20 @@ impl Term {
         };
 
         // Figure out which commas are inside precisely one level of parentheses.
-        let mut comma_indices = vec![];
+        let mut terminator_indices = vec![];
         let mut num_parens = 0;
         for (i, c) in s.chars().enumerate() {
             match c {
                 '(' => num_parens += 1,
-                ')' => num_parens -= 1,
+                ')' => {
+                    num_parens -= 1;
+                    if num_parens == 0 {
+                        terminator_indices.push(i);
+                    }
+                }
                 ',' => {
                     if num_parens == 1 {
-                        comma_indices.push(i);
+                        terminator_indices.push(i);
                     }
                 }
                 _ => (),
@@ -93,11 +109,11 @@ impl Term {
         // Split the string into the head and the args.
         let head = &s[0..first_paren];
         let mut args = vec![];
-        for (i, comma_index) in comma_indices.iter().enumerate() {
+        for (i, comma_index) in terminator_indices.iter().enumerate() {
             let start = if i == 0 {
                 first_paren + 1
             } else {
-                comma_indices[i - 1] + 1
+                terminator_indices[i - 1] + 1
             };
             args.push(Term::parse(&s[start..*comma_index]));
         }
@@ -192,25 +208,74 @@ impl Term {
         answer
     }
 
-    // Total number of atoms in this term, including the head.
-    fn atom_weight(&self) -> u32 {
-        let mut answer = 1;
-        for arg in &self.args {
-            answer += arg.atom_weight();
+    // The first return value is the number of non-variable atoms in the term.
+    // The second return value gives each atom a different weight according to its index.
+    // These are meant to be used in tiebreak fashion, and should distinguish most
+    // distinguishable terms.
+    // refcounts adds up the number of references to each variable.
+    fn multi_weight(&self, refcounts: &mut Vec<u8>) -> (u32, u32) {
+        let mut weight1 = 0;
+        let mut weight2 = 0;
+        match self.head {
+            Atom::Reference(i) => {
+                while refcounts.len() <= i {
+                    refcounts.push(0);
+                }
+                refcounts[i] += 1;
+            }
+            Atom::Axiomatic(i) => {
+                weight1 += 1;
+                weight2 += 2 * i as u32;
+            }
+            Atom::Skolem(i) => {
+                weight1 += 1;
+                weight2 += 1 + 2 * i as u32;
+            }
         }
-        answer
+        for arg in &self.args {
+            let (w1, w2) = arg.multi_weight(refcounts);
+            weight1 += w1;
+            weight2 += w2;
+        }
+        (weight1, weight2)
     }
 
-    // Total number of occurrences of variables in this term, including the head.
-    fn var_weight(&self) -> u32 {
-        let mut answer = 0;
-        if let Atom::Reference(_) = self.head {
-            answer += 1;
+    // A "reduction order" is stable under variable substitution.
+    // This implements a Knuth-Bendix reduction ordering.
+    // Returns Greater if we should rewrite self -> other.
+    // Returns Less if we should rewrite other -> self.
+    // Returns Equal if they cannot be placed in a reduction order.
+    pub fn kbo(&self, other: &Term) -> Ordering {
+        self.kbo_helper(other, true)
+    }
+
+    // Lets you extend the KBO ordering to skip the domination check.
+    fn kbo_helper(&self, other: &Term, check_domination: bool) -> Ordering {
+        let mut self_refcounts = vec![];
+        let (self_weight1, self_weight2) = self.multi_weight(&mut self_refcounts);
+
+        let mut other_refcounts = vec![];
+        let (other_weight1, other_weight2) = other.multi_weight(&mut other_refcounts);
+
+        if self_weight1 > other_weight1
+            || self_weight1 == other_weight1 && self_weight2 > other_weight2
+        {
+            if !check_domination || dominates(&self_refcounts, &other_refcounts) {
+                return Ordering::Greater;
+            }
+            return Ordering::Equal;
         }
-        for arg in &self.args {
-            answer += arg.var_weight();
+
+        if self_weight1 < other_weight1
+            || self_weight1 == other_weight1 && self_weight2 < other_weight2
+        {
+            if !check_domination || dominates(&other_refcounts, &self_refcounts) {
+                return Ordering::Less;
+            }
+            return Ordering::Equal;
         }
-        answer
+
+        Ordering::Equal
     }
 
     // Does a partial ordering that is stable under variable renaming.
@@ -288,11 +353,11 @@ impl Term {
 }
 
 // Literals are always boolean-valued.
-#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Literal {
     Positive(Term),
-    Negative(Term),
     Equals(Term, Term),
+    Negative(Term),
     NotEquals(Term, Term),
 }
 
@@ -358,6 +423,7 @@ impl Clause {
             .filter(|x| !x.is_impossible())
             .collect::<Vec<_>>();
         literals.sort();
+        literals.reverse();
         literals.dedup();
         Clause {
             universal: universal.clone(),
@@ -377,6 +443,7 @@ mod tests {
     #[test]
     fn test_term_ordering() {
         assert!(Term::parse("a0") < Term::parse("a1"));
-        assert!(Term::parse("a2") > Term::parse("a0(a1)"));
+        assert!(Term::parse("a2") < Term::parse("a0(a1)"));
+        assert!(Term::parse("x0(x1)") < Term::parse("x0(s0(x0))"));
     }
 }

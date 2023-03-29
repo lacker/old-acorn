@@ -155,6 +155,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(dead_code)]
     fn test_nat_normalization() {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
@@ -166,7 +167,7 @@ mod tests {
         env.add("define 1: Nat = Suc(0)");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
-        norm.check(&env, "suc_injective", &["x0 = x1 | a1(x0) != a1(x1)"]);
+        norm.check(&env, "suc_injective", &["a1(x0) != a1(x1) | x0 = x1"]);
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         norm.check(&env, "suc_neq_zero", &["a1(x0) != a0"]);
@@ -179,8 +180,8 @@ mod tests {
             &env,
             "induction",
             &[
-                "x0(x1) | x0(s0(x0)) | !x0(a0)",
-                "x0(x1) | !x0(a0) | !x0(a1(s0(x0)))",
+                "!x0(a0) | x0(s0(x0)) | x0(x1)",
+                "!x0(a1(s0(x0))) | !x0(a0) | x0(x1)",
             ],
         );
 
@@ -197,7 +198,7 @@ mod tests {
         norm.check(
             &env,
             "recursion_step",
-            &["x0(a2(x0, x1, x2)) = a2(x0, x1, a1(x2))"],
+            &["a2(x0, x1, a1(x2)) = x0(a2(x0, x1, x2))"],
         );
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
@@ -209,10 +210,10 @@ mod tests {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
         env.add("theorem one(a: bool): a -> a | (a | a)");
-        norm.check(&env, "one", &["x0 | !x0"]);
+        norm.check(&env, "one", &["!x0 | x0"]);
 
         env.add("theorem two(a: bool): a -> a & (a & a)");
-        norm.check(&env, "two", &["x0 | !x0", "x0 | !x0", "x0 | !x0"]);
+        norm.check(&env, "two", &["!x0 | x0", "!x0 | x0", "!x0 | x0"]);
     }
 
     #[test]
