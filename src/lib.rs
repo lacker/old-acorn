@@ -9,3 +9,4 @@ pub mod statement;
 pub mod substitution;
 pub mod term;
 pub mod token;
+pub mod type_space;

@@ -193,7 +193,7 @@ impl Substitution {
 
 #[cfg(test)]
 mod tests {
-    use crate::term::TypeSpace;
+    use crate::type_space::TypeSpace;
 
     use super::*;
 

@@ -2,7 +2,8 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, TypedAtom};
 use crate::environment::Environment;
-use crate::term::{Clause, TypeSpace};
+use crate::term::Clause;
+use crate::type_space::TypeSpace;
 
 pub struct Normalizer {
     // Types of the skolem functions produced
