@@ -1,9 +1,7 @@
-use crate::{
-    acorn_type::AcornType,
-    acorn_value::{AcornValue, FunctionApplication},
-    atom::{Atom, TypedAtom},
-    term::{Literal, Term},
-};
+use crate::acorn_type::AcornType;
+use crate::acorn_value::{AcornValue, FunctionApplication};
+use crate::atom::{Atom, TypedAtom};
+use crate::term::{Literal, Term};
 
 // A TypeSpace lets us represent types uniquely as unsigned integers.
 // Zero always means "any", which is a type we try to avoid, but it's handy for testing.

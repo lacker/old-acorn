@@ -1,13 +1,12 @@
-use std::cmp::Ordering;
-use std::fmt;
-
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
+use std::cmp::Ordering;
+use std::fmt;
 
 // An atomic value is one that we don't want to expand inline.
 // We could add more things here, like defined constants.
 // For now, we expand everything we can inline.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Atom {
     // Values defined like "define 0: Nat = axiom"
     Axiomatic(usize),
@@ -32,7 +31,7 @@ impl fmt::Display for Atom {
 }
 
 impl Atom {
-    pub fn from_string(s: &str) -> Atom {
+    pub fn new(s: &str) -> Atom {
         let mut chars = s.chars();
         let first = chars.next().unwrap();
         let rest = chars.as_str();

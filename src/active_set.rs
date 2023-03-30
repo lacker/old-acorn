@@ -1,12 +1,13 @@
-use std::fmt;
-
 use crate::atom::Atom;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 
 type TermId = u32;
 
-// The TermInfo struct is the data we store for each term.
-#[derive(Debug)]
-pub struct TermInfo {
+// The ActiveTerm contains enough information to uniquely determine the term.
+// Two matching ActiveTerm will be given the same TermId.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ActiveTerm {
     pub itype: usize,
     pub head: Atom,
     pub args: Vec<TermId>,
@@ -18,60 +19,37 @@ pub struct TermInfo {
 // additional data as needed.
 pub struct ActiveSet {
     // None should only exist at index 0 and indicates the special term, True
-    terms: Vec<Option<TermInfo>>,
-}
+    terms: Vec<Option<ActiveTerm>>,
 
-// The ActiveTerm is a wrapper that contains some information for a term.
-// I'm not entirely sure this is the right entity to use.
-pub struct ActiveTerm<'a> {
-    pub active_set: &'a ActiveSet,
-    pub id: TermId,
-
-    // info is "None" for the special term "true"
-    pub info: Option<&'a TermInfo>,
+    // Used to make sure each term is only stored once
+    id_for_term: HashMap<ActiveTerm, TermId>,
 }
 
 impl ActiveSet {
     pub fn new() -> ActiveSet {
-        ActiveSet { terms: vec![None] }
-    }
-
-    pub fn get_true(&self) -> ActiveTerm {
-        ActiveTerm {
-            active_set: self,
-            id: 0,
-            info: None,
+        ActiveSet {
+            terms: vec![None],
+            id_for_term: HashMap::new(),
         }
     }
 
     // Panics if the id is bad
-    pub fn get_term(&self, term_id: TermId) -> ActiveTerm {
-        ActiveTerm {
-            active_set: self,
-            id: term_id,
-            info: self.terms[term_id as usize].as_ref(),
+    pub fn get_term(&self, term_id: TermId) -> Option<&ActiveTerm> {
+        self.terms[term_id as usize].as_ref()
+    }
+
+    pub fn add_term(&mut self, term: ActiveTerm) -> TermId {
+        match self.id_for_term.entry(term) {
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => {
+                // We need to clone the key, because one goes in terms, one goes in id_for_term
+                let term_clone = entry.key().clone();
+                let new_id = self.terms.len() as TermId;
+                entry.insert(new_id);
+                self.terms.push(Some(term_clone));
+                new_id
+            }
         }
-    }
-}
-
-impl ActiveTerm<'_> {
-    pub fn is_true(&self) -> bool {
-        self.id == 0
-    }
-}
-
-impl PartialEq for ActiveTerm<'_> {
-    // This can compare terms from different active sets as equal, so, don't do that.
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for ActiveTerm<'_> {}
-
-impl fmt::Debug for ActiveTerm<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "term({}, {:?})", self.id, self.info)
     }
 }
 
@@ -81,9 +59,18 @@ mod tests {
 
     #[test]
     fn test_get_term() {
-        let set = ActiveSet::new();
+        let mut set = ActiveSet::new();
         let term_zero = set.get_term(0);
-        assert!(term_zero.is_true());
-        assert_eq!(term_zero, set.get_true());
+        assert!(term_zero.is_none());
+
+        let key1 = ActiveTerm {
+            itype: 0,
+            head: Atom::new("a0"),
+            args: vec![],
+        };
+        let key2 = key1.clone();
+        let id1 = set.add_term(key1);
+        let id2 = set.add_term(key2);
+        assert_eq!(id1, id2);
     }
 }

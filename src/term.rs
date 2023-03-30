@@ -1,9 +1,8 @@
-use std::cmp::Ordering;
-use std::fmt;
-
 use crate::acorn_type::AcornType;
 use crate::atom::Atom;
 use crate::substitution::Substitution;
+use std::cmp::Ordering;
+use std::fmt;
 
 // A term with no args is a plain atom.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -79,7 +78,7 @@ impl Term {
             None => {
                 return Term {
                     itype: 0,
-                    head: Atom::from_string(s),
+                    head: Atom::new(s),
                     args: vec![],
                 };
             }
@@ -120,7 +119,7 @@ impl Term {
 
         Term {
             itype: 0,
-            head: Atom::from_string(head),
+            head: Atom::new(head),
             args,
         }
     }
