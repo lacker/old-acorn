@@ -3,7 +3,9 @@ use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, TypedAtom};
 use crate::term::{Literal, Term};
 
-// A TypeSpace lets us represent types uniquely as unsigned integers.
+pub type TypeId = u16;
+
+// A TypeSpace lets us represent types uniquely as TypeIds.
 // Zero always means "any", which is a type we try to avoid, but it's handy for testing.
 pub struct TypeSpace {
     types: Vec<AcornType>,
@@ -16,15 +18,15 @@ impl TypeSpace {
         }
     }
 
-    // Returns the index of the type, or "itype".
-    pub fn add_type(&mut self, acorn_type: AcornType) -> usize {
+    // Returns the id for the new type.
+    pub fn add_type(&mut self, acorn_type: AcornType) -> TypeId {
         for (i, t) in self.types.iter().enumerate() {
             if t == &acorn_type {
-                return i;
+                return i as TypeId;
             }
         }
         self.types.push(acorn_type);
-        self.types.len() - 1
+        (self.types.len() - 1).try_into().unwrap()
     }
 
     // Constructs a new term from an atom

@@ -1,4 +1,5 @@
 use crate::atom::Atom;
+use crate::type_space::TypeId;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
@@ -8,7 +9,8 @@ type TermId = u32;
 // Two matching ActiveTerm will be given the same TermId.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ActiveTerm {
-    pub itype: usize,
+    pub term_type: TypeId,
+    pub head_type: TypeId,
     pub head: Atom,
     pub args: Vec<TermId>,
 }
@@ -64,7 +66,8 @@ mod tests {
         assert!(term_zero.is_none());
 
         let key1 = ActiveTerm {
-            itype: 0,
+            head_type: 0,
+            term_type: 0,
             head: Atom::new("a0"),
             args: vec![],
         };

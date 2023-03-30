@@ -1,13 +1,14 @@
 use crate::acorn_type::AcornType;
 use crate::atom::Atom;
 use crate::substitution::Substitution;
+use crate::type_space::TypeId;
 use std::cmp::Ordering;
 use std::fmt;
 
 // A term with no args is a plain atom.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Term {
-    pub itype: usize,
+    pub itype: TypeId,
     pub head: Atom,
     pub args: Vec<Term>,
 }
