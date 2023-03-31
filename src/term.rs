@@ -134,36 +134,36 @@ impl Term {
         }
     }
 
-    // Whether this term contains a reference with this index, anywhere in its body, recursively.
-    pub fn has_reference(&self, index: AtomId) -> bool {
-        if let Atom::Reference(i) = self.head {
+    // Whether this term contains a variable with this index, anywhere in its body, recursively.
+    pub fn variable(&self, index: AtomId) -> bool {
+        if let Atom::Variable(i) = self.head {
             if i == index {
                 return true;
             }
         }
         for arg in &self.args {
-            if arg.has_reference(index) {
+            if arg.variable(index) {
                 return true;
             }
         }
         false
     }
 
-    // If this term is a reference to the given index, return that index.
-    pub fn atomic_reference(&self) -> Option<AtomId> {
+    // If this term is a variable with the given index, return that index.
+    pub fn atomic_variable(&self) -> Option<AtomId> {
         if self.args.len() > 0 {
             return None;
         }
         match self.head {
-            Atom::Reference(i) => Some(i),
+            Atom::Variable(i) => Some(i),
             _ => None,
         }
     }
 
-    // value should have no references to index
-    pub fn replace_reference(&self, index: AtomId, value: &Term) -> Term {
+    // value should have no instances of this variable.
+    pub fn replace_variable(&self, index: AtomId, value: &Term) -> Term {
         // Start with just the head (but keep the type_id correct for the answer)
-        let mut answer = if self.head == Atom::Reference(index) {
+        let mut answer = if self.head == Atom::Variable(index) {
             Term {
                 term_type: self.term_type,
                 head_type: value.head_type,
@@ -180,22 +180,22 @@ impl Term {
         };
 
         for arg in &self.args {
-            answer.args.push(arg.replace_reference(index, value));
+            answer.args.push(arg.replace_variable(index, value));
         }
 
         answer
     }
 
-    // Make a copy of this term that shifts all of its reference ids.
-    pub fn shift_references(&self, shift: AtomId) -> Term {
+    // Make a copy of this term that shifts all of its variable ids.
+    pub fn shift_variables(&self, shift: AtomId) -> Term {
         Term {
             term_type: self.term_type,
             head_type: self.head_type,
-            head: self.head.shift_references(shift),
+            head: self.head.shift_variables(shift),
             args: self
                 .args
                 .iter()
-                .map(|arg| arg.shift_references(shift))
+                .map(|arg| arg.shift_variables(shift))
                 .collect(),
         }
     }
@@ -229,7 +229,7 @@ impl Term {
         let mut weight1 = 0;
         let mut weight2 = 0;
         match self.head {
-            Atom::Reference(i) => {
+            Atom::Variable(i) => {
                 while refcounts.len() <= i as usize {
                     refcounts.push(0);
                 }
@@ -395,7 +395,7 @@ impl Term {
     // Returns the fingerprint component just for the head of this term
     fn fingerprint_component(&self) -> FingerprintComponent {
         match &self.head {
-            Atom::Reference(_) => FingerprintComponent::Variable(self.head_type),
+            Atom::Variable(_) => FingerprintComponent::Variable(self.head_type),
             a => FingerprintComponent::Constant(self.head_type, *a),
         }
     }

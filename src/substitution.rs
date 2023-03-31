@@ -42,7 +42,7 @@ impl Substitution {
     // Returns the term that this atom refers to, if there is any.
     fn dereference(&self, atom: &Atom, shift: AtomId) -> Option<&Term> {
         match atom {
-            Atom::Reference(i) => self.get_term(*i + shift),
+            Atom::Variable(i) => self.get_term(*i + shift),
             _ => None,
         }
     }
@@ -89,7 +89,7 @@ impl Substitution {
             return self.unify_terms(&existing_term.clone(), term, shift);
         }
 
-        if let Some(i) = term.atomic_reference() {
+        if let Some(i) = term.atomic_variable() {
             if index == i + shift {
                 // References unify with themselves without any update needed
                 return true;
@@ -99,7 +99,7 @@ impl Substitution {
         // This reference isn't bound to anything, so it should be okay to bind it,
         // as long as that doesn't create any circular references.
         let simplified_term = self.sub_term(term, shift);
-        if simplified_term.has_reference(index) {
+        if simplified_term.variable(index) {
             return false;
         }
 
@@ -107,7 +107,7 @@ impl Substitution {
         // that we don't have to recursively substitute in the future.
         for existing_term in self.terms.iter_mut() {
             if let Some(t) = existing_term {
-                *existing_term = Some(t.replace_reference(index, &simplified_term));
+                *existing_term = Some(t.replace_variable(index, &simplified_term));
             }
         }
 
@@ -127,10 +127,10 @@ impl Substitution {
         // If we're just making two references equal, change the second one, to tend
         // toward sticking with lower numbers.
         // Either should be logically correct.
-        if let Some(i) = term2.atomic_reference() {
+        if let Some(i) = term2.atomic_variable() {
             return self.unify_reference(i + shift2, term1, 0);
         }
-        if let Some(i) = term1.atomic_reference() {
+        if let Some(i) = term1.atomic_variable() {
             return self.unify_reference(i, term2, shift2);
         }
 
@@ -165,7 +165,7 @@ impl Substitution {
         }
 
         // Atomic references in term1 must exactly substitute to term2
-        if let Some(i) = term1.atomic_reference() {
+        if let Some(i) = term1.atomic_variable() {
             if let Some(existing_term) = self.get_term(i) {
                 return existing_term == term2;
             }

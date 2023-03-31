@@ -51,7 +51,7 @@ impl Normalizer {
                 let mut args = vec![];
                 for (i, quant) in quants.iter().enumerate() {
                     args.push(AcornValue::Atom(TypedAtom {
-                        atom: Atom::Reference(i as AtomId),
+                        atom: Atom::Variable(i as AtomId),
                         acorn_type: quant.clone(),
                     }));
                 }

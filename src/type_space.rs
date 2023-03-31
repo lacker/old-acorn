@@ -135,7 +135,7 @@ impl TypeSpace {
     // For testing, make a boolean reference
     pub fn bref(&mut self, index: AtomId) -> Term {
         self.term_from_atom(TypedAtom {
-            atom: Atom::Reference(index),
+            atom: Atom::Variable(index),
             acorn_type: AcornType::Bool,
         })
     }

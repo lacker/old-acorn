@@ -53,7 +53,7 @@ impl Unifier {
         // First apply to the head, flattening its args into this term if it's
         // a variable that expands into a term with its own arguments.
         let mut answer = match &term.head {
-            Atom::Reference(i) => {
+            Atom::Variable(i) => {
                 if !self.has_mapping(is_left, *i) {
                     // We need to create a new variable to send this one to.
                     let var_id = self.num_vars;
@@ -61,7 +61,7 @@ impl Unifier {
                     let new_var = Term {
                         term_type: term.head_type,
                         head_type: term.head_type,
-                        head: Atom::Reference(var_id),
+                        head: Atom::Variable(var_id),
                         args: vec![],
                     };
                     self.set_mapping(is_left, *i, new_var);

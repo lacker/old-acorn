@@ -16,10 +16,11 @@ pub enum Atom {
     // Functions created in the normalization process
     Skolem(AtomId),
 
-    // A Reference is a reference to a variable on the stack.
-    // We drop the variable name. Instead we track the index on the stack of the binding.
-    // This does mean that you must be careful when moving values between different stack environments.
-    Reference(AtomId),
+    // A Variable can be a reference to a variable on the stack, or its meaning can be implicit,
+    // depending on the context.
+    // We drop the variable name. Instead we track an id.
+    // This does mean that you must be careful when moving values between different environments.
+    Variable(AtomId),
 }
 
 impl fmt::Display for Atom {
@@ -27,7 +28,7 @@ impl fmt::Display for Atom {
         match self {
             Atom::Axiomatic(i) => write!(f, "a{}", i),
             Atom::Skolem(i) => write!(f, "s{}", i),
-            Atom::Reference(i) => write!(f, "x{}", i),
+            Atom::Variable(i) => write!(f, "x{}", i),
         }
     }
 }
@@ -40,7 +41,7 @@ impl Atom {
         match first {
             'a' => Atom::Axiomatic(rest.parse().unwrap()),
             's' => Atom::Skolem(rest.parse().unwrap()),
-            'x' => Atom::Reference(rest.parse().unwrap()),
+            'x' => Atom::Variable(rest.parse().unwrap()),
             _ => panic!("Invalid atom string: {}", s),
         }
     }
@@ -52,9 +53,9 @@ impl Atom {
         }
     }
 
-    pub fn shift_references(self, shift: u16) -> Atom {
+    pub fn shift_variables(self, shift: u16) -> Atom {
         match self {
-            Atom::Reference(i) => Atom::Reference(i + shift),
+            Atom::Variable(i) => Atom::Variable(i + shift),
             _ => self,
         }
     }
@@ -63,7 +64,7 @@ impl Atom {
     // is stable under variable renaming.
     pub fn stable_partial_order(&self, other: &Atom) -> Ordering {
         match (self, other) {
-            (Atom::Reference(_), Atom::Reference(_)) => Ordering::Equal,
+            (Atom::Variable(_), Atom::Variable(_)) => Ordering::Equal,
             (x, y) => x.cmp(y),
         }
     }
@@ -88,7 +89,7 @@ impl TypedAtom {
     // reference id if this is a reference to a subsequent stack value.
     pub fn bind_values(self, stack_index: AtomId, values: &Vec<AcornValue>) -> AcornValue {
         match self.atom {
-            Atom::Reference(i) => {
+            Atom::Variable(i) => {
                 if i < stack_index {
                     // This reference is unchanged
                     return AcornValue::Atom(self);
@@ -99,7 +100,7 @@ impl TypedAtom {
                 }
                 // This reference just needs to be shifted
                 AcornValue::Atom(TypedAtom {
-                    atom: Atom::Reference(i - values.len() as AtomId),
+                    atom: Atom::Variable(i - values.len() as AtomId),
                     acorn_type: self.acorn_type,
                 })
             }
@@ -109,14 +110,14 @@ impl TypedAtom {
 
     pub fn insert_stack(self, index: AtomId, increment: AtomId) -> TypedAtom {
         match self.atom {
-            Atom::Reference(i) => {
+            Atom::Variable(i) => {
                 if i < index {
                     // This reference is unchanged
                     return self;
                 }
                 // This reference just needs to be shifted
                 TypedAtom {
-                    atom: Atom::Reference(i + increment),
+                    atom: Atom::Variable(i + increment),
                     acorn_type: self.acorn_type,
                 }
             }
@@ -137,7 +138,7 @@ mod tests {
     fn test_atom_ordering() {
         assert!(Atom::Axiomatic(0) < Atom::Axiomatic(1));
         assert!(Atom::Axiomatic(1) < Atom::Skolem(0));
-        assert!(Atom::Skolem(1) < Atom::Reference(0));
+        assert!(Atom::Skolem(1) < Atom::Variable(0));
     }
 
     #[test]
@@ -151,11 +152,11 @@ mod tests {
             Ordering::Less
         );
         assert_eq!(
-            Atom::Skolem(1).stable_partial_order(&Atom::Reference(0)),
+            Atom::Skolem(1).stable_partial_order(&Atom::Variable(0)),
             Ordering::Less
         );
         assert_eq!(
-            Atom::Reference(0).stable_partial_order(&Atom::Reference(1)),
+            Atom::Variable(0).stable_partial_order(&Atom::Variable(1)),
             Ordering::Equal
         );
     }

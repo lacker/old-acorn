@@ -158,7 +158,7 @@ impl Environment {
         match atom {
             Atom::Axiomatic(i) => self.axiomatic_values[*i as usize].to_string(),
             Atom::Skolem(i) => format!("skolem{}", i),
-            Atom::Reference(i) => format!("x{}", i),
+            Atom::Variable(i) => format!("x{}", i),
         }
     }
 
@@ -408,7 +408,7 @@ impl Environment {
                         .clone()
                         .insert_stack(0, self.stack.len() as AtomId))
                 } else if let Some(stack_index) = self.stack.get(token.text) {
-                    let atom = Atom::Reference(*stack_index);
+                    let atom = Atom::Variable(*stack_index);
                     let typed_atom = TypedAtom {
                         atom,
                         acorn_type: return_type.clone(),
