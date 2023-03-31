@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::atom::{Atom, TypedAtom};
+use crate::atom::{Atom, AtomId, TypedAtom};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FunctionApplication {
@@ -140,7 +140,7 @@ impl AcornValue {
         }
     }
 
-    pub fn axiom_index(&self) -> Option<usize> {
+    pub fn axiom_index(&self) -> Option<AtomId> {
         match self {
             AcornValue::Atom(t) => match t.atom {
                 Atom::Axiomatic(i) => Some(i),
@@ -252,7 +252,7 @@ impl AcornValue {
     // Binds the provided values to stack variables, starting at the provided stack index.
     // Since stack references are stored by height on the stack, this will also change the
     // references for any subsequent stack variables.
-    pub fn bind_values(self, stack_index: usize, values: &Vec<AcornValue>) -> AcornValue {
+    pub fn bind_values(self, stack_index: AtomId, values: &Vec<AcornValue>) -> AcornValue {
         match self {
             AcornValue::Atom(a) => a.bind_values(stack_index, values),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
@@ -301,7 +301,7 @@ impl AcornValue {
     // Inserts 'increment' stack entries, starting with the provided index, that this value
     // doesn't use.
     // Every reference at index or higher should be incremented by increment.
-    pub fn insert_stack(self, index: usize, increment: usize) -> AcornValue {
+    pub fn insert_stack(self, index: AtomId, increment: AtomId) -> AcornValue {
         match self {
             AcornValue::Atom(a) => AcornValue::Atom(a.insert_stack(index, increment)),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
@@ -347,7 +347,7 @@ impl AcornValue {
     }
 
     // stack_size is the number of variables that are already on the stack.
-    pub fn expand_lambdas(self, stack_size: usize) -> AcornValue {
+    pub fn expand_lambdas(self, stack_size: AtomId) -> AcornValue {
         match self {
             AcornValue::Application(app) => {
                 if let AcornValue::Lambda(_, return_value) = *app.function {
@@ -387,11 +387,11 @@ impl AcornValue {
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.expand_lambdas(stack_size))),
             AcornValue::ForAll(quants, value) => {
-                let new_stack_size = stack_size + quants.len();
+                let new_stack_size = stack_size + quants.len() as AtomId;
                 AcornValue::ForAll(quants, Box::new(value.expand_lambdas(new_stack_size)))
             }
             AcornValue::Exists(quants, value) => {
-                let new_stack_size = stack_size + quants.len();
+                let new_stack_size = stack_size + quants.len() as AtomId;
                 AcornValue::Exists(quants, Box::new(value.expand_lambdas(new_stack_size)))
             }
             _ => self,
@@ -402,18 +402,18 @@ impl AcornValue {
     pub fn remove_forall(self, quantifiers: &mut Vec<AcornType>) -> AcornValue {
         match self {
             AcornValue::And(left, right) => {
-                let original_num_quants = quantifiers.len();
+                let original_num_quants = quantifiers.len() as AtomId;
                 let new_left = left.remove_forall(quantifiers);
-                let added_quants = quantifiers.len() - original_num_quants;
+                let added_quants = quantifiers.len() as AtomId - original_num_quants;
 
                 let shifted_right = right.insert_stack(original_num_quants, added_quants);
                 let new_right = shifted_right.remove_forall(quantifiers);
                 AcornValue::And(Box::new(new_left), Box::new(new_right))
             }
             AcornValue::Or(left, right) => {
-                let original_num_quants = quantifiers.len();
+                let original_num_quants = quantifiers.len() as AtomId;
                 let new_left = left.remove_forall(quantifiers);
-                let added_quants = quantifiers.len() - original_num_quants;
+                let added_quants = quantifiers.len() as AtomId - original_num_quants;
 
                 let shifted_right = right.insert_stack(original_num_quants, added_quants);
                 let new_right = shifted_right.remove_forall(quantifiers);

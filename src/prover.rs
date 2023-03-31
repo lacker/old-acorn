@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
+use crate::atom::AtomId;
 use crate::environment::Environment;
 use crate::normalizer::Normalizer;
 use crate::substitution::Substitution;
@@ -105,7 +106,7 @@ impl Prover<'_> {
                 // Check for a counterexample.
                 // Check if (left, right) unifies to (term1, term2).
                 // Note that "shift" is the size for left/right so we have to shift term1 and term2.
-                let shift = clause.num_quantifiers();
+                let shift = clause.num_quantifiers() as AtomId;
                 let mut sub = Substitution::new();
                 if sub.unify_terms(left, term1, shift) && sub.unify_terms(right, term2, shift) {
                     return Some(false);
@@ -150,7 +151,7 @@ impl Prover<'_> {
                 // If these terms can unify, this is a counterexample.
                 // Note that this depends on the fact that every type is occupied.
                 let mut sub = Substitution::new();
-                if sub.unify_terms(known_term, term, clause.num_quantifiers()) {
+                if sub.unify_terms(known_term, term, clause.num_quantifiers() as AtomId) {
                     return Some(false);
                 }
             }

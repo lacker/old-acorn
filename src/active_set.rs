@@ -1,7 +1,7 @@
 use crate::atom::Atom;
 use crate::type_space::TypeId;
 use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 type TermId = u32;
 const TRUE: TermId = 0;
@@ -112,10 +112,6 @@ impl ActiveSet {
         }
         Fingerprint { components }
     }
-}
-
-struct FingerprintTree {
-    tree: BTreeMap<Fingerprint, TermId>,
 }
 
 #[cfg(test)]

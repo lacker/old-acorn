@@ -1,6 +1,6 @@
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::{Atom, TypedAtom};
+use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::term::{Literal, Term};
 
 pub type TypeId = u16;
@@ -125,7 +125,7 @@ impl TypeSpace {
     }
 
     // For testing, make a boolean reference
-    pub fn bref(&mut self, index: usize) -> Term {
+    pub fn bref(&mut self, index: AtomId) -> Term {
         self.term_from_atom(TypedAtom {
             atom: Atom::Reference(index),
             acorn_type: AcornType::Bool,

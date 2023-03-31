@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::atom::Atom;
+use crate::atom::{Atom, AtomId};
 use crate::term::Term;
 
 pub struct Substitution {
@@ -32,15 +32,15 @@ impl Substitution {
         Substitution { terms: vec![] }
     }
 
-    pub fn get_term(&self, i: usize) -> Option<&Term> {
-        match self.terms.get(i) {
+    pub fn get_term(&self, i: AtomId) -> Option<&Term> {
+        match self.terms.get(i as usize) {
             Some(t) => t.as_ref(),
             None => None,
         }
     }
 
     // Returns the term that this atom refers to, if there is any.
-    pub fn dereference(&self, atom: &Atom, shift: usize) -> Option<&Term> {
+    pub fn dereference(&self, atom: &Atom, shift: AtomId) -> Option<&Term> {
         match atom {
             Atom::Reference(i) => self.get_term(*i + shift),
             _ => None,
@@ -48,7 +48,7 @@ impl Substitution {
     }
 
     // Substitutes into this term, shifting its references first.
-    pub fn sub_term(&self, term: &Term, shift: usize) -> Term {
+    pub fn sub_term(&self, term: &Term, shift: AtomId) -> Term {
         // Start with just the head (but keep the itype correct for the answer)
         let mut answer = if let Some(t) = self.dereference(&term.head, shift) {
             Term {
@@ -71,18 +71,18 @@ impl Substitution {
         answer
     }
 
-    pub fn set_term(&mut self, i: usize, term: Term) {
-        if i >= self.terms.len() {
-            self.terms.resize(i + 1, None);
+    pub fn set_term(&mut self, i: AtomId, term: Term) {
+        if i >= self.terms.len() as AtomId {
+            self.terms.resize((i + 1) as usize, None);
         }
-        self.terms[i] = Some(term);
+        self.terms[i as usize] = Some(term);
     }
 
     // Unifies a reference atom with a term, shifting the term's references first.
     // If this succeeds:
     //   self.sub(ref(index)) = self.sub(term, shift)
     // Subsequent calls to identify or unify will maintain this property.
-    pub fn unify_reference(&mut self, index: usize, term: &Term, shift: usize) -> bool {
+    pub fn unify_reference(&mut self, index: AtomId, term: &Term, shift: AtomId) -> bool {
         if let Some(existing_term) = self.get_term(index) {
             return self.unify_terms(&existing_term.clone(), term, shift);
         }
@@ -117,7 +117,7 @@ impl Substitution {
     // If this succeeds:
     //   self.sub(term1, 0) = self.sub(term2, shift2)
     // Subsequent calls to identify or unify will maintain this property.
-    pub fn unify_terms(&mut self, term1: &Term, term2: &Term, shift2: usize) -> bool {
+    pub fn unify_terms(&mut self, term1: &Term, term2: &Term, shift2: AtomId) -> bool {
         if term1.itype != term2.itype {
             return false;
         }

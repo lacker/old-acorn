@@ -3,21 +3,23 @@ use crate::acorn_value::AcornValue;
 use std::cmp::Ordering;
 use std::fmt;
 
+pub type AtomId = u16;
+
 // An atomic value is one that we don't want to expand inline.
 // We could add more things here, like defined constants.
 // For now, we expand everything we can inline.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Atom {
     // Values defined like "define 0: Nat = axiom"
-    Axiomatic(usize),
+    Axiomatic(AtomId),
 
     // Functions created in the normalization process
-    Skolem(usize),
+    Skolem(AtomId),
 
     // A Reference is a reference to a variable on the stack.
     // We drop the variable name. Instead we track the index on the stack of the binding.
     // This does mean that you must be careful when moving values between different stack environments.
-    Reference(usize),
+    Reference(AtomId),
 }
 
 impl fmt::Display for Atom {
@@ -50,7 +52,7 @@ impl Atom {
         }
     }
 
-    pub fn shift_references(self, shift: usize) -> Atom {
+    pub fn shift_references(self, shift: u16) -> Atom {
         match self {
             Atom::Reference(i) => Atom::Reference(i + shift),
             _ => self,
@@ -84,20 +86,20 @@ impl TypedAtom {
     // They start at the provided stack index.
     // Since stack references are stored by height on the stack, this will also change the
     // reference id if this is a reference to a subsequent stack value.
-    pub fn bind_values(self, stack_index: usize, values: &Vec<AcornValue>) -> AcornValue {
+    pub fn bind_values(self, stack_index: AtomId, values: &Vec<AcornValue>) -> AcornValue {
         match self.atom {
             Atom::Reference(i) => {
                 if i < stack_index {
                     // This reference is unchanged
                     return AcornValue::Atom(self);
                 }
-                if i < stack_index + values.len() {
+                if i < stack_index + values.len() as AtomId {
                     // This reference is bound to a new value
-                    return values[i - stack_index].clone();
+                    return values[(i - stack_index) as usize].clone();
                 }
                 // This reference just needs to be shifted
                 AcornValue::Atom(TypedAtom {
-                    atom: Atom::Reference(i - values.len()),
+                    atom: Atom::Reference(i - values.len() as AtomId),
                     acorn_type: self.acorn_type,
                 })
             }
@@ -105,7 +107,7 @@ impl TypedAtom {
         }
     }
 
-    pub fn insert_stack(self, index: usize, increment: usize) -> TypedAtom {
+    pub fn insert_stack(self, index: AtomId, increment: AtomId) -> TypedAtom {
         match self.atom {
             Atom::Reference(i) => {
                 if i < index {

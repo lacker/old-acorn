@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::{Atom, TypedAtom};
+use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::expression::Expression;
 use crate::statement::Statement;
 use crate::token::{Error, Result, Token, TokenType};
@@ -34,7 +34,7 @@ pub struct Environment {
     values: HashMap<String, AcornValue>,
 
     // For variables defined on the stack, we keep track of their depth from the top.
-    stack: HashMap<String, usize>,
+    stack: HashMap<String, AtomId>,
 
     // All named theorems, in order.
     theorems: Vec<String>,
@@ -74,7 +74,7 @@ impl Environment {
 
     // This creates the next axiomatic value, but does not bind it to any name.
     fn next_axiomatic_value(&self, acorn_type: &AcornType) -> AcornValue {
-        let atom = Atom::Axiomatic(self.axiomatic_values.len());
+        let atom = Atom::Axiomatic(self.axiomatic_values.len() as AtomId);
         AcornValue::Atom(TypedAtom {
             atom,
             acorn_type: acorn_type.clone(),
@@ -82,7 +82,8 @@ impl Environment {
     }
 
     fn push_stack_variable(&mut self, name: &str, acorn_type: AcornType) {
-        self.stack.insert(name.to_string(), self.stack.len());
+        self.stack
+            .insert(name.to_string(), self.stack.len() as AtomId);
         self.types.insert(name.to_string(), acorn_type);
     }
 
@@ -102,9 +103,9 @@ impl Environment {
         }
 
         if let Some(i) = value.axiom_index() {
-            if i == self.axiomatic_values.len() {
+            if i == self.axiomatic_values.len() as AtomId {
                 self.axiomatic_values.push(name.to_string());
-            } else if i > self.axiomatic_values.len() {
+            } else if i > self.axiomatic_values.len() as AtomId {
                 panic!("axiom index {} unexpectedly high", i);
             }
         }
@@ -155,7 +156,7 @@ impl Environment {
 
     fn atom_str(&self, atom: &Atom) -> String {
         match atom {
-            Atom::Axiomatic(i) => self.axiomatic_values[*i].to_string(),
+            Atom::Axiomatic(i) => self.axiomatic_values[*i as usize].to_string(),
             Atom::Skolem(i) => format!("skolem{}", i),
             Atom::Reference(i) => format!("x{}", i),
         }
@@ -403,7 +404,9 @@ impl Environment {
                 if let Some(acorn_value) = self.values.get(token.text) {
                     // We need to shift any stack variables that this value uses,
                     // so that they don't squash existing ones.
-                    Ok(acorn_value.clone().insert_stack(0, self.stack.len()))
+                    Ok(acorn_value
+                        .clone()
+                        .insert_stack(0, self.stack.len() as AtomId))
                 } else if let Some(stack_index) = self.stack.get(token.text) {
                     let atom = Atom::Reference(*stack_index);
                     let typed_atom = TypedAtom {

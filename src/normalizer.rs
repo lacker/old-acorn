@@ -1,6 +1,6 @@
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::{Atom, TypedAtom};
+use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::environment::Environment;
 use crate::term::Clause;
 use crate::type_space::TypeSpace;
@@ -51,7 +51,7 @@ impl Normalizer {
                 let mut args = vec![];
                 for (i, quant) in quants.iter().enumerate() {
                     args.push(AcornValue::Atom(TypedAtom {
-                        atom: Atom::Reference(i),
+                        atom: Atom::Reference(i as AtomId),
                         acorn_type: quant.clone(),
                     }));
                 }
@@ -64,7 +64,7 @@ impl Normalizer {
                         arg_types: stack.clone(),
                         return_type: Box::new(quant),
                     };
-                    let skolem_index = self.skolem_types.len();
+                    let skolem_index = self.skolem_types.len() as AtomId;
                     self.skolem_types.push(skolem_type.clone());
                     let function = AcornValue::Atom(TypedAtom {
                         atom: Atom::Skolem(skolem_index),
@@ -78,7 +78,10 @@ impl Normalizer {
                 }
 
                 // Replace references to the existential quantifiers
-                self.skolemize(stack, subvalue.bind_values(stack.len(), &replacements))
+                self.skolemize(
+                    stack,
+                    subvalue.bind_values(stack.len() as AtomId, &replacements),
+                )
             }
 
             AcornValue::And(left, right) => {

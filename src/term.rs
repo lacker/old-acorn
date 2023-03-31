@@ -1,5 +1,5 @@
 use crate::acorn_type::AcornType;
-use crate::atom::Atom;
+use crate::atom::{Atom, AtomId};
 use crate::substitution::Substitution;
 use crate::type_space::TypeId;
 use std::cmp::Ordering;
@@ -126,7 +126,7 @@ impl Term {
     }
 
     // Whether this term contains a reference with this index, anywhere in its body, recursively.
-    pub fn has_reference(&self, index: usize) -> bool {
+    pub fn has_reference(&self, index: AtomId) -> bool {
         if let Atom::Reference(i) = self.head {
             if i == index {
                 return true;
@@ -141,7 +141,7 @@ impl Term {
     }
 
     // If this term is a reference to the given index, return that index.
-    pub fn atomic_reference(&self) -> Option<usize> {
+    pub fn atomic_reference(&self) -> Option<AtomId> {
         if self.args.len() > 0 {
             return None;
         }
@@ -152,7 +152,7 @@ impl Term {
     }
 
     // value should have no references to index
-    pub fn replace_reference(&self, index: usize, value: &Term) -> Term {
+    pub fn replace_reference(&self, index: AtomId, value: &Term) -> Term {
         // Start with just the head (but keep the itype correct for the answer)
         let mut answer = if self.head == Atom::Reference(index) {
             Term {
@@ -176,7 +176,7 @@ impl Term {
     }
 
     // Make a copy of this term that shifts all of its reference ids.
-    pub fn shift_references(&self, shift: usize) -> Term {
+    pub fn shift_references(&self, shift: AtomId) -> Term {
         Term {
             itype: self.itype,
             head: self.head.shift_references(shift),
@@ -218,10 +218,10 @@ impl Term {
         let mut weight2 = 0;
         match self.head {
             Atom::Reference(i) => {
-                while refcounts.len() <= i {
+                while refcounts.len() <= i as usize {
                     refcounts.push(0);
                 }
-                refcounts[i] += 1;
+                refcounts[i as usize] += 1;
             }
             Atom::Axiomatic(i) => {
                 weight1 += 1;
