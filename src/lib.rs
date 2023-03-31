@@ -11,3 +11,4 @@ pub mod substitution;
 pub mod term;
 pub mod token;
 pub mod type_space;
+pub mod unifier;
