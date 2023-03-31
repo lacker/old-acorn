@@ -8,7 +8,7 @@ use std::fmt;
 // A term with no args is a plain atom.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Term {
-    pub itype: TypeId,
+    pub type_id: TypeId,
     pub head: Atom,
     pub args: Vec<Term>,
 }
@@ -78,7 +78,7 @@ impl Term {
             Some(i) => i,
             None => {
                 return Term {
-                    itype: 0,
+                    type_id: 0,
                     head: Atom::new(s),
                     args: vec![],
                 };
@@ -119,7 +119,7 @@ impl Term {
         }
 
         Term {
-            itype: 0,
+            type_id: 0,
             head: Atom::new(head),
             args,
         }
@@ -153,16 +153,16 @@ impl Term {
 
     // value should have no references to index
     pub fn replace_reference(&self, index: AtomId, value: &Term) -> Term {
-        // Start with just the head (but keep the itype correct for the answer)
+        // Start with just the head (but keep the type_id correct for the answer)
         let mut answer = if self.head == Atom::Reference(index) {
             Term {
-                itype: self.itype,
+                type_id: self.type_id,
                 head: value.head.clone(),
                 args: value.args.clone(),
             }
         } else {
             Term {
-                itype: self.itype,
+                type_id: self.type_id,
                 head: self.head,
                 args: vec![],
             }
@@ -178,7 +178,7 @@ impl Term {
     // Make a copy of this term that shifts all of its reference ids.
     pub fn shift_references(&self, shift: AtomId) -> Term {
         Term {
-            itype: self.itype,
+            type_id: self.type_id,
             head: self.head.shift_references(shift),
             args: self
                 .args

@@ -49,16 +49,16 @@ impl Substitution {
 
     // Substitutes into this term, shifting its references first.
     pub fn sub_term(&self, term: &Term, shift: AtomId) -> Term {
-        // Start with just the head (but keep the itype correct for the answer)
+        // Start with just the head (but keep the type_id correct for the answer)
         let mut answer = if let Some(t) = self.dereference(&term.head, shift) {
             Term {
-                itype: term.itype,
+                type_id: term.type_id,
                 head: t.head.clone(),
                 args: t.args.clone(),
             }
         } else {
             Term {
-                itype: term.itype,
+                type_id: term.type_id,
                 head: term.head.clone(),
                 args: vec![],
             }
@@ -118,7 +118,7 @@ impl Substitution {
     //   self.sub(term1, 0) = self.sub(term2, shift2)
     // Subsequent calls to identify or unify will maintain this property.
     pub fn unify_terms(&mut self, term1: &Term, term2: &Term, shift2: AtomId) -> bool {
-        if term1.itype != term2.itype {
+        if term1.type_id != term2.type_id {
             return false;
         }
 
@@ -158,7 +158,7 @@ impl Substitution {
     // TODO: is that claim true? It seems like it could fail if some sub-part of term1 gets
     // identified with something else.
     pub fn match_terms(&mut self, term1: &Term, term2: &Term) -> bool {
-        if term1.itype != term2.itype {
+        if term1.type_id != term2.type_id {
             return false;
         }
 
