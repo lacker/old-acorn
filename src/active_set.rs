@@ -85,9 +85,11 @@ enum FingerprintComponent {
     Nonexistent,
 }
 
+const PATHS: &[&[usize]] = &[&[0], &[1], &[0, 0], &[0, 1], &[1, 0], &[1, 1]];
+
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct Fingerprint {
-    components: Vec<FingerprintComponent>,
+pub struct Fingerprint {
+    components: [FingerprintComponent; PATHS.len() + 1],
 }
 
 impl ActiveTerm {
@@ -100,17 +102,18 @@ impl ActiveTerm {
 }
 
 impl ActiveSet {
-    fn fingerprint(&self, term: &ActiveTerm) -> Fingerprint {
+    pub fn fingerprint(&self, term: &ActiveTerm) -> Fingerprint {
         let mut components = vec![term.fingerprint_component()];
-        let paths: &[&[usize]] = &[&[0], &[1], &[0, 0], &[0, 1], &[1, 0], &[1, 1]];
-        for path in paths {
+        for path in PATHS {
             let component = match self.get_term_at_path(term, path) {
                 Some(t) => t.fingerprint_component(),
                 None => FingerprintComponent::Nonexistent,
             };
             components.push(component);
         }
-        Fingerprint { components }
+        Fingerprint {
+            components: components.try_into().unwrap(),
+        }
     }
 }
 
@@ -132,5 +135,19 @@ mod tests {
         let id1 = set.add_term(key1);
         let id2 = set.add_term(key2);
         assert_eq!(id1, id2);
+    }
+
+    #[test]
+    fn test_fingerprint() {
+        let mut set = ActiveSet::new();
+
+        let term = ActiveTerm {
+            head_type: 0,
+            term_type: 0,
+            head: Atom::new("a0"),
+            args: vec![],
+        };
+        set.add_term(term.clone());
+        set.fingerprint(&term);
     }
 }
