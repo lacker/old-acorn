@@ -32,7 +32,7 @@ impl Substitution {
         Substitution { terms: vec![] }
     }
 
-    pub fn get_term(&self, i: AtomId) -> Option<&Term> {
+    fn get_term(&self, i: AtomId) -> Option<&Term> {
         match self.terms.get(i as usize) {
             Some(t) => t.as_ref(),
             None => None,
@@ -40,7 +40,7 @@ impl Substitution {
     }
 
     // Returns the term that this atom refers to, if there is any.
-    pub fn dereference(&self, atom: &Atom, shift: AtomId) -> Option<&Term> {
+    fn dereference(&self, atom: &Atom, shift: AtomId) -> Option<&Term> {
         match atom {
             Atom::Reference(i) => self.get_term(*i + shift),
             _ => None,
@@ -73,7 +73,7 @@ impl Substitution {
         answer
     }
 
-    pub fn set_term(&mut self, i: AtomId, term: Term) {
+    fn set_term(&mut self, i: AtomId, term: Term) {
         if i >= self.terms.len() as AtomId {
             self.terms.resize((i + 1) as usize, None);
         }
@@ -84,7 +84,7 @@ impl Substitution {
     // If this succeeds:
     //   self.sub(ref(index)) = self.sub(term, shift)
     // Subsequent calls to identify or unify will maintain this property.
-    pub fn unify_reference(&mut self, index: AtomId, term: &Term, shift: AtomId) -> bool {
+    fn unify_reference(&mut self, index: AtomId, term: &Term, shift: AtomId) -> bool {
         if let Some(existing_term) = self.get_term(index) {
             return self.unify_terms(&existing_term.clone(), term, shift);
         }
