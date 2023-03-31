@@ -6,7 +6,8 @@ use crate::term::{Literal, Term};
 pub type TypeId = u16;
 
 // A TypeSpace lets us represent types uniquely as TypeIds.
-// Zero always means "any", which is a type we try to avoid, but it's handy for testing.
+// Zero always means "any", which we don't give to specific atoms, but we use for matching or
+// for testing.
 pub struct TypeSpace {
     types: Vec<AcornType>,
 }
