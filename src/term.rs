@@ -449,6 +449,15 @@ impl Literal {
         }
         false
     }
+
+    pub fn first_term(&self) -> &Term {
+        match self {
+            Literal::Positive(term) => term,
+            Literal::Negative(term) => term,
+            Literal::Equals(left, _) => left,
+            Literal::NotEquals(left, _) => left,
+        }
+    }
 }
 
 // A clause is a disjunction (an "or") of literals, universally quantified over some variables.
