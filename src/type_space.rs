@@ -32,8 +32,10 @@ impl TypeSpace {
 
     // Constructs a new term from an atom
     pub fn term_from_atom(&mut self, atom: TypedAtom) -> Term {
+        let type_id = self.add_type(atom.acorn_type);
         Term {
-            type_id: self.add_type(atom.acorn_type),
+            term_type: type_id,
+            head_type: type_id,
             head: atom.atom,
             args: vec![],
         }
@@ -42,15 +44,17 @@ impl TypeSpace {
     // Constructs a new term from a function application
     // Function applications that are nested like f(x)(y) are flattened to f(x, y)
     pub fn term_from_application(&mut self, application: FunctionApplication) -> Term {
-        let type_id = self.add_type(application.return_type());
+        let term_type = self.add_type(application.return_type());
         let func_term = self.term_from_value(*application.function);
         let head = func_term.head;
+        let head_type = func_term.head_type;
         let mut args = func_term.args;
         for arg in application.args {
             args.push(self.term_from_value(arg));
         }
         Term {
-            type_id,
+            term_type,
+            head_type,
             head,
             args,
         }
@@ -139,7 +143,8 @@ impl TypeSpace {
     // For testing, make a function application with this head, return type bool
     pub fn bfn(&mut self, head: Atom, args: Vec<Term>) -> Term {
         Term {
-            type_id: self.add_type(AcornType::Bool),
+            term_type: self.add_type(AcornType::Bool),
+            head_type: 0,
             head,
             args,
         }

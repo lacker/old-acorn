@@ -8,7 +8,14 @@ use std::fmt;
 // A term with no args is a plain atom.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Term {
-    pub type_id: TypeId,
+    // The term type is the type of the entire term.
+    // For example "2 < 3" has type "bool".
+    pub term_type: TypeId,
+
+    // The head type is the type of just the head atom.
+    // For example the head type of "2 < 3" is "(int, int) -> bool".
+    pub head_type: TypeId,
+
     pub head: Atom,
     pub args: Vec<Term>,
 }
@@ -78,7 +85,8 @@ impl Term {
             Some(i) => i,
             None => {
                 return Term {
-                    type_id: 0,
+                    term_type: 0,
+                    head_type: 0,
                     head: Atom::new(s),
                     args: vec![],
                 };
@@ -119,7 +127,8 @@ impl Term {
         }
 
         Term {
-            type_id: 0,
+            term_type: 0,
+            head_type: 0,
             head: Atom::new(head),
             args,
         }
@@ -156,13 +165,15 @@ impl Term {
         // Start with just the head (but keep the type_id correct for the answer)
         let mut answer = if self.head == Atom::Reference(index) {
             Term {
-                type_id: self.type_id,
+                term_type: self.term_type,
+                head_type: value.head_type,
                 head: value.head.clone(),
                 args: value.args.clone(),
             }
         } else {
             Term {
-                type_id: self.type_id,
+                term_type: self.term_type,
+                head_type: self.head_type,
                 head: self.head,
                 args: vec![],
             }
@@ -178,7 +189,8 @@ impl Term {
     // Make a copy of this term that shifts all of its reference ids.
     pub fn shift_references(&self, shift: AtomId) -> Term {
         Term {
-            type_id: self.type_id,
+            term_type: self.term_type,
+            head_type: self.head_type,
             head: self.head.shift_references(shift),
             args: self
                 .args
