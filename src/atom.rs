@@ -34,7 +34,7 @@ impl fmt::Display for Atom {
 
 impl Atom {
     pub fn new(s: &str) -> Atom {
-        let mut chars = s.chars();
+        let mut chars = s.trim().chars();
         let first = chars.next().unwrap();
         let rest = chars.as_str();
         match first {

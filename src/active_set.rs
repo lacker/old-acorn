@@ -59,62 +59,6 @@ impl ActiveSet {
             }
         }
     }
-
-    pub fn get_term_at_path<'a>(
-        &'a self,
-        term: &'a ActiveTerm,
-        path: &[usize],
-    ) -> Option<&'a ActiveTerm> {
-        let mut current_term = term;
-        for &i in path {
-            if i >= current_term.args.len() {
-                return None;
-            }
-            current_term = self.get_term(current_term.args[i]);
-        }
-        Some(current_term)
-    }
-}
-
-// A fingerprint component describes the head of a term at a particular "route" from this term.
-// The route is the sequence of arg indices to get to that term
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-enum FingerprintComponent {
-    Constant(TypeId, Atom),
-    Variable(TypeId),
-    Nonexistent,
-}
-
-const PATHS: &[&[usize]] = &[&[0], &[1], &[0, 0], &[0, 1], &[1, 0], &[1, 1]];
-
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Fingerprint {
-    components: [FingerprintComponent; PATHS.len() + 1],
-}
-
-impl ActiveTerm {
-    fn fingerprint_component(&self) -> FingerprintComponent {
-        match &self.head {
-            Atom::Reference(_) => FingerprintComponent::Variable(self.head_type),
-            a => FingerprintComponent::Constant(self.head_type, *a),
-        }
-    }
-}
-
-impl ActiveSet {
-    pub fn fingerprint(&self, term: &ActiveTerm) -> Fingerprint {
-        let mut components = vec![term.fingerprint_component()];
-        for path in PATHS {
-            let component = match self.get_term_at_path(term, path) {
-                Some(t) => t.fingerprint_component(),
-                None => FingerprintComponent::Nonexistent,
-            };
-            components.push(component);
-        }
-        Fingerprint {
-            components: components.try_into().unwrap(),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -135,19 +79,5 @@ mod tests {
         let id1 = set.add_term(key1);
         let id2 = set.add_term(key2);
         assert_eq!(id1, id2);
-    }
-
-    #[test]
-    fn test_fingerprint() {
-        let mut set = ActiveSet::new();
-
-        let term = ActiveTerm {
-            head_type: 0,
-            term_type: 0,
-            head: Atom::new("a0"),
-            args: vec![],
-        };
-        set.add_term(term.clone());
-        set.fingerprint(&term);
     }
 }

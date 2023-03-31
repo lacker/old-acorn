@@ -336,6 +336,17 @@ impl Term {
         Ordering::Equal
     }
 
+    pub fn get_term_at_path(&self, path: &[usize]) -> Option<&Term> {
+        let mut current_term = self;
+        for &i in path {
+            if i >= current_term.args.len() {
+                return None;
+            }
+            current_term = &current_term.args[i];
+        }
+        Some(current_term)
+    }
+
     // Once this finds a single rewrite, it stops and returns the new term.
     pub fn rewrite(&self, find: &Term, replace: &Term) -> Option<Term> {
         // See if this entire term matches
@@ -361,6 +372,44 @@ impl Term {
         }
 
         None
+    }
+}
+
+// A fingerprint component describes the head of a term at a particular "route" from this term.
+// The route is the sequence of arg indices to get to that term
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+enum FingerprintComponent {
+    Constant(TypeId, Atom),
+    Variable(TypeId),
+    Nonexistent,
+}
+
+const PATHS: &[&[usize]] = &[&[0], &[1], &[0, 0], &[0, 1], &[1, 0], &[1, 1]];
+
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Fingerprint {
+    components: [FingerprintComponent; PATHS.len() + 1],
+}
+
+impl Term {
+    // Returns the fingerprint component just for the head of this term
+    fn fingerprint_component(&self) -> FingerprintComponent {
+        match &self.head {
+            Atom::Reference(_) => FingerprintComponent::Variable(self.head_type),
+            a => FingerprintComponent::Constant(self.head_type, *a),
+        }
+    }
+
+    // Returns the fingerprint that can be used by fingerprint trees.
+    pub fn fingerprint(&self) -> Fingerprint {
+        let mut components = [FingerprintComponent::Nonexistent; PATHS.len() + 1];
+        components[0] = self.fingerprint_component();
+        for (i, path) in PATHS.iter().enumerate() {
+            if let Some(term) = self.get_term_at_path(path) {
+                components[i + 1] = term.fingerprint_component();
+            }
+        }
+        Fingerprint { components }
     }
 }
 
@@ -457,5 +506,11 @@ mod tests {
         assert!(Term::parse("a0") < Term::parse("a1"));
         assert!(Term::parse("a2") < Term::parse("a0(a1)"));
         assert!(Term::parse("x0(x1)") < Term::parse("x0(s0(x0))"));
+    }
+
+    #[test]
+    fn test_fingerprint() {
+        let term = Term::parse("a0(x0, x1)");
+        term.fingerprint();
     }
 }
