@@ -12,6 +12,7 @@ pub struct ActiveSet {
     resolution_targets: BTreeMap<Fingerprint, Vec<ResolutionTarget>>,
 }
 
+// A ResolutionTarget is a way of specifying one particular term that is "eligible for resolution".
 struct ResolutionTarget {
     // Which clause the resolution target is in.
     // For now, we assume the resolution target is the first term in the first literal of the clause.
