@@ -124,7 +124,12 @@ impl ActiveSet {
             };
             let new_literal = Literal::new(resolution_literal.is_positive(), unified_u, unified_v);
 
-            // That was the hard part. Now we just need to run the unifier on all the other literals.
+            // Now we just need to run the unifier on all the other literals from the input clauses.
+            let mut literals = vec![];
+            for literal in resolution_clause.literals[1..] {
+                panic!("XXX");
+            }
+
             panic!("XXX");
         }
 
