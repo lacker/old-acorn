@@ -135,14 +135,14 @@ impl Term {
     }
 
     // Whether this term contains a variable with this index, anywhere in its body, recursively.
-    pub fn variable(&self, index: AtomId) -> bool {
+    pub fn has_variable(&self, index: AtomId) -> bool {
         if let Atom::Variable(i) = self.head {
             if i == index {
                 return true;
             }
         }
         for arg in &self.args {
-            if arg.variable(index) {
+            if arg.has_variable(index) {
                 return true;
             }
         }

@@ -99,7 +99,7 @@ impl Substitution {
         // This reference isn't bound to anything, so it should be okay to bind it,
         // as long as that doesn't create any circular references.
         let simplified_term = self.sub_term(term, shift);
-        if simplified_term.variable(index) {
+        if simplified_term.has_variable(index) {
             return false;
         }
 
