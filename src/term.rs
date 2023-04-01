@@ -134,6 +134,10 @@ impl Term {
         }
     }
 
+    pub fn is_atomic(&self) -> bool {
+        self.args.len() == 0
+    }
+
     // Whether this term contains a variable with this index, anywhere in its body, recursively.
     pub fn has_variable(&self, index: AtomId) -> bool {
         if let Atom::Variable(i) = self.head {
