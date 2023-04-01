@@ -127,7 +127,7 @@ impl Normalizer {
         let mut clauses = vec![];
         for literals in literal_lists {
             assert!(literals.len() > 0);
-            clauses.push(Clause::new(&universal, literals));
+            clauses.push(Clause::new(literals));
         }
         clauses
     }

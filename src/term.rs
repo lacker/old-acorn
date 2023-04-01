@@ -1,7 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt;
 
-use crate::acorn_type::AcornType;
 use crate::atom::{Atom, AtomId};
 use crate::substitution::Substitution;
 use crate::type_space::TypeId;
@@ -480,7 +479,6 @@ impl Literal {
 // It cannot contain existential quantifiers.
 #[derive(Debug)]
 pub struct Clause {
-    pub universal: Vec<AcornType>,
     pub literals: Vec<Literal>,
 }
 
@@ -502,7 +500,7 @@ impl fmt::Display for Clause {
 impl Clause {
     // Sorts literals.
     // Removes any duplicate or impossible literals.
-    pub fn new(universal: &Vec<AcornType>, literals: Vec<Literal>) -> Clause {
+    pub fn new(literals: Vec<Literal>) -> Clause {
         let mut literals = literals
             .into_iter()
             .filter(|x| !x.is_impossible())
@@ -510,10 +508,7 @@ impl Clause {
         literals.sort();
         literals.reverse();
         literals.dedup();
-        Clause {
-            universal: universal.clone(),
-            literals,
-        }
+        Clause { literals }
     }
 
     pub fn num_quantifiers(&self) -> AtomId {

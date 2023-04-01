@@ -263,7 +263,7 @@ impl Prover<'_> {
             return Result::Success;
         }
 
-        self.active.push(Clause::new(&clause.universal, literals));
+        self.active.push(Clause::new(literals));
         Result::Unknown
     }
 
