@@ -107,7 +107,17 @@ impl Unifier {
 
     // Replace variable i in the output scope with the given term (which is also in the output scope).
     // The term must not contain variable i.
+    // If they're both variables, keep the one with the lower id.
     fn remap(&mut self, id: AtomId, term: &Term) {
+        if let Some(other_id) = term.atomic_variable() {
+            if other_id > id {
+                // Let's keep this id and remap the other one instead
+                let mut new_term = term.clone();
+                new_term.head = Atom::Variable(id);
+                self.remap(other_id, &new_term);
+                return;
+            }
+        }
         for mapping in [&mut self.left, &mut self.right] {
             for i in 0..mapping.len() {
                 if let Some(t) = &mapping[i] {
@@ -191,5 +201,62 @@ impl Unifier {
         }
 
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::type_space::TypeSpace;
+
+    use super::*;
+
+    #[test]
+    fn test_unifying_variables() {
+        let mut s = TypeSpace::new();
+        let bool0 = s.bref(0);
+        let bool1 = s.bref(1);
+        let bool2 = s.bref(2);
+        let fterm = s.bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
+        let mut u = Unifier::new();
+
+        // Replace x0 with x1 and x1 with x2.
+        assert!(u.unify_variable(Scope::Left, 0, Scope::Output, &bool1));
+        assert!(u.unify_variable(Scope::Left, 1, Scope::Output, &bool2));
+        let term = u.apply(Scope::Left, &fterm);
+        assert_eq!(format!("{}", term), "a0(x1, x2)");
+    }
+
+    #[test]
+    fn test_same_scope() {
+        let mut s = TypeSpace::new();
+        let bool0 = s.bref(0);
+        let bool1 = s.bref(1);
+        let bool2 = s.bref(2);
+        let term1 = s.bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
+        let term2 = s.bfn(Atom::Axiomatic(0), vec![bool1.clone(), bool2.clone()]);
+        let mut u = Unifier::new();
+
+        assert!(u.unify(Scope::Left, &term1, Scope::Left, &term2));
+        let new1 = u.apply(Scope::Left, &term1);
+        assert_eq!(format!("{}", new1), "a0(x0, x0)");
+        let new2 = u.apply(Scope::Left, &term2);
+        assert_eq!(format!("{}", new2), "a0(x0, x0)");
+    }
+
+    #[test]
+    fn test_different_scope() {
+        let mut s = TypeSpace::new();
+        let bool0 = s.bref(0);
+        let bool1 = s.bref(1);
+        let bool2 = s.bref(2);
+        let term1 = s.bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
+        let term2 = s.bfn(Atom::Axiomatic(0), vec![bool1.clone(), bool2.clone()]);
+        let mut u = Unifier::new();
+
+        assert!(u.unify(Scope::Left, &term1, Scope::Right, &term2));
+        let new1 = u.apply(Scope::Left, &term1);
+        assert_eq!(format!("{}", new1), "a0(x0, x1)");
+        let new2 = u.apply(Scope::Right, &term2);
+        assert_eq!(format!("{}", new2), "a0(x0, x1)");
     }
 }
