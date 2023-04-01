@@ -205,6 +205,18 @@ impl Term {
         }
     }
 
+    // Assumes any intermediate ones are taken, so essentially 1 plus the maximum.
+    pub fn num_quantifiers(&self) -> AtomId {
+        let mut answer = match self.head {
+            Atom::Variable(i) => i + 1,
+            _ => 0,
+        };
+        for arg in &self.args {
+            answer = answer.max(arg.num_quantifiers());
+        }
+        answer
+    }
+
     // If these two terms differ in only one subterm, return references to those subterms.
     pub fn matches_but_one<'a, 'b>(&'a self, other: &'b Term) -> Option<(&'a Term, &'b Term)> {
         if self.head != other.head {
@@ -452,6 +464,15 @@ impl Literal {
             _ => None,
         }
     }
+
+    pub fn num_quantifiers(&self) -> AtomId {
+        let num_left = self.left().num_quantifiers();
+        if let Some(right) = self.right() {
+            num_left.max(right.num_quantifiers())
+        } else {
+            num_left
+        }
+    }
 }
 
 // A clause is a disjunction (an "or") of literals, universally quantified over some variables.
@@ -495,8 +516,12 @@ impl Clause {
         }
     }
 
-    pub fn num_quantifiers(&self) -> usize {
-        self.universal.len()
+    pub fn num_quantifiers(&self) -> AtomId {
+        let mut answer = 0;
+        for literal in &self.literals {
+            answer = answer.max(literal.num_quantifiers());
+        }
+        answer
     }
 }
 
