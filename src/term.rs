@@ -401,6 +401,23 @@ impl fmt::Display for Literal {
 }
 
 impl Literal {
+    pub fn new(is_positive: bool, left: Term, right: Option<Term>) -> Literal {
+        match (is_positive, right) {
+            (true, None) => Literal::Positive(left),
+            (true, Some(right)) => Literal::Equals(left, right),
+            (false, None) => Literal::Negative(left),
+            (false, Some(right)) => Literal::NotEquals(left, right),
+        }
+    }
+
+    pub fn is_positive(&self) -> bool {
+        match self {
+            Literal::Positive(_) => true,
+            Literal::Equals(_, _) => true,
+            _ => false,
+        }
+    }
+
     // Returns true if this literal is a tautology, i.e. foo = foo
     pub fn is_tautology(&self) -> bool {
         if let Literal::Equals(left, right) = self {
@@ -417,12 +434,22 @@ impl Literal {
         false
     }
 
-    pub fn first_term(&self) -> &Term {
+    // Literals with only one side count it as the left side
+    pub fn left(&self) -> &Term {
         match self {
             Literal::Positive(term) => term,
             Literal::Negative(term) => term,
             Literal::Equals(left, _) => left,
             Literal::NotEquals(left, _) => left,
+        }
+    }
+
+    // Returns None for one-sided literals
+    pub fn right(&self) -> Option<&Term> {
+        match self {
+            Literal::Equals(_, right) => Some(right),
+            Literal::NotEquals(_, right) => Some(right),
+            _ => None,
         }
     }
 }

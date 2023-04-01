@@ -1,5 +1,5 @@
 use crate::atom::{Atom, AtomId};
-use crate::term::Term;
+use crate::term::{Literal, Term};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Scope {
@@ -18,6 +18,13 @@ pub struct Unifier {
 
     // The number of variables that we are creating in the output scope.
     num_vars: AtomId,
+}
+
+// Information for how to replace a subterm
+pub struct Replacement<'a> {
+    pub path: &'a [usize],
+    pub scope: Scope,
+    pub term: &'a Term,
 }
 
 impl Unifier {
@@ -66,7 +73,21 @@ impl Unifier {
         }
     }
 
-    pub fn apply(&mut self, scope: Scope, term: &Term) -> Term {
+    // Applies the unification to a term, possibly replacing a subterm with the
+    // unification of the data provided in replacement.
+    // This is weird because the replacement can have a different scope from the main term.
+    pub fn apply_replace(
+        &mut self,
+        scope: Scope,
+        term: &Term,
+        replacement: Option<Replacement>,
+    ) -> Term {
+        if let Some(ref replacement) = replacement {
+            if replacement.path.is_empty() {
+                return self.apply(replacement.scope, replacement.term);
+            }
+        }
+
         // First apply to the head, flattening its args into this term if it's
         // a variable that expands into a term with its own arguments.
         let mut answer = match &term.head {
@@ -99,10 +120,45 @@ impl Unifier {
         };
 
         // Recurse on the arguments
-        for arg in &term.args {
-            answer.args.push(self.apply(scope, arg))
+        for (i, arg) in term.args.iter().enumerate() {
+            // Figure out what replacement to pass recursively
+            let new_replacement = if let Some(ref replacement) = replacement {
+                if replacement.path[0] == i {
+                    // We do want to pass this down
+                    Some(Replacement {
+                        path: &replacement.path[1..],
+                        scope: replacement.scope,
+                        term: replacement.term,
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            answer
+                .args
+                .push(self.apply_replace(scope, arg, new_replacement))
         }
+
         answer
+    }
+
+    pub fn apply(&mut self, scope: Scope, term: &Term) -> Term {
+        self.apply_replace(scope, term, None)
+    }
+
+    pub fn apply_to_literal(&mut self, scope: Scope, literal: &Literal) -> Literal {
+        match literal {
+            Literal::Positive(term) => Literal::Positive(self.apply(scope, term)),
+            Literal::Negative(term) => Literal::Negative(self.apply(scope, term)),
+            Literal::Equals(left, right) => {
+                Literal::Equals(self.apply(scope, left), self.apply(scope, right))
+            }
+            Literal::NotEquals(left, right) => {
+                Literal::NotEquals(self.apply(scope, left), self.apply(scope, right))
+            }
+        }
     }
 
     // Replace variable i in the output scope with the given term (which is also in the output scope).
@@ -128,7 +184,7 @@ impl Unifier {
     }
 
     // Returns whether they can be unified.
-    pub fn unify_variable(
+    fn unify_variable(
         &mut self,
         var_scope: Scope,
         var_id: AtomId,
