@@ -1,9 +1,10 @@
+use std::cmp::Ordering;
+use std::fmt;
+
 use crate::acorn_type::AcornType;
 use crate::atom::{Atom, AtomId};
 use crate::substitution::Substitution;
 use crate::type_space::TypeId;
-use std::cmp::Ordering;
-use std::fmt;
 
 // A term with no args is a plain atom.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -379,44 +380,6 @@ impl Term {
     }
 }
 
-// A fingerprint component describes the head of a term at a particular "route" from this term.
-// The route is the sequence of arg indices to get to that term
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-enum FingerprintComponent {
-    Constant(TypeId, Atom),
-    Variable(TypeId),
-    Nonexistent,
-}
-
-const PATHS: &[&[usize]] = &[&[0], &[1], &[0, 0], &[0, 1], &[1, 0], &[1, 1]];
-
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Fingerprint {
-    components: [FingerprintComponent; PATHS.len() + 1],
-}
-
-impl Term {
-    // Returns the fingerprint component just for the head of this term
-    fn fingerprint_component(&self) -> FingerprintComponent {
-        match &self.head {
-            Atom::Variable(_) => FingerprintComponent::Variable(self.head_type),
-            a => FingerprintComponent::Constant(self.head_type, *a),
-        }
-    }
-
-    // Returns the fingerprint that can be used by fingerprint trees.
-    pub fn fingerprint(&self) -> Fingerprint {
-        let mut components = [FingerprintComponent::Nonexistent; PATHS.len() + 1];
-        components[0] = self.fingerprint_component();
-        for (i, path) in PATHS.iter().enumerate() {
-            if let Some(term) = self.get_term_at_path(path) {
-                components[i + 1] = term.fingerprint_component();
-            }
-        }
-        Fingerprint { components }
-    }
-}
-
 // Literals are always boolean-valued.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Literal {
@@ -519,11 +482,5 @@ mod tests {
         assert!(Term::parse("a0") < Term::parse("a1"));
         assert!(Term::parse("a2") < Term::parse("a0(a1)"));
         assert!(Term::parse("x0(x1)") < Term::parse("x0(s0(x0))"));
-    }
-
-    #[test]
-    fn test_fingerprint() {
-        let term = Term::parse("a0(x0, x1)");
-        term.fingerprint();
     }
 }

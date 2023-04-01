@@ -5,6 +5,8 @@ use std::fmt;
 
 pub type AtomId = u16;
 
+pub const MIN_ATOM: Atom = Atom::Axiomatic(0);
+
 // An atomic value is one that we don't want to expand inline.
 // We could add more things here, like defined constants.
 // For now, we expand everything we can inline.
@@ -49,6 +51,13 @@ impl Atom {
     pub fn is_axiomatic(&self) -> bool {
         match self {
             Atom::Axiomatic(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_variable(&self) -> bool {
+        match self {
+            Atom::Variable(_) => true,
             _ => false,
         }
     }
@@ -139,6 +148,10 @@ mod tests {
         assert!(Atom::Axiomatic(0) < Atom::Axiomatic(1));
         assert!(Atom::Axiomatic(1) < Atom::Skolem(0));
         assert!(Atom::Skolem(1) < Atom::Variable(0));
+
+        assert!(MIN_ATOM <= Atom::Axiomatic(0));
+        assert!(MIN_ATOM <= Atom::Skolem(0));
+        assert!(MIN_ATOM <= Atom::Variable(0));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use crate::term::{Clause, Fingerprint, Term};
-use crate::unifier::Unifier;
+use crate::fingerprint::Fingerprint;
+use crate::term::{Clause, Term};
 
 // The ActiveSet stores rich data for a bunch of terms.
 // Within the ActiveSet, term data is perfectly shared, so that
@@ -47,7 +47,7 @@ impl ActiveSet {
             path: path.clone(),
         };
         self.resolution_targets
-            .entry(term.fingerprint())
+            .entry(Fingerprint::new(&term))
             .or_insert(vec![])
             .push(target);
 
@@ -66,14 +66,6 @@ impl ActiveSet {
             term = &term.args[*i];
         }
         term
-    }
-
-    // This returns a superset of the real resolution targets.
-    // The caller will have to check that unification is actually possible.
-    fn find_resolution_targets(&self, term: &Term) -> Vec<ResolutionTarget> {
-        let mut answer = vec![];
-        panic!("XXX");
-        answer
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the

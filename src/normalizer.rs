@@ -132,8 +132,7 @@ impl Normalizer {
         clauses
     }
 
-    #[allow(dead_code)]
-    fn check(&mut self, env: &Environment, name: &str, expected: &[&str]) {
+    pub fn check(&mut self, env: &Environment, name: &str, expected: &[&str]) {
         let actual = self.normalize(env.get_value(name).unwrap().clone());
         if actual.len() != expected.len() {
             panic!(
@@ -158,7 +157,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(dead_code)]
     fn test_nat_normalization() {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();

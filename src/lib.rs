@@ -4,6 +4,7 @@ pub mod active_set;
 pub mod atom;
 pub mod environment;
 pub mod expression;
+pub mod fingerprint;
 pub mod normalizer;
 pub mod prover;
 pub mod statement;
