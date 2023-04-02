@@ -92,7 +92,7 @@ impl ActiveSet {
     //
     // Refer to page 3 of "E: A Brainiac Theorem Prover" for more detail.
     pub fn activate_paramodulator(&self, s: &Term, t: &Term, pm_clause: &Clause) -> Vec<Clause> {
-        let result = vec![];
+        let mut result = vec![];
 
         // Look for resolution targets that match pm_left
         let targets = self.resolution_targets.get(s);
@@ -124,13 +124,23 @@ impl ActiveSet {
             };
             let new_literal = Literal::new(resolution_literal.is_positive(), unified_u, unified_v);
 
-            // Now we just need to run the unifier on all the other literals from the input clauses.
-            let mut literals = vec![];
-            for literal in resolution_clause.literals[1..] {
-                panic!("XXX");
+            // The new clause contains three types of literals.
+            // Type 1: the new literal created by superposition
+            let mut literals = vec![new_literal];
+
+            // Type 2: the literals from unifying "S"
+            for literal in &resolution_clause.literals[1..] {
+                let unified_literal = unifier.apply_to_literal(Scope::Right, literal);
+                literals.push(unified_literal);
             }
 
-            panic!("XXX");
+            // Type 3: the literals from unifying "R"
+            for literal in &pm_clause.literals[1..] {
+                let unified_literal = unifier.apply_to_literal(Scope::Left, literal);
+                literals.push(unified_literal);
+            }
+
+            result.push(Clause::new(literals));
         }
 
         result
