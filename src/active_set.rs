@@ -164,4 +164,26 @@ mod tests {
     fn test_new() {
         ActiveSet::new();
     }
+
+    #[test]
+    fn test_activate_paramodulator() {
+        // Create an active set that knows a0(a1) = a2
+        let res_left = Term::parse("a0(a1)");
+        let res_right = Term::parse("a2");
+        let mut set = ActiveSet::new();
+        set.add_clause(Clause::new(vec![Literal::Equals(res_left, res_right)]));
+
+        // We should be able to use a1 = a3 to paramodulate into a0(a3) = a2
+        let pm_left = Term::parse("a1");
+        let pm_right = Term::parse("a3");
+        let pm_clause = Clause::new(vec![Literal::Equals(pm_left.clone(), pm_right.clone())]);
+        let result = set.activate_paramodulator(&pm_left, &pm_right, &pm_clause);
+
+        assert_eq!(result.len(), 1);
+        let expected = Clause::new(vec![Literal::Equals(
+            Term::parse("a0(a3)"),
+            Term::parse("a2"),
+        )]);
+        assert_eq!(result[0], expected);
+    }
 }
