@@ -21,10 +21,10 @@ pub struct Unifier {
 }
 
 // Information for how to replace a subterm
-pub struct Replacement<'a> {
-    pub path: &'a [usize],
-    pub scope: Scope,
-    pub term: &'a Term,
+struct Replacement<'a> {
+    path: &'a [usize],
+    scope: Scope,
+    term: &'a Term,
 }
 
 impl Unifier {
@@ -76,7 +76,7 @@ impl Unifier {
     // Applies the unification to a term, possibly replacing a subterm with the
     // unification of the data provided in replacement.
     // This is weird because the replacement can have a different scope from the main term.
-    pub fn apply_replace(
+    fn apply_replace(
         &mut self,
         scope: Scope,
         term: &Term,

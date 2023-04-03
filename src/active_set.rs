@@ -1,6 +1,6 @@
 use crate::fingerprint::FingerprintTree;
-use crate::term::{Clause, Literal, Term};
-use crate::unifier::{Replacement, Scope, Unifier};
+use crate::term::{Clause, Term};
+use crate::unifier::{Scope, Unifier};
 
 // The ActiveSet stores rich data for a bunch of terms.
 // Within the ActiveSet, term data is perfectly shared, so that
@@ -113,6 +113,8 @@ impl ActiveSet {
 
 #[cfg(test)]
 mod tests {
+    use crate::term::Literal;
+
     use super::*;
 
     #[test]
