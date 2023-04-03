@@ -5,6 +5,9 @@ use crate::term::{Literal, Term};
 
 pub type TypeId = u16;
 
+pub const ANY: TypeId = 0;
+pub const BOOL: TypeId = 1;
+
 // A TypeSpace lets us represent types uniquely as TypeIds.
 // Zero always means "any", which we don't give to specific atoms, but we use for matching or
 // for testing.
@@ -15,7 +18,7 @@ pub struct TypeSpace {
 impl TypeSpace {
     pub fn new() -> TypeSpace {
         TypeSpace {
-            types: vec![AcornType::Any],
+            types: vec![AcornType::Any, AcornType::Bool],
         }
     }
 
@@ -135,7 +138,7 @@ impl TypeSpace {
     // For testing, make a function application with this head, return type bool
     pub fn bfn(&mut self, head: Atom, args: Vec<Term>) -> Term {
         Term {
-            term_type: self.add_type(AcornType::Bool),
+            term_type: BOOL,
             head_type: 0,
             head,
             args,
