@@ -1,5 +1,5 @@
 use crate::atom::{Atom, AtomId};
-use crate::term::{Literal, Term};
+use crate::term::{Clause, Literal, Term};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Scope {
@@ -257,6 +257,73 @@ impl Unifier {
         }
 
         true
+    }
+
+    // Handle superposition into either positive or negative literals. The "SP" and "SN" rules.
+    //
+    // The superposition rule is, given:
+    // s = t | S   (pm_clause, the paramodulator's clause)
+    // u ?= v | R  (res_clause, the resolver's clause)
+    //
+    // If s matches a subterm of u, superposition lets you replace the s with t to infer that:
+    //
+    // u[s -> t] ?= v | S | R
+    // (after the unifier has been applied to the whole thing)
+    //
+    // Sometimes we refer to s = t as the "paramodulator" and u ?= v as the "resolver".
+    // path describes which subterm of u we're replacing.
+    // s/t must be in the "left" scope and u/v must be in the "right" scope.
+    //
+    // If ?= is =, it's "superposition into positive literals".
+    // If ?= is !=, it's "superposition into negative literals".
+    //
+    // It is assumed that the first literal in pm_clause is the paramodulator,
+    // and assumed that the first literal in res_clause is the resolver.
+    // These literals both get dropped in favor of the combined one, in the inferred clause.
+    //
+    // Refer to page 3 of "E: A Brainiac Theorem Prover" for more detail.
+    pub fn superpose(
+        &mut self,
+        t: &Term,
+        pm_clause: &Clause,
+        path: &[usize],
+        res_clause: &Clause,
+    ) -> Clause {
+        let resolution_literal = &res_clause.literals[0];
+        let u = resolution_literal.left();
+        let v = resolution_literal.right();
+        let unified_u = self.apply_replace(
+            Scope::Right,
+            u,
+            Some(Replacement {
+                path: &path,
+                scope: Scope::Left,
+                term: &t,
+            }),
+        );
+        let unified_v = match v {
+            Some(v_term) => Some(self.apply(Scope::Right, v_term)),
+            None => None,
+        };
+        let new_literal = Literal::new(resolution_literal.is_positive(), unified_u, unified_v);
+
+        // The new clause contains three types of literals.
+        // Type 1: the new literal created by superposition
+        let mut literals = vec![new_literal];
+
+        // Type 2: the literals from unifying "S"
+        for literal in &res_clause.literals[1..] {
+            let unified_literal = self.apply_to_literal(Scope::Right, literal);
+            literals.push(unified_literal);
+        }
+
+        // Type 3: the literals from unifying "R"
+        for literal in &pm_clause.literals[1..] {
+            let unified_literal = self.apply_to_literal(Scope::Left, literal);
+            literals.push(unified_literal);
+        }
+
+        Clause::new(literals)
     }
 }
 

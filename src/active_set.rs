@@ -69,28 +69,15 @@ impl ActiveSet {
     // At a high level, this is when we have just learned that s = t in some circumstances,
     // and we are looking for all the conclusions we can infer by rewriting s -> t
     // in existing formulas.
+    // Specifically, this function handles the case when
     //
-    // At a lower level, the superposition rule is, given:
-    // s = t | S
-    // u ?= v | R
+    //   s = t | S
     //
-    // If s matches a subterm of u, superposition lets you replace the s with t to infer that:
+    // is the clause that is being activated, and we are searching for any clauses that can fit the
     //
-    // u[s -> t] ?= v | S | R
-    // (after the unifier has been applied to the whole thing)
+    //   u ?= v | R
     //
-    // Sometimes we refer to s = t as the "paramodulator" and u ?= v as the "resolver".
-    //
-    // If ?= is =, it's "superposition into positive literals".
-    // If ?= is !=, it's "superposition into negative literals".
-    //
-    // This function handles the case when s = t | S is the clause that is being activated, and
-    // we are searching for any clauses that can fit the u ?= v | R in this formula.
-    //
-    // pm_clause is s = t | S. It is assumed that the first literal in pm_clause is the paramodulator,
-    // which will get dropped in the inferred clause.
-    //
-    // Refer to page 3 of "E: A Brainiac Theorem Prover" for more detail.
+    // in the superposition formula.
     pub fn activate_paramodulator(&self, s: &Term, t: &Term, pm_clause: &Clause) -> Vec<Clause> {
         let mut result = vec![];
 
@@ -99,48 +86,16 @@ impl ActiveSet {
         for target in targets {
             let u_subterm = self.get_resolution_term(target);
             let mut unifier = Unifier::new();
-            // We'll call the s/t scope "left" and the u/v scope "right"
+            // s/t must be in "left" scope and u/v must be in "right" scope
             if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
                 continue;
             }
 
             // The clauses do actually unify. Combine them according to the superposition rule.
             let resolution_clause = &self.clauses[target.clause_index];
-            let resolution_literal = &resolution_clause.literals[0];
-            let u = resolution_literal.left();
-            let v = resolution_literal.right();
-            let unified_u = unifier.apply_replace(
-                Scope::Right,
-                u,
-                Some(Replacement {
-                    path: &target.path,
-                    scope: Scope::Left,
-                    term: &t,
-                }),
-            );
-            let unified_v = match v {
-                Some(v_term) => Some(unifier.apply(Scope::Right, v_term)),
-                None => None,
-            };
-            let new_literal = Literal::new(resolution_literal.is_positive(), unified_u, unified_v);
+            let new_clause = unifier.superpose(t, pm_clause, &target.path, resolution_clause);
 
-            // The new clause contains three types of literals.
-            // Type 1: the new literal created by superposition
-            let mut literals = vec![new_literal];
-
-            // Type 2: the literals from unifying "S"
-            for literal in &resolution_clause.literals[1..] {
-                let unified_literal = unifier.apply_to_literal(Scope::Right, literal);
-                literals.push(unified_literal);
-            }
-
-            // Type 3: the literals from unifying "R"
-            for literal in &pm_clause.literals[1..] {
-                let unified_literal = unifier.apply_to_literal(Scope::Left, literal);
-                literals.push(unified_literal);
-            }
-
-            result.push(Clause::new(literals));
+            result.push(new_clause);
         }
 
         result
