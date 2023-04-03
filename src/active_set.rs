@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::fingerprint::FingerprintTree;
 use crate::term::{Clause, Literal, Term};
 use crate::unifier::{Scope, Unifier};
@@ -13,7 +15,7 @@ pub struct ActiveSet {
 
     // The only information we need on a paramodulation target is the clause index, because
     // we use the entire paramodulator, not a subterm.
-    paramodulation_targets: FingerprintTree<usize>,
+    paramodulation_targets: FingerprintTree<ParamodulationTarget>,
 }
 
 // A ResolutionTarget is a way of specifying one particular term that is "eligible for resolution".
@@ -84,10 +86,39 @@ impl ActiveSet {
 
     // Doesn't add any paramodulation targets if none are appropriate.
     pub fn add_paramodulation_targets(&mut self, literal: &Literal, clause_index: usize) {
-        panic!(
-            "TODO. literal: {:?}, clause_index: {}, pmt: {:?}",
-            literal, clause_index, self.paramodulation_targets
+        if !literal.positive {
+            return;
+        }
+
+        // For s=t, we always add the s->t direction
+        self.paramodulation_targets.insert(
+            &literal.left,
+            ParamodulationTarget {
+                clause_index,
+                forwards: true,
+            },
         );
+
+        let order = literal.left.kbo(&literal.right);
+        match order {
+            Ordering::Greater => {
+                // s > t, so we only do one direction
+                return;
+            }
+            Ordering::Equal => {
+                // s = t, so we do both directions
+                self.paramodulation_targets.insert(
+                    &literal.right,
+                    ParamodulationTarget {
+                        clause_index,
+                        forwards: false,
+                    },
+                );
+            }
+            Ordering::Less => {
+                panic!("Backwards literal: {:?}", literal);
+            }
+        }
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the
