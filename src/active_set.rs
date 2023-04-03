@@ -161,11 +161,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new() {
-        ActiveSet::new();
-    }
-
-    #[test]
     fn test_activate_paramodulator() {
         // Create an active set that knows a0(a1) = a2
         let res_left = Term::parse("a0(a1)");
