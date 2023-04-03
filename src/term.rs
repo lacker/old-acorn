@@ -412,13 +412,26 @@ impl fmt::Display for Literal {
 }
 
 impl Literal {
-    // This does not normalize. Should it?
+    // Normalizes the direction.
+    // The larger term should be on the left of the literal.
     pub fn new(is_positive: bool, left: Term, right: Option<Term>) -> Literal {
         match (is_positive, right) {
             (true, None) => Literal::Positive(left),
-            (true, Some(right)) => Literal::Equals(left, right),
+            (true, Some(right)) => {
+                if left >= right {
+                    Literal::Equals(left, right)
+                } else {
+                    Literal::Equals(right, left)
+                }
+            }
             (false, None) => Literal::Negative(left),
-            (false, Some(right)) => Literal::NotEquals(left, right),
+            (false, Some(right)) => {
+                if left >= right {
+                    Literal::NotEquals(left, right)
+                } else {
+                    Literal::NotEquals(right, left)
+                }
+            }
         }
     }
 

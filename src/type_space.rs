@@ -80,20 +80,12 @@ impl TypeSpace {
             AcornValue::Equals(left, right) => {
                 let left_term = self.term_from_value(*left);
                 let right_term = self.term_from_value(*right);
-                if left_term >= right_term {
-                    Literal::Equals(left_term, right_term)
-                } else {
-                    Literal::Equals(right_term, left_term)
-                }
+                Literal::new(true, left_term, Some(right_term))
             }
             AcornValue::NotEquals(left, right) => {
                 let left_term = self.term_from_value(*left);
                 let right_term = self.term_from_value(*right);
-                if left_term >= right_term {
-                    Literal::NotEquals(left_term, right_term)
-                } else {
-                    Literal::NotEquals(right_term, left_term)
-                }
+                Literal::new(false, left_term, Some(right_term))
             }
             AcornValue::Not(subvalue) => Literal::Negative(self.term_from_value(*subvalue)),
             _ => panic!("cannot convert {:?} to a literal", value),
