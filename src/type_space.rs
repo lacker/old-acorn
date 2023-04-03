@@ -78,19 +78,19 @@ impl TypeSpace {
     // to do rewrite-type lookups, on the larger literal first.
     pub fn literal_from_value(&mut self, value: AcornValue) -> Literal {
         match value {
-            AcornValue::Atom(atom) => Literal::Positive(self.term_from_atom(atom)),
-            AcornValue::Application(app) => Literal::Positive(self.term_from_application(app)),
+            AcornValue::Atom(atom) => Literal::positive(self.term_from_atom(atom)),
+            AcornValue::Application(app) => Literal::positive(self.term_from_application(app)),
             AcornValue::Equals(left, right) => {
                 let left_term = self.term_from_value(*left);
                 let right_term = self.term_from_value(*right);
-                Literal::new(true, left_term, Some(right_term))
+                Literal::equals(left_term, right_term)
             }
             AcornValue::NotEquals(left, right) => {
                 let left_term = self.term_from_value(*left);
                 let right_term = self.term_from_value(*right);
-                Literal::new(false, left_term, Some(right_term))
+                Literal::not_equals(left_term, right_term)
             }
-            AcornValue::Not(subvalue) => Literal::Negative(self.term_from_value(*subvalue)),
+            AcornValue::Not(subvalue) => Literal::negative(self.term_from_value(*subvalue)),
             _ => panic!("cannot convert {:?} to a literal", value),
         }
     }

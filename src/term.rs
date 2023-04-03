@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::atom::{Atom, AtomId};
 use crate::substitution::Substitution;
-use crate::type_space::TypeId;
+use crate::type_space::{TypeId, BOOL};
 
 // A term with no args is a plain atom.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -136,6 +136,20 @@ impl Term {
 
     pub fn is_atomic(&self) -> bool {
         self.args.len() == 0
+    }
+
+    // Whether this term is structurally identical to the atom "true".
+    pub fn is_true(&self) -> bool {
+        self.head == Atom::True
+    }
+
+    pub fn new_true() -> Term {
+        Term {
+            term_type: BOOL,
+            head_type: BOOL,
+            head: Atom::True,
+            args: vec![],
+        }
     }
 
     // Whether this term contains a variable with this index, anywhere in its body, recursively.
@@ -394,21 +408,30 @@ impl Term {
 }
 
 // Literals are always boolean-valued.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Literal {
-    Positive(Term),
-    Equals(Term, Term),
-    Negative(Term),
-    NotEquals(Term, Term),
+// In normalized form, left is the "larger" term.
+// Literals like "foo(a, b, c)" are treated as equalities having both
+// a left and a right side, by making a right side equal to the special constant "true".
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Literal {
+    pub positive: bool,
+    pub left: Term,
+    pub right: Term,
 }
 
 impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Literal::Positive(term) => write!(f, "{}", term),
-            Literal::Negative(term) => write!(f, "!{}", term),
-            Literal::Equals(left, right) => write!(f, "{} = {}", left, right),
-            Literal::NotEquals(left, right) => write!(f, "{} != {}", left, right),
+        if self.positive {
+            if self.right.is_true() {
+                write!(f, "{}", self.left)
+            } else {
+                write!(f, "{} = {}", self.left, self.right)
+            }
+        } else {
+            if self.right.is_true() {
+                write!(f, "!{}", self.left)
+            } else {
+                write!(f, "{} != {}", self.left, self.right)
+            }
         }
     }
 }
@@ -416,77 +439,82 @@ impl fmt::Display for Literal {
 impl Literal {
     // Normalizes the direction.
     // The larger term should be on the left of the literal.
-    pub fn new(is_positive: bool, left: Term, right: Option<Term>) -> Literal {
-        match (is_positive, right) {
-            (true, None) => Literal::Positive(left),
-            (true, Some(right)) => {
-                if left >= right {
-                    Literal::Equals(left, right)
-                } else {
-                    Literal::Equals(right, left)
-                }
+    pub fn new(positive: bool, left: Term, right: Term) -> Literal {
+        if left < right {
+            Literal {
+                positive,
+                left: right,
+                right: left,
             }
-            (false, None) => Literal::Negative(left),
-            (false, Some(right)) => {
-                if left >= right {
-                    Literal::NotEquals(left, right)
-                } else {
-                    Literal::NotEquals(right, left)
-                }
+        } else {
+            Literal {
+                positive,
+                left,
+                right,
             }
         }
     }
 
-    pub fn is_positive(&self) -> bool {
-        match self {
-            Literal::Positive(_) => true,
-            Literal::Equals(_, _) => true,
-            _ => false,
-        }
+    pub fn positive(term: Term) -> Literal {
+        Literal::new(true, term, Term::new_true())
+    }
+
+    pub fn negative(term: Term) -> Literal {
+        Literal::new(false, term, Term::new_true())
+    }
+
+    pub fn equals(left: Term, right: Term) -> Literal {
+        Literal::new(true, left, right)
+    }
+
+    pub fn not_equals(left: Term, right: Term) -> Literal {
+        Literal::new(false, left, right)
     }
 
     // Returns true if this literal is a tautology, i.e. foo = foo
     pub fn is_tautology(&self) -> bool {
-        if let Literal::Equals(left, right) = self {
-            return left == right;
-        }
-        false
+        self.positive && self.left == self.right
     }
 
     // Returns whether this clause is syntactically impossible, i.e. foo != foo
     pub fn is_impossible(&self) -> bool {
-        if let Literal::NotEquals(left, right) = self {
-            return left == right;
-        }
-        false
-    }
-
-    // Literals with only one side count it as the left side
-    pub fn left(&self) -> &Term {
-        match self {
-            Literal::Positive(term) => term,
-            Literal::Negative(term) => term,
-            Literal::Equals(left, _) => left,
-            Literal::NotEquals(left, _) => left,
-        }
-    }
-
-    // Returns None for one-sided literals
-    pub fn right(&self) -> Option<&Term> {
-        match self {
-            Literal::Equals(_, right) => Some(right),
-            Literal::NotEquals(_, right) => Some(right),
-            _ => None,
-        }
+        !self.positive && self.left == self.right
     }
 
     pub fn num_quantifiers(&self) -> AtomId {
-        let num_left = self.left().num_quantifiers();
-        if let Some(right) = self.right() {
-            num_left.max(right.num_quantifiers())
-        } else {
-            num_left
+        self.left
+            .num_quantifiers()
+            .max(self.right.num_quantifiers())
+    }
+
+    pub fn map(&self, f: &mut impl FnMut(&Term) -> Term) -> Literal {
+        Literal::new(self.positive, f(&self.left), f(&self.right))
+    }
+}
+
+// Literals are ordered so that you can normalize a clause by sorting its literals.
+// So, negative literals come first.
+// Then, we order backwards by term ordering for the left term.
+// Then, backwards (I guess?) for the right term.
+impl PartialOrd for Literal {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let positive_cmp = self.positive.cmp(&other.positive);
+        if positive_cmp != Ordering::Equal {
+            return Some(positive_cmp);
         }
+
+        let left_cmp = other.left.cmp(&self.left);
+        if left_cmp != Ordering::Equal {
+            return Some(left_cmp);
+        }
+
+        Some(other.right.cmp(&self.right))
+    }
+}
+
+impl Ord for Literal {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 
@@ -522,7 +550,6 @@ impl Clause {
             .filter(|x| !x.is_impossible())
             .collect::<Vec<_>>();
         literals.sort();
-        literals.reverse();
         literals.dedup();
         Clause { literals }
     }

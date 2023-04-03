@@ -149,16 +149,7 @@ impl Unifier {
     }
 
     pub fn apply_to_literal(&mut self, scope: Scope, literal: &Literal) -> Literal {
-        match literal {
-            Literal::Positive(term) => Literal::Positive(self.apply(scope, term)),
-            Literal::Negative(term) => Literal::Negative(self.apply(scope, term)),
-            Literal::Equals(left, right) => {
-                Literal::Equals(self.apply(scope, left), self.apply(scope, right))
-            }
-            Literal::NotEquals(left, right) => {
-                Literal::NotEquals(self.apply(scope, left), self.apply(scope, right))
-            }
-        }
+        literal.map(&mut |term| self.apply(scope, term))
     }
 
     // Replace variable i in the output scope with the given term (which is also in the output scope).
@@ -290,22 +281,19 @@ impl Unifier {
         res_clause: &Clause,
     ) -> Clause {
         let resolution_literal = &res_clause.literals[0];
-        let u = resolution_literal.left();
-        let v = resolution_literal.right();
+        let u = &resolution_literal.left;
+        let v = &resolution_literal.right;
         let unified_u = self.apply_replace(
             Scope::Right,
             u,
             Some(Replacement {
                 path: &path,
                 scope: Scope::Left,
-                term: &t,
+                term: t,
             }),
         );
-        let unified_v = match v {
-            Some(v_term) => Some(self.apply(Scope::Right, v_term)),
-            None => None,
-        };
-        let new_literal = Literal::new(resolution_literal.is_positive(), unified_u, unified_v);
+        let unified_v = self.apply(Scope::Right, &v);
+        let new_literal = Literal::new(resolution_literal.positive, unified_u, unified_v);
 
         // The new clause contains three types of literals.
         // Type 1: the new literal created by superposition
