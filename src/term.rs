@@ -412,6 +412,7 @@ impl fmt::Display for Literal {
 }
 
 impl Literal {
+    // This does not normalize. Should it?
     pub fn new(is_positive: bool, left: Term, right: Option<Term>) -> Literal {
         match (is_positive, right) {
             (true, None) => Literal::Positive(left),

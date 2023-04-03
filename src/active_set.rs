@@ -36,7 +36,7 @@ impl ActiveSet {
     // Recursively add all resolution targets for a term, prepending the provided path.
     // Single variables are not permitted as resolution targets.
     fn add_resolution_targets(&mut self, term: &Term, clause_index: usize, path: &mut Vec<usize>) {
-        if term.is_atomic() {
+        if term.atomic_variable().is_some() {
             return;
         }
 
