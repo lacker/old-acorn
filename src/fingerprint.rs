@@ -87,6 +87,7 @@ impl Fingerprint {
     }
 }
 
+#[derive(Debug)]
 pub struct FingerprintTree<T> {
     tree: BTreeMap<Fingerprint, Vec<T>>,
 }

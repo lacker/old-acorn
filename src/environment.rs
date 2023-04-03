@@ -156,6 +156,7 @@ impl Environment {
 
     fn atom_str(&self, atom: &Atom) -> String {
         match atom {
+            Atom::True => "true".to_string(),
             Atom::Axiomatic(i) => self.axiomatic_values[*i as usize].to_string(),
             Atom::Skolem(i) => format!("skolem{}", i),
             Atom::Variable(i) => format!("x{}", i),

@@ -1,5 +1,5 @@
 use crate::fingerprint::FingerprintTree;
-use crate::term::{Clause, Term};
+use crate::term::{Clause, Literal, Term};
 use crate::unifier::{Scope, Unifier};
 
 // The ActiveSet stores rich data for a bunch of terms.
@@ -10,6 +10,10 @@ pub struct ActiveSet {
     clauses: Vec<Clause>,
 
     resolution_targets: FingerprintTree<ResolutionTarget>,
+
+    // The only information we need on a paramodulation target is the clause index, because
+    // we use the entire paramodulator, not a subterm.
+    paramodulation_targets: FingerprintTree<usize>,
 }
 
 // A ResolutionTarget is a way of specifying one particular term that is "eligible for resolution".
@@ -25,11 +29,25 @@ struct ResolutionTarget {
     path: Vec<usize>,
 }
 
+// A ParamodulationTarget is a way of specifying one particular term that is
+// "eligible for paramodulation".
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct ParamodulationTarget {
+    // Which clause the paramodulation target is in.
+    // We assume it must be the first literal.
+    clause_index: usize,
+
+    // "forwards" paramodulation is when we use s = t to rewrite s to t.
+    // "backwards" paramodulation is when we use s = t to rewrite t to s.
+    forwards: bool,
+}
+
 impl ActiveSet {
     pub fn new() -> ActiveSet {
         ActiveSet {
             clauses: vec![],
             resolution_targets: FingerprintTree::new(),
+            paramodulation_targets: FingerprintTree::new(),
         }
     }
 
@@ -62,6 +80,14 @@ impl ActiveSet {
             term = &term.args[*i];
         }
         term
+    }
+
+    // Doesn't add any paramodulation targets if none are appropriate.
+    pub fn add_paramodulation_targets(&mut self, literal: &Literal, clause_index: usize) {
+        panic!(
+            "TODO. literal: {:?}, clause_index: {}, pmt: {:?}",
+            literal, clause_index, self.paramodulation_targets
+        );
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the

@@ -241,10 +241,12 @@ impl Term {
     // These are meant to be used in tiebreak fashion, and should distinguish most
     // distinguishable terms.
     // refcounts adds up the number of references to each variable.
+    // "true" is weightless.
     fn multi_weight(&self, refcounts: &mut Vec<u8>) -> (u32, u32) {
         let mut weight1 = 0;
         let mut weight2 = 0;
         match self.head {
+            Atom::True => {}
             Atom::Variable(i) => {
                 while refcounts.len() <= i as usize {
                     refcounts.push(0);

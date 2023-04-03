@@ -12,6 +12,8 @@ pub const MIN_ATOM: Atom = Atom::Axiomatic(0);
 // For now, we expand everything we can inline.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Atom {
+    True,
+
     // Values defined like "define 0: Nat = axiom"
     Axiomatic(AtomId),
 
@@ -28,6 +30,7 @@ pub enum Atom {
 impl fmt::Display for Atom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Atom::True => write!(f, "true"),
             Atom::Axiomatic(i) => write!(f, "a{}", i),
             Atom::Skolem(i) => write!(f, "s{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
