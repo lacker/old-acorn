@@ -69,36 +69,24 @@ impl ActiveSet {
         term
     }
 
-    // Doesn't add any paramodulation targets if none are appropriate.
-    pub fn add_paramodulation_targets(&mut self, literal: &Literal, clause_index: usize) {
+    // Get an iterator of (forward?, s, t) for all s -> t paramodulations allowed for this literal.
+    fn paramodulation_terms(literal: &Literal) -> impl Iterator<Item = (bool, &Term, &Term)> {
         if !literal.positive {
-            return;
+            return vec![].into_iter();
         }
-
-        // For s=t, we always add the s->t direction
-        self.paramodulation_targets.insert(
-            &literal.left,
-            ParamodulationTarget {
-                clause_index,
-                forwards: true,
-            },
-        );
-
         let order = literal.left.kbo(&literal.right);
         match order {
             Ordering::Greater => {
-                // s > t, so we only do one direction
-                return;
+                // s > t, so we only do forwards
+                vec![(true, &literal.left, &literal.right)].into_iter()
             }
             Ordering::Equal => {
                 // s = t, so we do both directions
-                self.paramodulation_targets.insert(
-                    &literal.right,
-                    ParamodulationTarget {
-                        clause_index,
-                        forwards: false,
-                    },
-                );
+                vec![
+                    (true, &literal.left, &literal.right),
+                    (false, &literal.right, &literal.left),
+                ]
+                .into_iter()
             }
             Ordering::Less => {
                 panic!("Backwards literal: {:?}", literal);
@@ -208,7 +196,15 @@ impl ActiveSet {
         }
 
         // Add paramodulation targets for the new clause.
-        self.add_paramodulation_targets(leftmost_literal, clause_index);
+        for (forwards, from, _) in ActiveSet::paramodulation_terms(leftmost_literal) {
+            self.paramodulation_targets.insert(
+                from,
+                ParamodulationTarget {
+                    clause_index,
+                    forwards,
+                },
+            );
+        }
 
         self.clauses.push(clause);
     }
