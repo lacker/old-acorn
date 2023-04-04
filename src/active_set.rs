@@ -126,6 +126,7 @@ impl ActiveSet {
     // At a high level, this is when we have just learned that s = t in some circumstances,
     // and we are looking for all the conclusions we can infer by rewriting s -> t
     // in existing formulas.
+    //
     // Specifically, this function handles the case when
     //
     //   s = t | S
@@ -158,11 +159,62 @@ impl ActiveSet {
         result
     }
 
+    // Look for superposition inferences using a resolver which is not yet in the active set.
+    // At a high level, this is when we have just learned the relation u ?= v, and we are
+    // looking for all the ways we can alter it in a no-less-simple way
+    // (while possibly adding conditions).
+    //
+    // Specifically, this function handles the case when
+    //
+    //   u ?= v | R   (res_clause)
+    //
+    // is the clause that is being activated, and we are searching for any clauses that can fit the
+    //
+    //   s = t | S
+    //
+    // in the superposition formula.
+    pub fn activate_resolver(&self, res_clause: &Clause) -> Vec<Clause> {
+        let mut result = vec![];
+        let res_literal = &res_clause.literals[0];
+        let u = &res_literal.left;
+        let u_subterms = u.subterms();
+
+        for (path, u_subterm) in u_subterms {
+            // Look for paramodulation targets that match u_subterm
+            let targets = self.paramodulation_targets.get(u_subterm);
+            for target in targets {
+                let pm_clause = &self.clauses[target.clause_index];
+                let pm_literal = &pm_clause.literals[0];
+                let (s, t) = if target.forwards {
+                    (&pm_literal.left, &pm_literal.right)
+                } else {
+                    (&pm_literal.right, &pm_literal.left)
+                };
+
+                // s/t must be in "left" scope and u/v must be in "right" scope
+                let mut unifier = Unifier::new();
+                if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
+                    continue;
+                }
+
+                // The clauses do actually unify. Combine them according to the superposition rule.
+                let new_clause = unifier.superpose(t, pm_clause, &path, res_clause);
+
+                result.push(new_clause);
+            }
+        }
+
+        result
+    }
+
     pub fn add_clause(&mut self, clause: Clause) {
         // Add resolution targets for the new clause.
         let clause_index = self.clauses.len();
-        let resolution_root = &clause.literals[0].left;
-        self.add_resolution_targets(&resolution_root, clause_index, &mut vec![]);
+        let leftmost_literal = &clause.literals[0];
+        let leftmost_term = &leftmost_literal.left;
+
+        self.add_resolution_targets(&leftmost_term, clause_index, &mut vec![]);
+        self.add_paramodulation_targets(leftmost_literal, clause_index);
 
         self.clauses.push(clause);
     }

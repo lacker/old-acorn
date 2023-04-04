@@ -405,6 +405,28 @@ impl Term {
 
         None
     }
+
+    // Finds all subterms of this term, and with their paths, appends to "answer".
+    // prepends "prefix" to all paths.
+    fn push_subterms<'a>(
+        &'a self,
+        prefix: &mut Vec<usize>,
+        answer: &mut Vec<(Vec<usize>, &'a Term)>,
+    ) {
+        answer.push((prefix.clone(), self));
+        for (i, arg) in self.args.iter().enumerate() {
+            prefix.push(i);
+            arg.push_subterms(prefix, answer);
+            prefix.pop();
+        }
+    }
+
+    pub fn subterms(&self) -> Vec<(Vec<usize>, &Term)> {
+        let mut answer = vec![];
+        let mut prefix = vec![];
+        self.push_subterms(&mut prefix, &mut answer);
+        answer
+    }
 }
 
 // Literals are always boolean-valued.
