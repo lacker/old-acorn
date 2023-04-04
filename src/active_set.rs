@@ -53,26 +53,11 @@ impl ActiveSet {
         }
     }
 
-    // Recursively add all resolution targets for a term, prepending the provided path.
-    // Single variables are not permitted as resolution targets.
-    fn add_resolution_targets(&mut self, term: &Term, clause_index: usize, path: &mut Vec<usize>) {
-        if term.atomic_variable().is_some() {
-            return;
-        }
-
-        // Add the target for the root term
-        let target = ResolutionTarget {
-            clause_index,
-            path: path.clone(),
-        };
-        self.resolution_targets.insert(&term, target);
-
-        // Add the targets for the subterms
-        for (i, subterm) in term.args.iter().enumerate() {
-            path.push(i);
-            self.add_resolution_targets(subterm, clause_index, path);
-            path.pop();
-        }
+    // Get an iterator of (path, subterm) for all allowable resolution targets of a term.
+    fn resolution_subterms(term: &Term) -> impl Iterator<Item = (Vec<usize>, &Term)> {
+        term.subterms()
+            .into_iter()
+            .filter(|(_, t)| !t.atomic_variable().is_some())
     }
 
     fn get_resolution_term(&self, target: &ResolutionTarget) -> &Term {
@@ -212,8 +197,17 @@ impl ActiveSet {
         let clause_index = self.clauses.len();
         let leftmost_literal = &clause.literals[0];
         let leftmost_term = &leftmost_literal.left;
+        for (path, subterm) in ActiveSet::resolution_subterms(leftmost_term) {
+            self.resolution_targets.insert(
+                subterm,
+                ResolutionTarget {
+                    clause_index,
+                    path: path.clone(),
+                },
+            );
+        }
 
-        self.add_resolution_targets(&leftmost_term, clause_index, &mut vec![]);
+        // Add paramodulation targets for the new clause.
         self.add_paramodulation_targets(leftmost_literal, clause_index);
 
         self.clauses.push(clause);
