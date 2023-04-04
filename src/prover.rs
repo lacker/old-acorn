@@ -346,7 +346,6 @@ mod tests {
         env
     }
 
-    /*
     #[test]
     fn test_specialization() {
         let mut env = thing_env();
@@ -359,7 +358,6 @@ mod tests {
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("goal"), Result::Success);
     }
-    */
 
     #[test]
     fn test_backward_specialization_fails() {
@@ -371,7 +369,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.old_prove("goal"), Result::Failure);
+        assert_eq!(prover.prove("goal"), Result::Failure);
     }
 
     #[test]
@@ -384,7 +382,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.old_prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Result::Success);
     }
 
     #[test]
@@ -397,7 +395,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.old_prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Result::Success);
     }
 
     #[test]
@@ -410,7 +408,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.old_prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Result::Success);
     }
 
     #[test]
@@ -424,7 +422,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.old_prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Result::Success);
     }
 
     #[test]
@@ -438,7 +436,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.old_prove("goal"), Result::Failure);
+        assert_eq!(prover.prove("goal"), Result::Failure);
     }
 
     #[test]
@@ -452,7 +450,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.old_prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Result::Success);
     }
 
     fn nat_ac_env() -> Environment {
