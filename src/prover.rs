@@ -3,11 +3,9 @@ use std::collections::VecDeque;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
-use crate::atom::AtomId;
 use crate::environment::Environment;
 use crate::normalizer::Normalizer;
-use crate::substitution::Substitution;
-use crate::term::{Clause, Literal, Term};
+use crate::term::Clause;
 
 pub struct Prover<'a> {
     env: &'a Environment,
@@ -19,8 +17,6 @@ pub struct Prover<'a> {
     // The "passive" clauses are a queue of pending clauses that
     // we will add to the active clauses in the future.
     passive: VecDeque<Clause>,
-
-    old_active: Vec<Clause>,
 
     // A prover is dirty when it has had false propositions added to it.
     dirty: bool,
@@ -41,7 +37,6 @@ impl Prover<'_> {
     pub fn new(env: &Environment) -> Prover {
         Prover {
             normalizer: Normalizer::new(),
-            old_active: Vec::new(),
             active_set: ActiveSet::new(),
             passive: VecDeque::new(),
             env,
@@ -71,187 +66,6 @@ impl Prover<'_> {
         self.add_proposition(negated);
     }
 
-    // Checks whether (term1 = term) = equal for all values of the universally quantified variables.
-    // This only does exact comparisons, so if we already know x = y,
-    // this won't find that f(x) = f(y).
-    //
-    // Meaning of the return value:
-    // Some(true): (term1 = term2) = equal always
-    // Some(false): there is a counterexample where (term1 = term2) != equal
-    // None: we don't know
-    fn old_exact_compare(
-        &self,
-        term1: &Term,
-        term2: &Term,
-        equal: bool,
-        find_counterexamples: bool,
-    ) -> Option<bool> {
-        for clause in &self.old_active {
-            if clause.literals.len() != 1 {
-                continue;
-            }
-            let literal = &clause.literals[0];
-
-            if literal.positive == equal {
-                // Signs match.
-                // Check for a proof by specialization.
-                // Check if (left, right) specializes to (term1, term2)
-                let mut sub = Substitution::new();
-                if sub.match_terms(&literal.left, term1) && sub.match_terms(&literal.right, term2) {
-                    return Some(true);
-                }
-
-                // Check if (left, right) specializes to (term2, term1)
-                sub = Substitution::new();
-                if sub.match_terms(&literal.left, term2) && sub.match_terms(&literal.right, term1) {
-                    return Some(true);
-                }
-            } else if find_counterexamples {
-                // Signs don't match.
-                // Check for a counterexample.
-                // Check if (left, right) unifies to (term1, term2).
-                // Note that "shift" is the size for left/right so we have to shift term1 and term2.
-                let shift = clause.num_quantifiers() as AtomId;
-                let mut sub = Substitution::new();
-                if sub.unify_terms(&literal.left, term1, shift)
-                    && sub.unify_terms(&literal.right, term2, shift)
-                {
-                    return Some(false);
-                }
-
-                // Check if (left, right) unifies to (term2, term1).
-                sub = Substitution::new();
-                if sub.unify_terms(&literal.left, term2, shift) {
-                    if sub.unify_terms(&literal.right, term1, shift) {
-                        return Some(false);
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    // Check whether term = valuation for all values of the universally quantified variables.
-    // Meaning of the return value:
-    // Some(true): term = evaluation always
-    // Some(false): there is some counterexample where term != evaluation
-    // None: we don't know
-    fn old_evaluate_term(&self, term: &Term, evaluation: bool) -> Option<bool> {
-        for clause in &self.old_active {
-            if clause.literals.len() != 1 {
-                continue;
-            }
-            let literal = &clause.literals[0];
-            if !literal.right.is_true() {
-                continue;
-            }
-            if literal.positive == evaluation {
-                // Signs match.
-                // If this term is a generalization of the known term, then term = evaluation.
-                let mut sub = Substitution::new();
-                if sub.match_terms(term, &literal.left) {
-                    return Some(true);
-                }
-            } else {
-                // Signs don't match.
-                // If these terms can unify, this is a counterexample.
-                // Note that this depends on the fact that every type is occupied.
-                let mut sub = Substitution::new();
-                if sub.unify_terms(&literal.left, term, clause.num_quantifiers() as AtomId) {
-                    return Some(false);
-                }
-            }
-        }
-        None
-    }
-
-    // Meaning of the return value:
-    // Some(true): literal is true over the (implicit) universal quantifiers
-    // Some(false): literal is false, there is some counterexample
-    // None: we don't know anything
-    fn old_evaluate_literal(&self, literal: &Literal) -> Option<bool> {
-        if literal.right.is_true() {
-            return self.old_evaluate_term(&literal.left, literal.positive);
-        }
-        if literal.left == literal.right {
-            return Some(literal.positive);
-        }
-
-        if let Some((subleft, subright)) = literal.left.matches_but_one(&literal.right) {
-            // If a = b, then that proves f(a) = f(b).
-            // TODO: Should this really work the other way?
-            if self.old_exact_compare(subleft, subright, true, false) == Some(true) {
-                return Some(literal.positive);
-            }
-        }
-        self.old_exact_compare(&literal.left, &literal.right, literal.positive, true)
-    }
-
-    fn old_rewrite_term(&self, term: Term) -> Term {
-        let mut answer = term;
-        loop {
-            for clause in &self.old_active {
-                if clause.literals.len() != 1 {
-                    continue;
-                }
-                let literal = &clause.literals[0];
-                if !literal.positive {
-                    continue;
-                }
-                match answer.rewrite(&literal.left, &literal.right) {
-                    Some(new_term) => {
-                        answer = new_term;
-                        continue;
-                    }
-                    None => {}
-                }
-            }
-            return answer;
-        }
-    }
-
-    fn old_rewrite_literal(&self, literal: Literal) -> Literal {
-        literal.map(&mut |term| self.old_rewrite_term(term.clone()))
-    }
-
-    // Activates the next clause from the queue.
-    fn old_activate_next(&mut self) -> Result {
-        let clause = if let Some(clause) = self.passive.pop_front() {
-            clause
-        } else {
-            // We're out of clauses to process, so we can't make any more progress.
-            return Result::Failure;
-        };
-
-        // Simplify the clause
-        let mut literals = Vec::new();
-        for literal in clause.literals {
-            let literal = self.old_rewrite_literal(literal);
-            match self.old_evaluate_literal(&literal) {
-                Some(true) => {
-                    // This clause is true, so activating it is a no-op.
-                    return Result::Unknown;
-                }
-                Some(false) => {
-                    // This literal is false, so we can leave it out of the new active clause.
-                    continue;
-                }
-                None => {
-                    // We don't know anything about this literal, so we'll keep it.
-                    literals.push(literal);
-                }
-            }
-        }
-        if literals.is_empty() {
-            // All the literals were false, so this clause is false.
-            // That means we have successfully proven a contradiction.
-            return Result::Success;
-        }
-
-        self.old_active.push(Clause::new(literals));
-        Result::Unknown
-    }
-
     // Activates the next clause from the queue.
     fn activate_next(&mut self) -> Result {
         let clause = if let Some(clause) = self.passive.pop_front() {
@@ -276,17 +90,6 @@ impl Prover<'_> {
         Result::Unknown
     }
 
-    fn old_search_for_contradiction(&mut self) -> Result {
-        let start_time = std::time::Instant::now();
-        while start_time.elapsed().as_secs() < 3 {
-            let result = self.old_activate_next();
-            if result != Result::Unknown {
-                return result;
-            }
-        }
-        Result::Unknown
-    }
-
     fn search_for_contradiction(&mut self) -> Result {
         let start_time = std::time::Instant::now();
         while start_time.elapsed().as_secs() < 3 {
@@ -296,23 +99,6 @@ impl Prover<'_> {
             }
         }
         Result::Unknown
-    }
-
-    pub fn old_prove(&mut self, theorem_name: &str) -> Result {
-        if self.dirty {
-            panic!("prove called on a dirty prover");
-        }
-        for (name, value) in self.env.iter_theorems() {
-            if name == theorem_name {
-                // To prove a statement, we negate, then search for a contradiction.
-                self.add_negated(value.clone());
-
-                return self.old_search_for_contradiction();
-            }
-
-            self.add_proposition(value.clone());
-        }
-        panic!("no theorem named {}", theorem_name);
     }
 
     pub fn prove(&mut self, theorem_name: &str) -> Result {
