@@ -245,6 +245,19 @@ mod tests {
         assert_eq!(prover.prove("goal"), Result::Success);
     }
 
+    #[test]
+    fn test_extends_ne() {
+        let mut env = thing_env();
+        env.add(
+            r#"
+        axiom f_t_ne_f_t2: f(t) != f(t2)
+        theorem goal: t != t2
+        "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
     fn nat_ac_env() -> Environment {
         let mut env = Environment::new();
         env.add(
