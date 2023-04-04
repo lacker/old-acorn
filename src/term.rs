@@ -566,6 +566,7 @@ impl fmt::Display for Clause {
 impl Clause {
     // Sorts literals.
     // Removes any duplicate or impossible literals.
+    // An empty clause indicates an impossible clause.
     pub fn new(literals: Vec<Literal>) -> Clause {
         let mut literals = literals
             .into_iter()
@@ -582,6 +583,14 @@ impl Clause {
             answer = answer.max(literal.num_quantifiers());
         }
         answer
+    }
+
+    pub fn is_tautology(&self) -> bool {
+        self.literals.iter().any(|x| x.is_tautology())
+    }
+
+    pub fn is_impossible(&self) -> bool {
+        self.literals.is_empty()
     }
 }
 

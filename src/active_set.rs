@@ -183,7 +183,7 @@ impl ActiveSet {
         result
     }
 
-    pub fn add_clause(&mut self, clause: Clause) {
+    pub fn insert(&mut self, clause: Clause) {
         // Add resolution targets for the new clause.
         let clause_index = self.clauses.len();
         let leftmost_literal = &clause.literals[0];
@@ -213,7 +213,7 @@ impl ActiveSet {
     }
 
     // Generate all the inferences that can be made from a given clause, plus a clause already in the set.
-    pub fn generate(&self, clause: Clause) -> Vec<Clause> {
+    pub fn generate(&self, clause: &Clause) -> Vec<Clause> {
         let mut result = vec![];
         result.extend(self.activate_paramodulator(&clause));
         result.extend(self.activate_resolver(&clause));
@@ -233,7 +233,7 @@ mod tests {
         let res_left = Term::parse("a0(a3)");
         let res_right = Term::parse("a2");
         let mut set = ActiveSet::new();
-        set.add_clause(Clause::new(vec![Literal::equals(res_left, res_right)]));
+        set.insert(Clause::new(vec![Literal::equals(res_left, res_right)]));
 
         // We should be able to use a1 = a3 to paramodulate into a0(a3) = a2
         let pm_left = Term::parse("a1");
@@ -255,7 +255,7 @@ mod tests {
         let pm_left = Term::parse("a1");
         let pm_right = Term::parse("a3");
         let mut set = ActiveSet::new();
-        set.add_clause(Clause::new(vec![Literal::equals(pm_left, pm_right)]));
+        set.insert(Clause::new(vec![Literal::equals(pm_left, pm_right)]));
 
         // We should be able to use a0(a3) = a2 as a resolver to get a0(a1) = a2
         let res_left = Term::parse("a0(a3)");
