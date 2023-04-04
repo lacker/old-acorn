@@ -203,20 +203,6 @@ impl Term {
         answer
     }
 
-    // Make a copy of this term that shifts all of its variable ids.
-    pub fn shift_variables(&self, shift: AtomId) -> Term {
-        Term {
-            term_type: self.term_type,
-            head_type: self.head_type,
-            head: self.head.shift_variables(shift),
-            args: self
-                .args
-                .iter()
-                .map(|arg| arg.shift_variables(shift))
-                .collect(),
-        }
-    }
-
     // Assumes any intermediate ones are taken, so essentially 1 plus the maximum.
     pub fn num_quantifiers(&self) -> AtomId {
         let mut answer = match self.head {
@@ -225,26 +211,6 @@ impl Term {
         };
         for arg in &self.args {
             answer = answer.max(arg.num_quantifiers());
-        }
-        answer
-    }
-
-    // If these two terms differ in only one subterm, return references to those subterms.
-    pub fn matches_but_one<'a, 'b>(&'a self, other: &'b Term) -> Option<(&'a Term, &'b Term)> {
-        if self.head != other.head {
-            return None;
-        }
-        if self.args.len() != other.args.len() {
-            return None;
-        }
-        let mut answer = None;
-        for (arg1, arg2) in self.args.iter().zip(other.args.iter()) {
-            if arg1 != arg2 {
-                if answer.is_some() {
-                    return None;
-                }
-                answer = Some((arg1, arg2));
-            }
         }
         answer
     }
