@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::atom::{Atom, AtomId};
-use crate::substitution::Substitution;
 use crate::type_space::{TypeId, BOOL};
 
 // A term with no args is a plain atom.
@@ -377,33 +376,6 @@ impl Term {
             current_term = &current_term.args[i];
         }
         Some(current_term)
-    }
-
-    // Once this finds a single rewrite, it stops and returns the new term.
-    pub fn rewrite(&self, find: &Term, replace: &Term) -> Option<Term> {
-        // See if this entire term matches
-        let mut sub = Substitution::new();
-        if sub.match_terms(find, self) {
-            let candidate = sub.sub_term(replace, 0);
-            if &candidate < self {
-                return Some(candidate);
-            }
-        }
-
-        for (i, arg) in self.args.iter().enumerate() {
-            if let Some(new_arg) = arg.rewrite(find, replace) {
-                let mut answer = self.clone();
-                answer.args[i] = new_arg;
-
-                // The ordering should be designed so that this is the case, but
-                // let's just make sure.
-                assert!(&answer < self);
-
-                return Some(answer);
-            }
-        }
-
-        None
     }
 
     // Finds all subterms of this term, and with their paths, appends to "answer".
