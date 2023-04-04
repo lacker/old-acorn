@@ -211,6 +211,14 @@ impl ActiveSet {
 
         self.clauses.push(clause);
     }
+
+    // Generate all the inferences that can be made from a given clause, plus a clause already in the set.
+    pub fn generate(&self, clause: Clause) -> Vec<Clause> {
+        let mut result = vec![];
+        result.extend(self.activate_paramodulator(&clause));
+        result.extend(self.activate_resolver(&clause));
+        result
+    }
 }
 
 #[cfg(test)]
