@@ -513,12 +513,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         assert_eq!(prover.prove("add_zero_right"), Result::Success);
     }
 
-    /*
     #[test]
     fn test_proving_one_plus_one() {
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("one_plus_one"), Result::Success);
     }
-    */
 }
