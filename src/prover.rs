@@ -77,6 +77,7 @@ impl Prover<'_> {
         };
 
         let new_clauses = self.active_set.generate(&clause);
+        println!("generated {} new clauses", new_clauses.len());
         for clause in new_clauses {
             if clause.is_tautology() {
                 continue;
@@ -306,12 +307,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         assert_eq!(prover.prove("one_plus_one"), Result::Success);
     }
 
-    /*
-    #[test]
-    fn test_proving_add_zero_left() {
-        let env = nat_ac_env();
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("add_zero_left"), Result::Success);
-    }
-    */
+    // #[test]
+    // fn test_proving_add_zero_left() {
+    //     let env = nat_ac_env();
+    //     let mut prover = Prover::new(&env);
+    //     assert_eq!(prover.prove("add_zero_left"), Result::Success);
+    // }
 }
