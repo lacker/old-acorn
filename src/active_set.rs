@@ -247,4 +247,26 @@ mod tests {
         )]);
         assert_eq!(result[0], expected);
     }
+
+    #[test]
+    fn test_activate_resolver() {
+        // Create an active set that knows a1 = a3
+        let pm_left = Term::parse("a1");
+        let pm_right = Term::parse("a3");
+        let mut set = ActiveSet::new();
+        set.add_clause(Clause::new(vec![Literal::equals(pm_left, pm_right)]));
+
+        // We should be able to use a0(a3) = a2 as a resolver to get a0(a1) = a2
+        let res_left = Term::parse("a0(a3)");
+        let res_right = Term::parse("a2");
+        let res_clause = Clause::new(vec![Literal::equals(res_left, res_right)]);
+        let result = set.activate_resolver(&res_clause);
+
+        assert_eq!(result.len(), 1);
+        let expected = Clause::new(vec![Literal::equals(
+            Term::parse("a0(a1)"),
+            Term::parse("a2"),
+        )]);
+        assert_eq!(result[0], expected);
+    }
 }
