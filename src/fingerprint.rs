@@ -36,9 +36,9 @@ impl FingerprintComponent {
 
         match &current_term.head {
             Atom::Variable(_) => {
-                FingerprintComponent::Something(current_term.head_type, Atom::Variable(0))
+                FingerprintComponent::Something(current_term.term_type, Atom::Variable(0))
             }
-            a => FingerprintComponent::Something(current_term.head_type, *a),
+            a => FingerprintComponent::Something(current_term.term_type, *a),
         }
     }
 
@@ -130,5 +130,22 @@ mod tests {
     fn test_fingerprint() {
         let term = Term::parse("a0(x0, x1)");
         Fingerprint::new(&term);
+    }
+
+    #[test]
+    fn test_fingerprint_matching() {
+        let term1 = Term::parse("a2(x0, x1, a0)");
+        let term2 = Term::parse("a2(a1, s1(x0), a0)");
+        assert!(Fingerprint::new(&term1).matches(&Fingerprint::new(&term2)));
+    }
+
+    #[test]
+    fn test_fingerprint_tree() {
+        let mut tree = FingerprintTree::new();
+        let term1 = Term::parse("a2(x0, x1, a0)");
+        let term2 = Term::parse("a2(a1, s1(x0), a0)");
+        tree.insert(&term1, 1);
+        assert!(tree.get(&term1).len() > 0);
+        assert!(tree.get(&term2).len() > 0);
     }
 }

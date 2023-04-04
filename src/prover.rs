@@ -49,14 +49,18 @@ impl Prover<'_> {
         }
     }
 
+    fn add_passive(&mut self, clause: Clause) {
+        println!("adding passive: {}", clause);
+        self.passive.push_back(clause);
+    }
+
     // Normalizes the proposition and adds it as a passive clause.
     fn add_proposition(&mut self, proposition: AcornValue) {
         assert_eq!(proposition.get_type(), AcornType::Bool);
         println!("\nadding prop: {}", proposition);
         let new_clauses = self.normalizer.normalize(proposition);
         for clause in new_clauses {
-            println!("adding clause: {}", clause);
-            self.passive.push_back(clause);
+            self.add_passive(clause);
         }
     }
 
@@ -251,6 +255,7 @@ impl Prover<'_> {
     // Activates the next clause from the queue.
     fn activate_next(&mut self) -> Result {
         let clause = if let Some(clause) = self.passive.pop_front() {
+            println!("activating: {}", clause);
             clause
         } else {
             // We're out of clauses to process, so we can't make any more progress.
@@ -265,7 +270,7 @@ impl Prover<'_> {
             if clause.is_impossible() {
                 return Result::Success;
             }
-            self.passive.push_back(clause);
+            self.add_passive(clause);
         }
         self.active_set.insert(clause);
         Result::Unknown
@@ -505,7 +510,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_proving_add_zero_right() {
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.old_prove("add_zero_right"), Result::Success);
+        assert_eq!(prover.prove("add_zero_right"), Result::Success);
     }
 
     /*
