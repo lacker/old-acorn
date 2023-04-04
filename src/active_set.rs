@@ -102,31 +102,34 @@ impl ActiveSet {
     //
     // Specifically, this function handles the case when
     //
-    //   s = t | S
+    //   s = t | S  (pm_clause)
     //
     // is the clause that is being activated, and we are searching for any clauses that can fit the
     //
     //   u ?= v | R
     //
     // in the superposition formula.
-    pub fn activate_paramodulator(&self, s: &Term, t: &Term, pm_clause: &Clause) -> Vec<Clause> {
+    pub fn activate_paramodulator(&self, pm_clause: &Clause) -> Vec<Clause> {
         let mut result = vec![];
 
-        // Look for resolution targets that match pm_left
-        let targets = self.resolution_targets.get(s);
-        for target in targets {
-            let u_subterm = self.get_resolution_term(target);
-            let mut unifier = Unifier::new();
-            // s/t must be in "left" scope and u/v must be in "right" scope
-            if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
-                continue;
+        let pm_literal = &pm_clause.literals[0];
+        for (_, s, t) in Self::paramodulation_terms(pm_literal) {
+            // Look for resolution targets that match pm_left
+            let targets = self.resolution_targets.get(s);
+            for target in targets {
+                let u_subterm = self.get_resolution_term(target);
+                let mut unifier = Unifier::new();
+                // s/t must be in "left" scope and u/v must be in "right" scope
+                if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
+                    continue;
+                }
+
+                // The clauses do actually unify. Combine them according to the superposition rule.
+                let resolution_clause = &self.clauses[target.clause_index];
+                let new_clause = unifier.superpose(t, pm_clause, &target.path, resolution_clause);
+
+                result.push(new_clause);
             }
-
-            // The clauses do actually unify. Combine them according to the superposition rule.
-            let resolution_clause = &self.clauses[target.clause_index];
-            let new_clause = unifier.superpose(t, pm_clause, &target.path, resolution_clause);
-
-            result.push(new_clause);
         }
 
         result
@@ -218,8 +221,8 @@ mod tests {
 
     #[test]
     fn test_activate_paramodulator() {
-        // Create an active set that knows a0(a1) = a2
-        let res_left = Term::parse("a0(a1)");
+        // Create an active set that knows a0(a3) = a2
+        let res_left = Term::parse("a0(a3)");
         let res_right = Term::parse("a2");
         let mut set = ActiveSet::new();
         set.add_clause(Clause::new(vec![Literal::equals(res_left, res_right)]));
@@ -228,11 +231,11 @@ mod tests {
         let pm_left = Term::parse("a1");
         let pm_right = Term::parse("a3");
         let pm_clause = Clause::new(vec![Literal::equals(pm_left.clone(), pm_right.clone())]);
-        let result = set.activate_paramodulator(&pm_left, &pm_right, &pm_clause);
+        let result = set.activate_paramodulator(&pm_clause);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
-            Term::parse("a0(a3)"),
+            Term::parse("a0(a1)"),
             Term::parse("a2"),
         )]);
         assert_eq!(result[0], expected);
