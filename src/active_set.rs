@@ -247,6 +247,9 @@ impl ActiveSet {
         let mut result = vec![];
         result.extend(self.activate_paramodulator(&clause));
         result.extend(self.activate_resolver(&clause));
+        if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
+            result.push(new_clause);
+        }
         result
     }
 }
