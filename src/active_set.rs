@@ -183,6 +183,36 @@ impl ActiveSet {
         result
     }
 
+    // Tries to do inference using the equality resolution (ER) rule.
+    // This assumes the first literal in the clause is the one being resolved.
+    // Specifically, when the first literal is of the form
+    //   u != v
+    // then if we can unify u and v, we can eliminate this literal from the clause.
+    pub fn equality_resolution(clause: &Clause) -> Option<Clause> {
+        if clause.literals.is_empty() {
+            return None;
+        }
+        let first = &clause.literals[0];
+        if first.positive {
+            return None;
+        }
+
+        // The variables are in the same scope, which we will call "left".
+        let mut unifier = Unifier::new();
+        if !unifier.unify(Scope::Left, &first.left, Scope::Left, &first.right) {
+            return None;
+        }
+
+        // We can do equality resolution
+        let literals = clause
+            .literals
+            .iter()
+            .skip(1)
+            .map(|literal| unifier.apply_to_literal(Scope::Left, literal))
+            .collect();
+        Some(Clause::new(literals))
+    }
+
     pub fn insert(&mut self, clause: Clause) {
         // Add resolution targets for the new clause.
         let clause_index = self.clauses.len();
