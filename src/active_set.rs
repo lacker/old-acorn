@@ -300,4 +300,15 @@ mod tests {
         )]);
         assert_eq!(result[0], expected);
     }
+
+    #[test]
+    fn test_equality_resolution() {
+        let old_clause = Clause::new(vec![
+            Literal::not_equals(Term::parse("x0"), Term::parse("a0")),
+            Literal::equals(Term::parse("x0"), Term::parse("a1")),
+        ]);
+        let new_clause = ActiveSet::equality_resolution(&old_clause).unwrap();
+        assert!(new_clause.literals.len() == 1);
+        assert_eq!(format!("{}", new_clause), "a1 = a0".to_string())
+    }
 }
