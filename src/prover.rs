@@ -124,7 +124,7 @@ impl Prover<'_> {
 mod tests {
     use super::*;
 
-    fn thing_env() -> Environment {
+    fn thing_env(s: &str) -> Environment {
         let mut env = Environment::new();
         env.add(
             r#"
@@ -135,13 +135,13 @@ mod tests {
         define g: (Thing, Thing) -> Thing = axiom
         "#,
         );
+        env.add(s);
         env
     }
 
     #[test]
     fn test_specialization() {
-        let mut env = thing_env();
-        env.add(
+        let env = thing_env(
             r#"
         axiom f_all(x: Thing): f(x)
         theorem goal: f(t)
@@ -153,8 +153,7 @@ mod tests {
 
     #[test]
     fn test_backward_specialization_fails() {
-        let mut env = thing_env();
-        env.add(
+        let env = thing_env(
             r#"
         axiom f_one: f(t)
         theorem goal(x: Thing): f(x)
@@ -166,8 +165,7 @@ mod tests {
 
     #[test]
     fn test_finds_example() {
-        let mut env = thing_env();
-        env.add(
+        let env = thing_env(
             r#"
         axiom f_one: f(t)
         theorem goal: exists(x: Thing, f(x))
@@ -179,8 +177,7 @@ mod tests {
 
     #[test]
     fn test_finds_negative_example() {
-        let mut env = thing_env();
-        env.add(
+        let env = thing_env(
             r#"
         axiom not_f(x: Thing): !f(x)
         theorem goal: !f(t)
@@ -192,8 +189,7 @@ mod tests {
 
     #[test]
     fn test_extends_equality() {
-        let mut env = thing_env();
-        env.add(
+        let env = thing_env(
             r#"
             axiom t_eq_t2: t = t2
             theorem goal: f(t) = f(t2) 
@@ -205,8 +201,7 @@ mod tests {
 
     #[test]
     fn test_rewriting() {
-        let mut env = thing_env();
-        env.add(
+        let env = thing_env(
             r#"
         axiom f_t: f(t)
         axiom g_id(x: Thing): g(x, x) = x
@@ -219,8 +214,7 @@ mod tests {
 
     #[test]
     fn test_rewrites_can_fail() {
-        let mut env = thing_env();
-        env.add(
+        let env = thing_env(
             r#"
         axiom f_t: f(t)
         axiom g_id(x: Thing): g(x, x) = x
@@ -233,8 +227,7 @@ mod tests {
 
     #[test]
     fn test_negative_rewriting() {
-        let mut env = thing_env();
-        env.add(
+        let env = thing_env(
             r#"
             axiom not_f_t: !f(t)
             axiom g_id(x: Thing): g(x, x) = x
@@ -247,8 +240,7 @@ mod tests {
 
     #[test]
     fn test_extends_ne() {
-        let mut env = thing_env();
-        env.add(
+        let env = thing_env(
             r#"
         axiom f_t_ne_f_t2: f(t) != f(t2)
         theorem goal: t != t2
