@@ -133,6 +133,7 @@ mod tests {
         define t2: Thing = axiom
         define f: Thing -> bool = axiom
         define g: (Thing, Thing) -> Thing = axiom
+        define h: Thing -> Thing = axiom
         "#,
         );
         env.add(s);
@@ -245,6 +246,18 @@ mod tests {
         axiom f_t_ne_f_t2: f(t) != f(t2)
         theorem goal: t != t2
         "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
+    #[test]
+    fn test_equality_resolution() {
+        let env = thing_env(
+            r#"
+            axiom foo(x: Thing): x != t | f(t)
+            theorem goal: f(t)
+            "#,
         );
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("goal"), Result::Success);
