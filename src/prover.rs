@@ -263,6 +263,18 @@ mod tests {
         assert_eq!(prover.prove("goal"), Result::Success);
     }
 
+    #[test]
+    fn test_equality_factoring() {
+        let env = thing_env(
+            r#"
+            axiom foo(x: Thing, y: Thing): x = t | y = t
+            theorem goal(x: Thing): x = t2
+            "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
+
     fn nat_ac_env() -> Environment {
         let mut env = Environment::new();
         env.add(
