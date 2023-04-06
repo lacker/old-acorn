@@ -258,9 +258,7 @@ impl ActiveSet {
                         }
                     }
                     let new_clause = Clause::new(literals);
-                    if !new_clause.is_tautology() {
-                        answer.push(new_clause);
-                    }
+                    answer.push(new_clause);
                 }
             }
         }
@@ -304,6 +302,7 @@ impl ActiveSet {
         if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
             result.push(new_clause);
         }
+        result.extend(ActiveSet::equality_factoring(&clause));
         result
     }
 }

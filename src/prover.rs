@@ -263,7 +263,6 @@ mod tests {
         assert_eq!(prover.prove("goal"), Result::Success);
     }
 
-    /*
     #[test]
     fn test_equality_factoring() {
         let env = thing_env(
@@ -275,7 +274,6 @@ mod tests {
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("goal"), Result::Success);
     }
-    */
 
     fn nat_ac_env() -> Environment {
         let mut env = Environment::new();
