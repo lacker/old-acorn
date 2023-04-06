@@ -213,6 +213,52 @@ impl ActiveSet {
         Some(Clause::new(literals))
     }
 
+    // Tries to do inference using the equality factoring (EF) rule.
+    //
+    // Given:
+    //   s = t | u = v | R
+    // if we can unify s and u, we can rewrite it to:
+    //   t != v | u = v | R
+    //
+    // "s = t" must be the first clause, but "u = v" can be any of them.
+    pub fn equality_factoring(clause: &Clause) -> Vec<Clause> {
+        let mut answer = vec![];
+        let pm_literal = &clause.literals[0];
+        for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
+            for i in 1..clause.literals.len() {
+                // Try paramodulating into the literal at index i
+                let literal = &clause.literals[i];
+                if !literal.positive {
+                    continue;
+                }
+                // This literal can go in either direction.
+                for (u, v) in [
+                    (&literal.left, &literal.right),
+                    (&literal.right, &literal.left),
+                ] {
+                    // The variables are in the same scope, which we will call "left".
+                    let mut unifier = Unifier::new();
+                    if !unifier.unify(Scope::Left, s, Scope::Left, u) {
+                        continue;
+                    }
+                    let mut literals = vec![];
+                    literals.push(Literal::not_equals(
+                        unifier.apply(Scope::Left, t),
+                        unifier.apply(Scope::Left, v),
+                    ));
+                    literals.push(unifier.apply_to_literal(Scope::Left, literal));
+                    for j in 1..clause.literals.len() {
+                        if j != i {
+                            literals.push(clause.literals[j].clone());
+                        }
+                    }
+                    answer.push(Clause::new(literals));
+                }
+            }
+        }
+        answer
+    }
+
     pub fn insert(&mut self, clause: Clause) {
         // Add resolution targets for the new clause.
         let clause_index = self.clauses.len();
