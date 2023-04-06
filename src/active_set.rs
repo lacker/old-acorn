@@ -210,7 +210,12 @@ impl ActiveSet {
             .skip(1)
             .map(|literal| unifier.apply_to_literal(Scope::Left, literal))
             .collect();
-        Some(Clause::new(literals))
+        let answer = Clause::new(literals);
+        if answer.is_tautology() {
+            None
+        } else {
+            Some(answer)
+        }
     }
 
     // Tries to do inference using the equality factoring (EF) rule.
@@ -252,7 +257,10 @@ impl ActiveSet {
                             literals.push(clause.literals[j].clone());
                         }
                     }
-                    answer.push(Clause::new(literals));
+                    let new_clause = Clause::new(literals);
+                    if !new_clause.is_tautology() {
+                        answer.push(new_clause);
+                    }
                 }
             }
         }
@@ -359,5 +367,20 @@ mod tests {
         let new_clause = ActiveSet::equality_resolution(&old_clause).unwrap();
         assert!(new_clause.literals.len() == 1);
         assert_eq!(format!("{}", new_clause), "a1 = a0".to_string())
+    }
+
+    #[test]
+    fn test_equality_factoring() {
+        let old_clause = Clause::new(vec![
+            Literal::equals(Term::parse("x0"), Term::parse("a0")),
+            Literal::equals(Term::parse("x1"), Term::parse("a0")),
+        ]);
+        let new_clauses = ActiveSet::equality_factoring(&old_clause);
+        for c in &new_clauses {
+            if format!("{}", c) == "a0 = x0".to_string() {
+                return;
+            }
+        }
+        panic!("Did not find expected clause");
     }
 }
