@@ -91,9 +91,9 @@ impl Prover<'_> {
         Result::Unknown
     }
 
-    fn search_for_contradiction(&mut self) -> Result {
+    fn search_for_contradiction(&mut self, seconds: f32) -> Result {
         let start_time = std::time::Instant::now();
-        while start_time.elapsed().as_secs() < 3 {
+        while (start_time.elapsed().as_secs() as f32) < seconds {
             let result = self.activate_next();
             if result != Result::Unknown {
                 return result;
@@ -102,7 +102,7 @@ impl Prover<'_> {
         Result::Unknown
     }
 
-    pub fn prove(&mut self, theorem_name: &str) -> Result {
+    pub fn prove_timed(&mut self, theorem_name: &str, seconds: f32) -> Result {
         if self.dirty {
             panic!("prove called on a dirty prover");
         }
@@ -111,7 +111,13 @@ impl Prover<'_> {
                 // To prove a statement, we negate, then search for a contradiction.
                 self.add_negated(value.clone());
 
-                let answer = self.search_for_contradiction();
+                println!("\nprover initial state:");
+                for clause in &self.passive {
+                    println!("  {}", clause);
+                }
+                println!();
+
+                let answer = self.search_for_contradiction(seconds);
                 println!("conclusion: {:?}\n", answer);
                 return answer;
             }
@@ -119,6 +125,10 @@ impl Prover<'_> {
             self.add_proposition(value.clone());
         }
         panic!("no theorem named {}", theorem_name);
+    }
+
+    pub fn prove(&mut self, theorem_name: &str) -> Result {
+        self.prove_timed(theorem_name, 0.5)
     }
 }
 
@@ -351,10 +361,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         assert_eq!(prover.prove("one_plus_one"), Result::Success);
     }
 
-    // #[test]
-    // fn test_proving_add_zero_left() {
-    //     let env = nat_ac_env();
-    //     let mut prover = Prover::new(&env);
-    //     assert_eq!(prover.prove("add_zero_left"), Result::Success);
-    // }
+    #[test]
+    fn test_proving_add_zero_left() {
+        let env = nat_ac_env();
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove_timed("add_zero_left", -1.0), Result::Success);
+    }
 }
