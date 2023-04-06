@@ -111,7 +111,9 @@ impl Prover<'_> {
                 // To prove a statement, we negate, then search for a contradiction.
                 self.add_negated(value.clone());
 
-                return self.search_for_contradiction();
+                let answer = self.search_for_contradiction();
+                println!("conclusion: {:?}\n", answer);
+                return answer;
             }
 
             self.add_proposition(value.clone());
@@ -274,6 +276,18 @@ mod tests {
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("goal"), Result::Success);
     }
+
+    // #[test]
+    // fn test_tactics() {
+    //     let env = thing_env(
+    //         r#"
+    //         axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing, q(x))
+    //         theorem goal(x: Thing): x = t
+    //         "#,
+    //     );
+    //     let mut prover = Prover::new(&env);
+    //     assert_eq!(prover.prove("goal"), Result::Success);
+    // }
 
     fn nat_ac_env() -> Environment {
         let mut env = Environment::new();

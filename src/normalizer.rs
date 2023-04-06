@@ -228,4 +228,14 @@ mod tests {
         env.add("theorem two(n: Nat): n = n | n != n");
         norm.check(&env, "two", &[]);
     }
+
+    #[test]
+    fn test_skolemizing_without_args() {
+        let mut env = Environment::new();
+        let mut norm = Normalizer::new();
+        env.add("type Nat: axiom");
+        env.add("define 0: Nat = axiom");
+        env.add("theorem exists_nonzero: exists(x: Nat, x != 0)");
+        norm.check(&env, "exists_nonzero", &["s0 != a0"]);
+    }
 }
