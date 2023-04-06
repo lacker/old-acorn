@@ -278,7 +278,7 @@ mod tests {
     }
 
     // #[test]
-    // fn test_tactics() {
+    // fn test_higher_order() {
     //     let env = thing_env(
     //         r#"
     //         axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing, q(x))

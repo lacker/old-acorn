@@ -51,6 +51,18 @@ impl AcornType {
         }
     }
 
+    // Create the type, in non-curried form, for a function with the given arguments and return type.
+    pub fn apply(arg_types: Vec<AcornType>, return_type: AcornType) -> AcornType {
+        if arg_types.is_empty() {
+            return_type
+        } else {
+            AcornType::Function(FunctionType {
+                arg_types,
+                return_type: Box::new(return_type),
+            })
+        }
+    }
+
     pub fn into_vec(self) -> Vec<AcornType> {
         match self {
             AcornType::ArgList(t) => t,

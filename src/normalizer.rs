@@ -49,10 +49,10 @@ impl Normalizer {
             AcornValue::Exists(quants, subvalue) => {
                 // The current stack will be the arguments for the skolem functions
                 let mut args = vec![];
-                for (i, quant) in quants.iter().enumerate() {
+                for (i, univ) in stack.iter().enumerate() {
                     args.push(AcornValue::Atom(TypedAtom {
                         atom: Atom::Variable(i as AtomId),
-                        acorn_type: quant.clone(),
+                        acorn_type: univ.clone(),
                     }));
                 }
 
@@ -115,9 +115,9 @@ impl Normalizer {
         let expanded = value.expand_lambdas(0);
         // println!("expanded: {}", expanded);
         let neg_in = expanded.move_negation_inwards(false);
-        // println!("negin: {}", neg_in);
+        println!("negin: {}", neg_in);
         let skolemized = self.skolemize(&vec![], neg_in);
-        // println!("skolemized: {}", skolemized);
+        println!("skolemized: {}", skolemized);
         let mut universal = vec![];
         let dequantified = skolemized.remove_forall(&mut universal);
         // println!("universal: {}", AcornType::vec_to_str(&universal));
@@ -133,7 +133,11 @@ impl Normalizer {
     }
 
     pub fn check(&mut self, env: &Environment, name: &str, expected: &[&str]) {
-        let actual = self.normalize(env.get_value(name).unwrap().clone());
+        let val = match env.get_value(name) {
+            Some(val) => val,
+            None => panic!("no value named {}", name),
+        };
+        let actual = self.normalize(val.clone());
         if actual.len() != expected.len() {
             panic!(
                 "expected {} clauses, got {}:\n{}",
@@ -230,12 +234,21 @@ mod tests {
     }
 
     #[test]
+    fn test_nested_skolemization() {
+        let mut env = Environment::new();
+        let mut norm = Normalizer::new();
+        env.add("type Nat: axiom");
+        env.add("theorem exists_eq(x : Nat): exists(y: Nat, x = y)");
+        norm.check(&env, "exists_eq", &["s0(x0) = x0"]);
+    }
+
+    #[test]
     fn test_skolemizing_without_args() {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("define 0: Nat = axiom");
-        env.add("theorem exists_nonzero: exists(x: Nat, x != 0)");
-        norm.check(&env, "exists_nonzero", &["s0 != a0"]);
+        env.add("theorem exists_zero: exists(x: Nat, x = 0)");
+        norm.check(&env, "exists_zero", &["s0 = a0"]);
     }
 }
