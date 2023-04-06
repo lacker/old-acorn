@@ -52,7 +52,7 @@ impl AcornType {
     }
 
     // Create the type, in non-curried form, for a function with the given arguments and return type.
-    pub fn apply(arg_types: Vec<AcornType>, return_type: AcornType) -> AcornType {
+    pub fn functional(arg_types: Vec<AcornType>, return_type: AcornType) -> AcornType {
         if arg_types.is_empty() {
             return_type
         } else {
@@ -60,6 +60,26 @@ impl AcornType {
                 arg_types,
                 return_type: Box::new(return_type),
             })
+        }
+    }
+
+    // A normal type is something we'd expect the theorem prover to be able to use
+    pub fn is_normal(&self) -> bool {
+        match self {
+            AcornType::Function(function_type) => {
+                if function_type.arg_types.len() == 0 {
+                    return false;
+                }
+                for arg_type in &function_type.arg_types {
+                    if !arg_type.is_normal() {
+                        return false;
+                    }
+                }
+                function_type.return_type.is_normal()
+            }
+            AcornType::Bool => true,
+            AcornType::Axiomatic(_) => true,
+            _ => false,
         }
     }
 

@@ -1,5 +1,5 @@
-use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, FunctionApplication};
+use crate::acorn_type::AcornType;
+use crate::acorn_value::AcornValue;
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::environment::Environment;
 use crate::term::Clause;
@@ -7,7 +7,8 @@ use crate::type_space::TypeSpace;
 
 pub struct Normalizer {
     // Types of the skolem functions produced
-    skolem_types: Vec<FunctionType>,
+    // Some of them are just constants, so we store an AcornType rather than a FunctionType
+    skolem_types: Vec<AcornType>,
 
     typespace: TypeSpace,
 }
@@ -60,20 +61,14 @@ impl Normalizer {
                 // Each one will be a skolem function applied to the current stack.
                 let mut replacements = vec![];
                 for quant in quants {
-                    let skolem_type = FunctionType {
-                        arg_types: stack.clone(),
-                        return_type: Box::new(quant),
-                    };
+                    let skolem_type = AcornType::functional(stack.clone(), quant);
                     let skolem_index = self.skolem_types.len() as AtomId;
                     self.skolem_types.push(skolem_type.clone());
                     let function = AcornValue::Atom(TypedAtom {
                         atom: Atom::Skolem(skolem_index),
-                        acorn_type: AcornType::Function(skolem_type),
+                        acorn_type: skolem_type,
                     });
-                    let replacement = AcornValue::Application(FunctionApplication {
-                        function: Box::new(function),
-                        args: args.clone(),
-                    });
+                    let replacement = AcornValue::apply(function, args.clone());
                     replacements.push(replacement);
                 }
 

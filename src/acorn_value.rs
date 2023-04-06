@@ -126,6 +126,17 @@ impl AcornValue {
         }
     }
 
+    // Creates a value of type matching AcornType::functional.
+    pub fn apply(function: AcornValue, args: Vec<AcornValue>) -> AcornValue {
+        if args.is_empty() {
+            return function;
+        }
+        AcornValue::Application(FunctionApplication {
+            function: Box::new(function),
+            args,
+        })
+    }
+
     pub fn into_vec(self) -> Vec<AcornValue> {
         match self {
             AcornValue::ArgList(t) => t,
