@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::atom::AtomId;
+use crate::atom::{Atom, AtomId};
 use crate::term::Clause;
 use crate::type_space::TypeId;
 
@@ -41,7 +41,33 @@ impl Synthesizer {
     }
 
     pub fn add_template(&mut self, clause: Clause) {
-        unimplemented!()
+        for lit in &clause.literals {
+            if lit.is_boolean() && lit.is_higher_order() {
+                let term = &lit.left;
+                if term.args.len() != 1 {
+                    // For now we only synthesize propositions with a single argument
+                    continue;
+                }
+                let var_type = term.args[0].term_type;
+                let prop_type = term.head_type;
+                let prop_id = match term.head {
+                    Atom::Variable(id) => id,
+                    _ => continue,
+                };
+                let template = Template {
+                    var_type,
+                    prop_type,
+                    prop_id,
+                    clause,
+                };
+                self.templates
+                    .entry(var_type)
+                    .or_insert_with(Vec::new)
+                    .push(template);
+                return;
+            }
+        }
+        panic!("clause could not be added as a template: {}", clause);
     }
 
     pub fn synthesize(&mut self, clause: &Clause) -> Vec<Clause> {
