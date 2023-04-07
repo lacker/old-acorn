@@ -185,10 +185,21 @@ impl Term {
         }
     }
 
+    pub fn atoms_for_type(&self, type_id: TypeId) -> Vec<Atom> {
+        let mut answer = vec![];
+        if self.term_type == type_id {
+            answer.push(self.head);
+        }
+        for arg in &self.args {
+            answer.append(&mut arg.atoms_for_type(type_id));
+        }
+        answer
+    }
+
     // value should have no instances of this variable.
-    pub fn replace_variable(&self, index: AtomId, value: &Term) -> Term {
+    pub fn replace_variable(&self, id: AtomId, value: &Term) -> Term {
         // Start with just the head (but keep the type_id correct for the answer)
-        let mut answer = if self.head == Atom::Variable(index) {
+        let mut answer = if self.head == Atom::Variable(id) {
             Term {
                 term_type: self.term_type,
                 head_type: value.head_type,
@@ -205,7 +216,7 @@ impl Term {
         };
 
         for arg in &self.args {
-            answer.args.push(arg.replace_variable(index, value));
+            answer.args.push(arg.replace_variable(id, value));
         }
 
         answer

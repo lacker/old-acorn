@@ -71,6 +71,19 @@ impl Synthesizer {
     }
 
     pub fn synthesize(&mut self, clause: &Clause) -> Vec<Clause> {
-        unimplemented!("Synthesize from clause: {:?}", clause)
+        let mut answer = Vec::new();
+        if clause.literals.len() > 1 {
+            // For now we only synthesize clauses with a single literal
+            return answer;
+        }
+        let literal = &clause.literals[0];
+
+        // TODO:
+        // see what types we might want to template
+        // for each type, find all the atoms
+        // for each atom, make a lambda by replacing that atom with a free variable
+        // for each lambda, synthesize enough props to define it
+
+        unimplemented!("Synthesize from literal: {}", literal);
     }
 }
