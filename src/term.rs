@@ -222,6 +222,27 @@ impl Term {
         answer
     }
 
+    pub fn replace_atom(&self, atom: &Atom, value: &Term) -> Term {
+        // Start with just the head (but keep the type_id correct for the answer)
+        let mut answer = if self.head == *atom {
+            assert!(self.args.len() == 0);
+            value.clone()
+        } else {
+            Term {
+                term_type: self.term_type,
+                head_type: self.head_type,
+                head: self.head,
+                args: vec![],
+            }
+        };
+
+        for arg in &self.args {
+            answer.args.push(arg.replace_atom(atom, value));
+        }
+
+        answer
+    }
+
     // Assumes any intermediate ones are taken, so essentially 1 plus the maximum.
     pub fn num_quantifiers(&self) -> AtomId {
         let mut answer = match self.head {
@@ -467,6 +488,14 @@ impl Literal {
 
     pub fn is_higher_order(&self) -> bool {
         self.left.is_higher_order() || self.right.is_higher_order()
+    }
+
+    pub fn replace_atom(&self, atom: &Atom, term: &Term) -> Literal {
+        Literal::new(
+            self.positive,
+            self.left.replace_atom(atom, term),
+            self.right.replace_atom(atom, term),
+        )
     }
 
     pub fn num_quantifiers(&self) -> AtomId {

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::atom::{Atom, AtomId};
-use crate::term::Clause;
+use crate::term::{Clause, Term};
 use crate::type_space::TypeId;
 
 pub struct Synthesizer {
@@ -78,10 +78,37 @@ impl Synthesizer {
         }
         let literal = &clause.literals[0];
 
-        // TODO:
-        // see what types we might want to template
-        // for each type, find all the atoms
-        // for each atom, make a lambda by replacing that atom with a free variable
+        for (var_type, templates) in &self.templates {
+            let mut atoms = literal.left.atoms_for_type(*var_type);
+            atoms.extend(literal.right.atoms_for_type(*var_type));
+            atoms.sort();
+            atoms.dedup();
+
+            for atom in atoms {
+                // For each atom, one way to abstract this literal is by replacing that atom with
+                // a free variable. Do the replacement, tracking the free variable id.
+                let (var_id, new_literal) = match atom {
+                    Atom::Variable(id) => {
+                        // No replacement is needed, just use the existing variable
+                        (id, literal.clone())
+                    }
+                    atom => {
+                        // Create a new variable to replace the atom
+                        let var_id = clause.num_quantifiers();
+                        let var_term = Term {
+                            term_type: *var_type,
+                            head_type: *var_type,
+                            head: Atom::Variable(var_id),
+                            args: vec![],
+                        };
+                        (var_id, literal.replace_atom(&atom, &var_term))
+                    }
+                };
+
+                panic!("XXX");
+            }
+        }
+
         // for each lambda, synthesize enough props to define it
 
         unimplemented!("Synthesize from literal: {}", literal);
