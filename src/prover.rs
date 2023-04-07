@@ -5,6 +5,7 @@ use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
 use crate::environment::Environment;
 use crate::normalizer::Normalizer;
+use crate::synthesizer::Synthesizer;
 use crate::term::Clause;
 
 pub struct Prover<'a> {
@@ -76,7 +77,7 @@ impl Prover<'_> {
             return Result::Failure;
         };
 
-        if clause.is_tactical() {
+        if Synthesizer::is_template(&clause) {
             // We don't know what to do with these yet.
             return Result::Unknown;
         }

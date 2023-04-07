@@ -8,6 +8,7 @@ pub mod fingerprint;
 pub mod normalizer;
 pub mod prover;
 pub mod statement;
+pub mod synthesizer;
 pub mod term;
 pub mod token;
 pub mod type_space;

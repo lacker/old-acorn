@@ -547,13 +547,6 @@ impl Clause {
     pub fn is_impossible(&self) -> bool {
         self.literals.is_empty()
     }
-
-    // A tactical clause has a literal in it that can apply to an arbitrary proposition.
-    pub fn is_tactical(&self) -> bool {
-        self.literals
-            .iter()
-            .any(|x| x.is_boolean() && x.is_higher_order())
-    }
 }
 
 #[cfg(test)]
