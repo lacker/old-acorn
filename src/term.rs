@@ -177,6 +177,14 @@ impl Term {
         }
     }
 
+    // A higher order term is one that has a variable as its head.
+    pub fn is_higher_order(&self) -> bool {
+        match self.head {
+            Atom::Variable(_) => true,
+            _ => false,
+        }
+    }
+
     // value should have no instances of this variable.
     pub fn replace_variable(&self, index: AtomId, value: &Term) -> Term {
         // Start with just the head (but keep the type_id correct for the answer)
@@ -441,6 +449,10 @@ impl Literal {
         !self.positive && self.left == self.right
     }
 
+    pub fn is_higher_order(&self) -> bool {
+        self.left.is_higher_order() || self.right.is_higher_order()
+    }
+
     pub fn num_quantifiers(&self) -> AtomId {
         self.left
             .num_quantifiers()
@@ -529,6 +541,10 @@ impl Clause {
 
     pub fn is_impossible(&self) -> bool {
         self.literals.is_empty()
+    }
+
+    pub fn is_higher_order(&self) -> bool {
+        self.literals.iter().any(|x| x.is_higher_order())
     }
 }
 
