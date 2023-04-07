@@ -389,13 +389,13 @@ pub struct Literal {
 impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.positive {
-            if self.right.is_true() {
+            if self.is_boolean() {
                 write!(f, "{}", self.left)
             } else {
                 write!(f, "{} = {}", self.left, self.right)
             }
         } else {
-            if self.right.is_true() {
+            if self.is_boolean() {
                 write!(f, "!{}", self.left)
             } else {
                 write!(f, "{} != {}", self.left, self.right)
@@ -447,6 +447,11 @@ impl Literal {
     // Returns whether this clause is syntactically impossible, i.e. foo != foo
     pub fn is_impossible(&self) -> bool {
         !self.positive && self.left == self.right
+    }
+
+    // Returns whether this literal is a boolean literal, i.e. "foo" or "!foo"
+    pub fn is_boolean(&self) -> bool {
+        self.right.is_true()
     }
 
     pub fn is_higher_order(&self) -> bool {
@@ -543,8 +548,11 @@ impl Clause {
         self.literals.is_empty()
     }
 
-    pub fn is_higher_order(&self) -> bool {
-        self.literals.iter().any(|x| x.is_higher_order())
+    // A tactical clause has a literal in it that can apply to an arbitrary proposition.
+    pub fn is_tactical(&self) -> bool {
+        self.literals
+            .iter()
+            .any(|x| x.is_boolean() && x.is_higher_order())
     }
 }
 
