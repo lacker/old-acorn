@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
 use crate::atom::{Atom, AtomId};
-use crate::term::{Clause, Term};
+use crate::term::{Clause, Literal, Term};
 use crate::type_space::TypeId;
 
 pub struct Synthesizer {
     // Map of var_type to a list of templates
     templates: HashMap<TypeId, Vec<Template>>,
+
+    // The next synthetic proposition id to use
+    next_id: AtomId,
 }
 
 struct Template {
@@ -29,6 +32,7 @@ impl Synthesizer {
     pub fn new() -> Synthesizer {
         Synthesizer {
             templates: HashMap::new(),
+            next_id: 0,
         }
     }
 
@@ -87,10 +91,10 @@ impl Synthesizer {
             for atom in atoms {
                 // For each atom, one way to abstract this literal is by replacing that atom with
                 // a free variable. Do the replacement, tracking the free variable id.
-                let (var_id, new_literal) = match atom {
+                let (var_id, abstract_left, abstract_right) = match atom {
                     Atom::Variable(id) => {
                         // No replacement is needed, just use the existing variable
-                        (id, literal.clone())
+                        (id, literal.left.clone(), literal.right.clone())
                     }
                     atom => {
                         // Create a new variable to replace the atom
@@ -101,16 +105,20 @@ impl Synthesizer {
                             head: Atom::Variable(var_id),
                             args: vec![],
                         };
-                        (var_id, literal.replace_atom(&atom, &var_term))
+                        (
+                            var_id,
+                            literal.left.replace_atom(&atom, &var_term),
+                            literal.right.replace_atom(&atom, &var_term),
+                        )
                     }
                 };
 
-                panic!("XXX");
+                // TODO: skip synthesizing if we already did
+
+                todo!("synthesize");
             }
         }
 
-        // for each lambda, synthesize enough props to define it
-
-        unimplemented!("Synthesize from literal: {}", literal);
+        answer
     }
 }

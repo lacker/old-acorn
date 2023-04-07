@@ -490,14 +490,6 @@ impl Literal {
         self.left.is_higher_order() || self.right.is_higher_order()
     }
 
-    pub fn replace_atom(&self, atom: &Atom, term: &Term) -> Literal {
-        Literal::new(
-            self.positive,
-            self.left.replace_atom(atom, term),
-            self.right.replace_atom(atom, term),
-        )
-    }
-
     pub fn num_quantifiers(&self) -> AtomId {
         self.left
             .num_quantifiers()
