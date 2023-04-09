@@ -20,6 +20,9 @@ pub enum Atom {
     // Functions created in the normalization process
     Skolem(AtomId),
 
+    // Functions created by the synthesizer
+    Synthetic(AtomId),
+
     // A Variable can be a reference to a variable on the stack, or its meaning can be implicit,
     // depending on the context.
     // We drop the variable name. Instead we track an id.
@@ -33,6 +36,7 @@ impl fmt::Display for Atom {
             Atom::True => write!(f, "true"),
             Atom::Axiomatic(i) => write!(f, "a{}", i),
             Atom::Skolem(i) => write!(f, "s{}", i),
+            Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
         }
     }
