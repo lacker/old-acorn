@@ -115,6 +115,9 @@ impl Synthesizer {
 
                 // TODO: skip synthesizing if we already did
 
+                let prop_atom = Atom::Synthetic(self.next_id);
+                self.next_id += 1;
+
                 todo!("synthesize");
             }
         }
