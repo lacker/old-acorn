@@ -158,7 +158,8 @@ impl Environment {
         match atom {
             Atom::True => "true".to_string(),
             Atom::Axiomatic(i) => self.axiomatic_values[*i as usize].to_string(),
-            Atom::Skolem(i) => format!("skolem{}", i),
+            Atom::Skolem(i) => format!("s{}", i),
+            Atom::Synthetic(i) => format!("p{}", i),
             Atom::Variable(i) => format!("x{}", i),
         }
     }
