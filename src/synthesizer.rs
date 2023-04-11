@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::atom::{Atom, AtomId};
-use crate::term::{Clause, Literal, Term};
+use crate::term::{Clause, Term};
 use crate::type_space::TypeId;
 
 pub struct Synthesizer {
@@ -113,7 +113,7 @@ impl Synthesizer {
                     }
                 };
 
-                // TODO: skip synthesizing if we already did
+                // TODO: skip synthesizing if we already did this one
 
                 let prop_atom = Atom::Synthetic(self.next_id);
                 self.next_id += 1;

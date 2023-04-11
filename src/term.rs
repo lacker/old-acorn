@@ -278,7 +278,11 @@ impl Term {
             }
             Atom::Skolem(i) => {
                 weight1 += 1;
-                weight2 += 1 + 2 * i as u32;
+                weight2 += 1 + 3 * i as u32;
+            }
+            Atom::Synthetic(i) => {
+                weight1 += 1;
+                weight2 += 2 + 3 * i as u32;
             }
         }
         for arg in &self.args {
