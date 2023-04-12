@@ -117,8 +117,23 @@ impl Synthesizer {
 
                 let prop_atom = Atom::Synthetic(self.next_id);
                 self.next_id += 1;
+                let var_term = Term {
+                    term_type: *var_type,
+                    head_type: *var_type,
+                    head: Atom::Variable(var_id),
+                    args: vec![],
+                };
 
-                todo!("synthesize");
+                for template in templates {
+                    let prop_term = Term {
+                        term_type: BOOL,
+                        head_type: template.prop_type,
+                        head: prop_atom,
+                        args: vec![var_term],
+                    };
+
+                    todo!("synthesize");
+                }
             }
         }
 
