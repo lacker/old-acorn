@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::atom::{Atom, AtomId};
 use crate::term::{Clause, Term};
-use crate::type_space::TypeId;
+use crate::type_space::{TypeId, BOOL};
 
 pub struct Synthesizer {
     // Map of var_type to a list of templates

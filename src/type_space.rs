@@ -34,6 +34,12 @@ impl TypeSpace {
         (self.types.len() - 1).try_into().unwrap()
     }
 
+    // Panics if the term does not have valid type.
+    // Checks recursively.
+    pub fn assert_valid(&self, term: &Term) {
+        todo!();
+    }
+
     // Constructs a new term from an atom
     pub fn term_from_atom(&mut self, atom: TypedAtom) -> Term {
         let type_id = self.add_type(atom.acorn_type);
