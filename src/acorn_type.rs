@@ -63,6 +63,12 @@ impl AcornType {
         }
     }
 
+    // Create the type you get when you apply this type to the given type.
+    // Does partial application.
+    pub fn apply(&self, arg_type: &AcornType) -> AcornType {
+        todo!();
+    }
+
     // A normal type is something we'd expect the theorem prover to be able to use
     pub fn is_normal(&self) -> bool {
         match self {
