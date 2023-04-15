@@ -34,9 +34,11 @@ impl TypeSpace {
         (self.types.len() - 1).try_into().unwrap()
     }
 
-    // Panics if the term does not have valid type.
-    // Checks recursively.
+    // Panics if the term has an invalid type id, or one that does not match its type.
+    // Checks all type ids in the term, recursively.
     pub fn assert_valid(&self, term: &Term) {
+        assert!(term.term_type < self.types.len() as TypeId);
+        assert!(term.head_type < self.types.len() as TypeId);
         todo!();
     }
 
