@@ -64,9 +64,24 @@ impl AcornType {
     }
 
     // Create the type you get when you apply this type to the given type.
+    // Panics if the application is invalid.
     // Does partial application.
     pub fn apply(&self, arg_type: &AcornType) -> AcornType {
-        todo!();
+        if let AcornType::Function(function_type) = self {
+            assert_eq!(function_type.arg_types[0], *arg_type);
+            if function_type.arg_types.len() == 1 {
+                *function_type.return_type.clone()
+            } else {
+                let mut new_arg_types = function_type.arg_types.clone();
+                new_arg_types.remove(0);
+                AcornType::Function(FunctionType {
+                    arg_types: new_arg_types,
+                    return_type: function_type.return_type.clone(),
+                })
+            }
+        } else {
+            panic!("Can't apply {:?} to {:?}", self, arg_type);
+        }
     }
 
     // A normal type is something we'd expect the theorem prover to be able to use
