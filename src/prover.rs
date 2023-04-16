@@ -11,6 +11,7 @@ use crate::term::Clause;
 pub struct Prover<'a> {
     env: &'a Environment,
     normalizer: Normalizer,
+    synthesizer: Synthesizer,
 
     // The "active" clauses are the ones we use for reasoning.
     active_set: ActiveSet,
@@ -38,6 +39,7 @@ impl Prover<'_> {
     pub fn new(env: &Environment) -> Prover {
         Prover {
             normalizer: Normalizer::new(),
+            synthesizer: Synthesizer::new(),
             active_set: ActiveSet::new(),
             passive: VecDeque::new(),
             env,
@@ -77,10 +79,7 @@ impl Prover<'_> {
             return Result::Failure;
         };
 
-        if Synthesizer::is_template(&clause) {
-            // We don't know what to do with these yet.
-            return Result::Unknown;
-        }
+        self.synthesizer.observe(&clause);
 
         let new_clauses = self.active_set.generate(&clause);
         println!("generated {} new clauses", new_clauses.len());

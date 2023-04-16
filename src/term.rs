@@ -475,6 +475,14 @@ impl Literal {
         Literal::new(false, left, right)
     }
 
+    pub fn negate(&self) -> Literal {
+        Literal {
+            positive: !self.positive,
+            left: self.left.clone(),
+            right: self.right.clone(),
+        }
+    }
+
     // Returns true if this literal is a tautology, i.e. foo = foo
     pub fn is_tautology(&self) -> bool {
         self.positive && self.left == self.right
@@ -502,6 +510,10 @@ impl Literal {
 
     pub fn map(&self, f: &mut impl FnMut(&Term) -> Term) -> Literal {
         Literal::new(self.positive, f(&self.left), f(&self.right))
+    }
+
+    pub fn replace_atom(&self, atom: &Atom, replacement: &Term) -> Literal {
+        self.map(&mut |term| term.replace_atom(atom, replacement))
     }
 }
 
