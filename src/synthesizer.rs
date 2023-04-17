@@ -141,3 +141,28 @@ impl Synthesizer {
         answer
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::environment::Environment;
+    use crate::normalizer::Normalizer;
+
+    use super::*;
+
+    #[test]
+    fn test_synthesis() {
+        let mut env = Environment::new();
+        let mut norm = Normalizer::new();
+        let mut synth = Synthesizer::new();
+
+        env.add("type Thing: axiom");
+        env.add("define t: Thing = axiom");
+        env.add("axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing, q(x))");
+        env.add("theorem goal(x: Thing): x = t");
+
+        let clauses = norm.normalize(env.get_value("t_implies_all").unwrap().clone());
+        for clause in &clauses {
+            synth.observe(clause);
+        }
+    }
+}
