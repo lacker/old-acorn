@@ -546,7 +546,7 @@ impl Ord for Literal {
 // A clause is a disjunction (an "or") of literals, universally quantified over some variables.
 // We include the types of the universal variables it is quantified over.
 // It cannot contain existential quantifiers.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct Clause {
     pub literals: Vec<Literal>,
 }

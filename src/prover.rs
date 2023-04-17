@@ -71,6 +71,10 @@ impl Prover<'_> {
     // Activates the next clause from the queue.
     fn activate_next(&mut self) -> Result {
         let clause = if let Some(clause) = self.passive.pop_front() {
+            if self.active_set.contains(&clause) {
+                // We've already seen this clause, so we can skip it.
+                return Result::Unknown;
+            }
             println!("activating: {}", clause);
             clause
         } else {

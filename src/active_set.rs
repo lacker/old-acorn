@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::HashSet;
 
 use crate::fingerprint::FingerprintTree;
 use crate::term::{Clause, Literal, Term};
@@ -9,7 +10,11 @@ use crate::unifier::{Scope, Unifier};
 // we can check term equality cheaply, and cheaply augment terms with
 // additional data as needed.
 pub struct ActiveSet {
+    // A vector for indexed reference
     clauses: Vec<Clause>,
+
+    // A HashSet for checking what we've done before
+    clause_set: HashSet<Clause>,
 
     resolution_targets: FingerprintTree<ResolutionTarget>,
 
@@ -48,6 +53,7 @@ impl ActiveSet {
     pub fn new() -> ActiveSet {
         ActiveSet {
             clauses: vec![],
+            clause_set: HashSet::new(),
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
         }
@@ -265,6 +271,10 @@ impl ActiveSet {
         answer
     }
 
+    pub fn contains(&self, clause: &Clause) -> bool {
+        self.clause_set.contains(clause)
+    }
+
     pub fn insert(&mut self, clause: Clause) {
         // Add resolution targets for the new clause.
         let clause_index = self.clauses.len();
@@ -291,6 +301,7 @@ impl ActiveSet {
             );
         }
 
+        self.clause_set.insert(clause.clone());
         self.clauses.push(clause);
     }
 
