@@ -68,13 +68,7 @@ impl Synthesizer {
                     atom => {
                         // Create a new variable to replace the atom
                         let var_id = clause.num_quantifiers();
-                        let var_term = Term {
-                            term_type: *var_type,
-                            head_type: *var_type,
-                            head: Atom::Variable(var_id),
-                            args: vec![],
-                        };
-                        (var_id, literal.replace_atom(&atom, &var_term))
+                        (var_id, literal.replace_atom(&atom, &Atom::Variable(var_id)))
                     }
                 };
 

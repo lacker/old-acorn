@@ -222,25 +222,25 @@ impl Term {
         answer
     }
 
-    pub fn replace_atom(&self, atom: &Atom, value: &Term) -> Term {
-        // Start with just the head (but keep the type_id correct for the answer)
-        let mut answer = if self.head == *atom {
-            assert!(self.args.len() == 0);
-            value.clone()
+    pub fn replace_atom(&self, atom: &Atom, new_atom: &Atom) -> Term {
+        let new_head = if self.head == *atom {
+            new_atom.clone()
         } else {
-            Term {
-                term_type: self.term_type,
-                head_type: self.head_type,
-                head: self.head,
-                args: vec![],
-            }
+            self.head.clone()
         };
 
-        for arg in &self.args {
-            answer.args.push(arg.replace_atom(atom, value));
-        }
+        let new_args = self
+            .args
+            .iter()
+            .map(|arg| arg.replace_atom(atom, new_atom))
+            .collect();
 
-        answer
+        Term {
+            term_type: self.term_type,
+            head_type: self.head_type,
+            head: new_head,
+            args: new_args,
+        }
     }
 
     // Assumes any intermediate ones are taken, so essentially 1 plus the maximum.
@@ -512,7 +512,7 @@ impl Literal {
         Literal::new(self.positive, f(&self.left), f(&self.right))
     }
 
-    pub fn replace_atom(&self, atom: &Atom, replacement: &Term) -> Literal {
+    pub fn replace_atom(&self, atom: &Atom, replacement: &Atom) -> Literal {
         self.map(&mut |term| term.replace_atom(atom, replacement))
     }
 }

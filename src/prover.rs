@@ -80,17 +80,28 @@ impl Prover<'_> {
 
         self.synthesizer.observe(&clause);
 
-        let new_clauses = self.active_set.generate(&clause);
-        println!("generated {} new clauses", new_clauses.len());
-        for clause in new_clauses {
-            if clause.is_tautology() {
-                continue;
+        let gen_clauses = self.active_set.generate(&clause);
+        if !gen_clauses.is_empty() {
+            println!("generated {} new clauses", gen_clauses.len());
+            for clause in gen_clauses {
+                if clause.is_tautology() {
+                    continue;
+                }
+                if clause.is_impossible() {
+                    return Result::Success;
+                }
+                self.add_passive(clause);
             }
-            if clause.is_impossible() {
-                return Result::Success;
-            }
-            self.add_passive(clause);
         }
+
+        let synth_clauses = self.synthesizer.synthesize(&clause);
+        if !synth_clauses.is_empty() {
+            println!("synthesized {} new clauses", synth_clauses.len());
+            for clause in synth_clauses {
+                self.add_passive(clause);
+            }
+        }
+
         self.active_set.insert(clause);
         Result::Unknown
     }
