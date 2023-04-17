@@ -319,8 +319,20 @@ mod tests {
         assert_eq!(prover.prove("goal"), Result::Failure);
     }
 
+    #[test]
+    fn test_synthesis_avoids_loops() {
+        let env = thing_env(
+            r#"
+            axiom foo(x: Thing -> bool): x(t) | f(h(t))
+            theorem goal: f(t2)
+            "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Failure);
+    }
+
     // #[test]
-    // fn test_higher_order() {
+    // fn test_higher_order_synthesis() {
     //     let env = thing_env(
     //         r#"
     //         axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing, q(x))

@@ -166,6 +166,18 @@ impl Term {
         false
     }
 
+    pub fn has_synthetic(&self) -> bool {
+        if let Atom::Synthetic(_) = self.head {
+            return true;
+        }
+        for arg in &self.args {
+            if arg.has_synthetic() {
+                return true;
+            }
+        }
+        false
+    }
+
     // If this term is a variable with the given index, return that index.
     pub fn atomic_variable(&self) -> Option<AtomId> {
         if self.args.len() > 0 {
@@ -481,6 +493,10 @@ impl Literal {
             left: self.left.clone(),
             right: self.right.clone(),
         }
+    }
+
+    pub fn has_synthetic(&self) -> bool {
+        self.left.has_synthetic() || self.right.has_synthetic()
     }
 
     // Returns true if this literal is a tautology, i.e. foo = foo

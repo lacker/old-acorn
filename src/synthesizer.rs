@@ -50,6 +50,10 @@ impl Synthesizer {
             return answer;
         }
         let literal = &clause.literals[0];
+        if literal.has_synthetic() {
+            // For now we only synthesize clauses with no synthetic atoms
+            return answer;
+        }
 
         for (var_type, prop_type) in &self.types {
             let mut atoms = literal.left.atoms_for_type(*var_type);
@@ -112,6 +116,7 @@ impl Synthesizer {
                 // We can do this with two clauses.
                 //   p1(x3) | !abstract_literal
                 //   !p1(x3) | abstract_literal
+                println!("defining {} <-> {}", first_prop_term, abstract_literal);
                 answer.push(Clause::new(vec![
                     Literal::positive(first_prop_term.clone()),
                     abstract_literal.negate(),
