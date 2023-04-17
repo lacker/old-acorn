@@ -65,8 +65,7 @@ impl Prover<'_> {
     fn add_negated(&mut self, proposition: AcornValue) {
         assert_eq!(proposition.get_type(), AcornType::Bool);
         self.dirty = true;
-        let negated = AcornValue::Not(Box::new(proposition));
-        self.add_proposition(negated);
+        self.add_proposition(proposition.negate());
     }
 
     // Activates the next clause from the queue.

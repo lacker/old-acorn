@@ -164,5 +164,10 @@ mod tests {
         for clause in &clauses {
             synth.observe(clause);
         }
+
+        let neg_goal_clauses = norm.normalize(env.get_value("goal").unwrap().clone().negate());
+        assert_eq!(neg_goal_clauses.len(), 1);
+        let synthesized = synth.synthesize(&neg_goal_clauses[0]);
+        assert_eq!(synthesized.len(), 8);
     }
 }

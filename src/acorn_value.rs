@@ -185,8 +185,13 @@ impl AcornValue {
         }
     }
 
+    pub fn negate(self) -> AcornValue {
+        self.maybe_negate(true)
+    }
+
     // Simplifies at the top level but does not recurse.
-    pub fn maybe_negate(self, negate: bool) -> AcornValue {
+    // Does not typecheck
+    fn maybe_negate(self, negate: bool) -> AcornValue {
         if !negate {
             return self;
         }
