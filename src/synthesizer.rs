@@ -10,6 +10,9 @@ pub struct Synthesizer {
 
     // The next synthetic proposition id to use
     next_id: AtomId,
+
+    // Stores all (literal, free var id) pairs we've already synthesized
+    history: HashMap<Literal, Vec<AtomId>>,
 }
 
 impl Synthesizer {
@@ -17,6 +20,7 @@ impl Synthesizer {
         Synthesizer {
             types: HashMap::new(),
             next_id: 0,
+            history: HashMap::new(),
         }
     }
 
@@ -74,7 +78,20 @@ impl Synthesizer {
                     }
                 };
 
-                // TODO: skip synthesizing if we already synthesized an equivalent function
+                // Skip synthesizing if we already synthesized an equivalent function
+                if let Some(ids) = self.history.get(&abstract_literal) {
+                    if ids.contains(&var_id) {
+                        continue;
+                    }
+                }
+                self.history
+                    .entry(abstract_literal.clone())
+                    .or_insert(Vec::new())
+                    .push(var_id);
+                self.history
+                    .entry(abstract_literal.negate())
+                    .or_insert(Vec::new())
+                    .push(var_id);
 
                 // Synthesize an atom like "p1" for the new var_type -> bool function
                 let first_prop_atom = Atom::Synthetic(self.next_id);
@@ -172,5 +189,9 @@ mod tests {
         for clause in synthesized {
             norm.typespace.check_clause(&clause);
         }
+
+        // Check that we won't re-synthesize
+        let synthesized_again = synth.synthesize(&neg_goal_clauses[0]);
+        assert_eq!(synthesized_again.len(), 0);
     }
 }

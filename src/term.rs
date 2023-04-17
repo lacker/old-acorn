@@ -5,7 +5,7 @@ use crate::atom::{Atom, AtomId};
 use crate::type_space::{TypeId, BOOL};
 
 // A term with no args is a plain atom.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Term {
     // The term type is the type of the entire term.
     // For example "2 < 3" has type "bool".
@@ -415,7 +415,7 @@ impl Term {
 // In normalized form, left is the "larger" term.
 // Literals like "foo(a, b, c)" are treated as equalities having both
 // a left and a right side, by making a right side equal to the special constant "true".
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Literal {
     pub positive: bool,
     pub left: Term,
