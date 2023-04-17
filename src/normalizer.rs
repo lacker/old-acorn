@@ -10,7 +10,7 @@ pub struct Normalizer {
     // Some of them are just constants, so we store an AcornType rather than a FunctionType
     skolem_types: Vec<AcornType>,
 
-    typespace: TypeSpace,
+    pub typespace: TypeSpace,
 }
 
 impl Normalizer {

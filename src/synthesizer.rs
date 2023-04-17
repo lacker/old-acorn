@@ -169,5 +169,8 @@ mod tests {
         assert_eq!(neg_goal_clauses.len(), 1);
         let synthesized = synth.synthesize(&neg_goal_clauses[0]);
         assert_eq!(synthesized.len(), 8);
+        for clause in synthesized {
+            norm.typespace.check_clause(&clause);
+        }
     }
 }
