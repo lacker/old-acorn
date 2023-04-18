@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::atom::{Atom, AtomId};
 use crate::term::{Clause, Literal, Term};
@@ -11,8 +11,8 @@ pub struct Synthesizer {
     // The next synthetic proposition id to use
     next_id: AtomId,
 
-    // Stores all (literal, free var id) pairs we've already synthesized
-    history: HashMap<Literal, Vec<AtomId>>,
+    // Stores all literals we've already synthesized from
+    history: HashSet<Literal>,
 }
 
 impl Synthesizer {
@@ -20,7 +20,7 @@ impl Synthesizer {
         Synthesizer {
             types: HashMap::new(),
             next_id: 0,
-            history: HashMap::new(),
+            history: HashSet::new(),
         }
     }
 
@@ -42,6 +42,85 @@ impl Synthesizer {
         }
     }
 
+    // literal should have precisely one free variable, with id 0
+    // var_type is the type of that free variable
+    // prop_type is (var_type -> bool)
+    fn synthesize_from_literal(
+        &mut self,
+        literal: Literal,
+        var_type: TypeId,
+        prop_type: TypeId,
+        answer: &mut Vec<Clause>,
+    ) {
+        // Skip synthesizing if we already synthesized an equivalent function
+        if self.history.contains(&literal) {
+            return;
+        }
+        self.history.insert(literal.clone());
+        self.history.insert(literal.negate());
+
+        // Synthesize an atom like "p1" for the new var_type -> bool function
+        let first_prop_atom = Atom::Synthetic(self.next_id);
+        self.next_id += 1;
+
+        // The free variable in our "definition", always "x0"
+        let var_term = Term {
+            term_type: var_type,
+            head_type: var_type,
+            head: Atom::Variable(0),
+            args: vec![],
+        };
+
+        // p1(x3)
+        let first_prop_term = Term {
+            term_type: BOOL,
+            head_type: prop_type,
+            head: first_prop_atom,
+            args: vec![var_term.clone()],
+        };
+
+        // We want to define:
+        //   p1(x3) <-> abstract_literal
+        // We can do this with two clauses.
+        //   p1(x3) | !abstract_literal
+        //   !p1(x3) | abstract_literal
+        println!("defining {} <-> {}", first_prop_term, literal);
+        answer.push(Clause::new(vec![
+            Literal::positive(first_prop_term.clone()),
+            literal.negate(),
+        ]));
+        answer.push(Clause::new(vec![
+            Literal::negative(first_prop_term.clone()),
+            literal,
+        ]));
+
+        // Now we want to define p2 = !p1
+        let second_prop_atom = Atom::Synthetic(self.next_id);
+        self.next_id += 1;
+
+        // p2(x0)
+        let second_prop_term = Term {
+            term_type: BOOL,
+            head_type: prop_type,
+            head: second_prop_atom,
+            args: vec![var_term],
+        };
+
+        // We want to define:
+        //   p2(x0) <-> !p1(x0)
+        // We can do this with two clauses.
+        //   !p2(x0) | !p1(x0)
+        //   p2(x0) | p1(x0)
+        answer.push(Clause::new(vec![
+            Literal::negative(second_prop_term.clone()),
+            Literal::negative(first_prop_term.clone()),
+        ]));
+        answer.push(Clause::new(vec![
+            Literal::positive(second_prop_term),
+            Literal::positive(first_prop_term),
+        ]));
+    }
+
     // Synthesize some new functions that provide alternative ways of writing the given clause.
     pub fn synthesize(&mut self, clause: &Clause) -> Vec<Clause> {
         let mut answer = Vec::new();
@@ -54,103 +133,33 @@ impl Synthesizer {
             // For now we only synthesize clauses with no synthetic atoms
             return answer;
         }
+        let num_quantifiers = literal.num_quantifiers();
+        if num_quantifiers > 1 {
+            // For now we don't synthesize when we need to abstract over any additional quantifiers
+            return answer;
+        }
 
-        for (var_type, prop_type) in &self.types {
-            let mut atoms = literal.left.atoms_for_type(*var_type);
-            atoms.extend(literal.right.atoms_for_type(*var_type));
-            atoms.sort();
-            atoms.dedup();
+        if let Some(var_type) = literal.var_type(0) {
+            // We have a higher-order variable, so we can synthesize a function
+            if let Some(prop_type) = self.types.get(&var_type) {
+                self.synthesize_from_literal(literal.clone(), var_type, *prop_type, &mut answer);
+            }
+        } else {
+            let mut typed_atoms = literal.typed_atoms();
+            typed_atoms.sort();
+            typed_atoms.dedup();
 
-            for atom in atoms {
-                // For each atom, one way to abstract this literal is by replacing that atom with
-                // a free variable. Do the replacement, tracking the free variable id.
-                let (var_id, abstract_literal) = match atom {
-                    Atom::Variable(id) => {
-                        // No replacement is needed, just use the existing variable
-                        (id, literal.clone())
-                    }
-                    atom => {
-                        // Create a new variable to replace the atom
-                        let var_id = clause.num_quantifiers();
-                        (var_id, literal.replace_atom(&atom, &Atom::Variable(var_id)))
-                    }
-                };
-
-                // Skip synthesizing if we already synthesized an equivalent function
-                if let Some(ids) = self.history.get(&abstract_literal) {
-                    if ids.contains(&var_id) {
-                        continue;
-                    }
+            // Try replacing each atom with a free variable
+            for (var_type, atom) in typed_atoms {
+                if let Some(prop_type) = self.types.get(&var_type) {
+                    let abstract_literal = literal.replace_atom(&atom, &Atom::Variable(0));
+                    self.synthesize_from_literal(
+                        abstract_literal,
+                        var_type,
+                        *prop_type,
+                        &mut answer,
+                    );
                 }
-                self.history
-                    .entry(abstract_literal.clone())
-                    .or_insert(Vec::new())
-                    .push(var_id);
-                self.history
-                    .entry(abstract_literal.negate())
-                    .or_insert(Vec::new())
-                    .push(var_id);
-
-                // Synthesize an atom like "p1" for the new var_type -> bool function
-                let first_prop_atom = Atom::Synthetic(self.next_id);
-                self.next_id += 1;
-
-                // The free variable in our "definition", something like "x3"
-                let var_term = Term {
-                    term_type: *var_type,
-                    head_type: *var_type,
-                    head: Atom::Variable(var_id),
-                    args: vec![],
-                };
-
-                // p1(x3)
-                let first_prop_term = Term {
-                    term_type: BOOL,
-                    head_type: *prop_type,
-                    head: first_prop_atom,
-                    args: vec![var_term.clone()],
-                };
-
-                // We want to define:
-                //   p1(x3) <-> abstract_literal
-                // We can do this with two clauses.
-                //   p1(x3) | !abstract_literal
-                //   !p1(x3) | abstract_literal
-                println!("defining {} <-> {}", first_prop_term, abstract_literal);
-                answer.push(Clause::new(vec![
-                    Literal::positive(first_prop_term.clone()),
-                    abstract_literal.negate(),
-                ]));
-                answer.push(Clause::new(vec![
-                    Literal::negative(first_prop_term.clone()),
-                    abstract_literal,
-                ]));
-
-                // Now we want to define p2 = !p1
-                let second_prop_atom = Atom::Synthetic(self.next_id);
-                self.next_id += 1;
-
-                // p2(x3)
-                let second_prop_term = Term {
-                    term_type: BOOL,
-                    head_type: *prop_type,
-                    head: second_prop_atom,
-                    args: vec![var_term],
-                };
-
-                // We want to define:
-                //   p2(x3) <-> !p1(x3)
-                // We can do this with two clauses.
-                //   !p2(x3) | !p1(x3)
-                //   p2(x3) | p1(x3)
-                answer.push(Clause::new(vec![
-                    Literal::negative(second_prop_term.clone()),
-                    Literal::negative(first_prop_term.clone()),
-                ]));
-                answer.push(Clause::new(vec![
-                    Literal::positive(second_prop_term),
-                    Literal::positive(first_prop_term),
-                ]));
             }
         }
 

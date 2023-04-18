@@ -189,6 +189,18 @@ impl Term {
         }
     }
 
+    pub fn var_type(&self, index: AtomId) -> Option<TypeId> {
+        if self.head == Atom::Variable(index) {
+            return Some(self.head_type);
+        }
+        for arg in &self.args {
+            if let Some(t) = arg.var_type(index) {
+                return Some(t);
+            }
+        }
+        None
+    }
+
     // A higher order term is one that has a variable as its head.
     pub fn is_higher_order(&self) -> bool {
         match self.head {
@@ -204,6 +216,16 @@ impl Term {
         }
         for arg in &self.args {
             answer.append(&mut arg.atoms_for_type(type_id));
+        }
+        answer
+    }
+
+    // Does not deduplicate
+    pub fn typed_atoms(&self) -> Vec<(TypeId, Atom)> {
+        let mut answer = vec![];
+        answer.push((self.head_type, self.head));
+        for arg in &self.args {
+            answer.append(&mut arg.typed_atoms());
         }
         answer
     }
@@ -522,6 +544,19 @@ impl Literal {
         self.left
             .num_quantifiers()
             .max(self.right.num_quantifiers())
+    }
+
+    pub fn var_type(&self, i: AtomId) -> Option<AtomId> {
+        self.left.var_type(i).or_else(|| self.right.var_type(i))
+    }
+
+    // Deduplicates
+    pub fn typed_atoms(&self) -> Vec<(TypeId, Atom)> {
+        let mut answer = self.left.typed_atoms();
+        answer.extend(self.right.typed_atoms());
+        answer.sort();
+        answer.dedup();
+        answer
     }
 
     pub fn map(&self, f: &mut impl FnMut(&Term) -> Term) -> Literal {
