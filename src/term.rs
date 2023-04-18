@@ -605,6 +605,20 @@ impl Clause {
     }
 
     pub fn is_tautology(&self) -> bool {
+        // Find the index of the first positive literal
+        if let Some(first_pos) = self.literals.iter().position(|x| x.positive) {
+            // Check for (!p, p) pairs which cause a tautology
+            for neg_literal in &self.literals[0..first_pos] {
+                for pos_literal in &self.literals[first_pos..] {
+                    if neg_literal.left == pos_literal.left
+                        && neg_literal.right == pos_literal.right
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
         self.literals.iter().any(|x| x.is_tautology())
     }
 
