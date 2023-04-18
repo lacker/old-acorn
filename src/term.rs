@@ -133,6 +133,15 @@ impl Term {
         }
     }
 
+    pub fn atom(type_id: TypeId, atom: Atom) -> Term {
+        Term {
+            term_type: type_id,
+            head_type: type_id,
+            head: atom,
+            args: vec![],
+        }
+    }
+
     pub fn is_atomic(&self) -> bool {
         self.args.len() == 0
     }
@@ -143,12 +152,7 @@ impl Term {
     }
 
     pub fn new_true() -> Term {
-        Term {
-            term_type: BOOL,
-            head_type: BOOL,
-            head: Atom::True,
-            args: vec![],
-        }
+        Term::atom(BOOL, Atom::True)
     }
 
     // Whether this term contains a variable with this index, anywhere in its body, recursively.

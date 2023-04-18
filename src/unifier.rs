@@ -1,5 +1,6 @@
 use crate::atom::{Atom, AtomId};
 use crate::term::{Clause, Literal, Term};
+use crate::type_space::TypeId;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Scope {
@@ -216,6 +217,27 @@ impl Unifier {
         true
     }
 
+    // Returns whether they can be unified.
+    fn unify_atoms(
+        &mut self,
+        atom_type: TypeId,
+        scope1: Scope,
+        atom1: &Atom,
+        scope2: Scope,
+        atom2: &Atom,
+    ) -> bool {
+        if atom1 == atom2 {
+            return true;
+        }
+        if let Atom::Variable(i) = atom1 {
+            return self.unify_variable(scope1, *i, scope2, &Term::atom(atom_type, *atom2));
+        }
+        if let Atom::Variable(i) = atom2 {
+            return self.unify_variable(scope2, *i, scope1, &Term::atom(atom_type, *atom1));
+        }
+        false
+    }
+
     pub fn unify(&mut self, scope1: Scope, term1: &Term, scope2: Scope, term2: &Term) -> bool {
         if term1.term_type != term2.term_type {
             return false;
@@ -229,15 +251,16 @@ impl Unifier {
             return self.unify_variable(scope2, i, scope1, term1);
         }
 
-        // TODO: this won't correctly unify x0(a1) with a0(a1).
-        // We also won't correctly unify higher-order functions whose head types don't match.
-        // The Term itself doesn't support finding prefix-terms, though, so we need to fix that.
-
-        if term1.head != term2.head {
+        // These checks mean we won't unify higher-order functions whose head types don't match.
+        if term1.head_type != term2.head_type {
+            return false;
+        }
+        if term1.args.len() != term2.args.len() {
             return false;
         }
 
-        if term1.args.len() != term2.args.len() {
+        if !self.unify_atoms(term1.head_type, scope1, &term1.head, scope2, &term2.head) {
+            println!("atoms did not unify");
             return false;
         }
 
