@@ -331,17 +331,17 @@ mod tests {
         assert_eq!(prover.prove("goal"), Result::Failure);
     }
 
-    // #[test]
-    // fn test_higher_order_unification() {
-    //     let env = thing_env(
-    //         r#"
-    //         axiom foo(x: Thing -> bool): x(t)
-    //         theorem goal: f(t)
-    //         "#,
-    //     );
-    //     let mut prover = Prover::new(&env);
-    //     assert_eq!(prover.prove("goal"), Result::Success);
-    // }
+    #[test]
+    fn test_higher_order_unification() {
+        let env = thing_env(
+            r#"
+            axiom foo(x: Thing -> bool): x(t)
+            theorem goal: f(t)
+            "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
 
     // #[test]
     // fn test_higher_order_synthesis() {
