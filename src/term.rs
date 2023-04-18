@@ -82,14 +82,7 @@ impl Term {
     pub fn parse(s: &str) -> Term {
         let first_paren = match s.find('(') {
             Some(i) => i,
-            None => {
-                return Term {
-                    term_type: 0,
-                    head_type: 0,
-                    head: Atom::new(s),
-                    args: vec![],
-                };
-            }
+            None => return Term::atom(0, Atom::new(s)),
         };
 
         // Figure out which commas are inside precisely one level of parentheses.
