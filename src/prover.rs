@@ -343,17 +343,17 @@ mod tests {
         assert_eq!(prover.prove("goal"), Result::Success);
     }
 
-    // #[test]
-    // fn test_higher_order_synthesis() {
-    //     let env = thing_env(
-    //         r#"
-    //         axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing, q(x))
-    //         theorem goal(x: Thing): x = t
-    //         "#,
-    //     );
-    //     let mut prover = Prover::new(&env);
-    //     assert_eq!(prover.prove("goal"), Result::Success);
-    // }
+    #[test]
+    fn test_higher_order_synthesis() {
+        let env = thing_env(
+            r#"
+            axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing, q(x))
+            theorem goal(x: Thing): x = t
+            "#,
+        );
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("goal"), Result::Success);
+    }
 
     fn nat_ac_env() -> Environment {
         let mut env = Environment::new();
