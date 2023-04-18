@@ -71,7 +71,7 @@ impl Synthesizer {
             args: vec![],
         };
 
-        // p1(x3)
+        // p1(x0)
         let first_prop_term = Term {
             term_type: BOOL,
             head_type: prop_type,

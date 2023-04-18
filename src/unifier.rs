@@ -370,4 +370,17 @@ mod tests {
         let new2 = u.apply(Scope::Right, &term2);
         assert_eq!(format!("{}", new2), "a0(x0, x1)");
     }
+
+    #[test]
+    fn test_unifying_functional_variable() {
+        let mut s = TypeSpace::new();
+        let bool0 = s.bref(0);
+        let const_f_term = s.bfn(Atom::Axiomatic(0), vec![bool0.clone()]);
+        let var_f_term = s.bfn(Atom::Variable(1), vec![bool0.clone()]);
+        println!("const_f_term: {}", const_f_term);
+        println!("var_f_term: {}", var_f_term);
+
+        let mut u = Unifier::new();
+        assert!(u.unify(Scope::Left, &const_f_term, Scope::Right, &var_f_term));
+    }
 }
