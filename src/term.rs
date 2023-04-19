@@ -661,6 +661,20 @@ impl Clause {
     pub fn is_impossible(&self) -> bool {
         self.literals.is_empty()
     }
+
+    pub fn multi_weight(&self) -> (u32, u32) {
+        let mut unused = vec![];
+        let mut x = 0;
+        let mut y = 0;
+        for literal in &self.literals {
+            for term in &[&literal.left, &literal.right] {
+                let (dx, dy) = term.multi_weight(&mut unused);
+                x += dx;
+                y += dy;
+            }
+        }
+        (x, y)
+    }
 }
 
 #[cfg(test)]
