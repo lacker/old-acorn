@@ -7,6 +7,7 @@ pub mod environment;
 pub mod expression;
 pub mod fingerprint;
 pub mod normalizer;
+pub mod passive_set;
 pub mod prover;
 pub mod statement;
 pub mod synthesizer;

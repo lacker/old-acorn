@@ -5,10 +5,10 @@ use crate::fingerprint::FingerprintTree;
 use crate::term::{Clause, Literal, Term};
 use crate::unifier::{Scope, Unifier};
 
-// The ActiveSet stores rich data for a bunch of terms.
-// Within the ActiveSet, term data is perfectly shared, so that
-// we can check term equality cheaply, and cheaply augment terms with
-// additional data as needed.
+// The ActiveSet stores a bunch of clauses that are indexed for various efficient lookups.
+// The goal is that, given a new clause, it is efficient to determine what can be concluded
+// given that clause and one clause from the active set.
+// "Efficient" is relative - this still may take time roughly linear to the size of the active set.
 pub struct ActiveSet {
     // A vector for indexed reference
     clauses: Vec<Clause>,
