@@ -1,11 +1,10 @@
-use std::collections::VecDeque;
-
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::{ActiveSet, ProofStep};
 use crate::display::DisplayClause;
 use crate::environment::Environment;
 use crate::normalizer::Normalizer;
+use crate::passive_set::PassiveSet;
 use crate::synthesizer::Synthesizer;
 use crate::term::Clause;
 
@@ -19,7 +18,7 @@ pub struct Prover<'a> {
 
     // The "passive" clauses are a queue of pending clauses that
     // we will add to the active clauses in the future.
-    passive: VecDeque<Clause>,
+    passive: PassiveSet,
 
     // A prover is dirty when it has had false propositions added to it.
     dirty: bool,
@@ -48,7 +47,7 @@ impl Prover<'_> {
             normalizer: Normalizer::new(),
             synthesizer: Synthesizer::new(),
             active_set: ActiveSet::new(),
-            passive: VecDeque::new(),
+            passive: PassiveSet::new(),
             env,
             dirty: false,
             verbose: true,
@@ -61,10 +60,6 @@ impl Prover<'_> {
         self.trace = Some(trace.to_string());
     }
 
-    fn add_passive(&mut self, clause: Clause) {
-        self.passive.push_back(clause);
-    }
-
     // Normalizes the proposition and adds it as a passive clause.
     fn add_proposition(&mut self, proposition: AcornValue) {
         assert_eq!(proposition.get_type(), AcornType::Bool);
@@ -73,7 +68,7 @@ impl Prover<'_> {
         }
         let new_clauses = self.normalizer.normalize(proposition);
         for clause in new_clauses {
-            self.add_passive(clause);
+            self.passive.add(clause);
         }
     }
 
@@ -93,7 +88,7 @@ impl Prover<'_> {
 
     // Activates the next clause from the queue.
     fn activate_next(&mut self) -> Result {
-        let clause = if let Some(clause) = self.passive.pop_front() {
+        let clause = if let Some(clause) = self.passive.pop() {
             if self.active_set.contains(&clause) {
                 // We've already seen this clause, so we can skip it.
                 return Result::Unknown;
@@ -154,7 +149,7 @@ impl Prover<'_> {
                     println!("to generate:");
                     println!("  {}", self.display(&c));
                 }
-                self.add_passive(c);
+                self.passive.add(c);
             }
         }
 
@@ -167,7 +162,7 @@ impl Prover<'_> {
                 if verbose {
                     println!("  {}", self.display(&clause));
                 }
-                self.add_passive(clause);
+                self.passive.add(clause);
             }
         }
 
@@ -221,9 +216,9 @@ impl Prover<'_> {
 
                 if self.verbose {
                     println!("\nprover initial state:");
-                    for clause in &self.passive {
+                    self.passive.map(&mut |clause| {
                         println!("  {}", self.display(clause));
-                    }
+                    });
                     println!();
                 }
 

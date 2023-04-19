@@ -16,19 +16,14 @@ pub struct PassiveSet {
 #[derive(Debug, Eq, PartialEq)]
 struct PrioritizedClause {
     clause: Clause,
-    weights: (u32, u32),
+    atom_count: u32,
     index: usize,
 }
 
 impl Ord for PrioritizedClause {
-    // Higher comparisons get popped off the heap first.
-    // So we want lower weights, tiebreaking by the clauses we
-    // saw first.
+    // This is just "first in first out"
     fn cmp(&self, other: &PrioritizedClause) -> Ordering {
-        other
-            .weights
-            .cmp(&self.weights)
-            .then_with(|| other.index.cmp(&self.index))
+        other.index.cmp(&self.index)
     }
 }
 
@@ -47,12 +42,11 @@ impl PassiveSet {
     }
 
     pub fn add(&mut self, clause: Clause) {
-        let weights = clause.multi_weight();
-        let index = self.num_adds;
+        let atom_count = clause.atom_count();
         self.clauses.push(PrioritizedClause {
             clause,
-            weights,
-            index,
+            atom_count,
+            index: self.num_adds,
         });
         self.num_adds += 1;
     }
@@ -63,5 +57,11 @@ impl PassiveSet {
 
     pub fn len(&self) -> usize {
         self.clauses.len()
+    }
+
+    pub fn map(&self, f: &mut impl FnMut(&Clause)) {
+        for pc in &self.clauses {
+            f(&pc.clause);
+        }
     }
 }

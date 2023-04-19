@@ -325,6 +325,15 @@ impl Term {
         (weight1, weight2)
     }
 
+    // "true" counts as 0.
+    fn atom_count(&self) -> u32 {
+        let mut answer = if self.head == Atom::True { 0 } else { 1 };
+        for arg in &self.args {
+            answer += arg.atom_count();
+        }
+        answer
+    }
+
     // A "reduction order" is stable under variable substitution.
     // This implements a Knuth-Bendix reduction ordering.
     // Returns Greater if we should rewrite self -> other.
@@ -564,6 +573,10 @@ impl Literal {
     pub fn replace_atom(&self, atom: &Atom, replacement: &Atom) -> Literal {
         self.map(&mut |term| term.replace_atom(atom, replacement))
     }
+
+    fn atom_count(&self) -> u32 {
+        self.left.atom_count() + self.right.atom_count()
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.
@@ -662,18 +675,8 @@ impl Clause {
         self.literals.is_empty()
     }
 
-    pub fn multi_weight(&self) -> (u32, u32) {
-        let mut unused = vec![];
-        let mut x = 0;
-        let mut y = 0;
-        for literal in &self.literals {
-            for term in &[&literal.left, &literal.right] {
-                let (dx, dy) = term.multi_weight(&mut unused);
-                x += dx;
-                y += dy;
-            }
-        }
-        (x, y)
+    pub fn atom_count(&self) -> u32 {
+        self.literals.iter().map(|x| x.atom_count()).sum()
     }
 }
 
