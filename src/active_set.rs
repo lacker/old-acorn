@@ -305,7 +305,8 @@ impl ActiveSet {
         self.clauses.push(clause);
     }
 
-    // Generate all the inferences that can be made from a given clause, plus a clause already in the set.
+    // Generate all the inferences that can be made from a given clause, plus some existing clause.
+    // Filters out tautologies.
     pub fn generate(&self, clause: &Clause) -> Vec<Clause> {
         let mut result = vec![];
         result.extend(self.activate_paramodulator(&clause));
@@ -314,6 +315,8 @@ impl ActiveSet {
             result.push(new_clause);
         }
         result.extend(ActiveSet::equality_factoring(&clause));
+
+        result.retain(|clause| !clause.is_tautology());
         result
     }
 }

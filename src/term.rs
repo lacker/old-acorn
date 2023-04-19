@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::atom::{Atom, AtomId};
 use crate::type_space::{TypeId, BOOL};
+use crate::unifier::Unifier;
 
 // A term with no args is a plain atom.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -625,7 +626,10 @@ impl Clause {
             .collect::<Vec<_>>();
         literals.sort();
         literals.dedup();
-        Clause { literals }
+
+        Clause {
+            literals: Unifier::normalize_var_ids(&literals),
+        }
     }
 
     pub fn num_quantifiers(&self) -> AtomId {

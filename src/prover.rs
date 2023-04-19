@@ -48,7 +48,6 @@ impl Prover<'_> {
     }
 
     fn add_passive(&mut self, clause: Clause) {
-        println!("adding passive: {}", clause);
         self.passive.push_back(clause);
     }
 
@@ -85,14 +84,19 @@ impl Prover<'_> {
         self.synthesizer.observe(&clause);
 
         let gen_clauses = self.active_set.generate(&clause);
+        let print_limit = 5;
         if !gen_clauses.is_empty() {
-            println!("generated {} new clauses", gen_clauses.len());
-            for clause in gen_clauses {
-                if clause.is_tautology() {
-                    continue;
-                }
+            let len = gen_clauses.len();
+            println!("generated {} new clauses:", gen_clauses.len());
+            for (i, clause) in gen_clauses.into_iter().enumerate() {
                 if clause.is_impossible() {
                     return Result::Success;
+                }
+                if i < print_limit {
+                    println!("  {}", clause);
+                }
+                if i == print_limit {
+                    println!("  ({} total)", len);
                 }
                 self.add_passive(clause);
             }
@@ -100,8 +104,9 @@ impl Prover<'_> {
 
         let synth_clauses = self.synthesizer.synthesize(&clause);
         if !synth_clauses.is_empty() {
-            println!("synthesized {} new clauses", synth_clauses.len());
+            println!("synthesized {} new clauses:", synth_clauses.len());
             for clause in synth_clauses {
+                println!("  {}", clause);
                 self.add_passive(clause);
             }
         }
@@ -110,18 +115,23 @@ impl Prover<'_> {
         Result::Unknown
     }
 
-    fn search_for_contradiction(&mut self, seconds: f32) -> Result {
+    fn search_for_contradiction(&mut self, steps: i32, seconds: f32) -> Result {
         let start_time = std::time::Instant::now();
+        let mut steps_taken = 0;
         while (start_time.elapsed().as_secs() as f32) < seconds {
             let result = self.activate_next();
             if result != Result::Unknown {
                 return result;
             }
+            steps_taken += 1;
+            if steps_taken >= steps {
+                break;
+            }
         }
         Result::Unknown
     }
 
-    pub fn prove_timed(&mut self, theorem_name: &str, seconds: f32) -> Result {
+    pub fn prove_limited(&mut self, theorem_name: &str, steps: i32, seconds: f32) -> Result {
         if self.dirty {
             panic!("prove called on a dirty prover");
         }
@@ -136,7 +146,7 @@ impl Prover<'_> {
                 }
                 println!();
 
-                let answer = self.search_for_contradiction(seconds);
+                let answer = self.search_for_contradiction(steps, seconds);
                 println!("conclusion: {:?}\n", answer);
                 return answer;
             }
@@ -147,7 +157,7 @@ impl Prover<'_> {
     }
 
     pub fn prove(&mut self, theorem_name: &str) -> Result {
-        self.prove_timed(theorem_name, 0.5)
+        self.prove_limited(theorem_name, 1000, 0.1)
     }
 }
 
@@ -421,6 +431,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     // fn test_proving_add_zero_left() {
     //     let env = nat_ac_env();
     //     let mut prover = Prover::new(&env);
-    //     assert_eq!(prover.prove_timed("add_zero_left", -1.0), Result::Success);
+    //     assert_eq!(
+    //         prover.prove_limited("add_zero_left", 100, 0.1),
+    //         Result::Success
+    //     );
     // }
 }
