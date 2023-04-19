@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
-use crate::active_set::ActiveSet;
+use crate::active_set::{ActiveSet, ProofStep};
 use crate::display::DisplayClause;
 use crate::environment::Environment;
 use crate::normalizer::Normalizer;
@@ -122,7 +122,7 @@ impl Prover<'_> {
                     if len > print_limit { ", eg" } else { "" }
                 );
             }
-            for (i, c) in gen_clauses.into_iter().enumerate() {
+            for (i, (c, ps)) in gen_clauses.into_iter().enumerate() {
                 if c.is_impossible() {
                     return Result::Success;
                 }
@@ -131,8 +131,28 @@ impl Prover<'_> {
                 } else if self.is_tracing(&c) {
                     println!("when activating:");
                     println!("  {}", self.display(&clause));
-                    println!("  generated:");
-                    println!(" {}", self.display(&c));
+                    match ps {
+                        ProofStep::ActivateParamodulator(i) => {
+                            println!(
+                                "used AP with:\n  {}",
+                                self.display(&self.active_set.get_clause(i))
+                            );
+                        }
+                        ProofStep::ActivateResolver(i) => {
+                            println!(
+                                "used AR with:\n  {}",
+                                self.display(&self.active_set.get_clause(i))
+                            );
+                        }
+                        ProofStep::EqualityFactoring => {
+                            print!("used EF ");
+                        }
+                        ProofStep::EqualityResolution => {
+                            print!("used ER ");
+                        }
+                    }
+                    println!("to generate:");
+                    println!("  {}", self.display(&c));
                 }
                 self.add_passive(c);
             }
@@ -490,14 +510,14 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         assert_eq!(prover.prove("one_plus_one"), Result::Success);
     }
 
-    // #[test]
-    // fn test_proving_add_zero_left() {
-    //     let env = nat_ac_env();
-    //     let mut prover = Prover::new(&env);
-    //     prover.set_trace("recursion(Suc, 0, Suc(x0)) = Suc(x0) | p6(x0)");
-    //     assert_eq!(
-    //         prover.prove_limited("add_zero_left", 1000000, 0.5),
-    //         Result::Success
-    //     );
-    // }
+    #[test]
+    fn test_proving_add_zero_left() {
+        let env = nat_ac_env();
+        let mut prover = Prover::new(&env);
+        prover.set_trace("recursion(Suc, 0, Suc(x0)) = Suc(x0) | p6(x0)");
+        assert_eq!(
+            prover.prove_limited("add_zero_left", 1000000, 5.0),
+            Result::Success
+        );
+    }
 }

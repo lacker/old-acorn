@@ -49,6 +49,15 @@ struct ParamodulationTarget {
     forwards: bool,
 }
 
+// The ways a new clause can be generated.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ProofStep {
+    ActivateParamodulator(usize),
+    ActivateResolver(usize),
+    EqualityFactoring,
+    EqualityResolution,
+}
+
 impl ActiveSet {
     pub fn new() -> ActiveSet {
         ActiveSet {
@@ -119,7 +128,7 @@ impl ActiveSet {
     //   u ?= v | R
     //
     // in the superposition formula.
-    pub fn activate_paramodulator(&self, pm_clause: &Clause) -> Vec<Clause> {
+    pub fn activate_paramodulator(&self, pm_clause: &Clause) -> Vec<(Clause, ProofStep)> {
         let mut result = vec![];
 
         let pm_literal = &pm_clause.literals[0];
@@ -138,7 +147,10 @@ impl ActiveSet {
                 let resolution_clause = &self.clauses[target.clause_index];
                 let new_clause = unifier.superpose(t, pm_clause, &target.path, resolution_clause);
 
-                result.push(new_clause);
+                result.push((
+                    new_clause,
+                    ProofStep::ActivateParamodulator(target.clause_index),
+                ));
             }
         }
 
@@ -159,13 +171,18 @@ impl ActiveSet {
     //   s = t | S
     //
     // in the superposition formula.
-    pub fn activate_resolver(&self, res_clause: &Clause) -> Vec<Clause> {
+    pub fn activate_resolver(&self, res_clause: &Clause) -> Vec<(Clause, ProofStep)> {
         let mut result = vec![];
         let res_literal = &res_clause.literals[0];
         let u = &res_literal.left;
         let u_subterms = u.subterms();
 
         for (path, u_subterm) in u_subterms {
+            if res_literal.positive && path.is_empty() {
+                // We already handle the u = s case in activate_paramodulator.
+                continue;
+            }
+
             // Look for paramodulation targets that match u_subterm
             let targets = self.paramodulation_targets.get(u_subterm);
             for target in targets {
@@ -186,7 +203,7 @@ impl ActiveSet {
                 // The clauses do actually unify. Combine them according to the superposition rule.
                 let new_clause = unifier.superpose(t, pm_clause, &path, res_clause);
 
-                result.push(new_clause);
+                result.push((new_clause, ProofStep::ActivateResolver(target.clause_index)));
             }
         }
 
@@ -275,6 +292,10 @@ impl ActiveSet {
         answer
     }
 
+    pub fn get_clause(&self, index: usize) -> &Clause {
+        &self.clauses[index]
+    }
+
     pub fn contains(&self, clause: &Clause) -> bool {
         self.clause_set.contains(clause)
     }
@@ -310,17 +331,20 @@ impl ActiveSet {
     }
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
+    // Returns pairs describing how this clause was proved.
     // Filters out tautologies.
-    pub fn generate(&self, clause: &Clause) -> Vec<Clause> {
+    pub fn generate(&self, clause: &Clause) -> Vec<(Clause, ProofStep)> {
         let mut result = vec![];
         result.extend(self.activate_paramodulator(&clause));
         result.extend(self.activate_resolver(&clause));
         if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
-            result.push(new_clause);
+            result.push((new_clause, ProofStep::EqualityResolution));
         }
-        result.extend(ActiveSet::equality_factoring(&clause));
+        for clause in ActiveSet::equality_factoring(&clause) {
+            result.push((clause, ProofStep::EqualityFactoring));
+        }
 
-        result.retain(|clause| !clause.is_tautology());
+        result.retain(|(clause, _)| !clause.is_tautology());
         result
     }
 }
@@ -350,7 +374,7 @@ mod tests {
             Term::parse("a0(a1)"),
             Term::parse("a2"),
         )]);
-        assert_eq!(result[0], expected);
+        assert_eq!(result[0].0, expected);
     }
 
     #[test]
@@ -372,7 +396,7 @@ mod tests {
             Term::parse("a0(a1)"),
             Term::parse("a2"),
         )]);
-        assert_eq!(result[0], expected);
+        assert_eq!(result[0].0, expected);
     }
 
     #[test]
