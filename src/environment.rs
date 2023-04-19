@@ -20,7 +20,7 @@ pub struct Environment {
     // The axiomatic types can be stored as ids that are indices into this vector.
     axiomatic_types: Vec<String>,
 
-    // How many axiomatic values have been defined by name in this scope
+    // The names for all the axiomatic values in this scope
     axiomatic_values: Vec<String>,
 
     // Maps the name of a type to the type object.
@@ -115,6 +115,10 @@ impl Environment {
 
     pub fn get_value(&self, name: &str) -> Option<&AcornValue> {
         self.values.get(name)
+    }
+
+    pub fn get_axiomatic_name(&self, id: AtomId) -> &str {
+        &self.axiomatic_values[id as usize]
     }
 
     // Iterates through (name, value) pairs for all theorems in this environment.

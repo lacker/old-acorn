@@ -2,6 +2,7 @@ pub mod acorn_type;
 pub mod acorn_value;
 pub mod active_set;
 pub mod atom;
+pub mod display;
 pub mod environment;
 pub mod expression;
 pub mod fingerprint;

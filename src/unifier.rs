@@ -268,7 +268,6 @@ impl Unifier {
         }
 
         if !self.unify_atoms(term1.head_type, scope1, &term1.head, scope2, &term2.head) {
-            println!("atoms did not unify");
             return false;
         }
 

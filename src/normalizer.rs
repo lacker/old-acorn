@@ -110,9 +110,9 @@ impl Normalizer {
         let expanded = value.expand_lambdas(0);
         // println!("expanded: {}", expanded);
         let neg_in = expanded.move_negation_inwards(false);
-        println!("negin: {}", neg_in);
+        // println!("negin: {}", neg_in);
         let skolemized = self.skolemize(&vec![], neg_in);
-        println!("skolemized: {}", skolemized);
+        // println!("skolemized: {}", skolemized);
         let mut universal = vec![];
         let dequantified = skolemized.remove_forall(&mut universal);
         // println!("universal: {}", AcornType::vec_to_str(&universal));

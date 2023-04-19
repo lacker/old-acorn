@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
+use crate::display::DisplayClause;
 use crate::environment::Environment;
 use crate::normalizer::Normalizer;
 use crate::synthesizer::Synthesizer;
@@ -22,6 +23,12 @@ pub struct Prover<'a> {
 
     // A prover is dirty when it has had false propositions added to it.
     dirty: bool,
+
+    // A verbose prover prints out a lot of stuff.
+    verbose: bool,
+
+    // If a trace string is set, we print out what happens with the clause matching it.
+    trace: Option<String>,
 }
 
 // The result of a prover operation.
@@ -44,7 +51,14 @@ impl Prover<'_> {
             passive: VecDeque::new(),
             env,
             dirty: false,
+            verbose: true,
+            trace: None,
         }
+    }
+
+    pub fn set_trace(&mut self, trace: &str) {
+        self.verbose = false;
+        self.trace = Some(trace.to_string());
     }
 
     fn add_passive(&mut self, clause: Clause) {
@@ -54,7 +68,9 @@ impl Prover<'_> {
     // Normalizes the proposition and adds it as a passive clause.
     fn add_proposition(&mut self, proposition: AcornValue) {
         assert_eq!(proposition.get_type(), AcornType::Bool);
-        println!("\nadding prop: {}", proposition);
+        if self.verbose {
+            println!("\nadding prop: {}", proposition);
+        }
         let new_clauses = self.normalizer.normalize(proposition);
         for clause in new_clauses {
             self.add_passive(clause);
@@ -67,6 +83,14 @@ impl Prover<'_> {
         self.add_proposition(proposition.negate());
     }
 
+    fn is_tracing(&self, clause: &Clause) -> bool {
+        if let Some(trace) = &self.trace {
+            self.display(clause).to_string().starts_with(trace)
+        } else {
+            false
+        }
+    }
+
     // Activates the next clause from the queue.
     fn activate_next(&mut self) -> Result {
         let clause = if let Some(clause) = self.passive.pop_front() {
@@ -74,12 +98,16 @@ impl Prover<'_> {
                 // We've already seen this clause, so we can skip it.
                 return Result::Unknown;
             }
-            println!("activating: {}", clause);
             clause
         } else {
             // We're out of clauses to process, so we can't make any more progress.
             return Result::Failure;
         };
+        let tracing = self.is_tracing(&clause);
+        let verbose = self.verbose || tracing;
+        if verbose {
+            println!("activating: {}", self.display(&clause));
+        }
 
         self.synthesizer.observe(&clause);
 
@@ -87,26 +115,38 @@ impl Prover<'_> {
         let print_limit = 5;
         if !gen_clauses.is_empty() {
             let len = gen_clauses.len();
-            println!("generated {} new clauses:", gen_clauses.len());
-            for (i, clause) in gen_clauses.into_iter().enumerate() {
-                if clause.is_impossible() {
+            if verbose {
+                println!(
+                    "generated {} new clauses{}:",
+                    len,
+                    if len > print_limit { ", eg" } else { "" }
+                );
+            }
+            for (i, c) in gen_clauses.into_iter().enumerate() {
+                if c.is_impossible() {
                     return Result::Success;
                 }
-                if i < print_limit {
-                    println!("  {}", clause);
+                if verbose && (i < print_limit || tracing) {
+                    println!("  {}", self.display(&c));
+                } else if self.is_tracing(&c) {
+                    println!("when activating:");
+                    println!("  {}", self.display(&clause));
+                    println!("  generated:");
+                    println!(" {}", self.display(&c));
                 }
-                if i == print_limit {
-                    println!("  ({} total)", len);
-                }
-                self.add_passive(clause);
+                self.add_passive(c);
             }
         }
 
         let synth_clauses = self.synthesizer.synthesize(&clause);
         if !synth_clauses.is_empty() {
-            println!("synthesized {} new clauses:", synth_clauses.len());
+            if verbose {
+                println!("synthesized {} new clauses:", synth_clauses.len());
+            }
             for clause in synth_clauses {
-                println!("  {}", clause);
+                if verbose {
+                    println!("  {}", self.display(&clause));
+                }
                 self.add_passive(clause);
             }
         }
@@ -118,17 +158,36 @@ impl Prover<'_> {
     fn search_for_contradiction(&mut self, steps: i32, seconds: f32) -> Result {
         let start_time = std::time::Instant::now();
         let mut steps_taken = 0;
-        while (start_time.elapsed().as_secs() as f32) < seconds {
+        loop {
             let result = self.activate_next();
             if result != Result::Unknown {
                 return result;
             }
             steps_taken += 1;
             if steps_taken >= steps {
+                if self.verbose {
+                    println!("active set size: {}", self.active_set.len());
+                    println!("prover hit step limit after {} steps", steps_taken);
+                }
+                break;
+            }
+            let elapsed = start_time.elapsed().as_secs_f32();
+            if elapsed >= seconds {
+                if self.verbose {
+                    println!("active set size: {}", self.active_set.len());
+                    println!("prover hit time limit after {} seconds", elapsed);
+                }
                 break;
             }
         }
         Result::Unknown
+    }
+
+    fn display<'a>(&'a self, clause: &'a Clause) -> DisplayClause<'a> {
+        DisplayClause {
+            clause,
+            env: self.env,
+        }
     }
 
     pub fn prove_limited(&mut self, theorem_name: &str, steps: i32, seconds: f32) -> Result {
@@ -140,14 +199,18 @@ impl Prover<'_> {
                 // To prove a statement, we negate, then search for a contradiction.
                 self.add_negated(value.clone());
 
-                println!("\nprover initial state:");
-                for clause in &self.passive {
-                    println!("  {}", clause);
+                if self.verbose {
+                    println!("\nprover initial state:");
+                    for clause in &self.passive {
+                        println!("  {}", self.display(clause));
+                    }
+                    println!();
                 }
-                println!();
 
                 let answer = self.search_for_contradiction(steps, seconds);
-                println!("conclusion: {:?}\n", answer);
+                if self.verbose {
+                    println!("conclusion: {:?}\n", answer);
+                }
                 return answer;
             }
 
@@ -431,8 +494,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     // fn test_proving_add_zero_left() {
     //     let env = nat_ac_env();
     //     let mut prover = Prover::new(&env);
+    //     prover.set_trace("recursion(Suc, 0, Suc(x0)) = Suc(x0) | p6(x0)");
     //     assert_eq!(
-    //         prover.prove_limited("add_zero_left", 100, 0.1),
+    //         prover.prove_limited("add_zero_left", 1000000, 0.5),
     //         Result::Success
     //     );
     // }

@@ -84,7 +84,7 @@ impl Synthesizer {
         // We can do this with two clauses.
         //   p1(x3) | !abstract_literal
         //   !p1(x3) | abstract_literal
-        println!("defining {} <-> {}", first_prop_term, literal);
+        // println!("defining {} <-> {}", first_prop_term, literal);
         answer.push(Clause::new(vec![
             Literal::positive(first_prop_term.clone()),
             literal.negate(),

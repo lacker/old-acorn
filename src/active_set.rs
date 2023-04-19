@@ -59,6 +59,10 @@ impl ActiveSet {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.clauses.len()
+    }
+
     // Get an iterator of (path, subterm) for all allowable resolution targets of a term.
     fn resolution_subterms(term: &Term) -> impl Iterator<Item = (Vec<usize>, &Term)> {
         term.subterms()
