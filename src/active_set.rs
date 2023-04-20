@@ -305,10 +305,13 @@ impl ActiveSet {
         self.clause_set.contains(clause)
     }
 
-    // Simplifies the clause based on the active set.
+    // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
     pub fn simplify(&self, clause: Clause) -> Option<Clause> {
+        if clause.is_tautology() {
+            return None;
+        }
         if self.contains(&clause) {
             return None;
         }
@@ -330,7 +333,11 @@ impl ActiveSet {
                 }
             }
         }
-        Some(Clause::new(literals))
+        let clause = Clause::new(literals);
+        if self.contains(&clause) {
+            return None;
+        }
+        Some(clause)
     }
 
     pub fn insert(&mut self, clause: Clause) {
@@ -372,18 +379,23 @@ impl ActiveSet {
     // Returns pairs describing how this clause was proved.
     // Filters out tautologies.
     pub fn generate(&self, clause: &Clause) -> Vec<(Clause, ProofStep)> {
-        let mut result = vec![];
-        result.extend(self.activate_paramodulator(&clause));
-        result.extend(self.activate_resolver(&clause));
+        let mut generated_clauses = vec![];
+        generated_clauses.extend(self.activate_paramodulator(&clause));
+        generated_clauses.extend(self.activate_resolver(&clause));
         if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
-            result.push((new_clause, ProofStep::EqualityResolution));
+            generated_clauses.push((new_clause, ProofStep::EqualityResolution));
         }
         for clause in ActiveSet::equality_factoring(&clause) {
-            result.push((clause, ProofStep::EqualityFactoring));
+            generated_clauses.push((clause, ProofStep::EqualityFactoring));
         }
 
-        result.retain(|(clause, _)| !clause.is_tautology());
-        result
+        let mut simplified_clauses = vec![];
+        for (clause, step) in generated_clauses {
+            if let Some(clause) = self.simplify(clause) {
+                simplified_clauses.push((clause, step));
+            }
+        }
+        simplified_clauses
     }
 }
 

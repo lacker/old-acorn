@@ -97,10 +97,12 @@ impl Prover<'_> {
             return Result::Failure;
         };
 
-        if self.active_set.contains(&clause) {
-            // We already handled this clause. Skip it.
+        let clause = if let Some(clause) = self.active_set.simplify(clause) {
+            clause
+        } else {
+            // The clause is redundant, so skip it.
             return Result::Unknown;
-        }
+        };
 
         if clause.is_impossible() {
             return Result::Success;
