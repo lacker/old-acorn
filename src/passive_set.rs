@@ -22,7 +22,7 @@ struct PrioritizedClause {
 
 impl Ord for PrioritizedClause {
     fn cmp(&self, other: &PrioritizedClause) -> Ordering {
-        let smart_priority = false;
+        let smart_priority = true;
         if smart_priority {
             // Lightest-first, then first-in-first-out
             other
