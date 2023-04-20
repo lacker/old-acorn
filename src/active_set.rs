@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use crate::fingerprint::FingerprintTree;
+use crate::literal_set::LiteralSet;
 use crate::term::{Clause, Literal, Term};
 use crate::unifier::{Scope, Unifier};
 
@@ -13,8 +14,11 @@ pub struct ActiveSet {
     // A vector for indexed reference
     clauses: Vec<Clause>,
 
-    // A HashSet for checking what we've done before
+    // A HashSet for checking what complete clauses we already know
     clause_set: HashSet<Clause>,
+
+    // A LiteralSet for checking specific literals we already know, including generalization
+    literal_set: LiteralSet,
 
     resolution_targets: FingerprintTree<ResolutionTarget>,
 
@@ -63,6 +67,7 @@ impl ActiveSet {
         ActiveSet {
             clauses: vec![],
             clause_set: HashSet::new(),
+            literal_set: LiteralSet::new(),
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
         }
@@ -300,6 +305,34 @@ impl ActiveSet {
         self.clause_set.contains(clause)
     }
 
+    // Simplifies the clause based on the active set.
+    // If the result is redundant given what's already known, return None.
+    // If the result is an impossibility, return an empty clause.
+    pub fn simplify(&self, clause: Clause) -> Option<Clause> {
+        if self.contains(&clause) {
+            return None;
+        }
+        let mut literals = vec![];
+        for literal in clause.literals {
+            match self.literal_set.lookup(&literal) {
+                Some((true, _)) => {
+                    // This literal is already known to be true.
+                    // Thus, the whole clause is a tautology.
+                    return None;
+                }
+                Some((false, _)) => {
+                    // This literal is already known to be false.
+                    // Thus, we can just omit it from the disjunction.
+                    continue;
+                }
+                None => {
+                    literals.push(literal);
+                }
+            }
+        }
+        Some(Clause::new(literals))
+    }
+
     pub fn insert(&mut self, clause: Clause) {
         // Add resolution targets for the new clause.
         let clause_index = self.clauses.len();
@@ -327,6 +360,11 @@ impl ActiveSet {
         }
 
         self.clause_set.insert(clause.clone());
+
+        if clause.literals.len() == 1 {
+            self.literal_set.insert(clause.literals[0].clone());
+        }
+
         self.clauses.push(clause);
     }
 
