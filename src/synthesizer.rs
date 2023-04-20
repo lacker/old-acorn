@@ -27,7 +27,7 @@ impl Synthesizer {
     // Adds entries to types for any higher-order variables that are observed.
     pub fn observe(&mut self, clause: &Clause) {
         for lit in &clause.literals {
-            if lit.is_boolean() && lit.is_higher_order() {
+            if lit.is_boolean() && lit.positive && lit.is_higher_order() {
                 let term = &lit.left;
                 if term.args.len() != 1 {
                     // For now we only synthesize propositions with a single argument
@@ -57,10 +57,12 @@ impl Synthesizer {
             return;
         }
         self.history.insert(literal.clone());
-        self.history.insert(literal.negate());
 
-        // Synthesize an atom like "p1" for the new var_type -> bool function
-        let first_prop_atom = Atom::Synthetic(self.next_id);
+        // Synthesize an atom which in the comments we will call "p" for the new
+        // var_type -> bool function.
+        // In practice it will have some id, like p3 or p7.
+        // p will be defined as !literal, so that p(_) can unify with a x0(x1) term.
+        let prop_atom = Atom::Synthetic(self.next_id);
         self.next_id += 1;
 
         // The free variable in our "definition", always "x0"
@@ -71,54 +73,25 @@ impl Synthesizer {
             args: vec![],
         };
 
-        // p1(x0)
-        let first_prop_term = Term {
+        // p(x0)
+        let prop_term = Term {
             term_type: BOOL,
             head_type: prop_type,
-            head: first_prop_atom,
+            head: prop_atom,
             args: vec![var_term.clone()],
         };
 
         // We want to define:
-        //   p1(x3) <-> abstract_literal
+        //   p(x0) <-> !literal
         // We can do this with two clauses.
-        //   p1(x3) | !abstract_literal
-        //   !p1(x3) | abstract_literal
-        // println!("defining {} <-> {}", first_prop_term, literal);
+        //   p(x0) | literal
+        //   !p(x0) | !literal
+        // println!("defining {} <-> {}", prop_term, literal);
         answer.push(Clause::new(vec![
-            Literal::positive(first_prop_term.clone()),
+            Literal::negative(prop_term.clone()),
             literal.negate(),
         ]));
-        answer.push(Clause::new(vec![
-            Literal::negative(first_prop_term.clone()),
-            literal,
-        ]));
-
-        // Now we want to define p2 = !p1
-        let second_prop_atom = Atom::Synthetic(self.next_id);
-        self.next_id += 1;
-
-        // p2(x0)
-        let second_prop_term = Term {
-            term_type: BOOL,
-            head_type: prop_type,
-            head: second_prop_atom,
-            args: vec![var_term],
-        };
-
-        // We want to define:
-        //   p2(x0) <-> !p1(x0)
-        // We can do this with two clauses.
-        //   !p2(x0) | !p1(x0)
-        //   p2(x0) | p1(x0)
-        answer.push(Clause::new(vec![
-            Literal::negative(second_prop_term.clone()),
-            Literal::negative(first_prop_term.clone()),
-        ]));
-        answer.push(Clause::new(vec![
-            Literal::positive(second_prop_term),
-            Literal::positive(first_prop_term),
-        ]));
+        answer.push(Clause::new(vec![Literal::positive(prop_term), literal]));
     }
 
     // Synthesize some new functions that provide alternative ways of writing the given clause.
@@ -193,7 +166,7 @@ mod tests {
         let neg_goal_clauses = norm.normalize(env.get_value("goal").unwrap().clone().negate());
         assert_eq!(neg_goal_clauses.len(), 1);
         let synthesized = synth.synthesize(&neg_goal_clauses[0]);
-        assert_eq!(synthesized.len(), 8);
+        assert_eq!(synthesized.len(), 4);
         for clause in synthesized {
             norm.typespace.check_clause(&clause);
         }
