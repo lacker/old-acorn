@@ -91,15 +91,20 @@ impl Prover<'_> {
     // Activates the next clause from the queue.
     fn activate_next(&mut self) -> Result {
         let clause = if let Some(clause) = self.passive.pop() {
-            if self.active_set.contains(&clause) {
-                // We've already seen this clause, so we can skip it.
+            if let Some(clause) = self.active_set.simplify(clause) {
+                clause
+            } else {
+                // This clause is redundant, so skip it.
                 return Result::Unknown;
             }
-            clause
         } else {
             // We're out of clauses to process, so we can't make any more progress.
             return Result::Failure;
         };
+        if clause.is_impossible() {
+            return Result::Success;
+        }
+
         let tracing = self.is_tracing(&clause);
         let verbose = self.verbose || tracing;
         if verbose {
