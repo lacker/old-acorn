@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::fingerprint::Fingerprint;
+use crate::specializer::Specializer;
 use crate::term::Literal;
-use crate::unifier::{Scope, Unifier};
 
 // A datastructure for storing a set of literals to make it quick, for a new
 // literal, to discover if we already know it or not.
@@ -38,26 +38,18 @@ impl LiteralSet {
         for ((key_left, key_right), known_literals) in &self.tree {
             if key_left.generalizes(&f_left) && key_right.generalizes(&f_right) {
                 for known_literal in known_literals {
-                    // We want to check if the known_literal is a generalization. Just a
-                    // unification isn't enough to use. So we try unifying, but we keep
-                    // the scope of the query literal as Output to prevent its variables from remapping.
-                    let mut u = Unifier::new();
-                    if !u.unify(
-                        Scope::Left,
-                        &known_literal.left,
-                        Scope::Output,
-                        &literal.left,
-                    ) {
+                    // Check if the given literal is a specialization of the known literal.
+                    let mut s = Specializer::new();
+                    if !s.match_terms(&known_literal.left, &literal.left) {
                         continue;
                     }
-                    if !u.unify(
-                        Scope::Left,
-                        &known_literal.right,
-                        Scope::Output,
-                        &literal.right,
-                    ) {
+                    if !s.match_terms(&known_literal.right, &literal.right) {
                         continue;
                     }
+
+                    // TODO: Should we handle the reverse case here?
+                    // Or possibly add twice based on the KBO?
+
                     return Some((literal.positive == known_literal.positive, known_literal));
                 }
             }
@@ -81,5 +73,7 @@ mod tests {
 
         set.insert(Literal::parse("x0 = x0"));
         assert!(set.lookup(&Literal::parse("x0 = a0")).is_none());
+        assert!(set.lookup(&Literal::parse("a0 = x0")).is_none());
+        assert!(set.lookup(&Literal::parse("a0 = a0")).unwrap().0);
     }
 }

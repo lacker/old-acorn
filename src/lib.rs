@@ -10,6 +10,7 @@ pub mod literal_set;
 pub mod normalizer;
 pub mod passive_set;
 pub mod prover;
+pub mod specializer;
 pub mod statement;
 pub mod synthesizer;
 pub mod term;
