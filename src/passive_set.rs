@@ -21,9 +21,18 @@ struct PrioritizedClause {
 }
 
 impl Ord for PrioritizedClause {
-    // This is just "first in first out"
     fn cmp(&self, other: &PrioritizedClause) -> Ordering {
-        other.index.cmp(&self.index)
+        let smart_priority = false;
+        if smart_priority {
+            // Shortest-first, then first-in-first-out
+            other
+                .atom_count
+                .cmp(&self.atom_count)
+                .then_with(|| other.index.cmp(&self.index))
+        } else {
+            // This is just "first in first out"
+            other.index.cmp(&self.index)
+        }
     }
 }
 
