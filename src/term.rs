@@ -81,6 +81,10 @@ impl Term {
     //   a0(a1, a2(x0, x1))
     // into a term with head a0 and args [a1, a2(x0, x1)].
     pub fn parse(s: &str) -> Term {
+        if s == "true" {
+            return Term::atom(BOOL, Atom::True);
+        }
+
         let first_paren = match s.find('(') {
             Some(i) => i,
             None => return Term::atom(0, Atom::new(s)),
@@ -521,6 +525,26 @@ impl Literal {
             positive: !self.positive,
             left: self.left.clone(),
             right: self.right.clone(),
+        }
+    }
+
+    pub fn parse(s: &str) -> Literal {
+        if s.contains(" != ") {
+            let mut parts = s.split(" != ");
+            let left = Term::parse(parts.next().unwrap());
+            let right = Term::parse(parts.next().unwrap());
+            Literal::not_equals(left, right)
+        } else if s.contains(" = ") {
+            let mut parts = s.split(" = ");
+            let left = Term::parse(parts.next().unwrap());
+            let right = Term::parse(parts.next().unwrap());
+            Literal::equals(left, right)
+        } else if s.starts_with("!") {
+            let term = Term::parse(&s[1..]);
+            Literal::negative(term)
+        } else {
+            let term = Term::parse(s);
+            Literal::positive(term)
         }
     }
 

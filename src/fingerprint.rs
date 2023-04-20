@@ -59,6 +59,25 @@ impl FingerprintComponent {
             _ => false,
         }
     }
+
+    // Whether self could be a generalization of other.
+    pub fn generalizes(&self, other: &FingerprintComponent) -> bool {
+        match (self, other) {
+            (FingerprintComponent::Below, _) => true,
+            (_, FingerprintComponent::Below) => false,
+            (FingerprintComponent::Nothing, FingerprintComponent::Nothing) => true,
+            (FingerprintComponent::Something(t1, a1), FingerprintComponent::Something(t2, a2)) => {
+                if t1 != t2 {
+                    return false;
+                }
+                if a1.is_variable() {
+                    return true;
+                }
+                a1 == a2
+            }
+            _ => false,
+        }
+    }
 }
 
 const PATHS: &[&[usize]] = &[&[], &[0], &[1], &[0, 0], &[0, 1], &[1, 0], &[1, 1]];
@@ -80,6 +99,15 @@ impl Fingerprint {
     pub fn matches(&self, other: &Fingerprint) -> bool {
         for i in 0..PATHS.len() {
             if !self.components[i].matches(&other.components[i]) {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn generalizes(&self, other: &Fingerprint) -> bool {
+        for i in 0..PATHS.len() {
+            if !self.components[i].generalizes(&other.components[i]) {
                 return false;
             }
         }
