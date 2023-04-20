@@ -78,5 +78,8 @@ mod tests {
         assert!(set.lookup(&Literal::parse("a0(a2, a1) = a2")).unwrap().0);
         assert!(set.lookup(&Literal::parse("a0(x0, x1) = x0")).is_none());
         assert!(!set.lookup(&Literal::parse("a0(x0, a1) != x0")).unwrap().0);
+
+        set.insert(Literal::parse("x0 = x0"));
+        assert!(set.lookup(&Literal::parse("x0 = a0")).is_none());
     }
 }
