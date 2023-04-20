@@ -16,7 +16,7 @@ pub struct PassiveSet {
 #[derive(Debug, Eq, PartialEq)]
 struct PrioritizedClause {
     clause: Clause,
-    atom_count: u32,
+    weight: u32,
     index: usize,
 }
 
@@ -24,10 +24,10 @@ impl Ord for PrioritizedClause {
     fn cmp(&self, other: &PrioritizedClause) -> Ordering {
         let smart_priority = false;
         if smart_priority {
-            // Shortest-first, then first-in-first-out
+            // Lightest-first, then first-in-first-out
             other
-                .atom_count
-                .cmp(&self.atom_count)
+                .weight
+                .cmp(&self.weight)
                 .then_with(|| other.index.cmp(&self.index))
         } else {
             // This is just "first in first out"
@@ -50,14 +50,18 @@ impl PassiveSet {
         }
     }
 
-    pub fn add(&mut self, clause: Clause) {
-        let atom_count = clause.atom_count();
+    pub fn add_with_weight(&mut self, clause: Clause, weight: u32) {
         self.clauses.push(PrioritizedClause {
             clause,
-            atom_count,
+            weight,
             index: self.num_adds,
         });
         self.num_adds += 1;
+    }
+
+    pub fn add(&mut self, clause: Clause) {
+        let weight = clause.atom_count();
+        self.add_with_weight(clause, weight);
     }
 
     pub fn pop(&mut self) -> Option<Clause> {
