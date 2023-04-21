@@ -1,17 +1,21 @@
 use std::path::PathBuf;
 
-use acorn::token::{Token, TokenType};
+use acorn::{environment::Environment, prover::Prover};
+
+const USAGE: &str = "Usage: acorn <input file> <theorem name>";
 
 fn main() {
-    let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    d.push("acorn/prop.ac");
-    let input = std::fs::read_to_string(d).unwrap();
-    let tokens = Token::scan(&input).unwrap();
-    for token in &tokens {
-        if token.token_type == TokenType::NewLine {
-            println!();
-        } else {
-            print!("{} ", token);
-        }
-    }
+    // Parse command line arguments
+    let mut args = std::env::args().skip(1);
+    let input_file = args.next().expect(USAGE);
+    let theorem_name = args.next().expect(USAGE);
+
+    // Read input file
+    let input_path = PathBuf::from(input_file);
+    let input = std::fs::read_to_string(&input_path).unwrap();
+
+    // Construct a prover
+    let mut env = Environment::new();
+    env.add(&input);
+    let mut prover = Prover::new(&env);
 }
