@@ -180,19 +180,16 @@ impl Prover<'_> {
         Result::Unknown
     }
 
-    fn search_for_contradiction(&mut self, steps: i32, seconds: f32) -> Result {
+    fn search_for_contradiction(&mut self, size: i32, seconds: f32) -> Result {
         let start_time = std::time::Instant::now();
-        let mut steps_taken = 0;
         loop {
             let result = self.activate_next();
             if result != Result::Unknown {
                 return result;
             }
-            steps_taken += 1;
-            if steps_taken >= steps {
+            if self.active_set.len() >= size as usize {
                 if self.verbose {
-                    println!("active set size: {}", self.active_set.len());
-                    println!("prover hit step limit after {} steps", steps_taken);
+                    println!("active set size hit the limit: {}", self.active_set.len());
                 }
                 break;
             }
@@ -215,7 +212,7 @@ impl Prover<'_> {
         }
     }
 
-    pub fn prove_limited(&mut self, theorem_name: &str, steps: i32, seconds: f32) -> Result {
+    pub fn prove_limited(&mut self, theorem_name: &str, size: i32, seconds: f32) -> Result {
         if self.dirty {
             panic!("prove called on a dirty prover");
         }
@@ -232,7 +229,7 @@ impl Prover<'_> {
                     println!();
                 }
 
-                let answer = self.search_for_contradiction(steps, seconds);
+                let answer = self.search_for_contradiction(size, seconds);
                 if self.verbose {
                     println!("conclusion: {:?}\n", answer);
                 }
@@ -245,7 +242,7 @@ impl Prover<'_> {
     }
 
     pub fn prove(&mut self, theorem_name: &str) -> Result {
-        self.prove_limited(theorem_name, 1000, 0.1)
+        self.prove_limited(theorem_name, 1000, 1.0)
     }
 }
 
@@ -520,5 +517,22 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("add_zero_left"), Result::Success);
+    }
+
+    #[test]
+    fn test_proving_add_suc_right() {
+        let env = nat_ac_env();
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("add_suc_right"), Result::Success);
+    }
+
+    #[test]
+    fn test_proving_add_suc_left() {
+        let env = nat_ac_env();
+        let mut prover = Prover::new(&env);
+        assert_eq!(
+            prover.prove_limited("add_suc_left", 10000, 30.0),
+            Result::Success
+        );
     }
 }
