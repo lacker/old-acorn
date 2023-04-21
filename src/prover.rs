@@ -98,7 +98,7 @@ impl Prover<'_> {
             println!("activating: {}", self.display(&clause));
         }
 
-        let clause = if let Some(clause) = self.active_set.simplify(clause) {
+        let clause = if let Some(clause) = self.active_set.simplify(&clause) {
             clause
         } else {
             // The clause is redundant, so skip it.
@@ -122,7 +122,7 @@ impl Prover<'_> {
         self.active_set.insert(clause.clone());
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
-            if let Some(simp_clause) = self.active_set.simplify(generated_clause) {
+            if let Some(simp_clause) = self.active_set.simplify(&generated_clause) {
                 simp_clauses.push((simp_clause, step));
             }
         }
@@ -179,7 +179,7 @@ impl Prover<'_> {
                 println!("synthesized {} new clauses:", synth_clauses.len());
             }
             for clause in synth_clauses {
-                if let Some(simp_clause) = self.active_set.simplify(clause) {
+                if let Some(simp_clause) = self.active_set.simplify(&clause) {
                     if verbose {
                         println!("  {}", self.display(&simp_clause));
                     }
@@ -342,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rewriting() {
+    fn test_composition() {
         let env = thing_env(
             r#"
         axiom f_t: f(t)
@@ -355,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rewrites_can_fail() {
+    fn test_composition_can_fail() {
         let env = thing_env(
             r#"
         axiom f_t: f(t)

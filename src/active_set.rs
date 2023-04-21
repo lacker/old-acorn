@@ -3,6 +3,7 @@ use std::collections::HashSet;
 
 use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
+use crate::specializer::Specializer;
 use crate::term::{Clause, Literal, Term};
 use crate::unifier::{Scope, Unifier};
 
@@ -25,6 +26,11 @@ pub struct ActiveSet {
     // The only information we need on a paramodulation target is the clause index, because
     // we use the entire paramodulator, not a subterm.
     paramodulation_targets: FingerprintTree<ParamodulationTarget>,
+
+    // The rewrite rules we use.
+    // A clause can only be a rewrite if it's a single foo = bar literal, and foo > bar by the KBO.
+    // So we only need to store the clause index of the rewrite rule.
+    rewrite_rules: FingerprintTree<usize>,
 }
 
 // A ResolutionTarget is a way of specifying one particular term that is "eligible for resolution".
@@ -70,6 +76,7 @@ impl ActiveSet {
             literal_set: LiteralSet::new(),
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
+            rewrite_rules: FingerprintTree::new(),
         }
     }
 
@@ -139,7 +146,7 @@ impl ActiveSet {
         let pm_literal = &pm_clause.literals[0];
         for (_, s, t) in Self::paramodulation_terms(pm_literal) {
             // Look for resolution targets that match pm_left
-            let targets = self.resolution_targets.get(s);
+            let targets = self.resolution_targets.get_unifying(s);
             for target in targets {
                 let u_subterm = self.get_resolution_term(target);
                 let mut unifier = Unifier::new();
@@ -189,7 +196,7 @@ impl ActiveSet {
             }
 
             // Look for paramodulation targets that match u_subterm
-            let targets = self.paramodulation_targets.get(u_subterm);
+            let targets = self.paramodulation_targets.get_unifying(u_subterm);
             for target in targets {
                 let pm_clause = &self.clauses[target.clause_index];
                 let pm_literal = &pm_clause.literals[0];
@@ -305,19 +312,81 @@ impl ActiveSet {
         self.clause_set.contains(clause)
     }
 
+    // Rewrites subterms as well.
+    // Only returns a new term if there is something to rewrite.
+    fn rewrite_once(&self, term: &Term) -> Option<Term> {
+        // Check if some args can be rewritten
+        let rewritten_args: Vec<_> = term.args.iter().map(|arg| self.rewrite_once(arg)).collect();
+        if rewritten_args.iter().any(|arg| arg.is_some()) {
+            let mut new_args = vec![];
+            for (original, rewritten) in term.args.iter().zip(rewritten_args) {
+                if let Some(rewritten) = rewritten {
+                    new_args.push(rewritten);
+                } else {
+                    new_args.push(original.clone());
+                }
+            }
+            let new_term = term.replace_args(new_args);
+            return Some(new_term);
+        }
+
+        // Check if we can rewrite this term at the root
+        let clause_indexes = self.rewrite_rules.get_generalizing(&term);
+        for i in clause_indexes {
+            let clause = &self.clauses[*i];
+            let rule = &clause.literals[0];
+            let mut s = Specializer::new();
+
+            if s.match_terms(&rule.left, term) {
+                let new_term = s.specialize(&rule.right);
+                return Some(new_term);
+            }
+        }
+
+        None
+    }
+
+    // Rewrites up to limit times.
+    fn rewrite_term_limited(&self, term: &Term, limit: u32) -> Option<Term> {
+        if limit == 0 {
+            panic!("error: ran out of rewrite stack");
+        }
+        if let Some(new_term) = self.rewrite_once(term) {
+            self.rewrite_term_limited(&new_term, limit - 1)
+                .or(Some(new_term))
+        } else {
+            None
+        }
+    }
+
+    pub fn rewrite_term(&self, term: &Term) -> Option<Term> {
+        self.rewrite_term_limited(term, 10)
+    }
+
+    pub fn rewrite_literal(&self, literal: &Literal) -> Literal {
+        let left = self
+            .rewrite_term(&literal.left)
+            .unwrap_or(literal.left.clone());
+        let right = self
+            .rewrite_term(&literal.right)
+            .unwrap_or(literal.right.clone());
+        Literal::new(literal.positive, left, right)
+    }
+
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
-    pub fn simplify(&self, clause: Clause) -> Option<Clause> {
+    pub fn simplify(&self, clause: &Clause) -> Option<Clause> {
         if clause.is_tautology() {
             return None;
         }
         if self.contains(&clause) {
             return None;
         }
-        let mut literals = vec![];
-        for literal in clause.literals {
-            match self.literal_set.lookup(&literal) {
+        let mut rewritten_literals = vec![];
+        for literal in &clause.literals {
+            let rewritten_literal = self.rewrite_literal(literal);
+            match self.literal_set.lookup(&rewritten_literal) {
                 Some((true, _)) => {
                     // This literal is already known to be true.
                     // Thus, the whole clause is a tautology.
@@ -329,11 +398,14 @@ impl ActiveSet {
                     continue;
                 }
                 None => {
-                    literals.push(literal);
+                    rewritten_literals.push(rewritten_literal);
                 }
             }
         }
-        let clause = Clause::new(literals);
+        let clause = Clause::new(rewritten_literals);
+        if clause.is_tautology() {
+            return None;
+        }
         if self.contains(&clause) {
             return None;
         }
@@ -364,6 +436,11 @@ impl ActiveSet {
                     forwards,
                 },
             );
+        }
+
+        if clause.is_rewrite_rule() {
+            self.rewrite_rules
+                .insert(&clause.literals[0].left, clause_index);
         }
 
         self.clause_set.insert(clause.clone());
@@ -466,5 +543,20 @@ mod tests {
             }
         }
         panic!("Did not find expected clause");
+    }
+
+    #[test]
+    fn test_rewrite_rules() {
+        let mut set = ActiveSet::new();
+        let rule = Clause::parse("a0(x0) = x0");
+        set.insert(rule);
+
+        let c = Clause::parse("a0(a1) = a0(a2)");
+        let simp = set.simplify(&c).unwrap();
+        assert_eq!(simp.to_string(), "a2 = a1".to_string());
+
+        let c = Clause::parse("a1(a0(a2)) = a3");
+        let simp = set.simplify(&c).unwrap();
+        assert_eq!(simp.to_string(), "a1(a2) = a3".to_string());
     }
 }

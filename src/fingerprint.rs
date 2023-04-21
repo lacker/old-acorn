@@ -132,14 +132,31 @@ impl<T> FingerprintTree<T> {
         self.tree.entry(fingerprint).or_insert(vec![]).push(value);
     }
 
-    // Find all T with a fingerprint that matches this one.
-    pub fn get(&self, term: &Term) -> Vec<&T> {
+    // Find all T with a fingerprint that could unify with this one.
+    pub fn get_unifying(&self, term: &Term) -> Vec<&T> {
         let fingerprint = Fingerprint::new(term);
         let mut result = vec![];
 
         // TODO: do smart tree things instead of this dumb exhaustive search
         for (f, values) in &self.tree {
             if f.matches(&fingerprint) {
+                for v in values {
+                    result.push(v);
+                }
+            }
+        }
+
+        result
+    }
+
+    // Find all T with a fingerprint that could generalize this one.
+    pub fn get_generalizing(&self, term: &Term) -> Vec<&T> {
+        let fingerprint = Fingerprint::new(term);
+        let mut result = vec![];
+
+        // TODO: do smart tree things instead of this dumb exhaustive search
+        for (f, values) in &self.tree {
+            if f.generalizes(&fingerprint) {
                 for v in values {
                     result.push(v);
                 }
@@ -173,7 +190,7 @@ mod tests {
         let term1 = Term::parse("a2(x0, x1, a0)");
         let term2 = Term::parse("a2(a1, s1(x0), a0)");
         tree.insert(&term1, 1);
-        assert!(tree.get(&term1).len() > 0);
-        assert!(tree.get(&term2).len() > 0);
+        assert!(tree.get_unifying(&term1).len() > 0);
+        assert!(tree.get_unifying(&term2).len() > 0);
     }
 }

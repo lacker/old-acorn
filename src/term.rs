@@ -279,6 +279,15 @@ impl Term {
         }
     }
 
+    pub fn replace_args(&self, new_args: Vec<Term>) -> Term {
+        Term {
+            term_type: self.term_type,
+            head_type: self.head_type,
+            head: self.head,
+            args: new_args,
+        }
+    }
+
     // Assumes any intermediate ones are taken, so essentially 1 plus the maximum.
     pub fn num_quantifiers(&self) -> AtomId {
         let mut answer = match self.head {
@@ -669,6 +678,14 @@ impl Clause {
         }
     }
 
+    pub fn parse(s: &str) -> Clause {
+        Clause::new(
+            s.split(" | ")
+                .map(|x| Literal::parse(x))
+                .collect::<Vec<_>>(),
+        )
+    }
+
     pub fn num_quantifiers(&self) -> AtomId {
         let mut answer = 0;
         for literal in &self.literals {
@@ -702,6 +719,17 @@ impl Clause {
     pub fn atom_count(&self) -> u32 {
         self.literals.iter().map(|x| x.atom_count()).sum()
     }
+
+    pub fn is_rewrite_rule(&self) -> bool {
+        if self.literals.len() != 1 {
+            return false;
+        }
+        let literal = &self.literals[0];
+        if !literal.positive {
+            return false;
+        }
+        return literal.left.kbo(&literal.right) == Ordering::Greater;
+    }
 }
 
 #[cfg(test)]
@@ -713,5 +741,13 @@ mod tests {
         assert!(Term::parse("a0") < Term::parse("a1"));
         assert!(Term::parse("a2") < Term::parse("a0(a1)"));
         assert!(Term::parse("x0(x1)") < Term::parse("x0(s0(x0))"));
+    }
+
+    #[test]
+    fn test_clause_is_rewrite_rule() {
+        assert!(Clause::parse("a0(x0) = x0").is_rewrite_rule());
+        assert!(Clause::parse("a0(x0, x0) = x0").is_rewrite_rule());
+        assert!(!Clause::parse("a0(x0, x0) != x0").is_rewrite_rule());
+        assert!(!Clause::parse("a0(x0, x1) = a0(x1, x0)").is_rewrite_rule());
     }
 }

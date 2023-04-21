@@ -13,6 +13,15 @@ impl Specializer {
         Specializer { map: Vec::new() }
     }
 
+    fn get_mapping(&self, i: AtomId) -> Option<&Term> {
+        let i = i as usize;
+        if i >= self.map.len() {
+            None
+        } else {
+            self.map[i].as_ref()
+        }
+    }
+
     fn match_var(&mut self, var_id: AtomId, special_term: &Term) -> bool {
         let var_id = var_id as usize;
         if var_id >= self.map.len() {
@@ -63,5 +72,32 @@ impl Specializer {
             }
         }
         true
+    }
+
+    pub fn specialize(&mut self, term: &Term) -> Term {
+        // First apply to the head
+        let mut answer = match &term.head {
+            Atom::Variable(i) => {
+                // Expand the head to a full term.
+                // Its term type isn't correct, though.
+                // Note that the variable must be in the map, or the rewrite doesn't make sense.
+                let mut head = self.get_mapping(*i).unwrap().clone();
+                head.term_type = term.term_type;
+                head
+            }
+            head => Term {
+                term_type: term.term_type,
+                head_type: term.head_type,
+                head: *head,
+                args: Vec::new(),
+            },
+        };
+
+        // Recurse on the arguments
+        for arg in &term.args {
+            answer.args.push(self.specialize(arg));
+        }
+
+        answer
     }
 }
