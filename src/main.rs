@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use acorn::{environment::Environment, prover::Prover};
+use acorn::environment::Environment;
+use acorn::prover::{Outcome, Prover};
 
 const USAGE: &str = "Usage: acorn <input file> <theorem name>";
 
@@ -19,4 +20,23 @@ fn main() {
     env.add(&input);
     let mut prover = Prover::new(&env);
     prover.assume_false(&theorem_name);
+
+    loop {
+        // Read a line from the input
+        let mut line = String::new();
+        std::io::stdin().read_line(&mut line).unwrap();
+
+        let outcome = prover.activate_next();
+        match outcome {
+            Outcome::Success => {
+                println!("Success!");
+                break;
+            }
+            Outcome::Failure => {
+                println!("Failure!");
+                break;
+            }
+            Outcome::Unknown => (),
+        }
+    }
 }

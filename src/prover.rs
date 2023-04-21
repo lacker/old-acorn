@@ -30,12 +30,12 @@ pub struct Prover<'a> {
     trace: Option<String>,
 }
 
-// The result of a prover operation.
+// The outcome of a prover operation.
 // "Success" or "Failure" generally terminate the proof process.
 // "Unknown" can mean either that we should continue working, or that we just
 // couldn't figure out the answer.
 #[derive(Debug, PartialEq, Eq)]
-pub enum Result {
+pub enum Outcome {
     Success,
     Failure,
     Unknown,
@@ -86,37 +86,50 @@ impl Prover<'_> {
     }
 
     // Activates the next clause from the queue.
-    fn activate_next(&mut self) -> Result {
+    pub fn activate_next(&mut self) -> Outcome {
         let clause = if let Some(clause) = self.passive.pop() {
             clause
         } else {
             // We're out of clauses to process, so we can't make any more progress.
-            return Result::Failure;
+            return Outcome::Failure;
         };
+
+        if self.verbose {
+            println!("activating: {}", self.display(&clause));
+        }
 
         let clause = if let Some(clause) = self.active_set.simplify(clause) {
             clause
         } else {
             // The clause is redundant, so skip it.
-            return Result::Unknown;
+            if self.verbose {
+                println!("  redundant");
+            }
+            return Outcome::Unknown;
         };
+        println!("simplified: {}", self.display(&clause));
 
         if clause.is_impossible() {
-            return Result::Success;
+            return Outcome::Success;
         }
 
         let tracing = self.is_tracing(&clause);
         let verbose = self.verbose || tracing;
-        if verbose {
-            println!("activating: {}", self.display(&clause));
-        }
 
         self.synthesizer.observe(&clause);
 
         let gen_clauses = self.active_set.generate(&clause);
+        self.active_set.insert(clause.clone());
+        let mut simp_clauses = vec![];
+        for (generated_clause, step) in gen_clauses {
+            if let Some(simp_clause) = self.active_set.simplify(generated_clause) {
+                simp_clauses.push((simp_clause, step));
+            }
+        }
+
         let print_limit = 5;
-        if !gen_clauses.is_empty() {
-            let len = gen_clauses.len();
+        if !simp_clauses.is_empty() {
+            let len = simp_clauses.len();
             if verbose {
                 println!(
                     "generated {} new clauses{}:",
@@ -124,9 +137,9 @@ impl Prover<'_> {
                     if len > print_limit { ", eg" } else { "" }
                 );
             }
-            for (i, (c, ps)) in gen_clauses.into_iter().enumerate() {
+            for (i, (c, ps)) in simp_clauses.into_iter().enumerate() {
                 if c.is_impossible() {
-                    return Result::Success;
+                    return Outcome::Success;
                 }
                 if verbose && (i < print_limit || tracing) {
                     println!("  {}", self.display(&c));
@@ -166,23 +179,24 @@ impl Prover<'_> {
                 println!("synthesized {} new clauses:", synth_clauses.len());
             }
             for clause in synth_clauses {
-                if verbose {
-                    println!("  {}", self.display(&clause));
+                if let Some(simp_clause) = self.active_set.simplify(clause) {
+                    if verbose {
+                        println!("  {}", self.display(&simp_clause));
+                    }
+                    self.passive.add(simp_clause);
                 }
-                self.passive.add(clause);
             }
         }
 
-        self.active_set.insert(clause);
-        Result::Unknown
+        Outcome::Unknown
     }
 
-    fn search_for_contradiction(&mut self, size: i32, seconds: f32) -> Result {
+    fn search_for_contradiction(&mut self, size: i32, seconds: f32) -> Outcome {
         let start_time = std::time::Instant::now();
         loop {
-            let result = self.activate_next();
-            if result != Result::Unknown {
-                return result;
+            let outcome = self.activate_next();
+            if outcome != Outcome::Unknown {
+                return outcome;
             }
             if self.active_set.len() >= size as usize {
                 if self.verbose {
@@ -199,7 +213,7 @@ impl Prover<'_> {
                 break;
             }
         }
-        Result::Unknown
+        Outcome::Unknown
     }
 
     fn display<'a>(&'a self, clause: &'a Clause) -> DisplayClause<'a> {
@@ -233,7 +247,7 @@ impl Prover<'_> {
         panic!("no theorem named {}", theorem_name);
     }
 
-    pub fn prove_limited(&mut self, theorem_name: &str, size: i32, seconds: f32) -> Result {
+    pub fn prove_limited(&mut self, theorem_name: &str, size: i32, seconds: f32) -> Outcome {
         self.assume_false(theorem_name);
         let answer = self.search_for_contradiction(size, seconds);
         if self.verbose {
@@ -242,7 +256,7 @@ impl Prover<'_> {
         return answer;
     }
 
-    pub fn prove(&mut self, theorem_name: &str) -> Result {
+    pub fn prove(&mut self, theorem_name: &str) -> Outcome {
         self.prove_limited(theorem_name, 1000, 1.0)
     }
 }
@@ -276,7 +290,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -288,7 +302,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Failure);
+        assert_eq!(prover.prove("goal"), Outcome::Failure);
     }
 
     #[test]
@@ -300,7 +314,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -312,7 +326,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -324,7 +338,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -337,7 +351,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -350,7 +364,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Failure);
+        assert_eq!(prover.prove("goal"), Outcome::Failure);
     }
 
     #[test]
@@ -363,7 +377,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -375,7 +389,7 @@ mod tests {
         "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -387,7 +401,7 @@ mod tests {
             "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -399,7 +413,7 @@ mod tests {
             "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -412,7 +426,7 @@ mod tests {
             "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Failure);
+        assert_eq!(prover.prove("goal"), Outcome::Failure);
     }
 
     #[test]
@@ -424,7 +438,7 @@ mod tests {
             "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Failure);
+        assert_eq!(prover.prove("goal"), Outcome::Failure);
     }
 
     #[test]
@@ -436,7 +450,7 @@ mod tests {
             "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     #[test]
@@ -448,7 +462,7 @@ mod tests {
             "#,
         );
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Result::Success);
+        assert_eq!(prover.prove("goal"), Outcome::Success);
     }
 
     fn nat_ac_env() -> Environment {
@@ -503,28 +517,28 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_proving_add_zero_right() {
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("add_zero_right"), Result::Success);
+        assert_eq!(prover.prove("add_zero_right"), Outcome::Success);
     }
 
     #[test]
     fn test_proving_one_plus_one() {
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("one_plus_one"), Result::Success);
+        assert_eq!(prover.prove("one_plus_one"), Outcome::Success);
     }
 
     #[test]
     fn test_proving_add_zero_left() {
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("add_zero_left"), Result::Success);
+        assert_eq!(prover.prove("add_zero_left"), Outcome::Success);
     }
 
     #[test]
     fn test_proving_add_suc_right() {
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("add_suc_right"), Result::Success);
+        assert_eq!(prover.prove("add_suc_right"), Outcome::Success);
     }
 
     // #[test]
@@ -533,7 +547,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     //     let mut prover = Prover::new(&env);
     //     assert_eq!(
     //         prover.prove_limited("add_suc_left", 10000, 30.0),
-    //         Result::Success
+    //         Outcome::Success
     //     );
     // }
 }

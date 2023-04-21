@@ -376,9 +376,9 @@ impl ActiveSet {
     }
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
+    // This does not simplify.
     // Returns pairs describing how this clause was proved.
-    // Filters out tautologies.
-    pub fn generate(&self, clause: &Clause) -> Vec<(Clause, ProofStep)> {
+    pub fn generate(&mut self, clause: &Clause) -> Vec<(Clause, ProofStep)> {
         let mut generated_clauses = vec![];
         generated_clauses.extend(self.activate_paramodulator(&clause));
         generated_clauses.extend(self.activate_resolver(&clause));
@@ -388,14 +388,7 @@ impl ActiveSet {
         for clause in ActiveSet::equality_factoring(&clause) {
             generated_clauses.push((clause, ProofStep::EqualityFactoring));
         }
-
-        let mut simplified_clauses = vec![];
-        for (clause, step) in generated_clauses {
-            if let Some(clause) = self.simplify(clause) {
-                simplified_clauses.push((clause, step));
-            }
-        }
-        simplified_clauses
+        generated_clauses
     }
 }
 
