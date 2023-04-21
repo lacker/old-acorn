@@ -107,8 +107,9 @@ impl Synthesizer {
             return answer;
         }
         let num_quantifiers = literal.num_quantifiers();
-        if num_quantifiers > 1 {
-            // For now we don't synthesize when we need to abstract over any additional quantifiers
+        if num_quantifiers > 0 {
+            // For now we just don't synthesize for propositions that already have quantifiers.
+            // This really seems like a hack, focused on proving things by induction.
             return answer;
         }
 
