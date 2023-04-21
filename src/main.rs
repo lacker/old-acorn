@@ -14,8 +14,9 @@ fn main() {
     let input_path = PathBuf::from(input_file);
     let input = std::fs::read_to_string(&input_path).unwrap();
 
-    // Construct a prover
+    // Initialize a prover
     let mut env = Environment::new();
     env.add(&input);
     let mut prover = Prover::new(&env);
+    prover.assume_false(&theorem_name);
 }
