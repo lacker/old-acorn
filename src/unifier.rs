@@ -74,6 +74,21 @@ impl Unifier {
         }
     }
 
+    pub fn print(&self) {
+        println!("left scope:");
+        for (i, t) in self.left.iter().enumerate() {
+            if let Some(t) = t {
+                println!("x{} -> {}", i, t);
+            }
+        }
+        println!("right scope:");
+        for (i, t) in self.right.iter().enumerate() {
+            if let Some(t) = t {
+                println!("x{} -> {}", i, t);
+            }
+        }
+    }
+
     // Applies the unification to a term, possibly replacing a subterm with the
     // unification of the data provided in replacement.
     // This is weird because the replacement can have a different scope from the main term.
@@ -234,14 +249,14 @@ impl Unifier {
         scope2: Scope,
         atom2: &Atom,
     ) -> bool {
-        if atom1 == atom2 {
-            return true;
-        }
         if let Atom::Variable(i) = atom1 {
             return self.unify_variable(scope1, *i, scope2, &Term::atom(atom_type, *atom2));
         }
         if let Atom::Variable(i) = atom2 {
             return self.unify_variable(scope2, *i, scope1, &Term::atom(atom_type, *atom1));
+        }
+        if atom1 == atom2 {
+            return true;
         }
         false
     }
@@ -293,7 +308,7 @@ impl Unifier {
     //
     // Sometimes we refer to s = t as the "paramodulator" and u ?= v as the "resolver".
     // path describes which subterm of u we're replacing.
-    // s/t must be in the "left" scope and u/v must be in the "right" scope.
+    // s/t/S must be in the "left" scope and u/v/R must be in the "right" scope.
     //
     // If ?= is =, it's "superposition into positive literals".
     // If ?= is !=, it's "superposition into negative literals".
@@ -329,13 +344,13 @@ impl Unifier {
         // Type 1: the new literal created by superposition
         let mut literals = vec![new_literal];
 
-        // Type 2: the literals from unifying "S"
+        // Type 2: the literals from unifying "R"
         for literal in &res_clause.literals[1..] {
             let unified_literal = self.apply_to_literal(Scope::Right, literal);
             literals.push(unified_literal);
         }
 
-        // Type 3: the literals from unifying "R"
+        // Type 3: the literals from unifying "S"
         for literal in &pm_clause.literals[1..] {
             let unified_literal = self.apply_to_literal(Scope::Left, literal);
             literals.push(unified_literal);
@@ -410,5 +425,35 @@ mod tests {
 
         let mut u = Unifier::new();
         assert!(u.unify(Scope::Left, &const_f_term, Scope::Right, &var_f_term));
+    }
+
+    #[test]
+    fn test_nested_functional_unify() {
+        let left_term = Term::parse("x0(x0(a0))");
+        let right_term = Term::parse("a1(x0(x1))");
+        let mut u = Unifier::new();
+        assert!(u.unify(Scope::Left, &left_term, Scope::Right, &right_term));
+        u.print();
+        assert!(u.get_mapping(Scope::Left, 0).unwrap().to_string() == "a1");
+        assert!(u.get_mapping(Scope::Right, 0).unwrap().to_string() == "a1");
+        assert!(u.get_mapping(Scope::Right, 1).unwrap().to_string() == "a0");
+    }
+
+    #[test]
+    fn test_nested_functional_superpose() {
+        let s = Term::parse("x0(x0(x1))");
+        let u_subterm = Term::parse("a1(x0(x1))");
+        let t = Term::parse("a2(x0, x1, a1(a1(a0)))");
+        let pm_clause = Clause::parse("a2(x0, x1, a1(a1(a0))) = x0(x0(x1))");
+        let target_path = &[0];
+        let resolution_clause = Clause::parse("a1(a1(x0(x1))) != a1(x2(x3)) | a1(x0(x1)) = x2(x3)");
+        let mut u = Unifier::new();
+        assert!(u.unify(Scope::Left, &s, Scope::Right, &u_subterm));
+        u.print();
+        let new_clause = u.superpose(&t, &pm_clause, target_path, &resolution_clause);
+        assert!(
+            new_clause.to_string()
+                == "a1(a2(a1, x0, a1(a1(a0)))) != a1(x1(x2)) | a1(a1(x0)) = x1(x2)"
+        );
     }
 }

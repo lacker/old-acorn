@@ -26,6 +26,43 @@ fn main() {
         let mut line = String::new();
         std::io::stdin().read_line(&mut line).unwrap();
 
+        if line.starts_with("trace ") {
+            let trace = line.trim_start_matches("trace ").trim_end();
+            println!("setting trace: {}", trace);
+            prover.set_trace(trace);
+            continue;
+        }
+
+        if line.trim_end() == "/" {
+            prover.hit_trace = false;
+            println!("looking for trace...");
+            loop {
+                let outcome = prover.activate_next();
+                match outcome {
+                    Outcome::Success => {
+                        println!("Success!");
+                        break;
+                    }
+                    Outcome::Failure => {
+                        println!("Failure!");
+                        break;
+                    }
+                    Outcome::Unknown => {
+                        if prover.hit_trace {
+                            println!("trace found!");
+                            break;
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+
+        if line.trim_end() != "" {
+            println!("bad command: {}", line);
+            continue;
+        }
+
         let outcome = prover.activate_next();
         match outcome {
             Outcome::Success => {

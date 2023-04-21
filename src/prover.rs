@@ -28,6 +28,9 @@ pub struct Prover<'a> {
 
     // If a trace string is set, we print out what happens with the clause matching it.
     trace: Option<String>,
+
+    // Whether we have hit the trace
+    pub hit_trace: bool,
 }
 
 // The outcome of a prover operation.
@@ -52,11 +55,11 @@ impl Prover<'_> {
             dirty: false,
             verbose: true,
             trace: None,
+            hit_trace: false,
         }
     }
 
     pub fn set_trace(&mut self, trace: &str) {
-        self.verbose = false;
         self.trace = Some(trace.to_string());
     }
 
@@ -77,9 +80,13 @@ impl Prover<'_> {
         self.add_proposition(proposition.negate());
     }
 
-    fn is_tracing(&self, clause: &Clause) -> bool {
+    fn is_tracing(&mut self, clause: &Clause) -> bool {
         if let Some(trace) = &self.trace {
-            self.display(clause).to_string().starts_with(trace)
+            let answer = self.display(clause).to_string().starts_with(trace);
+            if answer {
+                self.hit_trace = true;
+            }
+            answer
         } else {
             false
         }
@@ -94,8 +101,10 @@ impl Prover<'_> {
             return Outcome::Failure;
         };
 
+        let mut original_clause_string = "".to_string();
         if self.verbose {
-            println!("activating: {}", self.display(&clause));
+            original_clause_string = self.display(&clause).to_string();
+            println!("activating: {}", original_clause_string);
         }
 
         let clause = if let Some(clause) = self.active_set.simplify(&clause) {
@@ -107,7 +116,12 @@ impl Prover<'_> {
             }
             return Outcome::Unknown;
         };
-        println!("simplified: {}", self.display(&clause));
+        if self.verbose {
+            let s = self.display(&clause).to_string();
+            if s != original_clause_string {
+                println!("simplified: {}", s);
+            }
+        }
 
         if clause.is_impossible() {
             return Outcome::Success;
