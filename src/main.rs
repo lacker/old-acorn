@@ -27,10 +27,16 @@ fn main() {
         std::io::stdin().read_line(&mut line).unwrap();
 
         if line.starts_with("trace ") {
-            let trace = line.trim_start_matches("trace ").trim_end();
+            let trace = line.trim_start_matches("trace ").trim();
             println!("setting trace: {}", trace);
             prover.set_trace(trace);
             continue;
+        }
+
+        if line.starts_with("?") {
+            let query = line.trim_start_matches("?").trim();
+            println!("query: {}", query);
+            todo!();
         }
 
         if line.trim_end() == "/" {
