@@ -5,6 +5,14 @@ use acorn::prover::{Outcome, Prover};
 
 const USAGE: &str = "Usage: acorn <input file> <theorem name>";
 
+fn trim_command<'a>(command: &str, line: &'a str) -> Option<&'a str> {
+    if line.starts_with(command) {
+        Some(line.trim_start_matches(command).trim())
+    } else {
+        None
+    }
+}
+
 fn main() {
     // Parse command line arguments
     let mut args = std::env::args().skip(1);
@@ -26,15 +34,14 @@ fn main() {
         let mut line = String::new();
         std::io::stdin().read_line(&mut line).unwrap();
 
-        if line.starts_with("trace ") {
+        if let Some(trace) = trim_command("trace", &line) {
             let trace = line.trim_start_matches("trace ").trim();
             println!("setting trace: {}", trace);
             prover.set_trace(trace);
             continue;
         }
 
-        if line.starts_with("?") {
-            let query = line.trim_start_matches("?").trim();
+        if let Some(query) = trim_command("?", &line) {
             println!("query: {}", query);
             todo!();
         }
