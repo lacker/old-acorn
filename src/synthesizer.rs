@@ -8,10 +8,8 @@ pub struct Synthesizer {
     // Map of var_type to the "var_type -> bool" type, for each argument we want to synthesize
     types: HashMap<TypeId, TypeId>,
 
-    // The next synthetic proposition id to use
-    next_id: AtomId,
-
     // Stores all literals we've already synthesized from
+    pub definitions: Vec<Literal>,
     history: HashSet<Literal>,
 }
 
@@ -19,8 +17,8 @@ impl Synthesizer {
     pub fn new() -> Synthesizer {
         Synthesizer {
             types: HashMap::new(),
-            next_id: 0,
             history: HashSet::new(),
+            definitions: Vec::new(),
         }
     }
 
@@ -62,8 +60,8 @@ impl Synthesizer {
         // var_type -> bool function.
         // In practice it will have some id, like p3 or p7.
         // p will be defined as !literal, so that p(_) can unify with a x0(x1) term.
-        let prop_atom = Atom::Synthetic(self.next_id);
-        self.next_id += 1;
+        let prop_atom = Atom::Synthetic(self.definitions.len() as AtomId);
+        self.definitions.push(literal.clone());
 
         // The free variable in our "definition", always "x0"
         let var_term = Term {

@@ -92,6 +92,10 @@ impl Prover<'_> {
         }
     }
 
+    pub fn print_info(&self, s: &str) {
+        todo!();
+    }
+
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
         let clause = if let Some(clause) = self.passive.pop() {
