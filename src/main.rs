@@ -1,9 +1,7 @@
-use std::path::PathBuf;
-
 use acorn::environment::Environment;
 use acorn::prover::{Outcome, Prover};
 
-const USAGE: &str = "Usage: acorn <input file> <theorem name>";
+const USAGE: &str = "Usage: acorn <filename> <theorem name>";
 
 fn trim_command<'a>(command: &str, line: &'a str) -> Option<&'a str> {
     if line.starts_with(command) {
@@ -19,13 +17,9 @@ fn main() {
     let input_file = args.next().expect(USAGE);
     let theorem_name = args.next().expect(USAGE);
 
-    // Read input file
-    let input_path = PathBuf::from(input_file);
-    let input = std::fs::read_to_string(&input_path).unwrap();
-
     // Initialize a prover
     let mut env = Environment::new();
-    env.add(&input);
+    env.load_file(&input_file).unwrap();
     let mut prover = Prover::new(&env);
     prover.assume_false(&theorem_name);
 

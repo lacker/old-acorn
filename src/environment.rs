@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::fmt;
+use std::path::PathBuf;
+use std::{fmt, io};
 
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
@@ -64,6 +65,20 @@ impl Environment {
             stack: HashMap::new(),
             theorems: Vec::new(),
         }
+    }
+
+    pub fn load_file(&mut self, filename: &str) -> io::Result<()> {
+        let path = if filename.starts_with('.') {
+            PathBuf::from(filename)
+        } else {
+            let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            d.push("math/");
+            d.push(filename);
+            d
+        };
+        let contents = std::fs::read_to_string(path)?;
+        self.add(&contents);
+        Ok(())
     }
 
     fn add_axiomatic_type(&mut self, name: &str) {
