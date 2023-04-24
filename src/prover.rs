@@ -1,6 +1,7 @@
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::{ActiveSet, ProofStep};
+use crate::atom::Atom;
 use crate::display::DisplayClause;
 use crate::environment::Environment;
 use crate::normalizer::Normalizer;
@@ -93,7 +94,13 @@ impl Prover<'_> {
     }
 
     pub fn print_info(&self, s: &str) {
-        todo!();
+        if let Some(atom) = Atom::parse(s) {
+            if let Atom::Synthetic(i) = atom {
+                println!("{} := {}", atom, self.synthesizer.get_definition(i));
+                return;
+            }
+        }
+        println!("no way to show info for {}", s);
     }
 
     // Activates the next clause from the queue.

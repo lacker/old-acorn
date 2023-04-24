@@ -35,15 +35,14 @@ fn main() {
         std::io::stdin().read_line(&mut line).unwrap();
 
         if let Some(trace) = trim_command("trace", &line) {
-            let trace = line.trim_start_matches("trace ").trim();
             println!("setting trace: {}", trace);
             prover.set_trace(trace);
             continue;
         }
 
         if let Some(query) = trim_command("?", &line) {
-            println!("query: {}", query);
-            todo!();
+            prover.print_info(query);
+            continue;
         }
 
         if line.trim_end() == "/" {

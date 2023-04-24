@@ -9,7 +9,7 @@ pub struct Synthesizer {
     types: HashMap<TypeId, TypeId>,
 
     // Stores all literals we've already synthesized from
-    pub definitions: Vec<Literal>,
+    definitions: Vec<Literal>,
     history: HashSet<Literal>,
 }
 
@@ -90,6 +90,10 @@ impl Synthesizer {
             literal.negate(),
         ]));
         answer.push(Clause::new(vec![Literal::positive(prop_term), literal]));
+    }
+
+    pub fn get_definition(&self, atom_id: AtomId) -> &Literal {
+        &self.definitions[atom_id as usize]
     }
 
     // Synthesize some new functions that provide alternative ways of writing the given clause.

@@ -44,14 +44,19 @@ impl fmt::Display for Atom {
 
 impl Atom {
     pub fn new(s: &str) -> Atom {
+        Atom::parse(s).unwrap()
+    }
+
+    pub fn parse(s: &str) -> Option<Atom> {
         let mut chars = s.trim().chars();
-        let first = chars.next().unwrap();
+        let first = chars.next()?;
         let rest = chars.as_str();
         match first {
-            'a' => Atom::Axiomatic(rest.parse().unwrap()),
-            's' => Atom::Skolem(rest.parse().unwrap()),
-            'x' => Atom::Variable(rest.parse().unwrap()),
-            _ => panic!("Invalid atom string: {}", s),
+            'a' => Some(Atom::Axiomatic(rest.parse().unwrap())),
+            's' => Some(Atom::Skolem(rest.parse().unwrap())),
+            'p' => Some(Atom::Synthetic(rest.parse().unwrap())),
+            'x' => Some(Atom::Variable(rest.parse().unwrap())),
+            _ => None,
         }
     }
 
