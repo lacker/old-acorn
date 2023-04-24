@@ -61,7 +61,7 @@ impl Synthesizer {
         // In practice it will have some id, like p3 or p7.
         // p will be defined as !literal, so that p(_) can unify with a x0(x1) term.
         let prop_atom = Atom::Synthetic(self.definitions.len() as AtomId);
-        self.definitions.push(literal.clone());
+        self.definitions.push(literal.negate());
 
         // The free variable in our "definition", always "x0"
         let var_term = Term {
@@ -92,8 +92,8 @@ impl Synthesizer {
         answer.push(Clause::new(vec![Literal::positive(prop_term), literal]));
     }
 
-    pub fn get_definition(&self, atom_id: AtomId) -> &Literal {
-        &self.definitions[atom_id as usize]
+    pub fn get_definition(&self, atom_id: AtomId) -> Option<&Literal> {
+        self.definitions.get(atom_id as usize)
     }
 
     // Synthesize some new functions that provide alternative ways of writing the given clause.

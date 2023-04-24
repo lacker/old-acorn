@@ -96,7 +96,11 @@ impl Prover<'_> {
     pub fn print_info(&self, s: &str) {
         if let Some(atom) = Atom::parse(s) {
             if let Atom::Synthetic(i) = atom {
-                println!("{} := {}", atom, self.synthesizer.get_definition(i));
+                if let Some(lit) = self.synthesizer.get_definition(i) {
+                    println!("{} := {}", atom, lit);
+                    return;
+                }
+                println!("no definition for {}", atom);
                 return;
             }
         }
