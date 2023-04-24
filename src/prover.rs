@@ -534,6 +534,10 @@ theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
 
 theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))
 
+theorem suc_ne(a: Nat): Suc(a) != a
+
+theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a
+
 theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
 
 theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
@@ -578,9 +582,33 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     }
 
     #[test]
+    fn test_suc_ne() {
+        let env = nat_ac_env();
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("suc_ne"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_suc_suc_ne() {
+        let env = nat_ac_env();
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("suc_suc_ne"), Outcome::Success);
+    }
+
+    #[test]
     fn test_add_comm() {
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
         assert_eq!(prover.prove("add_comm"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_add_assoc() {
+        let env = nat_ac_env();
+        let mut prover = Prover::new(&env);
+        assert_eq!(
+            prover.prove_limited("add_assoc", 10000, 30.0),
+            Outcome::Success
+        );
     }
 }
