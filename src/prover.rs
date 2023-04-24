@@ -574,19 +574,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_proving_add_suc_left() {
         let env = nat_ac_env();
         let mut prover = Prover::new(&env);
-        assert_eq!(
-            prover.prove_limited("add_suc_left", 10000, 30.0),
-            Outcome::Success
-        );
+        assert_eq!(prover.prove("add_suc_left"), Outcome::Success);
     }
 
-    // #[test]
-    // fn test_add_comm() {
-    //     let env = nat_ac_env();
-    //     let mut prover = Prover::new(&env);
-    //     assert_eq!(
-    //         prover.prove_limited("add_comm", 10000, 30.0),
-    //         Outcome::Success
-    //     );
-    // }
+    #[test]
+    fn test_add_comm() {
+        let env = nat_ac_env();
+        let mut prover = Prover::new(&env);
+        assert_eq!(prover.prove("add_comm"), Outcome::Success);
+    }
 }

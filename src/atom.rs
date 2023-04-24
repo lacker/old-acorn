@@ -74,6 +74,13 @@ impl Atom {
         }
     }
 
+    pub fn is_skolem(&self) -> bool {
+        match self {
+            Atom::Skolem(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn shift_variables(self, shift: u16) -> Atom {
         match self {
             Atom::Variable(i) => Atom::Variable(i + shift),

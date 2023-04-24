@@ -97,6 +97,8 @@ impl Synthesizer {
     }
 
     // Synthesize some new functions that provide alternative ways of writing the given clause.
+    // This is really heuristically restricted right now - we only allow synthesis by abstracting over
+    // a skolem variable, which basically means we can only find a particular sort of induction.
     pub fn synthesize(&mut self, clause: &Clause) -> Vec<Clause> {
         let mut answer = Vec::new();
         if clause.literals.len() > 1 {
@@ -115,27 +117,18 @@ impl Synthesizer {
             return answer;
         }
 
-        if let Some(var_type) = literal.var_type(0) {
-            // We have a higher-order variable, so we can synthesize a function
-            if let Some(prop_type) = self.types.get(&var_type) {
-                self.synthesize_from_literal(literal.clone(), var_type, *prop_type, &mut answer);
-            }
-        } else {
-            let mut typed_atoms = literal.typed_atoms();
-            typed_atoms.sort();
-            typed_atoms.dedup();
+        let mut typed_atoms = literal.typed_atoms();
+        typed_atoms.sort();
+        typed_atoms.dedup();
 
-            // Try replacing each atom with a free variable
-            for (var_type, atom) in typed_atoms {
-                if let Some(prop_type) = self.types.get(&var_type) {
-                    let abstract_literal = literal.replace_atom(&atom, &Atom::Variable(0));
-                    self.synthesize_from_literal(
-                        abstract_literal,
-                        var_type,
-                        *prop_type,
-                        &mut answer,
-                    );
-                }
+        // Try replacing each atom with a free variable
+        for (var_type, atom) in typed_atoms {
+            if !atom.is_skolem() {
+                continue;
+            }
+            if let Some(prop_type) = self.types.get(&var_type) {
+                let abstract_literal = literal.replace_atom(&atom, &Atom::Variable(0));
+                self.synthesize_from_literal(abstract_literal, var_type, *prop_type, &mut answer);
             }
         }
 
@@ -169,7 +162,7 @@ mod tests {
         let neg_goal_clauses = norm.normalize(env.get_value("goal").unwrap().clone().negate());
         assert_eq!(neg_goal_clauses.len(), 1);
         let synthesized = synth.synthesize(&neg_goal_clauses[0]);
-        assert_eq!(synthesized.len(), 4);
+        assert_eq!(synthesized.len(), 2);
         for clause in synthesized {
             norm.typespace.check_clause(&clause);
         }
