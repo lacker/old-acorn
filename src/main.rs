@@ -39,6 +39,11 @@ fn main() {
             continue;
         }
 
+        if let Some(_) = trim_command("active", &line) {
+            prover.print_active();
+            continue;
+        }
+
         if line.trim_end() == "/" {
             prover.hit_trace = false;
             println!("looking for trace...");

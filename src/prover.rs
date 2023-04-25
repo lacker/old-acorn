@@ -93,6 +93,13 @@ impl Prover<'_> {
         }
     }
 
+    // Prints out the entire active set
+    pub fn print_active(&self) {
+        for clause in self.active_set.iter_clauses() {
+            println!("{}", self.display(clause));
+        }
+    }
+
     pub fn print_info(&self, s: &str) {
         if let Some(atom) = Atom::parse(s) {
             if let Atom::Synthetic(i) = atom {

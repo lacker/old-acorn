@@ -467,6 +467,10 @@ impl ActiveSet {
         }
         generated_clauses
     }
+
+    pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
+        self.clauses.iter()
+    }
 }
 
 #[cfg(test)]
