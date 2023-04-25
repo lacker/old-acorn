@@ -34,8 +34,8 @@ fn main() {
             continue;
         }
 
-        if let Some(query) = trim_command("?", &line) {
-            prover.print_info(query);
+        if let Some(query) = trim_command("atom", &line) {
+            prover.print_atom_info(query);
             continue;
         }
 

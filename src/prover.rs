@@ -100,18 +100,23 @@ impl Prover<'_> {
         }
     }
 
-    pub fn print_info(&self, s: &str) {
+    pub fn print_atom_info(&self, s: &str) {
         if let Some(atom) = Atom::parse(s) {
-            if let Atom::Synthetic(i) = atom {
-                if let Some(lit) = self.synthesizer.get_definition(i) {
-                    println!("{} := {}", atom, lit);
-                    return;
+            match atom {
+                Atom::Synthetic(i) => {
+                    if let Some(lit) = self.synthesizer.get_definition(i) {
+                        println!("{} := {}", atom, lit);
+                    } else {
+                        println!("no definition for {}", atom);
+                    }
                 }
-                println!("no definition for {}", atom);
-                return;
+                _ => {
+                    println!("we have no way to print info for {}", atom);
+                }
             }
+        } else {
+            println!("not an atom: {}", s);
         }
-        println!("no way to show info for {}", s);
     }
 
     // Activates the next clause from the queue.
