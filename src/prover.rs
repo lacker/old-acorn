@@ -143,17 +143,13 @@ impl Prover<'_> {
 
     pub fn print_proof_step(&self, clause: &Clause, ps: ProofStep) {
         println!("{:?} generated {}", ps.rule, self.display(clause));
-        println!(
-            "    using clause {}: {}",
-            ps.activated,
-            self.display(self.active_set.get_clause(ps.activated))
-        );
+        if let Some(i) = ps.activated {
+            let c = self.display(self.active_set.get_clause(i));
+            println!("    using clause {}: {}", i, c);
+        }
         if let Some(i) = ps.existing {
-            println!(
-                "    with clause {}: {}",
-                i,
-                self.display(self.active_set.get_clause(i))
-            );
+            let c = self.display(self.active_set.get_clause(i));
+            println!("    with clause {}: {}", i, c);
         }
     }
 

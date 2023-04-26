@@ -62,8 +62,9 @@ struct ParamodulationTarget {
 // The rules that can generate new clauses.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ProofRule {
-    ActivateParamodulator,
-    ActivateResolver,
+    Assumption,
+    ActivatingParamodulator,
+    ActivatingResolver,
     EqualityFactoring,
     EqualityResolution,
 }
@@ -74,7 +75,7 @@ pub struct ProofStep {
     pub rule: ProofRule,
 
     // The clause index that was activated to generate this clause.
-    pub activated: usize,
+    pub activated: Option<usize>,
 
     // The index of the already-activated clause we used in this step, if there was any.
     pub existing: Option<usize>,
@@ -468,13 +469,13 @@ impl ActiveSet {
     // After generation, adds this clause to the active set.
     // Returns pairs describing how this clause was proved.
     pub fn generate(&mut self, clause: &Clause) -> Vec<(Clause, ProofStep)> {
-        let activated = self.clauses.len();
+        let activated = Some(self.clauses.len());
         let mut generated_clauses = vec![];
         for (new_clause, i) in self.activate_paramodulator(&clause) {
             generated_clauses.push((
                 new_clause,
                 ProofStep {
-                    rule: ProofRule::ActivateParamodulator,
+                    rule: ProofRule::ActivatingParamodulator,
                     activated,
                     existing: Some(i),
                 },
@@ -484,7 +485,7 @@ impl ActiveSet {
             generated_clauses.push((
                 new_clause,
                 ProofStep {
-                    rule: ProofRule::ActivateResolver,
+                    rule: ProofRule::ActivatingResolver,
                     activated,
                     existing: Some(i),
                 },
