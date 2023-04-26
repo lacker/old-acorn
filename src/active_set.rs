@@ -59,13 +59,25 @@ struct ParamodulationTarget {
     forwards: bool,
 }
 
-// The ways a new clause can be generated.
+// The rules that can generate new clauses.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ProofStep {
-    ActivateParamodulator(usize),
-    ActivateResolver(usize),
+pub enum ProofRule {
+    ActivateParamodulator,
+    ActivateResolver,
     EqualityFactoring,
     EqualityResolution,
+}
+
+// The ProofStep records how one clause was generated from other clauses.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct ProofStep {
+    pub rule: ProofRule,
+
+    // The clause index that was activated to generate this clause.
+    pub activated: usize,
+
+    // The index of the already-activated clause we used in this step, if there was any.
+    pub existing: Option<usize>,
 }
 
 impl ActiveSet {
@@ -140,7 +152,8 @@ impl ActiveSet {
     //   u ?= v | R
     //
     // in the superposition formula.
-    pub fn activate_paramodulator(&self, pm_clause: &Clause) -> Vec<(Clause, ProofStep)> {
+    // Returns the clauses we generated along with the index of the clause we used to generate them.
+    pub fn activate_paramodulator(&self, pm_clause: &Clause) -> Vec<(Clause, usize)> {
         let mut result = vec![];
 
         let pm_literal = &pm_clause.literals[0];
@@ -159,10 +172,7 @@ impl ActiveSet {
                 let resolution_clause = &self.clauses[target.clause_index];
                 let new_clause = unifier.superpose(t, pm_clause, &target.path, resolution_clause);
 
-                result.push((
-                    new_clause,
-                    ProofStep::ActivateParamodulator(target.clause_index),
-                ));
+                result.push((new_clause, target.clause_index));
             }
         }
 
@@ -183,7 +193,8 @@ impl ActiveSet {
     //   s = t | S
     //
     // in the superposition formula.
-    pub fn activate_resolver(&self, res_clause: &Clause) -> Vec<(Clause, ProofStep)> {
+    // Returns the clauses we generated along with the index of the clause we used to generate them.
+    pub fn activate_resolver(&self, res_clause: &Clause) -> Vec<(Clause, usize)> {
         let mut result = vec![];
         let res_literal = &res_clause.literals[0];
         let u = &res_literal.left;
@@ -215,7 +226,7 @@ impl ActiveSet {
                 // The clauses do actually unify. Combine them according to the superposition rule.
                 let new_clause = unifier.superpose(t, pm_clause, &path, res_clause);
 
-                result.push((new_clause, ProofStep::ActivateResolver(target.clause_index)));
+                result.push((new_clause, target.clause_index));
             }
         }
 
@@ -454,17 +465,52 @@ impl ActiveSet {
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
     // This does not simplify.
+    // After generation, adds this clause to the active set.
     // Returns pairs describing how this clause was proved.
     pub fn generate(&mut self, clause: &Clause) -> Vec<(Clause, ProofStep)> {
+        let activated = self.clauses.len();
         let mut generated_clauses = vec![];
-        generated_clauses.extend(self.activate_paramodulator(&clause));
-        generated_clauses.extend(self.activate_resolver(&clause));
+        for (new_clause, i) in self.activate_paramodulator(&clause) {
+            generated_clauses.push((
+                new_clause,
+                ProofStep {
+                    rule: ProofRule::ActivateParamodulator,
+                    activated,
+                    existing: Some(i),
+                },
+            ))
+        }
+        for (new_clause, i) in self.activate_resolver(&clause) {
+            generated_clauses.push((
+                new_clause,
+                ProofStep {
+                    rule: ProofRule::ActivateResolver,
+                    activated,
+                    existing: Some(i),
+                },
+            ))
+        }
         if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
-            generated_clauses.push((new_clause, ProofStep::EqualityResolution));
+            generated_clauses.push((
+                new_clause,
+                ProofStep {
+                    rule: ProofRule::EqualityResolution,
+                    activated,
+                    existing: None,
+                },
+            ));
         }
         for clause in ActiveSet::equality_factoring(&clause) {
-            generated_clauses.push((clause, ProofStep::EqualityFactoring));
+            generated_clauses.push((
+                clause,
+                ProofStep {
+                    rule: ProofRule::EqualityFactoring,
+                    activated,
+                    existing: None,
+                },
+            ));
         }
+        self.insert(clause.clone());
         generated_clauses
     }
 
