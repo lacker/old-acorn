@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::{ActiveSet, ProofStep};
@@ -32,6 +34,12 @@ pub struct Prover<'a> {
 
     // Whether we have hit the trace
     pub hit_trace: bool,
+
+    // Where each clause in the active set came from.
+    history: Vec<ProofStep>,
+
+    // The final step that proves a contradiction, if we have one.
+    final_step: Option<ProofStep>,
 }
 
 // The outcome of a prover operation.
@@ -57,6 +65,8 @@ impl Prover<'_> {
             verbose: true,
             trace: None,
             hit_trace: false,
+            history: Vec::new(),
+            final_step: None,
         }
     }
 
@@ -75,7 +85,8 @@ impl Prover<'_> {
         assert_eq!(proposition.get_type(), AcornType::Bool);
         let new_clauses = self.normalizer.normalize(proposition);
         for clause in new_clauses {
-            self.passive.add_with_weight(clause, 0);
+            self.passive
+                .add_with_weight(clause, ProofStep::assumption(), 0);
         }
     }
 
@@ -153,10 +164,47 @@ impl Prover<'_> {
         }
     }
 
+    pub fn print_proof(&self) {
+        let final_step = if let Some(final_step) = self.final_step {
+            final_step
+        } else {
+            println!("we do not have a proof");
+            return;
+        };
+
+        // Figure out which clause indices were used.
+        let mut todo = Vec::<usize>::new();
+        let mut done = HashSet::new();
+        for i in final_step.indices() {
+            todo.push(*i);
+        }
+        while !todo.is_empty() {
+            let i = todo.pop().unwrap();
+            if done.contains(&i) {
+                continue;
+            }
+            done.insert(i);
+            let step = self.history[i];
+            for j in step.indices() {
+                todo.push(*j);
+            }
+        }
+
+        // Print out the clauses in order.
+        let mut indices = done.into_iter().collect::<Vec<_>>();
+        indices.sort();
+        for i in indices {
+            let step = self.history[i];
+            let clause = self.active_set.get_clause(i);
+            print!("clause {}: ", i);
+            self.print_proof_step(clause, step);
+        }
+    }
+
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
-        let clause = if let Some(clause) = self.passive.pop() {
-            clause
+        let (clause, proof_step) = if let Some((clause, proof_step)) = self.passive.pop() {
+            (clause, proof_step)
         } else {
             // We're out of clauses to process, so we can't make any more progress.
             return Outcome::Failure;
@@ -185,6 +233,7 @@ impl Prover<'_> {
         }
 
         if clause.is_impossible() {
+            self.final_step = Some(proof_step);
             return Outcome::Success;
         }
 
@@ -213,6 +262,7 @@ impl Prover<'_> {
             }
             for (i, (c, ps)) in simp_clauses.into_iter().enumerate() {
                 if c.is_impossible() {
+                    self.final_step = Some(ps);
                     return Outcome::Success;
                 }
                 if verbose && (i < print_limit || tracing) {
@@ -220,7 +270,7 @@ impl Prover<'_> {
                 } else if self.is_tracing(&c) {
                     self.print_proof_step(&c, ps);
                 }
-                self.passive.add(c);
+                self.passive.add(c, ps);
             }
         }
 
@@ -234,7 +284,7 @@ impl Prover<'_> {
                     if verbose {
                         println!("  {}", self.display(&simp_clause));
                     }
-                    self.passive.add(simp_clause);
+                    self.passive.add(simp_clause, ProofStep::definition());
                 }
             }
         }

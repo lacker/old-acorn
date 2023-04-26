@@ -63,6 +63,7 @@ struct ParamodulationTarget {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ProofRule {
     Assumption,
+    Definition,
     ActivatingParamodulator,
     ActivatingResolver,
     EqualityFactoring,
@@ -79,6 +80,28 @@ pub struct ProofStep {
 
     // The index of the already-activated clause we used in this step, if there was any.
     pub existing: Option<usize>,
+}
+
+impl ProofStep {
+    pub fn assumption() -> ProofStep {
+        ProofStep {
+            rule: ProofRule::Assumption,
+            activated: None,
+            existing: None,
+        }
+    }
+
+    pub fn definition() -> ProofStep {
+        ProofStep {
+            rule: ProofRule::Definition,
+            activated: None,
+            existing: None,
+        }
+    }
+
+    pub fn indices(&self) -> impl Iterator<Item = &usize> {
+        self.activated.iter().chain(self.existing.iter())
+    }
 }
 
 impl ActiveSet {
