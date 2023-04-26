@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use acorn::environment::Environment;
 use acorn::prover::{Outcome, Prover};
 
@@ -26,6 +28,8 @@ fn main() {
     loop {
         // Read a line from the input
         let mut line = String::new();
+        print!("$ ");
+        std::io::stdout().flush().unwrap();
         std::io::stdin().read_line(&mut line).unwrap();
 
         if let Some(trace) = trim_command("trace", &line) {
@@ -34,8 +38,13 @@ fn main() {
             continue;
         }
 
-        if let Some(query) = trim_command("atom", &line) {
-            prover.print_atom_info(query);
+        if let Some(atom_str) = trim_command("atom", &line) {
+            prover.print_atom_info(atom_str);
+            continue;
+        }
+
+        if let Some(term_str) = trim_command("term", &line) {
+            prover.print_term_info(term_str);
             continue;
         }
 

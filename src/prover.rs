@@ -100,6 +100,7 @@ impl Prover<'_> {
         }
     }
 
+    // Prints out information for a specific atom
     pub fn print_atom_info(&self, s: &str) {
         if let Some(atom) = Atom::parse(s) {
             match atom {
@@ -117,6 +118,23 @@ impl Prover<'_> {
         } else {
             println!("not an atom: {}", s);
         }
+    }
+
+    // Prints out information for a specific term
+    pub fn print_term_info(&self, s: &str) {
+        let mut count = 0;
+        for clause in self.active_set.iter_clauses() {
+            let clause_str = self.display(clause).to_string();
+            if clause_str.contains(s) {
+                println!("{}", clause_str);
+                count += 1;
+            }
+        }
+        println!(
+            "{} clause{} matched",
+            count,
+            if count == 1 { "" } else { "s" }
+        );
     }
 
     // Activates the next clause from the queue.
