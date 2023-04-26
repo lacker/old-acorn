@@ -38,6 +38,12 @@ fn main() {
             continue;
         }
 
+        if let Some(_) = trim_command("untrace", &line) {
+            println!("unsetting trace");
+            prover.unset_trace();
+            continue;
+        }
+
         if let Some(atom_str) = trim_command("atom", &line) {
             prover.print_atom_info(atom_str);
             continue;
