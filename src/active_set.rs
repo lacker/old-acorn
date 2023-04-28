@@ -601,7 +601,14 @@ mod tests {
         ]);
         let new_clause = ActiveSet::equality_resolution(&old_clause).unwrap();
         assert!(new_clause.literals.len() == 1);
-        assert_eq!(format!("{}", new_clause), "a1 = a0".to_string())
+        assert_eq!(format!("{}", new_clause), "a1 = a0".to_string());
+    }
+
+    #[test]
+    fn test_mutually_recursive_equality_resolution() {
+        // This is a bug we ran into. It shouldn't work
+        let unresolvable_clause = Clause::parse("a0(x0, a0(x1, a1(x2))) != a0(a0(x2, x1), x0)");
+        assert!(ActiveSet::equality_resolution(&unresolvable_clause).is_none());
     }
 
     #[test]

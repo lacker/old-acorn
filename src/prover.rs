@@ -153,14 +153,14 @@ impl Prover<'_> {
     }
 
     pub fn print_proof_step(&self, clause: &Clause, ps: ProofStep) {
-        println!("{:?} generated {}", ps.rule, self.display(clause));
+        println!("{:?} generated:\n    {}", ps.rule, self.display(clause));
         if let Some(i) = ps.activated {
             let c = self.display(self.active_set.get_clause(i));
-            println!("    using clause {}: {}", i, c);
+            println!("  using clause {}:\n    {}", i, c);
         }
         if let Some(i) = ps.existing {
             let c = self.display(self.active_set.get_clause(i));
-            println!("    with clause {}: {}", i, c);
+            println!("  with clause {}:\n    {}", i, c);
         }
     }
 
@@ -193,12 +193,16 @@ impl Prover<'_> {
         // Print out the clauses in order.
         let mut indices = done.into_iter().collect::<Vec<_>>();
         indices.sort();
+        println!("in total, we activated {} proof steps.", self.history.len());
+        println!("the proof uses {} steps:", indices.len());
         for i in indices {
             let step = self.history[i];
             let clause = self.active_set.get_clause(i);
             print!("clause {}: ", i);
             self.print_proof_step(clause, step);
         }
+        print!("final step: ");
+        self.print_proof_step(&Clause::impossible(), final_step);
     }
 
     // Activates the next clause from the queue.
@@ -236,6 +240,7 @@ impl Prover<'_> {
             self.final_step = Some(proof_step);
             return Outcome::Success;
         }
+        self.history.push(proof_step);
 
         let tracing = self.is_tracing(&clause);
         let verbose = self.verbose || tracing;

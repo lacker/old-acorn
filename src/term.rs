@@ -678,6 +678,10 @@ impl Clause {
         }
     }
 
+    pub fn impossible() -> Clause {
+        Clause::new(vec![])
+    }
+
     pub fn parse(s: &str) -> Clause {
         Clause::new(
             s.split(" | ")

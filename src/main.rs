@@ -61,12 +61,12 @@ fn main() {
 
         if line.trim_end() == "/" {
             prover.hit_trace = false;
-            println!("looking for trace...");
             loop {
                 let outcome = prover.activate_next();
                 match outcome {
                     Outcome::Success => {
                         println!("Success!");
+                        prover.print_proof();
                         break;
                     }
                     Outcome::Failure => {
