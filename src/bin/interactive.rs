@@ -3,7 +3,7 @@ use std::io::Write;
 use acorn::environment::Environment;
 use acorn::prover::{Outcome, Prover};
 
-const USAGE: &str = "Usage: acorn <filename> <theorem name>";
+const USAGE: &str = "Usage: cargo run <filename> <theorem name>";
 
 fn trim_command<'a>(command: &str, line: &'a str) -> Option<&'a str> {
     if line.starts_with(command) {
