@@ -113,6 +113,14 @@ impl Prover<'_> {
         for clause in self.active_set.iter_clauses() {
             println!("{}", self.display(clause));
         }
+        println!("{} clauses total in the active set", self.active_set.len());
+    }
+
+    pub fn print_passive(&self) {
+        for clause in self.passive.iter_clauses() {
+            println!("{}", self.display(clause));
+        }
+        println!("{} clauses total in the passive set", self.passive.len());
     }
 
     // Prints out information for a specific atom
@@ -339,9 +347,9 @@ impl Prover<'_> {
 
                 if self.verbose {
                     println!("\nprover initial state:");
-                    self.passive.map(&mut |clause| {
+                    for clause in self.passive.iter_clauses() {
                         println!("  {}", self.display(clause));
-                    });
+                    }
                     println!();
                 }
 

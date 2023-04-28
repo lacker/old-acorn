@@ -59,8 +59,14 @@ fn main() {
             continue;
         }
 
+        if let Some(_) = trim_command("passive", &line) {
+            prover.print_passive();
+            continue;
+        }
+
         if line.trim_end() == "/" {
             prover.hit_trace = false;
+            let start_time = std::time::Instant::now();
             loop {
                 let outcome = prover.activate_next();
                 match outcome {
@@ -79,6 +85,10 @@ fn main() {
                             break;
                         }
                     }
+                }
+                if start_time.elapsed().as_secs_f32() > 10.0 {
+                    println!("Timeout!");
+                    break;
                 }
             }
             continue;

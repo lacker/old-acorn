@@ -75,9 +75,7 @@ impl PassiveSet {
         self.clauses.len()
     }
 
-    pub fn map(&self, f: &mut impl FnMut(&Clause)) {
-        for pc in &self.clauses {
-            f(&pc.clause);
-        }
+    pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
+        self.clauses.iter().map(|pc| &pc.clause)
     }
 }
