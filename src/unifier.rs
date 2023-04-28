@@ -121,32 +121,38 @@ impl Unifier {
         // a variable that expands into a term with its own arguments.
         let mut answer = match &term.head {
             Atom::Variable(i) => {
-                if scope == Scope::Output {
-                    Term {
-                        term_type: term.term_type,
+                if !self.has_mapping(scope, *i) && scope != Scope::Output {
+                    // We need to create a new variable to send this one to.
+                    let var_id = self.output.len() as AtomId;
+                    self.output.push(None);
+                    let new_var = Term {
+                        term_type: term.head_type,
                         head_type: term.head_type,
-                        head: term.head,
+                        head: Atom::Variable(var_id),
                         args: vec![],
-                    }
-                } else {
-                    if !self.has_mapping(scope, *i) {
-                        // We need to create a new variable to send this one to.
-                        let var_id = self.output.len() as AtomId;
-                        self.output.push(None);
-                        let new_var = Term {
-                            term_type: term.head_type,
-                            head_type: term.head_type,
-                            head: Atom::Variable(var_id),
-                            args: vec![],
-                        };
-                        self.set_mapping(scope, *i, new_var);
-                    }
+                    };
+                    self.set_mapping(scope, *i, new_var);
+                }
 
-                    // The head of our initial term expands to a full term.
-                    // Its term type isn't correct, though.
-                    let mut head = self.get_mapping(scope, *i).unwrap().clone();
-                    head.term_type = term.term_type;
-                    head
+                match self.get_mapping(scope, *i) {
+                    Some(mapped_head) => {
+                        // The head of our initial term expands to a full term.
+                        // Its term type isn't correct, though.
+                        let mut head = mapped_head.clone();
+                        head.term_type = term.term_type;
+                        head
+                    }
+                    None => {
+                        // The head is an output variable with no mapping.
+                        // Just leave it as it is.
+                        assert!(scope == Scope::Output);
+                        Term {
+                            term_type: term.term_type,
+                            head_type: term.head_type,
+                            head: term.head.clone(),
+                            args: vec![],
+                        }
+                    }
                 }
             }
             head => Term {
@@ -203,6 +209,7 @@ impl Unifier {
     // Returns whether this succeeded.
     // It fails if this would require making a variable self-nesting.
     fn remap(&mut self, id: AtomId, term: &Term) -> bool {
+        println!("remapping x{} -> {}", id, term);
         if let Some(other_id) = term.atomic_variable() {
             if other_id > id {
                 // Let's keep this id and remap the other one instead
@@ -212,6 +219,7 @@ impl Unifier {
             }
         }
         let term = self.apply(Scope::Output, term);
+        println!("new term: {}", term);
         if term.has_variable(id) {
             // We can't remap this variable to a term that contains it.
             // This represents an un-unifiable condition like x0 = a0(x0).
@@ -237,6 +245,14 @@ impl Unifier {
         term_scope: Scope,
         term: &Term,
     ) -> bool {
+        println!("\ninitial status:");
+        self.print();
+        println!(
+            "unifying {:?}-x{} := {:?}-{}",
+            var_scope, var_id, term_scope, term
+        );
+        println!();
+
         if term_scope != Scope::Output {
             // Convert our term to the output scope and then unify.
             let term = self.apply(term_scope, term);
@@ -488,9 +504,17 @@ mod tests {
     }
 
     #[test]
-    fn test_mutual_containment_invalid() {
+    fn test_mutual_containment_invalid_1() {
         let first = Term::parse("a0(x0, a0(x1, a1(x2)))");
         let second = Term::parse("a0(a0(x2, x1), x0)");
+        let mut u = Unifier::new();
+        assert!(!u.unify(Scope::Left, &first, Scope::Left, &second));
+    }
+
+    #[test]
+    fn test_mutual_containment_invalid_2() {
+        let first = Term::parse("a0(a0(x0, a1(x1)), x2)");
+        let second = Term::parse("a0(x2, a0(x1, x0))");
         let mut u = Unifier::new();
         assert!(!u.unify(Scope::Left, &first, Scope::Left, &second));
     }
