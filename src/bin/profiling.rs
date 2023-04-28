@@ -8,7 +8,7 @@ fn main() {
     env.load_file(&input_file).unwrap();
     let mut prover = Prover::new(&env);
     prover.verbose = false;
-    let result = prover.prove_limited(theorem_name, 1000000, 60.0);
+    let result = prover.prove_limited(theorem_name, 1000000, 30.0);
     println!("result: {:?}", result);
     prover.print_stats();
 }

@@ -209,7 +209,6 @@ impl Unifier {
     // Returns whether this succeeded.
     // It fails if this would require making a variable self-nesting.
     fn remap(&mut self, id: AtomId, term: &Term) -> bool {
-        println!("remapping x{} -> {}", id, term);
         if let Some(other_id) = term.atomic_variable() {
             if other_id > id {
                 // Let's keep this id and remap the other one instead
@@ -219,7 +218,6 @@ impl Unifier {
             }
         }
         let term = self.apply(Scope::Output, term);
-        println!("new term: {}", term);
         if term.has_variable(id) {
             // We can't remap this variable to a term that contains it.
             // This represents an un-unifiable condition like x0 = a0(x0).
@@ -245,14 +243,6 @@ impl Unifier {
         term_scope: Scope,
         term: &Term,
     ) -> bool {
-        println!("\ninitial status:");
-        self.print();
-        println!(
-            "unifying {:?}-x{} := {:?}-{}",
-            var_scope, var_id, term_scope, term
-        );
-        println!();
-
         if term_scope != Scope::Output {
             // Convert our term to the output scope and then unify.
             let term = self.apply(term_scope, term);
