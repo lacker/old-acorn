@@ -64,6 +64,11 @@ fn main() {
             continue;
         }
 
+        if let Some(_) = trim_command("stats", &line) {
+            prover.print_stats();
+            continue;
+        }
+
         if line.trim_end() == "/" {
             prover.hit_trace = false;
             let start_time = std::time::Instant::now();

@@ -27,7 +27,7 @@ pub struct Prover<'a> {
     dirty: bool,
 
     // A verbose prover prints out a lot of stuff.
-    verbose: bool,
+    pub verbose: bool,
 
     // If a trace string is set, we print out what happens with the clause matching it.
     trace: Option<String>,
@@ -106,6 +106,11 @@ impl Prover<'_> {
         } else {
             false
         }
+    }
+
+    pub fn print_stats(&self) {
+        println!("{} clauses in the active set", self.active_set.len());
+        println!("{} clauses in the passive set", self.passive.len());
     }
 
     // Prints out the entire active set

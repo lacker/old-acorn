@@ -7,5 +7,8 @@ fn main() {
     let mut env = Environment::new();
     env.load_file(&input_file).unwrap();
     let mut prover = Prover::new(&env);
-    prover.prove_limited(theorem_name, 10000, 10.0);
+    prover.verbose = false;
+    let result = prover.prove_limited(theorem_name, 1000000, 60.0);
+    println!("result: {:?}", result);
+    prover.print_stats();
 }

@@ -8,3 +8,6 @@ default-run = "interactive"
 
 [dependencies]
 indoc = "1.0.8"
+
+[profile.release]
+debug = true
