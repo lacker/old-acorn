@@ -331,6 +331,17 @@ impl Unifier {
         true
     }
 
+    fn assert_unify(&mut self, scope1: Scope, term1: &Term, scope2: Scope, term2: &Term) {
+        assert!(
+            self.unify(scope1, term1, scope2, term2),
+            "Failed to unify {} and {}",
+            term1,
+            term2
+        );
+
+        todo!("check that apply works as expected");
+    }
+
     // Handle superposition into either positive or negative literals. The "SP" and "SN" rules.
     //
     // The superposition rule is, given:
