@@ -339,7 +339,13 @@ impl Unifier {
             term2
         );
 
-        todo!("check that apply works as expected");
+        let out1 = self.apply(scope1, term1);
+        let out2 = self.apply(scope2, term2);
+        assert_eq!(
+            out1, out2,
+            "Unification of {} and {} produced different results: {} and {}",
+            term1, term2, out1, out2
+        );
     }
 
     // Handle superposition into either positive or negative literals. The "SP" and "SN" rules.
