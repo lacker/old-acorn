@@ -114,11 +114,23 @@ impl Prover<'_> {
     }
 
     // Prints out the entire active set
-    pub fn print_active(&self) {
+    pub fn print_active(&self, substr: Option<&str>) {
+        let mut count = 0;
         for clause in self.active_set.iter_clauses() {
-            println!("{}", self.display(clause));
+            let clause = self.display(clause);
+            if let Some(substr) = substr {
+                if !clause.to_string().contains(substr) {
+                    continue;
+                }
+            }
+            count += 1;
+            println!("{}", clause);
         }
-        println!("{} clauses total in the active set", self.active_set.len());
+        if let Some(substr) = substr {
+            println!("{} active clauses matched {}", count, substr);
+        } else {
+            println!("{} clauses total in the active set", count);
+        }
     }
 
     pub fn print_passive(&self) {
