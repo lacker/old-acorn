@@ -54,9 +54,12 @@ fn main() {
             continue;
         }
 
-        if let Some(_) = trim_command("active", &line) {
-            // TODO: use line
-            prover.print_active(None);
+        if let Some(substr) = trim_command("active", &line) {
+            if line == "" {
+                prover.print_active(None);
+            } else {
+                prover.print_active(Some(substr));
+            }
             continue;
         }
 
