@@ -331,7 +331,7 @@ impl Unifier {
         true
     }
 
-    fn assert_unify(&mut self, scope1: Scope, term1: &Term, scope2: Scope, term2: &Term) {
+    pub fn assert_unify(&mut self, scope1: Scope, term1: &Term, scope2: Scope, term2: &Term) {
         assert!(
             self.unify(scope1, term1, scope2, term2),
             "Failed to unify {} and {}",
@@ -445,7 +445,7 @@ mod tests {
         let term2 = s.bfn(Atom::Axiomatic(0), vec![bool1.clone(), bool2.clone()]);
         let mut u = Unifier::new();
 
-        assert!(u.unify(Scope::Left, &term1, Scope::Left, &term2));
+        u.assert_unify(Scope::Left, &term1, Scope::Left, &term2);
         let new1 = u.apply(Scope::Left, &term1);
         assert_eq!(format!("{}", new1), "a0(x0, x0)");
         let new2 = u.apply(Scope::Left, &term2);

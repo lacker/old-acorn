@@ -14,6 +14,7 @@ pub mod specializer;
 pub mod statement;
 pub mod synthesizer;
 pub mod term;
+pub mod term_graph;
 pub mod token;
 pub mod type_space;
 pub mod unifier;
