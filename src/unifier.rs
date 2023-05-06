@@ -462,7 +462,7 @@ mod tests {
         let term2 = s.bfn(Atom::Axiomatic(0), vec![bool1.clone(), bool2.clone()]);
         let mut u = Unifier::new();
 
-        assert!(u.unify(Scope::Left, &term1, Scope::Right, &term2));
+        u.assert_unify(Scope::Left, &term1, Scope::Right, &term2);
         let new1 = u.apply(Scope::Left, &term1);
         assert_eq!(format!("{}", new1), "a0(x0, x1)");
         let new2 = u.apply(Scope::Right, &term2);
