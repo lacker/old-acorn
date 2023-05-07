@@ -477,7 +477,7 @@ mod tests {
         let var_f_term = s.bfn(Atom::Variable(1), vec![bool0.clone()]);
 
         let mut u = Unifier::new();
-        assert!(u.unify(Scope::Left, &const_f_term, Scope::Right, &var_f_term));
+        u.assert_unify(Scope::Left, &const_f_term, Scope::Right, &var_f_term);
     }
 
     #[test]
