@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use std::hash::BuildHasherDefault;
 
-use nohash_hasher::NoHashHasher;
+use nohash_hasher::BuildNoHashHasher;
 
 use crate::atom::{Atom, AtomId};
 use crate::term::Term;
@@ -19,7 +18,7 @@ pub struct TermInfo {
     arg_types: Vec<TypeId>,
 
     // All edges that touch this term
-    adjacent: HashSet<EdgeId, BuildHasherDefault<NoHashHasher<EdgeId>>>,
+    adjacent: HashSet<EdgeId, BuildNoHashHasher<EdgeId>>,
 
     // The canonical way to produce this term.
     canonical: CanonicalForm,
@@ -57,20 +56,38 @@ enum CanonicalForm {
 }
 
 pub struct TermGraph {
+    atoms: HashMap<Atom, TermId>,
     terms: Vec<TermInfo>,
     edges: Vec<EdgeInfo>,
 
-    edgemap:
-        HashMap<(TermId, TermId), Vec<EdgeId>, BuildHasherDefault<NoHashHasher<(TermId, TermId)>>>,
+    edgemap: HashMap<(TermId, TermId), Vec<EdgeId>, BuildNoHashHasher<(TermId, TermId)>>,
 }
 
 impl TermGraph {
     pub fn new() -> TermGraph {
         TermGraph {
+            atoms: HashMap::default(),
             terms: Vec::new(),
             edges: Vec::new(),
             edgemap: HashMap::default(),
         }
+    }
+
+    // Inserts a term for an atom, or returns the existing term.
+    pub fn insert_atom(&mut self, atom: Atom, atom_type: TypeId, arg_types: Vec<TypeId>) -> TermId {
+        if let Some(term_id) = self.atoms.get(&atom) {
+            return *term_id;
+        }
+
+        let term_id = self.terms.len() as TermId;
+        self.terms.push(TermInfo {
+            term_type: atom_type,
+            arg_types,
+            adjacent: HashSet::default(),
+            canonical: CanonicalForm::Atom(atom),
+        });
+        self.atoms.insert(atom, term_id);
+        term_id
     }
 
     // Inserts a new term, or returns the existing term.
