@@ -1,6 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::hash::BuildHasherDefault;
+
+use nohash_hasher::NoHashHasher;
 
 use crate::atom::{Atom, AtomId};
+use crate::term::Term;
 use crate::type_space::TypeId;
 
 // The TermInfo stores information about an abstract term.
@@ -15,7 +19,7 @@ pub struct TermInfo {
     arg_types: Vec<TypeId>,
 
     // All edges that touch this term
-    adjacent: HashSet<EdgeId>,
+    adjacent: HashSet<EdgeId, BuildHasherDefault<NoHashHasher<EdgeId>>>,
 
     // The canonical way to produce this term.
     canonical: CanonicalForm,
@@ -56,5 +60,26 @@ pub struct TermGraph {
     terms: Vec<TermInfo>,
     edges: Vec<EdgeInfo>,
 
-    edgemap: HashMap<(TermId, TermId), Vec<EdgeId>>,
+    edgemap:
+        HashMap<(TermId, TermId), Vec<EdgeId>, BuildHasherDefault<NoHashHasher<(TermId, TermId)>>>,
+}
+
+impl TermGraph {
+    pub fn new() -> TermGraph {
+        TermGraph {
+            terms: Vec::new(),
+            edges: Vec::new(),
+            edgemap: HashMap::default(),
+        }
+    }
+
+    // Inserts a new term, or returns the existing term.
+    // The term graph normalizes by variable order, whereas Term doesn't, so we also
+    // return a map from id in the term graph -> id in the term.
+    // So, for example, if we insert add(x2, x4) we will get a pair of:
+    // first element: add(x0, x1)
+    // second element: [2, 4]
+    pub fn insert_term(&mut self, term: &Term) -> (TermId, Vec<AtomId>) {
+        todo!("insert_term");
+    }
 }
