@@ -130,4 +130,8 @@ impl TermGraph {
     pub fn insert_term(&mut self, term: &Term) -> TermInstance {
         todo!("insert_term");
     }
+
+    pub fn extract_term(&self, instance: &TermInstance) -> Term {
+        todo!("extract_term");
+    }
 }
