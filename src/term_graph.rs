@@ -25,6 +25,20 @@ pub struct TermInfo {
 }
 pub type TermId = u32;
 
+// TermInfo normalizes across all orderings of the input variables.
+// A TermInstance represents a particular ordering.
+// varmap[i] = j means that TermInstance replaces x_i with x_j.
+// So for example to represent a TermInstance:
+//   foo(x4, x0)
+// we would use:
+//   term: foo(x0, x1)
+//   varmap: [4, 0]
+// The length of varmap must be the same as arg_types.
+pub struct TermInstance {
+    term: TermId,
+    varmap: Vec<AtomId>,
+}
+
 // An edge represents a single substitution.
 // All variables get renamed, and some in the template can get replaced.
 // For example:
@@ -73,7 +87,18 @@ impl TermGraph {
         }
     }
 
-    // Inserts a term for an atom, or returns the existing term.
+    pub fn get_term_info(&self, term: TermId) -> &TermInfo {
+        &self.terms[term as usize]
+    }
+
+    // An instance with the variables numbered in standard order.
+    pub fn instance(&self, term: TermId) -> TermInstance {
+        let num_vars = self.get_term_info(term).arg_types.len();
+        let varmap: Vec<AtomId> = (0..num_vars).map(|i| i as AtomId).collect();
+        TermInstance { term, varmap }
+    }
+
+    // Inserts a term for an atom, or returns the existing term if there is one.
     pub fn insert_atom(&mut self, atom: Atom, atom_type: TypeId, arg_types: Vec<TypeId>) -> TermId {
         if let Some(term_id) = self.atoms.get(&atom) {
             return *term_id;
@@ -90,13 +115,19 @@ impl TermGraph {
         term_id
     }
 
-    // Inserts a new term, or returns the existing term.
-    // The term graph normalizes by variable order, whereas Term doesn't, so we also
-    // return a map from id in the term graph -> id in the term.
-    // So, for example, if we insert add(x2, x4) we will get a pair of:
-    // first element: add(x0, x1)
-    // second element: [2, 4]
-    pub fn insert_term(&mut self, term: &Term) -> (TermId, Vec<AtomId>) {
+    // Creates a new term by applying a substitution to a template, or returns the existing term
+    // if there is one.
+    pub fn replace(
+        &mut self,
+        template: &TermInstance,
+        position: AtomId,
+        replacement: &TermInstance,
+    ) -> TermInstance {
+        todo!("apply");
+    }
+
+    // Inserts a new term, or returns the existing term if there is one.
+    pub fn insert_term(&mut self, term: &Term) -> TermInstance {
         todo!("insert_term");
     }
 }
