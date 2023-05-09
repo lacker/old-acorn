@@ -236,8 +236,9 @@ impl TermGraph {
 
     // Returns the term that is the result of the given substitution.
     // If it's already in the graph, returns the existing term.
-    // Otherwise, creates a new term and returns it.
-    pub fn follow_edge(&mut self, key: EdgeKey) -> &TermInstance {
+    // Otherwise, creates a new edge and a new term and returns the new term.
+    // key must be normalized.
+    pub fn insert_edge(&mut self, key: EdgeKey) -> &TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edgemap.get(&key) {
             return &self.edges[*edge_id as usize].result;
@@ -319,6 +320,31 @@ impl TermGraph {
         self.edgemap.insert(key, edge_id);
 
         &self.edges[edge_id as usize].result
+    }
+
+    // Does a substitution with the given template and replacements.
+    // This does not have to be normalized.
+    pub fn replace(
+        &mut self,
+        template: &TermInstance,
+        replacements: &Vec<Replacement>,
+    ) -> TermInstance {
+        // The overall strategy is to normalize the replacements, do the substitution with
+        // the graph, and then map from new ids back to old ones.
+        let (new_replacements, new_to_old) = normalize_replacements(&replacements);
+        let new_term = self.insert_edge(EdgeKey {
+            template: template.term,
+            replacements: new_replacements,
+        });
+        let var_map = new_term
+            .var_map
+            .iter()
+            .map(|i| new_to_old[*i as usize])
+            .collect();
+        TermInstance {
+            term: new_term.term,
+            var_map,
+        }
     }
 
     // Inserts a new term, or returns the existing term if there is one.
