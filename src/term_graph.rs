@@ -217,23 +217,6 @@ impl TermGraph {
         &self.terms[term as usize]
     }
 
-    // Inserts a term for an atom, or returns the existing term if there is one.
-    pub fn insert_atom(&mut self, atom: Atom, atom_type: TypeId, arg_types: Vec<TypeId>) -> TermId {
-        if let Some(term_id) = self.atoms.get(&atom) {
-            return *term_id;
-        }
-
-        let term_id = self.terms.len() as TermId;
-        self.terms.push(TermInfo {
-            term_type: atom_type,
-            arg_types,
-            adjacent: HashSet::default(),
-            canonical: CanonicalForm::Atom(atom),
-        });
-        self.atoms.insert(atom, term_id);
-        term_id
-    }
-
     // Returns the term that is the result of the given substitution.
     // If it's already in the graph, returns the existing term.
     // Otherwise, creates a new edge and a new term and returns the new term.
@@ -348,8 +331,42 @@ impl TermGraph {
     }
 
     // Inserts a new term, or returns the existing term if there is one.
-    pub fn insert_term(&mut self, term: &Term) -> TermInstance {
-        todo!("insert_term");
+    // A Term can be just a single renumbered variable, which the graph doesn't count
+    // as a separate term, so we have to convert a Term into a Replacement.
+    pub fn insert_term(&mut self, term: &Term) -> Replacement {
+        if term.is_true() {
+            panic!("True should not be a separate node in the term graph")
+        }
+        if let Some(i) = term.atomic_variable() {
+            return Replacement::Rename(i);
+        }
+
+        // Get the head
+        if term.head.is_variable() {
+            todo!("handle the case where the head is a variable");
+        }
+        let head_id = if let Some(head_id) = self.atoms.get(&term.head) {
+            *head_id
+        } else {
+            let head_id = self.terms.len() as TermId;
+            self.terms.push(TermInfo {
+                term_type: term.head_type,
+                arg_types: term.args.iter().map(|a| a.term_type).collect(),
+                adjacent: HashSet::default(),
+                canonical: CanonicalForm::Atom(term.head),
+            });
+            self.atoms.insert(term.head, head_id);
+            head_id
+        };
+        let head_var_map: Vec<_> = (0..term.args.len() as AtomId).collect();
+        let head = TermInstance {
+            term: head_id,
+            var_map: head_var_map,
+        };
+
+        // Substitute the arguments into the head
+        let replacements = term.args.iter().map(|a| self.insert_term(a)).collect();
+        Replacement::Expand(self.replace(&head, &replacements))
     }
 
     pub fn extract_term(&self, instance: &TermInstance) -> Term {

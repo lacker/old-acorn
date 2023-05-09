@@ -191,6 +191,10 @@ impl Term {
         }
     }
 
+    pub fn is_variable(&self) -> bool {
+        self.atomic_variable().is_some()
+    }
+
     pub fn var_type(&self, index: AtomId) -> Option<TypeId> {
         if self.head == Atom::Variable(index) {
             return Some(self.head_type);
