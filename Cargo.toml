@@ -7,6 +7,7 @@ default-run = "interactive"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+fxhash = "0.2.1"
 indoc = "1.0.8"
 nohash-hasher = "0.2.0"
 
