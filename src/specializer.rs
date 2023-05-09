@@ -22,7 +22,7 @@ impl Specializer {
         }
     }
 
-    fn match_var(&mut self, var_id: AtomId, special_term: &Term) -> bool {
+    pub fn match_var(&mut self, var_id: AtomId, special_term: &Term) -> bool {
         let var_id = var_id as usize;
         if var_id >= self.map.len() {
             self.map.resize(var_id + 1, None);

@@ -467,6 +467,34 @@ impl Term {
         self.push_subterms(&mut prefix, &mut answer);
         answer
     }
+
+    // Replaces x_i with x_{var_map[i]}.
+    pub fn remap_variables(&self, var_map: &Vec<AtomId>) -> Term {
+        Term {
+            head_type: self.head_type,
+            term_type: self.term_type,
+            head: self.head,
+            args: self
+                .args
+                .iter()
+                .map(|arg| arg.remap_variables(var_map))
+                .collect(),
+        }
+    }
+
+    // Replaces x_{var_map[i]} with x_i.
+    pub fn unmap_variables(&self, var_map: &Vec<AtomId>) -> Term {
+        Term {
+            head_type: self.head_type,
+            term_type: self.term_type,
+            head: self.head,
+            args: self
+                .args
+                .iter()
+                .map(|arg| arg.unmap_variables(var_map))
+                .collect(),
+        }
+    }
 }
 
 // Literals are always boolean-valued.

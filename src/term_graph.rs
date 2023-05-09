@@ -4,6 +4,7 @@ use fxhash::FxHashMap;
 use nohash_hasher::BuildNoHashHasher;
 
 use crate::atom::{Atom, AtomId};
+use crate::specializer::Specializer;
 use crate::term::Term;
 use crate::type_space::TypeId;
 
@@ -217,6 +218,10 @@ impl TermGraph {
         &self.terms[term as usize]
     }
 
+    pub fn get_edge_info(&self, edge: EdgeId) -> &EdgeInfo {
+        &self.edges[edge as usize]
+    }
+
     // Returns the term that is the result of the given substitution.
     // If it's already in the graph, returns the existing term.
     // Otherwise, creates a new edge and a new term and returns the new term.
@@ -276,7 +281,7 @@ impl TermGraph {
             }
         }
 
-        // Insert the new stuff into the graph
+        // Create the info structs
         let edge_id = self.edges.len() as EdgeId;
         let term_id = self.terms.len() as TermId;
         let term_type = template.term_type;
@@ -286,7 +291,6 @@ impl TermGraph {
             term: term_id,
             var_map,
         };
-
         let term_info = TermInfo {
             term_type,
             arg_types: result_arg_types,
@@ -298,7 +302,14 @@ impl TermGraph {
             result,
         };
 
+        // Insert everything into the graph
         self.terms.push(term_info);
+        self.terms[key.template as usize].adjacent.insert(edge_id);
+        for r in &key.replacements {
+            if let Replacement::Expand(term) = r {
+                self.terms[term.term as usize].adjacent.insert(edge_id);
+            }
+        }
         self.edges.push(edge_info);
         self.edgemap.insert(key, edge_id);
 
@@ -369,7 +380,42 @@ impl TermGraph {
         Replacement::Expand(self.replace(&head, &replacements))
     }
 
-    pub fn extract_term(&self, instance: &TermInstance) -> Term {
-        todo!("extract_term");
+    pub fn extract_term_id(&self, term_id: TermId) -> Term {
+        let term_info = self.get_term_info(term_id);
+        let edge_info = match term_info.canonical {
+            CanonicalForm::Atom(a) => {
+                return Term::atom(term_info.term_type, a);
+            }
+            CanonicalForm::Edge(edge_id) => &self.edges[edge_id as usize],
+        };
+
+        // Construct a Term according to the information provided by the edge
+        let template = self.extract_term_id(edge_info.key.template);
+        let mut s = Specializer::new();
+        for (i, r) in edge_info.key.replacements.iter().enumerate() {
+            let i = i as AtomId;
+            match r {
+                Replacement::Rename(j) => {
+                    // We want the specializer to replace x_i with x_j, which is slightly annoying
+                    // because it wants to know the type.
+                    if let Some(var_type) = template.var_type(i) {
+                        assert!(s.match_var(i, &Term::atom(var_type, Atom::Variable(*j))));
+                    } else {
+                        panic!("renaming a variable that doesn't exist");
+                    }
+                }
+                Replacement::Expand(t) => {
+                    let t = self.extract_term_id(t.term);
+                    assert!(s.match_var(i, &t));
+                }
+            }
+        }
+        let unmapped_term = s.specialize(&template);
+        unmapped_term.remap_variables(&edge_info.result.var_map)
+    }
+
+    pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
+        let unmapped_term = self.extract_term_id(instance.term);
+        unmapped_term.remap_variables(&instance.var_map)
     }
 }
