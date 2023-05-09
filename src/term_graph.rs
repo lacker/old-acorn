@@ -27,6 +27,14 @@ pub struct TermInfo {
 }
 pub type TermId = u32;
 
+// Information about how an atom gets turned into a term.
+// Each atom has a default expansion, represented by term, but we also
+// need to track the type of the atom itself.
+pub struct AtomInfo {
+    atom_type: TypeId,
+    term: TermId,
+}
+
 // TermInfo normalizes across all namings of the input variables.
 // A TermInstance represents a particular ordering.
 // var_map[i] = j means that the variable the TermInfo would display as x_i, the TermInstance would
@@ -203,7 +211,7 @@ enum CanonicalForm {
 }
 
 pub struct TermGraph {
-    atoms: HashMap<Atom, TermId>,
+    atoms: HashMap<Atom, AtomInfo>,
     terms: Vec<TermInfo>,
     edges: Vec<EdgeInfo>,
 
@@ -227,6 +235,10 @@ impl TermGraph {
 
     pub fn get_edge_info(&self, edge: EdgeId) -> &EdgeInfo {
         &self.edges[edge as usize]
+    }
+
+    pub fn get_atom_info(&self, atom: Atom) -> &AtomInfo {
+        self.atoms.get(&atom).unwrap()
     }
 
     // Returns the term that is the result of the given substitution.
@@ -363,8 +375,8 @@ impl TermGraph {
         if term.head.is_variable() {
             todo!("handle the case where the head is a variable");
         }
-        let head_id = if let Some(head_id) = self.atoms.get(&term.head) {
-            *head_id
+        let head_id = if let Some(atom_info) = self.atoms.get(&term.head) {
+            atom_info.term
         } else {
             let head_id = self.terms.len() as TermId;
             self.terms.push(TermInfo {
@@ -373,7 +385,11 @@ impl TermGraph {
                 adjacent: HashSet::default(),
                 canonical: CanonicalForm::Atom(term.head),
             });
-            self.atoms.insert(term.head, head_id);
+            let atom_info = AtomInfo {
+                term: head_id,
+                atom_type: term.head_type,
+            };
+            self.atoms.insert(term.head, atom_info);
             head_id
         };
         let head_var_map: Vec<_> = (0..term.args.len() as AtomId).collect();
@@ -391,7 +407,18 @@ impl TermGraph {
         let term_info = self.get_term_info(term_id);
         let edge_info = match term_info.canonical {
             CanonicalForm::Atom(a) => {
-                return Term::atom(term_info.term_type, a);
+                let atom_info = self.get_atom_info(a);
+                return Term {
+                    term_type: term_info.term_type,
+                    head_type: atom_info.atom_type,
+                    head: a,
+                    args: term_info
+                        .arg_types
+                        .iter()
+                        .enumerate()
+                        .map(|(i, t)| Term::atom(*t, Atom::Variable(i as AtomId)))
+                        .collect(),
+                };
             }
             CanonicalForm::Edge(edge_id) => &self.edges[edge_id as usize],
         };
@@ -408,7 +435,7 @@ impl TermGraph {
                     if let Some(var_type) = template.var_type(i) {
                         assert!(s.match_var(i, &Term::atom(var_type, Atom::Variable(*j))));
                     } else {
-                        panic!("renaming a variable that doesn't exist");
+                        panic!("cannot rename x{} -> x{} in {}", i, j, template);
                     }
                 }
                 Replacement::Expand(t) => {
@@ -432,11 +459,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_term_graph_insert_and_extract() {
+    fn test_graph_insert_and_extract() {
         let mut g = TermGraph::new();
-        let input1 = Term::parse("a0(x0, x1)");
-        let t1 = g.insert_term(&input1).assert_is_expansion();
-        let output1 = g.extract_term_instance(&t1);
-        assert_eq!(input1, output1);
+        for s in &["a0", "a1(x0)"] {
+            let input = Term::parse(s);
+            let ti = g.insert_term(&input).assert_is_expansion();
+            let output = g.extract_term_instance(&ti);
+            assert_eq!(input, output);
+        }
     }
 }
