@@ -104,16 +104,6 @@ impl Atom {
             a => *a,
         }
     }
-
-    // Replaces x_{var_map[i]} with x_i
-    pub fn unmap_variables(&self, var_map: &Vec<AtomId>) -> Atom {
-        match self {
-            Atom::Variable(i) => {
-                Atom::Variable(var_map.iter().position(|&x| x == *i).unwrap() as AtomId)
-            }
-            a => *a,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
