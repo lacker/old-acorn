@@ -473,7 +473,7 @@ impl Term {
         Term {
             head_type: self.head_type,
             term_type: self.term_type,
-            head: self.head,
+            head: self.head.remap_variables(var_map),
             args: self
                 .args
                 .iter()
@@ -771,5 +771,13 @@ mod tests {
         assert!(Clause::parse("a0(x0, x0) = x0").is_rewrite_rule());
         assert!(!Clause::parse("a0(x0, x0) != x0").is_rewrite_rule());
         assert!(!Clause::parse("a0(x0, x1) = a0(x1, x0)").is_rewrite_rule());
+    }
+
+    #[test]
+    fn test_remap_variables() {
+        let old_term = Term::parse("a2(x0, x1)");
+        let var_map = vec![3, 2];
+        let new_term = old_term.remap_variables(&var_map);
+        assert_eq!(new_term, Term::parse("a2(x3, x2)"));
     }
 }

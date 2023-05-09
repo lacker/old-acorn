@@ -450,7 +450,11 @@ impl TermGraph {
 
     pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
         let unmapped_term = self.extract_term_id(instance.term);
-        unmapped_term.remap_variables(&instance.var_map)
+        println!("\nunmapped_term = {}", unmapped_term);
+        println!("instance var map = {:?}", instance.var_map);
+        let answer = unmapped_term.remap_variables(&instance.var_map);
+        println!("answer = {}", answer);
+        answer
     }
 }
 
