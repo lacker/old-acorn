@@ -81,6 +81,13 @@ impl Replacement {
             }
         }
     }
+
+    pub fn assert_is_expansion(self) -> TermInstance {
+        match self {
+            Replacement::Rename(_) => panic!("Expected an expansion, got a rename"),
+            Replacement::Expand(term) => term,
+        }
+    }
 }
 
 // An edge represents a single substitution.
@@ -417,5 +424,19 @@ impl TermGraph {
     pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
         let unmapped_term = self.extract_term_id(instance.term);
         unmapped_term.remap_variables(&instance.var_map)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_term_graph_insert_and_extract() {
+        let mut g = TermGraph::new();
+        let input1 = Term::parse("a0(x0, x1)");
+        let t1 = g.insert_term(&input1).assert_is_expansion();
+        let output1 = g.extract_term_instance(&t1);
+        assert_eq!(input1, output1);
     }
 }
