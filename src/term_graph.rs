@@ -453,6 +453,22 @@ impl TermGraph {
         let answer = unmapped_term.remap_variables(&instance.var_map);
         answer
     }
+
+    // An expensive checking that everything in the graph is coherent.
+    pub fn check(&self) {
+        let mut all_terms: HashSet<String> = HashSet::new();
+        for term_id in 0..self.terms.len() {
+            let term = self.extract_term_id(term_id as TermId);
+            let s = term.to_string();
+            println!("term {}: {}", term_id, s);
+            assert!(!all_terms.contains(&s), "duplicate term: {}", s);
+            all_terms.insert(s);
+        }
+
+        for key in self.edgemap.keys() {
+            key.check();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -476,7 +492,6 @@ mod tests {
             "a2(x0, a1(x1))",
             "a2(a2(x1, x0), a2(x0, x2))",
         ] {
-            println!("\n*** inserting term: {}", s);
             let input = Term::parse(s);
             let ti = g.insert_term(&input).assert_is_expansion();
             let output = g.extract_term_instance(&ti);
@@ -484,5 +499,7 @@ mod tests {
                 panic!("\ninput {} != output {}\n", input, output);
             }
         }
+
+        g.check();
     }
 }
