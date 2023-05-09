@@ -122,6 +122,60 @@ impl EdgeKey {
     }
 }
 
+// Renumbers the variables in the replacements so that they are in increasing order.
+// Returns the new replacements, and a vector mapping new variable ids to old ones.
+//
+// For example, if the replacements are:
+//   x0 -> foo(x2, x4)
+//   x1 -> foo(x2, x6)
+// Then we see the variables in the order x2, x4, x6.
+// The normalized numbering would be 0, 1, 2.
+// So the new replacements would be:
+//   x0 -> foo(x0, x1)
+//   x1 -> foo(x0, x2)
+// and the vector map would be:
+//   [2, 4, 6]
+fn normalize_replacements(replacements: &Vec<Replacement>) -> (Vec<Replacement>, Vec<AtomId>) {
+    let mut new_replacements = vec![];
+    let mut new_to_old = vec![];
+    for r in replacements {
+        match r {
+            Replacement::Rename(old_var) => {
+                // Figure out the new id for this variable
+                let new_var = match new_to_old.iter().position(|&v| v == *old_var) {
+                    Some(i) => i,
+                    None => {
+                        let new_var = new_to_old.len();
+                        new_to_old.push(*old_var);
+                        new_var
+                    }
+                };
+                new_replacements.push(Replacement::Rename(new_var as AtomId));
+            }
+            Replacement::Expand(old_term) => {
+                let mut new_term = TermInstance {
+                    term: old_term.term,
+                    var_map: vec![],
+                };
+                for old_var in &old_term.var_map {
+                    // Figure out the new id for this variable
+                    let new_var = match new_to_old.iter().position(|&v| v == *old_var) {
+                        Some(i) => i,
+                        None => {
+                            let new_var = new_to_old.len();
+                            new_to_old.push(*old_var);
+                            new_var
+                        }
+                    };
+                    new_term.var_map.push(new_var as AtomId);
+                }
+                new_replacements.push(Replacement::Expand(new_term));
+            }
+        }
+    }
+    (new_replacements, new_to_old)
+}
+
 pub struct EdgeInfo {
     // The parameters that determine the substitution
     key: EdgeKey,
