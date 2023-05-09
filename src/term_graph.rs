@@ -439,7 +439,7 @@ impl TermGraph {
                     }
                 }
                 Replacement::Expand(t) => {
-                    let t = self.extract_term_id(t.term);
+                    let t = self.extract_term_id(t.term).remap_variables(&t.var_map);
                     assert!(s.match_var(i, &t));
                 }
             }
@@ -450,10 +450,7 @@ impl TermGraph {
 
     pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
         let unmapped_term = self.extract_term_id(instance.term);
-        println!("\nunmapped_term = {}", unmapped_term);
-        println!("instance var map = {:?}", instance.var_map);
         let answer = unmapped_term.remap_variables(&instance.var_map);
-        println!("answer = {}", answer);
         answer
     }
 }
@@ -468,6 +465,7 @@ mod tests {
         for s in &[
             "a0",
             "a1(x0)",
+            "a1(x1)",
             "a2(x0, x1)",
             "a3(x0, x1, x2)",
             "a2(x3, x2)",
@@ -476,7 +474,9 @@ mod tests {
             "a3(x1, x3, x1)",
             "a1(a1(x1))",
             "a2(x0, a1(x1))",
+            "a2(a2(x1, x0), a2(x0, x2))",
         ] {
+            println!("\n*** inserting term: {}", s);
             let input = Term::parse(s);
             let ti = g.insert_term(&input).assert_is_expansion();
             let output = g.extract_term_instance(&ti);
