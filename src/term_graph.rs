@@ -37,6 +37,7 @@ pub type TermId = u32;
 //   var_map: [4, 0]
 // The length of varmap must be the same as arg_types.
 // No two variables should be named the same thing.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct TermInstance {
     term: TermId,
     var_map: Vec<AtomId>,
@@ -61,6 +62,7 @@ impl TermInstance {
 // The different ways to replace a single variable in a substitution.
 // Either we rename the variable, or we expand it into a different term.
 // "Do-nothing" replacements are represented by a Rename with the same index.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Replacement {
     Rename(AtomId),
     Expand(TermInstance),
@@ -86,6 +88,7 @@ impl Replacement {
 // For example:
 // template = add(x0, x1)
 // replacement = mul(x0, x1)
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct EdgeKey {
     // The base term that will be substituted into
     template: TermId,
@@ -177,15 +180,91 @@ impl TermGraph {
         term_id
     }
 
-    // Creates a new term by applying a substitution to a template, or returns the existing term
-    // if there is one.
-    pub fn replace(
-        &mut self,
-        template: &TermInstance,
-        position: AtomId,
-        replacement: &TermInstance,
-    ) -> TermInstance {
-        todo!("replace");
+    // Returns the term that is the result of the given substitution.
+    // If it's already in the graph, returns the existing term.
+    // Otherwise, creates a new term and returns it.
+    pub fn follow_edge(&mut self, key: EdgeKey) -> &TermInstance {
+        // Check if this edge is already in the graph
+        if let Some(edge_id) = self.edgemap.get(&key) {
+            return &self.edges[*edge_id as usize].result;
+        }
+
+        // Figure out the type signature of our new term
+        let template = self.get_term_info(key.template);
+        let mut result_arg_types = vec![];
+        for (i, replacement) in key.replacements.iter().enumerate() {
+            match replacement {
+                Replacement::Rename(j) => {
+                    // x_i in the template is being renamed to x_j in the result.
+                    let next_open_var = result_arg_types.len() as AtomId;
+                    if j < &next_open_var {
+                        // Check that the type matches
+                        if template.arg_types[i] != result_arg_types[*j as usize] {
+                            panic!(
+                                "Type mismatch: {} != {}",
+                                template.arg_types[i], result_arg_types[*j as usize]
+                            );
+                        }
+                    } else if j == &next_open_var {
+                        // This is the first time we've seen this variable
+                        result_arg_types.push(template.arg_types[i]);
+                    } else {
+                        panic!("bad variable numbering");
+                    }
+                }
+                Replacement::Expand(term) => {
+                    // x_i in the template is being replaced with a term
+                    let term_info = self.get_term_info(term.term);
+                    for (j, k) in term.var_map.iter().enumerate() {
+                        // x_j in the template is being renamed to x_k in the result.
+                        let next_open_var = result_arg_types.len() as AtomId;
+                        if k < &next_open_var {
+                            // Check that the type matches
+                            let expected_type = result_arg_types[*k as usize];
+                            if term_info.arg_types[j] != expected_type {
+                                panic!(
+                                    "Type mismatch: {} != {}",
+                                    term_info.arg_types[j], expected_type
+                                );
+                            }
+                        } else if k == &next_open_var {
+                            // This is the first time we've seen this variable
+                            result_arg_types.push(term_info.arg_types[j]);
+                        } else {
+                            panic!("bad variable numbering");
+                        }
+                    }
+                }
+            }
+        }
+
+        // Insert the new stuff into the graph
+        let edge_id = self.edges.len() as EdgeId;
+        let term_id = self.terms.len() as TermId;
+        let term_type = template.term_type;
+        let canonical = CanonicalForm::Edge(edge_id);
+        let var_map: Vec<AtomId> = (0..result_arg_types.len() as AtomId).collect();
+        let result = TermInstance {
+            term: term_id,
+            var_map,
+        };
+
+        let term_info = TermInfo {
+            term_type,
+            arg_types: result_arg_types,
+            adjacent: std::iter::once(edge_id).collect(),
+            canonical,
+        };
+        let edge_info = EdgeInfo {
+            key: key.clone(),
+            result,
+        };
+
+        self.terms.push(term_info);
+        self.edges.push(edge_info);
+        self.edgemap.insert(key, edge_id);
+
+        &self.edges[edge_id as usize].result
     }
 
     // Inserts a new term, or returns the existing term if there is one.
