@@ -542,6 +542,8 @@ mod tests {
             "a1(a1(x1))",
             "a2(x0, a1(x1))",
             "a2(a2(x1, x0), a2(x0, x2))",
+            "a2(a2(x0, x2), a2(x1, x0))",
+            "a3(x0, a3(x1, a3(x0, x1, x0), a0), x1)",
         ] {
             let input = Term::parse(s);
             let ti = g.insert_term(&input).assert_is_expansion();
