@@ -269,9 +269,9 @@ pub struct TermGraph {
     atoms: HashMap<(Atom, u8), AtomInfo>,
 
     // Templates that let us expand terms where the head is a variable.
-    // Keyed on the type of the head.
+    // Keyed on the type of the head and the number of arguments.
     // This lets us represent terms like x0(x1, x2).
-    type_templates: HashMap<TypeId, TermId, BuildNoHashHasher<TypeId>>,
+    type_templates: HashMap<(TypeId, u8), TermId>,
 
     // Maps (template, replacement) -> edges
     edgemap: FxHashMap<EdgeKey, EdgeId>,
@@ -442,7 +442,7 @@ impl TermGraph {
         if let Atom::Variable(i) = term.head {
             let type_template = self
                 .type_templates
-                .entry(term.head_type)
+                .entry((term.head_type, term.args.len() as u8))
                 .or_insert_with(|| {
                     let type_template = self.terms.len() as TermId;
                     // The head of the term counts as one of the args in the template
@@ -571,6 +571,8 @@ impl TermGraph {
             let term = self.extract_term_id(term_id as TermId);
             let s = term.to_string();
             println!("term {}: {}", term_id, s);
+            // This check can raise a false alarm with type templates, for which
+            // different ones can stringify the same
             assert!(!all_terms.contains(&s), "duplicate term: {}", s);
             all_terms.insert(s);
         }
@@ -589,14 +591,16 @@ mod tests {
         let mut g = TermGraph::new();
         for s in term_strings {
             let input = Term::parse(s);
+            println!("inserting {}", s);
             let ti = g.insert_term(&input).assert_is_expansion();
+            g.check();
             println!("extracting {}", s);
             let output = g.extract_term_instance(&ti);
             if input != output {
                 panic!("\ninput {} != output {}\n", input, output);
             }
+            println!("  OK\n");
         }
-        g.check();
     }
 
     #[test]
@@ -626,6 +630,11 @@ mod tests {
 
     #[test]
     fn test_variable_heads() {
-        insert_and_extract(&["x0(x1)", "x0(x1(x2))"]);
+        insert_and_extract(&[
+            "x0(x1)",
+            "x0(x1(x2))",
+            "x3(x1(x2), x1(a0))",
+            "x4(a1(x8, x3), x0(x1), x0(a2))",
+        ]);
     }
 }
