@@ -16,6 +16,8 @@ use crate::type_space::TypeId;
 // then we can store them as the same abstract term. Instead of rewriting terms, we can
 // merge nodes in our graph of abstract terms. If we are careful about always merging the
 // "smaller" node into the "larger" one, we can do these merges cheaply (amortized).
+// Note that an abstract term does not have a "head", so its term_type is the type
+// that it has after all the args are replaced with substitutions.
 pub struct TermInfo {
     term_type: TypeId,
     arg_types: Vec<TypeId>,
@@ -32,7 +34,7 @@ pub type TermId = u32;
 // Each atom has a default expansion, represented by term, but we also
 // need to track the type of the atom itself, so that we know how to extract it.
 pub struct AtomInfo {
-    atom_type: TypeId,
+    head_type: TypeId,
     term: TermId,
 }
 
@@ -247,21 +249,29 @@ pub type EdgeId = u32;
 
 impl EdgeInfo {}
 
-// The canonical form of a term can either be an atom, or it can be a particular way
-// of constructing this term.
+// The canonical form of a term can be:
+//   a plain atom
+//   a way of recursively constructing this term
+//   a generic template for a type like x0(x1, x2) with no items specified
 enum CanonicalForm {
     Atom(Atom),
     Edge(EdgeId),
+    TypeTemplate(TypeId),
 }
 
 pub struct TermGraph {
     terms: Vec<TermInfo>,
     edges: Vec<EdgeInfo>,
 
-    // We expand atoms into different terms depending on the number of arguments they
-    // have. This lets us handle, for example, "add(2, 3)" and "reduce(add, mylist)".
+    // We expand non-variable atoms into different terms depending on the number of
+    // arguments they have. This lets us handle, for example, "add(2, 3)" and "reduce(add, mylist)".
     // The second parameter to the index is the number of arguments.
     atoms: HashMap<(Atom, u8), AtomInfo>,
+
+    // Templates that let us expand terms where the head is a variable.
+    // Keyed on the type of the head.
+    // This lets us represent terms like x0(x1, x2).
+    type_templates: HashMap<TypeId, TermId, BuildNoHashHasher<TypeId>>,
 
     // Maps (template, replacement) -> edges
     edgemap: FxHashMap<EdgeKey, EdgeId>,
@@ -270,9 +280,10 @@ pub struct TermGraph {
 impl TermGraph {
     pub fn new() -> TermGraph {
         TermGraph {
-            atoms: HashMap::default(),
             terms: Vec::new(),
             edges: Vec::new(),
+            atoms: HashMap::default(),
+            type_templates: HashMap::default(),
             edgemap: HashMap::default(),
         }
     }
@@ -293,6 +304,7 @@ impl TermGraph {
     // If it's already in the graph, returns the existing term with an appropriate instance.
     // Otherwise, creates a new edge and a new term and returns the new term.
     // Should not be called on noop keys or unnormalized keys.
+    // The type of the output is the same as the type of the key's template.
     pub fn insert_edge(&mut self, key: EdgeKey) -> &TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edgemap.get(&key) {
@@ -426,24 +438,49 @@ impl TermGraph {
             return Replacement::Rename(i);
         }
 
-        // Get the head
-        if term.head.is_variable() {
-            todo!("handle the case where the head is a variable");
+        // Handle the case where the head is a variable
+        if let Atom::Variable(i) = term.head {
+            let type_template = self
+                .type_templates
+                .entry(term.head_type)
+                .or_insert_with(|| {
+                    let type_template = self.terms.len() as TermId;
+                    self.terms.push(TermInfo {
+                        term_type: term.term_type,
+                        arg_types: term.args.iter().map(|a| a.term_type).collect(),
+                        adjacent: HashSet::default(),
+                        canonical: CanonicalForm::TypeTemplate(term.head_type),
+                    });
+                    type_template
+                });
+            let var_map = (0..term.args.len() as AtomId).collect();
+            let template_instance = TermInstance {
+                term: *type_template,
+                var_map,
+            };
+
+            let mut replacements = vec![Replacement::Rename(i)];
+            for arg in &term.args {
+                replacements.push(self.insert_term(arg));
+            }
+            return Replacement::Expand(self.replace(&template_instance, &replacements));
         }
+
+        // Handle the (much more common) case where the head is not a variable
         let atom_key = (term.head, term.args.len() as u8);
         let head_id = if let Some(atom_info) = self.atoms.get(&atom_key) {
             atom_info.term
         } else {
             let head_id = self.terms.len() as TermId;
             self.terms.push(TermInfo {
-                term_type: term.head_type,
+                term_type: term.term_type,
                 arg_types: term.args.iter().map(|a| a.term_type).collect(),
                 adjacent: HashSet::default(),
                 canonical: CanonicalForm::Atom(term.head),
             });
             let atom_info = AtomInfo {
                 term: head_id,
-                atom_type: term.head_type,
+                head_type: term.head_type,
             };
             self.atoms.insert(atom_key, atom_info);
             head_id
@@ -470,7 +507,7 @@ impl TermGraph {
                 };
                 return Term {
                     term_type: term_info.term_type,
-                    head_type: atom_info.atom_type,
+                    head_type: atom_info.head_type,
                     head: a,
                     args: term_info
                         .arg_types
@@ -481,6 +518,16 @@ impl TermGraph {
                 };
             }
             CanonicalForm::Edge(edge_id) => &self.edges[edge_id as usize],
+            CanonicalForm::TypeTemplate(type_id) => {
+                return Term {
+                    term_type: term_info.term_type,
+                    head_type: type_id,
+                    head: Atom::Variable(0),
+                    args: (0..term_info.arg_types.len() as AtomId)
+                        .map(|i| Term::atom(type_id, Atom::Variable(i + 1)))
+                        .collect(),
+                };
+            }
         };
 
         // Construct a Term according to the information provided by the edge
@@ -571,5 +618,10 @@ mod tests {
     #[test]
     fn test_functional_arguments() {
         insert_and_extract(&["a0(x0)", "a0"]);
+    }
+
+    #[test]
+    fn test_variable_heads() {
+        insert_and_extract(&["x0(x1)"]);
     }
 }
