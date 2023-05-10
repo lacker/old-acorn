@@ -445,15 +445,18 @@ impl TermGraph {
                 .entry(term.head_type)
                 .or_insert_with(|| {
                     let type_template = self.terms.len() as TermId;
+                    // The head of the term counts as one of the args in the template
+                    let mut arg_types = vec![term.head_type];
+                    arg_types.extend(term.args.iter().map(|a| a.term_type));
                     self.terms.push(TermInfo {
                         term_type: term.term_type,
-                        arg_types: term.args.iter().map(|a| a.term_type).collect(),
+                        arg_types,
                         adjacent: HashSet::default(),
                         canonical: CanonicalForm::TypeTemplate(term.head_type),
                     });
                     type_template
                 });
-            let var_map = (0..term.args.len() as AtomId).collect();
+            let var_map = (0..(term.args.len() + 1) as AtomId).collect();
             let template_instance = TermInstance {
                 term: *type_template,
                 var_map,
@@ -523,7 +526,7 @@ impl TermGraph {
                     term_type: term_info.term_type,
                     head_type: type_id,
                     head: Atom::Variable(0),
-                    args: (0..term_info.arg_types.len() as AtomId)
+                    args: (0..(term_info.arg_types.len() - 1) as AtomId)
                         .map(|i| Term::atom(type_id, Atom::Variable(i + 1)))
                         .collect(),
                 };
@@ -587,6 +590,7 @@ mod tests {
         for s in term_strings {
             let input = Term::parse(s);
             let ti = g.insert_term(&input).assert_is_expansion();
+            println!("extracting {}", s);
             let output = g.extract_term_instance(&ti);
             if input != output {
                 panic!("\ninput {} != output {}\n", input, output);
@@ -622,6 +626,6 @@ mod tests {
 
     #[test]
     fn test_variable_heads() {
-        insert_and_extract(&["x0(x1)"]);
+        insert_and_extract(&["x0(x1)", "x0(x1(x2))"]);
     }
 }
