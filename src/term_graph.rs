@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 use fxhash::FxHashMap;
 use nohash_hasher::BuildNoHashHasher;
@@ -52,6 +53,19 @@ pub struct TermInstance {
     var_map: Vec<AtomId>,
 }
 
+impl fmt::Display for TermInstance {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "t{}(", self.term)?;
+        for (i, &var) in self.var_map.iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "x{} -> x{}", i, var)?;
+        }
+        write!(f, ")")
+    }
+}
+
 impl TermInstance {
     // Panics if there is a logical inconsistency
     pub fn check(&self) {
@@ -75,6 +89,15 @@ impl TermInstance {
 pub enum Replacement {
     Rename(AtomId),
     Expand(TermInstance),
+}
+
+impl fmt::Display for Replacement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Replacement::Rename(var) => write!(f, "x{}", var),
+            Replacement::Expand(term) => write!(f, "{}", term),
+        }
+    }
 }
 
 impl Replacement {
@@ -116,6 +139,19 @@ pub struct EdgeKey {
     replacements: Vec<Replacement>,
 }
 
+impl fmt::Display for EdgeKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "t{}[", self.template)?;
+        for (i, replacement) in self.replacements.iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "x{} -> {}", i, replacement)?;
+        }
+        write!(f, "]")
+    }
+}
+
 impl EdgeKey {
     // Panics if this edge is not normalized.
     pub fn check(&self) {
@@ -153,7 +189,7 @@ impl EdgeKey {
 //   [2, 4, 6]
 fn normalize_replacements(replacements: &Vec<Replacement>) -> (Vec<Replacement>, Vec<AtomId>) {
     let mut new_replacements = vec![];
-    let mut new_to_old = vec![];
+    let mut new_to_old: Vec<AtomId> = vec![];
     for r in replacements {
         match r {
             Replacement::Rename(old_var) => {
@@ -190,6 +226,14 @@ fn normalize_replacements(replacements: &Vec<Replacement>) -> (Vec<Replacement>,
         }
     }
     (new_replacements, new_to_old)
+}
+
+// Returns whether this list of replacements is the noop that renames x_i to x_i for all i.
+fn replacements_are_noop(replacements: &Vec<Replacement>) -> bool {
+    replacements
+        .iter()
+        .enumerate()
+        .all(|(i, r)| *r == Replacement::Rename(i as AtomId))
 }
 
 pub struct EdgeInfo {
@@ -242,9 +286,9 @@ impl TermGraph {
     }
 
     // Returns the term that is the result of the given substitution.
-    // If it's already in the graph, returns the existing term.
+    // If it's already in the graph, returns the existing term with an appropriate instance.
     // Otherwise, creates a new edge and a new term and returns the new term.
-    // key must be normalized.
+    // Should not be called on noop keys or unnormalized keys.
     pub fn insert_edge(&mut self, key: EdgeKey) -> &TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edgemap.get(&key) {
@@ -345,6 +389,13 @@ impl TermGraph {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
         let (new_replacements, new_to_old) = normalize_replacements(&replacements);
+        if replacements_are_noop(&new_replacements) {
+            // No need to even do a substitution
+            return TermInstance {
+                term: template.term,
+                var_map: new_to_old,
+            };
+        }
         let new_term = self.insert_edge(EdgeKey {
             template: template.term,
             replacements: new_replacements,
