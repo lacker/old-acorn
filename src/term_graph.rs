@@ -30,7 +30,7 @@ pub type TermId = u32;
 
 // Information about how an atom gets turned into a term.
 // Each atom has a default expansion, represented by term, but we also
-// need to track the type of the atom itself.
+// need to track the type of the atom itself, so that we know how to extract it.
 pub struct AtomInfo {
     atom_type: TypeId,
     term: TermId,
@@ -255,9 +255,13 @@ enum CanonicalForm {
 }
 
 pub struct TermGraph {
-    atoms: HashMap<Atom, AtomInfo>,
     terms: Vec<TermInfo>,
     edges: Vec<EdgeInfo>,
+
+    // We expand atoms into different terms depending on the number of arguments they
+    // have. This lets us handle, for example, "add(2, 3)" and "reduce(add, mylist)".
+    // The second parameter to the index is the number of arguments.
+    atoms: HashMap<(Atom, u8), AtomInfo>,
 
     // Maps (template, replacement) -> edges
     edgemap: FxHashMap<EdgeKey, EdgeId>,
@@ -281,8 +285,8 @@ impl TermGraph {
         &self.edges[edge as usize]
     }
 
-    pub fn get_atom_info(&self, atom: Atom) -> &AtomInfo {
-        self.atoms.get(&atom).unwrap()
+    pub fn get_atom_info(&self, atom: Atom, num_args: u8) -> &AtomInfo {
+        self.atoms.get(&(atom, num_args)).unwrap()
     }
 
     // Returns the term that is the result of the given substitution.
@@ -426,7 +430,8 @@ impl TermGraph {
         if term.head.is_variable() {
             todo!("handle the case where the head is a variable");
         }
-        let head_id = if let Some(atom_info) = self.atoms.get(&term.head) {
+        let atom_key = (term.head, term.args.len() as u8);
+        let head_id = if let Some(atom_info) = self.atoms.get(&atom_key) {
             atom_info.term
         } else {
             let head_id = self.terms.len() as TermId;
@@ -440,7 +445,7 @@ impl TermGraph {
                 term: head_id,
                 atom_type: term.head_type,
             };
-            self.atoms.insert(term.head, atom_info);
+            self.atoms.insert(atom_key, atom_info);
             head_id
         };
         let head_var_map: Vec<_> = (0..term.args.len() as AtomId).collect();
@@ -458,7 +463,11 @@ impl TermGraph {
         let term_info = self.get_term_info(term_id);
         let edge_info = match term_info.canonical {
             CanonicalForm::Atom(a) => {
-                let atom_info = self.get_atom_info(a);
+                let atom_key = (a, term_info.arg_types.len() as u8);
+                let atom_info = match self.atoms.get(&atom_key) {
+                    Some(atom_info) => atom_info,
+                    None => panic!("atom key {:?} cannot be extracted", atom_key),
+                };
                 return Term {
                     term_type: term_info.term_type,
                     head_type: atom_info.atom_type,
@@ -526,10 +535,22 @@ impl TermGraph {
 mod tests {
     use super::*;
 
+    fn insert_and_extract(term_strings: &[&str]) {
+        let mut g = TermGraph::new();
+        for s in term_strings {
+            let input = Term::parse(s);
+            let ti = g.insert_term(&input).assert_is_expansion();
+            let output = g.extract_term_instance(&ti);
+            if input != output {
+                panic!("\ninput {} != output {}\n", input, output);
+            }
+        }
+        g.check();
+    }
+
     #[test]
     fn test_graph_insert_and_extract() {
-        let mut g = TermGraph::new();
-        for s in &[
+        insert_and_extract(&[
             "a0",
             "a1(x0)",
             "a1(x1)",
@@ -544,15 +565,11 @@ mod tests {
             "a2(a2(x1, x0), a2(x0, x2))",
             "a2(a2(x0, x2), a2(x1, x0))",
             "a3(x0, a3(x1, a3(x0, x1, x0), a0), x1)",
-        ] {
-            let input = Term::parse(s);
-            let ti = g.insert_term(&input).assert_is_expansion();
-            let output = g.extract_term_instance(&ti);
-            if input != output {
-                panic!("\ninput {} != output {}\n", input, output);
-            }
-        }
+        ]);
+    }
 
-        g.check();
+    #[test]
+    fn test_functional_arguments() {
+        insert_and_extract(&["a0(x0)", "a0"]);
     }
 }
