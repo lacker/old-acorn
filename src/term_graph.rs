@@ -300,12 +300,13 @@ impl TermGraph {
         self.atoms.get(&(atom, num_args)).unwrap()
     }
 
-    // Returns the term that is the result of the given substitution.
-    // If it's already in the graph, returns the existing term with an appropriate instance.
-    // Otherwise, creates a new edge and a new term and returns the new term.
+    // An EdgeKey represents a substitution. It can exist before the analogous edge
+    // in the graph exists.
+    // This method creates the analogous edge and term if they don't already exist.
+    // Returns the term that this edge leads to.
     // Should not be called on noop keys or unnormalized keys.
     // The type of the output is the same as the type of the key's template.
-    pub fn insert_edge(&mut self, key: EdgeKey) -> &TermInstance {
+    pub fn expand_edge_key(&mut self, key: EdgeKey) -> &TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edgemap.get(&key) {
             return &self.edges[*edge_id as usize].result;
@@ -412,7 +413,7 @@ impl TermGraph {
                 var_map: new_to_old,
             };
         }
-        let new_term = self.insert_edge(EdgeKey {
+        let new_term = self.expand_edge_key(EdgeKey {
             template: template.term,
             replacements: new_replacements,
         });
