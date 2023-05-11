@@ -377,7 +377,11 @@ impl TermGraph {
     }
 
     pub fn get_term_info(&self, term: TermId) -> &TermInfo {
-        self.terms[term as usize].as_ref().unwrap()
+        if let Some(ti) = self.terms[term as usize].as_ref() {
+            ti
+        } else {
+            panic!("term {} not found", term);
+        }
     }
 
     fn mut_term_info(&mut self, term: TermId) -> &mut TermInfo {
@@ -751,8 +755,13 @@ impl TermGraph {
 
     // An expensive checking that everything in the graph is coherent.
     pub fn check(&self) {
+        println!();
         let mut all_terms: HashSet<String> = HashSet::new();
         for term_id in 0..self.terms.len() {
+            if self.terms[term_id].is_none() {
+                println!("term {} has been collapsed", term_id);
+                continue;
+            }
             let term = self.extract_term_id(term_id as TermId);
             let s = term.to_string();
             println!("term {}: {}", term_id, s);
