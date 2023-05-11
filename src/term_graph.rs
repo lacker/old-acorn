@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
@@ -55,6 +56,23 @@ pub struct TermInstance {
     var_map: Vec<AtomId>,
 }
 
+fn invert_var_map(var_map: &Vec<AtomId>) -> Vec<AtomId> {
+    let invalid = var_map.len() as AtomId;
+    let mut result = vec![invalid; var_map.len()];
+    for (i, &var) in var_map.iter().enumerate() {
+        if result[var as usize] != invalid {
+            panic!("Duplicate variable in var_map");
+        }
+        result[var as usize] = i as AtomId;
+    }
+    result
+}
+
+// Composes two var_maps by applying the left one first, then the right one.
+fn compose_var_maps(left: &Vec<AtomId>, right: &Vec<AtomId>) -> Vec<AtomId> {
+    left.iter().map(|&var| right[var as usize]).collect()
+}
+
 impl fmt::Display for TermInstance {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "t{}(", self.term)?;
@@ -71,16 +89,7 @@ impl fmt::Display for TermInstance {
 impl TermInstance {
     // Panics if there is a logical inconsistency
     pub fn check(&self) {
-        let mut reverse_map = vec![None; self.var_map.len()];
-        for (i, &var) in self.var_map.iter().enumerate() {
-            if let Some(old) = reverse_map[var as usize] {
-                panic!(
-                    "TermInstance has two variables named {} (at {} and {})",
-                    var, i, old
-                );
-            }
-            reverse_map[var as usize] = Some(i as AtomId);
-        }
+        invert_var_map(&self.var_map);
     }
 }
 
@@ -238,6 +247,7 @@ fn replacements_are_noop(replacements: &Vec<Replacement>) -> bool {
         .all(|(i, r)| *r == Replacement::Rename(i as AtomId))
 }
 
+#[derive(Debug)]
 pub struct EdgeInfo {
     // The parameters that determine the substitution
     key: EdgeKey,
@@ -247,7 +257,12 @@ pub struct EdgeInfo {
 }
 pub type EdgeId = u32;
 
-impl EdgeInfo {}
+impl EdgeInfo {
+    // Create a new edge with all use of TermId replaced by the new term instance
+    fn identify_terms(&self, old_term_id: TermId, new_term: &TermInstance) -> EdgeInfo {
+        todo!("EdgeInfo::identify_term_id {} {}", old_term_id, new_term);
+    }
+}
 
 // The canonical form of a term can be:
 //   a plain atom
@@ -260,8 +275,10 @@ enum CanonicalForm {
 }
 
 pub struct TermGraph {
-    terms: Vec<TermInfo>,
-    edges: Vec<EdgeInfo>,
+    // We replace elements of terms or edges with None when they are replaced with
+    // an identical one that we have chosen to be the canonical one.
+    terms: Vec<Option<TermInfo>>,
+    edges: Vec<Option<EdgeInfo>>,
 
     // We expand non-variable atoms into different terms depending on the number of
     // arguments they have. This lets us handle, for example, "add(2, 3)" and "reduce(add, mylist)".
@@ -289,11 +306,27 @@ impl TermGraph {
     }
 
     pub fn get_term_info(&self, term: TermId) -> &TermInfo {
-        &self.terms[term as usize]
+        self.terms[term as usize].as_ref().unwrap()
+    }
+
+    fn mut_term_info(&mut self, term: TermId) -> &mut TermInfo {
+        self.terms[term as usize].as_mut().unwrap()
+    }
+
+    fn take_term_info(&mut self, term: TermId) -> TermInfo {
+        self.terms[term as usize].take().unwrap()
     }
 
     pub fn get_edge_info(&self, edge: EdgeId) -> &EdgeInfo {
-        &self.edges[edge as usize]
+        &self.edges[edge as usize].as_ref().unwrap()
+    }
+
+    pub fn set_edge_info(&mut self, edge: EdgeId, info: EdgeInfo) {
+        self.edges[edge as usize] = Some(info);
+    }
+
+    fn take_edge_info(&mut self, edge: EdgeId) -> EdgeInfo {
+        self.edges[edge as usize].take().unwrap()
     }
 
     pub fn get_atom_info(&self, atom: Atom, num_args: u8) -> &AtomInfo {
@@ -306,10 +339,10 @@ impl TermGraph {
     // Returns the term that this edge leads to.
     // Should not be called on noop keys or unnormalized keys.
     // The type of the output is the same as the type of the key's template.
-    pub fn expand_edge_key(&mut self, key: EdgeKey) -> &TermInstance {
+    fn expand_edge_key(&mut self, key: EdgeKey) -> &TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edgemap.get(&key) {
-            return &self.edges[*edge_id as usize].result;
+            return &self.get_edge_info(*edge_id).result;
         }
 
         // Figure out the type signature of our new term
@@ -383,20 +416,21 @@ impl TermGraph {
         };
 
         // Insert everything into the graph
-        self.terms.push(term_info);
-        self.terms[key.template as usize].adjacent.insert(edge_id);
+        self.terms.push(Some(term_info));
+        self.mut_term_info(key.template).adjacent.insert(edge_id);
         for r in &key.replacements {
             if let Replacement::Expand(term) = r {
-                self.terms[term.term as usize].adjacent.insert(edge_id);
+                self.mut_term_info(term.term).adjacent.insert(edge_id);
             }
         }
-        self.edges.push(edge_info);
+        self.edges.push(Some(edge_info));
         self.edgemap.insert(key, edge_id);
 
-        &self.edges[edge_id as usize].result
+        &self.get_edge_info(edge_id).result
     }
 
     // Does a substitution with the given template and replacements.
+    // Creates new entries in the term graph if necessary.
     // This does not have to be normalized.
     pub fn replace(
         &mut self,
@@ -449,12 +483,12 @@ impl TermGraph {
                     // The head of the term counts as one of the args in the template
                     let mut arg_types = vec![term.head_type];
                     arg_types.extend(term.args.iter().map(|a| a.term_type));
-                    self.terms.push(TermInfo {
+                    self.terms.push(Some(TermInfo {
                         term_type: term.term_type,
                         arg_types,
                         adjacent: HashSet::default(),
                         canonical: CanonicalForm::TypeTemplate(term.head_type),
-                    });
+                    }));
                     type_template
                 });
             let var_map = (0..(term.args.len() + 1) as AtomId).collect();
@@ -476,12 +510,12 @@ impl TermGraph {
             atom_info.term
         } else {
             let head_id = self.terms.len() as TermId;
-            self.terms.push(TermInfo {
+            self.terms.push(Some(TermInfo {
                 term_type: term.term_type,
                 arg_types: term.args.iter().map(|a| a.term_type).collect(),
                 adjacent: HashSet::default(),
                 canonical: CanonicalForm::Atom(term.head),
-            });
+            }));
             let atom_info = AtomInfo {
                 term: head_id,
                 head_type: term.head_type,
@@ -521,7 +555,7 @@ impl TermGraph {
                         .collect(),
                 };
             }
-            CanonicalForm::Edge(edge_id) => &self.edges[edge_id as usize],
+            CanonicalForm::Edge(edge_id) => self.get_edge_info(edge_id),
             CanonicalForm::TypeTemplate(type_id) => {
                 return Term {
                     term_type: term_info.term_type,
@@ -563,6 +597,86 @@ impl TermGraph {
         let unmapped_term = self.extract_term_id(instance.term);
         let answer = unmapped_term.remap_variables(&instance.var_map);
         answer
+    }
+
+    // Calling this method signifies that old_term_id and new_term refer to the same abstract term.
+    // Replaces all references to old_term_id with references to new_term.
+    fn identify_terms(&mut self, old_term_id: TermId, new_term: &TermInstance) {
+        let old_term_info = self.take_term_info(old_term_id);
+
+        // Update any constructors that created this term
+        match old_term_info.canonical {
+            CanonicalForm::Edge(_) => {
+                // This will be handled by edge updating
+            }
+            _ => {
+                todo!("handle updating constructor case");
+            }
+        }
+
+        // Update all edges that touch this term
+        for edge_id in old_term_info.adjacent {
+            let old_edge_info = self.take_edge_info(edge_id);
+            let new_edge_info = old_edge_info.identify_terms(old_term_id, new_term);
+            if old_edge_info.key == new_edge_info.key {
+                // We didn't change the key. Just update the edge info.
+                self.set_edge_info(edge_id, new_edge_info);
+                continue;
+            }
+
+            // We did change the key.
+            if self.edgemap.contains_key(&new_edge_info.key) {
+                // This is a tricky case. There's a duplicate edge.
+                // That means that a particular substitution is equal to two different terms.
+                // We need to identify those terms.
+                todo!("handle duplicate edge case");
+            }
+
+            // We're good to go. Update the edge.
+            self.edgemap.insert(new_edge_info.key.clone(), edge_id);
+            self.set_edge_info(edge_id, new_edge_info);
+            self.edgemap.remove(&old_edge_info.key);
+        }
+    }
+
+    // A heuristic. The bigger this number is, the harder it is to change this term.
+    fn inertia(&self, term_id: TermId) -> usize {
+        self.get_term_info(term_id).adjacent.len()
+    }
+
+    fn inertia_order(&self, left: TermId, right: TermId) -> Ordering {
+        // Compare inertia first, reversed term ids second
+        self.inertia(left)
+            .cmp(&self.inertia(right))
+            .then(right.cmp(&left))
+    }
+
+    pub fn identify_term_instances(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
+        if instance1.term == instance2.term {
+            if instance1.var_map == instance2.var_map {
+                // Nothing to do
+                return;
+            }
+            todo!("handle permutations of variables");
+        }
+
+        // Discard the term with the lowest inertia
+        let (discard, keep) = match self.inertia_order(instance1.term, instance2.term) {
+            Ordering::Less => (instance1, instance2),
+            Ordering::Greater => (instance2, instance1),
+            Ordering::Equal => {
+                panic!("flow control error, code should not reach here");
+            }
+        };
+
+        // Find a TermInstance equal to the term to be discarded
+        let new_var_map = compose_var_maps(&keep.var_map, &invert_var_map(&discard.var_map));
+        let new_instance = TermInstance {
+            term: keep.term,
+            var_map: new_var_map,
+        };
+
+        self.identify_terms(discard.term, &new_instance);
     }
 
     // An expensive checking that everything in the graph is coherent.
