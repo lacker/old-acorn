@@ -277,7 +277,25 @@ pub struct EdgeInfo {
 }
 pub type EdgeId = u32;
 
+impl fmt::Display for EdgeInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} -> {}", self.key, self.result)
+    }
+}
+
 impl EdgeInfo {
+    fn adjacent_terms(&self) -> Vec<TermId> {
+        let mut terms = vec![];
+        terms.push(self.key.template);
+        terms.push(self.result.term);
+        for replacement in &self.key.replacements {
+            if let Replacement::Expand(term) = replacement {
+                terms.push(term.term);
+            }
+        }
+        terms
+    }
+
     // Create a new edge with all use of TermId replaced by the new term instance
     fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> EdgeInfo {
         // The result and the replacements are relatively straightforward, we just recurse.
@@ -376,6 +394,10 @@ impl TermGraph {
         }
     }
 
+    pub fn has_term_info(&self, term: TermId) -> bool {
+        self.terms[term as usize].is_some()
+    }
+
     pub fn get_term_info(&self, term: TermId) -> &TermInfo {
         if let Some(ti) = self.terms[term as usize].as_ref() {
             ti
@@ -390,6 +412,10 @@ impl TermGraph {
 
     fn take_term_info(&mut self, term: TermId) -> TermInfo {
         self.terms[term as usize].take().unwrap()
+    }
+
+    pub fn has_edge_info(&self, edge: EdgeId) -> bool {
+        self.edges[edge as usize].is_some()
     }
 
     pub fn get_edge_info(&self, edge: EdgeId) -> &EdgeInfo {
@@ -753,26 +779,59 @@ impl TermGraph {
         self.replace_term_id(discard.term, &new_instance);
     }
 
-    // An expensive checking that everything in the graph is coherent.
+    // A linear pass through the graph checking that everything is consistent.
     pub fn check(&self) {
         println!();
         let mut all_terms: HashSet<String> = HashSet::new();
         for term_id in 0..self.terms.len() {
-            if self.terms[term_id].is_none() {
+            let term_id = term_id as TermId;
+            if !self.has_term_info(term_id) {
                 println!("term {} has been collapsed", term_id);
                 continue;
             }
+            let term_info = self.get_term_info(term_id);
+            for edge_id in &term_info.adjacent {
+                if !self.has_edge_info(*edge_id) {
+                    panic!("term {} refers to collapsed edge {}", term_id, edge_id);
+                }
+                let edge_info = self.get_edge_info(*edge_id);
+                if !edge_info.adjacent_terms().contains(&term_id) {
+                    panic!(
+                        "term {} thinks it is adjacent to edge {} but not vice versa",
+                        term_id, edge_id
+                    );
+                }
+            }
+
             let term = self.extract_term_id(term_id as TermId);
             let s = term.to_string();
             println!("term {}: {}", term_id, s);
+
             // This check can raise a false alarm with type templates, for which
             // different ones can stringify the same
             assert!(!all_terms.contains(&s), "duplicate term: {}", s);
+
             all_terms.insert(s);
         }
 
-        for key in self.edgemap.keys() {
+        for (key, edge_id) in self.edgemap.iter() {
             key.check();
+            if !self.has_edge_info(*edge_id) {
+                panic!("edge {} has been collapsed", edge_id);
+            }
+            let edge_info = self.get_edge_info(*edge_id);
+            for term_id in edge_info.adjacent_terms().iter() {
+                if !self.has_term_info(*term_id) {
+                    panic!("edge {} refers to collapsed term {}", edge_info, term_id);
+                }
+                let term_info = self.get_term_info(*term_id);
+                if !term_info.adjacent.contains(edge_id) {
+                    panic!(
+                        "edge {} thinks it is adjacent to term {} but not vice versa",
+                        edge_info, term_id
+                    );
+                }
+            }
         }
     }
 }
