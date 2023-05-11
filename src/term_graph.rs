@@ -91,6 +91,17 @@ impl TermInstance {
     pub fn check(&self) {
         invert_var_map(&self.var_map);
     }
+
+    // Replaces any use of old_term_id with a new term instance.
+    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> TermInstance {
+        if self.term != old_term_id {
+            return self.clone();
+        }
+        TermInstance {
+            term: new_term.term,
+            var_map: compose_var_maps(&new_term.var_map, &self.var_map),
+        }
+    }
 }
 
 // The different ways to replace a single variable in a substitution.
@@ -128,6 +139,15 @@ impl Replacement {
         match self {
             Replacement::Rename(_) => panic!("Expected an expansion, got a rename"),
             Replacement::Expand(term) => term,
+        }
+    }
+
+    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> Replacement {
+        match self {
+            Replacement::Rename(var) => Replacement::Rename(*var),
+            Replacement::Expand(term) => {
+                Replacement::Expand(term.replace_term_id(old_term_id, new_term))
+            }
         }
     }
 }
@@ -259,8 +279,59 @@ pub type EdgeId = u32;
 
 impl EdgeInfo {
     // Create a new edge with all use of TermId replaced by the new term instance
-    fn identify_terms(&self, old_term_id: TermId, new_term: &TermInstance) -> EdgeInfo {
-        todo!("EdgeInfo::identify_term_id {} {}", old_term_id, new_term);
+    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> EdgeInfo {
+        // The result and the replacements are relatively straightforward, we just recurse.
+        let new_result = self.result.replace_term_id(old_term_id, new_term);
+        let new_replacements: Vec<_> = self
+            .key
+            .replacements
+            .iter()
+            .map(|replacement| replacement.replace_term_id(old_term_id, new_term))
+            .collect();
+
+        if self.key.template != old_term_id {
+            // Great, we're done
+            return EdgeInfo {
+                key: EdgeKey {
+                    template: self.key.template,
+                    replacements: new_replacements,
+                },
+                result: new_result,
+            };
+        }
+
+        // Replacing the template is trickier, because we could be reordering
+        // the variables, and thus the canonical form could be changing.
+        let mut reordered_replacements = vec![None; new_replacements.len()];
+
+        for (i, j) in new_term.var_map.iter().enumerate() {
+            // x_i in the old term is x_j in the new term.
+            reordered_replacements[*j as usize] = Some(self.key.replacements[i].clone());
+        }
+
+        // We shouldn't have missed any
+        let unwrapped_replacements: Vec<_> = reordered_replacements
+            .into_iter()
+            .map(|replacement| replacement.unwrap())
+            .collect();
+
+        // We need to renormalize because reordering may have denormalized it
+        let (normalized, new_to_old) = normalize_replacements(&unwrapped_replacements);
+        let var_map = new_result
+            .var_map
+            .iter()
+            .map(|&v| new_to_old[v as usize])
+            .collect();
+        EdgeInfo {
+            key: EdgeKey {
+                template: new_term.term,
+                replacements: normalized,
+            },
+            result: TermInstance {
+                term: new_result.term,
+                var_map,
+            },
+        }
     }
 }
 
@@ -599,9 +670,8 @@ impl TermGraph {
         answer
     }
 
-    // Calling this method signifies that old_term_id and new_term refer to the same abstract term.
     // Replaces all references to old_term_id with references to new_term.
-    fn identify_terms(&mut self, old_term_id: TermId, new_term: &TermInstance) {
+    fn replace_term_id(&mut self, old_term_id: TermId, new_term: &TermInstance) {
         let old_term_info = self.take_term_info(old_term_id);
 
         // Update any constructors that created this term
@@ -617,7 +687,7 @@ impl TermGraph {
         // Update all edges that touch this term
         for edge_id in old_term_info.adjacent {
             let old_edge_info = self.take_edge_info(edge_id);
-            let new_edge_info = old_edge_info.identify_terms(old_term_id, new_term);
+            let new_edge_info = old_edge_info.replace_term_id(old_term_id, new_term);
             if old_edge_info.key == new_edge_info.key {
                 // We didn't change the key. Just update the edge info.
                 self.set_edge_info(edge_id, new_edge_info);
@@ -651,7 +721,7 @@ impl TermGraph {
             .then(right.cmp(&left))
     }
 
-    pub fn identify_term_instances(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
+    pub fn identify_terms(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
         if instance1.term == instance2.term {
             if instance1.var_map == instance2.var_map {
                 // Nothing to do
@@ -676,7 +746,7 @@ impl TermGraph {
             var_map: new_var_map,
         };
 
-        self.identify_terms(discard.term, &new_instance);
+        self.replace_term_id(discard.term, &new_instance);
     }
 
     // An expensive checking that everything in the graph is coherent.
@@ -751,5 +821,23 @@ mod tests {
             "x3(x1(x2), x1(a0))",
             "x4(a1(x8, x3), x0(x1), x0(a2))",
         ]);
+    }
+
+    #[test]
+    fn test_identifying_terms() {
+        let mut g = TermGraph::new();
+        let a0 = g.insert_term(&Term::parse("a0(a3)")).assert_is_expansion();
+        let a1 = g.insert_term(&Term::parse("a1(a3)")).assert_is_expansion();
+        g.check();
+        g.identify_terms(&a0, &a1);
+        g.check();
+        let a2a0 = g
+            .insert_term(&Term::parse("a2(a0(a3))"))
+            .assert_is_expansion();
+        let a2a1 = g
+            .insert_term(&Term::parse("a2(a1(a3))"))
+            .assert_is_expansion();
+        g.check();
+        assert_eq!(a2a0, a2a1);
     }
 }
