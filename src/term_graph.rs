@@ -917,4 +917,18 @@ mod tests {
         g.check();
         assert_eq!(a2a0, a2a1);
     }
+
+    #[test]
+    fn test_updating_constructor() {
+        let mut g = TermGraph::new();
+        let a0 = g.insert_term(&Term::parse("a0")).assert_is_expansion();
+        let a1 = g.insert_term(&Term::parse("a1")).assert_is_expansion();
+        g.check();
+        g.identify_terms(&a0, &a1);
+        g.check();
+        let a2a0 = g.insert_term(&Term::parse("a2(a0)")).assert_is_expansion();
+        let a2a1 = g.insert_term(&Term::parse("a2(a1)")).assert_is_expansion();
+        g.check();
+        assert_eq!(a2a0, a2a1);
+    }
 }
