@@ -853,6 +853,13 @@ impl TermGraph {
             }
         }
     }
+
+    pub fn parse(&mut self, term_string: &str) -> TermInstance {
+        let term = Term::parse(term_string);
+        let term_instance = self.insert_term(&term).assert_is_expansion();
+        self.check();
+        term_instance
+    }
 }
 
 #[cfg(test)]
@@ -862,14 +869,13 @@ mod tests {
     fn insert_and_extract(term_strings: &[&str]) {
         let mut g = TermGraph::new();
         for s in term_strings {
-            let input = Term::parse(s);
             println!("inserting {}", s);
-            let ti = g.insert_term(&input).assert_is_expansion();
-            g.check();
+            let ti = g.parse(s);
             println!("extracting {}", s);
             let output = g.extract_term_instance(&ti);
-            if input != output {
-                panic!("\ninput {} != output {}\n", input, output);
+            let output_str = output.to_string();
+            if s.to_string() != output_str {
+                panic!("\ninput {} != output {}\n", s, output_str);
             }
             println!("  OK\n");
         }
@@ -913,32 +919,38 @@ mod tests {
     #[test]
     fn test_identifying_terms() {
         let mut g = TermGraph::new();
-        let a0 = g.insert_term(&Term::parse("a0(a3)")).assert_is_expansion();
-        let a1 = g.insert_term(&Term::parse("a1(a3)")).assert_is_expansion();
-        g.check();
+        let a0 = g.parse("a0(a3)");
+        let a1 = g.parse("a1(a3)");
         g.identify_terms(&a0, &a1);
         g.check();
-        let a2a0 = g
-            .insert_term(&Term::parse("a2(a0(a3))"))
-            .assert_is_expansion();
-        let a2a1 = g
-            .insert_term(&Term::parse("a2(a1(a3))"))
-            .assert_is_expansion();
-        g.check();
+        let a2a0 = g.parse("a2(a0(a3))");
+        let a2a1 = g.parse("a2(a1(a3))");
         assert_eq!(a2a0, a2a1);
     }
 
     #[test]
     fn test_updating_constructor() {
         let mut g = TermGraph::new();
-        let a0 = g.insert_term(&Term::parse("a0")).assert_is_expansion();
-        let a1 = g.insert_term(&Term::parse("a1")).assert_is_expansion();
-        g.check();
+        let a0 = g.parse("a0");
+        let a1 = g.parse("a1");
         g.identify_terms(&a0, &a1);
         g.check();
-        let a2a0 = g.insert_term(&Term::parse("a2(a0)")).assert_is_expansion();
-        let a2a1 = g.insert_term(&Term::parse("a2(a1)")).assert_is_expansion();
+        let a2a0 = g.parse("a2(a0)");
+        let a2a1 = g.parse("a2(a1)");
+        assert_eq!(a2a0, a2a1);
+    }
+
+    #[test]
+    fn test_duplicating_edge() {
+        let mut g = TermGraph::new();
+        let a0 = g.parse("a0");
+        let a1 = g.parse("a1");
+        g.parse("a2(a0)");
+        g.parse("a2(a1)");
+        g.identify_terms(&a0, &a1);
         g.check();
+        let a2a0 = g.parse("a2(a0)");
+        let a2a1 = g.parse("a2(a1)");
         assert_eq!(a2a0, a2a1);
     }
 }
