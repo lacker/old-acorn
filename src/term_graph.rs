@@ -31,12 +31,22 @@ pub struct TermInfo {
 }
 pub type TermId = u32;
 
+// The canonical form of a term can be:
+//   a plain atom
+//   a way of recursively constructing this term
+//   a generic template for a type like x0(x1, x2) with no items specified
+enum CanonicalForm {
+    Atom(Atom),
+    Edge(EdgeId),
+    TypeTemplate(TypeId),
+}
+
 // Information about how an atom gets turned into a term.
 // Each atom has a default expansion, represented by term, but we also
 // need to track the type of the atom itself, so that we know how to extract it.
 pub struct AtomInfo {
     head_type: TypeId,
-    term: TermId,
+    term: TermInstance,
 }
 
 // TermInfo normalizes across all namings of the input variables.
@@ -357,16 +367,6 @@ impl EdgeInfo {
     }
 }
 
-// The canonical form of a term can be:
-//   a plain atom
-//   a way of recursively constructing this term
-//   a generic template for a type like x0(x1, x2) with no items specified
-enum CanonicalForm {
-    Atom(Atom),
-    Edge(EdgeId),
-    TypeTemplate(TypeId),
-}
-
 pub struct TermGraph {
     // We replace elements of terms or edges with None when they are replaced with
     // an identical one that we have chosen to be the canonical one.
@@ -611,8 +611,8 @@ impl TermGraph {
 
         // Handle the (much more common) case where the head is not a variable
         let atom_key = (term.head, term.args.len() as u8);
-        let head_id = if let Some(atom_info) = self.atoms.get(&atom_key) {
-            atom_info.term
+        let term_instance = if let Some(atom_info) = self.atoms.get(&atom_key) {
+            atom_info.term.clone()
         } else {
             let head_id = self.terms.len() as TermId;
             self.terms.push(Some(TermInfo {
@@ -621,22 +621,21 @@ impl TermGraph {
                 adjacent: HashSet::default(),
                 canonical: CanonicalForm::Atom(term.head),
             }));
-            let atom_info = AtomInfo {
+            let term_instance = TermInstance {
                 term: head_id,
+                var_map: (0..term.args.len() as AtomId).collect(),
+            };
+            let atom_info = AtomInfo {
+                term: term_instance.clone(),
                 head_type: term.head_type,
             };
             self.atoms.insert(atom_key, atom_info);
-            head_id
-        };
-        let head_var_map: Vec<_> = (0..term.args.len() as AtomId).collect();
-        let head = TermInstance {
-            term: head_id,
-            var_map: head_var_map,
+            term_instance
         };
 
         // Substitute the arguments into the head
         let replacements = term.args.iter().map(|a| self.insert_term(a)).collect();
-        Replacement::Expand(self.replace(&head, &replacements))
+        Replacement::Expand(self.replace(&term_instance, &replacements))
     }
 
     pub fn extract_term_id(&self, term_id: TermId) -> Term {
