@@ -715,12 +715,12 @@ impl TermGraph {
         }
 
         // Update all edges that touch this term
-        for edge_id in old_term_info.adjacent {
-            let old_edge_info = self.take_edge_info(edge_id);
+        for edge_id in &old_term_info.adjacent {
+            let old_edge_info = self.take_edge_info(*edge_id);
             let new_edge_info = old_edge_info.replace_term_id(old_term_id, new_term);
             if old_edge_info.key == new_edge_info.key {
                 // We didn't change the key. Just update the edge info.
-                self.set_edge_info(edge_id, new_edge_info);
+                self.set_edge_info(*edge_id, new_edge_info);
                 continue;
             }
 
@@ -733,10 +733,15 @@ impl TermGraph {
             }
 
             // We're good to go. Update the edge.
-            self.edgemap.insert(new_edge_info.key.clone(), edge_id);
-            self.set_edge_info(edge_id, new_edge_info);
+            self.edgemap.insert(new_edge_info.key.clone(), *edge_id);
+            self.set_edge_info(*edge_id, new_edge_info);
             self.edgemap.remove(&old_edge_info.key);
         }
+
+        // new_term is now adjacent to all these updated edges
+        self.mut_term_info(new_term.term)
+            .adjacent
+            .extend(old_term_info.adjacent);
     }
 
     // A heuristic. The bigger this number is, the harder it is to change this term.
