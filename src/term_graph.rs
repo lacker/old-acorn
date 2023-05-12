@@ -712,8 +712,13 @@ impl TermGraph {
             CanonicalForm::Edge(_) => {
                 // This will be handled by edge updating
             }
-            _ => {
-                todo!("handle updating constructor case");
+            CanonicalForm::Atom(a) => {
+                let atom_key = (a, old_term_info.arg_types.len() as u8);
+                let atom_info = self.atoms.get_mut(&atom_key).unwrap();
+                atom_info.term = atom_info.term.replace_term_id(old_term_id, new_term);
+            }
+            CanonicalForm::TypeTemplate(_) => {
+                panic!("how could we be updating a type template?");
             }
         }
 
@@ -808,6 +813,12 @@ impl TermGraph {
                         "term {} thinks it is adjacent to edge {} but not vice versa",
                         term_id, edge_id
                     );
+                }
+                if term_id == edge_info.key.template {
+                    assert_eq!(edge_info.key.replacements.len(), term_info.arg_types.len());
+                }
+                if term_id == edge_info.result.term {
+                    assert_eq!(edge_info.result.var_map.len(), term_info.arg_types.len());
                 }
             }
 
