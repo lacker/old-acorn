@@ -202,6 +202,10 @@ impl EdgeKey {
                 }
             });
         }
+
+        if replacements_are_noop(&self.replacements) {
+            panic!("key is a no-op");
+        }
     }
 }
 
