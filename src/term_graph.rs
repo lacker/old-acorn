@@ -367,10 +367,15 @@ impl EdgeInfo {
     }
 }
 
+enum TermInfoReference {
+    TermInfo(TermInfo),
+    Replaced(TermInstance),
+}
+
 pub struct TermGraph {
     // We replace elements of terms or edges with None when they are replaced with
     // an identical one that we have chosen to be the canonical one.
-    terms: Vec<Option<TermInfo>>,
+    terms: Vec<TermInfoReference>,
     edges: Vec<Option<EdgeInfo>>,
 
     // We expand non-variable atoms into different terms depending on the number of
