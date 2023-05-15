@@ -721,7 +721,14 @@ impl TermGraph {
     }
 
     // Replaces all references to old_term_id with references to new_term.
-    fn replace_term_id(&mut self, old_term_id: TermId, new_term: &TermInstance) {
+    // If we discover more pairs of terms that should be identified in the process of doing
+    // this replacement, push them onto pending_identification.
+    fn replace_term_id(
+        &mut self,
+        old_term_id: TermId,
+        new_term: &TermInstance,
+        pending_identification: &mut Vec<(TermInstance, TermInstance)>,
+    ) {
         let old_term_info_ref = mem::replace(
             &mut self.terms[old_term_id as usize],
             TermInfoReference::Replaced(new_term.clone()),
@@ -757,11 +764,15 @@ impl TermGraph {
             }
 
             // We did change the key.
-            if self.edgemap.contains_key(&new_edge_info.key) {
-                // This is a tricky case. There's a duplicate edge.
-                // That means that a particular substitution is equal to two different terms.
-                // We need to identify those terms.
-                todo!("handle duplicate edge case");
+            if let Some(duplicate_edge_id) = self.edgemap.get(&new_edge_info.key) {
+                let duplicate_edge_info = self.get_edge_info(*duplicate_edge_id);
+                // new_edge_info and duplicate_edge_info are the same edge, but
+                // they're going to different terms.
+                // This means we need to identify the terms.
+                pending_identification.push((
+                    new_edge_info.result.clone(),
+                    duplicate_edge_info.result.clone(),
+                ));
             }
 
             // We're good to go. Update the edge.
@@ -798,32 +809,39 @@ impl TermGraph {
             .then(right.cmp(&left))
     }
 
-    pub fn identify_terms(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
-        if instance1.term == instance2.term {
-            if instance1.var_map == instance2.var_map {
-                // Nothing to do
-                return;
+    pub fn identify_terms(&mut self, instance1: TermInstance, instance2: TermInstance) {
+        let mut pending_identification = vec![];
+        pending_identification.push((instance1, instance2));
+
+        while let Some((instance1, instance2)) = pending_identification.pop() {
+            let instance1 = self.apply_replacements(instance1);
+            let instance2 = self.apply_replacements(instance2);
+            if instance1.term == instance2.term {
+                if instance1.var_map == instance2.var_map {
+                    // Nothing to do
+                    return;
+                }
+                todo!("handle permutations of variables");
             }
-            todo!("handle permutations of variables");
+
+            // Discard the term with the lowest inertia
+            let (discard, keep) = match self.inertia_order(instance1.term, instance2.term) {
+                Ordering::Less => (instance1, instance2),
+                Ordering::Greater => (instance2, instance1),
+                Ordering::Equal => {
+                    panic!("flow control error, code should not reach here");
+                }
+            };
+
+            // Find a TermInstance equal to the term to be discarded
+            let new_var_map = compose_var_maps(&keep.var_map, &invert_var_map(&discard.var_map));
+            let new_instance = TermInstance {
+                term: keep.term,
+                var_map: new_var_map,
+            };
+
+            self.replace_term_id(discard.term, &new_instance, &mut pending_identification);
         }
-
-        // Discard the term with the lowest inertia
-        let (discard, keep) = match self.inertia_order(instance1.term, instance2.term) {
-            Ordering::Less => (instance1, instance2),
-            Ordering::Greater => (instance2, instance1),
-            Ordering::Equal => {
-                panic!("flow control error, code should not reach here");
-            }
-        };
-
-        // Find a TermInstance equal to the term to be discarded
-        let new_var_map = compose_var_maps(&keep.var_map, &invert_var_map(&discard.var_map));
-        let new_instance = TermInstance {
-            term: keep.term,
-            var_map: new_var_map,
-        };
-
-        self.replace_term_id(discard.term, &new_instance);
     }
 
     // A linear pass through the graph checking that everything is consistent.
@@ -955,7 +973,7 @@ mod tests {
         let mut g = TermGraph::new();
         let a0 = g.parse("a0(a3)");
         let a1 = g.parse("a1(a3)");
-        g.identify_terms(&a0, &a1);
+        g.identify_terms(a0, a1);
         g.check();
         let a2a0 = g.parse("a2(a0(a3))");
         let a2a1 = g.parse("a2(a1(a3))");
@@ -967,7 +985,7 @@ mod tests {
         let mut g = TermGraph::new();
         let a0 = g.parse("a0");
         let a1 = g.parse("a1");
-        g.identify_terms(&a0, &a1);
+        g.identify_terms(a0, a1);
         g.check();
         let a2a0 = g.parse("a2(a0)");
         let a2a1 = g.parse("a2(a1)");
@@ -979,24 +997,40 @@ mod tests {
         let mut g = TermGraph::new();
         let a0 = g.parse("a0(x0, x1)");
         let a1 = g.parse("a1(x1, x0)");
-        g.identify_terms(&a0, &a1);
+        g.identify_terms(a0.clone(), a1.clone());
         g.check();
         let rep0 = g.apply_replacements(a0);
         let rep1 = g.apply_replacements(a1);
         assert_eq!(&rep0, &rep1);
     }
 
-    // #[test]
-    // fn test_duplicating_edge() {
-    //     let mut g = TermGraph::new();
-    //     let a0 = g.parse("a0");
-    //     let a1 = g.parse("a1");
-    //     g.parse("a2(a0)");
-    //     g.parse("a2(a1)");
-    //     g.identify_terms(&a0, &a1);
-    //     g.check();
-    //     let a2a0 = g.parse("a2(a0)");
-    //     let a2a1 = g.parse("a2(a1)");
-    //     assert_eq!(a2a0, a2a1);
-    // }
+    #[test]
+    fn test_duplicating_edge() {
+        let mut g = TermGraph::new();
+        let a0 = g.parse("a0");
+        let a1 = g.parse("a1");
+        g.parse("a2(a0)");
+        g.parse("a2(a1)");
+        g.identify_terms(a0, a1);
+        g.check();
+        let a2a0 = g.parse("a2(a0)");
+        let a2a1 = g.parse("a2(a1)");
+        assert_eq!(a2a0, a2a1);
+    }
+
+    #[test]
+    fn test_multi_hop_term_identification() {
+        let mut g = TermGraph::new();
+        let a0 = g.parse("a0");
+        let a1 = g.parse("a1");
+        let a2 = g.parse("a2");
+        let a3 = g.parse("a3");
+        g.identify_terms(a0.clone(), a1.clone());
+        g.identify_terms(a2.clone(), a3.clone());
+        g.identify_terms(a0.clone(), a2.clone());
+        g.check();
+        let a4a3 = g.parse("a4(a3)");
+        let a4a1 = g.parse("a4(a1)");
+        assert_eq!(a4a3, a4a1);
+    }
 }
