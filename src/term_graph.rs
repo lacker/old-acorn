@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::fmt;
+use std::{fmt, mem};
 
 use fxhash::FxHashMap;
 use nohash_hasher::BuildNoHashHasher;
@@ -372,6 +372,15 @@ enum TermInfoReference {
     Replaced(TermInstance),
 }
 
+impl TermInfoReference {
+    pub fn is_there(&self) -> bool {
+        match self {
+            TermInfoReference::TermInfo(_) => true,
+            TermInfoReference::Replaced(_) => false,
+        }
+    }
+}
+
 pub struct TermGraph {
     // We replace elements of terms or edges with None when they are replaced with
     // an identical one that we have chosen to be the canonical one.
@@ -404,23 +413,22 @@ impl TermGraph {
     }
 
     pub fn has_term_info(&self, term: TermId) -> bool {
-        self.terms[term as usize].is_some()
+        self.terms[term as usize].is_there()
     }
 
+    // Does not handle the case where a TermInfo was replaced
     pub fn get_term_info(&self, term: TermId) -> &TermInfo {
-        if let Some(ti) = self.terms[term as usize].as_ref() {
-            ti
-        } else {
-            panic!("term {} not found", term);
+        match &self.terms[term as usize] {
+            TermInfoReference::TermInfo(info) => info,
+            TermInfoReference::Replaced(_) => panic!("Term {} has been replaced", term),
         }
     }
 
     fn mut_term_info(&mut self, term: TermId) -> &mut TermInfo {
-        self.terms[term as usize].as_mut().unwrap()
-    }
-
-    fn take_term_info(&mut self, term: TermId) -> TermInfo {
-        self.terms[term as usize].take().unwrap()
+        match &mut self.terms[term as usize] {
+            TermInfoReference::TermInfo(info) => info,
+            TermInfoReference::Replaced(_) => panic!("Term {} has been replaced", term),
+        }
     }
 
     pub fn has_edge_info(&self, edge: EdgeId) -> bool {
@@ -526,7 +534,7 @@ impl TermGraph {
         };
 
         // Insert everything into the graph
-        self.terms.push(Some(term_info));
+        self.terms.push(TermInfoReference::TermInfo(term_info));
         self.mut_term_info(key.template).adjacent.insert(edge_id);
         for r in &key.replacements {
             if let Replacement::Expand(term) = r {
@@ -593,7 +601,7 @@ impl TermGraph {
                     // The head of the term counts as one of the args in the template
                     let mut arg_types = vec![term.head_type];
                     arg_types.extend(term.args.iter().map(|a| a.term_type));
-                    self.terms.push(Some(TermInfo {
+                    self.terms.push(TermInfoReference::TermInfo(TermInfo {
                         term_type: term.term_type,
                         arg_types,
                         adjacent: HashSet::default(),
@@ -620,7 +628,7 @@ impl TermGraph {
             atom_info.term.clone()
         } else {
             let head_id = self.terms.len() as TermId;
-            self.terms.push(Some(TermInfo {
+            self.terms.push(TermInfoReference::TermInfo(TermInfo {
                 term_type: term.term_type,
                 arg_types: term.args.iter().map(|a| a.term_type).collect(),
                 adjacent: HashSet::default(),
@@ -710,7 +718,14 @@ impl TermGraph {
 
     // Replaces all references to old_term_id with references to new_term.
     fn replace_term_id(&mut self, old_term_id: TermId, new_term: &TermInstance) {
-        let old_term_info = self.take_term_info(old_term_id);
+        let old_term_info_ref = mem::replace(
+            &mut self.terms[old_term_id as usize],
+            TermInfoReference::Replaced(new_term.clone()),
+        );
+        let old_term_info = match old_term_info_ref {
+            TermInfoReference::TermInfo(t) => t,
+            TermInfoReference::Replaced(_) => panic!("term {} already replaced", old_term_id),
+        };
 
         // Update any constructors that created this term
         match old_term_info.canonical {
