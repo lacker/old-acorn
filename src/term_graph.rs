@@ -26,6 +26,9 @@ pub struct TermInfo {
     // All edges that touch this term
     adjacent: HashSet<EdgeId, BuildNoHashHasher<EdgeId>>,
 
+    // All atom keys that lead to this term
+    atom_keys: Vec<(Atom, u8)>,
+
     // The canonical way to produce this term.
     canonical: CanonicalForm,
 }
@@ -412,7 +415,7 @@ impl TermGraph {
         }
     }
 
-    pub fn has_term_info(&self, term: TermId) -> bool {
+    fn has_term_info(&self, term: TermId) -> bool {
         self.terms[term as usize].is_there()
     }
 
@@ -421,7 +424,7 @@ impl TermGraph {
     }
 
     // Does not handle the case where a TermInfo was replaced
-    pub fn get_term_info(&self, term: TermId) -> &TermInfo {
+    fn get_term_info(&self, term: TermId) -> &TermInfo {
         match self.get_term_info_ref(term) {
             TermInfoReference::TermInfo(info) => info,
             TermInfoReference::Replaced(_) => panic!("Term {} has been replaced", term),
@@ -435,24 +438,20 @@ impl TermGraph {
         }
     }
 
-    pub fn has_edge_info(&self, edge: EdgeId) -> bool {
+    fn has_edge_info(&self, edge: EdgeId) -> bool {
         self.edges[edge as usize].is_some()
     }
 
-    pub fn get_edge_info(&self, edge: EdgeId) -> &EdgeInfo {
+    fn get_edge_info(&self, edge: EdgeId) -> &EdgeInfo {
         &self.edges[edge as usize].as_ref().unwrap()
     }
 
-    pub fn set_edge_info(&mut self, edge: EdgeId, info: EdgeInfo) {
+    fn set_edge_info(&mut self, edge: EdgeId, info: EdgeInfo) {
         self.edges[edge as usize] = Some(info);
     }
 
     fn take_edge_info(&mut self, edge: EdgeId) -> EdgeInfo {
         self.edges[edge as usize].take().unwrap()
-    }
-
-    pub fn get_atom_info(&self, atom: Atom, num_args: u8) -> &AtomInfo {
-        self.atoms.get(&(atom, num_args)).unwrap()
     }
 
     // An EdgeKey represents a substitution. It can exist before the analogous edge
@@ -530,6 +529,7 @@ impl TermGraph {
             term_type,
             arg_types: result_arg_types,
             adjacent: std::iter::once(edge_id).collect(),
+            atom_keys: vec![],
             canonical,
         };
         let edge_info = EdgeInfo {
@@ -609,6 +609,7 @@ impl TermGraph {
                         term_type: term.term_type,
                         arg_types,
                         adjacent: HashSet::default(),
+                        atom_keys: vec![],
                         canonical: CanonicalForm::TypeTemplate(term.head_type),
                     }));
                     type_template
@@ -636,6 +637,7 @@ impl TermGraph {
                 term_type: term.term_type,
                 arg_types: term.args.iter().map(|a| a.term_type).collect(),
                 adjacent: HashSet::default(),
+                atom_keys: vec![atom_key.clone()],
                 canonical: CanonicalForm::Atom(term.head),
             }));
             let term_instance = TermInstance {
@@ -721,6 +723,7 @@ impl TermGraph {
     }
 
     // Replaces all references to old_term_id with references to new_term.
+    // The caller should be sure that old_term_id has not been replaced already.
     // If we discover more pairs of terms that should be identified in the process of doing
     // this replacement, push them onto pending_identification.
     fn replace_term_id(
@@ -738,19 +741,14 @@ impl TermGraph {
             TermInfoReference::Replaced(_) => panic!("term {} already replaced", old_term_id),
         };
 
-        // Update any constructors that created this term
-        match old_term_info.canonical {
-            CanonicalForm::Edge(_) => {
-                // This will be handled by edge updating
-            }
-            CanonicalForm::Atom(a) => {
-                let atom_key = (a, old_term_info.arg_types.len() as u8);
-                let atom_info = self.atoms.get_mut(&atom_key).unwrap();
-                atom_info.term = atom_info.term.replace_term_id(old_term_id, new_term);
-            }
-            CanonicalForm::TypeTemplate(_) => {
-                panic!("how could we be updating a type template?");
-            }
+        if let CanonicalForm::TypeTemplate(_) = old_term_info.canonical {
+            panic!("how could we be updating a type template?");
+        }
+
+        // Update information for any atoms that are primarily represented by this term
+        for atom_key in &old_term_info.atom_keys {
+            let atom_info = self.atoms.get_mut(atom_key).unwrap();
+            atom_info.term = atom_info.term.replace_term_id(old_term_id, new_term);
         }
 
         // Update all edges that touch this term
@@ -782,9 +780,9 @@ impl TermGraph {
         }
 
         // new_term is now adjacent to all these updated edges
-        self.mut_term_info(new_term.term)
-            .adjacent
-            .extend(old_term_info.adjacent);
+        let new_term_info = self.mut_term_info(new_term.term);
+        new_term_info.adjacent.extend(old_term_info.adjacent);
+        new_term_info.atom_keys.extend(old_term_info.atom_keys);
     }
 
     // Applies any replacements that have happened for the given term.
@@ -902,6 +900,15 @@ impl TermGraph {
                         edge_info, term_id
                     );
                 }
+            }
+        }
+
+        for ((atom, num_args), atom_info) in self.atoms.iter() {
+            if !self.has_term_info(atom_info.term.term) {
+                panic!(
+                    "atom ({}, {}) is represented by term {} which has been collapsed",
+                    atom, num_args, atom_info.term
+                );
             }
         }
     }
@@ -1026,7 +1033,9 @@ mod tests {
         let a2 = g.parse("a2");
         let a3 = g.parse("a3");
         g.identify_terms(a0.clone(), a1.clone());
+        g.check();
         g.identify_terms(a2.clone(), a3.clone());
+        g.check();
         g.identify_terms(a0.clone(), a2.clone());
         g.check();
         let a4a3 = g.parse("a4(a3)");
