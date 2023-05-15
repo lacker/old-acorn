@@ -919,6 +919,11 @@ impl TermGraph {
         self.check();
         term_instance
     }
+
+    pub fn check_identify_terms(&mut self, term1: &TermInstance, term2: &TermInstance) {
+        self.identify_terms(term1.clone(), term2.clone());
+        self.check();
+    }
 }
 
 #[cfg(test)]
@@ -980,8 +985,7 @@ mod tests {
         let mut g = TermGraph::new();
         let a0 = g.parse("a0(a3)");
         let a1 = g.parse("a1(a3)");
-        g.identify_terms(a0, a1);
-        g.check();
+        g.check_identify_terms(&a0, &a1);
         let a2a0 = g.parse("a2(a0(a3))");
         let a2a1 = g.parse("a2(a1(a3))");
         assert_eq!(a2a0, a2a1);
@@ -992,8 +996,7 @@ mod tests {
         let mut g = TermGraph::new();
         let a0 = g.parse("a0");
         let a1 = g.parse("a1");
-        g.identify_terms(a0, a1);
-        g.check();
+        g.check_identify_terms(&a0, &a1);
         let a2a0 = g.parse("a2(a0)");
         let a2a1 = g.parse("a2(a1)");
         assert_eq!(a2a0, a2a1);
@@ -1004,8 +1007,7 @@ mod tests {
         let mut g = TermGraph::new();
         let a0 = g.parse("a0(x0, x1)");
         let a1 = g.parse("a1(x1, x0)");
-        g.identify_terms(a0.clone(), a1.clone());
-        g.check();
+        g.check_identify_terms(&a0, &a1);
         let rep0 = g.apply_replacements(a0);
         let rep1 = g.apply_replacements(a1);
         assert_eq!(&rep0, &rep1);
@@ -1018,8 +1020,7 @@ mod tests {
         let a1 = g.parse("a1");
         g.parse("a2(a0)");
         g.parse("a2(a1)");
-        g.identify_terms(a0, a1);
-        g.check();
+        g.check_identify_terms(&a0, &a1);
         let a2a0 = g.parse("a2(a0)");
         let a2a1 = g.parse("a2(a1)");
         assert_eq!(a2a0, a2a1);
@@ -1032,14 +1033,35 @@ mod tests {
         let a1 = g.parse("a1");
         let a2 = g.parse("a2");
         let a3 = g.parse("a3");
-        g.identify_terms(a0.clone(), a1.clone());
-        g.check();
-        g.identify_terms(a2.clone(), a3.clone());
-        g.check();
-        g.identify_terms(a0.clone(), a2.clone());
-        g.check();
+        g.check_identify_terms(&a0, &a1);
+        g.check_identify_terms(&a2, &a3);
+        g.check_identify_terms(&a0, &a2);
         let a4a3 = g.parse("a4(a3)");
         let a4a1 = g.parse("a4(a1)");
         assert_eq!(a4a3, a4a1);
+    }
+
+    #[test]
+    fn test_cyclic_argument_identification() {
+        let mut g = TermGraph::new();
+        let base = g.parse("a0(x0, x1, x2)");
+        let rotated = g.parse("a0(x1, x2, x0)");
+        g.check_identify_terms(&base, &rotated);
+
+        let term1 = g.parse("a0(a1, a2, a3)");
+        let term2 = g.parse("a0(a2, a3, a1)");
+        assert_eq!(term1, term2);
+
+        let term3 = g.parse("a0(a3, a1, a2)");
+        assert_eq!(term1, term3);
+
+        let term4 = g.parse("a0(a1, a3, a2)");
+        assert_ne!(term1, term4);
+
+        let term5 = g.parse("a0(a3, a2, a1)");
+        assert_eq!(term4, term5);
+
+        let term6 = g.parse("a0(a2, a1, a3)");
+        assert_eq!(term4, term6);
     }
 }
