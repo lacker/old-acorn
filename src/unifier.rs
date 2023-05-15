@@ -485,7 +485,7 @@ mod tests {
         let left_term = Term::parse("x0(x0(a0))");
         let right_term = Term::parse("a1(x0(x1))");
         let mut u = Unifier::new();
-        assert!(u.unify(Scope::Left, &left_term, Scope::Right, &right_term));
+        u.assert_unify(Scope::Left, &left_term, Scope::Right, &right_term);
         u.print();
         assert!(u.get_mapping(Scope::Left, 0).unwrap().to_string() == "a1");
         assert!(u.get_mapping(Scope::Right, 0).unwrap().to_string() == "a1");
