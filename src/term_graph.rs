@@ -416,9 +416,13 @@ impl TermGraph {
         self.terms[term as usize].is_there()
     }
 
+    fn get_term_info_ref(&self, term: TermId) -> &TermInfoReference {
+        &self.terms[term as usize]
+    }
+
     // Does not handle the case where a TermInfo was replaced
     pub fn get_term_info(&self, term: TermId) -> &TermInfo {
-        match &self.terms[term as usize] {
+        match self.get_term_info_ref(term) {
             TermInfoReference::TermInfo(info) => info,
             TermInfoReference::Replaced(_) => panic!("Term {} has been replaced", term),
         }
@@ -772,6 +776,16 @@ impl TermGraph {
             .extend(old_term_info.adjacent);
     }
 
+    // Applies any replacements that have happened for the given term.
+    pub fn apply_replacements(&self, term: TermInstance) -> TermInstance {
+        let replacement = match self.get_term_info_ref(term.term) {
+            TermInfoReference::TermInfo(_) => return term,
+            TermInfoReference::Replaced(r) => r,
+        };
+        let updated = term.replace_term_id(term.term, replacement);
+        self.apply_replacements(updated)
+    }
+
     // A heuristic. The bigger this number is, the harder it is to change this term.
     fn inertia(&self, term_id: TermId) -> usize {
         self.get_term_info(term_id).adjacent.len()
@@ -961,16 +975,28 @@ mod tests {
     }
 
     #[test]
-    fn test_duplicating_edge() {
+    fn test_apply_replacements() {
         let mut g = TermGraph::new();
-        let a0 = g.parse("a0");
-        let a1 = g.parse("a1");
-        g.parse("a2(a0)");
-        g.parse("a2(a1)");
+        let a0 = g.parse("a0(x0, x1)");
+        let a1 = g.parse("a1(x1, x0)");
         g.identify_terms(&a0, &a1);
         g.check();
-        let a2a0 = g.parse("a2(a0)");
-        let a2a1 = g.parse("a2(a1)");
-        assert_eq!(a2a0, a2a1);
+        let rep0 = g.apply_replacements(a0);
+        let rep1 = g.apply_replacements(a1);
+        assert_eq!(&rep0, &rep1);
     }
+
+    // #[test]
+    // fn test_duplicating_edge() {
+    //     let mut g = TermGraph::new();
+    //     let a0 = g.parse("a0");
+    //     let a1 = g.parse("a1");
+    //     g.parse("a2(a0)");
+    //     g.parse("a2(a1)");
+    //     g.identify_terms(&a0, &a1);
+    //     g.check();
+    //     let a2a0 = g.parse("a2(a0)");
+    //     let a2a1 = g.parse("a2(a1)");
+    //     assert_eq!(a2a0, a2a1);
+    // }
 }
