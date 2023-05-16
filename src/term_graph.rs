@@ -740,6 +740,13 @@ impl TermGraph {
             TermInfoReference::TermInfo(t) => t,
             TermInfoReference::Replaced(_) => panic!("term {} already replaced", old_term_id),
         };
+        if old_term_info.arg_types.len() != new_term.var_map.len() {
+            panic!(
+                "cannot replace {}-arg term with {}-arg term",
+                old_term_info.arg_types.len(),
+                new_term.var_map.len()
+            );
+        }
 
         if let CanonicalForm::TypeTemplate(_) = old_term_info.canonical {
             panic!("how could we be updating a type template?");
@@ -845,10 +852,6 @@ impl TermGraph {
                     panic!("flow control error, code should not reach here");
                 }
             };
-
-            if discard.var_map.len() > keep.var_map.len() {
-                todo!("handle argument collapse");
-            }
 
             // Find a TermInstance equal to the term to be discarded
             let new_var_map = compose_var_maps(&keep.var_map, &invert_var_map(&discard.var_map));
