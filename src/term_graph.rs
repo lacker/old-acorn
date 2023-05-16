@@ -822,6 +822,10 @@ impl TermGraph {
                 todo!("handle permutations of variables");
             }
 
+            if instance1.var_map.len() != instance2.var_map.len() {
+                todo!("handle argument collapse");
+            }
+
             // Discard the term with the lowest inertia
             let (discard, keep) = match self.inertia_order(instance1.term, instance2.term) {
                 Ordering::Less => (instance1, instance2),
