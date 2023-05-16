@@ -795,16 +795,31 @@ impl TermGraph {
         self.apply_replacements(updated)
     }
 
-    // A heuristic. The bigger this number is, the harder it is to change this term.
-    fn inertia(&self, term_id: TermId) -> usize {
-        self.get_term_info(term_id).adjacent.len()
-    }
+    // The term we most want to keep compares as the largest in the keeping order.
+    fn keeping_order(&self, left: TermId, right: TermId) -> Ordering {
+        let left_term_info = self.get_term_info(left);
+        let right_term_info = self.get_term_info(right);
 
-    fn inertia_order(&self, left: TermId, right: TermId) -> Ordering {
-        // Compare inertia first, reversed term ids second
-        self.inertia(left)
-            .cmp(&self.inertia(right))
-            .then(right.cmp(&left))
+        // If one of the terms has more arguments, it is less keepable.
+        let arg_len_cmp = right_term_info
+            .arg_types
+            .len()
+            .cmp(&left_term_info.arg_types.len());
+        if arg_len_cmp != Ordering::Equal {
+            return arg_len_cmp;
+        }
+
+        // If one of the terms has more adjacent edges, it is more keepable.
+        let adj_cmp = left_term_info
+            .adjacent
+            .len()
+            .cmp(&right_term_info.adjacent.len());
+        if adj_cmp != Ordering::Equal {
+            return adj_cmp;
+        }
+
+        // If all else fails, the lower term ids are more keepable.
+        right.cmp(&left)
     }
 
     pub fn identify_terms(&mut self, instance1: TermInstance, instance2: TermInstance) {
@@ -822,18 +837,18 @@ impl TermGraph {
                 todo!("handle permutations of variables");
             }
 
-            if instance1.var_map.len() != instance2.var_map.len() {
-                todo!("handle argument collapse");
-            }
-
-            // Discard the term with the lowest inertia
-            let (discard, keep) = match self.inertia_order(instance1.term, instance2.term) {
+            // Discard the term that we least want to keep
+            let (discard, keep) = match self.keeping_order(instance1.term, instance2.term) {
                 Ordering::Less => (instance1, instance2),
                 Ordering::Greater => (instance2, instance1),
                 Ordering::Equal => {
                     panic!("flow control error, code should not reach here");
                 }
             };
+
+            if discard.var_map.len() > keep.var_map.len() {
+                todo!("handle argument collapse");
+            }
 
             // Find a TermInstance equal to the term to be discarded
             let new_var_map = compose_var_maps(&keep.var_map, &invert_var_map(&discard.var_map));
