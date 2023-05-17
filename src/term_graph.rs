@@ -31,10 +31,6 @@ pub struct TermInfo {
 
     // The canonical way to produce this term.
     canonical: CanonicalForm,
-
-    // A way to reduce this term.
-    // This is a reduction that changes the type; otherwise we just simplify the term itself.
-    reduce: Option<EdgeId>,
 }
 pub type TermId = u32;
 
@@ -470,13 +466,13 @@ impl TermGraph {
     // An EdgeKey represents a substitution. It can exist before the analogous edge
     // in the graph exists.
     // This method creates the analogous edge and term if they don't already exist.
-    // Returns the edge id and the term that this edge leads to.
+    // Returns the term that this edge leads to.
     // Should not be called on noop keys or unnormalized keys.
     // The type of the output is the same as the type of the key's template.
-    fn expand_edge_key(&mut self, key: EdgeKey) -> EdgeId {
+    fn expand_edge_key(&mut self, key: EdgeKey) -> &TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edgemap.get(&key) {
-            return *edge_id;
+            return &self.get_edge_info(*edge_id).result;
         }
 
         // Figure out the type signature of our new term
@@ -547,7 +543,6 @@ impl TermGraph {
             adjacent: std::iter::once(edge_id).collect(),
             atom_keys: vec![],
             canonical,
-            reduce: None,
         };
         let edge_info = EdgeInfo {
             key: key.clone(),
@@ -565,7 +560,7 @@ impl TermGraph {
         self.edges.push(Some(edge_info));
         self.edgemap.insert(key, edge_id);
 
-        edge_id
+        &self.get_edge_info(edge_id).result
     }
 
     // Does a substitution with the given template and replacements.
@@ -582,11 +577,10 @@ impl TermGraph {
                 var_map: new_to_old,
             };
         }
-        let edge_id = self.expand_edge_key(EdgeKey {
+        let new_term = self.expand_edge_key(EdgeKey {
             template,
             replacements: new_replacements,
         });
-        let new_term = &self.get_edge_info(edge_id).result;
         let var_map = new_term
             .var_map
             .iter()
@@ -625,7 +619,6 @@ impl TermGraph {
                         adjacent: HashSet::default(),
                         atom_keys: vec![],
                         canonical: CanonicalForm::TypeTemplate(term.head_type),
-                        reduce: None,
                     }));
                     type_template
                 });
@@ -648,7 +641,6 @@ impl TermGraph {
                 adjacent: HashSet::default(),
                 atom_keys: vec![atom_key.clone()],
                 canonical: CanonicalForm::Atom(term.head),
-                reduce: None,
             }));
             let term_instance = TermInstance {
                 term: head_id,
@@ -806,7 +798,7 @@ impl TermGraph {
     }
 
     // Applies any replacements that have happened for the given term.
-    fn apply_replacements(&self, term: TermInstance) -> TermInstance {
+    pub fn apply_replacements(&self, term: TermInstance) -> TermInstance {
         let replacement = match self.get_term_info_ref(term.term) {
             TermInfoReference::TermInfo(_) => return term,
             TermInfoReference::Replaced(r) => r,
@@ -842,96 +834,13 @@ impl TermGraph {
         right.cmp(&left)
     }
 
-    // Checks if there are any arguments invariant in "target" and not in "comparison".
-    // If so, marks them and returns true.
-    fn find_invariant_args(&mut self, target: &TermInstance, comparison: &TermInstance) -> bool {
-        let mut invariant_args = vec![];
-        for (i, var) in target.var_map.iter().enumerate() {
-            if !comparison.var_map.contains(&var) {
-                invariant_args.push(i as AtomId);
-            }
-        }
-        if invariant_args.len() == 0 {
-            false
-        } else {
-            self.mark_invariant_args(target.term, &invariant_args);
-            true
-        }
-    }
-
-    // Adds a reduction edge that eliminates arguments that don't affect the term value.
-    fn mark_invariant_args(&mut self, term: TermId, invariant_args: &[AtomId]) {
-        assert_ne!(invariant_args.len(), 0);
-        let term_info = self.get_term_info(term);
-        assert_eq!(term_info.reduce, None, "term {} already reduced", term);
-        let mut replacements: Vec<Replacement> = term_info
-            .arg_types
-            .iter()
-            .map(|i| Replacement::Rename(*i as AtomId))
-            .collect();
-        for i in invariant_args {
-            replacements[*i as usize] = Replacement::Any;
-        }
-        let edge_key = EdgeKey {
-            template: term,
-            replacements,
-        };
-        let edge_id = self.expand_edge_key(edge_key);
-        self.mut_term_info(term).reduce = Some(edge_id);
-    }
-
-    // Reduce away arguments that don't affect the term value.
-    // Returns whether any reduction happened.
-    fn reduce_invariant_args(&mut self, term: TermInstance) -> TermInstance {
-        let term_info = self.get_term_info(term.term);
-        if let Some(edge_id) = term_info.reduce {
-            let edge_info = self.get_edge_info(edge_id);
-            let mut var_map = vec![];
-            for (var, replacement) in term.var_map.iter().zip(&edge_info.key.replacements) {
-                match replacement {
-                    Replacement::Rename(i) => {
-                        assert_eq!(var_map.len(), *i as usize);
-                        var_map.push(*var);
-                    }
-                    Replacement::Expand(_) => {
-                        panic!("expected no expansion in a reduce edge");
-                    }
-                    Replacement::Any => {
-                        // This variable is being eliminated
-                    }
-                }
-            }
-
-            TermInstance {
-                term: edge_info.result.term,
-                var_map,
-            }
-        } else {
-            term
-        }
-    }
-
-    fn simplify_for_identification(&mut self, instance: TermInstance) -> TermInstance {
-        let instance = self.apply_replacements(instance);
-        self.reduce_invariant_args(instance)
-    }
-
     pub fn identify_terms(&mut self, instance1: TermInstance, instance2: TermInstance) {
         let mut pending_identification = vec![];
         pending_identification.push((instance1, instance2));
 
         while let Some((instance1, instance2)) = pending_identification.pop() {
-            let instance1 = self.simplify_for_identification(instance1);
-            let instance2 = self.simplify_for_identification(instance2);
-
-            // Check for invariant args and reduce them
-            if self.find_invariant_args(&instance1, &instance2)
-                || self.find_invariant_args(&instance2, &instance1)
-            {
-                pending_identification.push((instance1, instance2));
-                continue;
-            }
-
+            let instance1 = self.apply_replacements(instance1);
+            let instance2 = self.apply_replacements(instance2);
             if instance1.term == instance2.term {
                 if instance1.var_map == instance2.var_map {
                     // Nothing to do
