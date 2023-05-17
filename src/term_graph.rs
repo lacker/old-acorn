@@ -120,10 +120,14 @@ impl TermInstance {
 // The different ways to replace a single variable in a substitution.
 // Either we rename the variable, or we expand it into a different term.
 // "Do-nothing" replacements are represented by a Rename with the same index.
+//
+// "Any" is a special case where it doesn't matter what we replace this variable with,
+// it always results in the same thing.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Replacement {
     Rename(AtomId),
     Expand(TermInstance),
+    Any,
 }
 
 impl fmt::Display for Replacement {
@@ -131,6 +135,7 @@ impl fmt::Display for Replacement {
         match self {
             Replacement::Rename(var) => write!(f, "x{}", var),
             Replacement::Expand(term) => write!(f, "{}", term),
+            Replacement::Any => write!(f, "_"),
         }
     }
 }
@@ -145,6 +150,7 @@ impl Replacement {
                     f(&var);
                 }
             }
+            Replacement::Any => {}
         }
     }
 
@@ -152,6 +158,7 @@ impl Replacement {
         match self {
             Replacement::Rename(_) => panic!("Expected an expansion, got a rename"),
             Replacement::Expand(term) => term,
+            Replacement::Any => panic!("Expected an expansion, got an <any>"),
         }
     }
 
@@ -161,6 +168,7 @@ impl Replacement {
             Replacement::Expand(term) => {
                 Replacement::Expand(term.replace_term_id(old_term_id, new_term))
             }
+            Replacement::Any => Replacement::Any,
         }
     }
 }
@@ -271,6 +279,7 @@ fn normalize_replacements(replacements: &Vec<Replacement>) -> (Vec<Replacement>,
                 }
                 new_replacements.push(Replacement::Expand(new_term));
             }
+            Replacement::Any => new_replacements.push(Replacement::Any),
         }
     }
     (new_replacements, new_to_old)
@@ -512,6 +521,9 @@ impl TermGraph {
                         }
                     }
                 }
+                Replacement::Any => {
+                    // This variable simply doesn't exist in the destination term
+                }
             }
         }
 
@@ -709,6 +721,9 @@ impl TermGraph {
                 Replacement::Expand(t) => {
                     let t = self.extract_term_id(t.term).remap_variables(&t.var_map);
                     assert!(s.match_var(i, &t));
+                }
+                Replacement::Any => {
+                    todo!("extract an 'any' argument");
                 }
             }
         }
