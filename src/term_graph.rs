@@ -343,7 +343,13 @@ impl EdgeInfo {
 
         // Replacing the template is trickier, because we could be reordering
         // the variables, and thus the canonical form could be changing.
-        let mut reordered_replacements = vec![None; new_replacements.len()];
+        if self.key.replacements.len() < new_term.var_map.len() {
+            panic!(
+                "replacing term {} with {} is increasing the number of template variables",
+                old_term_id, new_term
+            );
+        }
+        let mut reordered_replacements = vec![None; new_term.var_map.len()];
 
         for (i, j) in new_term.var_map.iter().enumerate() {
             // x_i in the old term is x_j in the new term.
@@ -1090,6 +1096,19 @@ mod tests {
     fn test_explicit_argument_collapse() {
         let mut g = TermGraph::new();
         let a0x0 = g.parse("a0(x0)");
+        let a1 = g.parse("a1");
+        g.check_identify_terms(&a0x0, &a1);
+        let a0a2 = g.parse("a0(a2)");
+        let a0a3 = g.parse("a0(a3)");
+        assert_eq!(a0a2, a0a3);
+    }
+
+    #[test]
+    fn test_template_collapse() {
+        let mut g = TermGraph::new();
+        let a0x0 = g.parse("a0(x0)");
+        // Make the less concise term the more popular one
+        g.parse("a0(a2)");
         let a1 = g.parse("a1");
         g.check_identify_terms(&a0x0, &a1);
         let a0a2 = g.parse("a0(a2)");
