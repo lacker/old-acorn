@@ -701,6 +701,8 @@ impl TermGraph {
                     Some(atom_info) => atom_info,
                     None => panic!("atom key {:?} cannot be extracted", atom_key),
                 };
+                // Since we never changed the original canonical form of this term, we
+                // know its variables don't need to be reordered.
                 return Some(Term {
                     term_type: term_info.term_type,
                     head_type: atom_info.head_type,
