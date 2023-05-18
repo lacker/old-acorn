@@ -32,7 +32,7 @@ pub struct TermInfo {
     atom_keys: Vec<(Atom, u8)>,
 
     // The canonical way to produce this term.
-    canonical: CanonicalForm,
+    canonical: Option<CanonicalForm>,
 }
 pub type TermId = u32;
 
@@ -40,7 +40,7 @@ pub type TermId = u32;
 //   a plain atom
 //   a way of recursively constructing this term
 //   a generic template for a type like x0(x1, x2) with no items specified
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 enum CanonicalForm {
     Atom(Atom),
     Edge(EdgeId),
@@ -545,7 +545,7 @@ impl TermGraph {
         let edge_id = self.edges.len() as EdgeId;
         let term_id = self.terms.len() as TermId;
         let term_type = template.term_type;
-        let canonical = CanonicalForm::Edge(edge_id);
+        let canonical = Some(CanonicalForm::Edge(edge_id));
         let var_map: Vec<AtomId> = (0..result_arg_types.len() as AtomId).collect();
         let result = TermInstance {
             term: term_id,
@@ -653,7 +653,7 @@ impl TermGraph {
                         arg_types,
                         adjacent: HashSet::default(),
                         atom_keys: vec![],
-                        canonical: CanonicalForm::TypeTemplate(term.head_type),
+                        canonical: Some(CanonicalForm::TypeTemplate(term.head_type)),
                     }));
                     type_template
                 });
@@ -673,7 +673,7 @@ impl TermGraph {
                 arg_types: term.args.iter().map(|a| a.term_type).collect(),
                 adjacent: HashSet::default(),
                 atom_keys: vec![atom_key.clone()],
-                canonical: CanonicalForm::Atom(term.head),
+                canonical: Some(CanonicalForm::Atom(term.head)),
             }));
             let term_instance = TermInstance {
                 term: head_id,
@@ -692,16 +692,16 @@ impl TermGraph {
         Replacement::Expand(self.replace_in_term_instance(&term_instance, &replacements))
     }
 
-    pub fn extract_term_id(&self, term_id: TermId) -> Term {
+    pub fn extract_term_id(&self, term_id: TermId) -> Option<Term> {
         let term_info = self.get_term_info(term_id);
         let edge_info = match term_info.canonical {
-            CanonicalForm::Atom(a) => {
+            Some(CanonicalForm::Atom(a)) => {
                 let atom_key = (a, term_info.arg_types.len() as u8);
                 let atom_info = match self.atoms.get(&atom_key) {
                     Some(atom_info) => atom_info,
                     None => panic!("atom key {:?} cannot be extracted", atom_key),
                 };
-                return Term {
+                return Some(Term {
                     term_type: term_info.term_type,
                     head_type: atom_info.head_type,
                     head: a,
@@ -711,23 +711,24 @@ impl TermGraph {
                         .enumerate()
                         .map(|(i, t)| Term::atom(*t, Atom::Variable(i as AtomId)))
                         .collect(),
-                };
+                });
             }
-            CanonicalForm::Edge(edge_id) => self.get_edge_info(edge_id),
-            CanonicalForm::TypeTemplate(type_id) => {
-                return Term {
+            Some(CanonicalForm::Edge(edge_id)) => self.get_edge_info(edge_id),
+            Some(CanonicalForm::TypeTemplate(type_id)) => {
+                return Some(Term {
                     term_type: term_info.term_type,
                     head_type: type_id,
                     head: Atom::Variable(0),
                     args: (0..(term_info.arg_types.len() - 1) as AtomId)
                         .map(|i| Term::atom(type_id, Atom::Variable(i + 1)))
                         .collect(),
-                };
+                });
             }
+            None => return None,
         };
 
         // Construct a Term according to the information provided by the edge
-        let template = self.extract_term_id(edge_info.key.template);
+        let template = self.extract_term_id(edge_info.key.template)?;
         let mut s = Specializer::new();
         for (i, r) in edge_info.key.replacements.iter().enumerate() {
             let i = i as AtomId;
@@ -742,19 +743,19 @@ impl TermGraph {
                     }
                 }
                 Replacement::Expand(t) => {
-                    let t = self.extract_term_id(t.term).remap_variables(&t.var_map);
+                    let t = self.extract_term_id(t.term)?.remap_variables(&t.var_map);
                     assert!(s.match_var(i, &t));
                 }
             }
         }
         let unmapped_term = s.specialize(&template);
-        unmapped_term.remap_variables(&edge_info.result.var_map)
+        Some(unmapped_term.remap_variables(&edge_info.result.var_map))
     }
 
-    pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
-        let unmapped_term = self.extract_term_id(instance.term);
+    pub fn extract_term_instance(&self, instance: &TermInstance) -> Option<Term> {
+        let unmapped_term = self.extract_term_id(instance.term)?;
         let answer = unmapped_term.remap_variables(&instance.var_map);
-        answer
+        Some(answer)
     }
 
     // Replaces all references to old_term_id with references to new_term.
@@ -776,7 +777,7 @@ impl TermGraph {
             TermInfoReference::Replaced(_) => panic!("term {} already replaced", old_term_id),
         };
 
-        if let CanonicalForm::TypeTemplate(_) = old_term_info.canonical {
+        if let Some(CanonicalForm::TypeTemplate(_)) = old_term_info.canonical {
             panic!("how could we be updating a type template?");
         }
 
@@ -797,11 +798,16 @@ impl TermGraph {
                 // Remove this edge from the graph, and identify the template and result.
                 for term in old_edge_info.adjacent_terms() {
                     if term != old_term_id {
-                        self.mut_term_info(term).adjacent.remove(edge_id);
+                        let mut_term = self.mut_term_info(term);
+                        mut_term.adjacent.remove(edge_id);
+                        if mut_term.canonical == Some(CanonicalForm::Edge(*edge_id)) {
+                            mut_term.canonical = None;
+                        }
                     }
                 }
                 pending_identification
                     .push((new_edge_info.key.template_instance(), new_edge_info.result));
+                self.edgemap.remove(&old_edge_info.key);
                 continue;
             }
             touched_edges.push(*edge_id);
@@ -931,7 +937,7 @@ impl TermGraph {
                 continue;
             }
             let term_info = self.get_term_info(term_id);
-            if let CanonicalForm::Edge(edge_id) = term_info.canonical {
+            if let Some(CanonicalForm::Edge(edge_id)) = term_info.canonical {
                 if !self.has_edge_info(edge_id) {
                     panic!(
                         "term {} has canonical edge {} which has been collapsed",
@@ -963,7 +969,13 @@ impl TermGraph {
                 }
             }
 
-            let term = self.extract_term_id(term_id as TermId);
+            let term = match self.extract_term_id(term_id as TermId) {
+                None => {
+                    println!("term {} cannot be extracted", term_id);
+                    continue;
+                }
+                Some(term) => term,
+            };
             let s = term.to_string();
             println!("term {}: {}", term_id, s);
 
@@ -1028,7 +1040,7 @@ mod tests {
             let ti = g.parse(s);
             println!("extracting {}", s);
             let output = g.extract_term_instance(&ti);
-            let output_str = output.to_string();
+            let output_str = output.unwrap().to_string();
             if s.to_string() != output_str {
                 panic!("\ninput {} != output {}\n", s, output_str);
             }
