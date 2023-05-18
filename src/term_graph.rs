@@ -17,8 +17,10 @@ use crate::type_space::TypeId;
 // then we can store them as the same abstract term. Instead of rewriting terms, we can
 // merge nodes in our graph of abstract terms. If we are careful about always merging the
 // "smaller" node into the "larger" one, we can do these merges cheaply (amortized).
+//
 // Note that an abstract term does not have a "head", so its term_type is the type
 // that it has after all the args are replaced with substitutions.
+#[derive(Debug)]
 pub struct TermInfo {
     term_type: TypeId,
     arg_types: Vec<TypeId>,
@@ -38,6 +40,7 @@ pub type TermId = u32;
 //   a plain atom
 //   a way of recursively constructing this term
 //   a generic template for a type like x0(x1, x2) with no items specified
+#[derive(Debug)]
 enum CanonicalForm {
     Atom(Atom),
     Edge(EdgeId),
@@ -366,6 +369,7 @@ impl EdgeInfo {
             .iter()
             .map(|&v| new_to_old[v as usize])
             .collect();
+
         EdgeInfo {
             key: EdgeKey {
                 template: new_term.term,
@@ -745,13 +749,6 @@ impl TermGraph {
             TermInfoReference::TermInfo(t) => t,
             TermInfoReference::Replaced(_) => panic!("term {} already replaced", old_term_id),
         };
-        if old_term_info.arg_types.len() != new_term.var_map.len() {
-            panic!(
-                "cannot replace {}-arg term with {}-arg term",
-                old_term_info.arg_types.len(),
-                new_term.var_map.len()
-            );
-        }
 
         if let CanonicalForm::TypeTemplate(_) = old_term_info.canonical {
             panic!("how could we be updating a type template?");
@@ -892,7 +889,12 @@ impl TermGraph {
                     );
                 }
                 if term_id == edge_info.key.template {
-                    assert_eq!(edge_info.key.replacements.len(), term_info.arg_types.len());
+                    if edge_info.key.replacements.len() != term_info.arg_types.len() {
+                        panic!(
+                            "edge {} has template {:?} but arg lengths mismatch",
+                            edge_info, term_info,
+                        );
+                    }
                 }
                 if term_id == edge_info.result.term {
                     assert_eq!(edge_info.result.var_map.len(), term_info.arg_types.len());
