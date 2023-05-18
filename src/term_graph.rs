@@ -222,8 +222,20 @@ impl EdgeKey {
             });
         }
 
-        if replacements_are_noop(&self.replacements) {
+        if self.is_noop() {
             panic!("key is a no-op");
+        }
+    }
+
+    // Whether this is an edge that does nothing, taking the template to itself
+    pub fn is_noop(&self) -> bool {
+        replacements_are_noop(&self.replacements)
+    }
+
+    fn template_instance(&self) -> TermInstance {
+        TermInstance {
+            term: self.template,
+            var_map: (0..self.replacements.len() as AtomId).collect(),
         }
     }
 }
@@ -319,7 +331,8 @@ impl EdgeInfo {
         terms
     }
 
-    // Create a new edge with all use of TermId replaced by the new term instance
+    // Create a new edge with all use of TermId replaced by the new term instance.
+    // This edge may be a no-op; the caller is responsible for handling that.
     fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> EdgeInfo {
         // The result and the replacements are relatively straightforward, we just recurse.
         let new_result = self.result.replace_term_id(old_term_id, new_term);
@@ -597,6 +610,8 @@ impl TermGraph {
         }
     }
 
+    // Does a substitution with the given template and replacements.
+    // Creates new entries in the term graph if necessary.
     fn replace_in_term_instance(
         &mut self,
         template: &TermInstance,
@@ -772,9 +787,25 @@ impl TermGraph {
         }
 
         // Update all edges that touch this term
+        let mut touched_edges = vec![];
         for edge_id in &old_term_info.adjacent {
             let old_edge_info = self.take_edge_info(*edge_id);
             let new_edge_info = old_edge_info.replace_term_id(old_term_id, new_term);
+
+            if new_edge_info.key.is_noop() {
+                // Updating this edge is a noop, which means its template and result are the same.
+                // Remove this edge from the graph, and identify the template and result.
+                for term in old_edge_info.adjacent_terms() {
+                    if term != old_term_id {
+                        self.mut_term_info(term).adjacent.remove(edge_id);
+                    }
+                }
+                pending_identification
+                    .push((new_edge_info.key.template_instance(), new_edge_info.result));
+                continue;
+            }
+            touched_edges.push(*edge_id);
+
             if old_edge_info.key == new_edge_info.key {
                 // We didn't change the key. Just update the edge info.
                 self.set_edge_info(*edge_id, new_edge_info);
@@ -793,6 +824,18 @@ impl TermGraph {
                 ));
             }
 
+            if old_edge_info.key.replacements.len() > new_edge_info.key.replacements.len() {
+                // Some replacement was unnecessary, so we are adjacent to fewer terms now,
+                // and we need to update adjacencies.
+                let old_adjacent_terms = old_edge_info.adjacent_terms();
+                let new_adjacent_terms = new_edge_info.adjacent_terms();
+                for term in old_adjacent_terms {
+                    if term != old_term_id && !new_adjacent_terms.contains(&term) {
+                        self.mut_term_info(term).adjacent.remove(edge_id);
+                    }
+                }
+            }
+
             // We're good to go. Update the edge.
             self.edgemap.insert(new_edge_info.key.clone(), *edge_id);
             self.set_edge_info(*edge_id, new_edge_info);
@@ -801,7 +844,7 @@ impl TermGraph {
 
         // new_term is now adjacent to all these updated edges
         let new_term_info = self.mut_term_info(new_term.term);
-        new_term_info.adjacent.extend(old_term_info.adjacent);
+        new_term_info.adjacent.extend(touched_edges);
         new_term_info.atom_keys.extend(old_term_info.atom_keys);
     }
 
@@ -888,15 +931,23 @@ impl TermGraph {
                 continue;
             }
             let term_info = self.get_term_info(term_id);
+            if let CanonicalForm::Edge(edge_id) = term_info.canonical {
+                if !self.has_edge_info(edge_id) {
+                    panic!(
+                        "term {} has canonical edge {} which has been collapsed",
+                        term_id, edge_id
+                    );
+                }
+            }
             for edge_id in &term_info.adjacent {
                 if !self.has_edge_info(*edge_id) {
-                    panic!("term {} refers to collapsed edge {}", term_id, edge_id);
+                    panic!("term {} is adjacent to collapsed edge {}", term_id, edge_id);
                 }
                 let edge_info = self.get_edge_info(*edge_id);
                 if !edge_info.adjacent_terms().contains(&term_id) {
                     panic!(
-                        "term {} thinks it is adjacent to edge {} but not vice versa",
-                        term_id, edge_id
+                        "term {} thinks it is adjacent to edge {} ({}) but not vice versa",
+                        term_id, edge_id, edge_info
                     );
                 }
                 if term_id == edge_info.key.template {
