@@ -741,6 +741,7 @@ impl TermGraph {
         new_term: &TermInstance,
         pending_identification: &mut Vec<(TermInstance, TermInstance)>,
     ) {
+        println!("replacing term {} with {}", old_term_id, new_term);
         let old_term_info_ref = mem::replace(
             &mut self.terms[old_term_id as usize],
             TermInfoReference::Replaced(new_term.clone()),
@@ -937,6 +938,16 @@ impl TermGraph {
                 panic!(
                     "atom ({}, {}) is represented by term {} which has been collapsed",
                     atom, num_args, atom_info.term
+                );
+            }
+            let term_info = self.get_term_info(atom_info.term.term);
+            if *num_args != term_info.arg_types.len() as u8 {
+                panic!(
+                    "atom ({}, {}) is represented by term {} which has {} args",
+                    atom,
+                    num_args,
+                    atom_info.term,
+                    term_info.arg_types.len()
                 );
             }
         }
