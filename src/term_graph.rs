@@ -1181,6 +1181,16 @@ mod tests {
         assert_eq!(a0a2, a0a3);
     }
 
+    #[test]
+    fn test_extracting_infinite_loop() {
+        let mut g = TermGraph::new();
+        let a0a0a1 = g.parse("a0(a1)");
+        let other_term = g.parse("a2(a3)");
+        g.check_identify_terms(&a0a0a1, &other_term);
+        let a1 = g.parse("a1");
+        g.check_identify_terms(&a0a0a1, &a1);
+    }
+
     // #[test]
     // fn test_implicit_argument_collapse() {
     //     let mut g = TermGraph::new();
