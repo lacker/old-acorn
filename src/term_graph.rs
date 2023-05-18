@@ -561,7 +561,11 @@ impl TermGraph {
     // Does a substitution with the given template and replacements.
     // Creates new entries in the term graph if necessary.
     // This does not have to be normalized.
-    pub fn replace(&mut self, template: TermId, replacements: &Vec<Replacement>) -> TermInstance {
+    fn replace_in_term_id(
+        &mut self,
+        template: TermId,
+        replacements: &Vec<Replacement>,
+    ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
         let (new_replacements, new_to_old) = normalize_replacements(&replacements);
@@ -585,6 +589,21 @@ impl TermGraph {
             term: new_term.term,
             var_map,
         }
+    }
+
+    fn replace_in_term_instance(
+        &mut self,
+        template: &TermInstance,
+        replacements: &Vec<Replacement>,
+    ) -> TermInstance {
+        // We need to reorder and/or subset the replacements so that they are relative to the
+        // underlying term id, rather than the term instance
+        let mut new_replacements = vec![];
+        for v in &template.var_map {
+            // We don't need an explicit index i, but x_i in the term is x_v in the instance.
+            new_replacements.push(replacements[*v as usize].clone());
+        }
+        self.replace_in_term_id(template.term, &new_replacements)
     }
 
     // Inserts a new term, or returns the existing term if there is one.
@@ -621,14 +640,12 @@ impl TermGraph {
             for arg in &term.args {
                 replacements.push(self.insert_term(arg));
             }
-            return Replacement::Expand(self.replace(type_template, &replacements));
+            return Replacement::Expand(self.replace_in_term_id(type_template, &replacements));
         }
 
         // Handle the (much more common) case where the head is not a variable
         let atom_key = (term.head, term.args.len() as u8);
-        let term_id = if let Some(atom_info) = self.atoms.get(&atom_key) {
-            atom_info.term.term
-        } else {
+        if !self.atoms.contains_key(&atom_key) {
             let head_id = self.terms.len() as TermId;
             self.terms.push(TermInfoReference::TermInfo(TermInfo {
                 term_type: term.term_type,
@@ -646,12 +663,12 @@ impl TermGraph {
                 head_type: term.head_type,
             };
             self.atoms.insert(atom_key, atom_info);
-            head_id
         };
 
         // Substitute the arguments into the head
-        let replacements = term.args.iter().map(|a| self.insert_term(a)).collect();
-        Replacement::Expand(self.replace(term_id, &replacements))
+        let term_instance = self.atoms.get(&atom_key).unwrap().term.clone();
+        let replacements: Vec<_> = term.args.iter().map(|a| self.insert_term(a)).collect();
+        Replacement::Expand(self.replace_in_term_instance(&term_instance, &replacements))
     }
 
     pub fn extract_term_id(&self, term_id: TermId) -> Term {
