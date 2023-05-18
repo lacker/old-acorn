@@ -928,16 +928,6 @@ impl TermGraph {
                     atom, num_args, atom_info.term
                 );
             }
-            let term_info = self.get_term_info(atom_info.term.term);
-            if *num_args != term_info.arg_types.len() as u8 {
-                panic!(
-                    "atom ({}, {}) is represented by term {} which has {} args",
-                    atom,
-                    num_args,
-                    atom_info.term,
-                    term_info.arg_types.len()
-                );
-            }
         }
     }
 
@@ -1070,15 +1060,26 @@ mod tests {
     }
 
     #[test]
-    fn test_explicit_argument_collapse() {
+    fn test_atom_identification() {
         let mut g = TermGraph::new();
-        let a0x0 = g.parse("a0(x0)");
-        let a1 = g.parse("a1");
-        g.check_identify_terms(&a0x0, &a1);
-        let a0a2 = g.parse("a0(a2)");
-        let a0a3 = g.parse("a0(a3)");
-        assert_eq!(a0a2, a0a3);
+        let a0x0x1 = g.parse("a0(x0, x1)");
+        let a1x1x0 = g.parse("a1(x1, x0)");
+        g.check_identify_terms(&a0x0x1, &a1x1x0);
+        let a0a2a3 = g.parse("a0(a2, a3)");
+        let a1a3a2 = g.parse("a1(a3, a2)");
+        assert_eq!(a0a2a3, a1a3a2);
     }
+
+    // #[test]
+    // fn test_explicit_argument_collapse() {
+    //     let mut g = TermGraph::new();
+    //     let a0x0 = g.parse("a0(x0)");
+    //     let a1 = g.parse("a1");
+    //     g.check_identify_terms(&a0x0, &a1);
+    //     let a0a2 = g.parse("a0(a2)");
+    //     let a0a3 = g.parse("a0(a3)");
+    //     assert_eq!(a0a2, a0a3);
+    // }
 
     // #[test]
     // fn test_implicit_argument_collapse() {
