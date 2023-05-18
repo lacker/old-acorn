@@ -746,7 +746,6 @@ impl TermGraph {
         new_term: &TermInstance,
         pending_identification: &mut Vec<(TermInstance, TermInstance)>,
     ) {
-        println!("replacing term {} with {}", old_term_id, new_term);
         let old_term_info_ref = mem::replace(
             &mut self.terms[old_term_id as usize],
             TermInfoReference::Replaced(new_term.clone()),
@@ -1087,16 +1086,16 @@ mod tests {
         assert_eq!(a0a2a3, a1a3a2);
     }
 
-    // #[test]
-    // fn test_explicit_argument_collapse() {
-    //     let mut g = TermGraph::new();
-    //     let a0x0 = g.parse("a0(x0)");
-    //     let a1 = g.parse("a1");
-    //     g.check_identify_terms(&a0x0, &a1);
-    //     let a0a2 = g.parse("a0(a2)");
-    //     let a0a3 = g.parse("a0(a3)");
-    //     assert_eq!(a0a2, a0a3);
-    // }
+    #[test]
+    fn test_explicit_argument_collapse() {
+        let mut g = TermGraph::new();
+        let a0x0 = g.parse("a0(x0)");
+        let a1 = g.parse("a1");
+        g.check_identify_terms(&a0x0, &a1);
+        let a0a2 = g.parse("a0(a2)");
+        let a0a3 = g.parse("a0(a3)");
+        assert_eq!(a0a2, a0a3);
+    }
 
     // #[test]
     // fn test_implicit_argument_collapse() {
