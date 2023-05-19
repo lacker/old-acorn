@@ -33,6 +33,10 @@ pub struct TermInfo {
 
     // The canonical way to produce this term.
     canonical: Option<CanonicalForm>,
+
+    // A term of a given depth can be created from terms of only smaller depth.
+    // A depth zero term can be created from atoms.
+    depth: u32,
 }
 pub type TermId = u32;
 
@@ -494,6 +498,7 @@ impl TermGraph {
 
         // Figure out the type signature of our new term
         let template = self.get_term_info(key.template);
+        let mut max_edge_depth = template.depth;
         let mut result_arg_types = vec![];
         for (i, replacement) in key.replacements.iter().enumerate() {
             match replacement {
@@ -518,6 +523,7 @@ impl TermGraph {
                 Replacement::Expand(term) => {
                     // x_i in the template is being replaced with a term
                     let term_info = self.get_term_info(term.term);
+                    max_edge_depth = std::cmp::max(max_edge_depth, term_info.depth);
                     for (j, k) in term.var_map.iter().enumerate() {
                         // x_j in the template is being renamed to x_k in the result.
                         let next_open_var = result_arg_types.len() as AtomId;
@@ -557,6 +563,7 @@ impl TermGraph {
             adjacent: std::iter::once(edge_id).collect(),
             atom_keys: vec![],
             canonical,
+            depth: max_edge_depth + 1,
         };
         let edge_info = EdgeInfo {
             key: key.clone(),
@@ -654,6 +661,7 @@ impl TermGraph {
                         adjacent: HashSet::default(),
                         atom_keys: vec![],
                         canonical: Some(CanonicalForm::TypeTemplate(term.head_type)),
+                        depth: 0,
                     }));
                     type_template
                 });
@@ -674,6 +682,7 @@ impl TermGraph {
                 adjacent: HashSet::default(),
                 atom_keys: vec![atom_key.clone()],
                 canonical: Some(CanonicalForm::Atom(term.head)),
+                depth: 0,
             }));
             let term_instance = TermInstance {
                 term: head_id,
@@ -690,6 +699,33 @@ impl TermGraph {
         let term_instance = self.atoms.get(&atom_key).unwrap().term.clone();
         let replacements: Vec<_> = term.args.iter().map(|a| self.insert_term(a)).collect();
         Replacement::Expand(self.replace_in_term_instance(&term_instance, &replacements))
+    }
+
+    // The depth of an edge is the maximum depth of any term that it references.
+    fn edge_depth(&self, edge_id: EdgeId) -> u32 {
+        let edge_info = self.get_edge_info(edge_id);
+        let mut max_depth = 0;
+        for term_id in edge_info.adjacent_terms() {
+            let term_info = self.get_term_info(term_id);
+            max_depth = std::cmp::max(max_depth, term_info.depth);
+        }
+        max_depth
+    }
+
+    // Find the least deep edge that creates this term
+    // Panics if no edge creates this term
+    fn shallowest_edge(&self, term_id: TermId) -> EdgeId {
+        let term_info = self.get_term_info(term_id);
+        let mut shallowest_edge = None;
+        let mut shallowest_depth = std::u32::MAX;
+        for &edge_id in &term_info.adjacent {
+            let depth = self.edge_depth(edge_id);
+            if depth < shallowest_depth {
+                shallowest_edge = Some(edge_id);
+                shallowest_depth = depth;
+            }
+        }
+        shallowest_edge.unwrap()
     }
 
     pub fn extract_term_id(&self, term_id: TermId) -> Option<Term> {
@@ -715,7 +751,11 @@ impl TermGraph {
                         .collect(),
                 });
             }
-            Some(CanonicalForm::Edge(edge_id)) => self.get_edge_info(edge_id),
+            Some(CanonicalForm::Edge(_)) => {
+                assert!(term_info.depth > 0);
+                let edge_id = self.shallowest_edge(term_id);
+                self.get_edge_info(edge_id)
+            }
             Some(CanonicalForm::TypeTemplate(type_id)) => {
                 return Some(Term {
                     term_type: term_info.term_type,
@@ -854,6 +894,9 @@ impl TermGraph {
         let new_term_info = self.mut_term_info(new_term.term);
         new_term_info.adjacent.extend(touched_edges);
         new_term_info.atom_keys.extend(old_term_info.atom_keys);
+        if new_term_info.depth > old_term_info.depth {
+            new_term_info.depth = old_term_info.depth;
+        }
     }
 
     // Applies any replacements that have happened for the given term.
@@ -870,6 +913,12 @@ impl TermGraph {
     fn keeping_order(&self, left: TermId, right: TermId) -> Ordering {
         let left_term_info = self.get_term_info(left);
         let right_term_info = self.get_term_info(right);
+
+        // If one of the terms has depth zero and the other doesn't, keep the depth-zero term.
+        let depth_cmp = (left_term_info.depth == 0).cmp(&(right_term_info.depth == 0));
+        if depth_cmp != Ordering::Equal {
+            return depth_cmp;
+        }
 
         // If one of the terms has more arguments, it is less keepable.
         let arg_len_cmp = right_term_info
