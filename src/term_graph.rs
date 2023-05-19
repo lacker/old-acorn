@@ -32,7 +32,7 @@ pub struct TermInfo {
     atom_keys: Vec<(Atom, u8)>,
 
     // The canonical way to produce this term.
-    canonical: Option<CanonicalForm>,
+    canonical: CanonicalForm,
 
     // A term of a given depth can be created from terms of only smaller depth.
     // A depth zero term can be created from atoms.
@@ -42,13 +42,13 @@ pub type TermId = u32;
 
 // The canonical form of a term can be:
 //   a plain atom
-//   a way of recursively constructing this term
 //   a generic template for a type like x0(x1, x2) with no items specified
+//   the strategy of looking for the shallowest edge
 #[derive(Debug, Eq, PartialEq)]
 enum CanonicalForm {
     Atom(Atom),
-    Edge(EdgeId),
     TypeTemplate(TypeId),
+    ShallowestEdge,
 }
 
 // Information about how an atom gets turned into a term.
@@ -551,7 +551,6 @@ impl TermGraph {
         let edge_id = self.edges.len() as EdgeId;
         let term_id = self.terms.len() as TermId;
         let term_type = template.term_type;
-        let canonical = Some(CanonicalForm::Edge(edge_id));
         let var_map: Vec<AtomId> = (0..result_arg_types.len() as AtomId).collect();
         let result = TermInstance {
             term: term_id,
@@ -562,7 +561,7 @@ impl TermGraph {
             arg_types: result_arg_types,
             adjacent: std::iter::once(edge_id).collect(),
             atom_keys: vec![],
-            canonical,
+            canonical: CanonicalForm::ShallowestEdge,
             depth: max_edge_depth + 1,
         };
         let edge_info = EdgeInfo {
@@ -660,7 +659,7 @@ impl TermGraph {
                         arg_types,
                         adjacent: HashSet::default(),
                         atom_keys: vec![],
-                        canonical: Some(CanonicalForm::TypeTemplate(term.head_type)),
+                        canonical: CanonicalForm::TypeTemplate(term.head_type),
                         depth: 0,
                     }));
                     type_template
@@ -681,7 +680,7 @@ impl TermGraph {
                 arg_types: term.args.iter().map(|a| a.term_type).collect(),
                 adjacent: HashSet::default(),
                 atom_keys: vec![atom_key.clone()],
-                canonical: Some(CanonicalForm::Atom(term.head)),
+                canonical: CanonicalForm::Atom(term.head),
                 depth: 0,
             }));
             let term_instance = TermInstance {
@@ -728,10 +727,10 @@ impl TermGraph {
         shallowest_edge.unwrap()
     }
 
-    pub fn extract_term_id(&self, term_id: TermId) -> Option<Term> {
+    pub fn extract_term_id(&self, term_id: TermId) -> Term {
         let term_info = self.get_term_info(term_id);
         let edge_info = match term_info.canonical {
-            Some(CanonicalForm::Atom(a)) => {
+            CanonicalForm::Atom(a) => {
                 let atom_key = (a, term_info.arg_types.len() as u8);
                 let atom_info = match self.atoms.get(&atom_key) {
                     Some(atom_info) => atom_info,
@@ -739,7 +738,7 @@ impl TermGraph {
                 };
                 // Since we never changed the original canonical form of this term, we
                 // know its variables don't need to be reordered.
-                return Some(Term {
+                return Term {
                     term_type: term_info.term_type,
                     head_type: atom_info.head_type,
                     head: a,
@@ -749,28 +748,27 @@ impl TermGraph {
                         .enumerate()
                         .map(|(i, t)| Term::atom(*t, Atom::Variable(i as AtomId)))
                         .collect(),
-                });
+                };
             }
-            Some(CanonicalForm::Edge(_)) => {
+            CanonicalForm::ShallowestEdge => {
                 assert!(term_info.depth > 0);
                 let edge_id = self.shallowest_edge(term_id);
                 self.get_edge_info(edge_id)
             }
-            Some(CanonicalForm::TypeTemplate(type_id)) => {
-                return Some(Term {
+            CanonicalForm::TypeTemplate(type_id) => {
+                return Term {
                     term_type: term_info.term_type,
                     head_type: type_id,
                     head: Atom::Variable(0),
                     args: (0..(term_info.arg_types.len() - 1) as AtomId)
                         .map(|i| Term::atom(type_id, Atom::Variable(i + 1)))
                         .collect(),
-                });
+                };
             }
-            None => return None,
         };
 
         // Construct a Term according to the information provided by the edge
-        let template = self.extract_term_id(edge_info.key.template)?;
+        let template = self.extract_term_id(edge_info.key.template);
         let mut s = Specializer::new();
         for (i, r) in edge_info.key.replacements.iter().enumerate() {
             let i = i as AtomId;
@@ -785,19 +783,19 @@ impl TermGraph {
                     }
                 }
                 Replacement::Expand(t) => {
-                    let t = self.extract_term_id(t.term)?.remap_variables(&t.var_map);
+                    let t = self.extract_term_id(t.term).remap_variables(&t.var_map);
                     assert!(s.match_var(i, &t));
                 }
             }
         }
         let unmapped_term = s.specialize(&template);
-        Some(unmapped_term.remap_variables(&edge_info.result.var_map))
+        unmapped_term.remap_variables(&edge_info.result.var_map)
     }
 
-    pub fn extract_term_instance(&self, instance: &TermInstance) -> Option<Term> {
-        let unmapped_term = self.extract_term_id(instance.term)?;
+    pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
+        let unmapped_term = self.extract_term_id(instance.term);
         let answer = unmapped_term.remap_variables(&instance.var_map);
-        Some(answer)
+        answer
     }
 
     // Replaces all references to old_term_id with references to new_term.
@@ -819,8 +817,8 @@ impl TermGraph {
             TermInfoReference::Replaced(_) => panic!("term {} already replaced", old_term_id),
         };
 
-        if let Some(CanonicalForm::TypeTemplate(_)) = old_term_info.canonical {
-            panic!("how could we be updating a type template?");
+        if let CanonicalForm::TypeTemplate(_) = old_term_info.canonical {
+            panic!("we should never be replacing a type template");
         }
 
         // Update information for any atoms that are primarily represented by this term
@@ -842,9 +840,6 @@ impl TermGraph {
                     if term != old_term_id {
                         let mut_term = self.mut_term_info(term);
                         mut_term.adjacent.remove(edge_id);
-                        if mut_term.canonical == Some(CanonicalForm::Edge(*edge_id)) {
-                            mut_term.canonical = None;
-                        }
                     }
                 }
                 pending_identification
@@ -988,13 +983,9 @@ impl TermGraph {
                 continue;
             }
             let term_info = self.get_term_info(term_id);
-            if let Some(CanonicalForm::Edge(edge_id)) = term_info.canonical {
-                if !self.has_edge_info(edge_id) {
-                    panic!(
-                        "term {} has canonical edge {} which has been collapsed",
-                        term_id, edge_id
-                    );
-                }
+            if term_info.canonical == CanonicalForm::ShallowestEdge {
+                // Make sure there is some edge to produce this term
+                self.shallowest_edge(term_id);
             }
             for edge_id in &term_info.adjacent {
                 if !self.has_edge_info(*edge_id) {
@@ -1020,13 +1011,7 @@ impl TermGraph {
                 }
             }
 
-            let term = match self.extract_term_id(term_id as TermId) {
-                None => {
-                    println!("term {} cannot be extracted", term_id);
-                    continue;
-                }
-                Some(term) => term,
-            };
+            let term = self.extract_term_id(term_id as TermId);
             let s = term.to_string();
             println!("term {}: {}", term_id, s);
 
@@ -1091,9 +1076,8 @@ mod tests {
             let ti = g.parse(s);
             println!("extracting {}", s);
             let output = g.extract_term_instance(&ti);
-            let output_str = output.unwrap().to_string();
-            if s.to_string() != output_str {
-                panic!("\ninput {} != output {}\n", s, output_str);
+            if s.to_string() != output.to_string() {
+                panic!("\ninput {} != output {}\n", s, output);
             }
             println!("  OK\n");
         }
