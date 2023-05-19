@@ -1241,15 +1241,26 @@ mod tests {
         assert_eq!(a0a3a3, a2);
     }
 
+    #[test]
+    fn test_implicit_argument_collapse() {
+        let mut g = TermGraph::new();
+        let a0x0 = g.parse("a0(x0)");
+        let a1x1 = g.parse("a1(x1)");
+        g.check_identify_terms(&a0x0, &a1x1);
+        let a0a2 = g.parse("a0(a2)");
+        let a0a3 = g.parse("a0(a3)");
+        assert_eq!(a0a2, a0a3);
+    }
+
     // #[test]
-    // fn test_implicit_argument_collapse() {
+    // fn test_identifying_with_the_identity() {
     //     let mut g = TermGraph::new();
     //     let a0x0 = g.parse("a0(x0)");
-    //     let a1x1 = g.parse("a1(x1)");
-    //     g.check_identify_terms(&a0x0, &a1x1);
-    //     let a0a2 = g.parse("a0(a2)");
-    //     let a0a3 = g.parse("a0(a3)");
-    //     assert_eq!(a0a2, a0a3);
+    //     let x0 = g.parse("x0");
+    //     g.check_identify_terms(&a0x0, &x0);
+    //     let a0a1 = g.parse("a0(a1)");
+    //     let a1 = g.parse("a1");
+    //     assert_eq!(a0a1, a1);
     // }
 
     // #[test]
