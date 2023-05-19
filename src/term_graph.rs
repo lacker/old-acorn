@@ -900,13 +900,8 @@ impl TermGraph {
         let left_term_info = self.get_term_info(left);
         let right_term_info = self.get_term_info(right);
 
-        // If one of the terms has depth zero and the other doesn't, keep the depth-zero term.
-        let depth_cmp = (left_term_info.depth == 0).cmp(&(right_term_info.depth == 0));
-        if depth_cmp != Ordering::Equal {
-            return depth_cmp;
-        }
-
         // If one of the terms has more arguments, it is less keepable.
+        // This condition is required - we can't add more arguments to the result of an edge.
         let arg_len_cmp = right_term_info
             .arg_types
             .len()
@@ -916,6 +911,7 @@ impl TermGraph {
         }
 
         // If one of the terms has more adjacent edges, it is more keepable.
+        // This is a performance heuristic, because we do work for each changed edge.
         let adj_cmp = left_term_info
             .adjacent
             .len()
@@ -925,6 +921,7 @@ impl TermGraph {
         }
 
         // If all else fails, the lower term ids are more keepable.
+        // This probably doesn't matter very much.
         right.cmp(&left)
     }
 
@@ -1232,13 +1229,13 @@ mod tests {
         assert_eq!(a0a3a3, a2);
     }
 
-    // #[test]
-    // fn test_atom_vs_less_args() {
-    //     let mut g = TermGraph::new();
-    //     let a0x0 = g.parse("a0(x0)");
-    //     let a1a2 = g.parse("a1(a2)");
-    //     g.check_identify_terms(&a0x0, &a1a2);
-    // }
+    #[test]
+    fn test_atom_vs_less_args() {
+        let mut g = TermGraph::new();
+        let a0x0 = g.parse("a0(x0)");
+        let a1a2 = g.parse("a1(a2)");
+        g.check_identify_terms(&a0x0, &a1a2);
+    }
 
     // #[test]
     // fn test_implicit_argument_collapse() {
