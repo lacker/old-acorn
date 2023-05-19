@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::atom::{Atom, AtomId};
-use crate::type_space::{TypeId, BOOL};
+use crate::type_space::{TypeId, ANY, BOOL};
 use crate::unifier::Unifier;
 
 // A term with no args is a plain atom.
@@ -87,7 +87,7 @@ impl Term {
 
         let first_paren = match s.find('(') {
             Some(i) => i,
-            None => return Term::atom(0, Atom::new(s)),
+            None => return Term::atom(ANY, Atom::new(s)),
         };
 
         // Figure out which commas are inside precisely one level of parentheses.
