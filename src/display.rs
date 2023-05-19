@@ -17,6 +17,7 @@ impl fmt::Display for DisplayAtom<'_> {
             Atom::Skolem(i) => write!(f, "s{}", i),
             Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
+            Atom::Anonymous => write!(f, "_"),
         }
     }
 }

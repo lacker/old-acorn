@@ -180,6 +180,7 @@ impl Environment {
             Atom::Skolem(i) => format!("s{}", i),
             Atom::Synthetic(i) => format!("p{}", i),
             Atom::Variable(i) => format!("x{}", i),
+            Atom::Anonymous => "_".to_string(),
         }
     }
 

@@ -28,6 +28,9 @@ pub enum Atom {
     // We drop the variable name. Instead we track an id.
     // This does mean that you must be careful when moving values between different environments.
     Variable(AtomId),
+
+    // A variable with no name. Not useful in most contexts.
+    Anonymous,
 }
 
 impl fmt::Display for Atom {
@@ -38,6 +41,7 @@ impl fmt::Display for Atom {
             Atom::Skolem(i) => write!(f, "s{}", i),
             Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
+            Atom::Anonymous => write!(f, "_"),
         }
     }
 }

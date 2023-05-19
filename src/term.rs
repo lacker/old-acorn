@@ -333,6 +333,9 @@ impl Term {
                 weight1 += 1;
                 weight2 += 2 + 3 * i as u32;
             }
+            Atom::Anonymous => {
+                panic!("cannot calculate weight of an anonymous atom");
+            }
         }
         for arg in &self.args {
             let (w1, w2) = arg.multi_weight(refcounts);
