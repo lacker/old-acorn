@@ -105,18 +105,6 @@ pub struct EdgeInfo {
 }
 pub type EdgeId = u32;
 
-fn invert_var_map(var_map: &Vec<AtomId>) -> Vec<AtomId> {
-    let invalid = var_map.len() as AtomId;
-    let mut result = vec![invalid; var_map.len()];
-    for (i, &var) in var_map.iter().enumerate() {
-        if result[var as usize] != invalid {
-            panic!("Duplicate variable in var_map");
-        }
-        result[var as usize] = i as AtomId;
-    }
-    result
-}
-
 enum TermInfoReference {
     TermInfo(TermInfo),
     Replaced(TermInstance),
@@ -165,11 +153,6 @@ impl fmt::Display for TermInstance {
 }
 
 impl TermInstance {
-    // Panics if there is a logical inconsistency
-    pub fn check(&self) {
-        invert_var_map(&self.var_map);
-    }
-
     // Replaces any use of old_term_id with a new term instance.
     fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> TermInstance {
         if self.term != old_term_id {
@@ -950,11 +933,56 @@ impl TermGraph {
             };
 
             if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
-                panic!("implicit argument collapse detected");
+                // The "keep" term contains some arguments that the "discard" term doesn't.
+                // These arguments can be eliminated.
+                // We make a new reduced term with these arguments eliminated and identify
+                // the "keep" term before doing this identification.
+                let keep_info = self.get_term_info(keep.term);
+                let mut reduced_arg_types = vec![];
+                let mut reduced_var_map = vec![];
+                for (i, v) in keep.var_map.iter().enumerate() {
+                    if discard.var_map.contains(v) {
+                        reduced_var_map.push(*v);
+                        reduced_arg_types.push(keep_info.arg_types[i]);
+                    }
+                }
+                let reduced_term_info = TermInfo {
+                    term_type: keep_info.term_type,
+                    arg_types: reduced_arg_types,
+                    adjacent: HashSet::default(),
+                    atom_keys: vec![],
+                    type_template: None,
+                    depth: keep_info.depth,
+                };
+                let reduced_term_id = self.terms.len() as TermId;
+                self.terms
+                    .push(TermInfoReference::TermInfo(reduced_term_info));
+                let reduced_instance = TermInstance {
+                    term: reduced_term_id,
+                    var_map: reduced_var_map,
+                };
+
+                // We need to identify keep+reduced before keep+discard.
+                // Since our "priority queue" is just a vector, this works.
+                // Ie, order does matter here.
+                pending_identification.push((keep.clone(), discard));
+                pending_identification.push((keep, reduced_instance));
+                continue;
             }
 
             // Find a TermInstance equal to the term to be discarded
-            let new_var_map = compose_var_maps(&keep.var_map, &invert_var_map(&discard.var_map));
+            let new_var_map = keep
+                .var_map
+                .iter()
+                .map(|v| {
+                    // x_v in the "keep" instance is the same as x_v in the "discard" instance.
+                    // We want to find its index in the "discard" term.
+                    // This should be okay to unwrap because the ordering plus previous
+                    // containment check handle the case where we an argument is eliminated.
+                    discard.var_map.iter().position(|w| w == v).unwrap() as AtomId
+                })
+                .collect();
+
             let new_instance = TermInstance {
                 term: keep.term,
                 var_map: new_var_map,
