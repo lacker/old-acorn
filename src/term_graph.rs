@@ -1224,6 +1224,23 @@ mod tests {
         g.check_identify_terms(&a0a0a1, &a1);
     }
 
+    #[test]
+    fn test_double_touched_edges() {
+        let mut g = TermGraph::new();
+
+        let a0a1a1 = g.parse("a0(a1, a1)");
+        let a2 = g.parse("a2");
+        g.check_identify_terms(&a0a1a1, &a2);
+
+        let a1 = g.parse("a1");
+        let a2 = g.parse("a3");
+        g.check_identify_terms(&a1, &a2);
+
+        let a0a3a3 = g.parse("a0(a3, a3)");
+        let a2 = g.parse("a2");
+        assert_eq!(a0a3a3, a2);
+    }
+
     // #[test]
     // fn test_implicit_argument_collapse() {
     //     let mut g = TermGraph::new();
