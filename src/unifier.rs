@@ -501,7 +501,7 @@ mod tests {
         let target_path = &[0];
         let resolution_clause = Clause::parse("a1(a1(x0(x1))) != a1(x2(x3)) | a1(x0(x1)) = x2(x3)");
         let mut u = Unifier::new();
-        assert!(u.unify(Scope::Left, &s, Scope::Right, &u_subterm));
+        u.assert_unify(Scope::Left, &s, Scope::Right, &u_subterm);
         u.print();
         let new_clause = u.superpose(&t, &pm_clause, target_path, &resolution_clause);
         assert!(
