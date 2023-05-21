@@ -1089,17 +1089,21 @@ impl TermGraph {
 mod tests {
     use super::*;
 
+    fn check_insert(g: &mut TermGraph, input: &str, expected_output: &str) {
+        let ti = g.parse(input);
+        let actual_output = g.extract_term_instance(&ti);
+        if expected_output != actual_output.to_string() {
+            panic!(
+                "\nwhen inserting {}, expected {} but got {}\n",
+                input, expected_output, actual_output
+            );
+        }
+    }
+
     fn insert_and_extract(term_strings: &[&str]) {
         let mut g = TermGraph::new();
         for s in term_strings {
-            println!("inserting {}", s);
-            let ti = g.parse(s);
-            println!("extracting {}", s);
-            let output = g.extract_term_instance(&ti);
-            if s.to_string() != output.to_string() {
-                panic!("\ninput {} != output {}\n", s, output);
-            }
-            println!("  OK\n");
+            check_insert(&mut g, s, s);
         }
     }
 
