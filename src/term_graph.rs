@@ -61,7 +61,7 @@ pub struct AtomInfo {
 // No two variables should be named the same thing.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MappedTerm {
-    term: TermId,
+    term_id: TermId,
     var_map: Vec<AtomId>,
 }
 
@@ -136,7 +136,7 @@ fn compose_var_maps(left: &Vec<AtomId>, right: &Vec<AtomId>) -> Vec<AtomId> {
 
 impl fmt::Display for MappedTerm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "t{}(", self.term)?;
+        write!(f, "t{}(", self.term_id)?;
         for (i, &var) in self.var_map.iter().enumerate() {
             if i != 0 {
                 write!(f, ", ")?;
@@ -150,11 +150,11 @@ impl fmt::Display for MappedTerm {
 impl MappedTerm {
     // Replaces any use of old_term_id with a new term instance.
     fn replace_term_id(&self, old_term_id: TermId, new_term: &MappedTerm) -> MappedTerm {
-        if self.term != old_term_id {
+        if self.term_id != old_term_id {
             return self.clone();
         }
         MappedTerm {
-            term: new_term.term,
+            term_id: new_term.term_id,
             var_map: compose_var_maps(&new_term.var_map, &self.var_map),
         }
     }
@@ -252,7 +252,7 @@ impl EdgeKey {
 
     fn template_instance(&self) -> MappedTerm {
         MappedTerm {
-            term: self.template,
+            term_id: self.template,
             var_map: (0..self.replacements.len() as AtomId).collect(),
         }
     }
@@ -290,7 +290,7 @@ fn normalize_replacements(replacements: &Vec<TermInstance>) -> (Vec<TermInstance
             }
             TermInstance::Mapped(old_term) => {
                 let mut new_term = MappedTerm {
-                    term: old_term.term,
+                    term_id: old_term.term_id,
                     var_map: vec![],
                 };
                 for old_var in &old_term.var_map {
@@ -330,10 +330,10 @@ impl EdgeInfo {
     fn adjacent_terms(&self) -> Vec<TermId> {
         let mut terms = vec![];
         terms.push(self.key.template);
-        terms.push(self.result.term);
+        terms.push(self.result.term_id);
         for replacement in &self.key.replacements {
             if let TermInstance::Mapped(term) = replacement {
-                terms.push(term.term);
+                terms.push(term.term_id);
             }
         }
         terms
@@ -393,11 +393,11 @@ impl EdgeInfo {
 
         EdgeInfo {
             key: EdgeKey {
-                template: new_term.term,
+                template: new_term.term_id,
                 replacements: normalized,
             },
             result: MappedTerm {
-                term: new_result.term,
+                term_id: new_result.term_id,
                 var_map,
             },
         }
@@ -501,7 +501,7 @@ impl TermGraph {
                 }
                 TermInstance::Mapped(term) => {
                     // x_i in the template is being replaced with a term
-                    let term_info = self.get_term_info(term.term);
+                    let term_info = self.get_term_info(term.term_id);
                     max_edge_depth = std::cmp::max(max_edge_depth, term_info.depth);
                     for (j, k) in term.var_map.iter().enumerate() {
                         // x_j in the template is being renamed to x_k in the result.
@@ -531,10 +531,7 @@ impl TermGraph {
         let term_id = self.terms.len() as TermId;
         let term_type = template.term_type;
         let var_map: Vec<AtomId> = (0..result_arg_types.len() as AtomId).collect();
-        let result = MappedTerm {
-            term: term_id,
-            var_map,
-        };
+        let result = MappedTerm { term_id, var_map };
         let term_info = TermInfo {
             term_type,
             arg_types: result_arg_types,
@@ -553,7 +550,7 @@ impl TermGraph {
         self.mut_term_info(key.template).adjacent.insert(edge_id);
         for r in &key.replacements {
             if let TermInstance::Mapped(term) = r {
-                self.mut_term_info(term.term).adjacent.insert(edge_id);
+                self.mut_term_info(term.term_id).adjacent.insert(edge_id);
             }
         }
         self.edges.push(Some(edge_info));
@@ -576,7 +573,7 @@ impl TermGraph {
         if replacements_are_noop(&new_replacements) {
             // No need to even do a substitution
             return MappedTerm {
-                term: template,
+                term_id: template,
                 var_map: new_to_old,
             };
         }
@@ -590,7 +587,7 @@ impl TermGraph {
             .map(|i| new_to_old[*i as usize])
             .collect();
         MappedTerm {
-            term: new_term.term,
+            term_id: new_term.term_id,
             var_map,
         }
     }
@@ -609,7 +606,7 @@ impl TermGraph {
             // We don't need an explicit index i, but x_i in the term is x_v in the instance.
             new_replacements.push(replacements[*v as usize].clone());
         }
-        self.replace_in_term_id(template.term, &new_replacements)
+        self.replace_in_term_id(template.term_id, &new_replacements)
     }
 
     // Inserts a new term, or returns the existing term if there is one.
@@ -661,7 +658,7 @@ impl TermGraph {
                 depth: 0,
             }));
             let term_instance = MappedTerm {
-                term: head_id,
+                term_id: head_id,
                 var_map: (0..term.args.len() as AtomId).collect(),
             };
             let atom_info = AtomInfo {
@@ -752,7 +749,7 @@ impl TermGraph {
                     assert!(s.match_var(i, &Term::atom(*var_type, Atom::Variable(*j))));
                 }
                 TermInstance::Mapped(t) => {
-                    let t = self.extract_term_id(t.term).remap_variables(&t.var_map);
+                    let t = self.extract_term_id(t.term_id).remap_variables(&t.var_map);
                     assert!(s.match_var(i, &t));
                 }
             }
@@ -764,7 +761,7 @@ impl TermGraph {
     pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
         match instance {
             TermInstance::Mapped(term) => {
-                let unmapped_term = self.extract_term_id(term.term);
+                let unmapped_term = self.extract_term_id(term.term_id);
                 let answer = unmapped_term.remap_variables(&term.var_map);
                 answer
             }
@@ -862,7 +859,7 @@ impl TermGraph {
         }
 
         // new_term is now adjacent to all these updated edges
-        let new_term_info = self.mut_term_info(new_term.term);
+        let new_term_info = self.mut_term_info(new_term.term_id);
         new_term_info.adjacent.extend(touched_edges);
         new_term_info.atom_keys.extend(old_term_info.atom_keys);
         if new_term_info.depth > old_term_info.depth {
@@ -871,11 +868,11 @@ impl TermGraph {
     }
 
     fn apply_replacements_to_mapped_term(&self, mapped_term: MappedTerm) -> MappedTerm {
-        let replacement = match self.get_term_info_ref(mapped_term.term) {
+        let replacement = match self.get_term_info_ref(mapped_term.term_id) {
             TermInfoReference::TermInfo(_) => return mapped_term,
             TermInfoReference::Replaced(r) => r,
         };
-        let updated = mapped_term.replace_term_id(mapped_term.term, replacement);
+        let updated = mapped_term.replace_term_id(mapped_term.term_id, replacement);
         self.apply_replacements_to_mapped_term(updated)
     }
 
@@ -926,7 +923,7 @@ impl TermGraph {
         while let Some((instance1, instance2)) = pending_identification.pop() {
             let instance1 = self.apply_replacements_to_mapped_term(instance1);
             let instance2 = self.apply_replacements_to_mapped_term(instance2);
-            if instance1.term == instance2.term {
+            if instance1.term_id == instance2.term_id {
                 if instance1.var_map == instance2.var_map {
                     // Nothing to do
                     return;
@@ -935,7 +932,7 @@ impl TermGraph {
             }
 
             // Discard the term that we least want to keep
-            let (discard, keep) = match self.keeping_order(instance1.term, instance2.term) {
+            let (discard, keep) = match self.keeping_order(instance1.term_id, instance2.term_id) {
                 Ordering::Less => (instance1, instance2),
                 Ordering::Greater => (instance2, instance1),
                 Ordering::Equal => {
@@ -948,7 +945,7 @@ impl TermGraph {
                 // These arguments can be eliminated.
                 // We make a new reduced term with these arguments eliminated and identify
                 // the "keep" term before doing this identification.
-                let keep_info = self.get_term_info(keep.term);
+                let keep_info = self.get_term_info(keep.term_id);
                 let mut reduced_arg_types = vec![];
                 let mut reduced_var_map = vec![];
                 for (i, v) in keep.var_map.iter().enumerate() {
@@ -969,7 +966,7 @@ impl TermGraph {
                 self.terms
                     .push(TermInfoReference::TermInfo(reduced_term_info));
                 let reduced_instance = MappedTerm {
-                    term: reduced_term_id,
+                    term_id: reduced_term_id,
                     var_map: reduced_var_map,
                 };
 
@@ -995,11 +992,11 @@ impl TermGraph {
                 .collect();
 
             let new_instance = MappedTerm {
-                term: keep.term,
+                term_id: keep.term_id,
                 var_map: new_var_map,
             };
 
-            self.replace_term_id(discard.term, &new_instance, &mut pending_identification);
+            self.replace_term_id(discard.term_id, &new_instance, &mut pending_identification);
         }
     }
 
@@ -1037,7 +1034,7 @@ impl TermGraph {
                         );
                     }
                 }
-                if term_id == edge_info.result.term {
+                if term_id == edge_info.result.term_id {
                     assert_eq!(edge_info.result.var_map.len(), term_info.arg_types.len());
                 }
             }
@@ -1074,7 +1071,7 @@ impl TermGraph {
         }
 
         for ((atom, num_args), atom_info) in self.atoms.iter() {
-            if !self.has_term_info(atom_info.term.term) {
+            if !self.has_term_info(atom_info.term.term_id) {
                 panic!(
                     "atom ({}, {}) is represented by term {} which has been collapsed",
                     atom, num_args, atom_info.term
