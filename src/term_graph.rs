@@ -1356,6 +1356,15 @@ mod tests {
         assert_eq!(a0a1, a1);
     }
 
+    #[test]
+    fn test_edge_template_identifying_with_variable() {
+        let mut g = TermGraph::new();
+        g.parse("a0(a1)");
+        let x0 = g.parse("x0");
+        let a0x0 = g.parse("a0(x0)");
+        g.check_identify_terms(&x0, &a0x0);
+    }
+
     // #[test]
     // fn test_cyclic_argument_identification() {
     //     let mut g = TermGraph::new();
