@@ -1004,41 +1004,41 @@ impl TermGraph {
                 TermInstance::Mapped(t) => t,
             };
 
-            let keep = keep_instance.force_mapped();
-
-            if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
-                // The "keep" term contains some arguments that the "discard" term doesn't.
-                // These arguments can be eliminated.
-                // We make a new reduced term with these arguments eliminated and identify
-                // the "keep" term before doing this identification.
-                let keep_info = self.get_term_info(keep.term_id);
-                let mut reduced_arg_types = vec![];
-                let mut reduced_var_map = vec![];
-                for (i, v) in keep.var_map.iter().enumerate() {
-                    if discard.var_map.contains(v) {
-                        reduced_var_map.push(*v);
-                        reduced_arg_types.push(keep_info.arg_types[i]);
+            if let TermInstance::Mapped(keep) = &keep_instance {
+                if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
+                    // The "keep" term contains some arguments that the "discard" term doesn't.
+                    // These arguments can be eliminated.
+                    // We make a new reduced term with these arguments eliminated and identify
+                    // the "keep" term before doing this identification.
+                    let keep_info = self.get_term_info(keep.term_id);
+                    let mut reduced_arg_types = vec![];
+                    let mut reduced_var_map = vec![];
+                    for (i, v) in keep.var_map.iter().enumerate() {
+                        if discard.var_map.contains(v) {
+                            reduced_var_map.push(*v);
+                            reduced_arg_types.push(keep_info.arg_types[i]);
+                        }
                     }
-                }
-                let reduced_term_info = TermInfo {
-                    term_type: keep_info.term_type,
-                    arg_types: reduced_arg_types,
-                    adjacent: HashSet::default(),
-                    atom_keys: vec![],
-                    type_template: None,
-                    depth: keep_info.depth,
-                };
-                let reduced_term_id = self.terms.len() as TermId;
-                self.terms
-                    .push(TermInfoReference::TermInfo(reduced_term_info));
-                let reduced_instance = TermInstance::mapped(reduced_term_id, reduced_var_map);
+                    let reduced_term_info = TermInfo {
+                        term_type: keep_info.term_type,
+                        arg_types: reduced_arg_types,
+                        adjacent: HashSet::default(),
+                        atom_keys: vec![],
+                        type_template: None,
+                        depth: keep_info.depth,
+                    };
+                    let reduced_term_id = self.terms.len() as TermId;
+                    self.terms
+                        .push(TermInfoReference::TermInfo(reduced_term_info));
+                    let reduced_instance = TermInstance::mapped(reduced_term_id, reduced_var_map);
 
-                // We need to identify keep+reduced before keep+discard.
-                // Since our "priority queue" is just a vector, this works.
-                // Ie, order does matter here.
-                pending_identification.push((keep_instance.clone(), discard_instance));
-                pending_identification.push((keep_instance, reduced_instance));
-                continue;
+                    // We need to identify keep+reduced before keep+discard.
+                    // Since our "priority queue" is just a vector, this works.
+                    // Ie, order does matter here.
+                    pending_identification.push((keep_instance.clone(), discard_instance));
+                    pending_identification.push((keep_instance, reduced_instance));
+                    continue;
+                }
             }
 
             // Find a TermInstance equal to the term to be discarded
