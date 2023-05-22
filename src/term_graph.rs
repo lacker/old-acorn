@@ -206,7 +206,7 @@ impl TermInstance {
         }
     }
 
-    fn remap_variables(&self, var_map: &Vec<AtomId>) -> TermInstance {
+    fn forward_map_vars(&self, var_map: &Vec<AtomId>) -> TermInstance {
         match self {
             TermInstance::Mapped(term) => {
                 TermInstance::mapped(term.term_id, compose_var_maps(&term.var_map, var_map))
@@ -214,6 +214,23 @@ impl TermInstance {
             TermInstance::Variable(term_type, var_id) => {
                 TermInstance::Variable(*term_type, var_map[*var_id as usize])
             }
+        }
+    }
+
+    fn backward_map_vars(&self, var_map: &Vec<AtomId>) -> TermInstance {
+        match self {
+            TermInstance::Mapped(term) => {
+                let new_var_map = term
+                    .var_map
+                    .iter()
+                    .map(|v| var_map.iter().position(|w| w == v).unwrap() as AtomId)
+                    .collect();
+                TermInstance::mapped(term.term_id, new_var_map)
+            }
+            TermInstance::Variable(term_type, v) => TermInstance::Variable(
+                *term_type,
+                var_map.iter().position(|w| w == v).unwrap() as AtomId,
+            ),
         }
     }
 
@@ -422,7 +439,7 @@ impl EdgeInfo {
                 template: mapped_term.term_id,
                 replacements: normalized,
             },
-            result: new_result.remap_variables(&new_to_old),
+            result: new_result.forward_map_vars(&new_to_old),
         }
     }
 }
@@ -601,7 +618,7 @@ impl TermGraph {
             template,
             replacements: new_replacements,
         });
-        new_term.remap_variables(&new_to_old)
+        new_term.forward_map_vars(&new_to_old)
     }
 
     // Does a substitution with the given template and replacements.
@@ -978,12 +995,16 @@ impl TermGraph {
                 Ordering::Less => (instance1, instance2),
                 Ordering::Greater => (instance2, instance1),
                 Ordering::Equal => {
-                    panic!("flow control error, code should not reach here");
+                    panic!("flow control error");
                 }
             };
 
+            let discard = match &discard_instance {
+                TermInstance::Variable(_, _) => panic!("flow control error"),
+                TermInstance::Mapped(t) => t,
+            };
+
             let keep = keep_instance.force_mapped();
-            let discard = discard_instance.force_mapped();
 
             if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
                 // The "keep" term contains some arguments that the "discard" term doesn't.
@@ -1021,20 +1042,7 @@ impl TermGraph {
             }
 
             // Find a TermInstance equal to the term to be discarded
-            let new_var_map = keep
-                .var_map
-                .iter()
-                .map(|v| {
-                    // x_v in the "keep" instance is the same as x_v in the "discard" instance.
-                    // We want to find its index in the "discard" term.
-                    // This should be okay to unwrap because the ordering plus previous
-                    // containment check handle the case where we an argument is eliminated.
-                    discard.var_map.iter().position(|w| w == v).unwrap() as AtomId
-                })
-                .collect();
-
-            let new_instance = TermInstance::mapped(keep.term_id, new_var_map);
-
+            let new_instance = keep_instance.backward_map_vars(&discard.var_map);
             self.replace_term_id(discard.term_id, &new_instance, &mut pending_identification);
         }
     }
@@ -1337,16 +1345,16 @@ mod tests {
         check_insert(&mut g, "a0(x0)", "a0(_)");
     }
 
-    // #[test]
-    // fn test_identifying_with_the_identity() {
-    //     let mut g = TermGraph::new();
-    //     let a0x0 = g.parse("a0(x0)");
-    //     let x0 = g.parse("x0");
-    //     g.check_identify_terms(&a0x0, &x0);
-    //     let a0a1 = g.parse("a0(a1)");
-    //     let a1 = g.parse("a1");
-    //     assert_eq!(a0a1, a1);
-    // }
+    #[test]
+    fn test_identifying_with_the_identity() {
+        let mut g = TermGraph::new();
+        let a0x0 = g.parse("a0(x0)");
+        let x0 = g.parse("x0");
+        g.check_identify_terms(&a0x0, &x0);
+        // let a0a1 = g.parse("a0(a1)");
+        // let a1 = g.parse("a1");
+        // assert_eq!(a0a1, a1);
+    }
 
     // #[test]
     // fn test_cyclic_argument_identification() {
