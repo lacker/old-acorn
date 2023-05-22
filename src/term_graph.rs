@@ -612,41 +612,31 @@ impl TermGraph {
         &mut self,
         template: TermId,
         replacements: &Vec<TermInstance>,
-    ) -> MappedTerm {
+    ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
         let (new_replacements, new_to_old) = normalize_replacements(&replacements);
         if replacements_are_noop(&new_replacements) {
             // No need to even do a substitution
-            return MappedTerm {
+            return TermInstance::Mapped(MappedTerm {
                 term_id: template,
                 var_map: new_to_old,
-            };
+            });
         }
-        let new_term = self
-            .expand_edge_key(EdgeKey {
-                template,
-                replacements: new_replacements,
-            })
-            .force_mapped();
-        let var_map = new_term
-            .var_map
-            .iter()
-            .map(|i| new_to_old[*i as usize])
-            .collect();
-        MappedTerm {
-            term_id: new_term.term_id,
-            var_map,
-        }
+        let new_term = self.expand_edge_key(EdgeKey {
+            template,
+            replacements: new_replacements,
+        });
+        new_term.remap_variables(&new_to_old)
     }
 
     // Does a substitution with the given template and replacements.
     // Creates new entries in the term graph if necessary.
-    fn replace_in_term_instance(
+    fn replace_in_mapped_term(
         &mut self,
         template: &MappedTerm,
         replacements: &Vec<TermInstance>,
-    ) -> MappedTerm {
+    ) -> TermInstance {
         // We need to reorder and/or subset the replacements so that they are relative to the
         // underlying term id, rather than the term instance
         let mut new_replacements = vec![];
@@ -690,7 +680,7 @@ impl TermGraph {
             for arg in &term.args {
                 replacements.push(self.insert_term(arg));
             }
-            return TermInstance::Mapped(self.replace_in_term_id(type_template, &replacements));
+            return self.replace_in_term_id(type_template, &replacements);
         }
 
         // Handle the (much more common) case where the head is not a variable
@@ -719,7 +709,7 @@ impl TermGraph {
         // Substitute the arguments into the head
         let term_instance = self.atoms.get(&atom_key).unwrap().term.clone();
         let replacements: Vec<_> = term.args.iter().map(|a| self.insert_term(a)).collect();
-        TermInstance::Mapped(self.replace_in_term_instance(&term_instance, &replacements))
+        self.replace_in_mapped_term(&term_instance, &replacements)
     }
 
     // The depth of an edge is the maximum depth of any term that it references.
