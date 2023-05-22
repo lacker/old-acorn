@@ -96,7 +96,7 @@ pub struct EdgeInfo {
     key: EdgeKey,
 
     // The result of the substitution
-    result: MappedTerm,
+    result: TermInstance,
 }
 pub type EdgeId = u32;
 
@@ -206,6 +206,25 @@ impl TermInstance {
         match self {
             TermInstance::Mapped(_) => None,
             TermInstance::Variable(_, var_id) => Some(*var_id),
+        }
+    }
+
+    fn term_id(&self) -> Option<TermId> {
+        match self {
+            TermInstance::Mapped(term) => Some(term.term_id),
+            TermInstance::Variable(_, _) => None,
+        }
+    }
+
+    fn remap_variables(&self, var_map: &Vec<AtomId>) -> TermInstance {
+        match self {
+            TermInstance::Mapped(term) => TermInstance::Mapped(MappedTerm {
+                term_id: term.term_id,
+                var_map: compose_var_maps(&term.var_map, var_map),
+            }),
+            TermInstance::Variable(term_type, var_id) => {
+                TermInstance::Variable(*term_type, var_map[*var_id as usize])
+            }
         }
     }
 
@@ -361,7 +380,9 @@ impl EdgeInfo {
     fn adjacent_terms(&self) -> Vec<TermId> {
         let mut terms = vec![];
         terms.push(self.key.template);
-        terms.push(self.result.term_id);
+        if let Some(term_id) = self.result.term_id() {
+            terms.push(term_id);
+        }
         for replacement in &self.key.replacements {
             if let TermInstance::Mapped(term) = replacement {
                 terms.push(term.term_id);
@@ -418,21 +439,13 @@ impl EdgeInfo {
 
         // We need to renormalize because reordering may have denormalized it
         let (normalized, new_to_old) = normalize_replacements(&unwrapped_replacements);
-        let var_map = new_result
-            .var_map
-            .iter()
-            .map(|&v| new_to_old[v as usize])
-            .collect();
 
         EdgeInfo {
             key: EdgeKey {
                 template: new_term.term_id,
                 replacements: normalized,
             },
-            result: MappedTerm {
-                term_id: new_result.term_id,
-                var_map,
-            },
+            result: new_result.remap_variables(&new_to_old),
         }
     }
 }
@@ -502,10 +515,10 @@ impl TermGraph {
     // Returns the term that this edge leads to.
     // Should not be called on noop keys or unnormalized keys.
     // The type of the output is the same as the type of the key's template.
-    fn expand_edge_key(&mut self, key: EdgeKey) -> &MappedTerm {
+    fn expand_edge_key(&mut self, key: EdgeKey) -> MappedTerm {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edgemap.get(&key) {
-            return &self.get_edge_info(*edge_id).result;
+            return self.get_edge_info(*edge_id).result.force_mapped();
         }
 
         // Figure out the type signature of our new term
@@ -575,7 +588,7 @@ impl TermGraph {
         };
         let edge_info = EdgeInfo {
             key: key.clone(),
-            result,
+            result: TermInstance::Mapped(result),
         };
 
         // Insert everything into the graph
@@ -589,7 +602,7 @@ impl TermGraph {
         self.edges.push(Some(edge_info));
         self.edgemap.insert(key, edge_id);
 
-        &self.get_edge_info(edge_id).result
+        self.get_edge_info(edge_id).result.force_mapped()
     }
 
     // Does a substitution with the given template and replacements.
@@ -788,7 +801,7 @@ impl TermGraph {
             }
         }
         let unmapped_term = s.specialize(&template);
-        unmapped_term.remap_variables(&edge_info.result.var_map)
+        unmapped_term.remap_variables(&edge_info.result.force_mapped().var_map)
     }
 
     pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
@@ -850,8 +863,10 @@ impl TermGraph {
                         mut_term.adjacent.remove(edge_id);
                     }
                 }
-                pending_identification
-                    .push((new_edge_info.key.template_instance(), new_edge_info.result));
+                pending_identification.push((
+                    new_edge_info.key.template_instance(),
+                    new_edge_info.result.force_mapped(),
+                ));
                 self.edgemap.remove(&old_edge_info.key);
                 continue;
             }
@@ -870,8 +885,8 @@ impl TermGraph {
                 // they're going to different terms.
                 // This means we need to identify the terms.
                 pending_identification.push((
-                    new_edge_info.result.clone(),
-                    duplicate_edge_info.result.clone(),
+                    new_edge_info.result.force_mapped().clone(),
+                    duplicate_edge_info.result.force_mapped().clone(),
                 ));
             }
 
@@ -1069,8 +1084,11 @@ impl TermGraph {
                         );
                     }
                 }
-                if term_id == edge_info.result.term_id {
-                    assert_eq!(edge_info.result.var_map.len(), term_info.arg_types.len());
+                if term_id == edge_info.result.force_mapped().term_id {
+                    assert_eq!(
+                        edge_info.result.force_mapped().var_map.len(),
+                        term_info.arg_types.len()
+                    );
                 }
             }
 
