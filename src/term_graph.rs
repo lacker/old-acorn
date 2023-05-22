@@ -148,14 +148,34 @@ impl fmt::Display for MappedTerm {
 }
 
 impl MappedTerm {
-    // Replaces any use of old_term_id with a new term instance.
-    fn replace_term_id(&self, old_term_id: TermId, new_term: &MappedTerm) -> MappedTerm {
+    // Replaces any use of old_term_id with a mapped term.
+    fn replace_term_id_with_mapped(
+        &self,
+        old_term_id: TermId,
+        new_term: &MappedTerm,
+    ) -> MappedTerm {
         if self.term_id != old_term_id {
             return self.clone();
         }
         MappedTerm {
             term_id: new_term.term_id,
             var_map: compose_var_maps(&new_term.var_map, &self.var_map),
+        }
+    }
+
+    // Replaces any use of old_term_id with a new term instance.
+    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> TermInstance {
+        match new_term {
+            TermInstance::Mapped(new_term) => {
+                TermInstance::Mapped(self.replace_term_id_with_mapped(old_term_id, new_term))
+            }
+            TermInstance::Variable(var_type, i) => {
+                if self.term_id != old_term_id {
+                    return TermInstance::Mapped(self.clone());
+                }
+                let new_index = self.var_map[*i as usize];
+                TermInstance::Variable(*var_type, new_index)
+            }
         }
     }
 }
@@ -189,11 +209,22 @@ impl TermInstance {
         }
     }
 
-    fn replace_term_id(&self, old_term_id: TermId, new_term: &MappedTerm) -> TermInstance {
+    fn replace_term_id_with_mapped(
+        &self,
+        old_term_id: TermId,
+        new_term: &MappedTerm,
+    ) -> TermInstance {
         match self {
             TermInstance::Mapped(term) => {
-                TermInstance::Mapped(term.replace_term_id(old_term_id, new_term))
+                TermInstance::Mapped(term.replace_term_id_with_mapped(old_term_id, new_term))
             }
+            TermInstance::Variable(_, _) => self.clone(),
+        }
+    }
+
+    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> TermInstance {
+        match self {
+            TermInstance::Mapped(term) => term.replace_term_id(old_term_id, new_term),
             TermInstance::Variable(_, _) => self.clone(),
         }
     }
@@ -343,12 +374,14 @@ impl EdgeInfo {
     // This edge may be a no-op; the caller is responsible for handling that.
     fn replace_term_id(&self, old_term_id: TermId, new_term: &MappedTerm) -> EdgeInfo {
         // The result and the replacements are relatively straightforward, we just recurse.
-        let new_result = self.result.replace_term_id(old_term_id, new_term);
+        let new_result = self
+            .result
+            .replace_term_id_with_mapped(old_term_id, new_term);
         let new_replacements: Vec<_> = self
             .key
             .replacements
             .iter()
-            .map(|replacement| replacement.replace_term_id(old_term_id, new_term))
+            .map(|replacement| replacement.replace_term_id_with_mapped(old_term_id, new_term))
             .collect();
 
         if self.key.template != old_term_id {
@@ -797,7 +830,9 @@ impl TermGraph {
         // Update information for any atoms that are primarily represented by this term
         for atom_key in &old_term_info.atom_keys {
             let atom_info = self.atoms.get_mut(atom_key).unwrap();
-            atom_info.term = atom_info.term.replace_term_id(old_term_id, new_term);
+            atom_info.term = atom_info
+                .term
+                .replace_term_id_with_mapped(old_term_id, new_term);
         }
 
         // Update all edges that touch this term
@@ -872,7 +907,7 @@ impl TermGraph {
             TermInfoReference::TermInfo(_) => return mapped_term,
             TermInfoReference::Replaced(r) => r,
         };
-        let updated = mapped_term.replace_term_id(mapped_term.term_id, replacement);
+        let updated = mapped_term.replace_term_id_with_mapped(mapped_term.term_id, replacement);
         self.apply_replacements_to_mapped_term(updated)
     }
 
