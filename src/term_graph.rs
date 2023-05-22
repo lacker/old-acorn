@@ -1073,11 +1073,10 @@ impl TermGraph {
                         );
                     }
                 }
-                if term_id == edge_info.result.force_mapped().term_id {
-                    assert_eq!(
-                        edge_info.result.force_mapped().var_map.len(),
-                        term_info.arg_types.len()
-                    );
+                if let TermInstance::Mapped(result) = &edge_info.result {
+                    if term_id == result.term_id {
+                        assert_eq!(result.var_map.len(), term_info.arg_types.len());
+                    }
                 }
             }
 
