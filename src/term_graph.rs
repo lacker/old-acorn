@@ -392,7 +392,7 @@ impl EdgeInfo {
     }
 
     // Create a new edge with all use of TermId replaced by the new term instance.
-    // This edge may be a no-op; the caller is responsible for handling that.
+    // This newly-created edge may be a no-op; the caller is responsible for handling that.
     fn replace_term_id(&self, old_term_id: TermId, new_term: &MappedTerm) -> EdgeInfo {
         // The result and the replacements are relatively straightforward, we just recurse.
         let new_result = self
@@ -515,10 +515,10 @@ impl TermGraph {
     // Returns the term that this edge leads to.
     // Should not be called on noop keys or unnormalized keys.
     // The type of the output is the same as the type of the key's template.
-    fn expand_edge_key(&mut self, key: EdgeKey) -> MappedTerm {
+    fn expand_edge_key(&mut self, key: EdgeKey) -> &TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edgemap.get(&key) {
-            return self.get_edge_info(*edge_id).result.force_mapped();
+            return &self.get_edge_info(*edge_id).result;
         }
 
         // Figure out the type signature of our new term
@@ -602,7 +602,7 @@ impl TermGraph {
         self.edges.push(Some(edge_info));
         self.edgemap.insert(key, edge_id);
 
-        self.get_edge_info(edge_id).result.force_mapped()
+        &self.get_edge_info(edge_id).result
     }
 
     // Does a substitution with the given template and replacements.
@@ -623,10 +623,12 @@ impl TermGraph {
                 var_map: new_to_old,
             };
         }
-        let new_term = self.expand_edge_key(EdgeKey {
-            template,
-            replacements: new_replacements,
-        });
+        let new_term = self
+            .expand_edge_key(EdgeKey {
+                template,
+                replacements: new_replacements,
+            })
+            .force_mapped();
         let var_map = new_term
             .var_map
             .iter()
