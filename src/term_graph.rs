@@ -1282,6 +1282,8 @@ mod tests {
         let a0a2 = g.parse("a0(a2)");
         let a0a3 = g.parse("a0(a3)");
         assert_eq!(a0a2, a0a3);
+
+        check_insert(&mut g, "a0(x0)", "a0(_)");
     }
 
     // #[test]
