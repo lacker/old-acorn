@@ -1351,9 +1351,9 @@ mod tests {
         let a0x0 = g.parse("a0(x0)");
         let x0 = g.parse("x0");
         g.check_identify_terms(&a0x0, &x0);
-        // let a0a1 = g.parse("a0(a1)");
-        // let a1 = g.parse("a1");
-        // assert_eq!(a0a1, a1);
+        let a0a1 = g.parse("a0(a1)");
+        let a1 = g.parse("a1");
+        assert_eq!(a0a1, a1);
     }
 
     // #[test]
