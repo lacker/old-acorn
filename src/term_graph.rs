@@ -148,31 +148,17 @@ impl fmt::Display for MappedTerm {
 }
 
 impl MappedTerm {
-    // Replaces any use of old_term_id with a mapped term.
-    fn replace_term_id_with_mapped(
-        &self,
-        old_term_id: TermId,
-        new_term: &MappedTerm,
-    ) -> MappedTerm {
-        if self.term_id != old_term_id {
-            return self.clone();
-        }
-        MappedTerm {
-            term_id: new_term.term_id,
-            var_map: compose_var_maps(&new_term.var_map, &self.var_map),
-        }
-    }
-
     // Replaces any use of old_term_id with a new term instance.
     fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> TermInstance {
+        if self.term_id != old_term_id {
+            return TermInstance::Mapped(self.clone());
+        }
         match new_term {
-            TermInstance::Mapped(new_term) => {
-                TermInstance::Mapped(self.replace_term_id_with_mapped(old_term_id, new_term))
-            }
+            TermInstance::Mapped(new_term) => TermInstance::mapped(
+                new_term.term_id,
+                compose_var_maps(&new_term.var_map, &self.var_map),
+            ),
             TermInstance::Variable(var_type, i) => {
-                if self.term_id != old_term_id {
-                    return TermInstance::Mapped(self.clone());
-                }
                 let new_index = self.var_map[*i as usize];
                 TermInstance::Variable(*var_type, new_index)
             }
@@ -213,13 +199,6 @@ impl TermInstance {
         }
     }
 
-    fn contains_variable(&self, v: AtomId) -> bool {
-        match self {
-            TermInstance::Mapped(term) => term.var_map.contains(&v),
-            TermInstance::Variable(_, var_id) => *var_id == v,
-        }
-    }
-
     fn term_id(&self) -> Option<TermId> {
         match self {
             TermInstance::Mapped(term) => Some(term.term_id),
@@ -235,19 +214,6 @@ impl TermInstance {
             TermInstance::Variable(term_type, var_id) => {
                 TermInstance::Variable(*term_type, var_map[*var_id as usize])
             }
-        }
-    }
-
-    fn replace_term_id_with_mapped(
-        &self,
-        old_term_id: TermId,
-        new_term: &MappedTerm,
-    ) -> TermInstance {
-        match self {
-            TermInstance::Mapped(term) => {
-                TermInstance::Mapped(term.replace_term_id_with_mapped(old_term_id, new_term))
-            }
-            TermInstance::Variable(_, _) => self.clone(),
         }
     }
 
