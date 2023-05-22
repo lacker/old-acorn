@@ -240,14 +240,6 @@ impl TermInstance {
             TermInstance::Variable(_, _) => self.clone(),
         }
     }
-
-    fn force_mapped(&self) -> MappedTerm {
-        if let TermInstance::Mapped(term) = self {
-            term.clone()
-        } else {
-            panic!("TermInstance is not mapped")
-        }
-    }
 }
 
 impl fmt::Display for EdgeKey {
@@ -370,6 +362,17 @@ impl fmt::Display for EdgeInfo {
 }
 
 impl EdgeInfo {
+    fn normalize(template: TermId, replacements: Vec<TermInstance>, result: TermInstance) -> Self {
+        let (normalized, new_to_old) = normalize_replacements(&replacements);
+        EdgeInfo {
+            key: EdgeKey {
+                template,
+                replacements: normalized,
+            },
+            result: result.forward_map_vars(&new_to_old),
+        }
+    }
+
     fn adjacent_terms(&self) -> Vec<TermId> {
         let mut terms = vec![];
         terms.push(self.key.template);
@@ -407,8 +410,18 @@ impl EdgeInfo {
             };
         }
 
-        // TODO: handle the case when an edge template gets collapsed into a single variable
-        let mapped_term = new_term.force_mapped();
+        // We're replacing the template.
+        let mapped_term = match new_term {
+            TermInstance::Mapped(term) => term,
+            TermInstance::Variable(_, var_id) => {
+                let new_template = &new_replacements[*var_id as usize];
+                // We want to identify new_template and new_result here.
+                // Awkwardly, we are trying to just return a single edge.
+                // We're going to have to change the signature, because in theory
+                // this could lead to a cascading sequence of other things.
+                todo!("handle the case where an edge template gets collapsed into a var");
+            }
+        };
 
         // Replacing the template is trickier, because we could be reordering
         // the variables, and thus the canonical form could be changing.
@@ -431,16 +444,7 @@ impl EdgeInfo {
             .map(|replacement| replacement.unwrap())
             .collect();
 
-        // We need to renormalize because reordering may have denormalized it
-        let (normalized, new_to_old) = normalize_replacements(&unwrapped_replacements);
-
-        EdgeInfo {
-            key: EdgeKey {
-                template: mapped_term.term_id,
-                replacements: normalized,
-            },
-            result: new_result.forward_map_vars(&new_to_old),
-        }
+        EdgeInfo::normalize(mapped_term.term_id, unwrapped_replacements, new_result)
     }
 }
 
