@@ -275,8 +275,8 @@ impl EdgeKey {
             });
         }
 
-        if self.is_noop() {
-            panic!("key is a no-op");
+        if replacements_are_noop(&self.replacements) {
+            panic!("replacements are a noop");
         }
     }
 
@@ -369,15 +369,31 @@ enum PossibleEdge {
 }
 
 impl EdgeInfo {
-    fn normalize(template: TermId, replacements: Vec<TermInstance>, result: TermInstance) -> Self {
+    // Normalizing can produce an edge, or it can just conclude that two term instances are the same
+    fn normalize(
+        template: TermId,
+        replacements: Vec<TermInstance>,
+        result: TermInstance,
+    ) -> PossibleEdge {
         let (normalized, new_to_old) = normalize_replacements(&replacements);
-        EdgeInfo {
-            key: EdgeKey {
-                template,
-                replacements: normalized,
-            },
-            result: result.forward_map_vars(&new_to_old),
+        let normalized_key = EdgeKey {
+            template,
+            replacements: normalized,
+        };
+        let normalized_result = result.forward_map_vars(&new_to_old);
+
+        if replacements_are_noop(&normalized_key.replacements) {
+            // There's no edge here, we just want to identify two terms
+            return PossibleEdge::Identification(
+                normalized_key.template_instance(),
+                normalized_result,
+            );
         }
+
+        PossibleEdge::Info(EdgeInfo {
+            key: normalized_key,
+            result: normalized_result,
+        })
     }
 
     fn adjacent_terms(&self) -> Vec<TermId> {
@@ -448,11 +464,7 @@ impl EdgeInfo {
             .map(|replacement| replacement.unwrap())
             .collect();
 
-        PossibleEdge::Info(EdgeInfo::normalize(
-            mapped_term.term_id,
-            unwrapped_replacements,
-            new_result,
-        ))
+        EdgeInfo::normalize(mapped_term.term_id, unwrapped_replacements, new_result)
     }
 }
 
@@ -879,21 +891,6 @@ impl TermGraph {
                     continue;
                 }
             };
-
-            if new_edge_info.key.is_noop() {
-                // Updating this edge is a noop, which means its template and result are the same.
-                // Remove this edge from the graph, and identify the template and result.
-                for term in old_edge_info.adjacent_terms() {
-                    if term != old_term_id {
-                        let mut_term = self.mut_term_info(term);
-                        mut_term.adjacent.remove(edge_id);
-                    }
-                }
-                pending_identification
-                    .push((new_edge_info.key.template_instance(), new_edge_info.result));
-                self.edgemap.remove(&old_edge_info.key);
-                continue;
-            }
 
             touched_edges.push(*edge_id);
 
