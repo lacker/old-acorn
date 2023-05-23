@@ -361,6 +361,13 @@ impl fmt::Display for EdgeInfo {
     }
 }
 
+// After doing a replacement into an edge, we could be left with another edge, or we could just
+// be left with two terms that should be the same.
+enum PossibleEdge {
+    Info(EdgeInfo),
+    Identification(TermInstance, TermInstance),
+}
+
 impl EdgeInfo {
     fn normalize(template: TermId, replacements: Vec<TermInstance>, result: TermInstance) -> Self {
         let (normalized, new_to_old) = normalize_replacements(&replacements);
@@ -389,7 +396,7 @@ impl EdgeInfo {
 
     // Create a new edge with all use of TermId replaced by the new term instance.
     // This newly-created edge may be a no-op; the caller is responsible for handling that.
-    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> EdgeInfo {
+    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> PossibleEdge {
         // The result and the replacements are relatively straightforward, we just recurse.
         let new_result = self.result.replace_term_id(old_term_id, new_term);
         let new_replacements: Vec<_> = self
@@ -401,13 +408,13 @@ impl EdgeInfo {
 
         if self.key.template != old_term_id {
             // Great, we're done
-            return EdgeInfo {
+            return PossibleEdge::Info(EdgeInfo {
                 key: EdgeKey {
                     template: self.key.template,
                     replacements: new_replacements,
                 },
                 result: new_result,
-            };
+            });
         }
 
         // We're replacing the template.
@@ -416,10 +423,7 @@ impl EdgeInfo {
             TermInstance::Variable(_, var_id) => {
                 let new_template = &new_replacements[*var_id as usize];
                 // We want to identify new_template and new_result here.
-                // Awkwardly, we are trying to just return a single edge.
-                // We're going to have to change the signature, because in theory
-                // this could lead to a cascading sequence of other things.
-                todo!("handle the case where an edge template gets collapsed into a var");
+                return PossibleEdge::Identification(new_template.clone(), new_result);
             }
         };
 
@@ -444,7 +448,11 @@ impl EdgeInfo {
             .map(|replacement| replacement.unwrap())
             .collect();
 
-        EdgeInfo::normalize(mapped_term.term_id, unwrapped_replacements, new_result)
+        PossibleEdge::Info(EdgeInfo::normalize(
+            mapped_term.term_id,
+            unwrapped_replacements,
+            new_result,
+        ))
     }
 }
 
@@ -854,7 +862,23 @@ impl TermGraph {
         let mut touched_edges = vec![];
         for edge_id in &old_term_info.adjacent {
             let old_edge_info = self.take_edge_info(*edge_id);
-            let new_edge_info = old_edge_info.replace_term_id(old_term_id, new_term);
+            let possible_edge = old_edge_info.replace_term_id(old_term_id, new_term);
+
+            let new_edge_info = match possible_edge {
+                PossibleEdge::Info(info) => info,
+                PossibleEdge::Identification(new_template, new_result) => {
+                    // Remove this edge from the graph, and identify the template and result.
+                    for term in old_edge_info.adjacent_terms() {
+                        if term != old_term_id {
+                            let mut_term = self.mut_term_info(term);
+                            mut_term.adjacent.remove(edge_id);
+                        }
+                    }
+                    pending_identification.push((new_template, new_result));
+                    self.edgemap.remove(&old_edge_info.key);
+                    continue;
+                }
+            };
 
             if new_edge_info.key.is_noop() {
                 // Updating this edge is a noop, which means its template and result are the same.
@@ -870,6 +894,7 @@ impl TermGraph {
                 self.edgemap.remove(&old_edge_info.key);
                 continue;
             }
+
             touched_edges.push(*edge_id);
 
             if old_edge_info.key == new_edge_info.key {
