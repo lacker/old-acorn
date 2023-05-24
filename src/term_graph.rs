@@ -100,6 +100,14 @@ pub struct EdgeInfo {
 }
 pub type EdgeId = u32;
 
+// The Operation is used to represent a change to the graph that can cascade into a series of other
+// changes.
+// This can either be adding a new edge, or identifying two terms with each other.
+enum Operation {
+    AddEdge(EdgeInfo),
+    IdentifyTerms(TermInstance, TermInstance),
+}
+
 enum TermInfoReference {
     TermInfo(TermInfo),
     Replaced(TermInstance),
@@ -361,41 +369,7 @@ impl fmt::Display for EdgeInfo {
     }
 }
 
-// After doing a replacement into an edge, we could be left with another edge, or we could just
-// be left with two terms that should be the same.
-enum PossibleEdge {
-    Info(EdgeInfo),
-    Identification(TermInstance, TermInstance),
-}
-
 impl EdgeInfo {
-    // Normalizing can produce an edge, or it can just conclude that two term instances are the same
-    fn normalize(
-        template: TermId,
-        replacements: Vec<TermInstance>,
-        result: TermInstance,
-    ) -> PossibleEdge {
-        let (normalized, new_to_old) = normalize_replacements(&replacements);
-        let normalized_key = EdgeKey {
-            template,
-            replacements: normalized,
-        };
-        let normalized_result = result.forward_map_vars(&new_to_old);
-
-        if replacements_are_noop(&normalized_key.replacements) {
-            // There's no edge here, we just want to identify two terms
-            return PossibleEdge::Identification(
-                normalized_key.template_instance(),
-                normalized_result,
-            );
-        }
-
-        PossibleEdge::Info(EdgeInfo {
-            key: normalized_key,
-            result: normalized_result,
-        })
-    }
-
     fn adjacent_terms(&self) -> Vec<TermId> {
         let mut terms = vec![];
         terms.push(self.key.template);
@@ -412,7 +386,7 @@ impl EdgeInfo {
 
     // Create a new edge with all use of TermId replaced by the new term instance.
     // This newly-created edge may be a no-op; the caller is responsible for handling that.
-    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> PossibleEdge {
+    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> Operation {
         // The result and the replacements are relatively straightforward, we just recurse.
         let new_result = self.result.replace_term_id(old_term_id, new_term);
         let new_replacements: Vec<_> = self
@@ -424,7 +398,7 @@ impl EdgeInfo {
 
         if self.key.template != old_term_id {
             // Great, we're done
-            return PossibleEdge::Info(EdgeInfo {
+            return Operation::AddEdge(EdgeInfo {
                 key: EdgeKey {
                     template: self.key.template,
                     replacements: new_replacements,
@@ -439,7 +413,7 @@ impl EdgeInfo {
             TermInstance::Variable(_, var_id) => {
                 let new_template = &new_replacements[*var_id as usize];
                 // We want to identify new_template and new_result here.
-                return PossibleEdge::Identification(new_template.clone(), new_result);
+                return Operation::IdentifyTerms(new_template.clone(), new_result);
             }
         };
 
@@ -464,7 +438,29 @@ impl EdgeInfo {
             .map(|replacement| replacement.unwrap())
             .collect();
 
-        EdgeInfo::normalize(mapped_term.term_id, unwrapped_replacements, new_result)
+        Operation::new(mapped_term.term_id, unwrapped_replacements, new_result)
+    }
+}
+
+impl Operation {
+    // Normalizing can produce an edge, or it can just conclude that two term instances are the same
+    fn new(template: TermId, replacements: Vec<TermInstance>, result: TermInstance) -> Operation {
+        let (normalized, new_to_old) = normalize_replacements(&replacements);
+        let normalized_key = EdgeKey {
+            template,
+            replacements: normalized,
+        };
+        let normalized_result = result.forward_map_vars(&new_to_old);
+
+        if replacements_are_noop(&normalized_key.replacements) {
+            // There's no edge here, we just want to identify two terms
+            return Operation::IdentifyTerms(normalized_key.template_instance(), normalized_result);
+        }
+
+        Operation::AddEdge(EdgeInfo {
+            key: normalized_key,
+            result: normalized_result,
+        })
     }
 }
 
@@ -874,11 +870,11 @@ impl TermGraph {
         let mut touched_edges = vec![];
         for edge_id in &old_term_info.adjacent {
             let old_edge_info = self.take_edge_info(*edge_id);
-            let possible_edge = old_edge_info.replace_term_id(old_term_id, new_term);
+            let operation = old_edge_info.replace_term_id(old_term_id, new_term);
 
-            let new_edge_info = match possible_edge {
-                PossibleEdge::Info(info) => info,
-                PossibleEdge::Identification(new_template, new_result) => {
+            let new_edge_info = match operation {
+                Operation::AddEdge(info) => info,
+                Operation::IdentifyTerms(new_template, new_result) => {
                     // Remove this edge from the graph, and identify the template and result.
                     for term in old_edge_info.adjacent_terms() {
                         if term != old_term_id {
