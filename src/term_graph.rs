@@ -1077,8 +1077,8 @@ impl TermGraph {
         let mut all_terms: HashSet<String> = HashSet::new();
         for term_id in 0..self.terms.len() {
             let term_id = term_id as TermId;
-            if !self.has_term_info(term_id) {
-                println!("term {} has been collapsed", term_id);
+            if let TermInfoReference::Replaced(ti) = self.get_term_info_ref(term_id) {
+                println!("term {} has been replaced with {}", term_id, ti);
                 continue;
             }
             let term_info = self.get_term_info(term_id);
@@ -1387,6 +1387,17 @@ mod tests {
         let x0 = g.parse("x0");
         let a0x0 = g.parse("a0(x0)");
         g.check_identify_terms(&x0, &a0x0);
+    }
+
+    #[test]
+    fn test_template_discovery() {
+        let mut g = TermGraph::new();
+        let a0a1x0 = g.parse("a0(a1, x0)");
+        let a2 = g.parse("a2");
+        g.check_identify_terms(&a0a1x0, &a2);
+        let a0a1a3 = g.parse("a0(a1, a3)");
+        let a2 = g.parse("a2");
+        assert_eq!(a0a1a3, a2);
     }
 
     // #[test]
