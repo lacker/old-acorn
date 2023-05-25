@@ -839,13 +839,12 @@ impl TermGraph {
 
     // Replaces all references to old_term_id with references to new_term.
     // The caller should be sure that old_term_id has not been replaced already.
-    // If we discover more pairs of terms that should be identified in the process of doing
-    // this replacement, push them onto pending_identification.
+    // When this discovers more valid operations it pushes them onto pending.
     fn replace_term_id(
         &mut self,
         old_term_id: TermId,
         new_term: &TermInstance,
-        pending_identification: &mut Vec<(TermInstance, TermInstance)>,
+        pending: &mut Vec<Operation>,
     ) {
         let old_term_info_ref = mem::replace(
             &mut self.terms[old_term_id as usize],
@@ -882,7 +881,7 @@ impl TermGraph {
                             mut_term.adjacent.remove(edge_id);
                         }
                     }
-                    pending_identification.push((new_template, new_result));
+                    pending.push(Operation::IdentifyTerms(new_template, new_result));
                     self.edgemap.remove(&old_edge_info.key);
                     continue;
                 }
@@ -902,7 +901,7 @@ impl TermGraph {
                 // new_edge_info and duplicate_edge_info are the same edge, but
                 // they're going to different terms.
                 // This means we need to identify the terms.
-                pending_identification.push((
+                pending.push(Operation::IdentifyTerms(
                     new_edge_info.result.clone(),
                     duplicate_edge_info.result.clone(),
                 ));
@@ -995,77 +994,91 @@ impl TermGraph {
         right_id.cmp(&left_id)
     }
 
-    pub fn identify_terms(&mut self, instance1: TermInstance, instance2: TermInstance) {
-        let mut pending_identification = vec![];
-        pending_identification.push((instance1, instance2));
+    // Identifies the two terms, and adds any followup operations to the queue rather than processing them all.
+    fn identify_terms_once(
+        &mut self,
+        instance1: TermInstance,
+        instance2: TermInstance,
+        pending: &mut Vec<Operation>,
+    ) {
+        let instance1 = self.apply_replacements(instance1);
+        let instance2 = self.apply_replacements(instance2);
+        if instance1 == instance2 {
+            // Nothing to do
+            return;
+        }
 
-        while let Some((instance1, instance2)) = pending_identification.pop() {
-            let instance1 = self.apply_replacements(instance1);
-            let instance2 = self.apply_replacements(instance2);
-            if instance1 == instance2 {
-                // Nothing to do
+        if instance1.term_id().is_some() && instance1.term_id() == instance2.term_id() {
+            todo!("handle permutations of arguments");
+        }
+
+        // Discard the term that we least want to keep
+        let (discard_instance, keep_instance) = match self.keeping_order(&instance1, &instance2) {
+            Ordering::Less => (instance1, instance2),
+            Ordering::Greater => (instance2, instance1),
+            Ordering::Equal => {
+                panic!("flow control error");
+            }
+        };
+
+        let discard = match &discard_instance {
+            TermInstance::Variable(_, _) => panic!("flow control error"),
+            TermInstance::Mapped(t) => t,
+        };
+
+        if let TermInstance::Mapped(keep) = &keep_instance {
+            if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
+                // The "keep" term contains some arguments that the "discard" term doesn't.
+                // These arguments can be eliminated.
+                // We make a new reduced term with these arguments eliminated and identify
+                // the "keep" term before doing this identification.
+                let keep_info = self.get_term_info(keep.term_id);
+                let mut reduced_arg_types = vec![];
+                let mut reduced_var_map = vec![];
+                for (i, v) in keep.var_map.iter().enumerate() {
+                    if discard.var_map.contains(v) {
+                        reduced_var_map.push(*v);
+                        reduced_arg_types.push(keep_info.arg_types[i]);
+                    }
+                }
+                let reduced_term_info = TermInfo {
+                    term_type: keep_info.term_type,
+                    arg_types: reduced_arg_types,
+                    adjacent: HashSet::default(),
+                    atom_keys: vec![],
+                    type_template: None,
+                    depth: keep_info.depth,
+                };
+                let reduced_term_id = self.terms.len() as TermId;
+                self.terms
+                    .push(TermInfoReference::TermInfo(reduced_term_info));
+                let reduced_instance = TermInstance::mapped(reduced_term_id, reduced_var_map);
+
+                // We need to identify keep+reduced before keep+discard.
+                // Since our "priority queue" is just a vector, this works.
+                // Ie, order does matter here.
+                pending.push(Operation::IdentifyTerms(
+                    keep_instance.clone(),
+                    discard_instance,
+                ));
+                pending.push(Operation::IdentifyTerms(keep_instance, reduced_instance));
                 return;
             }
+        }
 
-            if instance1.term_id().is_some() && instance1.term_id() == instance2.term_id() {
-                todo!("handle permutations of arguments");
-            }
+        // Find a TermInstance equal to the term to be discarded
+        let new_instance = keep_instance.backward_map_vars(&discard.var_map);
+        self.replace_term_id(discard.term_id, &new_instance, pending);
+    }
 
-            // Discard the term that we least want to keep
-            let (discard_instance, keep_instance) = match self.keeping_order(&instance1, &instance2)
-            {
-                Ordering::Less => (instance1, instance2),
-                Ordering::Greater => (instance2, instance1),
-                Ordering::Equal => {
-                    panic!("flow control error");
-                }
-            };
+    // Identifies the two terms, and continues processing any followup operations until
+    // all operations are processed.
+    pub fn identify_terms(&mut self, instance1: TermInstance, instance2: TermInstance) {
+        let mut pending = vec![];
+        pending.push(Operation::IdentifyTerms(instance1, instance2));
 
-            let discard = match &discard_instance {
-                TermInstance::Variable(_, _) => panic!("flow control error"),
-                TermInstance::Mapped(t) => t,
-            };
-
-            if let TermInstance::Mapped(keep) = &keep_instance {
-                if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
-                    // The "keep" term contains some arguments that the "discard" term doesn't.
-                    // These arguments can be eliminated.
-                    // We make a new reduced term with these arguments eliminated and identify
-                    // the "keep" term before doing this identification.
-                    let keep_info = self.get_term_info(keep.term_id);
-                    let mut reduced_arg_types = vec![];
-                    let mut reduced_var_map = vec![];
-                    for (i, v) in keep.var_map.iter().enumerate() {
-                        if discard.var_map.contains(v) {
-                            reduced_var_map.push(*v);
-                            reduced_arg_types.push(keep_info.arg_types[i]);
-                        }
-                    }
-                    let reduced_term_info = TermInfo {
-                        term_type: keep_info.term_type,
-                        arg_types: reduced_arg_types,
-                        adjacent: HashSet::default(),
-                        atom_keys: vec![],
-                        type_template: None,
-                        depth: keep_info.depth,
-                    };
-                    let reduced_term_id = self.terms.len() as TermId;
-                    self.terms
-                        .push(TermInfoReference::TermInfo(reduced_term_info));
-                    let reduced_instance = TermInstance::mapped(reduced_term_id, reduced_var_map);
-
-                    // We need to identify keep+reduced before keep+discard.
-                    // Since our "priority queue" is just a vector, this works.
-                    // Ie, order does matter here.
-                    pending_identification.push((keep_instance.clone(), discard_instance));
-                    pending_identification.push((keep_instance, reduced_instance));
-                    continue;
-                }
-            }
-
-            // Find a TermInstance equal to the term to be discarded
-            let new_instance = keep_instance.backward_map_vars(&discard.var_map);
-            self.replace_term_id(discard.term_id, &new_instance, &mut pending_identification);
+        while let Some(Operation::IdentifyTerms(instance1, instance2)) = pending.pop() {
+            self.identify_terms_once(instance1, instance2, &mut pending);
         }
     }
 
