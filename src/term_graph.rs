@@ -515,10 +515,6 @@ impl TermGraph {
         &self.edges[edge as usize].as_ref().unwrap()
     }
 
-    fn set_edge_info(&mut self, edge: EdgeId, info: EdgeInfo) {
-        self.edges[edge as usize] = Some(info);
-    }
-
     fn take_edge_info(&mut self, edge: EdgeId) -> EdgeInfo {
         self.edges[edge as usize].take().unwrap()
     }
@@ -837,6 +833,32 @@ impl TermGraph {
         }
     }
 
+    // Inserts a single edge if possible.
+    // When this discovers more valid operations it pushes them onto pending.
+    fn insert_edge_once(&mut self, new_edge_info: EdgeInfo, pending: &mut Vec<Operation>) {
+        // Check to see if the new edge is a duplicate
+        if let Some(duplicate_edge_id) = self.edgemap.get(&new_edge_info.key) {
+            let duplicate_edge_info = self.get_edge_info(*duplicate_edge_id);
+            // new_edge_info and duplicate_edge_info are the same edge, but
+            // they're going to different terms.
+            // This means we need to identify the terms.
+            pending.push(Operation::IdentifyTerms(
+                new_edge_info.result.clone(),
+                duplicate_edge_info.result.clone(),
+            ));
+            return;
+        }
+
+        // Add the new edge
+        let new_edge_id = self.edges.len() as EdgeId;
+        self.edgemap.insert(new_edge_info.key.clone(), new_edge_id);
+        for term in new_edge_info.adjacent_terms() {
+            let mut_term = self.mut_term_info(term);
+            mut_term.adjacent.insert(new_edge_id);
+        }
+        self.edges.push(Some(new_edge_info));
+    }
+
     // Replaces all references to old_term_id with references to new_term.
     // The caller should be sure that old_term_id has not been replaced already.
     // When this discovers more valid operations it pushes them onto pending.
@@ -865,74 +887,38 @@ impl TermGraph {
             atom_info.term = atom_info.term.replace_term_id(old_term_id, new_term);
         }
 
+        if let Some(term_id) = new_term.term_id() {
+            // Update the term info for the new term
+            let new_term_info = self.mut_term_info(term_id);
+            new_term_info.atom_keys.extend(old_term_info.atom_keys);
+            if new_term_info.depth > old_term_info.depth {
+                new_term_info.depth = old_term_info.depth;
+            }
+        }
+
         // Update all edges that touch this term
-        let mut touched_edges = vec![];
-        for edge_id in &old_term_info.adjacent {
-            let old_edge_info = self.take_edge_info(*edge_id);
+        for old_edge_id in &old_term_info.adjacent {
+            // Remove the old edge
+            let old_edge_info = self.take_edge_info(*old_edge_id);
+            for term in old_edge_info.adjacent_terms() {
+                if term != old_term_id {
+                    let mut_term = self.mut_term_info(term);
+                    mut_term.adjacent.remove(old_edge_id);
+                }
+            }
+            self.edgemap.remove(&old_edge_info.key);
+
             let operation = old_edge_info.replace_term_id(old_term_id, new_term);
 
             let new_edge_info = match operation {
                 Operation::AddEdge(info) => info,
                 Operation::IdentifyTerms(new_template, new_result) => {
-                    // Remove this edge from the graph, and identify the template and result.
-                    for term in old_edge_info.adjacent_terms() {
-                        if term != old_term_id {
-                            let mut_term = self.mut_term_info(term);
-                            mut_term.adjacent.remove(edge_id);
-                        }
-                    }
                     pending.push(Operation::IdentifyTerms(new_template, new_result));
-                    self.edgemap.remove(&old_edge_info.key);
                     continue;
                 }
             };
 
-            touched_edges.push(*edge_id);
-
-            if old_edge_info.key == new_edge_info.key {
-                // We didn't change the key. Just update the edge info.
-                self.set_edge_info(*edge_id, new_edge_info);
-                continue;
-            }
-
-            // We did change the key.
-            if let Some(duplicate_edge_id) = self.edgemap.get(&new_edge_info.key) {
-                let duplicate_edge_info = self.get_edge_info(*duplicate_edge_id);
-                // new_edge_info and duplicate_edge_info are the same edge, but
-                // they're going to different terms.
-                // This means we need to identify the terms.
-                pending.push(Operation::IdentifyTerms(
-                    new_edge_info.result.clone(),
-                    duplicate_edge_info.result.clone(),
-                ));
-            }
-
-            if old_edge_info.key.replacements.len() > new_edge_info.key.replacements.len() {
-                // Some replacement was unnecessary, so we are adjacent to fewer terms now,
-                // and we need to update adjacencies.
-                let old_adjacent_terms = old_edge_info.adjacent_terms();
-                let new_adjacent_terms = new_edge_info.adjacent_terms();
-                for term in old_adjacent_terms {
-                    if term != old_term_id && !new_adjacent_terms.contains(&term) {
-                        self.mut_term_info(term).adjacent.remove(edge_id);
-                    }
-                }
-            }
-
-            // We're good to go. Update the edge.
-            self.edgemap.insert(new_edge_info.key.clone(), *edge_id);
-            self.set_edge_info(*edge_id, new_edge_info);
-            self.edgemap.remove(&old_edge_info.key);
-        }
-
-        if let Some(term_id) = new_term.term_id() {
-            // new_term is now adjacent to all these updated edges
-            let new_term_info = self.mut_term_info(term_id);
-            new_term_info.adjacent.extend(touched_edges);
-            new_term_info.atom_keys.extend(old_term_info.atom_keys);
-            if new_term_info.depth > old_term_info.depth {
-                new_term_info.depth = old_term_info.depth;
-            }
+            self.insert_edge_once(new_edge_info, pending);
         }
     }
 
