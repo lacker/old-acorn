@@ -909,16 +909,7 @@ impl TermGraph {
             self.edgemap.remove(&old_edge_info.key);
 
             let operation = old_edge_info.replace_term_id(old_term_id, new_term);
-
-            let new_edge_info = match operation {
-                Operation::InsertEdge(info) => info,
-                Operation::IdentifyTerms(new_template, new_result) => {
-                    pending.push(Operation::IdentifyTerms(new_template, new_result));
-                    continue;
-                }
-            };
-
-            self.insert_edge_once(new_edge_info, pending);
+            pending.push(operation);
         }
     }
 
