@@ -104,7 +104,7 @@ pub type EdgeId = u32;
 // changes.
 // This can either be adding a new edge, or identifying two terms with each other.
 enum Operation {
-    AddEdge(EdgeInfo),
+    InsertEdge(EdgeInfo),
     IdentifyTerms(TermInstance, TermInstance),
 }
 
@@ -398,7 +398,7 @@ impl EdgeInfo {
 
         if self.key.template != old_term_id {
             // Great, we're done
-            return Operation::AddEdge(EdgeInfo {
+            return Operation::InsertEdge(EdgeInfo {
                 key: EdgeKey {
                     template: self.key.template,
                     replacements: new_replacements,
@@ -457,7 +457,7 @@ impl Operation {
             return Operation::IdentifyTerms(normalized_key.template_instance(), normalized_result);
         }
 
-        Operation::AddEdge(EdgeInfo {
+        Operation::InsertEdge(EdgeInfo {
             key: normalized_key,
             result: normalized_result,
         })
@@ -911,7 +911,7 @@ impl TermGraph {
             let operation = old_edge_info.replace_term_id(old_term_id, new_term);
 
             let new_edge_info = match operation {
-                Operation::AddEdge(info) => info,
+                Operation::InsertEdge(info) => info,
                 Operation::IdentifyTerms(new_template, new_result) => {
                     pending.push(Operation::IdentifyTerms(new_template, new_result));
                     continue;
@@ -980,7 +980,8 @@ impl TermGraph {
         right_id.cmp(&left_id)
     }
 
-    // Identifies the two terms, and adds any followup operations to the queue rather than processing them all.
+    // Identifies the two terms, and adds any followup operations to the queue rather than
+    // processing them all.
     fn identify_terms_once(
         &mut self,
         instance1: TermInstance,
@@ -1057,15 +1058,26 @@ impl TermGraph {
         self.replace_term_id(discard.term_id, &new_instance, pending);
     }
 
+    fn process_all(&mut self, pending: Vec<Operation>) {
+        let mut pending = pending;
+        loop {
+            match pending.pop() {
+                Some(Operation::IdentifyTerms(instance1, instance2)) => {
+                    self.identify_terms_once(instance1, instance2, &mut pending);
+                }
+                Some(Operation::InsertEdge(edge_info)) => {
+                    self.insert_edge_once(edge_info, &mut pending);
+                }
+                None => break,
+            }
+        }
+    }
+
     // Identifies the two terms, and continues processing any followup operations until
     // all operations are processed.
     pub fn identify_terms(&mut self, instance1: TermInstance, instance2: TermInstance) {
-        let mut pending = vec![];
-        pending.push(Operation::IdentifyTerms(instance1, instance2));
-
-        while let Some(Operation::IdentifyTerms(instance1, instance2)) = pending.pop() {
-            self.identify_terms_once(instance1, instance2, &mut pending);
-        }
+        let ops = vec![Operation::IdentifyTerms(instance1, instance2)];
+        self.process_all(ops)
     }
 
     // A linear pass through the graph checking that everything is consistent.
