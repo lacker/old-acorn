@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 use std::{fmt, mem};
 
 use fxhash::FxHashMap;
@@ -130,7 +131,7 @@ pub struct TermGraph {
     type_templates: HashMap<(TypeId, u8), TermId>,
 
     // Maps (template, replacement) -> edges
-    edgemap: FxHashMap<EdgeKey, EdgeId>,
+    edge_key_map: FxHashMap<EdgeKey, EdgeId>,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -481,7 +482,7 @@ impl TermGraph {
             edges: Vec::new(),
             atoms: HashMap::default(),
             type_templates: HashMap::default(),
-            edgemap: HashMap::default(),
+            edge_key_map: HashMap::default(),
         }
     }
 
@@ -528,7 +529,7 @@ impl TermGraph {
     // The type of the output is the same as the type of the key's template.
     fn expand_edge_key(&mut self, key: EdgeKey) -> &TermInstance {
         // Check if this edge is already in the graph
-        if let Some(edge_id) = self.edgemap.get(&key) {
+        if let Some(edge_id) = self.edge_key_map.get(&key) {
             return &self.get_edge_info(*edge_id).result;
         }
 
@@ -584,7 +585,6 @@ impl TermGraph {
         }
 
         // Create the info structs
-        let edge_id = self.edges.len() as EdgeId;
         let term_id = self.terms.len() as TermId;
         let term_type = template.term_type;
         let var_map: Vec<AtomId> = (0..result_arg_types.len() as AtomId).collect();
@@ -592,26 +592,20 @@ impl TermGraph {
         let term_info = TermInfo {
             term_type,
             arg_types: result_arg_types,
-            adjacent: std::iter::once(edge_id).collect(),
+            adjacent: HashSet::default(),
             atom_keys: vec![],
             type_template: None,
             depth: max_edge_depth + 1,
         };
         let edge_info = EdgeInfo {
-            key: key.clone(),
+            key,
             result: TermInstance::Mapped(result),
         };
 
         // Insert everything into the graph
         self.terms.push(TermInfoReference::TermInfo(term_info));
-        self.mut_term_info(key.template).adjacent.insert(edge_id);
-        for r in &key.replacements {
-            if let TermInstance::Mapped(term) = r {
-                self.mut_term_info(term.term_id).adjacent.insert(edge_id);
-            }
-        }
-        self.edges.push(Some(edge_info));
-        self.edgemap.insert(key, edge_id);
+
+        let edge_id = self.insert_edge(edge_info);
 
         &self.get_edge_info(edge_id).result
     }
@@ -834,30 +828,52 @@ impl TermGraph {
         }
     }
 
-    // Inserts a single edge if possible.
+    // Inserts an edge, updating the appropriate maps.
+    // The edge must not already exist.
+    fn insert_edge(&mut self, edge_info: EdgeInfo) -> EdgeId {
+        let new_edge_id = self.edges.len() as EdgeId;
+        self.edge_key_map.insert(edge_info.key.clone(), new_edge_id);
+        for term in edge_info.adjacent_terms() {
+            let mut_term = self.mut_term_info(term);
+            mut_term.adjacent.insert(new_edge_id);
+        }
+        self.edges.push(Some(edge_info));
+        new_edge_id
+    }
+
+    // Removes an edge, updating the appropriate maps.
+    // The edge must exist.
+    fn remove_edge(&mut self, edge_id: EdgeId) -> EdgeInfo {
+        let old_edge_info = self.take_edge_info(edge_id);
+        for term in old_edge_info.adjacent_terms() {
+            match &mut self.terms[term as usize] {
+                TermInfoReference::Replaced(_) => (),
+                TermInfoReference::TermInfo(term_info) => {
+                    term_info.adjacent.remove(&edge_id);
+                }
+            }
+        }
+        self.edge_key_map.remove(&old_edge_info.key);
+        old_edge_info
+    }
+
+    // Inserts a single edge, but if it's a duplicate, identify the appropriate terms instead.
     // When this discovers more valid operations it pushes them onto pending.
-    fn insert_edge_once(&mut self, new_edge_info: EdgeInfo, pending: &mut Vec<Operation>) {
+    fn process_insert_edge(&mut self, edge_info: EdgeInfo, pending: &mut Vec<Operation>) {
         // Check to see if the new edge is a duplicate
-        if let Some(duplicate_edge_id) = self.edgemap.get(&new_edge_info.key) {
+        if let Some(duplicate_edge_id) = self.edge_key_map.get(&edge_info.key) {
             let duplicate_edge_info = self.get_edge_info(*duplicate_edge_id);
             // new_edge_info and duplicate_edge_info are the same edge, but
             // they're going to different terms.
             // This means we need to identify the terms.
             pending.push(Operation::IdentifyTerms(
-                new_edge_info.result.clone(),
+                edge_info.result.clone(),
                 duplicate_edge_info.result.clone(),
             ));
             return;
         }
 
-        // Add the new edge
-        let new_edge_id = self.edges.len() as EdgeId;
-        self.edgemap.insert(new_edge_info.key.clone(), new_edge_id);
-        for term in new_edge_info.adjacent_terms() {
-            let mut_term = self.mut_term_info(term);
-            mut_term.adjacent.insert(new_edge_id);
-        }
-        self.edges.push(Some(new_edge_info));
+        self.insert_edge(edge_info);
     }
 
     // Replaces all references to old_term_id with references to new_term.
@@ -899,16 +915,7 @@ impl TermGraph {
 
         // Update all edges that touch this term
         for old_edge_id in &old_term_info.adjacent {
-            // Remove the old edge
-            let old_edge_info = self.take_edge_info(*old_edge_id);
-            for term in old_edge_info.adjacent_terms() {
-                if term != old_term_id {
-                    let mut_term = self.mut_term_info(term);
-                    mut_term.adjacent.remove(old_edge_id);
-                }
-            }
-            self.edgemap.remove(&old_edge_info.key);
-
+            let old_edge_info = self.remove_edge(*old_edge_id);
             let operation = old_edge_info.replace_term_id(old_term_id, new_term);
             pending.push(operation);
         }
@@ -974,7 +981,7 @@ impl TermGraph {
 
     // Identifies the two terms, and adds any followup operations to the queue rather than
     // processing them all.
-    fn identify_terms_once(
+    fn process_identify_terms(
         &mut self,
         instance1: TermInstance,
         instance2: TermInstance,
@@ -1057,10 +1064,10 @@ impl TermGraph {
         loop {
             match pending.pop() {
                 Some(Operation::IdentifyTerms(instance1, instance2)) => {
-                    self.identify_terms_once(instance1, instance2, &mut pending);
+                    self.process_identify_terms(instance1, instance2, &mut pending);
                 }
                 Some(Operation::InsertEdge(edge_info)) => {
-                    self.insert_edge_once(edge_info, &mut pending);
+                    self.process_insert_edge(edge_info, &mut pending);
                 }
                 None => break,
             }
@@ -1126,7 +1133,7 @@ impl TermGraph {
             all_terms.insert(s);
         }
 
-        for (key, edge_id) in self.edgemap.iter() {
+        for (key, edge_id) in self.edge_key_map.iter() {
             key.check();
             if !self.has_edge_info(*edge_id) {
                 panic!("edge {} has been collapsed", edge_id);
