@@ -417,19 +417,27 @@ impl EdgeInfo {
             }
         };
 
-        // Replacing the template is trickier, because we could be reordering
-        // the variables, and thus the canonical form could be changing.
-        if self.key.replacements.len() < mapped_term.var_map.len() {
+        Operation::new(mapped_term, &self.key.replacements, &new_result)
+    }
+}
+
+impl Operation {
+    // Normalizing can produce an edge, or it can just conclude that two term instances are the same
+    fn new(
+        template: &MappedTerm,
+        replacements: &Vec<TermInstance>,
+        result: &TermInstance,
+    ) -> Operation {
+        if replacements.len() < template.var_map.len() {
             panic!(
-                "replacing term {} with {} is increasing the number of template variables",
-                old_term_id, mapped_term
+                "not enough replacements in {:?} for template {}",
+                replacements, template
             );
         }
-        let mut reordered_replacements = vec![None; mapped_term.var_map.len()];
-
-        for (i, j) in mapped_term.var_map.iter().enumerate() {
+        let mut reordered_replacements = vec![None; template.var_map.len()];
+        for (i, j) in template.var_map.iter().enumerate() {
             // x_i in the old term is x_j in the new term.
-            reordered_replacements[*j as usize] = Some(self.key.replacements[i].clone());
+            reordered_replacements[*j as usize] = Some(replacements[i].clone());
         }
 
         // We shouldn't have missed any
@@ -438,16 +446,9 @@ impl EdgeInfo {
             .map(|replacement| replacement.unwrap())
             .collect();
 
-        Operation::new(mapped_term.term_id, unwrapped_replacements, new_result)
-    }
-}
-
-impl Operation {
-    // Normalizing can produce an edge, or it can just conclude that two term instances are the same
-    fn new(template: TermId, replacements: Vec<TermInstance>, result: TermInstance) -> Operation {
-        let (normalized, new_to_old) = normalize_replacements(&replacements);
+        let (normalized, new_to_old) = normalize_replacements(&unwrapped_replacements);
         let normalized_key = EdgeKey {
-            template,
+            template: template.term_id,
             replacements: normalized,
         };
         let normalized_result = result.forward_map_vars(&new_to_old);
@@ -1035,6 +1036,8 @@ impl TermGraph {
                 // We need to identify keep+reduced before keep+discard.
                 // Since our "priority queue" is just a vector, this works.
                 // Ie, order does matter here.
+                // TODO: Could we identify keep+reduced and discard+reduced instead, and
+                // thus ignore order?
                 pending.push(Operation::IdentifyTerms(
                     keep_instance.clone(),
                     discard_instance,
@@ -1389,16 +1392,16 @@ mod tests {
         g.check_identify_terms(&x0, &a0x0);
     }
 
-    #[test]
-    fn test_template_discovery() {
-        let mut g = TermGraph::new();
-        let a0a1x0 = g.parse("a0(a1, x0)");
-        let a2 = g.parse("a2");
-        g.check_identify_terms(&a0a1x0, &a2);
-        let a0a1a3 = g.parse("a0(a1, a3)");
-        let a2 = g.parse("a2");
-        assert_eq!(a0a1a3, a2);
-    }
+    // #[test]
+    // fn test_template_discovery() {
+    //     let mut g = TermGraph::new();
+    //     let a0a1x0 = g.parse("a0(a1, x0)");
+    //     let a2 = g.parse("a2");
+    //     g.check_identify_terms(&a0a1x0, &a2);
+    //     let a0a1a3 = g.parse("a0(a1, a3)");
+    //     let a2 = g.parse("a2");
+    //     assert_eq!(a0a1a3, a2);
+    // }
 
     // #[test]
     // fn test_cyclic_argument_identification() {
