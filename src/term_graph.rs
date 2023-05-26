@@ -397,7 +397,7 @@ impl EdgeInfo {
             .collect();
 
         if self.key.template != old_term_id {
-            // Great, we're done
+            // The template is unchanged, so we're done
             return Operation::InsertEdge(EdgeInfo {
                 key: EdgeKey {
                     template: self.key.template,
@@ -407,35 +407,35 @@ impl EdgeInfo {
             });
         }
 
-        // We're replacing the template.
-        let mapped_term = match new_term {
-            TermInstance::Mapped(term) => term,
-            TermInstance::Variable(_, var_id) => {
-                let new_template = &new_replacements[*var_id as usize];
-                // We want to identify new_template and new_result here.
-                return Operation::IdentifyTerms(new_template.clone(), new_result);
-            }
-        };
-
-        Operation::new(mapped_term, &self.key.replacements, &new_result)
+        // We're replacing the template
+        Operation::new(new_term, &self.key.replacements, new_result)
     }
 }
 
 impl Operation {
     // Normalizing can produce an edge, or it can just conclude that two term instances are the same
     fn new(
-        template: &MappedTerm,
+        template: &TermInstance,
         replacements: &Vec<TermInstance>,
-        result: &TermInstance,
+        result: TermInstance,
     ) -> Operation {
-        if replacements.len() < template.var_map.len() {
+        let mapped_term = match template {
+            TermInstance::Mapped(term) => term,
+            TermInstance::Variable(_, var_id) => {
+                let new_template = &replacements[*var_id as usize];
+                // We want to identify new_template and new_result here.
+                return Operation::IdentifyTerms(new_template.clone(), result);
+            }
+        };
+
+        if replacements.len() < mapped_term.var_map.len() {
             panic!(
                 "not enough replacements in {:?} for template {}",
-                replacements, template
+                replacements, mapped_term
             );
         }
-        let mut reordered_replacements = vec![None; template.var_map.len()];
-        for (i, j) in template.var_map.iter().enumerate() {
+        let mut reordered_replacements = vec![None; mapped_term.var_map.len()];
+        for (i, j) in mapped_term.var_map.iter().enumerate() {
             // x_i in the old term is x_j in the new term.
             reordered_replacements[*j as usize] = Some(replacements[i].clone());
         }
@@ -448,7 +448,7 @@ impl Operation {
 
         let (normalized, new_to_old) = normalize_replacements(&unwrapped_replacements);
         let normalized_key = EdgeKey {
-            template: template.term_id,
+            template: mapped_term.term_id,
             replacements: normalized,
         };
         let normalized_result = result.forward_map_vars(&new_to_old);
