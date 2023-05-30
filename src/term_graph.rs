@@ -1081,6 +1081,22 @@ impl TermGraph {
         self.process_all(ops)
     }
 
+    // Find all edges that can be a template expansion to create this term.
+    // Does not include the "degenerate templates" where a single variable expands into
+    // this term, or where this term itself maps into this term by variable renaming.
+    // TODO: should this include atomic constructors?
+    fn inbound_edges(&self, term_id: TermId) -> Vec<EdgeId> {
+        let term_info = self.get_term_info(term_id);
+        let mut edges = vec![];
+        for edge_id in &term_info.adjacent {
+            let edge_info = self.get_edge_info(*edge_id);
+            if edge_info.result.term_id() == Some(term_id) {
+                edges.push(*edge_id);
+            }
+        }
+        edges
+    }
+
     // A linear pass through the graph checking that everything is consistent.
     pub fn check(&self) {
         println!();
