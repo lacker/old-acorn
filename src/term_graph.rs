@@ -1081,23 +1081,22 @@ impl TermGraph {
         self.process_all(ops)
     }
 
-    // Find all edges that can be a template expansion to create this term.
+    // Find edges that can be a template expansion to create this term.
     // The edges are returned as a map from template id to a list of edges from that template.
-    // This handles cases where more than one substitution is possible.
-    // For example, into (x0 + x1) you can replace either {x0=0, x1=2} or {x0=1, x1=1} to get 2.
+    // When where more than one substitution is possible, we pick the first one, trying to
+    // get the "simpler" edge. This is a heuristic but maybe it's okay.
     //
     // Does not include the "degenerate templates" where a single variable expands into
     // this term, or where a term maps to itself by variable renaming.
-    fn inbound_edge_map(&self, term_id: TermId) -> HashMap<TermId, Vec<EdgeId>> {
+    fn inbound_edges(&self, term_id: TermId) -> HashMap<TermId, EdgeId, BuildNoHashHasher<TermId>> {
         let term_info = self.get_term_info(term_id);
-        let mut answer = HashMap::new();
+        let mut answer = HashMap::default();
         for edge_id in &term_info.adjacent {
             let edge_info = self.get_edge_info(*edge_id);
             if edge_info.result.term_id() == Some(term_id) {
-                answer
-                    .entry(edge_info.key.template)
-                    .or_insert_with(|| vec![])
-                    .push(*edge_id);
+                //  Keep the smallest edge id in answer
+                let entry = answer.entry(edge_info.key.template).or_insert(*edge_id);
+                *entry = (*entry).min(*edge_id);
             }
         }
         answer
@@ -1133,7 +1132,7 @@ impl TermGraph {
             .iter()
             .map(|r| match r {
                 TermInstance::Variable(_, _) => None,
-                TermInstance::Mapped(t) => Some(self.inbound_edge_map(t.term_id)),
+                TermInstance::Mapped(t) => Some(self.inbound_edges(t.term_id)),
             })
             .collect();
 
