@@ -1140,22 +1140,55 @@ impl TermGraph {
         // Check all the short edges that are compatible with the long edge.
         for short_edge_id in self.iter_outbound_edges(long_edge_info.key.template) {
             let short_edge_info = self.get_edge_info(short_edge_id);
+            let num_vars_b = match &short_edge_info.result {
+                TermInstance::Variable(_, _) => {
+                    // Ignore short edges that cancel out a term entirely
+                    continue;
+                }
+                TermInstance::Mapped(t) => t.var_map.len(),
+            };
             let short_reps = &short_edge_info.key.replacements;
             assert_eq!(short_reps.len(), inbound.len());
+
             // This replacements vector starts with Nones when we have no idea what
             // the replacement is going to be, and we fill it in as we go.
-            let replacements: Vec<Option<TermInstance>> = vec![None; short_reps.len()];
-            let mut found_problem = false;
-            for (i, short_rep) in short_reps.iter().enumerate() {
+            let mut replacements: Vec<Option<&TermInstance>> = vec![None; num_vars_b];
+            let mut found_conflict = false;
+            for (template_var_id, short_rep) in short_reps.iter().enumerate() {
+                let long_rep = &long_edge_info.key.replacements[template_var_id];
                 match short_rep {
-                    TermInstance::Variable(_, atom_id) => {
-                        todo!();
+                    TermInstance::Variable(_, short_var_id) => {
+                        // The short edge just renames this variable.
+                        if let Some(existing) = &replacements[*short_var_id as usize] {
+                            if *existing != long_rep {
+                                found_conflict = true;
+                                break;
+                            }
+                        } else {
+                            replacements[*short_var_id as usize] = Some(long_rep);
+                        }
                     }
-                    TermInstance::Mapped(mapped_term) => {
-                        todo!();
-                    }
+                    TermInstance::Mapped(short_mapped_term) => match long_rep {
+                        TermInstance::Variable(_, _) => {
+                            // The short edge does something with this variable, but
+                            // the long edge doesn't. This is a conflict, unless perhaps
+                            // there's a substitution that turns something back into nothing,
+                            // like neg(x) with x := neg(x) creating x, but let's ignore that
+                            // case for now.
+                            found_conflict = true;
+                            break;
+                        }
+                        TermInstance::Mapped(long_mapped_term) => {
+                            todo!();
+                        }
+                    },
                 }
             }
+            if found_conflict {
+                continue;
+            }
+
+            todo!("create the new edge");
         }
     }
 
