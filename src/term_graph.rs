@@ -1140,7 +1140,22 @@ impl TermGraph {
         // Check all the short edges that are compatible with the long edge.
         for short_edge_id in self.iter_outbound_edges(long_edge_info.key.template) {
             let short_edge_info = self.get_edge_info(short_edge_id);
-            todo!("coalescence logic");
+            let short_reps = &short_edge_info.key.replacements;
+            assert_eq!(short_reps.len(), inbound.len());
+            // This replacements vector starts with Nones when we have no idea what
+            // the replacement is going to be, and we fill it in as we go.
+            let replacements: Vec<Option<TermInstance>> = vec![None; short_reps.len()];
+            let mut found_problem = false;
+            for (i, short_rep) in short_reps.iter().enumerate() {
+                match short_rep {
+                    TermInstance::Variable(_, atom_id) => {
+                        todo!();
+                    }
+                    TermInstance::Mapped(mapped_term) => {
+                        todo!();
+                    }
+                }
+            }
         }
     }
 
