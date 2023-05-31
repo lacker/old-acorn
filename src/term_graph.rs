@@ -96,7 +96,8 @@ pub struct EdgeInfo {
     // The parameters that determine the substitution
     key: EdgeKey,
 
-    // The result of the substitution
+    // The result of the substitution.
+    // This can have reordered variable ids but not duplicated or non-consecutive ones.
     result: TermInstance,
 }
 pub type EdgeId = u32;
@@ -315,7 +316,10 @@ impl EdgeKey {
 //   x1 -> foo(x0, x2)
 // and the vector map would be:
 //   [2, 4, 6]
-fn normalize_replacements(replacements: &Vec<TermInstance>) -> (Vec<TermInstance>, Vec<AtomId>) {
+//
+// This is useful when we want to create new edges, and check whether an edge that
+// "does the same thing" already exists.
+fn normalize_replacement_key(replacements: &Vec<TermInstance>) -> (Vec<TermInstance>, Vec<AtomId>) {
     let mut new_replacements = vec![];
     let mut new_to_old: Vec<AtomId> = vec![];
     for r in replacements {
@@ -411,6 +415,47 @@ impl EdgeInfo {
         // We're replacing the template
         Operation::new(new_term, &self.key.replacements, new_result)
     }
+
+    // Renumbers the variables in the replacements so that they take the template term to
+    // the result term, without needing the TermInstance renumbering of variables.
+    // This is useful when we want to analyze edges that already exist, rather than
+    // creating a new edge.
+    fn normalize_replacement_endpoints(&self) -> Vec<TermInstance> {
+        let var_map = match &self.result {
+            TermInstance::Mapped(term) => &term.var_map,
+            TermInstance::Variable(_, _) => {
+                // The result is a variable, ie x0, so the replacements are already normalized
+                return self.key.replacements.clone();
+            }
+        };
+        self.key
+            .replacements
+            .iter()
+            .map(|r| r.backward_map_vars(var_map))
+            .collect()
+    }
+
+    // Renumbers the variables so that they are relative to the provided template and result.
+    // The provided template may skip numbers, so we return a vec of (var id, replacement).
+    // It isn't sorted.
+    fn relativize_replacements(
+        &self,
+        provided_template: &MappedTerm,
+        provided_result: &MappedTerm,
+    ) -> Vec<(AtomId, TermInstance)> {
+        let mut answer = vec![];
+        for (i, r) in self.key.replacements.iter().enumerate() {
+            // The edge replaces x_i with r.
+            // The provided template has a different number for x_i.
+            let provided_template_var = provided_template.var_map[i as usize];
+
+            // We also have a different numbering for r.
+            let renumbered_replacement = r.forward_map_vars(&provided_result.var_map);
+
+            answer.push((provided_template_var, renumbered_replacement));
+        }
+        answer
+    }
 }
 
 impl Operation {
@@ -447,12 +492,15 @@ impl Operation {
             .map(|replacement| replacement.unwrap())
             .collect();
 
-        let (normalized, new_to_old) = normalize_replacements(&unwrapped_replacements);
+        let (normalized, new_to_old) = normalize_replacement_key(&unwrapped_replacements);
         let normalized_key = EdgeKey {
             template: mapped_term.term_id,
             replacements: normalized,
         };
         let normalized_result = result.forward_map_vars(&new_to_old);
+        if let TermInstance::Variable(_, i) = normalized_result {
+            assert_eq!(i, 0);
+        }
 
         if replacements_are_noop(&normalized_key.replacements) {
             // There's no edge here, we just want to identify two terms
@@ -620,7 +668,7 @@ impl TermGraph {
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
-        let (new_replacements, new_to_old) = normalize_replacements(&replacements);
+        let (new_replacements, new_to_old) = normalize_replacement_key(&replacements);
         if replacements_are_noop(&new_replacements) {
             // No need to even do a substitution
             return TermInstance::mapped(template, new_to_old);
@@ -1125,6 +1173,7 @@ impl TermGraph {
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
     fn deduce_from_long_edge(&self, long_edge_id: EdgeId) {
         let long_edge_info = self.get_edge_info(long_edge_id);
+        let long_reps = long_edge_info.normalize_replacement_endpoints();
 
         // Find inbound edges for each of the replacements.
         // When they are a rename, leave the inbound entry as "None".
@@ -1148,25 +1197,28 @@ impl TermGraph {
                 }
                 TermInstance::Mapped(t) => t.var_map.len(),
             };
-            let short_reps = &short_edge_info.key.replacements;
+            let short_reps = &short_edge_info.normalize_replacement_endpoints();
             assert_eq!(short_reps.len(), inbound.len());
 
             // This replacements vector starts with Nones when we have no idea what
             // the replacement is going to be, and we fill it in as we go.
-            let mut replacements: Vec<Option<&TermInstance>> = vec![None; num_vars_b];
+            // We create it using the endpoint-normalized numbering.
+            let mut replacements: Vec<Option<TermInstance>> = vec![None; num_vars_b];
             let mut found_conflict = false;
             for (template_var_id, short_rep) in short_reps.iter().enumerate() {
-                let long_rep = &long_edge_info.key.replacements[template_var_id];
+                let long_rep = &long_reps[template_var_id];
                 match short_rep {
                     TermInstance::Variable(_, short_var_id) => {
-                        // The short edge just renames this variable.
+                        // The short edge renames template_var_id to short_var_id.
+                        // So the new edge must treat short_var_id the same way that
+                        // the long edge treats template_var_id.
                         if let Some(existing) = &replacements[*short_var_id as usize] {
-                            if *existing != long_rep {
+                            if existing != long_rep {
                                 found_conflict = true;
                                 break;
                             }
                         } else {
-                            replacements[*short_var_id as usize] = Some(long_rep);
+                            replacements[*short_var_id as usize] = Some(long_rep.clone());
                         }
                     }
                     TermInstance::Mapped(short_mapped_term) => match long_rep {
@@ -1180,7 +1232,32 @@ impl TermGraph {
                             break;
                         }
                         TermInstance::Mapped(long_mapped_term) => {
-                            todo!();
+                            // This should always exist due to the construction of inbound
+                            let inbound_edges = inbound[template_var_id].as_ref().unwrap();
+
+                            // Figure out what edge takes the short term to the long term
+                            // Call this the "minor edge", kind of running out of coherent names here
+                            let short_term_id = &short_mapped_term.term_id;
+                            let minor_edge_info = match inbound_edges.get(short_term_id) {
+                                Some(edge) => self.get_edge_info(*edge),
+                                None => {
+                                    found_conflict = true;
+                                    break;
+                                }
+                            };
+
+                            let minor_reps = minor_edge_info
+                                .relativize_replacements(short_mapped_term, long_mapped_term);
+                            for (i, r) in minor_reps {
+                                if let Some(existing) = &replacements[i as usize] {
+                                    if *existing != r {
+                                        found_conflict = true;
+                                        break;
+                                    }
+                                } else {
+                                    replacements[i as usize] = Some(r);
+                                }
+                            }
                         }
                     },
                 }
