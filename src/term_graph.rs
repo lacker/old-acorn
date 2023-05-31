@@ -1088,7 +1088,7 @@ impl TermGraph {
     //
     // Does not include the "degenerate templates" where a single variable expands into
     // this term, or where a term maps to itself by variable renaming.
-    fn inbound_edges(&self, term_id: TermId) -> HashMap<TermId, Vec<EdgeId>> {
+    fn inbound_edge_map(&self, term_id: TermId) -> HashMap<TermId, Vec<EdgeId>> {
         let term_info = self.get_term_info(term_id);
         let mut answer = HashMap::new();
         for edge_id in &term_info.adjacent {
@@ -1101,6 +1101,47 @@ impl TermGraph {
             }
         }
         answer
+    }
+
+    // Iterates over all edges that use this term as a template.
+    fn iter_outbound_edges(&self, term_id: TermId) -> impl Iterator<Item = EdgeId> + '_ {
+        let term_info = self.get_term_info(term_id);
+        term_info
+            .adjacent
+            .iter()
+            .filter(move |edge_id| {
+                let edge_info = self.get_edge_info(**edge_id);
+                edge_info.key.template == term_id
+            })
+            .copied()
+    }
+
+    // Look for edges that can fit this pattern:
+    // A -> B -> C
+    //
+    // A -> C is the "long edge" that we start with.
+    // A -> B is the "short edge" that we will look for.
+    // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
+    fn deduce_from_long_edge(&self, long_edge_id: EdgeId) {
+        let long_edge_info = self.get_edge_info(long_edge_id);
+
+        // Find inbound edges for each of the replacements.
+        // When they are a rename, leave the inbound entry as "None".
+        let inbound: Vec<Option<_>> = long_edge_info
+            .key
+            .replacements
+            .iter()
+            .map(|r| match r {
+                TermInstance::Variable(_, _) => None,
+                TermInstance::Mapped(t) => Some(self.inbound_edge_map(t.term_id)),
+            })
+            .collect();
+
+        // Check all the short edges that are compatible with the long edge.
+        for short_edge_id in self.iter_outbound_edges(long_edge_info.key.template) {
+            let short_edge_info = self.get_edge_info(short_edge_id);
+            todo!("coalescence logic");
+        }
     }
 
     // A linear pass through the graph checking that everything is consistent.
