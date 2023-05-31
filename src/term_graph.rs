@@ -1082,19 +1082,25 @@ impl TermGraph {
     }
 
     // Find all edges that can be a template expansion to create this term.
+    // The edges are returned as a map from template id to a list of edges from that template.
+    // This handles cases where more than one substitution is possible.
+    // For example, into (x0 + x1) you can replace either {x0=0, x1=2} or {x0=1, x1=1} to get 2.
+    //
     // Does not include the "degenerate templates" where a single variable expands into
-    // this term, or where this term itself maps into this term by variable renaming.
-    // TODO: should this include atomic constructors?
-    fn inbound_edges(&self, term_id: TermId) -> Vec<EdgeId> {
+    // this term, or where a term maps to itself by variable renaming.
+    fn inbound_edges(&self, term_id: TermId) -> HashMap<TermId, Vec<EdgeId>> {
         let term_info = self.get_term_info(term_id);
-        let mut edges = vec![];
+        let mut answer = HashMap::new();
         for edge_id in &term_info.adjacent {
             let edge_info = self.get_edge_info(*edge_id);
             if edge_info.result.term_id() == Some(term_id) {
-                edges.push(*edge_id);
+                answer
+                    .entry(edge_info.key.template)
+                    .or_insert_with(|| vec![])
+                    .push(*edge_id);
             }
         }
-        edges
+        answer
     }
 
     // A linear pass through the graph checking that everything is consistent.
