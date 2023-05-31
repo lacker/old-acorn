@@ -1090,13 +1090,15 @@ impl TermGraph {
     // this term, or where a term maps to itself by variable renaming.
     fn inbound_edges(&self, term_id: TermId) -> HashMap<TermId, EdgeId, BuildNoHashHasher<TermId>> {
         let term_info = self.get_term_info(term_id);
-        let mut answer = HashMap::default();
+        let mut answer: HashMap<TermId, EdgeId, BuildNoHashHasher<TermId>> = HashMap::default();
         for edge_id in &term_info.adjacent {
             let edge_info = self.get_edge_info(*edge_id);
             if edge_info.result.term_id() == Some(term_id) {
                 //  Keep the smallest edge id in answer
-                let entry = answer.entry(edge_info.key.template).or_insert(*edge_id);
-                *entry = (*entry).min(*edge_id);
+                answer
+                    .entry(edge_info.key.template)
+                    .and_modify(|i| *i = (*i).min(*edge_id))
+                    .or_insert(*edge_id);
             }
         }
         answer
