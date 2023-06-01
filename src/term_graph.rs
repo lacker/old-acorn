@@ -1203,7 +1203,7 @@ impl TermGraph {
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
     fn process_long_edge(&self, long_edge_id: EdgeId, pending: &mut Vec<Operation>) {
         let long_edge_info = self.get_edge_info(long_edge_id);
-        println!("processing long edge: {}", long_edge_info);
+        // println!("processing long edge: {}", long_edge_info);
         let long_reps = long_edge_info.normalize_result();
 
         // Find inbound edges for each of the replacements.
@@ -1228,9 +1228,8 @@ impl TermGraph {
                 // Ignore short edges that cancel out a term entirely
                 continue;
             }
-            println!("short edge: {}", short_edge_info);
+            // println!("short edge: {}", short_edge_info);
             let short_reps = &short_edge_info.normalize_result();
-            println!("normalized the short edge ok");
             assert_eq!(short_reps.len(), inbound.len());
 
             // This replacements vector starts with Nones when we have no idea what
@@ -1298,10 +1297,6 @@ impl TermGraph {
                             let minor_edge_info = match inbound_edges.get(&short_term_id) {
                                 Some(edge) => self.get_edge_info(*edge),
                                 None => {
-                                    println!(
-                                        "found conflict with template var {}",
-                                        template_var_id
-                                    );
                                     found_conflict = true;
                                     break;
                                 }
@@ -1335,7 +1330,6 @@ impl TermGraph {
             let template = short_edge_info.result.normalize_vars();
             let result = long_edge_info.result.normalize_vars();
             let op = Operation::new(&template, &unwrapped_replacements, result);
-            println!("adding operation: {:?}", op);
             pending.push(op);
         }
     }
