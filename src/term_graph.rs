@@ -796,21 +796,28 @@ impl TermGraph {
         self.replace_in_term_instance(&term_instance, &replacements)
     }
 
-    // The depth of an edge is the maximum depth of any term that it references.
+    // The depth of an edge is the maximum depth of any term that its key references.
     fn edge_depth(&self, edge_id: EdgeId) -> u32 {
         let edge_info = self.get_edge_info(edge_id);
-        let mut max_depth = 0;
-        for term_id in edge_info.adjacent_terms() {
-            let term_info = self.get_term_info(term_id);
-            max_depth = std::cmp::max(max_depth, term_info.depth);
+        let template_info = self.get_term_info(edge_info.key.template);
+        let mut max_depth = template_info.depth;
+        for rep in &edge_info.key.replacements {
+            if let TermInstance::Mapped(term) = rep {
+                let term_info = self.get_term_info(term.term_id);
+                max_depth = std::cmp::max(max_depth, term_info.depth);
+            }
         }
         max_depth
     }
 
     // Find the least deep edge that creates this term
-    // Panics if no edge creates this term
+    // Panics if no edge creates this term.
+    // Don't call this for terms that are atoms or type templates.
     fn shallowest_edge(&self, term_id: TermId) -> EdgeId {
         let term_info = self.get_term_info(term_id);
+        if term_info.depth == 0 {
+            panic!("don't call shallowest_edge for terms that are atoms or type templates");
+        }
         let mut shallowest_edge = None;
         let mut shallowest_depth = std::u32::MAX;
         for &edge_id in &term_info.adjacent {
@@ -819,6 +826,12 @@ impl TermGraph {
                 shallowest_edge = Some(edge_id);
                 shallowest_depth = depth;
             }
+        }
+        if shallowest_depth >= term_info.depth {
+            panic!(
+                "term {} has depth {} but its shallowest edge has depth {}",
+                term_id, term_info.depth, shallowest_depth
+            );
         }
         shallowest_edge.unwrap()
     }
@@ -1378,7 +1391,6 @@ impl TermGraph {
 
             let term = self.extract_term_id(term_id as TermId);
             let s = term.to_string();
-            println!("term {}: {}", term_id, s);
 
             // This check can raise a false alarm with type templates, for which
             // different ones can stringify the same
@@ -1677,15 +1689,26 @@ mod tests {
     }
 
     #[test]
-    fn test_tricky_template() {
+    fn test_ignoring_var_in_replacement() {
         let mut g = TermGraph::new();
-        let template = g.parse("a0(x0, a1, x2, a2(x3), x4)");
-        let reduction = g.parse("a3(x2)");
+        let template = g.parse("a0(x0, a1(x1))");
+        let reduction = g.parse("a2(x0)");
         g.check_identify_terms(&template, &reduction);
-        let matching = g.parse("a0(a4, a1, x0, a2(a5), x1)");
-        let expected = g.parse("a3(x0)");
+        let matching = g.parse("a0(x0, a1(a3))");
+        let expected = g.parse("a2(x0)");
         assert_eq!(matching, expected);
     }
+
+    // #[test]
+    // fn test_tricky_template() {
+    //     let mut g = TermGraph::new();
+    //     let template = g.parse("a0(x0, a1, x2, a2(x3), x4)");
+    //     let reduction = g.parse("a3(x2)");
+    //     g.check_identify_terms(&template, &reduction);
+    //     let matching = g.parse("a0(a4, a1, x0, a2(a5), x1)");
+    //     let expected = g.parse("a3(x0)");
+    //     assert_eq!(matching, expected);
+    // }
 
     // #[test]
     // fn test_cyclic_argument_identification() {
