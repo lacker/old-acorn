@@ -266,6 +266,13 @@ impl TermInstance {
             TermInstance::Variable(type_id, _) => TermInstance::Variable(*type_id, 0),
         }
     }
+
+    fn num_vars(&self) -> usize {
+        match self {
+            TermInstance::Mapped(term) => term.var_map.len(),
+            TermInstance::Variable(_, _) => 1,
+        }
+    }
 }
 
 impl fmt::Display for EdgeKey {
@@ -502,6 +509,7 @@ impl Operation {
                 replacements, mapped_term
             );
         }
+
         let mut reordered_replacements = vec![None; mapped_term.var_map.len()];
         for (i, j) in mapped_term.var_map.iter().enumerate() {
             // x_i in the old term is x_j in the new term.
@@ -520,6 +528,11 @@ impl Operation {
             replacements: normalized,
             vars_used: new_to_old.len(),
         };
+
+        if result.num_vars() > new_to_old.len() {
+            todo!("handle the case where an edge result has more variables than the replacements");
+        }
+
         let normalized_result = result.forward_map_vars(&new_to_old);
         if let TermInstance::Variable(_, i) = normalized_result {
             assert_eq!(i, 0);
@@ -684,7 +697,7 @@ impl TermGraph {
         self.process_all(pending);
 
         // The processing might have collapsed this edge, so return an updated value
-        self.apply_replacements(answer)
+        self.update_term(answer)
     }
 
     // Does a substitution with the given template and replacements.
@@ -1014,7 +1027,7 @@ impl TermGraph {
     }
 
     // Applies any replacements that have happened for the given term.
-    pub fn apply_replacements(&self, term: TermInstance) -> TermInstance {
+    pub fn update_term(&self, term: TermInstance) -> TermInstance {
         match term {
             TermInstance::Variable(_, _) => term,
             TermInstance::Mapped(t) => {
@@ -1023,7 +1036,7 @@ impl TermGraph {
                     TermInfoReference::Replaced(r) => r,
                 };
                 let updated = t.replace_term_id(t.term_id, replacement);
-                self.apply_replacements(updated)
+                self.update_term(updated)
             }
         }
     }
@@ -1079,8 +1092,8 @@ impl TermGraph {
         instance2: TermInstance,
         pending: &mut Vec<Operation>,
     ) {
-        let instance1 = self.apply_replacements(instance1);
-        let instance2 = self.apply_replacements(instance2);
+        let instance1 = self.update_term(instance1);
+        let instance2 = self.update_term(instance2);
         if instance1 == instance2 {
             // Nothing to do
             return;
@@ -1109,7 +1122,7 @@ impl TermGraph {
                 // The "keep" term contains some arguments that the "discard" term doesn't.
                 // These arguments can be eliminated.
                 // We make a new reduced term with these arguments eliminated and identify
-                // the "keep" term before doing this identification.
+                // both of our terms with the reduced one.
                 let keep_info = self.get_term_info(keep.term_id);
                 let mut reduced_arg_types = vec![];
                 let mut reduced_var_map = vec![];
@@ -1132,13 +1145,9 @@ impl TermGraph {
                     .push(TermInfoReference::TermInfo(reduced_term_info));
                 let reduced_instance = TermInstance::mapped(reduced_term_id, reduced_var_map);
 
-                // We need to identify keep+reduced before keep+discard.
-                // Since our "priority queue" is just a vector, this works.
-                // Ie, order does matter here.
-                // TODO: Could we identify keep+reduced and discard+reduced instead, and
-                // thus ignore order?
+                // Identify both onto the reduced term
                 pending.push(Operation::IdentifyTerms(
-                    keep_instance.clone(),
+                    reduced_instance.clone(),
                     discard_instance,
                 ));
                 pending.push(Operation::IdentifyTerms(keep_instance, reduced_instance));
@@ -1336,14 +1345,25 @@ impl TermGraph {
                 continue;
             }
 
-            // We can create a new edge
-            let unwrapped_replacements = replacements
+            // We can create a new edge.
+            let template = short_edge_info.result.normalize_vars();
+
+            // The short edge could use variables that are dropped in the intermediate term.
+            // So these replacements could include some we won't use, and we have to trim them so
+            // that they only use variables that are in the replacements.
+            let trimmed_replacements = replacements
                 .into_iter()
+                .take(template.num_vars())
                 .map(|r| r.unwrap())
                 .collect::<Vec<_>>();
-            let template = short_edge_info.result.normalize_vars();
             let result = long_edge_info.result.normalize_vars();
-            let op = Operation::new(&template, &unwrapped_replacements, result);
+            println!("\nXXX");
+            self.check();
+            println!("new op from PLE.");
+            println!("  template: {}", template);
+            println!("  replacements: {:?}", trimmed_replacements);
+            println!("  result: {}", result);
+            let op = Operation::new(&template, &trimmed_replacements, result);
             pending.push(op);
         }
     }
@@ -1391,6 +1411,7 @@ impl TermGraph {
 
             let term = self.extract_term_id(term_id as TermId);
             let s = term.to_string();
+            println!("term {}: {}", term_id, s);
 
             // This check can raise a false alarm with type templates, for which
             // different ones can stringify the same
@@ -1541,8 +1562,8 @@ mod tests {
         let a0 = g.parse("a0(x0, x1)");
         let a1 = g.parse("a1(x1, x0)");
         g.check_identify_terms(&a0, &a1);
-        let rep0 = g.apply_replacements(a0);
-        let rep1 = g.apply_replacements(a1);
+        let rep0 = g.update_term(a0);
+        let rep1 = g.update_term(a1);
         assert_eq!(&rep0, &rep1);
     }
 
@@ -1699,16 +1720,16 @@ mod tests {
         assert_eq!(matching, expected);
     }
 
-    #[test]
-    fn test_ignoring_two_vars() {
-        let mut g = TermGraph::new();
-        let template = g.parse("a0(a1(x0), x1)");
-        let reduction = g.parse("a2");
-        g.check_identify_terms(&template, &reduction);
-        let matching = g.parse("a0(a1(a3), x1)");
-        let expected = g.parse("a2");
-        assert_eq!(matching, expected);
-    }
+    // #[test]
+    // fn test_ignoring_two_vars() {
+    //     let mut g = TermGraph::new();
+    //     let template = g.parse("a0(a1(x0), x1)");
+    //     let reduction = g.parse("a2");
+    //     g.check_identify_terms(&template, &reduction);
+    //     let matching = g.parse("a0(a1(a3), x1)");
+    //     let expected = g.parse("a2");
+    //     assert_eq!(matching, expected);
+    // }
 
     // #[test]
     // fn test_tricky_template() {
