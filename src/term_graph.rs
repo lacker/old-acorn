@@ -89,6 +89,11 @@ pub struct EdgeKey {
     // This list is normalized so that a single substitution is represented in only one way.
     // The first time a new variable appears, it should get the first available index.
     replacements: Vec<TermInstance>,
+
+    // The number of variables used in the replacements.
+    // This can be larger than the number of variables used in the result, if the result ignores
+    // some of the variables.
+    vars_used: usize,
 }
 
 #[derive(Debug)]
@@ -105,6 +110,7 @@ pub type EdgeId = u32;
 // The Operation is used to represent a change to the graph that can cascade into a series of other
 // changes.
 // This can either be adding a new edge, or identifying two terms with each other.
+#[derive(Debug)]
 enum Operation {
     InsertEdge(EdgeInfo),
     IdentifyTerms(TermInstance, TermInstance),
@@ -404,8 +410,8 @@ impl EdgeInfo {
         terms
     }
 
-    // Create a new edge with all use of TermId replaced by the new term instance.
-    // This newly-created edge may be a no-op; the caller is responsible for handling that.
+    // The operation produced when all use of TermId in this edge is replaced by the
+    // new term instance.
     fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> Operation {
         // The result and the replacements are relatively straightforward, we just recurse.
         let new_result = self.result.replace_term_id(old_term_id, new_term);
@@ -422,6 +428,7 @@ impl EdgeInfo {
                 key: EdgeKey {
                     template: self.key.template,
                     replacements: new_replacements,
+                    vars_used: self.key.vars_used,
                 },
                 result: new_result,
             });
@@ -510,6 +517,7 @@ impl Operation {
         let normalized_key = EdgeKey {
             template: mapped_term.term_id,
             replacements: normalized,
+            vars_used: new_to_old.len(),
         };
         let normalized_result = result.forward_map_vars(&new_to_old);
         if let TermInstance::Variable(_, i) = normalized_result {
@@ -696,6 +704,7 @@ impl TermGraph {
         let new_term = self.expand_edge_key(EdgeKey {
             template,
             replacements: new_replacements,
+            vars_used: new_to_old.len(),
         });
         new_term.forward_map_vars(&new_to_old)
     }
@@ -1154,8 +1163,8 @@ impl TermGraph {
     // When where more than one substitution is possible, we pick the first one, trying to
     // get the "simpler" edge. This is a heuristic but maybe it's okay.
     //
-    // Does not include the "degenerate templates" where a single variable expands into
-    // this term, or where a term maps to itself by variable renaming.
+    // Does not include the cases where a single variable expands into
+    // this term, or where a term maps to itself.
     fn inbound_edges(&self, term_id: TermId) -> HashMap<TermId, EdgeId, BuildNoHashHasher<TermId>> {
         let term_info = self.get_term_info(term_id);
         let mut answer: HashMap<TermId, EdgeId, BuildNoHashHasher<TermId>> = HashMap::default();
@@ -1193,7 +1202,7 @@ impl TermGraph {
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
     fn process_long_edge(&self, long_edge_id: EdgeId, pending: &mut Vec<Operation>) {
         let long_edge_info = self.get_edge_info(long_edge_id);
-        println!("processing long edge: {:?}", long_edge_info);
+        println!("processing long edge: {}", long_edge_info);
         let long_reps = long_edge_info.normalize_result();
 
         // Find inbound edges for each of the replacements.
@@ -1210,15 +1219,15 @@ impl TermGraph {
 
         // Check all the short edges that are compatible with the long edge.
         for short_edge_id in self.iter_outbound_edges(long_edge_info.key.template) {
+            if long_edge_id == short_edge_id {
+                continue;
+            }
             let short_edge_info = self.get_edge_info(short_edge_id);
-            let num_vars_b = match &short_edge_info.result {
-                TermInstance::Variable(_, _) => {
-                    // Ignore short edges that cancel out a term entirely
-                    continue;
-                }
-                TermInstance::Mapped(t) => t.var_map.len(),
-            };
-            println!("short edge: {:?}", short_edge_info);
+            if let TermInstance::Variable(_, _) = short_edge_info.result {
+                // Ignore short edges that cancel out a term entirely
+                continue;
+            }
+            println!("short edge: {}", short_edge_info);
             let short_reps = &short_edge_info.normalize_result();
             println!("normalized the short edge ok");
             assert_eq!(short_reps.len(), inbound.len());
@@ -1226,7 +1235,8 @@ impl TermGraph {
             // This replacements vector starts with Nones when we have no idea what
             // the replacement is going to be, and we fill it in as we go.
             // We create it using the endpoint-normalized numbering.
-            let mut replacements: Vec<Option<TermInstance>> = vec![None; num_vars_b];
+            let mut replacements: Vec<Option<TermInstance>> =
+                vec![None; short_edge_info.key.vars_used];
             let mut found_conflict = false;
             for (template_var_id, short_rep) in short_reps.iter().enumerate() {
                 let long_rep = &long_reps[template_var_id];
@@ -1255,15 +1265,42 @@ impl TermGraph {
                             break;
                         }
                         TermInstance::Mapped(long_mapped_term) => {
+                            let short_term_id = short_mapped_term.term_id;
+                            if long_mapped_term.term_id == short_term_id {
+                                // No edge is necessary to turn the short term into the long term.
+                                // We just need to make sure our variable renumbering is compatible.
+                                // Ignore the permutation case for now.
+                                let term_info = self.get_term_info(short_term_id);
+                                for (i, short_var_id) in
+                                    short_mapped_term.var_map.iter().enumerate()
+                                {
+                                    let long_var_id = long_mapped_term.var_map[i];
+                                    let var_type = term_info.arg_types[i];
+                                    let expected = TermInstance::Variable(var_type, long_var_id);
+                                    if let Some(existing) = &replacements[*short_var_id as usize] {
+                                        if existing != &expected {
+                                            found_conflict = true;
+                                            break;
+                                        }
+                                    } else {
+                                        replacements[*short_var_id as usize] = Some(expected);
+                                    }
+                                }
+                                continue;
+                            }
+
                             // This should always exist due to the construction of inbound
                             let inbound_edges = inbound[template_var_id].as_ref().unwrap();
 
                             // Figure out what edge takes the short term to the long term
                             // Call this the "minor edge", kind of running out of coherent names here
-                            let short_term_id = &short_mapped_term.term_id;
-                            let minor_edge_info = match inbound_edges.get(short_term_id) {
+                            let minor_edge_info = match inbound_edges.get(&short_term_id) {
                                 Some(edge) => self.get_edge_info(*edge),
                                 None => {
+                                    println!(
+                                        "found conflict with template var {}",
+                                        template_var_id
+                                    );
                                     found_conflict = true;
                                     break;
                                 }
@@ -1296,7 +1333,9 @@ impl TermGraph {
                 .collect::<Vec<_>>();
             let template = short_edge_info.result.normalize_vars();
             let result = long_edge_info.result.normalize_vars();
-            pending.push(Operation::new(&template, &unwrapped_replacements, result));
+            let op = Operation::new(&template, &unwrapped_replacements, result);
+            println!("adding operation: {:?}", op);
+            pending.push(op);
         }
     }
 
