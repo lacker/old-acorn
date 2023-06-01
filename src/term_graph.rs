@@ -329,9 +329,14 @@ impl EdgeKey {
 //
 // This is useful when we want to create new edges, and check whether an edge that
 // "does the same thing" already exists.
-fn normalize_key(replacements: &Vec<TermInstance>) -> (Vec<TermInstance>, Vec<AtomId>) {
+//
+// This function takes "new_to_old" as a constraint on the replacements. It can be
+// empty if we don't want to constrain them.
+fn normalize_replacements(
+    replacements: &Vec<TermInstance>,
+    new_to_old: &mut Vec<AtomId>,
+) -> Vec<TermInstance> {
     let mut new_replacements = vec![];
-    let mut new_to_old: Vec<AtomId> = vec![];
     for r in replacements {
         match r {
             TermInstance::Variable(term_type, old_var) => {
@@ -367,7 +372,7 @@ fn normalize_key(replacements: &Vec<TermInstance>) -> (Vec<TermInstance>, Vec<At
             }
         }
     }
-    (new_replacements, new_to_old)
+    new_replacements
 }
 
 // Returns whether this list of replacements is the noop that renames x_i to x_i for all i.
@@ -432,20 +437,14 @@ impl EdgeInfo {
     // This is useful when we want to analyze edges that already exist, rather than
     // creating a new edge.
     fn normalize_result(&self) -> Vec<TermInstance> {
-        let result_var_map = match &self.result {
-            TermInstance::Mapped(term) => &term.var_map,
+        let mut var_map = match &self.result {
+            TermInstance::Mapped(term) => term.var_map.clone(),
             TermInstance::Variable(_, _) => {
                 // The result is a variable, ie x0, so the replacements are already normalized
                 return self.key.replacements.clone();
             }
         };
-
-        // TODO: make this work for variables that are not used in template+results
-        self.key
-            .replacements
-            .iter()
-            .map(|r| r.backward_map_vars(result_var_map))
-            .collect()
+        normalize_replacements(&self.key.replacements, &mut var_map)
     }
 
     // Renumbers the variables so that they are relative to the provided template and result.
@@ -506,8 +505,8 @@ impl Operation {
             .into_iter()
             .map(|replacement| replacement.unwrap())
             .collect();
-
-        let (normalized, new_to_old) = normalize_key(&unwrapped_replacements);
+        let mut new_to_old = vec![];
+        let normalized = normalize_replacements(&unwrapped_replacements, &mut new_to_old);
         let normalized_key = EdgeKey {
             template: mapped_term.term_id,
             replacements: normalized,
@@ -688,7 +687,8 @@ impl TermGraph {
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
-        let (new_replacements, new_to_old) = normalize_key(&replacements);
+        let mut new_to_old = vec![];
+        let new_replacements = normalize_replacements(&replacements, &mut new_to_old);
         if replacements_are_noop(&new_replacements) {
             // No need to even do a substitution
             return TermInstance::mapped(template, new_to_old);
