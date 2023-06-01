@@ -96,7 +96,7 @@ pub struct EdgeKey {
     vars_used: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct EdgeInfo {
     // The parameters that determine the substitution
     key: EdgeKey,
@@ -1403,6 +1403,17 @@ impl TermGraph {
                         edge_info, term_id
                     );
                 }
+            }
+
+            // Normalize by result and then back by key, to make sure we get the same thing
+            let alt_reps = edge_info.normalize_result();
+            let alt_result = edge_info.result.normalize_vars();
+            let alt_template = edge_info.key.template_instance();
+            let op = Operation::new(&alt_template, &alt_reps, alt_result);
+            if let Operation::InsertEdge(e) = op {
+                assert_eq!(&e, edge_info);
+            } else {
+                panic!("unexpected operation: {:?}", op);
             }
         }
 
