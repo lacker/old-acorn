@@ -300,6 +300,7 @@ impl EdgeKey {
                 }
             });
         }
+        assert_eq!(expected, self.vars_used as AtomId);
 
         if replacements_are_noop(&self.replacements) {
             panic!("replacements are a noop");
