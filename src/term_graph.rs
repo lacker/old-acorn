@@ -1699,6 +1699,17 @@ mod tests {
         assert_eq!(matching, expected);
     }
 
+    #[test]
+    fn test_ignoring_two_vars() {
+        let mut g = TermGraph::new();
+        let template = g.parse("a0(a1(x0), x1)");
+        let reduction = g.parse("a2");
+        g.check_identify_terms(&template, &reduction);
+        let matching = g.parse("a0(a1(a3), x1)");
+        let expected = g.parse("a2");
+        assert_eq!(matching, expected);
+    }
+
     // #[test]
     // fn test_tricky_template() {
     //     let mut g = TermGraph::new();
