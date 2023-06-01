@@ -432,23 +432,27 @@ impl EdgeInfo {
     // This is useful when we want to analyze edges that already exist, rather than
     // creating a new edge.
     fn normalize_result(&self) -> Vec<TermInstance> {
-        let var_map = match &self.result {
+        let result_var_map = match &self.result {
             TermInstance::Mapped(term) => &term.var_map,
             TermInstance::Variable(_, _) => {
                 // The result is a variable, ie x0, so the replacements are already normalized
                 return self.key.replacements.clone();
             }
         };
+
+        // TODO: make this work for variables that are not used in template+results
         self.key
             .replacements
             .iter()
-            .map(|r| r.backward_map_vars(var_map))
+            .map(|r| r.backward_map_vars(result_var_map))
             .collect()
     }
 
     // Renumbers the variables so that they are relative to the provided template and result.
     // The provided template may skip numbers, so we return a vec of (var id, replacement).
     // It isn't sorted.
+    // TODO: does this work for variables that are used by the replacements but not by either
+    // the template or the results?
     fn relativize_replacements(
         &self,
         provided_template: &MappedTerm,
@@ -1189,6 +1193,7 @@ impl TermGraph {
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
     fn process_long_edge(&self, long_edge_id: EdgeId, pending: &mut Vec<Operation>) {
         let long_edge_info = self.get_edge_info(long_edge_id);
+        println!("processing long edge: {:?}", long_edge_info);
         let long_reps = long_edge_info.normalize_result();
 
         // Find inbound edges for each of the replacements.
@@ -1213,7 +1218,9 @@ impl TermGraph {
                 }
                 TermInstance::Mapped(t) => t.var_map.len(),
             };
+            println!("short edge: {:?}", short_edge_info);
             let short_reps = &short_edge_info.normalize_result();
+            println!("normalized the short edge ok");
             assert_eq!(short_reps.len(), inbound.len());
 
             // This replacements vector starts with Nones when we have no idea what
@@ -1378,6 +1385,7 @@ impl TermGraph {
     }
 
     pub fn parse(&mut self, term_string: &str) -> TermInstance {
+        println!("parsing: {}", term_string);
         let term = Term::parse(term_string);
         let term_instance = self.insert_term(&term);
         self.check();
@@ -1611,16 +1619,16 @@ mod tests {
         g.check_identify_terms(&x0, &a0x0);
     }
 
-    // #[test]
-    // fn test_template_discovery() {
-    //     let mut g = TermGraph::new();
-    //     let a0a1x0 = g.parse("a0(a1, x0)");
-    //     let a2 = g.parse("a2");
-    //     g.check_identify_terms(&a0a1x0, &a2);
-    //     let a0a1a3 = g.parse("a0(a1, a3)");
-    //     let a2 = g.parse("a2");
-    //     assert_eq!(a0a1a3, a2);
-    // }
+    #[test]
+    fn test_template_discovery() {
+        let mut g = TermGraph::new();
+        let a0a1x0 = g.parse("a0(a1, x0)");
+        let a2 = g.parse("a2");
+        g.check_identify_terms(&a0a1x0, &a2);
+        let a0a1a3 = g.parse("a0(a1, a3)");
+        let a2 = g.parse("a2");
+        assert_eq!(a0a1a3, a2);
+    }
 
     // #[test]
     // fn test_cyclic_argument_identification() {
