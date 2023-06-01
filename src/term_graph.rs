@@ -250,6 +250,16 @@ impl TermInstance {
             TermInstance::Variable(_, _) => self.clone(),
         }
     }
+
+    // A version of this term with variables normalized.
+    fn normalize_vars(&self) -> TermInstance {
+        match self {
+            TermInstance::Mapped(term) => {
+                TermInstance::mapped(term.term_id, (0..term.var_map.len() as AtomId).collect())
+            }
+            TermInstance::Variable(type_id, _) => TermInstance::Variable(*type_id, 0),
+        }
+    }
 }
 
 impl fmt::Display for EdgeKey {
@@ -319,7 +329,7 @@ impl EdgeKey {
 //
 // This is useful when we want to create new edges, and check whether an edge that
 // "does the same thing" already exists.
-fn normalize_replacement_key(replacements: &Vec<TermInstance>) -> (Vec<TermInstance>, Vec<AtomId>) {
+fn normalize_key(replacements: &Vec<TermInstance>) -> (Vec<TermInstance>, Vec<AtomId>) {
     let mut new_replacements = vec![];
     let mut new_to_old: Vec<AtomId> = vec![];
     for r in replacements {
@@ -416,11 +426,12 @@ impl EdgeInfo {
         Operation::new(new_term, &self.key.replacements, new_result)
     }
 
-    // Renumbers the variables in the replacements so that they take the template term to
-    // the result term, without needing the TermInstance renumbering of variables.
+    // Renumbers the variables in the replacements so that the replacements work with the
+    // normalize_vars version of the result.
+    //
     // This is useful when we want to analyze edges that already exist, rather than
     // creating a new edge.
-    fn normalize_replacement_endpoints(&self) -> Vec<TermInstance> {
+    fn normalize_result(&self) -> Vec<TermInstance> {
         let var_map = match &self.result {
             TermInstance::Mapped(term) => &term.var_map,
             TermInstance::Variable(_, _) => {
@@ -492,7 +503,7 @@ impl Operation {
             .map(|replacement| replacement.unwrap())
             .collect();
 
-        let (normalized, new_to_old) = normalize_replacement_key(&unwrapped_replacements);
+        let (normalized, new_to_old) = normalize_key(&unwrapped_replacements);
         let normalized_key = EdgeKey {
             template: mapped_term.term_id,
             replacements: normalized,
@@ -652,9 +663,14 @@ impl TermGraph {
 
         // Insert everything into the graph
         self.terms.push(TermInfoReference::TermInfo(term_info));
-
         let edge_id = self.insert_edge(edge_info);
 
+        // Add edges that can be deduced from this new one
+        let mut pending = vec![];
+        self.process_long_edge(edge_id, &mut pending);
+        self.process_all(pending);
+
+        // Find the return value
         &self.get_edge_info(edge_id).result
     }
 
@@ -668,7 +684,7 @@ impl TermGraph {
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
-        let (new_replacements, new_to_old) = normalize_replacement_key(&replacements);
+        let (new_replacements, new_to_old) = normalize_key(&replacements);
         if replacements_are_noop(&new_replacements) {
             // No need to even do a substitution
             return TermInstance::mapped(template, new_to_old);
@@ -1171,9 +1187,9 @@ impl TermGraph {
     // A -> C is the "long edge" that we start with.
     // A -> B is the "short edge" that we will look for.
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
-    fn deduce_from_long_edge(&self, long_edge_id: EdgeId) {
+    fn process_long_edge(&self, long_edge_id: EdgeId, pending: &mut Vec<Operation>) {
         let long_edge_info = self.get_edge_info(long_edge_id);
-        let long_reps = long_edge_info.normalize_replacement_endpoints();
+        let long_reps = long_edge_info.normalize_result();
 
         // Find inbound edges for each of the replacements.
         // When they are a rename, leave the inbound entry as "None".
@@ -1197,7 +1213,7 @@ impl TermGraph {
                 }
                 TermInstance::Mapped(t) => t.var_map.len(),
             };
-            let short_reps = &short_edge_info.normalize_replacement_endpoints();
+            let short_reps = &short_edge_info.normalize_result();
             assert_eq!(short_reps.len(), inbound.len());
 
             // This replacements vector starts with Nones when we have no idea what
@@ -1266,7 +1282,14 @@ impl TermGraph {
                 continue;
             }
 
-            todo!("create the new edge");
+            // We can create a new edge
+            let unwrapped_replacements = replacements
+                .into_iter()
+                .map(|r| r.unwrap())
+                .collect::<Vec<_>>();
+            let template = long_edge_info.key.template_instance();
+            let result = long_edge_info.result.normalize_vars();
+            pending.push(Operation::new(&template, &unwrapped_replacements, result));
         }
     }
 
