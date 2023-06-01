@@ -1287,7 +1287,7 @@ impl TermGraph {
                 .into_iter()
                 .map(|r| r.unwrap())
                 .collect::<Vec<_>>();
-            let template = long_edge_info.key.template_instance();
+            let template = short_edge_info.result.normalize_vars();
             let result = long_edge_info.result.normalize_vars();
             pending.push(Operation::new(&template, &unwrapped_replacements, result));
         }
