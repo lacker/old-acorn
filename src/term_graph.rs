@@ -597,10 +597,10 @@ impl TermGraph {
     // Returns the term that this edge leads to.
     // Should not be called on noop keys or unnormalized keys.
     // The type of the output is the same as the type of the key's template.
-    fn expand_edge_key(&mut self, key: EdgeKey) -> &TermInstance {
+    fn expand_edge_key(&mut self, key: EdgeKey) -> TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edge_key_map.get(&key) {
-            return &self.get_edge_info(*edge_id).result;
+            return self.get_edge_info(*edge_id).result.clone();
         }
 
         // Figure out the type signature of our new term
@@ -667,9 +667,10 @@ impl TermGraph {
             type_template: None,
             depth: max_edge_depth + 1,
         };
+        let answer = TermInstance::Mapped(result);
         let edge_info = EdgeInfo {
             key,
-            result: TermInstance::Mapped(result),
+            result: answer.clone(),
         };
 
         // Insert everything into the graph
@@ -681,8 +682,8 @@ impl TermGraph {
         self.process_long_edge(edge_id, &mut pending);
         self.process_all(pending);
 
-        // Find the return value
-        &self.get_edge_info(edge_id).result
+        // The processing might have collapsed this edge, so return an updated value
+        self.apply_replacements(answer)
     }
 
     // Does a substitution with the given template and replacements.
