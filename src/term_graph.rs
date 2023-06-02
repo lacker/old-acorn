@@ -1148,16 +1148,13 @@ impl TermGraph {
             return;
         }
 
-        if instance1.term_id().is_some() && instance1.term_id() == instance2.term_id() {
-            todo!("handle permutations of arguments");
-        }
-
         // Discard the term that we least want to keep
         let (discard_instance, keep_instance) = match self.keeping_order(&instance1, &instance2) {
             Ordering::Less => (instance1, instance2),
             Ordering::Greater => (instance2, instance1),
             Ordering::Equal => {
-                panic!("flow control error");
+                // A permutation. We do want to check for discarded variables though
+                (instance1, instance2)
             }
         };
 
@@ -1177,6 +1174,10 @@ impl TermGraph {
                 pending.push((keep_instance, reduced_instance));
                 return;
             }
+        }
+
+        if keep_instance.term_id() == Some(discard.term_id) {
+            todo!("handle permutations of arguments");
         }
 
         // Find a TermInstance equal to the term to be discarded
@@ -1802,27 +1803,38 @@ mod tests {
         assert_eq!(left, right);
     }
 
-    // #[test]
-    // fn test_cyclic_argument_identification() {
-    //     let mut g = TermGraph::new();
-    //     let base = g.parse("a0(x0, x1, x2)");
-    //     let rotated = g.parse("a0(x1, x2, x0)");
-    //     g.check_identify_terms(&base, &rotated);
+    #[test]
+    fn test_reducing_var_through_self_identify() {
+        let mut g = TermGraph::new();
+        let first = g.parse("a0(x0, x1)");
+        let second = g.parse("a0(x0, x2)");
+        g.check_identify_terms(&first, &second);
+        let left = g.parse("a0(a1, a2)");
+        let right = g.parse("a0(a1, a3)");
+        assert_eq!(left, right);
+    }
 
-    //     let term1 = g.parse("a0(a1, a2, a3)");
-    //     let term2 = g.parse("a0(a2, a3, a1)");
-    //     assert_eq!(term1, term2);
+    #[test]
+    fn test_cyclic_argument_identification() {
+        let mut g = TermGraph::new();
+        let base = g.parse("a0(x0, x1, x2)");
+        let rotated = g.parse("a0(x1, x2, x0)");
+        g.check_identify_terms(&base, &rotated);
 
-    //     let term3 = g.parse("a0(a3, a1, a2)");
-    //     assert_eq!(term1, term3);
+        let term1 = g.parse("a0(a1, a2, a3)");
+        let term2 = g.parse("a0(a2, a3, a1)");
+        assert_eq!(term1, term2);
 
-    //     let term4 = g.parse("a0(a1, a3, a2)");
-    //     assert_ne!(term1, term4);
+        let term3 = g.parse("a0(a3, a1, a2)");
+        assert_eq!(term1, term3);
 
-    //     let term5 = g.parse("a0(a3, a2, a1)");
-    //     assert_eq!(term4, term5);
+        let term4 = g.parse("a0(a1, a3, a2)");
+        assert_ne!(term1, term4);
 
-    //     let term6 = g.parse("a0(a2, a1, a3)");
-    //     assert_eq!(term4, term6);
-    // }
+        let term5 = g.parse("a0(a3, a2, a1)");
+        assert_eq!(term4, term5);
+
+        let term6 = g.parse("a0(a2, a1, a3)");
+        assert_eq!(term4, term6);
+    }
 }
