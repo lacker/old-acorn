@@ -1153,7 +1153,7 @@ impl TermGraph {
             Ordering::Less => (instance1, instance2),
             Ordering::Greater => (instance2, instance1),
             Ordering::Equal => {
-                // A permutation. We do want to check for discarded variables though
+                // A permutation. So, whichever
                 (instance1, instance2)
             }
         };
@@ -1174,10 +1174,10 @@ impl TermGraph {
                 pending.push((keep_instance, reduced_instance));
                 return;
             }
-        }
 
-        if keep_instance.term_id() == Some(discard.term_id) {
-            todo!("handle permutations of arguments");
+            if keep.term_id == discard.term_id {
+                todo!("handle permutations of arguments");
+            }
         }
 
         // Find a TermInstance equal to the term to be discarded
