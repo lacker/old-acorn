@@ -1260,7 +1260,6 @@ impl TermGraph {
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
     fn process_long_edge(&mut self, long_edge_id: EdgeId, pending: &mut Vec<Operation>) {
         let long_edge_info = self.get_edge_info(long_edge_id);
-        // println!("processing long edge: {}", long_edge_info);
         let long_reps = long_edge_info.normalize_result();
         let long_result = long_edge_info.result.normalize_vars();
 
@@ -1287,7 +1286,6 @@ impl TermGraph {
                 // Ignore short edges that cancel out a term entirely
                 continue;
             }
-            // println!("short edge: {}", short_edge_info);
             let short_reps = &short_edge_info.normalize_result();
             assert_eq!(short_reps.len(), inbound.len());
 
@@ -1392,10 +1390,7 @@ impl TermGraph {
                 .take(template.num_vars())
                 .map(|r| r.unwrap())
                 .collect::<Vec<_>>();
-            println!("new op from PLE.");
-            println!("  template: {}", template);
-            println!("  replacements: {:?}", trimmed_replacements);
-            println!("  result: {}", &long_result);
+
             self.process_candidate_edge(
                 &template,
                 &trimmed_replacements,
