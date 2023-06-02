@@ -422,28 +422,6 @@ impl EdgeInfo {
         terms
     }
 
-    // The operation produced when all use of TermId in this edge is replaced by the
-    // new term instance.
-    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> Operation {
-        // The result and the replacements are relatively straightforward, we just recurse.
-        let new_result = self.result.replace_term_id(old_term_id, new_term);
-        let new_replacements: Vec<_> = self
-            .key
-            .replacements
-            .iter()
-            .map(|replacement| replacement.replace_term_id(old_term_id, new_term))
-            .collect();
-
-        if self.key.template == old_term_id {
-            // We're also replacing the template
-            Operation::new(new_term, &new_replacements, new_result)
-        } else {
-            // The template is unchanged, but we still have to renormalize the edge
-            let template = self.key.template_instance();
-            Operation::new(&template, &new_replacements, new_result)
-        }
-    }
-
     // Renumbers the variables in the replacements so that the replacements work with the
     // normalize_vars version of the result.
     //
@@ -482,69 +460,6 @@ impl EdgeInfo {
             answer.push((provided_template_var, renumbered_replacement));
         }
         answer
-    }
-}
-
-impl Operation {
-    // Normalizing can produce an edge, or it can just conclude that two term instances are the same
-    fn new(
-        template: &TermInstance,
-        replacements: &Vec<TermInstance>,
-        result: TermInstance,
-    ) -> Operation {
-        let mapped_term = match template {
-            TermInstance::Mapped(term) => term,
-            TermInstance::Variable(_, var_id) => {
-                let new_template = &replacements[*var_id as usize];
-                // We want to identify new_template and new_result here.
-                return Operation::IdentifyTerms(new_template.clone(), result);
-            }
-        };
-
-        if replacements.len() < mapped_term.var_map.len() {
-            panic!(
-                "not enough replacements in {:?} for template {}",
-                replacements, mapped_term
-            );
-        }
-
-        let mut reordered_replacements = vec![None; mapped_term.var_map.len()];
-        for (i, j) in mapped_term.var_map.iter().enumerate() {
-            // x_i in the old term is x_j in the new term.
-            reordered_replacements[*j as usize] = Some(replacements[i].clone());
-        }
-
-        // We shouldn't have missed any
-        let unwrapped_replacements: Vec<_> = reordered_replacements
-            .into_iter()
-            .map(|replacement| replacement.unwrap())
-            .collect();
-        let mut new_to_old = vec![];
-        let normalized = normalize_replacements(&unwrapped_replacements, &mut new_to_old);
-        let normalized_key = EdgeKey {
-            template: mapped_term.term_id,
-            replacements: normalized,
-            vars_used: new_to_old.len(),
-        };
-
-        if result.num_vars() > new_to_old.len() {
-            todo!("handle the case where an edge result has more variables than the replacements");
-        }
-
-        let normalized_result = result.forward_map_vars(&new_to_old);
-        if let TermInstance::Variable(_, i) = normalized_result {
-            assert_eq!(i, 0);
-        }
-
-        if replacements_are_noop(&normalized_key.replacements) {
-            // There's no edge here, we just want to identify two terms
-            return Operation::IdentifyTerms(normalized_key.template_instance(), normalized_result);
-        }
-
-        Operation::InsertEdge(EdgeInfo {
-            key: normalized_key,
-            result: normalized_result,
-        })
     }
 }
 
@@ -979,6 +894,36 @@ impl TermGraph {
         self.insert_edge(edge_info);
     }
 
+    // Replaces old_term_id with new_term in the given edge.
+    // This removes the old edge immediately, and pushes an operation to add the new edge onto pending.
+    fn replace_edge_term(
+        &mut self,
+        old_edge_id: EdgeId,
+        old_term_id: TermId,
+        new_term: &TermInstance,
+        pending: &mut Vec<Operation>,
+    ) {
+        let old_edge_info = self.remove_edge(old_edge_id);
+
+        // The result and the replacements are relatively straightforward, we just recurse.
+        let new_result = old_edge_info.result.replace_term_id(old_term_id, new_term);
+        let new_replacements: Vec<_> = old_edge_info
+            .key
+            .replacements
+            .iter()
+            .map(|replacement| replacement.replace_term_id(old_term_id, new_term))
+            .collect();
+
+        if old_edge_info.key.template == old_term_id {
+            // We're also replacing the template
+            self.process_candidate_edge(new_term, &new_replacements, new_result, pending);
+        } else {
+            // The template is unchanged, but we still have to renormalize the edge
+            let template = old_edge_info.key.template_instance();
+            self.process_candidate_edge(&template, &new_replacements, new_result, pending);
+        }
+    }
+
     // Replaces all references to old_term_id with references to new_term.
     // The caller should be sure that old_term_id has not been replaced already.
     // When this discovers more valid operations it pushes them onto pending.
@@ -1018,9 +963,7 @@ impl TermGraph {
 
         // Update all edges that touch this term
         for old_edge_id in &old_term_info.adjacent {
-            let old_edge_info = self.remove_edge(*old_edge_id);
-            let operation = old_edge_info.replace_term_id(old_term_id, new_term);
-            pending.push(operation);
+            self.replace_edge_term(*old_edge_id, old_term_id, new_term, pending);
         }
     }
 
@@ -1115,6 +1058,75 @@ impl TermGraph {
         // If all else fails, the lower term ids are more keepable.
         // This probably doesn't matter very much.
         right_id.cmp(&left_id)
+    }
+
+    // Handles a template + replacements -> result data that is not normalized.
+    // This might lead to a new edge but it might not.
+    fn process_candidate_edge(
+        &mut self,
+        template: &TermInstance,
+        replacements: &Vec<TermInstance>,
+        result: TermInstance,
+        pending: &mut Vec<Operation>,
+    ) {
+        let mapped_term = match template {
+            TermInstance::Mapped(term) => term,
+            TermInstance::Variable(_, var_id) => {
+                let new_template = &replacements[*var_id as usize];
+                // We want to identify new_template and new_result here.
+                pending.push(Operation::IdentifyTerms(new_template.clone(), result));
+                return;
+            }
+        };
+
+        if replacements.len() < mapped_term.var_map.len() {
+            panic!(
+                "not enough replacements in {:?} for template {}",
+                replacements, mapped_term
+            );
+        }
+
+        let mut reordered_replacements = vec![None; mapped_term.var_map.len()];
+        for (i, j) in mapped_term.var_map.iter().enumerate() {
+            // x_i in the old term is x_j in the new term.
+            reordered_replacements[*j as usize] = Some(replacements[i].clone());
+        }
+
+        // We shouldn't have missed any
+        let unwrapped_replacements: Vec<_> = reordered_replacements
+            .into_iter()
+            .map(|replacement| replacement.unwrap())
+            .collect();
+        let mut new_to_old = vec![];
+        let normalized = normalize_replacements(&unwrapped_replacements, &mut new_to_old);
+        let normalized_key = EdgeKey {
+            template: mapped_term.term_id,
+            replacements: normalized,
+            vars_used: new_to_old.len(),
+        };
+
+        if result.num_vars() > new_to_old.len() {
+            todo!("handle the case where an edge result has more variables than the replacements");
+        }
+
+        let normalized_result = result.forward_map_vars(&new_to_old);
+        if let TermInstance::Variable(_, i) = normalized_result {
+            assert_eq!(i, 0);
+        }
+
+        if replacements_are_noop(&normalized_key.replacements) {
+            // There's no edge here, we just want to identify two terms
+            pending.push(Operation::IdentifyTerms(
+                normalized_key.template_instance(),
+                normalized_result,
+            ));
+            return;
+        }
+
+        pending.push(Operation::InsertEdge(EdgeInfo {
+            key: normalized_key,
+            result: normalized_result,
+        }));
     }
 
     // Identifies the two terms, and adds any followup operations to the queue rather than
@@ -1216,8 +1228,8 @@ impl TermGraph {
         answer
     }
 
-    // Iterates over all edges that use this term as a template.
-    fn iter_outbound_edges(&self, term_id: TermId) -> impl Iterator<Item = EdgeId> + '_ {
+    // All edges that use this term as a template.
+    fn outbound_edges(&self, term_id: TermId) -> Vec<EdgeId> {
         let term_info = self.get_term_info(term_id);
         term_info
             .adjacent
@@ -1227,6 +1239,7 @@ impl TermGraph {
                 edge_info.key.template == term_id
             })
             .copied()
+            .collect()
     }
 
     // Look for edges that can fit this pattern:
@@ -1235,10 +1248,11 @@ impl TermGraph {
     // A -> C is the "long edge" that we start with.
     // A -> B is the "short edge" that we will look for.
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
-    fn process_long_edge(&self, long_edge_id: EdgeId, pending: &mut Vec<Operation>) {
+    fn process_long_edge(&mut self, long_edge_id: EdgeId, pending: &mut Vec<Operation>) {
         let long_edge_info = self.get_edge_info(long_edge_id);
         // println!("processing long edge: {}", long_edge_info);
         let long_reps = long_edge_info.normalize_result();
+        let long_result = long_edge_info.result.normalize_vars();
 
         // Find inbound edges for each of the replacements.
         // When they are a rename, leave the inbound entry as "None".
@@ -1253,7 +1267,8 @@ impl TermGraph {
             .collect();
 
         // Check all the short edges that are compatible with the long edge.
-        for short_edge_id in self.iter_outbound_edges(long_edge_info.key.template) {
+        let outbound_edges = self.outbound_edges(long_edge_info.key.template);
+        for short_edge_id in outbound_edges {
             if long_edge_id == short_edge_id {
                 continue;
             }
@@ -1367,15 +1382,16 @@ impl TermGraph {
                 .take(template.num_vars())
                 .map(|r| r.unwrap())
                 .collect::<Vec<_>>();
-            let result = long_edge_info.result.normalize_vars();
-            println!("\nXXX");
-            self.check();
             println!("new op from PLE.");
             println!("  template: {}", template);
             println!("  replacements: {:?}", trimmed_replacements);
-            println!("  result: {}", result);
-            let op = Operation::new(&template, &trimmed_replacements, result);
-            pending.push(op);
+            println!("  result: {}", &long_result);
+            self.process_candidate_edge(
+                &template,
+                &trimmed_replacements,
+                long_result.clone(),
+                pending,
+            );
         }
     }
 
