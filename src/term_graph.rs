@@ -107,14 +107,8 @@ pub struct EdgeInfo {
 }
 pub type EdgeId = u32;
 
-// The Operation is used to represent a change to the graph that can cascade into a series of other
-// changes.
-// This can either be adding a new edge, or identifying two terms with each other.
-#[derive(Debug)]
-enum Operation {
-    InsertEdge(EdgeInfo),
-    IdentifyTerms(TermInstance, TermInstance),
-}
+// An Identification is used to represent that we know two terms are actually the same term.
+type Identification = (TermInstance, TermInstance);
 
 enum TermInfoReference {
     TermInfo(TermInfo),
@@ -441,8 +435,6 @@ impl EdgeInfo {
     // Renumbers the variables so that they are relative to the provided template and result.
     // The provided template may skip numbers, so we return a vec of (var id, replacement).
     // It isn't sorted.
-    // TODO: does this work for variables that are used by the replacements but not by either
-    // the template or the results?
     fn relativize_replacements(
         &self,
         provided_template: &MappedTerm,
@@ -875,19 +867,21 @@ impl TermGraph {
         old_edge_info
     }
 
-    // Inserts a single edge, but if it's a duplicate, identify the appropriate terms instead.
-    // When this discovers more valid operations it pushes them onto pending.
-    fn process_insert_edge(&mut self, edge_info: EdgeInfo, pending: &mut Vec<Operation>) {
+    // Inserts a single edge that already has a normalized key.
+    // If it's a duplicate, identify the appropriate terms instead.
+    // When this discovers more valid Identifications it pushes them onto pending.
+    fn process_normalized_edge(&mut self, edge_info: EdgeInfo, pending: &mut Vec<Identification>) {
         // Check to see if the new edge is a duplicate
         if let Some(duplicate_edge_id) = self.edge_key_map.get(&edge_info.key) {
             let duplicate_edge_info = self.get_edge_info(*duplicate_edge_id);
             // new_edge_info and duplicate_edge_info are the same edge, but
             // they're going to different terms.
             // This means we need to identify the terms.
-            pending.push(Operation::IdentifyTerms(
+            self.process_identify_terms(
                 edge_info.result.clone(),
                 duplicate_edge_info.result.clone(),
-            ));
+                pending,
+            );
             return;
         }
 
@@ -895,13 +889,13 @@ impl TermGraph {
     }
 
     // Replaces old_term_id with new_term in the given edge.
-    // This removes the old edge immediately, and pushes an operation to add the new edge onto pending.
+    // This removes the old edge immediately, and pushes an Identification to add the new edge onto pending.
     fn replace_edge_term(
         &mut self,
         old_edge_id: EdgeId,
         old_term_id: TermId,
         new_term: &TermInstance,
-        pending: &mut Vec<Operation>,
+        pending: &mut Vec<Identification>,
     ) {
         let old_edge_info = self.remove_edge(old_edge_id);
 
@@ -916,22 +910,22 @@ impl TermGraph {
 
         if old_edge_info.key.template == old_term_id {
             // We're also replacing the template
-            self.process_candidate_edge(new_term, &new_replacements, new_result, pending);
+            self.process_unnormalized_edge(new_term, &new_replacements, new_result, pending);
         } else {
             // The template is unchanged, but we still have to renormalize the edge
             let template = old_edge_info.key.template_instance();
-            self.process_candidate_edge(&template, &new_replacements, new_result, pending);
+            self.process_unnormalized_edge(&template, &new_replacements, new_result, pending);
         }
     }
 
     // Replaces all references to old_term_id with references to new_term.
     // The caller should be sure that old_term_id has not been replaced already.
-    // When this discovers more valid operations it pushes them onto pending.
+    // When this discovers more valid Identifications it pushes them onto pending.
     fn replace_term_id(
         &mut self,
         old_term_id: TermId,
         new_term: &TermInstance,
-        pending: &mut Vec<Operation>,
+        pending: &mut Vec<Identification>,
     ) {
         let old_term_info_ref = mem::replace(
             &mut self.terms[old_term_id as usize],
@@ -1062,19 +1056,19 @@ impl TermGraph {
 
     // Handles a template + replacements -> result data that is not normalized.
     // This might lead to a new edge but it might not.
-    fn process_candidate_edge(
+    fn process_unnormalized_edge(
         &mut self,
         template: &TermInstance,
         replacements: &Vec<TermInstance>,
         result: TermInstance,
-        pending: &mut Vec<Operation>,
+        pending: &mut Vec<Identification>,
     ) {
         let mapped_term = match template {
             TermInstance::Mapped(term) => term,
             TermInstance::Variable(_, var_id) => {
                 let new_template = &replacements[*var_id as usize];
                 // We want to identify new_template and new_result here.
-                pending.push(Operation::IdentifyTerms(new_template.clone(), result));
+                pending.push((new_template.clone(), result));
                 return;
             }
         };
@@ -1111,7 +1105,7 @@ impl TermGraph {
                 // We can eliminate these variables
                 let reduced_result =
                     self.eliminate_vars(mapped_result, |v| !new_to_old.contains(&v));
-                pending.push(Operation::IdentifyTerms(result, reduced_result.clone()));
+                pending.push((result, reduced_result.clone()));
                 reduced_result.forward_map_vars(&new_to_old)
             } else {
                 panic!("a replacement with no variables becomes a variable. what does this mean?");
@@ -1126,26 +1120,26 @@ impl TermGraph {
 
         if replacements_are_noop(&normalized_key.replacements) {
             // There's no edge here, we just want to identify two terms
-            pending.push(Operation::IdentifyTerms(
-                normalized_key.template_instance(),
-                normalized_result,
-            ));
+            pending.push((normalized_key.template_instance(), normalized_result));
             return;
         }
 
-        pending.push(Operation::InsertEdge(EdgeInfo {
-            key: normalized_key,
-            result: normalized_result,
-        }));
+        self.process_normalized_edge(
+            EdgeInfo {
+                key: normalized_key,
+                result: normalized_result,
+            },
+            pending,
+        );
     }
 
-    // Identifies the two terms, and adds any followup operations to the queue rather than
+    // Identifies the two terms, and adds any followup Identifications to the queue rather than
     // processing them all.
     fn process_identify_terms(
         &mut self,
         instance1: TermInstance,
         instance2: TermInstance,
-        pending: &mut Vec<Operation>,
+        pending: &mut Vec<Identification>,
     ) {
         let instance1 = self.update_term(instance1);
         let instance2 = self.update_term(instance2);
@@ -1179,11 +1173,8 @@ impl TermGraph {
                 let reduced_instance = self.eliminate_vars(keep, |v| !discard.var_map.contains(&v));
 
                 // Identify both onto the reduced term
-                pending.push(Operation::IdentifyTerms(
-                    reduced_instance.clone(),
-                    discard_instance,
-                ));
-                pending.push(Operation::IdentifyTerms(keep_instance, reduced_instance));
+                pending.push((reduced_instance.clone(), discard_instance));
+                pending.push((keep_instance, reduced_instance));
                 return;
             }
         }
@@ -1193,25 +1184,22 @@ impl TermGraph {
         self.replace_term_id(discard.term_id, &new_instance, pending);
     }
 
-    fn process_all(&mut self, pending: Vec<Operation>) {
+    fn process_all(&mut self, pending: Vec<Identification>) {
         let mut pending = pending;
         loop {
             match pending.pop() {
-                Some(Operation::IdentifyTerms(instance1, instance2)) => {
+                Some((instance1, instance2)) => {
                     self.process_identify_terms(instance1, instance2, &mut pending);
-                }
-                Some(Operation::InsertEdge(edge_info)) => {
-                    self.process_insert_edge(edge_info, &mut pending);
                 }
                 None => break,
             }
         }
     }
 
-    // Identifies the two terms, and continues processing any followup operations until
-    // all operations are processed.
+    // Identifies the two terms, and continues processing any followup Identifications until
+    // all Identifications are processed.
     pub fn identify_terms(&mut self, instance1: TermInstance, instance2: TermInstance) {
-        let ops = vec![Operation::IdentifyTerms(instance1, instance2)];
+        let ops = vec![(instance1, instance2)];
         self.process_all(ops)
     }
 
@@ -1258,7 +1246,7 @@ impl TermGraph {
     // A -> C is the "long edge" that we start with.
     // A -> B is the "short edge" that we will look for.
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
-    fn process_long_edge(&mut self, long_edge_id: EdgeId, pending: &mut Vec<Operation>) {
+    fn process_long_edge(&mut self, long_edge_id: EdgeId, pending: &mut Vec<Identification>) {
         let long_edge_info = self.get_edge_info(long_edge_id);
         let long_reps = long_edge_info.normalize_result();
         let long_result = long_edge_info.result.normalize_vars();
@@ -1391,7 +1379,7 @@ impl TermGraph {
                 .map(|r| r.unwrap())
                 .collect::<Vec<_>>();
 
-            self.process_candidate_edge(
+            self.process_unnormalized_edge(
                 &template,
                 &trimmed_replacements,
                 long_result.clone(),
@@ -1772,6 +1760,46 @@ mod tests {
         let matching = g.parse("a0(a4, a1, x0, a2(a5), x1)");
         let expected = g.parse("a3(x0)");
         assert_eq!(matching, expected);
+    }
+
+    #[test]
+    fn test_unused_vars_on_both_sides() {
+        let mut g = TermGraph::new();
+        let template = g.parse("a0(a1, x0)");
+        let reduction = g.parse("a2(x1)");
+        g.check_identify_terms(&template, &reduction);
+        let left = g.parse("a0(a1, a3)");
+        let right = g.parse("a2(a4)");
+        assert_eq!(left, right);
+    }
+
+    #[test]
+    fn test_collapses_during_long_edge() {
+        let mut g = TermGraph::new();
+        let template = g.parse("a0(a1, x0, x1)");
+        let reduction = g.parse("a2");
+        g.check_identify_terms(&template, &reduction);
+        let template = g.parse("a0(x0, a1, x1)");
+        let reduction = g.parse("a3");
+        g.check_identify_terms(&template, &reduction);
+        let template = g.parse("a0(x0, x1, a1)");
+        let reduction = g.parse("a4");
+        g.check_identify_terms(&template, &reduction);
+        g.parse("a0(a1, a1, a1)");
+        let a3 = g.parse("a3");
+        let a4 = g.parse("a4");
+        assert_eq!(a3, a4);
+    }
+
+    #[test]
+    fn test_variable_used_only_in_replacement() {
+        let mut g = TermGraph::new();
+        let template = g.parse("a0(x0, a1(x1))");
+        let reduction = g.parse("a2(x0)");
+        g.check_identify_terms(&template, &reduction);
+        let left = g.parse("a2(a3)");
+        let right = g.parse("a0(a3, a1(a4))");
+        assert_eq!(left, right);
     }
 
     // #[test]
