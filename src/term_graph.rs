@@ -1105,11 +1105,21 @@ impl TermGraph {
             vars_used: new_to_old.len(),
         };
 
-        if result.num_vars() > new_to_old.len() {
-            todo!("handle the case where an edge result has more variables than the replacements");
-        }
+        let normalized_result = if result.num_vars() > new_to_old.len() {
+            // The result must have some variables that aren't in new_to_old at all.
+            if let TermInstance::Mapped(mapped_result) = &result {
+                // We can eliminate these variables
+                let reduced_result =
+                    self.eliminate_vars(mapped_result, |v| !new_to_old.contains(&v));
+                pending.push(Operation::IdentifyTerms(result, reduced_result.clone()));
+                reduced_result.forward_map_vars(&new_to_old)
+            } else {
+                panic!("a replacement with no variables becomes a variable. what does this mean?");
+            }
+        } else {
+            result.forward_map_vars(&new_to_old)
+        };
 
-        let normalized_result = result.forward_map_vars(&new_to_old);
         if let TermInstance::Variable(_, i) = normalized_result {
             assert_eq!(i, 0);
         }
