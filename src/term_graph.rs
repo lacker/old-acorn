@@ -1757,27 +1757,27 @@ mod tests {
         g.check_identify_terms(&a1x0, &a3);
     }
 
-    // #[test]
-    // fn test_ignoring_two_vars() {
-    //     let mut g = TermGraph::new();
-    //     let template = g.parse("a0(a1(x0), x1)");
-    //     let reduction = g.parse("a2");
-    //     g.check_identify_terms(&template, &reduction);
-    //     let matching = g.parse("a0(a1(a3), x1)");
-    //     let expected = g.parse("a2");
-    //     assert_eq!(matching, expected);
-    // }
+    #[test]
+    fn test_ignoring_two_vars() {
+        let mut g = TermGraph::new();
+        let template = g.parse("a0(a1(x0), x1)");
+        let reduction = g.parse("a2");
+        g.check_identify_terms(&template, &reduction);
+        let matching = g.parse("a0(a1(a3), x1)");
+        let expected = g.parse("a2");
+        assert_eq!(matching, expected);
+    }
 
-    // #[test]
-    // fn test_tricky_template() {
-    //     let mut g = TermGraph::new();
-    //     let template = g.parse("a0(x0, a1, x2, a2(x3), x4)");
-    //     let reduction = g.parse("a3(x2)");
-    //     g.check_identify_terms(&template, &reduction);
-    //     let matching = g.parse("a0(a4, a1, x0, a2(a5), x1)");
-    //     let expected = g.parse("a3(x0)");
-    //     assert_eq!(matching, expected);
-    // }
+    #[test]
+    fn test_long_template() {
+        let mut g = TermGraph::new();
+        let template = g.parse("a0(x0, a1, x2, a2(x3), x4)");
+        let reduction = g.parse("a3(x2)");
+        g.check_identify_terms(&template, &reduction);
+        let matching = g.parse("a0(a4, a1, x0, a2(a5), x1)");
+        let expected = g.parse("a3(x0)");
+        assert_eq!(matching, expected);
+    }
 
     // #[test]
     // fn test_cyclic_argument_identification() {
