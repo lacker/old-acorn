@@ -1041,6 +1041,41 @@ impl TermGraph {
         }
     }
 
+    // Sometimes we discover that a term doesn't use some of its arguments.
+    // For example, in the term (0 * x0 + 2 * x1), the value of x0 is irrelevant.
+    // This function creates a new "reduced" term that eliminates some arguments.
+    // The caller is responsible for identifying this new term with things.
+    //
+    // "eliminate" specifies which variables on the given term instance can be eliminated.
+    fn eliminate_vars(
+        &mut self,
+        mapped_term: &MappedTerm,
+        eliminate: impl Fn(AtomId) -> bool,
+    ) -> TermInstance {
+        let term_info = self.get_term_info(mapped_term.term_id);
+        let mut reduced_arg_types = vec![];
+        let mut reduced_var_map = vec![];
+        for (i, v) in mapped_term.var_map.iter().enumerate() {
+            if eliminate(*v) {
+                continue;
+            }
+            reduced_var_map.push(*v);
+            reduced_arg_types.push(term_info.arg_types[i]);
+        }
+        let reduced_term_info = TermInfo {
+            term_type: term_info.term_type,
+            arg_types: reduced_arg_types,
+            adjacent: HashSet::default(),
+            atom_keys: vec![],
+            type_template: None,
+            depth: term_info.depth,
+        };
+        let reduced_term_id = self.terms.len() as TermId;
+        self.terms
+            .push(TermInfoReference::TermInfo(reduced_term_info));
+        TermInstance::mapped(reduced_term_id, reduced_var_map)
+    }
+
     // The term we most want to keep compares as the largest in the keeping order.
     fn keeping_order(
         &self,
@@ -1121,29 +1156,7 @@ impl TermGraph {
             if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
                 // The "keep" term contains some arguments that the "discard" term doesn't.
                 // These arguments can be eliminated.
-                // We make a new reduced term with these arguments eliminated and identify
-                // both of our terms with the reduced one.
-                let keep_info = self.get_term_info(keep.term_id);
-                let mut reduced_arg_types = vec![];
-                let mut reduced_var_map = vec![];
-                for (i, v) in keep.var_map.iter().enumerate() {
-                    if discard.var_map.contains(v) {
-                        reduced_var_map.push(*v);
-                        reduced_arg_types.push(keep_info.arg_types[i]);
-                    }
-                }
-                let reduced_term_info = TermInfo {
-                    term_type: keep_info.term_type,
-                    arg_types: reduced_arg_types,
-                    adjacent: HashSet::default(),
-                    atom_keys: vec![],
-                    type_template: None,
-                    depth: keep_info.depth,
-                };
-                let reduced_term_id = self.terms.len() as TermId;
-                self.terms
-                    .push(TermInfoReference::TermInfo(reduced_term_info));
-                let reduced_instance = TermInstance::mapped(reduced_term_id, reduced_var_map);
+                let reduced_instance = self.eliminate_vars(keep, |v| !discard.var_map.contains(&v));
 
                 // Identify both onto the reduced term
                 pending.push(Operation::IdentifyTerms(
