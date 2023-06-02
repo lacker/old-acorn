@@ -307,7 +307,11 @@ impl EdgeKey {
                 }
             });
         }
-        assert_eq!(expected, self.vars_used as AtomId);
+        assert_eq!(
+            expected, self.vars_used as AtomId,
+            "edge key {} uses {} vars but vars_used is {}",
+            self, expected, self.vars_used
+        );
 
         if replacements_are_noop(&self.replacements) {
             panic!("replacements are a noop");
@@ -430,20 +434,14 @@ impl EdgeInfo {
             .map(|replacement| replacement.replace_term_id(old_term_id, new_term))
             .collect();
 
-        if self.key.template != old_term_id {
-            // The template is unchanged, so we're done
-            return Operation::InsertEdge(EdgeInfo {
-                key: EdgeKey {
-                    template: self.key.template,
-                    replacements: new_replacements,
-                    vars_used: self.key.vars_used,
-                },
-                result: new_result,
-            });
+        if self.key.template == old_term_id {
+            // We're also replacing the template
+            Operation::new(new_term, &new_replacements, new_result)
+        } else {
+            // The template is unchanged, but we still have to renormalize the edge
+            let template = self.key.template_instance();
+            Operation::new(&template, &new_replacements, new_result)
         }
-
-        // We're replacing the template
-        Operation::new(new_term, &self.key.replacements, new_result)
     }
 
     // Renumbers the variables in the replacements so that the replacements work with the
@@ -1451,17 +1449,6 @@ impl TermGraph {
                     );
                 }
             }
-
-            // Normalize by result and then back by key, to make sure we get the same thing
-            let alt_reps = edge_info.normalize_result();
-            let alt_result = edge_info.result.normalize_vars();
-            let alt_template = edge_info.key.template_instance();
-            let op = Operation::new(&alt_template, &alt_reps, alt_result);
-            if let Operation::InsertEdge(e) = op {
-                assert_eq!(&e, edge_info);
-            } else {
-                panic!("unexpected operation: {:?}", op);
-            }
         }
 
         for ((atom, num_args), atom_info) in self.atoms.iter() {
@@ -1731,6 +1718,17 @@ mod tests {
         let matching = g.parse("a0(x0, a1(a3))");
         let expected = g.parse("a2(x0)");
         assert_eq!(matching, expected);
+    }
+
+    #[test]
+    fn test_eliminating_a_replacement_var() {
+        let mut g = TermGraph::new();
+        let a0a1x0 = g.parse("a0(a1(x0))");
+        let a2x0 = g.parse("a2(x0)");
+        g.check_identify_terms(&a0a1x0, &a2x0);
+        let a1x0 = g.parse("a1(x0)");
+        let a3 = g.parse("a3");
+        g.check_identify_terms(&a1x0, &a3);
     }
 
     // #[test]
