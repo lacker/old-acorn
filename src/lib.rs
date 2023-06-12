@@ -9,6 +9,7 @@ pub mod fingerprint;
 pub mod literal_set;
 pub mod normalizer;
 pub mod passive_set;
+pub mod permutation_group;
 pub mod prover;
 pub mod specializer;
 pub mod statement;
