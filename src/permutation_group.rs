@@ -6,28 +6,16 @@ use crate::atom::AtomId;
 #[derive(Debug)]
 pub struct PermutationGroup {
     degree: AtomId,
-    representation: Representation,
-}
 
-// There are better ways to efficiently represent permutation groups. We're going to hardcode
-// some of the special cases and fall back to a general and inefficient representation otherwise.
-#[derive(Debug)]
-enum Representation {
-    // No permutations
-    Trivial,
-
-    // All permutations
-    Symmetric,
-
-    // Specifically this list of permutations
-    List(Vec<Vec<AtomId>>),
+    // A sorted list of all permutations in the group.
+    elements: Vec<Vec<AtomId>>,
 }
 
 impl PermutationGroup {
     pub fn trivial(degree: AtomId) -> PermutationGroup {
         PermutationGroup {
             degree,
-            representation: Representation::Trivial,
+            elements: Vec::new(),
         }
     }
 }
