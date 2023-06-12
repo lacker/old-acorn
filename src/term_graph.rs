@@ -875,7 +875,7 @@ impl TermGraph {
         if let Some(duplicate_edge_id) = self.edge_key_map.get(&edge_info.key) {
             let duplicate_edge_info = self.get_edge_info(*duplicate_edge_id);
             // new_edge_info and duplicate_edge_info are the same edge, but
-            // they're going to different terms.
+            // they may go to different terms.
             // This means we need to identify the terms.
             self.process_identify_terms(
                 edge_info.result.clone(),
@@ -889,7 +889,8 @@ impl TermGraph {
     }
 
     // Replaces old_term_id with new_term in the given edge.
-    // This removes the old edge immediately, and pushes an Identification to add the new edge onto pending.
+    // This removes the old edge immediately, and pushes an Identification to add the new edge onto
+    // pending.
     fn replace_edge_term(
         &mut self,
         old_edge_id: EdgeId,
@@ -1176,6 +1177,7 @@ impl TermGraph {
             }
 
             if keep.term_id == discard.term_id {
+                // This is a permutation of arguments. We can add an edge going either way.
                 todo!("handle permutations of arguments");
             }
         }
