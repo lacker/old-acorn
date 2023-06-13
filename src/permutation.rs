@@ -67,6 +67,10 @@ pub fn to_string(permutation: &Permutation) -> String {
         if done[i] {
             continue;
         }
+        if i == permutation[i] as usize {
+            done[i] = true;
+            continue;
+        }
         // Add this cycle
         result.push('(');
         let mut i = i;
@@ -81,6 +85,9 @@ pub fn to_string(permutation: &Permutation) -> String {
         }
         result.push(')');
     }
+    if result.is_empty() {
+        result.push_str("()");
+    }
     result
 }
 
@@ -88,13 +95,18 @@ pub fn to_string(permutation: &Permutation) -> String {
 mod tests {
     use super::*;
 
+    fn check_parse(degree: AtomId, s: &str) -> Permutation {
+        let p = parse(degree, s);
+        assert_eq!(to_string(&p), s);
+        p
+    }
+
     #[test]
     fn test_basic_permutations() {
-        let p1 = parse(4, "(0 1)");
-        let p2 = parse(4, "(2 3)");
+        let p1 = check_parse(4, "(0 1)");
+        let p2 = check_parse(4, "(2 3)");
         let p3a = compose(&p1, &p2);
-        let p3b = parse(4, "(0 1)(2 3)");
+        let p3b = check_parse(4, "(0 1)(2 3)");
         assert_eq!(p3a, p3b);
-        assert_eq!(to_string(&p3a), "(0 1)(2 3)");
     }
 }
