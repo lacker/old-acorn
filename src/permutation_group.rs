@@ -56,3 +56,29 @@ impl PermutationGroup {
         self.consume(&mut queue);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_permutation_groups() {
+        let mut g = PermutationGroup::trivial(6);
+        assert_eq!(g.size(), 1);
+        let p = permutation::parse(6, "(0 1)");
+        g.add(p);
+        assert_eq!(g.size(), 2);
+        let p = permutation::parse(6, "(0 2)");
+        g.add(p);
+        assert_eq!(g.size(), 6);
+        let p = permutation::parse(6, "(3 4)");
+        g.add(p);
+        assert_eq!(g.size(), 12);
+        let p = permutation::parse(6, "(4 5)");
+        g.add(p);
+        assert_eq!(g.size(), 36);
+        let p = permutation::parse(6, "(1 5)");
+        g.add(p);
+        assert_eq!(g.size(), 720);
+    }
+}
