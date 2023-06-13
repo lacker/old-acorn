@@ -33,3 +33,43 @@ pub fn is_identity(permutation: &Permutation) -> bool {
     }
     true
 }
+
+// Parses a cycle in the math-standard (1 2 3) form
+fn parse_cycle(degree: AtomId, s: &str) -> Permutation {
+    let s = s.replace(&['(', ')'], " ");
+    let s = s.trim();
+
+    let items: Vec<AtomId> = s.split_whitespace().map(|x| x.parse().unwrap()).collect();
+
+    let mut result = identity(degree);
+    for i in 0..items.len() {
+        let j = (i + 1) % items.len();
+        result[items[i] as usize] = items[j];
+    }
+    result
+}
+
+// Parses a permutation represented as a composition of cycles
+pub fn parse(degree: AtomId, s: &str) -> Permutation {
+    let mut result = identity(degree);
+    // Split on (
+    for cycle in s.split('(').skip(1) {
+        let cycle = parse_cycle(degree, cycle);
+        result = compose(&cycle, &result);
+    }
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_permutations() {
+        let p1 = parse(4, "(1 2)");
+        let p2 = parse(4, "(3 4)");
+        let p3a = compose(&p1, &p2);
+        let p3b = parse(4, "(1 2)(3 4)");
+        assert_eq!(p3a, p3b);
+    }
+}

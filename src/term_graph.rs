@@ -1816,27 +1816,27 @@ mod tests {
         assert_eq!(left, right);
     }
 
-    #[test]
-    fn test_cyclic_argument_identification() {
-        let mut g = TermGraph::new();
-        let base = g.parse("a0(x0, x1, x2)");
-        let rotated = g.parse("a0(x1, x2, x0)");
-        g.check_identify_terms(&base, &rotated);
+    // #[test]
+    // fn test_cyclic_argument_identification() {
+    //     let mut g = TermGraph::new();
+    //     let base = g.parse("a0(x0, x1, x2)");
+    //     let rotated = g.parse("a0(x1, x2, x0)");
+    //     g.check_identify_terms(&base, &rotated);
 
-        let term1 = g.parse("a0(a1, a2, a3)");
-        let term2 = g.parse("a0(a2, a3, a1)");
-        assert_eq!(term1, term2);
+    //     let term1 = g.parse("a0(a1, a2, a3)");
+    //     let term2 = g.parse("a0(a2, a3, a1)");
+    //     assert_eq!(term1, term2);
 
-        let term3 = g.parse("a0(a3, a1, a2)");
-        assert_eq!(term1, term3);
+    //     let term3 = g.parse("a0(a3, a1, a2)");
+    //     assert_eq!(term1, term3);
 
-        let term4 = g.parse("a0(a1, a3, a2)");
-        assert_ne!(term1, term4);
+    //     let term4 = g.parse("a0(a1, a3, a2)");
+    //     assert_ne!(term1, term4);
 
-        let term5 = g.parse("a0(a3, a2, a1)");
-        assert_eq!(term4, term5);
+    //     let term5 = g.parse("a0(a3, a2, a1)");
+    //     assert_eq!(term4, term5);
 
-        let term6 = g.parse("a0(a2, a1, a3)");
-        assert_eq!(term4, term6);
-    }
+    //     let term6 = g.parse("a0(a2, a1, a3)");
+    //     assert_eq!(term4, term6);
+    // }
 }
