@@ -34,7 +34,7 @@ pub fn is_identity(permutation: &Permutation) -> bool {
     true
 }
 
-// Parses a cycle in the math-standard (1 2 3) form
+// Parses a cycle in the math-standard (1 2 3) form, except it's indexed to start at 0.
 fn parse_cycle(degree: AtomId, s: &str) -> Permutation {
     let s = s.replace(&['(', ')'], " ");
     let s = s.trim();
@@ -66,10 +66,10 @@ mod tests {
 
     #[test]
     fn test_basic_permutations() {
-        let p1 = parse(4, "(1 2)");
-        let p2 = parse(4, "(3 4)");
+        let p1 = parse(4, "(0 1)");
+        let p2 = parse(4, "(2 3)");
         let p3a = compose(&p1, &p2);
-        let p3b = parse(4, "(1 2)(3 4)");
+        let p3b = parse(4, "(0 1)(2 3)");
         assert_eq!(p3a, p3b);
     }
 }
