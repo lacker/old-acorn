@@ -60,6 +60,30 @@ pub fn parse(degree: AtomId, s: &str) -> Permutation {
     result
 }
 
+pub fn to_string(permutation: &Permutation) -> String {
+    let mut result = String::new();
+    let mut done = vec![false; permutation.len()];
+    for i in 0..permutation.len() {
+        if done[i] {
+            continue;
+        }
+        // Add this cycle
+        result.push('(');
+        let mut i = i;
+        loop {
+            result.push_str(&i.to_string());
+            done[i] = true;
+            i = permutation[i] as usize;
+            if done[i] {
+                break;
+            }
+            result.push(' ');
+        }
+        result.push(')');
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,5 +95,6 @@ mod tests {
         let p3a = compose(&p1, &p2);
         let p3b = parse(4, "(0 1)(2 3)");
         assert_eq!(p3a, p3b);
+        assert_eq!(to_string(&p3a), "(0 1)(2 3)");
     }
 }
