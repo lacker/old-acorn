@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::iter;
 
@@ -58,11 +59,22 @@ impl PermutationGroup {
 
     // Normalize the list by picking the lexicographically first way to permute it,
     // among all the permutations in this group.
-    pub fn normalize<T: Ord>(&self, list: Vec<T>) -> Vec<T> {
+    pub fn normalize<T: Ord>(&self, list: &mut Vec<T>) {
         if self.size() == 1 {
-            return list;
+            return;
         }
-        todo!("XXX");
+
+        // Find the permutation whose inverse applied to the list is minimal
+        let mut perms = self.elements.iter();
+        let mut min_p = perms.next().unwrap();
+        for p in perms {
+            if permutation::compare_apply_inverse(p, min_p, &list) == Ordering::Less {
+                min_p = p;
+            }
+        }
+
+        let inverse = permutation::invert(min_p);
+        permutation::destructive_apply(inverse, list)
     }
 }
 

@@ -103,8 +103,23 @@ pub fn to_string(permutation: &Permutation) -> String {
     result
 }
 
-pub fn compare<T: Ord>(left: &Permutation, right: &Permutation, list: &Vec<T>) -> Ordering {
+pub fn invert(permutation: &Permutation) -> Permutation {
+    let mut result = permutation.clone();
+    for (i, j) in permutation.iter().enumerate() {
+        result[*j as usize] = i as AtomId;
+    }
+    result
+}
+
+// Lexicographically compare left^-1(list) and right^-1(list)
+pub fn compare_apply_inverse<T: Ord>(
+    left: &Permutation,
+    right: &Permutation,
+    list: &Vec<T>,
+) -> Ordering {
     for (left_index, right_index) in left.iter().zip(right.iter()) {
+        // i = left^-1(left_index) = right^-1(right_index)
+        // where i is the index of this iteration that we don't explicitly use.
         let left_item = &list[*left_index as usize];
         let right_item = &list[*right_index as usize];
         let cmp = left_item.cmp(right_item);
@@ -135,6 +150,23 @@ mod tests {
     }
 
     #[test]
+    fn test_compose() {
+        let p1 = check_parse(3, "(0 1)");
+        let p2 = check_parse(3, "(1 2)");
+
+        // Doing p2 and then p1 should take 2 -> 0, 1 -> 2, 0 -> 1
+        let expected = check_parse(3, "(0 1 2)");
+        let actual = compose(&p1, &p2);
+        assert_eq!(actual, expected);
+
+        println!("actual: {:?}", &actual);
+
+        let mut stuff = vec![100, 200, 300];
+        destructive_apply(actual, &mut stuff);
+        assert_eq!(stuff, vec![300, 100, 200]);
+    }
+
+    #[test]
     fn test_destructive_apply() {
         let stuff = vec![100, 200, 300, 400, 500];
         let p1 = check_parse(5, "(0 1)(2 4 3)");
@@ -143,10 +175,31 @@ mod tests {
         let mut one_at_a_time = stuff.clone();
         destructive_apply(p2.clone(), &mut one_at_a_time);
         destructive_apply(p1.clone(), &mut one_at_a_time);
-
         let mut all_at_once = stuff.clone();
         destructive_apply(compose(&p1, &p2), &mut all_at_once);
 
         assert_eq!(one_at_a_time, all_at_once);
+    }
+
+    #[test]
+    fn test_identity() {
+        let e = identity(5);
+        let p = check_parse(5, "(0 1)(2 4 3)");
+        assert_eq!(compose(&e, &p), p);
+        assert_eq!(compose(&p, &e), p);
+        let stuff = vec![100, 200, 300, 400, 500];
+        let mut stuff_clone = stuff.clone();
+        destructive_apply(e, &mut stuff_clone);
+        assert_eq!(stuff_clone, stuff);
+    }
+
+    #[test]
+    fn test_associative() {
+        let p1 = check_parse(5, "(0 1)(2 4 3)");
+        let p2 = check_parse(5, "(1 3 4)");
+        let p3 = check_parse(5, "(0 1 2)");
+        let left_first = compose(&compose(&p1, &p2), &p3);
+        let right_first = compose(&p1, &compose(&p2, &p3));
+        assert_eq!(left_first, right_first);
     }
 }
