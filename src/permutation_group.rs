@@ -32,6 +32,10 @@ impl PermutationGroup {
         self.elements.len()
     }
 
+    pub fn is_trivial(&self) -> bool {
+        self.size() == 1
+    }
+
     // Add all permutations in the queue and their compositions to the queue
     fn consume(&mut self, queue: &mut BTreeSet<Permutation>) {
         while let Some(permutation) = queue.pop_first() {
