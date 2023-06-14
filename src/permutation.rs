@@ -1,7 +1,8 @@
 use crate::atom::AtomId;
+use std::cmp::Ordering;
 
 // A permutation is represented in "functional" form.
-// Specifically, it is a vector v where v[i] = j means that the permutation maps i to j.
+// Specifically, v[i] = j means that the permutation moves the ith element to the jth element.
 pub type Permutation = Vec<AtomId>;
 
 pub fn identity(degree: AtomId) -> Permutation {
@@ -12,15 +13,26 @@ pub fn identity(degree: AtomId) -> Permutation {
     result
 }
 
-pub fn apply(permutation: &Permutation, item: AtomId) -> AtomId {
-    permutation[item as usize]
+pub fn destructive_apply<T>(p: Permutation, list: &mut Vec<T>) {
+    let mut p = p;
+    for i in 0..p.len() {
+        loop {
+            let j = p[i] as usize;
+            if i == j {
+                break;
+            }
+            p.swap(i, j);
+            list.swap(i, j);
+        }
+    }
 }
 
+// (left o right) is the permutation you get by first doing the right permutation, then the left.
 pub fn compose(left: &Permutation, right: &Permutation) -> Permutation {
     assert_eq!(left.len(), right.len());
     let mut result = Vec::new();
     for r in right {
-        result.push(apply(left, *r));
+        result.push(left[*r as usize]);
     }
     result
 }
@@ -91,6 +103,18 @@ pub fn to_string(permutation: &Permutation) -> String {
     result
 }
 
+pub fn compare<T: Ord>(left: &Permutation, right: &Permutation, list: &Vec<T>) -> Ordering {
+    for (left_index, right_index) in left.iter().zip(right.iter()) {
+        let left_item = &list[*left_index as usize];
+        let right_item = &list[*right_index as usize];
+        let cmp = left_item.cmp(right_item);
+        if cmp != Ordering::Equal {
+            return cmp;
+        }
+    }
+    Ordering::Equal
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,5 +132,21 @@ mod tests {
         let p3a = compose(&p1, &p2);
         let p3b = check_parse(4, "(0 1)(2 3)");
         assert_eq!(p3a, p3b);
+    }
+
+    #[test]
+    fn test_destructive_apply() {
+        let stuff = vec![100, 200, 300, 400, 500];
+        let p1 = check_parse(5, "(0 1)(2 4 3)");
+        let p2 = check_parse(5, "(1 3 4)");
+
+        let mut one_at_a_time = stuff.clone();
+        destructive_apply(p2.clone(), &mut one_at_a_time);
+        destructive_apply(p1.clone(), &mut one_at_a_time);
+
+        let mut all_at_once = stuff.clone();
+        destructive_apply(compose(&p1, &p2), &mut all_at_once);
+
+        assert_eq!(one_at_a_time, all_at_once);
     }
 }

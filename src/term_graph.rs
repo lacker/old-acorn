@@ -60,14 +60,14 @@ pub struct AtomInfo {
 //   var_map: [4, 0]
 // The length of varmap must be the same as arg_types.
 // No two variables should be named the same thing.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct MappedTerm {
     term_id: TermId,
     var_map: Vec<AtomId>,
 }
 
 // A particular instance of a term can either be a mapped term from the graph, or a single variable.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum TermInstance {
     Mapped(MappedTerm),
     Variable(TypeId, AtomId),
