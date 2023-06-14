@@ -55,6 +55,23 @@ impl PermutationGroup {
         let mut queue = iter::once(permutation).collect();
         self.consume(&mut queue);
     }
+
+    // Normalize the map with respect to our group by finding the lexicographically first
+    // element in its orbit.
+    // I.e., we find the permutation p in our group that minimizes p(map), and return p(map).
+    // The argument can be an "irregular permutation", ie one that maps the elements outside the domain.
+    // In this case, the return value will also be an irregular permutation.
+    pub fn normalize(&self, map: Permutation) -> Permutation {
+        if self.size() == 1 {
+            return map;
+        }
+        self.elements
+            .iter()
+            .map(|p| permutation::compose(p, &map))
+            .min()
+            .unwrap()
+            .clone()
+    }
 }
 
 #[cfg(test)]
