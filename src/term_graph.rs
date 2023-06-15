@@ -7,6 +7,7 @@ use fxhash::FxHashMap;
 use nohash_hasher::BuildNoHashHasher;
 
 use crate::atom::{Atom, AtomId};
+use crate::permutation_group::PermutationGroup;
 use crate::specializer::Specializer;
 use crate::term::Term;
 use crate::type_space::{self, TypeId};
@@ -38,6 +39,10 @@ pub struct TermInfo {
     // A term of a given depth can be created from terms of only smaller depth.
     // A depth zero term can be created from atoms.
     depth: u32,
+
+    // The symmetry group formed by the permutations of this term's arguments for which
+    // the term is invariant.
+    symmetry: PermutationGroup,
 }
 pub type TermId = u32;
 
@@ -138,6 +143,21 @@ pub struct TermGraph {
 // -----------------------------------------------------------------------------------------------
 //                       implementation
 // -----------------------------------------------------------------------------------------------
+
+impl TermInfo {
+    fn new(term_type: TypeId, arg_types: Vec<TypeId>, depth: u32) -> Self {
+        let num_args = arg_types.len() as AtomId;
+        TermInfo {
+            term_type,
+            arg_types,
+            adjacent: HashSet::default(),
+            atom_keys: vec![],
+            type_template: None,
+            depth,
+            symmetry: PermutationGroup::trivial(num_args),
+        }
+    }
+}
 
 // Composes two var_maps by applying the left one first, then the right one.
 fn compose_var_maps(left: &Vec<AtomId>, right: &Vec<AtomId>) -> Vec<AtomId> {
@@ -576,16 +596,10 @@ impl TermGraph {
         // Create the info structs
         let term_id = self.terms.len() as TermId;
         let term_type = template.term_type;
-        let var_map: Vec<AtomId> = (0..result_arg_types.len() as AtomId).collect();
+        let num_args = result_arg_types.len() as AtomId;
+        let var_map: Vec<AtomId> = (0..num_args).collect();
         let result = MappedTerm { term_id, var_map };
-        let term_info = TermInfo {
-            term_type,
-            arg_types: result_arg_types,
-            adjacent: HashSet::default(),
-            atom_keys: vec![],
-            type_template: None,
-            depth: max_edge_depth + 1,
-        };
+        let term_info = TermInfo::new(term_type, result_arg_types, max_edge_depth + 1);
         let answer = TermInstance::Mapped(result);
         let edge_info = EdgeInfo {
             key,
@@ -670,14 +684,9 @@ impl TermGraph {
                     // The head of the term counts as one of the args in the template
                     let mut arg_types = vec![term.head_type];
                     arg_types.extend(term.args.iter().map(|a| a.term_type));
-                    self.terms.push(TermInfoReference::TermInfo(TermInfo {
-                        term_type: term.term_type,
-                        arg_types,
-                        adjacent: HashSet::default(),
-                        atom_keys: vec![],
-                        type_template: Some(term.head_type),
-                        depth: 0,
-                    }));
+                    let mut term_info = TermInfo::new(term.term_type, arg_types, 0);
+                    term_info.type_template = Some(term.head_type);
+                    self.terms.push(TermInfoReference::TermInfo(term_info));
                     type_template
                 });
             let mut replacements = vec![TermInstance::Variable(term.head_type, i)];
@@ -691,14 +700,13 @@ impl TermGraph {
         let atom_key = (term.head, term.args.len() as u8);
         if !self.atoms.contains_key(&atom_key) {
             let head_id = self.terms.len() as TermId;
-            self.terms.push(TermInfoReference::TermInfo(TermInfo {
-                term_type: term.term_type,
-                arg_types: term.args.iter().map(|a| a.term_type).collect(),
-                adjacent: HashSet::default(),
-                atom_keys: vec![atom_key.clone()],
-                type_template: None,
-                depth: 0,
-            }));
+            let mut term_info = TermInfo::new(
+                term.term_type,
+                term.args.iter().map(|a| a.term_type).collect(),
+                0,
+            );
+            term_info.atom_keys.push(atom_key.clone());
+            self.terms.push(TermInfoReference::TermInfo(term_info));
             let term_instance =
                 TermInstance::mapped(head_id, (0..term.args.len() as AtomId).collect());
             let atom_info = AtomInfo {
@@ -998,14 +1006,8 @@ impl TermGraph {
             reduced_var_map.push(*v);
             reduced_arg_types.push(term_info.arg_types[i]);
         }
-        let reduced_term_info = TermInfo {
-            term_type: term_info.term_type,
-            arg_types: reduced_arg_types,
-            adjacent: HashSet::default(),
-            atom_keys: vec![],
-            type_template: None,
-            depth: term_info.depth,
-        };
+        let reduced_term_info =
+            TermInfo::new(term_info.term_type, reduced_arg_types, term_info.depth);
         let reduced_term_id = self.terms.len() as TermId;
         self.terms
             .push(TermInfoReference::TermInfo(reduced_term_info));
