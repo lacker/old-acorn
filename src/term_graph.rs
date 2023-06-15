@@ -7,6 +7,7 @@ use fxhash::FxHashMap;
 use nohash_hasher::BuildNoHashHasher;
 
 use crate::atom::{Atom, AtomId};
+use crate::permutation;
 use crate::permutation_group::PermutationGroup;
 use crate::specializer::Specializer;
 use crate::term::Term;
@@ -327,14 +328,17 @@ impl EdgeKey {
             self, expected, self.vars_used
         );
 
-        if replacements_are_noop(&self.replacements) {
-            panic!("replacements are a noop");
+        if self.is_noop() {
+            panic!("edge is a noop");
         }
     }
 
     // Whether this is an edge that does nothing, taking the template to itself
     pub fn is_noop(&self) -> bool {
-        replacements_are_noop(&self.replacements)
+        self.replacements
+            .iter()
+            .enumerate()
+            .all(|(i, r)| r.variable() == Some(i as AtomId))
     }
 
     fn template_instance(&self) -> TermInstance {
@@ -405,14 +409,6 @@ fn normalize_replacements(
         }
     }
     new_replacements
-}
-
-// Returns whether this list of replacements is the noop that renames x_i to x_i for all i.
-fn replacements_are_noop(replacements: &Vec<TermInstance>) -> bool {
-    replacements
-        .iter()
-        .enumerate()
-        .all(|(i, r)| r.variable() == Some(i as AtomId))
 }
 
 impl fmt::Display for EdgeInfo {
@@ -619,6 +615,22 @@ impl TermGraph {
         self.update_term(answer)
     }
 
+    // Returns an EdgeKey along with a new_to_old map that shows how we renumbered the variables.
+    fn normalize_edge_key(
+        &self,
+        template: TermId,
+        replacements: &Vec<TermInstance>,
+    ) -> (EdgeKey, Vec<AtomId>) {
+        let mut new_to_old = vec![];
+        let new_replacements = normalize_replacements(replacements, &mut new_to_old);
+        let key = EdgeKey {
+            template,
+            replacements: new_replacements,
+            vars_used: new_to_old.len(),
+        };
+        (key, new_to_old)
+    }
+
     // Does a substitution with the given template and replacements.
     // Creates new entries in the term graph if necessary.
     // This does not have to be normalized.
@@ -629,17 +641,12 @@ impl TermGraph {
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
-        let mut new_to_old = vec![];
-        let new_replacements = normalize_replacements(&replacements, &mut new_to_old);
-        if replacements_are_noop(&new_replacements) {
+        let (key, new_to_old) = self.normalize_edge_key(template, replacements);
+        if key.is_noop() {
             // No need to even do a substitution
             return TermInstance::mapped(template, new_to_old);
         }
-        let new_term = self.expand_edge_key(EdgeKey {
-            template,
-            replacements: new_replacements,
-            vars_used: new_to_old.len(),
-        });
+        let new_term = self.expand_edge_key(key);
         new_term.forward_map_vars(&new_to_old)
     }
 
@@ -1094,13 +1101,9 @@ impl TermGraph {
             .into_iter()
             .map(|replacement| replacement.unwrap())
             .collect();
-        let mut new_to_old = vec![];
-        let normalized = normalize_replacements(&unwrapped_replacements, &mut new_to_old);
-        let normalized_key = EdgeKey {
-            template: mapped_term.term_id,
-            replacements: normalized,
-            vars_used: new_to_old.len(),
-        };
+
+        let (key, new_to_old) =
+            self.normalize_edge_key(mapped_term.term_id, &unwrapped_replacements);
 
         let normalized_result = if result.num_vars() > new_to_old.len() {
             // The result must have some variables that aren't in new_to_old at all.
@@ -1121,15 +1124,15 @@ impl TermGraph {
             assert_eq!(i, 0);
         }
 
-        if replacements_are_noop(&normalized_key.replacements) {
+        if key.is_noop() {
             // There's no edge here, we just want to identify two terms
-            pending.push((normalized_key.template_instance(), normalized_result));
+            pending.push((key.template_instance(), normalized_result));
             return;
         }
 
         self.process_normalized_edge(
             EdgeInfo {
-                key: normalized_key,
+                key,
                 result: normalized_result,
             },
             pending,
@@ -1179,8 +1182,20 @@ impl TermGraph {
             }
 
             if keep.term_id == discard.term_id {
-                // This is a permutation of arguments. We can add an edge going either way.
-                todo!("handle permutations of arguments");
+                // This is a permutation of arguments.
+                let permutation =
+                    permutation::compose_inverse(keep.var_map.clone(), discard.var_map.clone());
+                let term_info = self.mut_term_info(keep.term_id);
+                if term_info.symmetry.contains(&permutation) {
+                    // We already know about this permutation
+                    return;
+                }
+                term_info.symmetry.add(permutation);
+
+                // TODO: when we add a new symmetry, we should go back and check the old edges,
+                // to renormalize them.
+
+                return;
             }
         }
 
