@@ -619,10 +619,10 @@ impl TermGraph {
     fn normalize_edge_key(
         &self,
         template: TermId,
-        replacements: &Vec<TermInstance>,
+        replacements: Vec<TermInstance>,
     ) -> (EdgeKey, Vec<AtomId>) {
         let mut new_to_old = vec![];
-        let new_replacements = normalize_replacements(replacements, &mut new_to_old);
+        let new_replacements = normalize_replacements(&replacements, &mut new_to_old);
         let key = EdgeKey {
             template,
             replacements: new_replacements,
@@ -637,7 +637,7 @@ impl TermGraph {
     fn replace_in_term_id(
         &mut self,
         template: TermId,
-        replacements: &Vec<TermInstance>,
+        replacements: Vec<TermInstance>,
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
@@ -666,7 +666,7 @@ impl TermGraph {
                     // We don't need an explicit index i, but x_i in the term is x_v in the instance.
                     new_replacements.push(replacements[*v as usize].clone());
                 }
-                self.replace_in_term_id(template.term_id, &new_replacements)
+                self.replace_in_term_id(template.term_id, new_replacements)
             }
             TermInstance::Variable(_, i) => replacements[*i as usize].clone(),
         }
@@ -700,7 +700,7 @@ impl TermGraph {
             for arg in &term.args {
                 replacements.push(self.insert_term(arg));
             }
-            return self.replace_in_term_id(type_template, &replacements);
+            return self.replace_in_term_id(type_template, replacements);
         }
 
         // Handle the (much more common) case where the head is not a variable
@@ -1103,7 +1103,7 @@ impl TermGraph {
             .collect();
 
         let (key, new_to_old) =
-            self.normalize_edge_key(mapped_term.term_id, &unwrapped_replacements);
+            self.normalize_edge_key(mapped_term.term_id, unwrapped_replacements);
 
         let normalized_result = if result.num_vars() > new_to_old.len() {
             // The result must have some variables that aren't in new_to_old at all.
