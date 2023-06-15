@@ -1196,10 +1196,34 @@ impl TermGraph {
                     return;
                 }
                 term_info.symmetry.add(permutation);
+                let term_info = self.get_term_info(keep.term_id);
 
-                // TODO: when we add a new symmetry, we should go back and check the old edges,
-                // to renormalize them.
+                // Find all edges that have this term as the template
+                let mut edge_ids: Vec<EdgeId> = vec![];
+                for edge_id in &term_info.adjacent {
+                    let edge_info = self.get_edge_info(*edge_id);
+                    if edge_info.key.template == keep.term_id {
+                        edge_ids.push(*edge_id);
+                    }
+                }
 
+                // Find the edges that need to be renormalized
+                for edge_id in edge_ids {
+                    let edge_info = self.get_edge_info(edge_id);
+                    if edge_info.key.template != keep.term_id {
+                        continue;
+                    }
+
+                    let (key, new_to_old) =
+                        self.normalize_edge_key(keep.term_id, edge_info.key.replacements.clone());
+                    if key == edge_info.key {
+                        // The edge is already normalized
+                        continue;
+                    }
+
+                    let result = edge_info.result.forward_map_vars(&new_to_old);
+                    self.process_normalized_edge(EdgeInfo { key, result }, pending);
+                }
                 return;
             }
         }
