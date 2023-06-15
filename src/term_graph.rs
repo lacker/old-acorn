@@ -1861,4 +1861,25 @@ mod tests {
         let term6 = g.parse("a0(a2, a1, a3)");
         assert_eq!(term4, term6);
     }
+
+    #[test]
+    fn test_adding_symmetry_later() {
+        let mut g = TermGraph::new();
+
+        let a0a1a2 = g.parse("a0(a1, a2)");
+        let a3 = g.parse("a3");
+        g.check_identify_terms(&a0a1a2, &a3);
+
+        let a0a2a1 = g.parse("a0(a2, a1)");
+        let a4 = g.parse("a4");
+        g.check_identify_terms(&a0a2a1, &a4);
+
+        let a0x0x1 = g.parse("a0(x0, x1)");
+        let a0x1x0 = g.parse("a0(x1, x0)");
+        g.check_identify_terms(&a0x0x1, &a0x1x0);
+
+        let a3 = g.parse("a3");
+        let a4 = g.parse("a4");
+        assert_eq!(a3, a4);
+    }
 }
