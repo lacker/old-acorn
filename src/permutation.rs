@@ -13,8 +13,9 @@ pub fn identity(degree: AtomId) -> Permutation {
     result
 }
 
-pub fn destructive_apply<T>(p: Permutation, list: &mut Vec<T>) {
+pub fn apply<T>(p: Permutation, list: Vec<T>) -> Vec<T> {
     let mut p = p;
+    let mut list = list;
     for i in 0..p.len() {
         loop {
             let j = p[i] as usize;
@@ -25,6 +26,7 @@ pub fn destructive_apply<T>(p: Permutation, list: &mut Vec<T>) {
             list.swap(i, j);
         }
     }
+    list
 }
 
 // (left o right) is the permutation you get by first doing the right permutation, then the left.
@@ -35,6 +37,11 @@ pub fn compose(left: &Permutation, right: &Permutation) -> Permutation {
         result.push(left[*r as usize]);
     }
     result
+}
+
+// (left o right^-1) is what you get by first doing the inverse right permutation, then the left.
+pub fn compose_inverse(left: Permutation, right: Permutation) -> Permutation {
+    apply(right, left)
 }
 
 pub fn is_identity(permutation: &Permutation) -> bool {
@@ -161,8 +168,8 @@ mod tests {
 
         println!("actual: {:?}", &actual);
 
-        let mut stuff = vec![100, 200, 300];
-        destructive_apply(actual, &mut stuff);
+        let stuff = vec![100, 200, 300];
+        let stuff = apply(actual, stuff);
         assert_eq!(stuff, vec![300, 100, 200]);
     }
 
@@ -172,11 +179,11 @@ mod tests {
         let p1 = check_parse(5, "(0 1)(2 4 3)");
         let p2 = check_parse(5, "(1 3 4)");
 
-        let mut one_at_a_time = stuff.clone();
-        destructive_apply(p2.clone(), &mut one_at_a_time);
-        destructive_apply(p1.clone(), &mut one_at_a_time);
-        let mut all_at_once = stuff.clone();
-        destructive_apply(compose(&p1, &p2), &mut all_at_once);
+        let one_at_a_time = stuff.clone();
+        let one_at_a_time = apply(p2.clone(), one_at_a_time);
+        let one_at_a_time = apply(p1.clone(), one_at_a_time);
+        let all_at_once = stuff.clone();
+        let all_at_once = apply(compose(&p1, &p2), all_at_once);
 
         assert_eq!(one_at_a_time, all_at_once);
     }
@@ -188,9 +195,8 @@ mod tests {
         assert_eq!(compose(&e, &p), p);
         assert_eq!(compose(&p, &e), p);
         let stuff = vec![100, 200, 300, 400, 500];
-        let mut stuff_clone = stuff.clone();
-        destructive_apply(e, &mut stuff_clone);
-        assert_eq!(stuff_clone, stuff);
+        let stuff2 = apply(e, stuff.clone());
+        assert_eq!(stuff2, stuff);
     }
 
     #[test]
@@ -201,5 +207,14 @@ mod tests {
         let left_first = compose(&compose(&p1, &p2), &p3);
         let right_first = compose(&p1, &compose(&p2, &p3));
         assert_eq!(left_first, right_first);
+    }
+
+    #[test]
+    fn test_compose_inverse() {
+        let p1 = check_parse(5, "(0 1)(2 4 3)");
+        let p2 = check_parse(5, "(1 3 4)");
+        let invert_first = compose(&p1, &invert(&p2));
+        let in_one_op = compose_inverse(p1, p2);
+        assert_eq!(invert_first, in_one_op);
     }
 }

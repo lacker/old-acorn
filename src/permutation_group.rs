@@ -63,9 +63,9 @@ impl PermutationGroup {
 
     // Normalize the list by picking the lexicographically first way to permute it,
     // among all the permutations in this group.
-    pub fn normalize<T: Ord>(&self, list: &mut Vec<T>) {
+    pub fn normalize<T: Ord>(&self, list: Vec<T>) -> Vec<T> {
         if self.size() == 1 {
-            return;
+            return list;
         }
 
         // Find the permutation whose inverse applied to the list is minimal
@@ -78,7 +78,7 @@ impl PermutationGroup {
         }
 
         let inverse = permutation::invert(min_p);
-        permutation::destructive_apply(inverse, list)
+        permutation::apply(inverse, list)
     }
 }
 
