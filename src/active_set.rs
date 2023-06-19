@@ -5,6 +5,7 @@ use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
 use crate::specializer::Specializer;
 use crate::term::{Clause, Literal, Term};
+use crate::term_graph::TermGraph;
 use crate::unifier::{Scope, Unifier};
 
 // The ActiveSet stores a bunch of clauses that are indexed for various efficient lookups.
@@ -31,6 +32,9 @@ pub struct ActiveSet {
     // A clause can only be a rewrite if it's a single foo = bar literal, and foo > bar by the KBO.
     // So we only need to store the clause index of the rewrite rule.
     rewrite_rules: FingerprintTree<usize>,
+
+    // A term graph storing substitution identities.
+    graph: TermGraph,
 }
 
 // A ResolutionTarget is a way of specifying one particular term that is "eligible for resolution".
@@ -113,6 +117,7 @@ impl ActiveSet {
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
             rewrite_rules: FingerprintTree::new(),
+            graph: TermGraph::new(),
         }
     }
 
