@@ -479,8 +479,9 @@ impl ActiveSet {
         }
 
         if clause.is_rewrite_rule() {
+            let rewrite_literal = &clause.literals[0];
             self.rewrite_rules
-                .insert(&clause.literals[0].left, clause_index);
+                .insert(&rewrite_literal.left, clause_index);
         }
 
         self.clause_set.insert(clause.clone());
