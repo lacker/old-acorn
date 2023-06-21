@@ -416,7 +416,7 @@ impl ActiveSet {
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
-    pub fn simplify(&self, clause: &Clause) -> Option<Clause> {
+    pub fn simplify(&mut self, clause: &Clause) -> Option<Clause> {
         if clause.is_tautology() {
             return None;
         }
@@ -425,7 +425,16 @@ impl ActiveSet {
         }
         let mut rewritten_literals = vec![];
         for literal in &clause.literals {
+            // TODO: use the graph instead of rewrite_literal
+            if !literal.left.is_true() {
+                self.graph.insert_term(&literal.left);
+            }
+            if !literal.right.is_true() {
+                self.graph.insert_term(&literal.right);
+            }
+
             let rewritten_literal = self.rewrite_literal(literal);
+
             match self.literal_set.lookup(&rewritten_literal) {
                 Some((true, _)) => {
                     // This literal is already known to be true.

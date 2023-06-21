@@ -388,7 +388,7 @@ impl Prover<'_> {
     }
 
     pub fn prove(&mut self, theorem_name: &str) -> Outcome {
-        self.prove_limited(theorem_name, 1000, 1.0)
+        self.prove_limited(theorem_name, 1000, 10.0)
     }
 }
 
