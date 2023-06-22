@@ -3,7 +3,7 @@ use acorn::prover::Prover;
 
 fn main() {
     let input_file = "nat.ac";
-    let theorem_name = "add_assoc";
+    let theorem_name = "add_suc_left";
     let mut env = Environment::new();
     env.load_file(&input_file).unwrap();
     let mut prover = Prover::new(&env);

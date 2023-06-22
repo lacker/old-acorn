@@ -426,12 +426,12 @@ impl ActiveSet {
         let mut rewritten_literals = vec![];
         for literal in &clause.literals {
             // TODO: use the graph instead of rewrite_literal
-            if !literal.left.is_true() {
-                self.graph.insert_term(&literal.left);
-            }
-            if !literal.right.is_true() {
-                self.graph.insert_term(&literal.right);
-            }
+            // if !literal.left.is_true() {
+            //     self.graph.insert_term(&literal.left);
+            // }
+            // if !literal.right.is_true() {
+            //     self.graph.insert_term(&literal.right);
+            // }
 
             let rewritten_literal = self.rewrite_literal(literal);
 
