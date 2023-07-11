@@ -17,14 +17,14 @@ fn main() {
     env.load_file(&input_file).unwrap();
 
     // Prove each theorem
-    for (i, (maybe_name, axiomatic, value)) in env.theorems.iter().enumerate() {
-        let name = if let Some(name) = maybe_name {
+    for (i, theorem) in env.theorems.iter().enumerate() {
+        let name = if let Some(name) = &theorem.name {
             name.to_string()
         } else {
-            value.to_string()
+            theorem.claim.to_string()
         };
 
-        if *axiomatic {
+        if theorem.axiomatic {
             // Don't need to prove these
             println!("{} is axiomatic", name);
             continue;
@@ -34,11 +34,11 @@ fn main() {
         prover.verbose = false;
 
         if i > 0 {
-            for (_, _, value) in env.theorems.iter().take(i - 1) {
-                prover.add_proposition(value.clone());
+            for pretheorem in env.theorems.iter().take(i - 1) {
+                prover.add_proposition(pretheorem.claim.clone());
             }
         }
-        prover.add_negated(value.clone());
+        prover.add_negated(theorem.claim.clone());
 
         let outcome = prover.search_for_contradiction(1000, 1.0);
         match outcome {

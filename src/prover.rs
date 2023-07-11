@@ -360,10 +360,10 @@ impl Prover<'_> {
         if self.dirty {
             panic!("assume_false called on a dirty prover");
         }
-        for (maybe_name, _, value) in &self.env.theorems {
-            if let Some(name) = maybe_name {
+        for theorem in &self.env.theorems {
+            if let Some(name) = &theorem.name {
                 if name == theorem_name {
-                    self.add_negated(value.clone());
+                    self.add_negated(theorem.claim.clone());
 
                     if self.verbose {
                         println!("\nprover initial state:");
@@ -377,7 +377,7 @@ impl Prover<'_> {
                 }
             }
 
-            self.add_proposition(value.clone());
+            self.add_proposition(theorem.claim.clone());
         }
         panic!("no theorem named {}", theorem_name);
     }

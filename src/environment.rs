@@ -10,7 +10,7 @@ use crate::statement::Statement;
 use crate::token::{Error, Result, Token, TokenType};
 
 // The Environment takes in a bunch of statements that make sense on their own,
-// and combines them while doing typechecking and similar validation.
+// and combines them while doing typechecking and name resolution.
 // It is not responsible for proving anything, or for logically manipulating
 // proofs or values.
 // It does not have to be efficient enough to run in the inner loop of the prover.
@@ -31,15 +31,29 @@ pub struct Environment {
     types: HashMap<String, AcornType>,
 
     // Maps a name to its value.
-    // Doesn't handle variables defined on the stack, only ones in the top level environment.
+    // Doesn't handle variables defined on the stack, only ones that will be in scope for the
+    // entirety of this environment.
     values: HashMap<String, AcornValue>,
 
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, AtomId>,
 
-    // For all theorems in order we store:
-    //   (name, whether they are axiomatic, value)
-    pub theorems: Vec<(Option<String>, bool, AcornValue)>,
+    // The theorems in this environment (but not the nested ones)
+    pub theorems: Vec<Theorem>,
+}
+
+pub struct Theorem {
+    // The name of this theorem, if there is one
+    pub name: Option<String>,
+
+    // Whether this theorem is an axiom
+    pub axiomatic: bool,
+
+    // The boolean that must be proven for this theorem
+    pub claim: AcornValue,
+
+    // The body of this theorem, if it has one, is its own environment
+    pub body: Option<Environment>,
 }
 
 impl fmt::Display for Environment {
@@ -741,11 +755,13 @@ impl Environment {
                                 AcornValue::ForAll(arg_types.clone(), Box::new(claim_value))
                             };
                             self.bind_name(&ts.name, theorem_value.clone());
-                            self.theorems.push((
-                                Some(ts.name.to_string()),
-                                ts.axiomatic,
-                                theorem_value,
-                            ));
+                            let theorem = Theorem {
+                                name: Some(ts.name.to_string()),
+                                axiomatic: ts.axiomatic,
+                                claim: theorem_value,
+                                body: None,
+                            };
+                            self.theorems.push(theorem);
                             Ok(())
                         }
                         Err(e) => Err(e),
@@ -755,7 +771,7 @@ impl Environment {
 
                 ret_val
             }
-            _ => panic!("TODO"),
+            _ => todo!("handle other sorts of statement"),
         }
     }
 
