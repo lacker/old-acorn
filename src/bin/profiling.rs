@@ -1,4 +1,6 @@
 // A representative run of the prover, to use for profiling.
+// Try:
+//   cargo flamegraph --bin=profiling
 
 use acorn::environment::Environment;
 use acorn::prover::Prover;

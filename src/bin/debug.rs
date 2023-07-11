@@ -1,4 +1,6 @@
 // Analyzes an acorn file interactively.
+// Try:
+//   cargo run --bin=debug nat.ac add_assoc
 
 use std::io::Write;
 
