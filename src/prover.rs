@@ -354,6 +354,8 @@ impl Prover<'_> {
         }
     }
 
+    // Assumes all the propositions ahead of the named theorem are true,
+    // and assumes the named theorem is false for the sake of contradiction.
     pub fn assume_false(&mut self, theorem_name: &str) {
         if self.dirty {
             panic!("assume_false called on a dirty prover");
