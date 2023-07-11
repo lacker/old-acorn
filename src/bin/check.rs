@@ -33,8 +33,10 @@ fn main() {
         let mut prover = Prover::new(&env);
         prover.verbose = false;
 
-        for (_, _, value) in env.theorems.iter().take(i - 1) {
-            prover.add_proposition(value.clone());
+        if i > 0 {
+            for (_, _, value) in env.theorems.iter().take(i - 1) {
+                prover.add_proposition(value.clone());
+            }
         }
         prover.add_negated(value.clone());
 
