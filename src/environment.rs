@@ -37,8 +37,9 @@ pub struct Environment {
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, AtomId>,
 
-    // All named theorems, in order.
-    theorems: Vec<String>,
+    // For all theorems in order we store:
+    //   (name, whether they are axiomatic, value)
+    pub theorems: Vec<(Option<String>, bool, AcornValue)>,
 }
 
 impl fmt::Display for Environment {
@@ -134,13 +135,6 @@ impl Environment {
 
     pub fn get_axiomatic_name(&self, id: AtomId) -> &str {
         &self.axiomatic_values[id as usize]
-    }
-
-    // Iterates through (name, value) pairs for all theorems in this environment.
-    pub fn iter_theorems(&self) -> impl Iterator<Item = (&String, &AcornValue)> {
-        self.theorems
-            .iter()
-            .map(move |name| (name, self.values.get(name).unwrap()))
     }
 
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
@@ -746,8 +740,12 @@ impl Environment {
                             } else {
                                 AcornValue::ForAll(arg_types.clone(), Box::new(claim_value))
                             };
-                            self.bind_name(&ts.name, theorem_value);
-                            self.theorems.push(ts.name.to_string());
+                            self.bind_name(&ts.name, theorem_value.clone());
+                            self.theorems.push((
+                                Some(ts.name.to_string()),
+                                ts.axiomatic,
+                                theorem_value,
+                            ));
                             Ok(())
                         }
                         Err(e) => Err(e),
