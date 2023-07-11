@@ -1,3 +1,5 @@
+// A representative run of the prover, to use for profiling.
+
 use acorn::environment::Environment;
 use acorn::prover::Prover;
 

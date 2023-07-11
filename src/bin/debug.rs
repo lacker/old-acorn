@@ -1,9 +1,11 @@
+// Analyzes an acorn file interactively.
+
 use std::io::Write;
 
 use acorn::environment::Environment;
 use acorn::prover::{Outcome, Prover};
 
-const USAGE: &str = "Usage: cargo run <filename> <theorem name>";
+const USAGE: &str = "Usage: cargo run --bin=debug <filename> <theorem name>";
 
 fn trim_command<'a>(command: &str, line: &'a str) -> Option<&'a str> {
     if line.starts_with(command) {

@@ -1,4 +1,6 @@
-const USAGE: &str = "Usage: cargo run <filename>";
+// Checks an acorn file to see if it compiles.
+
+const USAGE: &str = "Usage: cargo run --bin=check <filename>";
 
 fn main() {
     // Parse command line arguments
