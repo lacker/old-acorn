@@ -48,8 +48,8 @@ pub struct TheoremStatement<'a> {
 // We're implicitly asserting that it is true and provable.
 // It's like an unnamed theorem.
 pub struct PropStatement<'a> {
-    claim: Expression<'a>,
-    body: Vec<Statement<'a>>,
+    pub claim: Expression<'a>,
+    pub body: Vec<Statement<'a>>,
 }
 
 // Type statements associate a name with a type expression

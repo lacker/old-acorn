@@ -771,7 +771,20 @@ impl Environment {
 
                 ret_val
             }
-            _ => todo!("handle other sorts of statement"),
+            Statement::Prop(ps) => {
+                // A proposition is like an anonymous theorem.
+                let theorem = Theorem {
+                    name: None,
+                    axiomatic: false,
+                    claim: self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?,
+                    body: None,
+                };
+                self.theorems.push(theorem);
+                Ok(())
+            }
+            Statement::EndBlock => {
+                panic!("unexpected endblock");
+            }
         }
     }
 
