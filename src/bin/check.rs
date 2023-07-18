@@ -8,54 +8,60 @@ use acorn::prover::{Outcome, Prover};
 
 const USAGE: &str = "Usage: cargo run --bin=check <filename>";
 
-// Proves a theorem, using the provided list of previously proved claims.
-// If the theorem is axiomatic, it is assumed to be true.
-// Any claims within the theorem body are also proved.
-// After the theorem is proved, its claim is added to the list of claims.
-fn prove(env: &Environment, claims: &mut Vec<AcornValue>, theorem: &Theorem) {
-    let name = if let Some(name) = &theorem.name {
-        name.to_string()
-    } else {
-        theorem.claim.to_string()
-    };
-
+// Proves a theorem, without doing any recursion.
+// It is assumed that all claims we need to prove this theorem are provided in claims.
+fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Theorem) {
     if theorem.axiomatic {
         // Don't need to prove these
-        println!("{} is axiomatic", name);
-    } else {
-        let mut prover = Prover::new(&env);
-        prover.verbose = false;
-
-        for claim in claims.iter() {
-            prover.add_proposition(claim.clone());
-        }
-        prover.add_negated(theorem.claim.clone());
-
-        let outcome = prover.search_for_contradiction(1000, 1.0);
-        match outcome {
-            Outcome::Success => {
-                println!("{} proved", name);
-            }
-            Outcome::Failure => {
-                println!("{} is unprovable", name);
-            }
-            Outcome::Unknown => {
-                println!("{} could not be proved", name);
-            }
-        }
+        println!("{} is axiomatic", theorem);
+        return;
     }
 
-    claims.push(theorem.claim.clone());
+    let mut prover = Prover::new(&env);
+    prover.verbose = false;
+
+    for claim in claims {
+        prover.add_proposition(claim.clone());
+    }
+    prover.add_negated(theorem.claim.clone());
+
+    let outcome = prover.search_for_contradiction(1000, 1.0);
+    match outcome {
+        Outcome::Success => {
+            println!("{} proved", theorem);
+        }
+        Outcome::Failure => {
+            println!("{} is unprovable", theorem);
+        }
+        Outcome::Unknown => {
+            println!("{} could not be proved", theorem);
+        }
+    }
 }
 
-// Proves all theorems in the environment.
-// Returns claims to its initial state after running.
-fn prove_all(env: &Environment, claims: &mut Vec<AcornValue>) {
-    let initial_len = claims.len();
-    for theorem in &env.theorems {
-        prove(env, claims, theorem);
+// Proves a theorem, using the provided list of previously proved claims.
+// If the theorem is axiomatic, it is just assumed to be true.
+// If there are claims within the body, those are proved first, and used to prove the theorem's
+// main claim.
+// After the proof, 'claims' is updated to contain the new claim.
+fn prove_rec(env: &Environment, claims: &mut Vec<AcornValue>, theorem: &Theorem) {
+    if let Some(subenv) = &theorem.env {
+        let claims_len = claims.len();
+
+        // Prove all the claims within the body
+        for theorem in &subenv.theorems {
+            prove_rec(subenv, claims, theorem);
+        }
+
+        // Prove the main claim
+        prove_one(subenv, claims, theorem);
+
+        // Drop the subclaims
+        claims.truncate(claims_len);
+    } else {
+        prove_one(env, claims, theorem);
     }
-    claims.truncate(initial_len);
+    claims.push(theorem.claim.clone());
 }
 
 fn main() {
@@ -69,5 +75,7 @@ fn main() {
 
     // Once each theorem gets proved, we add its claim
     let mut claims: Vec<AcornValue> = Vec::new();
-    prove_all(&env, &mut claims);
+    for theorem in &env.theorems {
+        prove_rec(&env, &mut claims, theorem);
+    }
 }

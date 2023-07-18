@@ -57,6 +57,16 @@ pub struct Theorem {
     pub env: Option<Environment>,
 }
 
+impl fmt::Display for Theorem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(name) = self.name.as_ref() {
+            write!(f, "{}", name)
+        } else {
+            write!(f, "{}", self.claim)
+        }
+    }
+}
+
 impl fmt::Display for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Environment {{\n")?;
