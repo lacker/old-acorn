@@ -40,9 +40,8 @@ theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a
 
 theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
 
-// add(0, add(0, 0)) = 0
-
 theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c)) {
+    // glorp
     // add(0, add(0, 0)) = 0
     // let f(x: Nat) -> bool = add_assoc(x, b, c) 
     // induction(f)

@@ -38,7 +38,8 @@ pub struct Environment {
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, AtomId>,
 
-    // The theorems in this environment (but not the nested ones)
+    // The theorems in this environment.
+    // Does not include the theorems in parent or child environments.
     pub theorems: Vec<Theorem>,
 }
 
@@ -52,8 +53,8 @@ pub struct Theorem {
     // The boolean that must be proven for this theorem
     pub claim: AcornValue,
 
-    // The body of this theorem, if it has one, is its own environment
-    pub body: Option<Environment>,
+    // Theorems that have a body have their own subenvironment with the body's entities
+    pub env: Option<Environment>,
 }
 
 impl fmt::Display for Environment {
@@ -80,6 +81,33 @@ impl Environment {
             stack: HashMap::new(),
             theorems: Vec::new(),
         }
+    }
+
+    // Creates a new environment by copying the names defined in this one.
+    // Ie, not the theorems and the stack.
+    //
+    // TODO: the stack should contain the variables used in this theorem definition; we
+    // should be capturing those.
+    //
+    // Performance is quadratic and therefore bad; using different data structures
+    // should improve this when we need to.
+    fn new_subenvironment(&self, body: &Vec<Statement>) -> Result<Option<Environment>> {
+        if body.is_empty() {
+            return Ok(None);
+        }
+        let mut subenv = Environment {
+            axiomatic_types: self.axiomatic_types.clone(),
+            axiomatic_values: self.axiomatic_values.clone(),
+            typenames: self.typenames.clone(),
+            types: self.types.clone(),
+            values: self.values.clone(),
+            stack: HashMap::new(),
+            theorems: Vec::new(),
+        };
+        for s in body {
+            subenv.add_statement(s)?;
+        }
+        Ok(Some(subenv))
     }
 
     pub fn load_file(&mut self, filename: &str) -> io::Result<()> {
@@ -759,7 +787,7 @@ impl Environment {
                                 name: Some(ts.name.to_string()),
                                 axiomatic: ts.axiomatic,
                                 claim: theorem_value,
-                                body: None,
+                                env: self.new_subenvironment(&ts.body)?,
                             };
                             self.theorems.push(theorem);
                             Ok(())
@@ -777,7 +805,7 @@ impl Environment {
                     name: None,
                     axiomatic: false,
                     claim: self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?,
-                    body: None,
+                    env: self.new_subenvironment(&ps.body)?,
                 };
                 self.theorems.push(theorem);
                 Ok(())
