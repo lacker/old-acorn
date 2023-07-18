@@ -1560,26 +1560,26 @@ mod tests {
     #[test]
     fn test_graph_insert_and_extract() {
         insert_and_extract(&[
-            "a0",
-            "a1(x0)",
-            "a1(x1)",
-            "a2(x0, x1)",
-            "a3(x0, x1, x2)",
-            "a2(x3, x2)",
-            "a2(a2(x0, x1), x2)",
-            "a2(x1, x1)",
-            "a3(x1, x3, x1)",
-            "a1(a1(x1))",
-            "a2(x0, a1(x1))",
-            "a2(a2(x1, x0), a2(x0, x2))",
-            "a2(a2(x0, x2), a2(x1, x0))",
-            "a3(x0, a3(x1, a3(x0, x1, x0), a0), x1)",
+            "c0",
+            "c1(x0)",
+            "c1(x1)",
+            "c2(x0, x1)",
+            "c3(x0, x1, x2)",
+            "c2(x3, x2)",
+            "c2(c2(x0, x1), x2)",
+            "c2(x1, x1)",
+            "c3(x1, x3, x1)",
+            "c1(c1(x1))",
+            "c2(x0, c1(x1))",
+            "c2(c2(x1, x0), c2(x0, x2))",
+            "c2(c2(x0, x2), c2(x1, x0))",
+            "c3(x0, c3(x1, c3(x0, x1, x0), c0), x1)",
         ]);
     }
 
     #[test]
     fn test_functional_arguments() {
-        insert_and_extract(&["a0(x0)", "a0"]);
+        insert_and_extract(&["c0(x0)", "c0"]);
     }
 
     #[test]
@@ -1587,8 +1587,8 @@ mod tests {
         insert_and_extract(&[
             "x0(x1)",
             "x0(x1(x2))",
-            "x3(x1(x2), x1(a0))",
-            "x4(a1(x8, x3), x0(x1), x0(a2))",
+            "x3(x1(x2), x1(c0))",
+            "x4(c1(x8, x3), x0(x1), x0(c2))",
         ]);
     }
 
@@ -1726,14 +1726,14 @@ mod tests {
     #[test]
     fn test_implicit_argument_collapse() {
         let mut g = TermGraph::new();
-        let a0x0 = g.parse("a0(x0)");
-        let a1x1 = g.parse("a1(x1)");
+        let a0x0 = g.parse("c0(x0)");
+        let a1x1 = g.parse("c1(x1)");
         g.check_identify_terms(&a0x0, &a1x1);
-        let a0a2 = g.parse("a0(a2)");
-        let a0a3 = g.parse("a0(a3)");
+        let a0a2 = g.parse("c0(c2)");
+        let a0a3 = g.parse("c0(c3)");
         assert_eq!(a0a2, a0a3);
 
-        check_insert(&mut g, "a0(x0)", "a0(_)");
+        check_insert(&mut g, "c0(x0)", "c0(_)");
     }
 
     #[test]

@@ -138,7 +138,7 @@ impl Environment {
 
     // This creates the next axiomatic value, but does not bind it to any name.
     fn next_axiomatic_value(&self, acorn_type: &AcornType) -> AcornValue {
-        let atom = Atom::Axiomatic(self.axiomatic_values.len() as AtomId);
+        let atom = Atom::Constant(self.axiomatic_values.len() as AtomId);
         AcornValue::Atom(TypedAtom {
             atom,
             acorn_type: acorn_type.clone(),
@@ -229,7 +229,7 @@ impl Environment {
     fn atom_str(&self, atom: &Atom) -> String {
         match atom {
             Atom::True => "true".to_string(),
-            Atom::Axiomatic(i) => {
+            Atom::Constant(i) => {
                 if let Some(s) = self.axiomatic_values.get(*i as usize) {
                     s.to_string()
                 } else {

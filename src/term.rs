@@ -321,7 +321,7 @@ impl Term {
                 }
                 refcounts[i as usize] += 1;
             }
-            Atom::Axiomatic(i) => {
+            Atom::Constant(i) => {
                 weight1 += 1;
                 weight2 += 2 * i as u32;
             }

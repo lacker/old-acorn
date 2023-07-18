@@ -5,17 +5,17 @@ use std::fmt;
 
 pub type AtomId = u16;
 
-pub const MIN_ATOM: Atom = Atom::Axiomatic(0);
+pub const MIN_ATOM: Atom = Atom::Constant(0);
 
-// An atomic value is one that we don't want to expand inline.
-// We could add more things here, like defined constants.
-// For now, we expand everything we can inline.
+// An atomic value does not have any internal structure.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Atom {
     True,
 
-    // Values defined like "define 0: Nat = axiom"
-    Axiomatic(AtomId),
+    // Constant values that are user-visible.
+    // These could be axioms, imported things, named functions, named variables.
+    // Not types, types are their own thing.
+    Constant(AtomId),
 
     // Functions created in the normalization process
     Skolem(AtomId),
@@ -37,7 +37,7 @@ impl fmt::Display for Atom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Atom::True => write!(f, "true"),
-            Atom::Axiomatic(i) => write!(f, "a{}", i),
+            Atom::Constant(i) => write!(f, "c{}", i),
             Atom::Skolem(i) => write!(f, "s{}", i),
             Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
@@ -56,7 +56,8 @@ impl Atom {
         let first = chars.next()?;
         let rest = chars.as_str();
         match first {
-            'a' => Some(Atom::Axiomatic(rest.parse().unwrap())),
+            'c' => Some(Atom::Constant(rest.parse().unwrap())),
+            'a' => Some(Atom::Constant(rest.parse().unwrap())), // backward compatibility
             's' => Some(Atom::Skolem(rest.parse().unwrap())),
             'p' => Some(Atom::Synthetic(rest.parse().unwrap())),
             'x' => Some(Atom::Variable(rest.parse().unwrap())),
@@ -66,7 +67,7 @@ impl Atom {
 
     pub fn is_axiomatic(&self) -> bool {
         match self {
-            Atom::Axiomatic(_) => true,
+            Atom::Constant(_) => true,
             _ => false,
         }
     }
@@ -176,11 +177,11 @@ mod tests {
 
     #[test]
     fn test_atom_ordering() {
-        assert!(Atom::Axiomatic(0) < Atom::Axiomatic(1));
-        assert!(Atom::Axiomatic(1) < Atom::Skolem(0));
+        assert!(Atom::Constant(0) < Atom::Constant(1));
+        assert!(Atom::Constant(1) < Atom::Skolem(0));
         assert!(Atom::Skolem(1) < Atom::Variable(0));
 
-        assert!(MIN_ATOM <= Atom::Axiomatic(0));
+        assert!(MIN_ATOM <= Atom::Constant(0));
         assert!(MIN_ATOM <= Atom::Skolem(0));
         assert!(MIN_ATOM <= Atom::Variable(0));
     }
@@ -188,11 +189,11 @@ mod tests {
     #[test]
     fn test_atom_stable_partial_ordering() {
         assert_eq!(
-            Atom::Axiomatic(0).stable_partial_order(&Atom::Axiomatic(1)),
+            Atom::Constant(0).stable_partial_order(&Atom::Constant(1)),
             Ordering::Less
         );
         assert_eq!(
-            Atom::Axiomatic(1).stable_partial_order(&Atom::Skolem(0)),
+            Atom::Constant(1).stable_partial_order(&Atom::Skolem(0)),
             Ordering::Less
         );
         assert_eq!(

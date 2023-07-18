@@ -425,14 +425,14 @@ mod tests {
         let bool0 = s.bref(0);
         let bool1 = s.bref(1);
         let bool2 = s.bref(2);
-        let fterm = s.bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
+        let fterm = s.bfn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
         let mut u = Unifier::new();
 
         // Replace x0 with x1 and x1 with x2.
         assert!(u.unify_variable(Scope::Left, 0, Scope::Output, &bool1));
         assert!(u.unify_variable(Scope::Left, 1, Scope::Output, &bool2));
         let term = u.apply(Scope::Left, &fterm);
-        assert_eq!(format!("{}", term), "a0(x1, x2)");
+        assert_eq!(format!("{}", term), "c0(x1, x2)");
     }
 
     #[test]
@@ -441,15 +441,15 @@ mod tests {
         let bool0 = s.bref(0);
         let bool1 = s.bref(1);
         let bool2 = s.bref(2);
-        let term1 = s.bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
-        let term2 = s.bfn(Atom::Axiomatic(0), vec![bool1.clone(), bool2.clone()]);
+        let term1 = s.bfn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
+        let term2 = s.bfn(Atom::Constant(0), vec![bool1.clone(), bool2.clone()]);
         let mut u = Unifier::new();
 
         u.assert_unify(Scope::Left, &term1, Scope::Left, &term2);
         let new1 = u.apply(Scope::Left, &term1);
-        assert_eq!(format!("{}", new1), "a0(x0, x0)");
+        assert_eq!(format!("{}", new1), "c0(x0, x0)");
         let new2 = u.apply(Scope::Left, &term2);
-        assert_eq!(format!("{}", new2), "a0(x0, x0)");
+        assert_eq!(format!("{}", new2), "c0(x0, x0)");
     }
 
     #[test]
@@ -458,22 +458,22 @@ mod tests {
         let bool0 = s.bref(0);
         let bool1 = s.bref(1);
         let bool2 = s.bref(2);
-        let term1 = s.bfn(Atom::Axiomatic(0), vec![bool0.clone(), bool1.clone()]);
-        let term2 = s.bfn(Atom::Axiomatic(0), vec![bool1.clone(), bool2.clone()]);
+        let term1 = s.bfn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
+        let term2 = s.bfn(Atom::Constant(0), vec![bool1.clone(), bool2.clone()]);
         let mut u = Unifier::new();
 
         u.assert_unify(Scope::Left, &term1, Scope::Right, &term2);
         let new1 = u.apply(Scope::Left, &term1);
-        assert_eq!(format!("{}", new1), "a0(x0, x1)");
+        assert_eq!(format!("{}", new1), "c0(x0, x1)");
         let new2 = u.apply(Scope::Right, &term2);
-        assert_eq!(format!("{}", new2), "a0(x0, x1)");
+        assert_eq!(format!("{}", new2), "c0(x0, x1)");
     }
 
     #[test]
     fn test_unifying_functional_variable() {
         let mut s = TypeSpace::new();
         let bool0 = s.bref(0);
-        let const_f_term = s.bfn(Atom::Axiomatic(0), vec![bool0.clone()]);
+        let const_f_term = s.bfn(Atom::Constant(0), vec![bool0.clone()]);
         let var_f_term = s.bfn(Atom::Variable(1), vec![bool0.clone()]);
 
         let mut u = Unifier::new();
@@ -487,9 +487,9 @@ mod tests {
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &left_term, Scope::Right, &right_term);
         u.print();
-        assert!(u.get_mapping(Scope::Left, 0).unwrap().to_string() == "a1");
-        assert!(u.get_mapping(Scope::Right, 0).unwrap().to_string() == "a1");
-        assert!(u.get_mapping(Scope::Right, 1).unwrap().to_string() == "a0");
+        assert!(u.get_mapping(Scope::Left, 0).unwrap().to_string() == "c1");
+        assert!(u.get_mapping(Scope::Right, 0).unwrap().to_string() == "c1");
+        assert!(u.get_mapping(Scope::Right, 1).unwrap().to_string() == "c0");
     }
 
     #[test]
@@ -506,7 +506,7 @@ mod tests {
         let new_clause = u.superpose(&t, &pm_clause, target_path, &resolution_clause);
         assert!(
             new_clause.to_string()
-                == "a1(a2(a1, x0, a1(a1(a0)))) != a1(x1(x2)) | a1(a1(x0)) = x1(x2)"
+                == "c1(c2(c1, x0, c1(c1(c0)))) != c1(x1(x2)) | c1(c1(x0)) = x1(x2)"
         );
     }
 

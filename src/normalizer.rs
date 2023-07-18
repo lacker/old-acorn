@@ -167,10 +167,10 @@ mod tests {
         env.add("define 1: Nat = Suc(0)");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
-        norm.check(&env, "suc_injective", &["a1(x0) != a1(x1) | x0 = x1"]);
+        norm.check(&env, "suc_injective", &["c1(x0) != c1(x1) | x0 = x1"]);
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        norm.check(&env, "suc_neq_zero", &["a1(x0) != a0"]);
+        norm.check(&env, "suc_neq_zero", &["c1(x0) != c0"]);
 
         env.add(
             "axiom induction(f: Nat -> bool):\
@@ -180,8 +180,8 @@ mod tests {
             &env,
             "induction",
             &[
-                "!x0(a0) | x0(s0(x0)) | x0(x1)",
-                "!x0(a1(s0(x0))) | !x0(a0) | x0(x1)",
+                "!x0(c0) | x0(s0(x0)) | x0(x1)",
+                "!x0(c1(s0(x0))) | !x0(c0) | x0(x1)",
             ],
         );
 
@@ -189,7 +189,7 @@ mod tests {
         env.axiomcheck(2, "recursion");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        norm.check(&env, "recursion_base", &["a2(x0, x1, a0) = x1"]);
+        norm.check(&env, "recursion_base", &["c2(x0, x1, c0) = x1"]);
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
@@ -198,11 +198,11 @@ mod tests {
         norm.check(
             &env,
             "recursion_step",
-            &["a2(x0, x1, a1(x2)) = x0(a2(x0, x1, x2))"],
+            &["c2(x0, x1, c1(x2)) = x0(c2(x0, x1, x2))"],
         );
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
-        norm.check(&env, "add_zero_right", &["a2(a1, x0, a0) = x0"]);
+        norm.check(&env, "add_zero_right", &["c2(c1, x0, c0) = x0"]);
     }
 
     #[test]
@@ -244,6 +244,6 @@ mod tests {
         env.add("type Nat: axiom");
         env.add("define 0: Nat = axiom");
         env.add("theorem exists_zero: exists(x: Nat, x = 0)");
-        norm.check(&env, "exists_zero", &["s0 = a0"]);
+        norm.check(&env, "exists_zero", &["s0 = c0"]);
     }
 }

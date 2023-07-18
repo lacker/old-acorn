@@ -154,7 +154,7 @@ impl AcornValue {
     pub fn axiom_index(&self) -> Option<AtomId> {
         match self {
             AcornValue::Atom(t) => match t.atom {
-                Atom::Axiomatic(i) => Some(i),
+                Atom::Constant(i) => Some(i),
                 _ => None,
             },
             _ => None,

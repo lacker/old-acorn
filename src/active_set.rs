@@ -553,44 +553,44 @@ mod tests {
 
     #[test]
     fn test_activate_paramodulator() {
-        // Create an active set that knows a0(a3) = a2
-        let res_left = Term::parse("a0(a3)");
-        let res_right = Term::parse("a2");
+        // Create an active set that knows c0(c3) = c2
+        let res_left = Term::parse("c0(c3)");
+        let res_right = Term::parse("c2");
         let mut set = ActiveSet::new();
         set.insert(Clause::new(vec![Literal::equals(res_left, res_right)]));
 
-        // We should be able to use a1 = a3 to paramodulate into a0(a3) = a2
-        let pm_left = Term::parse("a1");
-        let pm_right = Term::parse("a3");
+        // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
+        let pm_left = Term::parse("c1");
+        let pm_right = Term::parse("c3");
         let pm_clause = Clause::new(vec![Literal::equals(pm_left.clone(), pm_right.clone())]);
         let result = set.activate_paramodulator(&pm_clause);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
-            Term::parse("a0(a1)"),
-            Term::parse("a2"),
+            Term::parse("c0(c1)"),
+            Term::parse("c2"),
         )]);
         assert_eq!(result[0].0, expected);
     }
 
     #[test]
     fn test_activate_resolver() {
-        // Create an active set that knows a1 = a3
-        let pm_left = Term::parse("a1");
-        let pm_right = Term::parse("a3");
+        // Create an active set that knows c1 = c3
+        let pm_left = Term::parse("c1");
+        let pm_right = Term::parse("c3");
         let mut set = ActiveSet::new();
         set.insert(Clause::new(vec![Literal::equals(pm_left, pm_right)]));
 
-        // We should be able to use a0(a3) = a2 as a resolver to get a0(a1) = a2
-        let res_left = Term::parse("a0(a3)");
-        let res_right = Term::parse("a2");
+        // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
+        let res_left = Term::parse("c0(c3)");
+        let res_right = Term::parse("c2");
         let res_clause = Clause::new(vec![Literal::equals(res_left, res_right)]);
         let result = set.activate_resolver(&res_clause);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
-            Term::parse("a0(a1)"),
-            Term::parse("a2"),
+            Term::parse("c0(c1)"),
+            Term::parse("c2"),
         )]);
         assert_eq!(result[0].0, expected);
     }
@@ -598,30 +598,30 @@ mod tests {
     #[test]
     fn test_equality_resolution() {
         let old_clause = Clause::new(vec![
-            Literal::not_equals(Term::parse("x0"), Term::parse("a0")),
-            Literal::equals(Term::parse("x0"), Term::parse("a1")),
+            Literal::not_equals(Term::parse("x0"), Term::parse("c0")),
+            Literal::equals(Term::parse("x0"), Term::parse("c1")),
         ]);
         let new_clause = ActiveSet::equality_resolution(&old_clause).unwrap();
         assert!(new_clause.literals.len() == 1);
-        assert_eq!(format!("{}", new_clause), "a1 = a0".to_string());
+        assert_eq!(format!("{}", new_clause), "c1 = c0".to_string());
     }
 
     #[test]
     fn test_mutually_recursive_equality_resolution() {
         // This is a bug we ran into. It shouldn't work
-        let unresolvable_clause = Clause::parse("a0(x0, a0(x1, a1(x2))) != a0(a0(x2, x1), x0)");
+        let unresolvable_clause = Clause::parse("c0(x0, c0(x1, c1(x2))) != c0(c0(x2, x1), x0)");
         assert!(ActiveSet::equality_resolution(&unresolvable_clause).is_none());
     }
 
     #[test]
     fn test_equality_factoring() {
         let old_clause = Clause::new(vec![
-            Literal::equals(Term::parse("x0"), Term::parse("a0")),
-            Literal::equals(Term::parse("x1"), Term::parse("a0")),
+            Literal::equals(Term::parse("x0"), Term::parse("c0")),
+            Literal::equals(Term::parse("x1"), Term::parse("c0")),
         ]);
         let new_clauses = ActiveSet::equality_factoring(&old_clause);
         for c in &new_clauses {
-            if format!("{}", c) == "a0 = x0".to_string() {
+            if format!("{}", c) == "c0 = x0".to_string() {
                 return;
             }
         }
@@ -631,15 +631,15 @@ mod tests {
     #[test]
     fn test_rewrite_rules() {
         let mut set = ActiveSet::new();
-        let rule = Clause::parse("a0(x0) = x0");
+        let rule = Clause::parse("c0(x0) = x0");
         set.insert(rule);
 
-        let c = Clause::parse("a0(a1) = a0(a2)");
+        let c = Clause::parse("c0(c1) = c0(c2)");
         let simp = set.simplify(&c).unwrap();
-        assert_eq!(simp.to_string(), "a2 = a1".to_string());
+        assert_eq!(simp.to_string(), "c2 = c1".to_string());
 
-        let c = Clause::parse("a1(a0(a2)) = a3");
+        let c = Clause::parse("c1(c0(c2)) = c3");
         let simp = set.simplify(&c).unwrap();
-        assert_eq!(simp.to_string(), "a1(a2) = a3".to_string());
+        assert_eq!(simp.to_string(), "c1(c2) = c3".to_string());
     }
 }
