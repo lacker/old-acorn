@@ -1174,4 +1174,18 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 "#,
         );
     }
+
+    #[test]
+    fn test_names_in_subenvs() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            theorem foo(a: Nat, b: Nat): a = b {
+                let c: Nat = a
+                let d(e: Nat) -> bool = foo(e, b)
+            }
+            "#,
+        );
+    }
 }
