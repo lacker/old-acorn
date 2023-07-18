@@ -128,7 +128,7 @@ impl Normalizer {
     }
 
     pub fn check(&mut self, env: &Environment, name: &str, expected: &[&str]) {
-        let val = match env.get_value(name) {
+        let val = match env.get_theorem_claim(name) {
             Some(val) => val,
             None => panic!("no value named {}", name),
         };

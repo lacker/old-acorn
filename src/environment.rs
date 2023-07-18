@@ -50,7 +50,7 @@ pub struct Theorem {
     // Whether this theorem is an axiom
     pub axiomatic: bool,
 
-    // The boolean that must be proven for this theorem
+    // A boolean, typically a "forall", that must be proven to directly prove this theorem
     pub claim: AcornValue,
 
     // Theorems that have a body have their own subenvironment with the body's entities
@@ -185,6 +185,17 @@ impl Environment {
         self.values.get(name)
     }
 
+    pub fn get_theorem_claim(&self, name: &str) -> Option<&AcornValue> {
+        for theorem in &self.theorems {
+            if let Some(claim_name) = &theorem.name {
+                if claim_name == name {
+                    return Some(&theorem.claim);
+                }
+            }
+        }
+        None
+    }
+
     pub fn get_axiomatic_name(&self, id: AtomId) -> &str {
         &self.axiomatic_values[id as usize]
     }
@@ -291,6 +302,9 @@ impl Environment {
             }
             AcornValue::Not(subvalue) => {
                 format!("!{}", self.value_str_stacked(subvalue, stack_size))
+            }
+            AcornValue::Lambda(types, values) => {
+                self.macro_str_stacked("lambda", types, values, stack_size)
             }
             _ => format!("unhandled({:?})", value),
         }
@@ -787,16 +801,27 @@ impl Environment {
                 let ret_val =
                     match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
                         Ok(claim_value) => {
-                            let theorem_value = if arg_types.is_empty() {
+                            // The claim of the theorem is what we need to prove
+                            let claim = if arg_types.is_empty() {
+                                claim_value.clone()
+                            } else {
+                                AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
+                            };
+
+                            // The functional value of the theorem is the lambda that
+                            // is constantly "true" if the theorem is true
+                            let functional_value = if arg_types.is_empty() {
                                 claim_value
                             } else {
-                                AcornValue::ForAll(arg_types.clone(), Box::new(claim_value))
+                                AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
                             };
-                            self.bind_name(&ts.name, theorem_value.clone());
+
+                            self.bind_name(&ts.name, functional_value.clone());
+
                             let theorem = Theorem {
                                 name: Some(ts.name.to_string()),
                                 axiomatic: ts.axiomatic,
-                                claim: theorem_value,
+                                claim,
                                 env: self.new_subenvironment(&ts.body)?,
                             };
                             self.theorems.push(theorem);
@@ -975,7 +1000,7 @@ mod tests {
         env.bad("theorem foo(x: bool, x: bool): x");
         assert!(env.types.get("x").is_none());
         env.add("theorem foo(x: bool, y: bool): x");
-        env.typecheck("foo", "bool");
+        env.typecheck("foo", "(bool, bool) -> bool");
 
         env.bad("define bar: bool = forall(x: bool, x: bool, x = x)");
         assert!(env.types.get("x").is_none());
@@ -1035,10 +1060,10 @@ mod tests {
         env.bad("define 1: Nat = Borf");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
-        env.typecheck("suc_injective", "bool");
+        env.typecheck("suc_injective", "(Nat, Nat) -> bool");
         env.valuecheck(
             "suc_injective",
-            "forall(x0: Nat, x1: Nat, ((Suc(x0) = Suc(x1)) -> (x0 = x1)))",
+            "lambda(x0: Nat, x1: Nat, ((Suc(x0) = Suc(x1)) -> (x0 = x1)))",
         );
 
         env.bad("axiom bad_types(x: Nat, y: Nat): x -> y");
@@ -1051,7 +1076,7 @@ mod tests {
         env.bad("define foo: Nat = Suc(0, 0)");
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        env.valuecheck("suc_neq_zero", "forall(x0: Nat, (Suc(x0) != 0))");
+        env.valuecheck("suc_neq_zero", "lambda(x0: Nat, (Suc(x0) != 0))");
 
         assert!(env.typenames.contains_key("Nat"));
         assert!(!env.types.contains_key("Nat"));
@@ -1072,7 +1097,7 @@ mod tests {
             "axiom induction(f: Nat -> bool, n: Nat):
             f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)",
         );
-        env.valuecheck("induction", "forall(x0: Nat -> bool, x1: Nat, ((x0(0) & forall(x2: Nat, (x0(x2) -> x0(Suc(x2))))) -> x0(x1)))");
+        env.valuecheck("induction", "lambda(x0: Nat -> bool, x1: Nat, ((x0(0) & forall(x2: Nat, (x0(x2) -> x0(Suc(x2))))) -> x0(x1)))");
 
         env.bad("theorem foo(x: Nat): 0");
         env.bad("theorem foo(x: Nat): forall(0, 0)");
