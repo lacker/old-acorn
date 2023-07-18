@@ -57,16 +57,6 @@ pub struct Theorem {
     pub env: Option<Environment>,
 }
 
-impl fmt::Display for Theorem {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(name) = self.name.as_ref() {
-            write!(f, "{}", name)
-        } else {
-            write!(f, "{}", self.claim)
-        }
-    }
-}
-
 impl fmt::Display for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Environment {{\n")?;
@@ -115,8 +105,9 @@ impl Environment {
         // Convert stack variables to axiomatic values
         for name in self.stack.keys() {
             let acorn_type = self.types.get(name).unwrap();
-            let value = self.next_axiomatic_value(acorn_type);
+            let value = subenv.next_axiomatic_value(acorn_type);
             subenv.values.insert(name.to_string(), value);
+            subenv.axiomatic_values.push(name.to_string());
         }
 
         for s in body {
@@ -238,7 +229,16 @@ impl Environment {
     fn atom_str(&self, atom: &Atom) -> String {
         match atom {
             Atom::True => "true".to_string(),
-            Atom::Axiomatic(i) => self.axiomatic_values[*i as usize].to_string(),
+            Atom::Axiomatic(i) => {
+                if let Some(s) = self.axiomatic_values.get(*i as usize) {
+                    s.to_string()
+                } else {
+                    panic!(
+                        "could not find axiomatic value {} in {:?}",
+                        i, self.axiomatic_values
+                    );
+                }
+            }
             Atom::Skolem(i) => format!("s{}", i),
             Atom::Synthetic(i) => format!("p{}", i),
             Atom::Variable(i) => format!("x{}", i),

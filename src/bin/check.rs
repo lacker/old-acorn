@@ -11,9 +11,15 @@ const USAGE: &str = "Usage: cargo run --bin=check <filename>";
 // Proves a theorem, without doing any recursion.
 // It is assumed that all claims we need to prove this theorem are provided in claims.
 fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Theorem) {
+    let theorem_string = if let Some(name) = &theorem.name {
+        name.to_string()
+    } else {
+        env.value_str(&theorem.claim)
+    };
+
     if theorem.axiomatic {
         // Don't need to prove these
-        println!("{} is axiomatic", theorem);
+        println!("{} is axiomatic", theorem_string);
         return;
     }
 
@@ -28,13 +34,13 @@ fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Theorem) {
     let outcome = prover.search_for_contradiction(1000, 1.0);
     match outcome {
         Outcome::Success => {
-            println!("{} proved", theorem);
+            println!("{} proved", theorem_string);
         }
         Outcome::Failure => {
-            println!("{} is unprovable", theorem);
+            println!("{} is unprovable", theorem_string);
         }
         Outcome::Unknown => {
-            println!("{} could not be proved", theorem);
+            println!("{} could not be proved", theorem_string);
         }
     }
 }
