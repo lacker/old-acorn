@@ -42,6 +42,6 @@ theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
 
 theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c)) {
     add_assoc(0, 0, 0)
-    // let f(x: Nat) -> bool = add_assoc(x, b, c) 
-    // induction(f)
+    let f(x: Nat) -> bool = add_assoc(x, b, c) 
+    induction(f)
 }

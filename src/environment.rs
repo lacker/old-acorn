@@ -94,10 +94,7 @@ impl Environment {
     }
 
     // Creates a new environment by copying the names defined in this one.
-    // Ie, not the theorems and the stack.
-    //
-    // TODO: the stack should contain the variables used in this theorem definition; we
-    // should be capturing those.
+    // Stack variables in this theorem turn into axiomatic values in the new environment.
     //
     // Performance is quadratic and therefore bad; using different data structures
     // should improve this when we need to.
@@ -114,6 +111,14 @@ impl Environment {
             stack: HashMap::new(),
             theorems: Vec::new(),
         };
+
+        // Convert stack variables to axiomatic values
+        for name in self.stack.keys() {
+            let acorn_type = self.types.get(name).unwrap();
+            let value = self.next_axiomatic_value(acorn_type);
+            subenv.values.insert(name.to_string(), value);
+        }
+
         for s in body {
             subenv.add_statement(s)?;
         }
@@ -499,7 +504,7 @@ impl Environment {
                 } else {
                     Err(Error::new(
                         token,
-                        "name is bound but we can't find its type. this is an interpreter bug",
+                        "interpreter bug: name is bound but it has no value and is not on the stack",
                     ))
                 }
             }
