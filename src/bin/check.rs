@@ -14,7 +14,7 @@ fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Proposition)
     let theorem_string = if let Some(name) = &theorem.display_name {
         name.to_string()
     } else {
-        env.value_str(&theorem.external_claim)
+        env.value_str(&theorem.claim)
     };
 
     if theorem.proven {
@@ -29,7 +29,7 @@ fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Proposition)
     for claim in claims {
         prover.add_proposition(claim.clone());
     }
-    prover.add_negated(env.expand_constants(&theorem.external_claim));
+    prover.add_negated(env.expand_constants(&theorem.claim));
 
     let outcome = prover.search_for_contradiction(1000, 1.0);
     match outcome {
@@ -67,7 +67,7 @@ fn prove_rec(env: &Environment, claims: &mut Vec<AcornValue>, theorem: &Proposit
     } else {
         prove_one(env, claims, theorem);
     }
-    claims.push(env.expand_constants(&theorem.external_claim));
+    claims.push(env.expand_constants(&theorem.claim));
 }
 
 fn main() {

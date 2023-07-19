@@ -71,14 +71,14 @@ pub struct Proposition {
 
     // A boolean expressing the claim of the proposition.
     // This value is relative to the external environment, not the subenvironment.
-    pub external_claim: AcornValue,
+    pub claim: AcornValue,
 
     // The body of the proposition, when it has an associated block.
     pub block: Option<Block>,
 }
 
 pub struct Block {
-    // Each block has one root claim. The goal of the statements in the block is to prove that claim.
+    // The claim of this block, relative to the block's environment, rather than the external one.
     // claim: AcornValue,
 
     // The environment created inside the block.
@@ -252,7 +252,7 @@ impl Environment {
         for prop in &self.propositions {
             if let Some(claim_name) = &prop.display_name {
                 if claim_name == name {
-                    return Some(self.expand_constants(&prop.external_claim));
+                    return Some(self.expand_constants(&prop.claim));
                 }
             }
         }
@@ -893,7 +893,7 @@ impl Environment {
                             let prop = Proposition {
                                 display_name: Some(ts.name.to_string()),
                                 proven: ts.axiomatic,
-                                external_claim: claim,
+                                claim,
                                 block: self.new_block(&ts.body)?,
                             };
                             self.propositions.push(prop);
@@ -907,12 +907,11 @@ impl Environment {
                 ret_val
             }
             Statement::Prop(ps) => {
-                let defined_value =
-                    self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
+                let claim = self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
-                    external_claim: defined_value,
+                    claim,
                     block: self.new_block(&ps.body)?,
                 };
                 self.propositions.push(prop);
