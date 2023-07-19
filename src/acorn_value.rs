@@ -448,7 +448,7 @@ impl AcornValue {
     // stack_size is how many variables are already on the stack, that we should not use when
     // constructing replacements.
     pub fn replace_constants<'a>(
-        self,
+        &self,
         stack_size: AtomId,
         replacer: &impl Fn(AtomId) -> Option<&'a AcornValue>,
     ) -> AcornValue {
@@ -462,13 +462,13 @@ impl AcornValue {
                         return shifted.replace_constants(stack_size, replacer);
                     }
                 }
-                AcornValue::Atom(typed_atom)
+                AcornValue::Atom(typed_atom.clone())
             }
             AcornValue::Application(fa) => {
                 let new_function = fa.function.replace_constants(stack_size, replacer);
                 let new_args = fa
                     .args
-                    .into_iter()
+                    .iter()
                     .map(|x| x.replace_constants(stack_size, replacer))
                     .collect();
                 AcornValue::Application(FunctionApplication {
@@ -479,7 +479,7 @@ impl AcornValue {
             AcornValue::Lambda(arg_types, value) => {
                 let new_value =
                     value.replace_constants(stack_size + arg_types.len() as AtomId, replacer);
-                AcornValue::Lambda(arg_types, Box::new(new_value))
+                AcornValue::Lambda(arg_types.clone(), Box::new(new_value))
             }
             AcornValue::Implies(left, right) => AcornValue::Implies(
                 Box::new(left.replace_constants(stack_size, replacer)),
@@ -507,14 +507,14 @@ impl AcornValue {
             AcornValue::ForAll(quants, value) => {
                 let new_value =
                     value.replace_constants(stack_size + quants.len() as AtomId, replacer);
-                AcornValue::ForAll(quants, Box::new(new_value))
+                AcornValue::ForAll(quants.clone(), Box::new(new_value))
             }
             AcornValue::Exists(quants, value) => {
                 let new_value =
                     value.replace_constants(stack_size + quants.len() as AtomId, replacer);
-                AcornValue::Exists(quants, Box::new(new_value))
+                AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            _ => self,
+            _ => self.clone(),
         }
     }
 }

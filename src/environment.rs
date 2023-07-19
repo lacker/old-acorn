@@ -75,6 +75,9 @@ pub struct Proposition {
     // In particular, it does not use constants that are only visible in the subenvironment.
     pub expanded_value: AcornValue,
 
+    // A boolean without constants expanded. More concise and comprehensible.
+    pub defined_value: AcornValue,
+
     // Propositions that have a body have their own subenvironment with the body's entities.
     pub env: Option<Environment>,
 }
@@ -234,11 +237,11 @@ impl Environment {
     // This gets the expanded value of a constant, replacing each defined constant with its definition.
     pub fn get_expanded_value(&self, name: &str) -> Option<AcornValue> {
         let value = self.get_constant_atom(name)?;
-        Some(self.expand_constants(value))
+        Some(self.expand_constants(&value))
     }
 
     // Replaces each defined constant with its definition, recursively.
-    pub fn expand_constants(&self, value: AcornValue) -> AcornValue {
+    pub fn expand_constants(&self, value: &AcornValue) -> AcornValue {
         value.replace_constants(0, &|i| self.get_defined_value(i))
     }
 
@@ -890,7 +893,8 @@ impl Environment {
                             let prop = Proposition {
                                 display_name: Some(ts.name.to_string()),
                                 proven: ts.axiomatic,
-                                expanded_value: self.expand_constants(claim),
+                                expanded_value: self.expand_constants(&claim),
+                                defined_value: claim,
                                 env: self.new_subenvironment(&ts.body)?,
                             };
                             self.propositions.push(prop);
@@ -904,11 +908,13 @@ impl Environment {
                 ret_val
             }
             Statement::Prop(ps) => {
-                let value = self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
+                let defined_value =
+                    self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
-                    expanded_value: self.expand_constants(value),
+                    expanded_value: self.expand_constants(&defined_value),
+                    defined_value,
                     env: self.new_subenvironment(&ps.body)?,
                 };
                 self.propositions.push(prop);

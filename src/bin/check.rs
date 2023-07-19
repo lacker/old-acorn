@@ -14,7 +14,7 @@ fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Proposition)
     let theorem_string = if let Some(name) = &theorem.display_name {
         name.to_string()
     } else {
-        env.value_str(&theorem.expanded_value)
+        env.value_str(&theorem.defined_value)
     };
 
     if theorem.proven {
