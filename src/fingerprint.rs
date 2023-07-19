@@ -173,22 +173,22 @@ mod tests {
 
     #[test]
     fn test_fingerprint() {
-        let term = Term::parse("a0(x0, x1)");
+        let term = Term::parse("c0(x0, x1)");
         Fingerprint::new(&term);
     }
 
     #[test]
     fn test_fingerprint_matching() {
-        let term1 = Term::parse("a2(x0, x1, a0)");
-        let term2 = Term::parse("a2(a1, s1(x0), a0)");
+        let term1 = Term::parse("c2(x0, x1, c0)");
+        let term2 = Term::parse("c2(c1, s1(x0), c0)");
         assert!(Fingerprint::new(&term1).matches(&Fingerprint::new(&term2)));
     }
 
     #[test]
     fn test_fingerprint_tree() {
         let mut tree = FingerprintTree::new();
-        let term1 = Term::parse("a2(x0, x1, a0)");
-        let term2 = Term::parse("a2(a1, s1(x0), a0)");
+        let term1 = Term::parse("c2(x0, x1, c0)");
+        let term2 = Term::parse("c2(c1, s1(x0), c0)");
         tree.insert(&term1, 1);
         assert!(tree.get_unifying(&term1).len() > 0);
         assert!(tree.get_unifying(&term2).len() > 0);
