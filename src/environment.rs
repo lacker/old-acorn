@@ -52,9 +52,11 @@ pub struct Environment {
 
 #[derive(Clone)]
 struct ConstantInfo {
-    // The expanded value of this constant.
+    // The id of this constant, used for constructing its atom or for the index in constant_names.
+    id: AtomId,
+
+    // The definition of this constant.
     // If it doesn't have a definition, this is just an atomic constant.
-    // TODO: make this *not* the expanded value
     value: AcornValue,
 }
 
@@ -189,6 +191,7 @@ impl Environment {
         }
 
         let info = ConstantInfo {
+            id: self.constant_names.len() as AtomId,
             value: match definition {
                 Some(value) => value,
                 None => self.next_axiomatic_value(&constant_type),
@@ -207,8 +210,17 @@ impl Environment {
     }
 
     // This gets the expanded value of a constant, replacing each defined constant with its definition.
-    pub fn get_expanded_value(&self, name: &str) -> Option<&AcornValue> {
-        self.constants.get(name).map(|info| &info.value)
+    pub fn get_expanded_value(&self, name: &str) -> Option<AcornValue> {
+        self.constants.get(name).map(|info| info.value.clone())
+    }
+
+    // This gets the atomic representation of a constant, if this name refers to a constant.
+    pub fn get_constant_atom(&self, name: &str) -> Option<AcornValue> {
+        let info = self.constants.get(name)?;
+        Some(AcornValue::Atom(TypedAtom {
+            atom: Atom::Constant(info.id),
+            acorn_type: self.types[name].clone(),
+        }))
     }
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<&AcornValue> {
@@ -958,7 +970,7 @@ impl Environment {
             Some(t) => t,
             None => panic!("{} not found in environment", name),
         };
-        assert_eq!(self.value_str(env_value), value_string);
+        assert_eq!(self.value_str(&env_value), value_string);
     }
 
     // Check the name of the given constant
