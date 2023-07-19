@@ -14,7 +14,7 @@ fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Proposition)
     let theorem_string = if let Some(name) = &theorem.display_name {
         name.to_string()
     } else {
-        env.value_str(&theorem.defined_value)
+        env.value_str(&theorem.external_claim)
     };
 
     if theorem.proven {
@@ -29,7 +29,7 @@ fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Proposition)
     for claim in claims {
         prover.add_proposition(claim.clone());
     }
-    prover.add_negated(theorem.expanded_value.clone());
+    prover.add_negated(env.expand_constants(&theorem.external_claim));
 
     let outcome = prover.search_for_contradiction(1000, 1.0);
     match outcome {
@@ -51,23 +51,23 @@ fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Proposition)
 // main claim.
 // After the proof, 'claims' is updated to contain the new claim.
 fn prove_rec(env: &Environment, claims: &mut Vec<AcornValue>, theorem: &Proposition) {
-    if let Some(subenv) = &theorem.env {
+    if let Some(block) = &theorem.block {
         let claims_len = claims.len();
 
-        // Prove all the claims within the body
-        for theorem in &subenv.propositions {
-            prove_rec(subenv, claims, theorem);
+        // Prove all the claims within the block
+        for theorem in &block.env.propositions {
+            prove_rec(&block.env, claims, theorem);
         }
 
         // Prove the main claim
-        prove_one(subenv, claims, theorem);
+        prove_one(&block.env, claims, theorem);
 
         // Drop the subclaims
         claims.truncate(claims_len);
     } else {
         prove_one(env, claims, theorem);
     }
-    claims.push(theorem.expanded_value.clone());
+    claims.push(env.expand_constants(&theorem.external_claim));
 }
 
 fn main() {

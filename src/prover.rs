@@ -363,7 +363,7 @@ impl Prover<'_> {
         for theorem in &self.env.propositions {
             if let Some(name) = &theorem.display_name {
                 if name == theorem_name {
-                    self.add_negated(theorem.expanded_value.clone());
+                    self.add_negated(self.env.expand_constants(&theorem.external_claim));
 
                     if self.verbose {
                         println!("\nprover initial state:");
@@ -377,7 +377,7 @@ impl Prover<'_> {
                 }
             }
 
-            self.add_proposition(theorem.expanded_value.clone());
+            self.add_proposition(self.env.expand_constants(&theorem.external_claim));
         }
         panic!("no theorem named {}", theorem_name);
     }

@@ -69,15 +69,20 @@ pub struct Proposition {
     // For example, this could be an axiom, or a definition.
     pub proven: bool,
 
-    // TODO: remove
-    pub expanded_value: AcornValue,
-
     // A boolean expressing the claim of the proposition.
     // This value is relative to the external environment, not the subenvironment.
-    pub defined_value: AcornValue,
+    pub external_claim: AcornValue,
 
-    // Propositions that have a body have their own subenvironment with the body's entities.
-    pub env: Option<Environment>,
+    // The body of the proposition, when it has an associated block.
+    pub block: Option<Block>,
+}
+
+pub struct Block {
+    // Each block has one root claim. The goal of the statements in the block is to prove that claim.
+    // claim: AcornValue,
+
+    // The environment created inside the block.
+    pub env: Environment,
 }
 
 impl fmt::Display for Environment {
@@ -111,7 +116,7 @@ impl Environment {
     //
     // Performance is quadratic and therefore bad; using different data structures
     // should improve this when we need to.
-    fn new_subenvironment(&self, body: &Vec<Statement>) -> Result<Option<Environment>> {
+    fn new_block(&self, body: &Vec<Statement>) -> Result<Option<Block>> {
         if body.is_empty() {
             return Ok(None);
         }
@@ -134,7 +139,7 @@ impl Environment {
         for s in body {
             subenv.add_statement(s)?;
         }
-        Ok(Some(subenv))
+        Ok(Some(Block { env: subenv }))
     }
 
     pub fn load_file(&mut self, filename: &str) -> io::Result<()> {
@@ -247,7 +252,7 @@ impl Environment {
         for prop in &self.propositions {
             if let Some(claim_name) = &prop.display_name {
                 if claim_name == name {
-                    return Some(self.expand_constants(&prop.defined_value));
+                    return Some(self.expand_constants(&prop.external_claim));
                 }
             }
         }
@@ -888,9 +893,8 @@ impl Environment {
                             let prop = Proposition {
                                 display_name: Some(ts.name.to_string()),
                                 proven: ts.axiomatic,
-                                expanded_value: self.expand_constants(&claim),
-                                defined_value: claim,
-                                env: self.new_subenvironment(&ts.body)?,
+                                external_claim: claim,
+                                block: self.new_block(&ts.body)?,
                             };
                             self.propositions.push(prop);
                             Ok(())
@@ -908,9 +912,8 @@ impl Environment {
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
-                    expanded_value: self.expand_constants(&defined_value),
-                    defined_value,
-                    env: self.new_subenvironment(&ps.body)?,
+                    external_claim: defined_value,
+                    block: self.new_block(&ps.body)?,
                 };
                 self.propositions.push(prop);
                 Ok(())
