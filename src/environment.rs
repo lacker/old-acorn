@@ -52,13 +52,6 @@ pub struct Environment {
 
 #[derive(Clone)]
 struct ConstantInfo {
-    // The numerical id of this constant.
-    id: AtomId,
-
-    // Whether this constant has a definition.
-    // If it has not been defined, it is an axiom.
-    defined: bool,
-
     // The expanded value of this constant.
     // If it doesn't have a definition, this is just an atomic constant.
     // TODO: make this *not* the expanded value
@@ -196,8 +189,6 @@ impl Environment {
         }
 
         let info = ConstantInfo {
-            id: self.constant_names.len() as AtomId,
-            defined: definition.is_some(),
             value: match definition {
                 Some(value) => value,
                 None => self.next_axiomatic_value(&constant_type),
