@@ -220,7 +220,7 @@ impl Unifier {
         let term = self.apply(Scope::Output, term);
         if term.has_variable(id) {
             // We can't remap this variable to a term that contains it.
-            // This represents an un-unifiable condition like x0 = a0(x0).
+            // This represents an un-unifiable condition like x0 = c0(x0).
             return false;
         }
 
@@ -482,8 +482,8 @@ mod tests {
 
     #[test]
     fn test_nested_functional_unify() {
-        let left_term = Term::parse("x0(x0(a0))");
-        let right_term = Term::parse("a1(x0(x1))");
+        let left_term = Term::parse("x0(x0(c0))");
+        let right_term = Term::parse("c1(x0(x1))");
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &left_term, Scope::Right, &right_term);
         u.print();
@@ -495,11 +495,11 @@ mod tests {
     #[test]
     fn test_nested_functional_superpose() {
         let s = Term::parse("x0(x0(x1))");
-        let u_subterm = Term::parse("a1(x0(x1))");
-        let t = Term::parse("a2(x0, x1, a1(a1(a0)))");
-        let pm_clause = Clause::parse("a2(x0, x1, a1(a1(a0))) = x0(x0(x1))");
+        let u_subterm = Term::parse("c1(x0(x1))");
+        let t = Term::parse("c2(x0, x1, c1(c1(c0)))");
+        let pm_clause = Clause::parse("c2(x0, x1, c1(c1(c0))) = x0(x0(x1))");
         let target_path = &[0];
-        let resolution_clause = Clause::parse("a1(a1(x0(x1))) != a1(x2(x3)) | a1(x0(x1)) = x2(x3)");
+        let resolution_clause = Clause::parse("c1(c1(x0(x1))) != c1(x2(x3)) | c1(x0(x1)) = x2(x3)");
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &s, Scope::Right, &u_subterm);
         u.print();
@@ -512,16 +512,16 @@ mod tests {
 
     #[test]
     fn test_mutual_containment_invalid_1() {
-        let first = Term::parse("a0(x0, a0(x1, a1(x2)))");
-        let second = Term::parse("a0(a0(x2, x1), x0)");
+        let first = Term::parse("c0(x0, c0(x1, c1(x2)))");
+        let second = Term::parse("c0(c0(x2, x1), x0)");
         let mut u = Unifier::new();
         assert!(!u.unify(Scope::Left, &first, Scope::Left, &second));
     }
 
     #[test]
     fn test_mutual_containment_invalid_2() {
-        let first = Term::parse("a0(a0(x0, a1(x1)), x2)");
-        let second = Term::parse("a0(x2, a0(x1, x0))");
+        let first = Term::parse("c0(c0(x0, c1(x1)), x2)");
+        let second = Term::parse("c0(x2, c0(x1, x0))");
         let mut u = Unifier::new();
         assert!(!u.unify(Scope::Left, &first, Scope::Left, &second));
     }
