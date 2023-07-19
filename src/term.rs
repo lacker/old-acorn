@@ -78,8 +78,8 @@ fn dominates(a: &Vec<u8>, b: &Vec<u8>) -> bool {
 impl Term {
     // This creates an untyped term, good for testing but not for real use.
     // For example, this parses
-    //   a0(a1, a2(x0, x1))
-    // into a term with head a0 and args [a1, a2(x0, x1)].
+    //   c0(c1, c2(x0, x1))
+    // into a term with head c0 and args [c1, c2(x0, x1)].
     pub fn parse(s: &str) -> Term {
         if s == "true" {
             return Term::atom(BOOL, Atom::True);
@@ -763,24 +763,24 @@ mod tests {
 
     #[test]
     fn test_term_ordering() {
-        assert!(Term::parse("a0") < Term::parse("a1"));
-        assert!(Term::parse("a2") < Term::parse("a0(a1)"));
+        assert!(Term::parse("c0") < Term::parse("c1"));
+        assert!(Term::parse("c2") < Term::parse("c0(c1)"));
         assert!(Term::parse("x0(x1)") < Term::parse("x0(s0(x0))"));
     }
 
     #[test]
     fn test_clause_is_rewrite_rule() {
-        assert!(Clause::parse("a0(x0) = x0").is_rewrite_rule());
-        assert!(Clause::parse("a0(x0, x0) = x0").is_rewrite_rule());
-        assert!(!Clause::parse("a0(x0, x0) != x0").is_rewrite_rule());
-        assert!(!Clause::parse("a0(x0, x1) = a0(x1, x0)").is_rewrite_rule());
+        assert!(Clause::parse("c0(x0) = x0").is_rewrite_rule());
+        assert!(Clause::parse("c0(x0, x0) = x0").is_rewrite_rule());
+        assert!(!Clause::parse("c0(x0, x0) != x0").is_rewrite_rule());
+        assert!(!Clause::parse("c0(x0, x1) = c0(x1, x0)").is_rewrite_rule());
     }
 
     #[test]
     fn test_remap_variables() {
-        let old_term = Term::parse("a2(x0, x1)");
+        let old_term = Term::parse("c2(x0, x1)");
         let var_map = vec![3, 2];
         let new_term = old_term.remap_variables(&var_map);
-        assert_eq!(new_term, Term::parse("a2(x3, x2)"));
+        assert_eq!(new_term, Term::parse("c2(x3, x2)"));
     }
 }
