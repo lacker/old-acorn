@@ -69,13 +69,11 @@ pub struct Proposition {
     // For example, this could be an axiom, or a definition.
     pub proven: bool,
 
-    // A boolean expressing the claim of the proposition.
-    // Defined constants are replaced with their definitions.
-    // This value is relative to the external environment, not the subenvironment.
-    // In particular, it does not use constants that are only visible in the subenvironment.
+    // TODO: remove
     pub expanded_value: AcornValue,
 
-    // A boolean without constants expanded. More concise and comprehensible.
+    // A boolean expressing the claim of the proposition.
+    // This value is relative to the external environment, not the subenvironment.
     pub defined_value: AcornValue,
 
     // Propositions that have a body have their own subenvironment with the body's entities.
@@ -245,11 +243,11 @@ impl Environment {
         value.replace_constants(0, &|i| self.get_defined_value(i))
     }
 
-    pub fn get_theorem_claim(&self, name: &str) -> Option<&AcornValue> {
+    pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {
         for prop in &self.propositions {
             if let Some(claim_name) = &prop.display_name {
                 if claim_name == name {
-                    return Some(&prop.expanded_value);
+                    return Some(self.expand_constants(&prop.defined_value));
                 }
             }
         }

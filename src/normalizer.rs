@@ -132,7 +132,7 @@ impl Normalizer {
             Some(val) => val,
             None => panic!("no value named {}", name),
         };
-        let actual = self.normalize(val.clone());
+        let actual = self.normalize(val);
         if actual.len() != expected.len() {
             panic!(
                 "expected {} clauses, got {}:\n{}",
