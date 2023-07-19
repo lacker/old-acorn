@@ -206,8 +206,8 @@ impl Environment {
         self.add_constant(name, acorn_type, None);
     }
 
-    // This gets the expanded value of a constant.
-    pub fn get_value(&self, name: &str) -> Option<&AcornValue> {
+    // This gets the expanded value of a constant, replacing each defined constant with its definition.
+    pub fn get_expanded_value(&self, name: &str) -> Option<&AcornValue> {
         self.constants.get(name).map(|info| &info.value)
     }
 
@@ -518,7 +518,7 @@ impl Environment {
                 };
 
                 // Figure out the value for this identifier
-                if let Some(acorn_value) = self.get_value(token.text) {
+                if let Some(acorn_value) = self.get_expanded_value(token.text) {
                     // We need to shift any stack variables that this value uses,
                     // so that they don't squash existing ones.
                     Ok(acorn_value
@@ -954,7 +954,7 @@ impl Environment {
     // Check that the given name has this normalized value in the environment
     #[cfg(test)]
     fn valuecheck(&mut self, name: &str, value_string: &str) {
-        let env_value = match self.get_value(name) {
+        let env_value = match self.get_expanded_value(name) {
             Some(t) => t,
             None => panic!("{} not found in environment", name),
         };
@@ -996,12 +996,18 @@ mod tests {
         env.typecheck("idb1", "bool -> bool");
         env.add("define idb2(y: bool) -> bool = y");
         env.typecheck("idb2", "bool -> bool");
-        assert_eq!(env.get_value("idb1"), env.get_value("idb2"));
+        assert_eq!(
+            env.get_expanded_value("idb1"),
+            env.get_expanded_value("idb2")
+        );
 
         env.add("type Nat: axiom");
         env.add("define idn1(x: Nat) -> Nat = x");
         env.typecheck("idn1", "Nat -> Nat");
-        assert_ne!(env.get_value("idb1"), env.get_value("idn1"));
+        assert_ne!(
+            env.get_expanded_value("idb1"),
+            env.get_expanded_value("idn1")
+        );
     }
 
     #[test]
@@ -1011,12 +1017,18 @@ mod tests {
         env.typecheck("bsym1", "bool");
         env.add("define bsym2: bool = forall(y: bool, y = y)");
         env.typecheck("bsym2", "bool");
-        assert_eq!(env.get_value("bsym1"), env.get_value("bsym2"));
+        assert_eq!(
+            env.get_expanded_value("bsym1"),
+            env.get_expanded_value("bsym2")
+        );
 
         env.add("type Nat: axiom");
         env.add("define nsym1: bool = forall(x: Nat, x = x)");
         env.typecheck("nsym1", "bool");
-        assert_ne!(env.get_value("bsym1"), env.get_value("nsym1"));
+        assert_ne!(
+            env.get_expanded_value("bsym1"),
+            env.get_expanded_value("nsym1")
+        );
     }
 
     #[test]
@@ -1024,11 +1036,17 @@ mod tests {
         let mut env = Environment::new();
         env.add("define bex1: bool = exists(x: bool, x = x)");
         env.add("define bex2: bool = exists(y: bool, y = y)");
-        assert_eq!(env.get_value("bex1"), env.get_value("bex2"));
+        assert_eq!(
+            env.get_expanded_value("bex1"),
+            env.get_expanded_value("bex2")
+        );
 
         env.add("type Nat: axiom");
         env.add("define nex1: bool = exists(x: Nat, x = x)");
-        assert_ne!(env.get_value("bex1"), env.get_value("nex1"));
+        assert_ne!(
+            env.get_expanded_value("bex1"),
+            env.get_expanded_value("nex1")
+        );
     }
 
     #[test]
@@ -1074,7 +1092,7 @@ mod tests {
         let mut env = Environment::new();
         env.add("define x: bool = axiom");
         env.add("define y: bool = axiom");
-        assert_ne!(env.get_value("x"), env.get_value("y"));
+        assert_ne!(env.get_expanded_value("x"), env.get_expanded_value("y"));
     }
 
     #[test]
