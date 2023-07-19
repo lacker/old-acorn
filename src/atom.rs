@@ -57,7 +57,6 @@ impl Atom {
         let rest = chars.as_str();
         match first {
             'c' => Some(Atom::Constant(rest.parse().unwrap())),
-            'a' => Some(Atom::Constant(rest.parse().unwrap())), // backward compatibility
             's' => Some(Atom::Skolem(rest.parse().unwrap())),
             'p' => Some(Atom::Synthetic(rest.parse().unwrap())),
             'x' => Some(Atom::Variable(rest.parse().unwrap())),
