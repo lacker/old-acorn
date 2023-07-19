@@ -61,9 +61,8 @@ struct ConstantInfo {
 }
 
 pub struct Proposition {
-    // The name of this proposition, if there is one.
-    // This is only used for display, not to fetch data, so it's okay for this to
-    // contain some synthetic human-readable thing.
+    // For a named theorem, this is the name of the theorem.
+    // Otherwise, we generate a human-readable best effort.
     pub display_name: Option<String>,
 
     // Whether this theorem has already been proved structurally.
@@ -71,9 +70,10 @@ pub struct Proposition {
     pub proven: bool,
 
     // A boolean expressing the claim of the proposition.
+    // Defined constants are replaced with their definitions.
     // This value is relative to the external environment, not the subenvironment.
     // In particular, it does not use constants that are only visible in the subenvironment.
-    pub value: AcornValue,
+    pub expanded_value: AcornValue,
 
     // Propositions that have a body have their own subenvironment with the body's entities.
     pub env: Option<Environment>,
@@ -209,11 +209,6 @@ impl Environment {
         self.add_constant(name, acorn_type, None);
     }
 
-    // This gets the expanded value of a constant, replacing each defined constant with its definition.
-    pub fn get_expanded_value(&self, name: &str) -> Option<AcornValue> {
-        self.constants.get(name).map(|info| info.value.clone())
-    }
-
     // This gets the atomic representation of a constant, if this name refers to a constant.
     pub fn get_constant_atom(&self, name: &str) -> Option<AcornValue> {
         let info = self.constants.get(name)?;
@@ -223,11 +218,35 @@ impl Environment {
         }))
     }
 
+    // i is the id of a constant
+    fn get_defined_value(&self, i: AtomId) -> Option<&AcornValue> {
+        let name = &self.constant_names[i as usize];
+        let info = &self.constants[name];
+        if let AcornValue::Atom(typed_atom) = &info.value {
+            if typed_atom.atom == Atom::Constant(i) {
+                // This constant has no definition
+                return None;
+            }
+        }
+        Some(&info.value)
+    }
+
+    // This gets the expanded value of a constant, replacing each defined constant with its definition.
+    pub fn get_expanded_value(&self, name: &str) -> Option<AcornValue> {
+        let value = self.get_constant_atom(name)?;
+        Some(self.expand_constants(value))
+    }
+
+    // Replaces each defined constant with its definition, recursively.
+    pub fn expand_constants(&self, value: AcornValue) -> AcornValue {
+        value.replace_constants(0, &|i| self.get_defined_value(i))
+    }
+
     pub fn get_theorem_claim(&self, name: &str) -> Option<&AcornValue> {
-        for theorem in &self.propositions {
-            if let Some(claim_name) = &theorem.display_name {
+        for prop in &self.propositions {
+            if let Some(claim_name) = &prop.display_name {
                 if claim_name == name {
-                    return Some(&theorem.value);
+                    return Some(&prop.expanded_value);
                 }
             }
         }
@@ -530,12 +549,8 @@ impl Environment {
                 };
 
                 // Figure out the value for this identifier
-                if let Some(acorn_value) = self.get_expanded_value(token.text) {
-                    // We need to shift any stack variables that this value uses,
-                    // so that they don't squash existing ones.
-                    Ok(acorn_value
-                        .clone()
-                        .insert_stack(0, self.stack.len() as AtomId))
+                if let Some(acorn_value) = self.get_constant_atom(token.text) {
+                    Ok(acorn_value)
                 } else if let Some(stack_index) = self.stack.get(token.text) {
                     let atom = Atom::Variable(*stack_index);
                     let typed_atom = TypedAtom {
@@ -872,13 +887,13 @@ impl Environment {
                                 Some(functional_value.clone()),
                             );
 
-                            let theorem = Proposition {
+                            let prop = Proposition {
                                 display_name: Some(ts.name.to_string()),
                                 proven: ts.axiomatic,
-                                value: claim,
+                                expanded_value: self.expand_constants(claim),
                                 env: self.new_subenvironment(&ts.body)?,
                             };
-                            self.propositions.push(theorem);
+                            self.propositions.push(prop);
                             Ok(())
                         }
                         Err(e) => Err(e),
@@ -889,14 +904,14 @@ impl Environment {
                 ret_val
             }
             Statement::Prop(ps) => {
-                // A proposition is like an anonymous theorem.
-                let theorem = Proposition {
+                let value = self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
+                let prop = Proposition {
                     display_name: None,
                     proven: false,
-                    value: self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?,
+                    expanded_value: self.expand_constants(value),
                     env: self.new_subenvironment(&ps.body)?,
                 };
-                self.propositions.push(theorem);
+                self.propositions.push(prop);
                 Ok(())
             }
             Statement::EndBlock => {
@@ -981,6 +996,14 @@ impl Environment {
             None => panic!("constant {} not found in environment", id),
         };
         assert_eq!(constant, name);
+        let info = match self.constants.get(name) {
+            Some(info) => info,
+            None => panic!(
+                "inconsistency: c{} evalutes to {}, for which we have no info",
+                id, name
+            ),
+        };
+        assert_eq!(info.id, id as AtomId);
     }
 }
 

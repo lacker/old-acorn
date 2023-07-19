@@ -193,18 +193,21 @@ mod tests {
         env.constantcheck(6, "recursion");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
+        env.constantcheck(7, "recursion_base");
         norm.check(&env, "recursion_base", &["c6(x0, x1, c0) = x1"]);
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
             recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
         );
+        env.constantcheck(8, "recursion_step");
         norm.check(
             &env,
             "recursion_step",
             &["c6(x0, x1, c1(x2)) = x0(c6(x0, x1, x2))"],
         );
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
+        env.constantcheck(9, "add");
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
         norm.check(&env, "add_zero_right", &["c6(c1, x0, c0) = x0"]);
     }
