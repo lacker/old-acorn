@@ -144,9 +144,9 @@ impl AcornValue {
         }
     }
 
-    pub fn is_axiomatic(&self) -> bool {
+    pub fn is_constant(&self) -> bool {
         match self {
-            AcornValue::Atom(t) => t.is_axiomatic(),
+            AcornValue::Atom(t) => t.is_constant(),
             _ => false,
         }
     }

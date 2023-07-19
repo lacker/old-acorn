@@ -12,7 +12,7 @@ pub struct FunctionType {
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
     Bool,
-    Axiomatic(usize),
+    Primitive(usize),
     Function(FunctionType),
     ArgList(Vec<AcornType>),
     Macro,
@@ -46,7 +46,7 @@ impl AcornType {
                 AcornType::curry(args, return_type)
             }
             AcornType::Bool => AcornType::Bool,
-            AcornType::Axiomatic(_) => self.clone(),
+            AcornType::Primitive(_) => self.clone(),
             _ => panic!("Can't curry {:?}", self),
         }
     }
@@ -99,7 +99,7 @@ impl AcornType {
                 function_type.return_type.is_normal()
             }
             AcornType::Bool => true,
-            AcornType::Axiomatic(_) => true,
+            AcornType::Primitive(_) => true,
             _ => false,
         }
     }
@@ -142,7 +142,7 @@ impl fmt::Display for AcornType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             AcornType::Bool => write!(f, "bool"),
-            AcornType::Axiomatic(index) => write!(f, "T{}", index),
+            AcornType::Primitive(index) => write!(f, "T{}", index),
             AcornType::Function(function_type) => {
                 write!(
                     f,

@@ -64,7 +64,7 @@ impl Atom {
         }
     }
 
-    pub fn is_axiomatic(&self) -> bool {
+    pub fn is_constant(&self) -> bool {
         match self {
             Atom::Constant(_) => true,
             _ => false,
@@ -165,8 +165,8 @@ impl TypedAtom {
         }
     }
 
-    pub fn is_axiomatic(&self) -> bool {
-        self.atom.is_axiomatic()
+    pub fn is_constant(&self) -> bool {
+        self.atom.is_constant()
     }
 }
 

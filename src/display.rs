@@ -13,7 +13,7 @@ impl fmt::Display for DisplayAtom<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.atom {
             Atom::True => write!(f, "true"),
-            Atom::Constant(i) => write!(f, "{}", self.env.get_axiomatic_name(i)),
+            Atom::Constant(i) => write!(f, "{}", self.env.get_constant_name(i)),
             Atom::Skolem(i) => write!(f, "s{}", i),
             Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),

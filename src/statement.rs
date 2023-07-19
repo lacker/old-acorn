@@ -31,8 +31,8 @@ impl fmt::Display for DefinitionStatement<'_> {
 }
 
 // There are two keywords for theorems.
-// "axiom" indicates theorems that are axiomatic.
-// "theorem" is used for the vast majority of normal theorems.
+// The "axiom" keyword indicates theorems that are axiomatic.
+// The "theorem" keyword is used for the vast majority of normal theorems.
 // For example, in:
 //   axiom foo(p, q): p -> (q -> p)
 // axiomatic would be "true", the name is "foo", the args are p, q, and the claim is "p -> (q -> p)".

@@ -153,14 +153,14 @@ impl Environment {
         Ok(())
     }
 
-    fn add_axiomatic_type(&mut self, name: &str) {
-        let axiomatic_type = AcornType::Axiomatic(self.primitive_types.len());
+    fn add_primitive_type(&mut self, name: &str) {
+        let primitive_type = AcornType::Primitive(self.primitive_types.len());
         self.primitive_types.push(name.to_string());
-        self.typenames.insert(name.to_string(), axiomatic_type);
+        self.typenames.insert(name.to_string(), primitive_type);
     }
 
-    // This creates the next axiomatic value, but does not bind it to any name.
-    fn next_axiomatic_value(&self, acorn_type: &AcornType) -> AcornValue {
+    // This creates an atomic value for the next constant, but does not bind it to any name.
+    fn next_constant_atom(&self, acorn_type: &AcornType) -> AcornValue {
         let atom = Atom::Constant(self.constant_names.len() as AtomId);
         AcornValue::Atom(TypedAtom {
             atom,
@@ -197,7 +197,7 @@ impl Environment {
             id: self.constant_names.len() as AtomId,
             value: match definition {
                 Some(value) => value,
-                None => self.next_axiomatic_value(&constant_type),
+                None => self.next_constant_atom(&constant_type),
             },
         };
 
@@ -256,7 +256,7 @@ impl Environment {
         None
     }
 
-    pub fn get_axiomatic_name(&self, id: AtomId) -> &str {
+    pub fn get_constant_name(&self, id: AtomId) -> &str {
         &self.constant_names[id as usize]
     }
 
@@ -275,7 +275,7 @@ impl Environment {
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
         match acorn_type {
             AcornType::Bool => "bool".to_string(),
-            AcornType::Axiomatic(i) => self.primitive_types[*i].to_string(),
+            AcornType::Primitive(i) => self.primitive_types[*i].to_string(),
             AcornType::Function(function_type) => {
                 let s = if function_type.arg_types.len() > 1 {
                     self.type_list_str(&function_type.arg_types)
@@ -297,10 +297,7 @@ impl Environment {
                 if let Some(s) = self.constant_names.get(*i as usize) {
                     s.to_string()
                 } else {
-                    panic!(
-                        "could not find axiomatic value {} in {:?}",
-                        i, self.constant_names
-                    );
+                    panic!("could not find c{} in {:?}", i, self.constant_names);
                 }
             }
             Atom::Skolem(i) => format!("s{}", i),
@@ -524,7 +521,7 @@ impl Environment {
                             token,
                             "axiomatic objects cannot be argument lists",
                         )),
-                        Some(t) => Ok(self.next_axiomatic_value(&t)),
+                        Some(t) => Ok(self.next_constant_atom(&t)),
                         None => Err(Error::new(
                             token,
                             "axiomatic objects can only be created with known types",
@@ -786,7 +783,7 @@ impl Environment {
                 arg_types: arg_types.clone(),
                 return_type: Box::new(ret_type.clone()),
             });
-            let fn_value = self.next_axiomatic_value(&new_axiom_type);
+            let fn_value = self.next_constant_atom(&new_axiom_type);
             Ok((fn_name, fn_value))
         } else {
             match self.evaluate_value_expression(body, Some(&ret_type)) {
@@ -816,7 +813,7 @@ impl Environment {
                     ));
                 }
                 if ts.type_expr.token().token_type == TokenType::Axiom {
-                    self.add_axiomatic_type(ts.name);
+                    self.add_primitive_type(ts.name);
                 } else {
                     let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
                     self.typenames.insert(ts.name.to_string(), acorn_type);
