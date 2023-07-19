@@ -79,7 +79,7 @@ pub struct Proposition {
 
 pub struct Block {
     // The claim of this block, relative to the block's environment, rather than the external one.
-    // claim: AcornValue,
+    pub claim: AcornValue,
 
     // The environment created inside the block.
     pub env: Environment,
@@ -114,9 +114,13 @@ impl Environment {
     // Creates a new environment by copying the names defined in this one.
     // Stack variables in this theorem turn into constant values in the new environment.
     //
+    // unbound_claim is the claim for this block, but without any stack variables bound.
+    // So if there are stack variables, unbound_claim should be a function that takes those
+    // variables to a bool. Otherwise it should just be a bool.
+    //
     // Performance is quadratic and therefore bad; using different data structures
     // should improve this when we need to.
-    fn new_block(&self, body: &Vec<Statement>) -> Result<Option<Block>> {
+    fn new_block(&self, unbound_claim: AcornValue, body: &Vec<Statement>) -> Result<Option<Block>> {
         if body.is_empty() {
             return Ok(None);
         }
@@ -130,16 +134,31 @@ impl Environment {
             propositions: Vec::new(),
         };
 
-        // Convert stack variables to constant values
-        let names = self.stack.keys().cloned().collect::<Vec<_>>();
-        for name in names {
-            subenv.move_stack_variable_to_constant(&name);
+        // Convert stack variables to constant values and bind them to the claim
+        let mut names: Vec<&str> = vec![""; self.stack.len()];
+        for (name, i) in &self.stack {
+            names[*i as usize] = name;
         }
+        let bound_claim = if names.is_empty() {
+            unbound_claim
+        } else {
+            for name in &names {
+                subenv.move_stack_variable_to_constant(name);
+            }
+            let args: Vec<_> = names
+                .iter()
+                .map(|name| subenv.get_constant_atom(name).unwrap())
+                .collect();
+            AcornValue::apply(unbound_claim, args)
+        };
 
         for s in body {
             subenv.add_statement(s)?;
         }
-        Ok(Some(Block { env: subenv }))
+        Ok(Some(Block {
+            env: subenv,
+            claim: bound_claim,
+        }))
     }
 
     pub fn load_file(&mut self, filename: &str) -> io::Result<()> {
@@ -889,12 +908,13 @@ impl Environment {
                                 functional_value.get_type(),
                                 Some(functional_value.clone()),
                             );
-
+                            let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
+                            let block = self.new_block(unbound_claim, &ts.body)?;
                             let prop = Proposition {
                                 display_name: Some(ts.name.to_string()),
                                 proven: ts.axiomatic,
                                 claim,
-                                block: self.new_block(&ts.body)?,
+                                block,
                             };
                             self.propositions.push(prop);
                             Ok(())
@@ -908,11 +928,12 @@ impl Environment {
             }
             Statement::Prop(ps) => {
                 let claim = self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
+                let block = self.new_block(claim.clone(), &ps.body)?;
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
                     claim,
-                    block: self.new_block(&ps.body)?,
+                    block,
                 };
                 self.propositions.push(prop);
                 Ok(())
