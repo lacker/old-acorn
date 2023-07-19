@@ -3,21 +3,21 @@
 //   cargo run --bin=check nat.ac
 
 use acorn::acorn_value::AcornValue;
-use acorn::environment::{Environment, Theorem};
+use acorn::environment::{Environment, Proposition};
 use acorn::prover::{Outcome, Prover};
 
 const USAGE: &str = "Usage: cargo run --bin=check <filename>";
 
 // Proves a theorem, without doing any recursion.
 // It is assumed that all claims we need to prove this theorem are provided in claims.
-fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Theorem) {
-    let theorem_string = if let Some(name) = &theorem.name {
+fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Proposition) {
+    let theorem_string = if let Some(name) = &theorem.display_name {
         name.to_string()
     } else {
-        env.value_str(&theorem.claim)
+        env.value_str(&theorem.value)
     };
 
-    if theorem.axiomatic {
+    if theorem.proven {
         // Don't need to prove these
         println!("{} is axiomatic", theorem_string);
         return;
@@ -29,7 +29,7 @@ fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Theorem) {
     for claim in claims {
         prover.add_proposition(claim.clone());
     }
-    prover.add_negated(theorem.claim.clone());
+    prover.add_negated(theorem.value.clone());
 
     let outcome = prover.search_for_contradiction(1000, 1.0);
     match outcome {
@@ -50,12 +50,12 @@ fn prove_one(env: &Environment, claims: &Vec<AcornValue>, theorem: &Theorem) {
 // If there are claims within the body, those are proved first, and used to prove the theorem's
 // main claim.
 // After the proof, 'claims' is updated to contain the new claim.
-fn prove_rec(env: &Environment, claims: &mut Vec<AcornValue>, theorem: &Theorem) {
+fn prove_rec(env: &Environment, claims: &mut Vec<AcornValue>, theorem: &Proposition) {
     if let Some(subenv) = &theorem.env {
         let claims_len = claims.len();
 
         // Prove all the claims within the body
-        for theorem in &subenv.theorems {
+        for theorem in &subenv.propositions {
             prove_rec(subenv, claims, theorem);
         }
 
@@ -67,7 +67,7 @@ fn prove_rec(env: &Environment, claims: &mut Vec<AcornValue>, theorem: &Theorem)
     } else {
         prove_one(env, claims, theorem);
     }
-    claims.push(theorem.claim.clone());
+    claims.push(theorem.value.clone());
 }
 
 fn main() {
@@ -81,7 +81,7 @@ fn main() {
 
     // Once each theorem gets proved, we add its claim
     let mut claims: Vec<AcornValue> = Vec::new();
-    for theorem in &env.theorems {
+    for theorem in &env.propositions {
         prove_rec(&env, &mut claims, theorem);
     }
 }

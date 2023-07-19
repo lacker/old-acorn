@@ -17,12 +17,10 @@ use crate::token::{Error, Result, Token, TokenType};
 // It does keep track of names, with the goal of being able to show nice debug information
 // for its values and types.
 pub struct Environment {
-    // The names of the axiomatic types that have been defined in this scope
-    // The axiomatic types can be stored as ids that are indices into this vector.
-    axiomatic_types: Vec<String>,
-
-    // The names for all the axiomatic values in this scope
-    axiomatic_values: Vec<String>,
+    // The names of the primitive types that have been defined in this scope.
+    // A primitive type is one that cannot be represented as a functional type.
+    // These primitive types can be stored as ids that are indices into this vector.
+    primitive_types: Vec<String>,
 
     // Maps the name of a type to the type object.
     typenames: HashMap<String, AcornType>,
@@ -30,30 +28,59 @@ pub struct Environment {
     // Maps an identifier name to its type.
     types: HashMap<String, AcornType>,
 
-    // Maps a name to its value.
+    // Maps the name of a constant to information about it.
     // Doesn't handle variables defined on the stack, only ones that will be in scope for the
     // entirety of this environment.
-    values: HashMap<String, AcornValue>,
+    constants: HashMap<String, ConstantInfo>,
+
+    // Reverse lookup for the information in constants.
+    // constants[constant_names[i]] = (i, _)
+    constant_names: Vec<String>,
 
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, AtomId>,
 
-    // The theorems in this environment.
-    // Does not include the theorems in parent or child environments.
-    pub theorems: Vec<Theorem>,
+    // The propositions in this environment.
+    // This includes every sort of thing that we need to know is true, specific to this environment.
+    // This includes theorems, anonymous propositions, and the implicit equalities of
+    // definitions.
+    // Does not include propositions from parent or child environments.
+    // The propositions are fundamentally linear; each may depend on the previous propositions
+    // but not on later ones.
+    pub propositions: Vec<Proposition>,
 }
 
-pub struct Theorem {
-    // The name of this theorem, if there is one
-    pub name: Option<String>,
+#[derive(Clone)]
+struct ConstantInfo {
+    // The numerical id of this constant.
+    id: AtomId,
 
-    // Whether this theorem is an axiom
-    pub axiomatic: bool,
+    // Whether this constant has a definition.
+    // If it has not been defined, it is an axiom.
+    defined: bool,
 
-    // A boolean, typically a "forall", that must be proven to directly prove this theorem
-    pub claim: AcornValue,
+    // The expanded value of this constant.
+    // If it doesn't have a definition, this is just an atomic constant.
+    // TODO: make this *not* the expanded value
+    value: AcornValue,
+}
 
-    // Theorems that have a body have their own subenvironment with the body's entities
+pub struct Proposition {
+    // The name of this proposition, if there is one.
+    // This is only used for display, not to fetch data, so it's okay for this to
+    // contain some synthetic human-readable thing.
+    pub display_name: Option<String>,
+
+    // Whether this theorem has already been proved structurally.
+    // For example, this could be an axiom, or a definition.
+    pub proven: bool,
+
+    // A boolean expressing the claim of the proposition.
+    // This value is relative to the external environment, not the subenvironment.
+    // In particular, it does not use constants that are only visible in the subenvironment.
+    pub value: AcornValue,
+
+    // Propositions that have a body have their own subenvironment with the body's entities.
     pub env: Option<Environment>,
 }
 
@@ -73,18 +100,18 @@ impl fmt::Display for Environment {
 impl Environment {
     pub fn new() -> Self {
         Environment {
-            axiomatic_types: Vec::new(),
-            axiomatic_values: Vec::new(),
+            primitive_types: Vec::new(),
+            constant_names: Vec::new(),
             typenames: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             types: HashMap::new(),
-            values: HashMap::new(),
+            constants: HashMap::new(),
             stack: HashMap::new(),
-            theorems: Vec::new(),
+            propositions: Vec::new(),
         }
     }
 
     // Creates a new environment by copying the names defined in this one.
-    // Stack variables in this theorem turn into axiomatic values in the new environment.
+    // Stack variables in this theorem turn into constant values in the new environment.
     //
     // Performance is quadratic and therefore bad; using different data structures
     // should improve this when we need to.
@@ -93,21 +120,19 @@ impl Environment {
             return Ok(None);
         }
         let mut subenv = Environment {
-            axiomatic_types: self.axiomatic_types.clone(),
-            axiomatic_values: self.axiomatic_values.clone(),
+            primitive_types: self.primitive_types.clone(),
+            constant_names: self.constant_names.clone(),
             typenames: self.typenames.clone(),
             types: self.types.clone(),
-            values: self.values.clone(),
-            stack: HashMap::new(),
-            theorems: Vec::new(),
+            constants: self.constants.clone(),
+            stack: self.stack.clone(),
+            propositions: Vec::new(),
         };
 
-        // Convert stack variables to axiomatic values
-        for name in self.stack.keys() {
-            let acorn_type = self.types.get(name).unwrap();
-            let value = subenv.next_axiomatic_value(acorn_type);
-            subenv.values.insert(name.to_string(), value);
-            subenv.axiomatic_values.push(name.to_string());
+        // Convert stack variables to constant values
+        let names = self.stack.keys().cloned().collect::<Vec<_>>();
+        for name in names {
+            subenv.move_stack_variable_to_constant(&name);
         }
 
         for s in body {
@@ -131,14 +156,14 @@ impl Environment {
     }
 
     fn add_axiomatic_type(&mut self, name: &str) {
-        let axiomatic_type = AcornType::Axiomatic(self.axiomatic_types.len());
-        self.axiomatic_types.push(name.to_string());
+        let axiomatic_type = AcornType::Axiomatic(self.primitive_types.len());
+        self.primitive_types.push(name.to_string());
         self.typenames.insert(name.to_string(), axiomatic_type);
     }
 
     // This creates the next axiomatic value, but does not bind it to any name.
     fn next_axiomatic_value(&self, acorn_type: &AcornType) -> AcornValue {
-        let atom = Atom::Constant(self.axiomatic_values.len() as AtomId);
+        let atom = Atom::Constant(self.constant_names.len() as AtomId);
         AcornValue::Atom(TypedAtom {
             atom,
             acorn_type: acorn_type.clone(),
@@ -156,36 +181,50 @@ impl Environment {
         self.types.remove(name);
     }
 
-    // This can be a new axiomatic value that is being bound for the first time,
-    // in which case we track the name
-    fn bind_name(&mut self, name: &str, value: AcornValue) {
+    // Adds a constant. If it's an axiom, it doesn't need a definition.
+    fn add_constant(
+        &mut self,
+        name: &str,
+        constant_type: AcornType,
+        definition: Option<AcornValue>,
+    ) {
         if self.types.contains_key(name) {
             panic!("name {} already bound to a type", name);
         }
-        if self.values.contains_key(name) {
+        if self.constants.contains_key(name) {
             panic!("name {} already bound to a value", name);
         }
 
-        if let Some(i) = value.axiom_index() {
-            if i == self.axiomatic_values.len() as AtomId {
-                self.axiomatic_values.push(name.to_string());
-            } else if i > self.axiomatic_values.len() as AtomId {
-                panic!("axiom index {} unexpectedly high", i);
-            }
-        }
-        self.types.insert(name.to_string(), value.get_type());
-        self.values.insert(name.to_string(), value);
+        let info = ConstantInfo {
+            id: self.constant_names.len() as AtomId,
+            defined: definition.is_some(),
+            value: match definition {
+                Some(value) => value,
+                None => self.next_axiomatic_value(&constant_type),
+            },
+        };
+
+        self.types.insert(name.to_string(), constant_type);
+        self.constants.insert(name.to_string(), info);
+        self.constant_names.push(name.to_string());
     }
 
+    fn move_stack_variable_to_constant(&mut self, name: &str) {
+        self.stack.remove(name).unwrap();
+        let acorn_type = self.types.remove(name).unwrap();
+        self.add_constant(name, acorn_type, None);
+    }
+
+    // This gets the expanded value of a constant.
     pub fn get_value(&self, name: &str) -> Option<&AcornValue> {
-        self.values.get(name)
+        self.constants.get(name).map(|info| &info.value)
     }
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<&AcornValue> {
-        for theorem in &self.theorems {
-            if let Some(claim_name) = &theorem.name {
+        for theorem in &self.propositions {
+            if let Some(claim_name) = &theorem.display_name {
                 if claim_name == name {
-                    return Some(&theorem.claim);
+                    return Some(&theorem.value);
                 }
             }
         }
@@ -193,7 +232,7 @@ impl Environment {
     }
 
     pub fn get_axiomatic_name(&self, id: AtomId) -> &str {
-        &self.axiomatic_values[id as usize]
+        &self.constant_names[id as usize]
     }
 
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
@@ -211,7 +250,7 @@ impl Environment {
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
         match acorn_type {
             AcornType::Bool => "bool".to_string(),
-            AcornType::Axiomatic(i) => self.axiomatic_types[*i].to_string(),
+            AcornType::Axiomatic(i) => self.primitive_types[*i].to_string(),
             AcornType::Function(function_type) => {
                 let s = if function_type.arg_types.len() > 1 {
                     self.type_list_str(&function_type.arg_types)
@@ -230,12 +269,12 @@ impl Environment {
         match atom {
             Atom::True => "true".to_string(),
             Atom::Constant(i) => {
-                if let Some(s) = self.axiomatic_values.get(*i as usize) {
+                if let Some(s) = self.constant_names.get(*i as usize) {
                     s.to_string()
                 } else {
                     panic!(
                         "could not find axiomatic value {} in {:?}",
-                        i, self.axiomatic_values
+                        i, self.constant_names
                     );
                 }
             }
@@ -488,7 +527,7 @@ impl Environment {
                 };
 
                 // Figure out the value for this identifier
-                if let Some(acorn_value) = self.values.get(token.text) {
+                if let Some(acorn_value) = self.get_value(token.text) {
                     // We need to shift any stack variables that this value uses,
                     // so that they don't squash existing ones.
                     Ok(acorn_value
@@ -743,6 +782,9 @@ impl Environment {
         ret_val
     }
 
+    // Adds a statement to the environment.
+    // If the statement has a body, this call creates a sub-environment and adds the body
+    // to that sub-environment.
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
         match statement {
             Statement::Type(ts) => {
@@ -774,7 +816,7 @@ impl Environment {
                     } else {
                         panic!("TODO: handle definitions without values");
                     };
-                    self.bind_name(&name, acorn_value);
+                    self.add_constant(&name, acorn_type, Some(acorn_value));
                     Ok(())
                 }
                 TokenType::RightArrow => {
@@ -788,7 +830,7 @@ impl Environment {
                         }
                     };
                     let (name, acorn_value) = self.define_function(&ds.declaration, value)?;
-                    self.bind_name(&name, acorn_value);
+                    self.add_constant(&name, acorn_value.get_type(), Some(acorn_value));
                     Ok(())
                 }
                 _ => Err(Error::new(
@@ -821,15 +863,19 @@ impl Environment {
                                 AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
                             };
 
-                            self.bind_name(&ts.name, functional_value.clone());
+                            self.add_constant(
+                                &ts.name,
+                                functional_value.get_type(),
+                                Some(functional_value.clone()),
+                            );
 
-                            let theorem = Theorem {
-                                name: Some(ts.name.to_string()),
-                                axiomatic: ts.axiomatic,
-                                claim,
+                            let theorem = Proposition {
+                                display_name: Some(ts.name.to_string()),
+                                proven: ts.axiomatic,
+                                value: claim,
                                 env: self.new_subenvironment(&ts.body)?,
                             };
-                            self.theorems.push(theorem);
+                            self.propositions.push(theorem);
                             Ok(())
                         }
                         Err(e) => Err(e),
@@ -841,13 +887,13 @@ impl Environment {
             }
             Statement::Prop(ps) => {
                 // A proposition is like an anonymous theorem.
-                let theorem = Theorem {
-                    name: None,
-                    axiomatic: false,
-                    claim: self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?,
+                let theorem = Proposition {
+                    display_name: None,
+                    proven: false,
+                    value: self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?,
                     env: self.new_subenvironment(&ps.body)?,
                 };
-                self.theorems.push(theorem);
+                self.propositions.push(theorem);
                 Ok(())
             }
             Statement::EndBlock => {
@@ -917,21 +963,21 @@ impl Environment {
     // Check that the given name has this normalized value in the environment
     #[cfg(test)]
     fn valuecheck(&mut self, name: &str, value_string: &str) {
-        let env_value = match self.values.get(name) {
+        let env_value = match self.get_value(name) {
             Some(t) => t,
             None => panic!("{} not found in environment", name),
         };
         assert_eq!(self.value_str(env_value), value_string);
     }
 
-    // Check the name of the given axiomatic value
+    // Check the name of the given constant
     #[cfg(test)]
-    pub fn axiomcheck(&mut self, id: usize, name: &str) {
-        let axiom = match self.axiomatic_values.get(id) {
-            Some(axiom) => axiom,
-            None => panic!("axiom {} not found in environment", id),
+    pub fn constantcheck(&mut self, id: usize, name: &str) {
+        let constant = match self.constant_names.get(id) {
+            Some(c) => c,
+            None => panic!("constant {} not found in environment", id),
         };
-        assert_eq!(axiom, name);
+        assert_eq!(constant, name);
     }
 }
 
@@ -959,12 +1005,12 @@ mod tests {
         env.typecheck("idb1", "bool -> bool");
         env.add("define idb2(y: bool) -> bool = y");
         env.typecheck("idb2", "bool -> bool");
-        assert_eq!(env.values["idb1"], env.values["idb2"]);
+        assert_eq!(env.get_value("idb1"), env.get_value("idb2"));
 
         env.add("type Nat: axiom");
         env.add("define idn1(x: Nat) -> Nat = x");
         env.typecheck("idn1", "Nat -> Nat");
-        assert_ne!(env.values["idb1"], env.values["idn1"]);
+        assert_ne!(env.get_value("idb1"), env.get_value("idn1"));
     }
 
     #[test]
@@ -974,12 +1020,12 @@ mod tests {
         env.typecheck("bsym1", "bool");
         env.add("define bsym2: bool = forall(y: bool, y = y)");
         env.typecheck("bsym2", "bool");
-        assert_eq!(env.values["bsym1"], env.values["bsym2"]);
+        assert_eq!(env.get_value("bsym1"), env.get_value("bsym2"));
 
         env.add("type Nat: axiom");
         env.add("define nsym1: bool = forall(x: Nat, x = x)");
         env.typecheck("nsym1", "bool");
-        assert_ne!(env.values["bsym1"], env.values["nsym1"]);
+        assert_ne!(env.get_value("bsym1"), env.get_value("nsym1"));
     }
 
     #[test]
@@ -987,11 +1033,11 @@ mod tests {
         let mut env = Environment::new();
         env.add("define bex1: bool = exists(x: bool, x = x)");
         env.add("define bex2: bool = exists(y: bool, y = y)");
-        assert_eq!(env.values["bex1"], env.values["bex2"]);
+        assert_eq!(env.get_value("bex1"), env.get_value("bex2"));
 
         env.add("type Nat: axiom");
         env.add("define nex1: bool = exists(x: Nat, x = x)");
-        assert_ne!(env.values["bex1"], env.values["nex1"]);
+        assert_ne!(env.get_value("bex1"), env.get_value("nex1"));
     }
 
     #[test]
@@ -1037,7 +1083,7 @@ mod tests {
         let mut env = Environment::new();
         env.add("define x: bool = axiom");
         env.add("define y: bool = axiom");
-        assert_ne!(env.values["x"], env.values["y"]);
+        assert_ne!(env.get_value("x"), env.get_value("y"));
     }
 
     #[test]

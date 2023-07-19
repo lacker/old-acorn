@@ -161,16 +161,19 @@ mod tests {
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("define 0: Nat = axiom");
-        env.axiomcheck(0, "0");
+        env.constantcheck(0, "0");
         env.add("define Suc: Nat -> Nat = axiom");
-        env.axiomcheck(1, "Suc");
+        env.constantcheck(1, "Suc");
         env.add("define 1: Nat = Suc(0)");
+        env.constantcheck(2, "1");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         norm.check(&env, "suc_injective", &["c1(x0) != c1(x1) | x0 = x1"]);
+        env.constantcheck(3, "suc_injective");
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         norm.check(&env, "suc_neq_zero", &["c1(x0) != c0"]);
+        env.constantcheck(4, "suc_neq_zero");
 
         env.add(
             "axiom induction(f: Nat -> bool):\
@@ -184,12 +187,13 @@ mod tests {
                 "!x0(c1(s0(x0))) | !x0(c0) | x0(x1)",
             ],
         );
+        env.constantcheck(5, "induction");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
-        env.axiomcheck(2, "recursion");
+        env.constantcheck(6, "recursion");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        norm.check(&env, "recursion_base", &["c2(x0, x1, c0) = x1"]);
+        norm.check(&env, "recursion_base", &["c6(x0, x1, c0) = x1"]);
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
@@ -198,11 +202,11 @@ mod tests {
         norm.check(
             &env,
             "recursion_step",
-            &["c2(x0, x1, c1(x2)) = x0(c2(x0, x1, x2))"],
+            &["c6(x0, x1, c1(x2)) = x0(c6(x0, x1, x2))"],
         );
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
-        norm.check(&env, "add_zero_right", &["c2(c1, x0, c0) = x0"]);
+        norm.check(&env, "add_zero_right", &["c6(c1, x0, c0) = x0"]);
     }
 
     #[test]
