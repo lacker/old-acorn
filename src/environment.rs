@@ -258,7 +258,7 @@ impl Environment {
     }
 
     // i is the id of a constant
-    fn get_defined_value(&self, i: AtomId) -> Option<&AcornValue> {
+    fn get_defined_value_for_id(&self, i: AtomId) -> Option<&AcornValue> {
         let name = &self.constant_names[i as usize];
         let info = &self.constants[name];
         if let AcornValue::Atom(typed_atom) = &info.value {
@@ -270,6 +270,11 @@ impl Environment {
         Some(&info.value)
     }
 
+    pub fn get_defined_value(&self, name: &str) -> Option<&AcornValue> {
+        let i = self.constant_names.iter().position(|n| n == name)?;
+        self.get_defined_value_for_id(i as AtomId)
+    }
+
     // This gets the expanded value of a constant, replacing each defined constant with its definition.
     pub fn get_expanded_value(&self, name: &str) -> Option<AcornValue> {
         let value = self.get_constant_atom(name)?;
@@ -278,7 +283,7 @@ impl Environment {
 
     // Replaces each defined constant with its definition, recursively.
     pub fn expand_constants(&self, value: &AcornValue) -> AcornValue {
-        value.replace_constants(0, &|i| self.get_defined_value(i))
+        value.replace_constants(0, &|i| self.get_defined_value_for_id(i))
     }
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {

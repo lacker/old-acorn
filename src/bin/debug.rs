@@ -70,6 +70,16 @@ fn main() {
             continue;
         }
 
+        if let Some(constant_str) = trim_command("define", &line) {
+            let env = goals[current].env;
+            if let Some(definition) = env.get_defined_value(constant_str) {
+                println!("{} = {}", constant_str, env.value_str(definition));
+            } else {
+                println!("{} is not a defined constant", constant_str);
+            }
+            continue;
+        }
+
         if let Some(substr) = trim_command("active", &line) {
             if line == "" {
                 prover.print_active(None);
@@ -79,8 +89,12 @@ fn main() {
             continue;
         }
 
-        if let Some(_) = trim_command("passive", &line) {
-            prover.print_passive();
+        if let Some(substr) = trim_command("passive", &line) {
+            if line == "" {
+                prover.print_passive(None);
+            } else {
+                prover.print_passive(Some(substr));
+            }
             continue;
         }
 
@@ -138,6 +152,7 @@ fn main() {
         }
 
         // Hitting enter does one step of proving.
+        prover.verbose = true;
         let outcome = prover.activate_next();
         match outcome {
             Outcome::Success => {
@@ -150,5 +165,6 @@ fn main() {
             }
             Outcome::Unknown => (),
         }
+        prover.verbose = false;
     }
 }
