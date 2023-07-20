@@ -115,6 +115,12 @@ fn main() {
             continue;
         }
 
+        if let Some(_) = trim_command("reset", &line) {
+            prover = Prover::load_goal(&goals[current]);
+            println!("loaded {}", goals[current].name);
+            continue;
+        }
+
         // A / will try to prove the next proposition for a while.
         if line.trim_end() == "/" {
             prover.hit_trace = false;

@@ -305,6 +305,17 @@ impl Environment {
         }
     }
 
+    pub fn get_proposition(&self, name: &str) -> &Proposition {
+        for prop in &self.propositions {
+            if let Some(claim_name) = &prop.display_name {
+                if claim_name == name {
+                    return prop;
+                }
+            }
+        }
+        panic!("no proposition named {}", name);
+    }
+
     pub fn get_constant_name(&self, id: AtomId) -> &str {
         &self.constant_names[id as usize]
     }
