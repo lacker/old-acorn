@@ -100,12 +100,16 @@ fn fmt_binary(
     write!(f, ")")
 }
 
-struct StackedValue<'a> {
+// An AcornValue has an implicit stack size that determines what index new stack variables
+// will have.
+// The Subvalue includes this implicit stack size.
+// The stack size of a "root" AcornValue is always zero.
+struct Subvalue<'a> {
     value: &'a AcornValue,
     stack_size: usize,
 }
 
-impl fmt::Display for StackedValue<'_> {
+impl fmt::Display for Subvalue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.value.fmt_helper(f, self.stack_size)
     }
@@ -138,10 +142,10 @@ impl AcornValue {
         }
     }
 
-    pub fn to_string(&self, stack_size: usize) -> String {
+    pub fn to_stacked_string(&self, stack_size: usize) -> String {
         format!(
             "{}",
-            StackedValue {
+            Subvalue {
                 value: self,
                 stack_size: stack_size,
             }
