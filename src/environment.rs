@@ -85,6 +85,20 @@ pub struct Block {
     pub env: Environment,
 }
 
+// A goal and the information used to prove it.
+pub struct GoalContext<'a> {
+    pub env: &'a Environment,
+
+    // The facts that can be used to prove the goal.
+    pub facts: Vec<AcornValue>,
+
+    // A printable name for this goal.
+    pub name: String,
+
+    // The goal itself.
+    pub goal: AcornValue,
+}
+
 impl fmt::Display for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Environment {{\n")?;
@@ -276,6 +290,14 @@ impl Environment {
             }
         }
         None
+    }
+
+    pub fn get_proposition_name(&self, prop: &Proposition) -> String {
+        if let Some(name) = &prop.display_name {
+            name.clone()
+        } else {
+            self.value_str(&prop.claim)
+        }
     }
 
     pub fn get_constant_name(&self, id: AtomId) -> &str {
@@ -953,6 +975,77 @@ impl Environment {
                 panic!("\nerror adding statement:\n{}\n{}", statement, e);
             }
         }
+    }
+
+    // The "path" to a proposition is a list of indices to recursively go into env.propositions.
+    // This returns a path for all non-axiomatic propositions within this environment,
+    // or subenvironments, recursively.
+    // The order is "proving order", ie the propositions inside the block are proved before the
+    // root proposition of a block.
+    pub fn goal_paths(&self) -> Vec<Vec<usize>> {
+        self.prepend_goal_paths(&Vec::new())
+    }
+
+    // A helper for proposition_paths that prepends 'prepend' to each path.
+    fn prepend_goal_paths(&self, prepend: &Vec<usize>) -> Vec<Vec<usize>> {
+        let mut paths = Vec::new();
+        for (i, prop) in self.propositions.iter().enumerate() {
+            if prop.proven {
+                continue;
+            }
+            let path = {
+                let mut path = prepend.clone();
+                path.push(i);
+                path
+            };
+            if let Some(block) = &prop.block {
+                let mut subpaths = block.env.prepend_goal_paths(&path);
+                paths.append(&mut subpaths);
+            }
+            paths.push(path);
+        }
+        paths
+    }
+
+    // Get a list of facts that are available at a certain path, along with the proposition
+    // that should be proved there.
+    pub fn get_goal_context(&self, path: &Vec<usize>) -> GoalContext {
+        let mut facts = Vec::new();
+        let mut env = self;
+        let mut it = path.iter().peekable();
+        while let Some(i) = it.next() {
+            for previous_prop in &env.propositions[0..*i] {
+                facts.push(env.expand_constants(&previous_prop.claim));
+            }
+            let prop = &env.propositions[*i];
+            if let Some(block) = &prop.block {
+                if it.peek().is_none() {
+                    // This is the last element of the path. It has a block, so we can use the
+                    // contents of the block to help prove it.
+                    for p in &block.env.propositions {
+                        facts.push(block.env.expand_constants(&p.claim));
+                    }
+                    return GoalContext {
+                        env: &block.env,
+                        facts,
+                        name: env.get_proposition_name(&prop),
+                        goal: block.env.expand_constants(&block.claim),
+                    };
+                }
+                env = &block.env;
+            } else {
+                // If there's no block on this prop, this must be the last element of the path
+                assert!(it.peek().is_none());
+
+                return GoalContext {
+                    env: &env,
+                    facts,
+                    name: env.get_proposition_name(&prop),
+                    goal: env.expand_constants(&prop.claim),
+                };
+            }
+        }
+        panic!("control should not get here");
     }
 
     #[cfg(test)]

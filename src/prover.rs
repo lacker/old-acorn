@@ -5,7 +5,7 @@ use crate::acorn_value::AcornValue;
 use crate::active_set::{ActiveSet, ProofStep};
 use crate::atom::Atom;
 use crate::display::DisplayClause;
-use crate::environment::Environment;
+use crate::environment::{Environment, GoalContext};
 use crate::normalizer::Normalizer;
 use crate::passive_set::PassiveSet;
 use crate::synthesizer::Synthesizer;
@@ -393,6 +393,16 @@ impl Prover<'_> {
 
     pub fn prove(&mut self, theorem_name: &str) -> Outcome {
         self.prove_limited(theorem_name, 1000, 1.0)
+    }
+
+    pub fn prove_goal(goal_context: &GoalContext) -> Outcome {
+        let mut prover = Prover::new(&goal_context.env);
+        prover.verbose = false;
+        for fact in &goal_context.facts {
+            prover.add_proposition(fact.clone());
+        }
+        prover.add_negated(goal_context.goal.clone());
+        prover.search_for_contradiction(1000, 1.0)
     }
 }
 

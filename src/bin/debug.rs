@@ -36,6 +36,7 @@ fn main() {
         std::io::stdout().flush().unwrap();
         std::io::stdin().read_line(&mut line).unwrap();
 
+        // Most commands alter the debug output or print out some one-off debug info.
         if let Some(trace) = trim_command("trace", &line) {
             println!("setting trace: {}", trace);
             prover.set_trace(trace);
@@ -77,6 +78,7 @@ fn main() {
             continue;
         }
 
+        // A / will try to prove the next proposition for a while.
         if line.trim_end() == "/" {
             prover.hit_trace = false;
             let start_time = std::time::Instant::now();
@@ -112,6 +114,7 @@ fn main() {
             continue;
         }
 
+        // Hitting enter does one step of proving.
         let outcome = prover.activate_next();
         match outcome {
             Outcome::Success => {
