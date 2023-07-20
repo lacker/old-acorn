@@ -91,12 +91,24 @@ fn fmt_binary(
     op: &str,
     left: &AcornValue,
     right: &AcornValue,
+    stack_size: usize,
 ) -> fmt::Result {
     write!(f, "(")?;
-    left.fmt_helper(f, 0)?;
+    left.fmt_helper(f, stack_size)?;
     write!(f, " {} ", op)?;
-    right.fmt_helper(f, 0)?;
+    right.fmt_helper(f, stack_size)?;
     write!(f, ")")
+}
+
+struct StackedValue<'a> {
+    value: &'a AcornValue,
+    stack_size: usize,
+}
+
+impl fmt::Display for StackedValue<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.value.fmt_helper(f, self.stack_size)
+    }
 }
 
 impl AcornValue {
@@ -110,11 +122,11 @@ impl AcornValue {
                 write!(f, ")")
             }
             AcornValue::Lambda(args, body) => fmt_macro(f, "lambda", args, body, stack_size),
-            AcornValue::Implies(a, b) => fmt_binary(f, "=>", a, b),
-            AcornValue::Equals(a, b) => fmt_binary(f, "=", a, b),
-            AcornValue::NotEquals(a, b) => fmt_binary(f, "!=", a, b),
-            AcornValue::And(a, b) => fmt_binary(f, "&", a, b),
-            AcornValue::Or(a, b) => fmt_binary(f, "|", a, b),
+            AcornValue::Implies(a, b) => fmt_binary(f, "=>", a, b, stack_size),
+            AcornValue::Equals(a, b) => fmt_binary(f, "=", a, b, stack_size),
+            AcornValue::NotEquals(a, b) => fmt_binary(f, "!=", a, b, stack_size),
+            AcornValue::And(a, b) => fmt_binary(f, "&", a, b, stack_size),
+            AcornValue::Or(a, b) => fmt_binary(f, "|", a, b, stack_size),
             AcornValue::Not(a) => {
                 write!(f, "!")?;
                 a.fmt_helper(f, stack_size)
@@ -124,6 +136,16 @@ impl AcornValue {
             AcornValue::ForAllMacro => write!(f, "forall"),
             AcornValue::ExistsMacro => write!(f, "exists"),
         }
+    }
+
+    pub fn to_string(&self, stack_size: usize) -> String {
+        format!(
+            "{}",
+            StackedValue {
+                value: self,
+                stack_size: stack_size,
+            }
+        )
     }
 
     // Creates a value of type matching AcornType::functional.

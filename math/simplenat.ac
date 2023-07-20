@@ -1,0 +1,32 @@
+type Nat: axiom
+define 0: Nat = axiom
+define Suc: Nat -> Nat = axiom
+axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
+axiom suc_neq_zero(x: Nat): Suc(x) != 0
+axiom induction(f: Nat -> bool): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> forall(n: Nat, f(n))
+define add: (Nat, Nat) -> Nat = axiom
+axiom add_zero_right(a: Nat): add(a, 0) = a
+axiom add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
+
+define 1: Nat = Suc(0)
+define 2: Nat = Suc(1)
+
+theorem one_plus_one: add(1, 1) = 2
+
+theorem add_zero_left(a: Nat): add(0, a) = a
+
+theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))
+
+theorem suc_ne(a: Nat): Suc(a) != a
+
+theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a
+
+theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
+
+theorem add_assoc(aa: Nat, bb: Nat, cc: Nat): add(add(aa, bb), cc) = add(aa, add(bb, cc)) {
+    let f(x: Nat) -> bool = add_assoc(x, bb, cc) 
+    induction(f)
+    forall(x: Nat, f(x) -> f(Suc(x)))
+    f(0)
+    f(aa)
+}

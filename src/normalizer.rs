@@ -253,4 +253,23 @@ mod tests {
         env.add("theorem exists_zero: exists(x: Nat, x = 0)");
         norm.check(&env, "exists_zero", &["s0 = c0"]);
     }
+
+    #[test]
+    fn test_second_order_binding() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define borf: (Nat, Nat, Nat) -> Nat = axiom
+            define borf_cycles(a: Nat, b: Nat, c: Nat) -> bool = borf(a, b, c) = borf(b, c, a)
+            define bb: Nat = axiom
+            define cc: Nat = axiom
+            define specific_cycle(x: Nat) -> bool = borf_cycles(x, bb, cc) 
+            define always_true(f: Nat -> bool) -> bool = forall(n: Nat, f(n))
+            theorem goal: !always_true(specific_cycle)
+        "#,
+        );
+        let mut norm = Normalizer::new();
+        norm.check(&env, "goal", &["xxx"]);
+    }
 }
