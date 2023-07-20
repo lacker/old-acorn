@@ -23,11 +23,22 @@ fn main() {
     let input_file = args.next().expect(USAGE);
     let theorem_name = args.next().expect(USAGE);
 
-    // Initialize a prover
+    // Find all the goals in the file
     let mut env = Environment::new();
     env.load_file(&input_file).unwrap();
-    let mut prover = Prover::new(&env);
-    prover.assume_false(&theorem_name);
+    let goal_paths = env.goal_paths();
+    let goals = goal_paths
+        .iter()
+        .map(|path| env.get_goal_context(path))
+        .collect::<Vec<_>>();
+
+    // Find the goal whose name matches theorem_name
+    let mut current: usize = goals
+        .iter()
+        .position(|goal| goal.name == theorem_name)
+        .expect("no such theorem");
+    let mut prover = Prover::load_goal(&goals[current]);
+    println!("loaded {}", goals[current].name);
 
     loop {
         // Read a line from the input
@@ -75,6 +86,18 @@ fn main() {
 
         if let Some(_) = trim_command("stats", &line) {
             prover.print_stats();
+            continue;
+        }
+
+        // The "next" command moves to the next proposition.
+        if let Some(_) = trim_command("next", &line) {
+            if current == goals.len() - 1 {
+                println!("already at the last proposition");
+                continue;
+            }
+            current = current + 1;
+            prover = Prover::load_goal(&goals[current]);
+            println!("loaded {}", goals[current].name);
             continue;
         }
 
