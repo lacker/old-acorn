@@ -29,7 +29,8 @@ pub struct Prover<'a> {
     // A verbose prover prints out a lot of stuff.
     pub verbose: bool,
 
-    // If a trace string is set, we print out what happens with the clause matching it.
+    // If a trace string is set, we print out what happens with the clause matching it, regardless
+    // of verbosity.
     trace: Option<String>,
 
     // Whether we have hit the trace
@@ -62,7 +63,7 @@ impl Prover<'_> {
             passive: PassiveSet::new(),
             env,
             dirty: false,
-            verbose: true,
+            verbose: false,
             trace: None,
             hit_trace: false,
             history: Vec::new(),
@@ -395,14 +396,13 @@ impl Prover<'_> {
         self.prove_limited(theorem_name, 1000, 1.0)
     }
 
-    pub fn prove_goal(goal_context: &GoalContext) -> Outcome {
+    pub fn load_goal<'a>(goal_context: &GoalContext<'a>) -> Prover<'a> {
         let mut prover = Prover::new(&goal_context.env);
-        prover.verbose = false;
         for fact in &goal_context.facts {
             prover.add_proposition(fact.clone());
         }
         prover.add_negated(goal_context.goal.clone());
-        prover.search_for_contradiction(1000, 1.0)
+        prover
     }
 }
 
