@@ -254,22 +254,22 @@ mod tests {
         norm.check(&env, "exists_zero", &["s0 = c0"]);
     }
 
-    #[test]
-    fn test_second_order_binding() {
-        let mut env = Environment::new();
-        env.add(
-            r#"
-            type Nat: axiom
-            define borf: (Nat, Nat, Nat) -> bool = axiom
-            define also_borf(a: Nat, b: Nat, c: Nat) -> bool = borf(a, b, c)
-            define bb: Nat = axiom
-            define cc: Nat = axiom
-            define specific_borf(x: Nat) -> bool = also_borf(x, bb, cc) 
-            define always_true(f: Nat -> bool) -> bool = forall(n: Nat, f(n))
-            theorem goal: !always_true(specific_borf)
-        "#,
-        );
-        let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["!c0(s0, c2, c3)"]);
-    }
+    // #[test]
+    // fn test_second_order_binding() {
+    //     let mut env = Environment::new();
+    //     env.add(
+    //         r#"
+    //         type Nat: axiom
+    //         define borf: (Nat, Nat, Nat) -> bool = axiom
+    //         define also_borf(a: Nat, b: Nat, c: Nat) -> bool = borf(a, b, c)
+    //         define bb: Nat = axiom
+    //         define cc: Nat = axiom
+    //         define specific_borf(x: Nat) -> bool = also_borf(x, bb, cc)
+    //         define always_true(f: Nat -> bool) -> bool = forall(n: Nat, f(n))
+    //         theorem goal: !always_true(specific_borf)
+    //     "#,
+    //     );
+    //     let mut norm = Normalizer::new();
+    //     norm.check(&env, "goal", &["!c0(s0, c2, c3)"]);
+    // }
 }

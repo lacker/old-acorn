@@ -58,48 +58,6 @@ pub enum AcornValue {
     ExistsMacro,
 }
 
-impl fmt::Display for AcornValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.fmt_helper(f, 0)
-    }
-}
-
-fn fmt_values(v: &Vec<AcornValue>, f: &mut fmt::Formatter, stack_size: usize) -> fmt::Result {
-    for (i, item) in v.iter().enumerate() {
-        if i > 0 {
-            write!(f, ", ")?;
-        }
-        item.fmt_helper(f, stack_size)?;
-    }
-    Ok(())
-}
-
-fn fmt_macro(
-    f: &mut fmt::Formatter,
-    name: &str,
-    decs: &Vec<AcornType>,
-    body: &AcornValue,
-    stack_size: usize,
-) -> fmt::Result {
-    write!(f, "{}({}, ", name, AcornType::decs_to_str(decs, stack_size))?;
-    body.fmt_helper(f, stack_size + decs.len())?;
-    write!(f, ")")
-}
-
-fn fmt_binary(
-    f: &mut fmt::Formatter,
-    op: &str,
-    left: &AcornValue,
-    right: &AcornValue,
-    stack_size: usize,
-) -> fmt::Result {
-    write!(f, "(")?;
-    left.fmt_helper(f, stack_size)?;
-    write!(f, " {} ", op)?;
-    right.fmt_helper(f, stack_size)?;
-    write!(f, ")")
-}
-
 // An AcornValue has an implicit stack size that determines what index new stack variables
 // will have.
 // The Subvalue includes this implicit stack size.
@@ -111,35 +69,100 @@ struct Subvalue<'a> {
 
 impl fmt::Display for Subvalue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.value.fmt_helper(f, self.stack_size)
+        match self.value {
+            AcornValue::Atom(a) => write!(f, "{}", a),
+            AcornValue::Application(a) => a.fmt_helper(f, self.stack_size),
+            AcornValue::ArgList(args) => {
+                write!(f, "(")?;
+                fmt_values(args, f, self.stack_size)?;
+                write!(f, ")")
+            }
+            AcornValue::Lambda(args, body) => fmt_macro(f, "lambda", args, body, self.stack_size),
+            AcornValue::Implies(a, b) => fmt_binary(f, "=>", a, b, self.stack_size),
+            AcornValue::Equals(a, b) => fmt_binary(f, "=", a, b, self.stack_size),
+            AcornValue::NotEquals(a, b) => fmt_binary(f, "!=", a, b, self.stack_size),
+            AcornValue::And(a, b) => fmt_binary(f, "&", a, b, self.stack_size),
+            AcornValue::Or(a, b) => fmt_binary(f, "|", a, b, self.stack_size),
+            AcornValue::Not(a) => {
+                write!(f, "!")?;
+                a.fmt_helper(f, self.stack_size)
+            }
+            AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
+            AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
+            AcornValue::ForAllMacro => write!(f, "forall"),
+            AcornValue::ExistsMacro => write!(f, "exists"),
+        }
+    }
+}
+
+impl Subvalue<'_> {
+    fn new(value: &AcornValue, stack_size: usize) -> Subvalue {
+        Subvalue {
+            value: value,
+            stack_size: stack_size,
+        }
+    }
+
+    fn root(value: &AcornValue) -> Subvalue {
+        Subvalue::new(value, 0)
+    }
+}
+
+fn fmt_values(v: &Vec<AcornValue>, f: &mut fmt::Formatter, stack_size: usize) -> fmt::Result {
+    for (i, item) in v.iter().enumerate() {
+        if i > 0 {
+            write!(f, ", ")?;
+        }
+        write!(f, "{}", Subvalue::new(item, stack_size))?;
+    }
+    Ok(())
+}
+
+fn fmt_macro(
+    f: &mut fmt::Formatter,
+    name: &str,
+    decs: &Vec<AcornType>,
+    body: &AcornValue,
+    stack_size: usize,
+) -> fmt::Result {
+    write!(
+        f,
+        "{}({}, {})",
+        name,
+        AcornType::decs_to_str(decs, stack_size),
+        Subvalue::new(body, stack_size + decs.len())
+    )
+}
+
+fn fmt_binary(
+    f: &mut fmt::Formatter,
+    op: &str,
+    left: &AcornValue,
+    right: &AcornValue,
+    stack_size: usize,
+) -> fmt::Result {
+    write!(
+        f,
+        "({} {} {})",
+        Subvalue::new(left, stack_size),
+        op,
+        Subvalue::new(right, stack_size)
+    )
+}
+
+impl fmt::Display for AcornValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Subvalue::root(self).fmt(f)
     }
 }
 
 impl AcornValue {
     fn fmt_helper(&self, f: &mut fmt::Formatter, stack_size: usize) -> fmt::Result {
-        match self {
-            AcornValue::Atom(a) => write!(f, "{}", a),
-            AcornValue::Application(a) => a.fmt_helper(f, stack_size),
-            AcornValue::ArgList(args) => {
-                write!(f, "(")?;
-                fmt_values(args, f, stack_size)?;
-                write!(f, ")")
-            }
-            AcornValue::Lambda(args, body) => fmt_macro(f, "lambda", args, body, stack_size),
-            AcornValue::Implies(a, b) => fmt_binary(f, "=>", a, b, stack_size),
-            AcornValue::Equals(a, b) => fmt_binary(f, "=", a, b, stack_size),
-            AcornValue::NotEquals(a, b) => fmt_binary(f, "!=", a, b, stack_size),
-            AcornValue::And(a, b) => fmt_binary(f, "&", a, b, stack_size),
-            AcornValue::Or(a, b) => fmt_binary(f, "|", a, b, stack_size),
-            AcornValue::Not(a) => {
-                write!(f, "!")?;
-                a.fmt_helper(f, stack_size)
-            }
-            AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, stack_size),
-            AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, stack_size),
-            AcornValue::ForAllMacro => write!(f, "forall"),
-            AcornValue::ExistsMacro => write!(f, "exists"),
-        }
+        let subvalue = Subvalue {
+            value: self,
+            stack_size,
+        };
+        write!(f, "{}", subvalue)
     }
 
     pub fn to_stacked_string(&self, stack_size: usize) -> String {
