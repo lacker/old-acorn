@@ -137,9 +137,16 @@ impl Environment {
     // So if there are stack variables, unbound_claim should be a function that takes those
     // variables to a bool. Otherwise it should just be a bool.
     //
+    // theorem_name is the name of the theorem this block is for.
+    //
     // Performance is quadratic and therefore bad; using different data structures
     // should improve this when we need to.
-    fn new_block(&self, unbound_claim: AcornValue, body: &Vec<Statement>) -> Result<Option<Block>> {
+    fn new_block(
+        &self,
+        unbound_claim: AcornValue,
+        body: &Vec<Statement>,
+        theorem_name: Option<&str>,
+    ) -> Result<Option<Block>> {
         if body.is_empty() {
             return Ok(None);
         }
@@ -153,6 +160,9 @@ impl Environment {
             propositions: Vec::new(),
             theorem_names: self.theorem_names.clone(),
         };
+        if let Some(theorem_name) = theorem_name {
+            subenv.add_identity_props(theorem_name);
+        }
 
         // Convert stack variables to constant values and bind them to the claim
         let mut names: Vec<&str> = vec![""; self.stack.len()];
@@ -1026,7 +1036,7 @@ impl Environment {
                                 Some(functional_value.clone()),
                             );
                             let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
-                            let block = self.new_block(unbound_claim, &ts.body)?;
+                            let block = self.new_block(unbound_claim, &ts.body, Some(ts.name))?;
                             let prop = Proposition {
                                 display_name: Some(ts.name.to_string()),
                                 proven: ts.axiomatic,
@@ -1046,7 +1056,7 @@ impl Environment {
             }
             Statement::Prop(ps) => {
                 let claim = self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
-                let block = self.new_block(claim.clone(), &ps.body)?;
+                let block = self.new_block(claim.clone(), &ps.body, None)?;
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
