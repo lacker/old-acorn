@@ -73,9 +73,10 @@ impl Normalizer {
                 }
 
                 // Replace references to the existential quantifiers
+                let stack_size = stack.len() as AtomId;
                 self.skolemize(
                     stack,
-                    subvalue.bind_values(stack.len() as AtomId, &replacements),
+                    subvalue.bind_values(stack_size, stack_size, &replacements),
                 )
             }
 
