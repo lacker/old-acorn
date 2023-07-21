@@ -105,7 +105,7 @@ impl TypeSpace {
         match value {
             AcornValue::Atom(atom) => self.term_from_atom(atom),
             AcornValue::Application(application) => self.term_from_application(application),
-            _ => panic!("cannot convert value to term: {:?}", value),
+            _ => panic!("cannot convert value to term: {}", value),
         }
     }
 

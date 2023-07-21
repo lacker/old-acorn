@@ -232,6 +232,43 @@ impl AcornValue {
         }
     }
 
+    // Moves negation inward for a boolean comparison.
+    // We want as close to CNF as possible.
+    // So the order outside-in goes: and, or, negates.
+    fn boolean_comparison(left: AcornValue, right: AcornValue, negate: bool) -> AcornValue {
+        let negative_left = left.clone().maybe_negate(true);
+        let negative_right = right.clone().maybe_negate(true);
+        let positive_left = left.maybe_negate(false);
+        let positive_right = right.maybe_negate(false);
+        if negate {
+            // left != right is equivalent to:
+            //   (left | right) & (!left | !right)
+            AcornValue::And(
+                Box::new(AcornValue::Or(
+                    Box::new(negative_left),
+                    Box::new(negative_right),
+                )),
+                Box::new(AcornValue::Or(
+                    Box::new(positive_left),
+                    Box::new(positive_right),
+                )),
+            )
+        } else {
+            // left = right is equivalent to:
+            //   (!left | right) & (left | !right)
+            AcornValue::And(
+                Box::new(AcornValue::Or(
+                    Box::new(negative_left),
+                    Box::new(positive_right),
+                )),
+                Box::new(AcornValue::Or(
+                    Box::new(positive_left),
+                    Box::new(negative_right),
+                )),
+            )
+        }
+    }
+
     // Normalizes a boolean expression by moving all negations inwards.
     // If 'negate' is set then we also negate this expression.
     // See https://www.csd.uwo.ca/~lkari/prenex.pdf
@@ -288,6 +325,13 @@ impl AcornValue {
                     AcornValue::ForAll(quants, Box::new(value.move_negation_inwards(true)))
                 } else {
                     AcornValue::Exists(quants, Box::new(value.move_negation_inwards(false)))
+                }
+            }
+            AcornValue::Equals(left, right) => {
+                if left.get_type() == AcornType::Bool {
+                    AcornValue::boolean_comparison(*left, *right, negate)
+                } else {
+                    AcornValue::Equals(left, right).maybe_negate(negate)
                 }
             }
             _ => self.maybe_negate(negate),

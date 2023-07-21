@@ -273,4 +273,21 @@ mod tests {
         let mut norm = Normalizer::new();
         norm.check(&env, "goal", &["!c0(s0, c2, c3)"]);
     }
+
+    #[test]
+    fn test_boolean_equality() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define n0: Nat = axiom
+            define n1: Nat = axiom
+            define n2: Nat = axiom
+            define n3: Nat = axiom
+            theorem goal: (n0 = n1) = (n2 = n3)
+            "#,
+        );
+        let mut norm = Normalizer::new();
+        norm.check(&env, "goal", &["c1 != c0 | c3 = c2", "c3 != c2 | c1 = c0"]);
+    }
 }
