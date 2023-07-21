@@ -301,7 +301,7 @@ impl AcornValue {
     // are "foo", "bar", and "baz" we should set x2 = foo, x3 = bar, x4 = baz.
     // Any subsequent variables, x5 x6 x7 etc, should be renumbered downwards.
     //
-    // The stack_size is the size of the stack for this value. This is relevant because any
+    // The stack_size is the size of the stack where this value occurs. This is relevant because any
     // variables in the bound values will be moved into this environment, so we need to renumber
     // their variables appropriately.
     pub fn bind_values(
@@ -311,7 +311,7 @@ impl AcornValue {
         values: &Vec<AcornValue>,
     ) -> AcornValue {
         match self {
-            AcornValue::Atom(a) => a.bind_values(first_binding_index, values),
+            AcornValue::Atom(a) => a.bind_values(first_binding_index, stack_size, values),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.bind_values(
                     first_binding_index,
@@ -325,12 +325,12 @@ impl AcornValue {
                     .collect(),
             }),
             AcornValue::Lambda(args, return_value) => {
-                let return_value_stack_index = stack_size + args.len() as AtomId;
+                let return_value_stack_size = stack_size + args.len() as AtomId;
                 AcornValue::Lambda(
                     args,
                     Box::new(return_value.bind_values(
                         first_binding_index,
-                        return_value_stack_index,
+                        return_value_stack_size,
                         values,
                     )),
                 )
@@ -361,17 +361,17 @@ impl AcornValue {
                 values,
             ))),
             AcornValue::ForAll(quants, value) => {
-                let value_stack_index = stack_size + quants.len() as AtomId;
+                let value_stack_size = stack_size + quants.len() as AtomId;
                 AcornValue::ForAll(
                     quants,
-                    Box::new(value.bind_values(first_binding_index, value_stack_index, values)),
+                    Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
             AcornValue::Exists(quants, value) => {
-                let value_stack_index = stack_size + quants.len() as AtomId;
+                let value_stack_size = stack_size + quants.len() as AtomId;
                 AcornValue::Exists(
                     quants,
-                    Box::new(value.bind_values(first_binding_index, value_stack_index, values)),
+                    Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
             _ => panic!("unhandled case in bind_values: {:?}", self),
@@ -384,6 +384,9 @@ impl AcornValue {
     // has 'index + increment' entries.
     // Every reference at index or higher should be incremented by increment.
     pub fn insert_stack(self, index: AtomId, increment: AtomId) -> AcornValue {
+        if increment == 0 {
+            return self;
+        }
         match self {
             AcornValue::Atom(a) => AcornValue::Atom(a.insert_stack(index, increment)),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {

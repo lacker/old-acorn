@@ -124,19 +124,35 @@ impl fmt::Display for TypedAtom {
 
 impl TypedAtom {
     // Binds this atom if it matches one of the new stack values.
-    // They start at the provided stack index.
-    // Since stack references are stored by height on the stack, this will also change the
-    // reference id if this is a reference to a subsequent stack value.
-    pub fn bind_values(self, stack_index: AtomId, values: &Vec<AcornValue>) -> AcornValue {
+    //
+    // The first_binding_index is the first index that we should bind to.
+    // For example, if stack_index is 2, and the values
+    // are "foo", "bar", and "baz" we should set x2 = foo, x3 = bar, x4 = baz.
+    // Any subsequent variables, x5 x6 x7 etc, should be renumbered downwards.
+    //
+    // The stack_size is the size of the stack where this atom occurs. This is relevant because any
+    // variables in the bound values will be moved into this environment, so we need to renumber
+    // their variables appropriately.
+    pub fn bind_values(
+        self,
+        first_binding_index: AtomId,
+        stack_size: AtomId,
+        values: &Vec<AcornValue>,
+    ) -> AcornValue {
         match self.atom {
             Atom::Variable(i) => {
-                if i < stack_index {
+                if i < first_binding_index {
                     // This reference is unchanged
                     return AcornValue::Atom(self);
                 }
-                if i < stack_index + values.len() as AtomId {
+                if i < first_binding_index + values.len() as AtomId {
                     // This reference is bound to a new value
-                    return values[(i - stack_index) as usize].clone();
+                    let new_value = values[(i - first_binding_index) as usize].clone();
+
+                    // We are moving this value between contexts with possibly different stack sizes
+                    assert!(stack_size >= first_binding_index);
+                    return new_value
+                        .insert_stack(first_binding_index, stack_size - first_binding_index);
                 }
                 // This reference just needs to be shifted
                 AcornValue::Atom(TypedAtom {
