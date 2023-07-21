@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::{fmt, io};
 
@@ -47,7 +47,11 @@ pub struct Environment {
     // Does not include propositions from parent or child environments.
     // The propositions are fundamentally linear; each may depend on the previous propositions
     // but not on later ones.
-    pub propositions: Vec<Proposition>,
+    propositions: Vec<Proposition>,
+
+    // The names of theorems in this environment.
+    // Does not include the "goal" theorem that this environment is trying to prove.
+    theorem_names: HashSet<String>,
 }
 
 #[derive(Clone)]
@@ -122,6 +126,7 @@ impl Environment {
             constants: HashMap::new(),
             stack: HashMap::new(),
             propositions: Vec::new(),
+            theorem_names: HashSet::new(),
         }
     }
 
@@ -146,6 +151,7 @@ impl Environment {
             constants: self.constants.clone(),
             stack: self.stack.clone(),
             propositions: Vec::new(),
+            theorem_names: self.theorem_names.clone(),
         };
 
         // Convert stack variables to constant values and bind them to the claim
@@ -282,7 +288,7 @@ impl Environment {
     }
 
     // Replaces each defined constant with its definition, recursively.
-    pub fn expand_constants(&self, value: &AcornValue) -> AcornValue {
+    fn expand_constants(&self, value: &AcornValue) -> AcornValue {
         value.replace_constants(0, &|i| self.get_defined_value_for_id(i))
     }
 
@@ -955,6 +961,7 @@ impl Environment {
                                 block,
                             };
                             self.propositions.push(prop);
+                            self.theorem_names.insert(ts.name.to_string());
                             Ok(())
                         }
                         Err(e) => Err(e),
