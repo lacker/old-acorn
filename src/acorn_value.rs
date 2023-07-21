@@ -334,6 +334,13 @@ impl AcornValue {
                     AcornValue::Equals(left, right).maybe_negate(negate)
                 }
             }
+            AcornValue::NotEquals(left, right) => {
+                if left.get_type() == AcornType::Bool {
+                    AcornValue::boolean_comparison(*left, *right, !negate)
+                } else {
+                    AcornValue::NotEquals(left, right).maybe_negate(negate)
+                }
+            }
             _ => self.maybe_negate(negate),
         }
     }
