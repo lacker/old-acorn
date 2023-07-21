@@ -319,6 +319,21 @@ impl Environment {
         Some(&info.value)
     }
 
+    // i is the id of a constant
+    fn get_theorem_value_for_id(&self, i: AtomId) -> Option<&AcornValue> {
+        let name = &self.constant_names[i as usize];
+        if !self.theorem_names.contains(name) {
+            return None;
+        }
+        let info = &self.constants[name];
+        if let AcornValue::Atom(typed_atom) = &info.value {
+            if typed_atom.atom == Atom::Constant(i) {
+                panic!("a theorem has no definition");
+            }
+        }
+        Some(&info.value)
+    }
+
     pub fn get_defined_value(&self, name: &str) -> Option<&AcornValue> {
         let i = self.constant_names.iter().position(|n| n == name)?;
         self.get_defined_value_for_id(i as AtomId)
@@ -333,6 +348,11 @@ impl Environment {
     // Replaces each defined constant with its definition, recursively.
     fn expand_constants(&self, value: &AcornValue) -> AcornValue {
         value.replace_constants(0, &|i| self.get_defined_value_for_id(i))
+    }
+
+    // Replaces each theorem with its definition.
+    fn expand_theorems(&self, value: &AcornValue) -> AcornValue {
+        value.replace_constants(0, &|i| self.get_theorem_value_for_id(i))
     }
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {
@@ -1093,7 +1113,7 @@ impl Environment {
         let mut it = path.iter().peekable();
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
-                facts.push(env.expand_constants(&previous_prop.claim));
+                facts.push(env.expand_theorems(&previous_prop.claim));
             }
             let prop = &env.propositions[*i];
             if let Some(block) = &prop.block {
@@ -1101,13 +1121,13 @@ impl Environment {
                     // This is the last element of the path. It has a block, so we can use the
                     // contents of the block to help prove it.
                     for p in &block.env.propositions {
-                        facts.push(block.env.expand_constants(&p.claim));
+                        facts.push(block.env.expand_theorems(&p.claim));
                     }
                     return GoalContext {
                         env: &block.env,
                         facts,
                         name: env.get_proposition_name(&prop),
-                        goal: block.env.expand_constants(&block.claim),
+                        goal: block.env.expand_theorems(&block.claim),
                     };
                 }
                 env = &block.env;
@@ -1119,7 +1139,7 @@ impl Environment {
                     env: &env,
                     facts,
                     name: env.get_proposition_name(&prop),
-                    goal: env.expand_constants(&prop.claim),
+                    goal: env.expand_theorems(&prop.claim),
                 };
             }
         }

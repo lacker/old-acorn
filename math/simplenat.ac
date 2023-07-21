@@ -17,10 +17,6 @@ theorem add_zero_left(a: Nat): add(0, a) = a
 
 theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))
 
-theorem suc_ne(a: Nat): Suc(a) != a
-
-theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a
-
 theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
 
 theorem add_assoc(aa: Nat, bb: Nat, cc: Nat): add(add(aa, bb), cc) = add(aa, add(bb, cc)) {
