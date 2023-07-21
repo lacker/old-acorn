@@ -18,8 +18,7 @@ impl FunctionApplication {
     }
 
     fn fmt_helper(&self, f: &mut fmt::Formatter, stack_size: usize) -> fmt::Result {
-        self.function.fmt_helper(f, stack_size)?;
-        write!(f, "(")?;
+        write!(f, "{}(", Subvalue::new(&self.function, stack_size))?;
         fmt_values(&self.args, f, stack_size)?;
         write!(f, ")")
     }
