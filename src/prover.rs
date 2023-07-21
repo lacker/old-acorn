@@ -378,6 +378,10 @@ impl Prover<'_> {
 
     pub fn prove(env: &Environment, theorem_name: &str) -> Outcome {
         let goal_context = env.get_theorem_context(theorem_name);
+        Prover::prove_goal(&goal_context)
+    }
+
+    pub fn prove_goal(goal_context: &GoalContext) -> Outcome {
         let mut prover = Prover::load_goal(&goal_context);
         prover.search_for_contradiction(2000, 2.0)
     }
@@ -570,6 +574,30 @@ mod tests {
             "#,
         );
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_proof_inside_block() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Thing: axiom
+            define t: Thing = axiom
+            theorem reflexivity(x: Thing): x = x {
+                reflexivity(t)
+            }
+            "#,
+        );
+
+        // Prove the reflexivity(t) statement
+        let goal_paths = env.goal_paths();
+        // Find the first vector with length over 1
+        let first_nested = goal_paths
+            .iter()
+            .find(|path| path.len() > 1)
+            .expect("no nested goals");
+        let goal_context = env.get_goal_context(first_nested);
+        assert_eq!(Prover::prove_goal(&goal_context), Outcome::Success);
     }
 
     fn nat_ac_env() -> Environment {

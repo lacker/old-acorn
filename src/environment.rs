@@ -1064,6 +1064,7 @@ impl Environment {
         }
     }
 
+    // Will return a context for a subenvironment if this theorem has a block
     pub fn get_theorem_context(&self, theorem_name: &str) -> GoalContext {
         for (i, p) in self.propositions.iter().enumerate() {
             if let Some(name) = &p.display_name {
