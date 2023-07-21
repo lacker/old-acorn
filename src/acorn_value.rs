@@ -83,8 +83,7 @@ impl fmt::Display for Subvalue<'_> {
             AcornValue::And(a, b) => fmt_binary(f, "&", a, b, self.stack_size),
             AcornValue::Or(a, b) => fmt_binary(f, "|", a, b, self.stack_size),
             AcornValue::Not(a) => {
-                write!(f, "!")?;
-                a.fmt_helper(f, self.stack_size)
+                write!(f, "!{}", Subvalue::new(a, self.stack_size))
             }
             AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
@@ -156,14 +155,6 @@ impl fmt::Display for AcornValue {
 }
 
 impl AcornValue {
-    fn fmt_helper(&self, f: &mut fmt::Formatter, stack_size: usize) -> fmt::Result {
-        let subvalue = Subvalue {
-            value: self,
-            stack_size,
-        };
-        write!(f, "{}", subvalue)
-    }
-
     pub fn to_stacked_string(&self, stack_size: usize) -> String {
         format!(
             "{}",
@@ -199,7 +190,7 @@ impl AcornValue {
         }
     }
 
-    pub fn axiom_index(&self) -> Option<AtomId> {
+    pub fn constant_index(&self) -> Option<AtomId> {
         match self {
             AcornValue::Atom(t) => match t.atom {
                 Atom::Constant(i) => Some(i),
