@@ -221,6 +221,53 @@ impl Environment {
         self.types.remove(name);
     }
 
+    // Adds a proposition, or multiple propositions, to represent the definition of the provided
+    // constant.
+    fn add_identity_props(&mut self, name: &str) {
+        // Currently we can only handle adding props for the most recently defined constant
+        let pos = self.constant_names.iter().position(|n| n == name).unwrap();
+        assert_eq!(pos + 1, self.constant_names.len());
+        let id = pos as AtomId;
+        let definition: AcornValue = self.constants[name].value.clone();
+        let constant_type_clone = self.types[name].clone();
+        // let definition: AcornValue = definition_clone.unwrap();
+        // assert_eq!(definition, v);
+        let atom = Box::new(AcornValue::Atom(TypedAtom {
+            atom: Atom::Constant(id),
+            acorn_type: constant_type_clone,
+        }));
+        let claim = if let AcornValue::Lambda(acorn_types, return_value) = definition {
+            let args: Vec<_> = acorn_types
+                .iter()
+                .enumerate()
+                .map(|(i, acorn_type)| {
+                    let atom = Atom::Variable(i as AtomId);
+                    AcornValue::Atom(TypedAtom {
+                        atom,
+                        acorn_type: acorn_type.clone(),
+                    })
+                })
+                .collect();
+            let app = AcornValue::Application(FunctionApplication {
+                function: atom,
+                args,
+            });
+            AcornValue::ForAll(
+                acorn_types,
+                Box::new(AcornValue::Equals(Box::new(app), return_value)),
+            )
+        } else {
+            AcornValue::Equals(atom, Box::new(definition))
+        };
+
+        self.propositions.push(Proposition {
+            display_name: None,
+            proven: true,
+            claim,
+            block: None,
+        });
+    }
+
     // Adds a constant.
     // If add_identity_prop is true, this also adds a proposition that the constant is equal to
     // its definition.
@@ -229,7 +276,6 @@ impl Environment {
         name: &str,
         constant_type: AcornType,
         definition: Option<AcornValue>,
-        add_identity_prop: bool,
     ) {
         if self.types.contains_key(name) {
             panic!("name {} already bound to a type", name);
@@ -239,44 +285,6 @@ impl Environment {
         }
 
         let id = self.constant_names.len() as AtomId;
-
-        if add_identity_prop {
-            let definition = definition.clone().unwrap();
-            let atom = Box::new(AcornValue::Atom(TypedAtom {
-                atom: Atom::Constant(id),
-                acorn_type: constant_type.clone(),
-            }));
-            let claim = if let AcornValue::Lambda(acorn_types, return_value) = definition {
-                let args: Vec<_> = acorn_types
-                    .iter()
-                    .enumerate()
-                    .map(|(i, acorn_type)| {
-                        let atom = Atom::Variable(i as AtomId);
-                        AcornValue::Atom(TypedAtom {
-                            atom,
-                            acorn_type: acorn_type.clone(),
-                        })
-                    })
-                    .collect();
-                let app = AcornValue::Application(FunctionApplication {
-                    function: atom,
-                    args,
-                });
-                AcornValue::ForAll(
-                    acorn_types,
-                    Box::new(AcornValue::Equals(Box::new(app), return_value)),
-                )
-            } else {
-                AcornValue::Equals(atom, Box::new(definition))
-            };
-
-            self.propositions.push(Proposition {
-                display_name: None,
-                proven: true,
-                claim,
-                block: None,
-            });
-        }
 
         let info = ConstantInfo {
             id,
@@ -294,7 +302,7 @@ impl Environment {
     fn move_stack_variable_to_constant(&mut self, name: &str) {
         self.stack.remove(name).unwrap();
         let acorn_type = self.types.remove(name).unwrap();
-        self.add_constant(name, acorn_type, None, false);
+        self.add_constant(name, acorn_type, None);
     }
 
     // This gets the atomic representation of a constant, if this name refers to a constant.
@@ -963,7 +971,8 @@ impl Environment {
                     } else {
                         panic!("TODO: handle definitions without values");
                     };
-                    self.add_constant(&name, acorn_type, Some(acorn_value), true);
+                    self.add_constant(&name, acorn_type, Some(acorn_value));
+                    self.add_identity_props(&name);
                     Ok(())
                 }
                 TokenType::RightArrow => {
@@ -977,7 +986,8 @@ impl Environment {
                         }
                     };
                     let (name, acorn_value) = self.define_function(&ds.declaration, value)?;
-                    self.add_constant(&name, acorn_value.get_type(), Some(acorn_value), true);
+                    self.add_constant(&name, acorn_value.get_type(), Some(acorn_value));
+                    self.add_identity_props(&name);
                     Ok(())
                 }
                 _ => Err(Error::new(
@@ -1014,7 +1024,6 @@ impl Environment {
                                 &ts.name,
                                 functional_value.get_type(),
                                 Some(functional_value.clone()),
-                                false,
                             );
                             let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
                             let block = self.new_block(unbound_claim, &ts.body)?;
