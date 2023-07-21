@@ -993,6 +993,17 @@ impl Environment {
         }
     }
 
+    pub fn get_theorem_context(&self, theorem_name: &str) -> GoalContext {
+        for (i, p) in self.propositions.iter().enumerate() {
+            if let Some(name) = &p.display_name {
+                if name == theorem_name {
+                    return self.get_goal_context(&vec![i]);
+                }
+            }
+        }
+        panic!("no top-level theorem named {}", theorem_name);
+    }
+
     // The "path" to a proposition is a list of indices to recursively go into env.propositions.
     // This returns a path for all non-axiomatic propositions within this environment,
     // or subenvironments, recursively.

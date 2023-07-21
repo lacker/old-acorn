@@ -367,47 +367,6 @@ impl Prover<'_> {
         }
     }
 
-    // Assumes all the propositions ahead of the named theorem are true,
-    // and assumes the named theorem is false for the sake of contradiction.
-    pub fn assume_false(&mut self, theorem_name: &str) {
-        if self.dirty {
-            panic!("assume_false called on a dirty prover");
-        }
-        for theorem in &self.env.propositions {
-            if let Some(name) = &theorem.display_name {
-                if name == theorem_name {
-                    self.add_negated(self.env.expand_constants(&theorem.claim));
-
-                    if self.verbose {
-                        println!("\nprover initial state:");
-                        for clause in self.passive.iter_clauses() {
-                            println!("  {}", self.display(clause));
-                        }
-                        println!();
-                    }
-
-                    return;
-                }
-            }
-
-            self.add_proposition(self.env.expand_constants(&theorem.claim));
-        }
-        panic!("no theorem named {}", theorem_name);
-    }
-
-    pub fn prove_limited(&mut self, theorem_name: &str, size: i32, seconds: f32) -> Outcome {
-        self.assume_false(theorem_name);
-        let answer = self.search_for_contradiction(size, seconds);
-        if self.verbose {
-            println!("conclusion: {:?}\n", answer);
-        }
-        return answer;
-    }
-
-    pub fn prove(&mut self, theorem_name: &str) -> Outcome {
-        self.prove_limited(theorem_name, 1000, 1.0)
-    }
-
     pub fn load_goal<'a>(goal_context: &GoalContext<'a>) -> Prover<'a> {
         let mut prover = Prover::new(&goal_context.env);
         for fact in &goal_context.facts {
@@ -415,6 +374,12 @@ impl Prover<'_> {
         }
         prover.add_negated(goal_context.goal.clone());
         prover
+    }
+
+    pub fn prove(env: &Environment, theorem_name: &str) -> Outcome {
+        let goal_context = env.get_theorem_context(theorem_name);
+        let mut prover = Prover::load_goal(&goal_context);
+        prover.search_for_contradiction(1000, 1.0)
     }
 }
 
@@ -446,8 +411,7 @@ mod tests {
         theorem goal: f(t)
         "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -458,8 +422,7 @@ mod tests {
         theorem goal(x: Thing): f(x)
         "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Failure);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Failure);
     }
 
     #[test]
@@ -470,8 +433,7 @@ mod tests {
         theorem goal: exists(x: Thing, f(x))
         "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -482,8 +444,7 @@ mod tests {
         theorem goal: !f(t)
         "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -494,8 +455,7 @@ mod tests {
             theorem goal: f(t) = f(t2) 
         "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -507,8 +467,7 @@ mod tests {
         theorem goal: f(g(t, t))
         "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -520,8 +479,7 @@ mod tests {
         theorem goal: f(g(t, t2))
         "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Failure);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Failure);
     }
 
     #[test]
@@ -533,8 +491,7 @@ mod tests {
             theorem goal: !f(g(t, t))
         "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -545,8 +502,7 @@ mod tests {
         theorem goal: t != t2
         "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -557,8 +513,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -569,8 +524,7 @@ mod tests {
             theorem goal(x: Thing): x = t2
             "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -582,8 +536,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Failure);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Failure);
     }
 
     #[test]
@@ -594,8 +547,7 @@ mod tests {
             theorem goal: f(t2)
             "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Failure);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Failure);
     }
 
     #[test]
@@ -606,8 +558,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -618,8 +569,7 @@ mod tests {
             theorem goal(x: Thing): x = t
             "#,
         );
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     fn nat_ac_env() -> Environment {
@@ -631,66 +581,48 @@ mod tests {
     #[test]
     fn test_proving_add_zero_right() {
         let env = nat_ac_env();
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("add_zero_right"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "add_zero_right"), Outcome::Success);
     }
 
     #[test]
     fn test_proving_one_plus_one() {
         let env = nat_ac_env();
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("one_plus_one"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "one_plus_one"), Outcome::Success);
     }
 
     #[test]
     fn test_proving_add_zero_left() {
         let env = nat_ac_env();
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("add_zero_left"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "add_zero_left"), Outcome::Success);
     }
 
     #[test]
     fn test_proving_add_suc_right() {
         let env = nat_ac_env();
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("add_suc_right"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "add_suc_right"), Outcome::Success);
     }
 
     #[test]
     fn test_proving_add_suc_left() {
         let env = nat_ac_env();
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("add_suc_left"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "add_suc_left"), Outcome::Success);
     }
 
     #[test]
     fn test_suc_ne() {
         let env = nat_ac_env();
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("suc_ne"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "suc_ne"), Outcome::Success);
     }
 
     #[test]
     fn test_suc_suc_ne() {
         let env = nat_ac_env();
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("suc_suc_ne"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "suc_suc_ne"), Outcome::Success);
     }
 
     #[test]
     fn test_add_comm() {
         let env = nat_ac_env();
-        let mut prover = Prover::new(&env);
-        assert_eq!(prover.prove("add_comm"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "add_comm"), Outcome::Success);
     }
-
-    // #[test]
-    // fn test_add_assoc() {
-    //     let env = nat_ac_env();
-    //     let mut prover = Prover::new(&env);
-    //     assert_eq!(
-    //         prover.prove_limited("add_assoc", 10000, 30.0),
-    //         Outcome::Success
-    //     );
-    // }
 }

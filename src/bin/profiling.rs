@@ -10,9 +10,9 @@ fn main() {
     let theorem_name = "add_suc_left";
     let mut env = Environment::new();
     env.load_file(&input_file).unwrap();
-    let mut prover = Prover::new(&env);
-    prover.verbose = false;
-    let result = prover.prove_limited(theorem_name, 1000000, 30.0);
+    let goal_context = env.get_theorem_context(theorem_name);
+    let mut prover = Prover::load_goal(&goal_context);
+    let result = prover.search_for_contradiction(1000000, 30.0);
     println!("result: {:?}", result);
     prover.print_stats();
 }
