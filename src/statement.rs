@@ -376,6 +376,15 @@ mod tests {
     }
 
     #[test]
+    fn test_forall_statements() {
+        ok(indoc! {"
+            forall(x: Nat) {
+                f(x) -> f(Suc(x))
+            }
+        "});
+    }
+
+    #[test]
     fn test_nat_ac_statements() {
         ok("type Nat: axiom");
         ok("define 0: Nat = axiom");
