@@ -44,12 +44,11 @@ pub struct TheoremStatement<'a> {
     pub body: Vec<Statement<'a>>,
 }
 
-// Prop statements are an expression, with an optional block.
+// Prop statements are a boolean expression.
 // We're implicitly asserting that it is true and provable.
-// It's like an unnamed theorem.
+// It's like an anonymous theorem.
 pub struct PropStatement<'a> {
     pub claim: Expression<'a>,
-    pub body: Vec<Statement<'a>>,
 }
 
 // Type statements associate a name with a type expression
@@ -245,9 +244,6 @@ impl Statement<'_> {
 
             Statement::Prop(ps) => {
                 write!(f, "{}", ps.claim)?;
-                if ps.body.len() > 0 {
-                    write_block(f, &ps.body, indent)?;
-                }
                 Ok(())
             }
 
@@ -309,15 +305,10 @@ impl Statement<'_> {
                         return Ok(Some(Statement::EndBlock));
                     }
                     _ => {
-                        let (claim, terminator) = Expression::parse(tokens, true, |t| {
-                            t == TokenType::NewLine || t == TokenType::LeftBrace
-                        })?;
-                        let body = if terminator.token_type == TokenType::LeftBrace {
-                            parse_block(tokens)?
-                        } else {
-                            Vec::new()
-                        };
-                        return Ok(Some(Statement::Prop(PropStatement { claim, body })));
+                        let (claim, _) =
+                            Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
+
+                        return Ok(Some(Statement::Prop(PropStatement { claim })));
                     }
                 }
             } else {
@@ -417,7 +408,7 @@ mod tests {
             theorem foo: bar {
                 baz
             }"});
-        ok(indoc! {"
+        fail(indoc! {"
             foo {
                 bar
             }"});

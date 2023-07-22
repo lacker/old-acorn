@@ -1056,12 +1056,11 @@ impl Environment {
             }
             Statement::Prop(ps) => {
                 let claim = self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
-                let block = self.new_block(claim.clone(), &ps.body, None)?;
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
                     claim,
-                    block,
+                    block: None,
                 };
                 self.propositions.push(prop);
                 Ok(())
