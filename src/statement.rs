@@ -57,6 +57,12 @@ pub struct TypeStatement<'a> {
     pub type_expr: Expression<'a>,
 }
 
+// ForAll statements create a new block in which new variables are introduced.
+pub struct ForAllStatement<'a> {
+    pub quantifiers: Vec<Expression<'a>>,
+    pub body: Vec<Statement<'a>>,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Some have their own struct. For the others:
 //
