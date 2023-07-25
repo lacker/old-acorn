@@ -1104,6 +1104,9 @@ impl Environment {
                 self.unbind_args(quant_names);
                 Ok(())
             }
+            Statement::If(_is) => {
+                todo!("handle the if statement");
+            }
             Statement::EndBlock => {
                 panic!("unexpected endblock");
             }

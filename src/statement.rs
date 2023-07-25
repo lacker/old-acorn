@@ -66,6 +66,12 @@ pub struct ForAllStatement<'a> {
     pub token: Token<'a>,
 }
 
+// If statements create a new block that introduces no variables but has an implicit condition.
+pub struct IfStatement<'a> {
+    pub condition: Expression<'a>,
+    pub body: Vec<Statement<'a>>,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Some have their own struct. For the others:
 //
@@ -82,6 +88,7 @@ pub enum Statement<'a> {
     Prop(PropStatement<'a>),
     Type(TypeStatement<'a>),
     ForAll(ForAllStatement<'a>),
+    If(IfStatement<'a>),
     EndBlock,
 }
 
@@ -287,6 +294,11 @@ impl Statement<'_> {
                 write!(f, "forall")?;
                 write_args(f, &fas.quantifiers)?;
                 write_block(f, &fas.body, indent)
+            }
+
+            Statement::If(is) => {
+                write!(f, "if {}", is.condition)?;
+                write_block(f, &is.body, indent)
             }
 
             Statement::EndBlock => {
