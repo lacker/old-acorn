@@ -1076,11 +1076,22 @@ impl Environment {
 
     // Adds a possibly multi-line statement to the environment
     pub fn add(&mut self, input: &str) {
-        let tokens = Token::scan(input).unwrap();
+        let tokens = match Token::scan(input) {
+            Ok(tokens) => tokens,
+            Err(e) => {
+                panic!("error scanning tokens: {}", e);
+            }
+        };
         let mut tokens = tokens.into_iter().peekable();
-        while let Some(statement) = Statement::parse(&mut tokens).unwrap() {
-            if let Err(e) = self.add_statement(&statement) {
-                panic!("\nerror adding statement:\n{}\n{}", statement, e);
+        loop {
+            match Statement::parse(&mut tokens) {
+                Ok(Some(statement)) => {
+                    if let Err(e) = self.add_statement(&statement) {
+                        panic!("\nerror adding statement:\n{}\n{}", statement, e);
+                    }
+                }
+                Ok(None) => break,
+                Err(e) => panic!("error parsing statement: {}", e),
             }
         }
     }

@@ -134,12 +134,12 @@ where
     }
     // Parse an arguments list
     loop {
-        let (exp, terminator) = Expression::parse(tokens, false, |t| {
+        let (exp, t) = Expression::parse(tokens, false, |t| {
             t == TokenType::Comma || t == TokenType::RightParen
         })?;
         args.push(exp);
-        if terminator.token_type == TokenType::RightParen {
-            Token::expect_type(tokens, TokenType::Colon)?;
+        if t.token_type == TokenType::RightParen {
+            Token::expect_type(tokens, terminator)?;
             break;
         }
     }
@@ -334,10 +334,10 @@ impl Statement<'_> {
                         Token::expect_type(tokens, TokenType::NewLine)?;
                         return Ok(Some(Statement::EndBlock));
                     }
-                    // TokenType::ForAll => {
-                    //     tokens.next();
-                    //     return Ok(Some(Statement::ForAll(parse_forall_statement(tokens)?)));
-                    // }
+                    TokenType::ForAll => {
+                        tokens.next();
+                        return Ok(Some(Statement::ForAll(parse_forall_statement(tokens)?)));
+                    }
                     _ => {
                         let (claim, _) =
                             Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
@@ -417,8 +417,7 @@ mod tests {
         ok(indoc! {"
             forall(x: Nat) {
                 f(x) -> f(Suc(x))
-            }
-        "});
+            }"});
     }
 
     #[test]
