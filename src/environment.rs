@@ -1526,4 +1526,17 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             "#,
         );
     }
+
+    #[test]
+    fn test_forall_subenv() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            forall(x: Nat) {
+                x = x
+            }
+            "#,
+        );
+    }
 }
