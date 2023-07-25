@@ -1167,11 +1167,14 @@ impl Environment {
             };
             if let Some(block) = &prop.block {
                 let mut subpaths = block.env.prepend_goal_paths(&path);
+                paths.append(&mut subpaths);
                 if block.claim.is_some() {
-                    paths.append(&mut subpaths);
+                    // This block has a claim that also needs to be proved
+                    paths.push(path);
                 }
+            } else {
+                paths.push(path);
             }
-            paths.push(path);
         }
         paths
     }
@@ -1194,11 +1197,16 @@ impl Environment {
                     for p in &block.env.propositions {
                         facts.push(block.env.expand_theorems(&p.claim));
                     }
+                    let claim = if let Some(claim) = &block.claim {
+                        claim
+                    } else {
+                        panic!("expected a claim at path {:?}", path);
+                    };
                     return GoalContext {
                         env: &block.env,
                         facts,
                         name: env.get_proposition_name(&prop),
-                        goal: block.env.expand_theorems(block.claim.as_ref().unwrap()),
+                        goal: block.env.expand_theorems(claim),
                     };
                 }
                 env = &block.env;
