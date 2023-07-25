@@ -78,6 +78,7 @@ pub enum Statement<'a> {
     Theorem(TheoremStatement<'a>),
     Prop(PropStatement<'a>),
     Type(TypeStatement<'a>),
+    ForAll(ForAllStatement<'a>),
     EndBlock,
 }
 
@@ -118,6 +119,33 @@ where
     Ok(body)
 }
 
+// Parse a parenthesized list of arguments, after which we expect the given terminator token.
+fn parse_args<'a, I>(tokens: &mut Peekable<I>, terminator: TokenType) -> Result<Vec<Expression<'a>>>
+where
+    I: Iterator<Item = Token<'a>>,
+{
+    let mut args = Vec::new();
+    let token = Token::expect_token(tokens)?;
+    if token.token_type == terminator {
+        return Ok(args);
+    }
+    if token.token_type != TokenType::LeftParen {
+        return Err(Error::new(&token, "expected an argument list"));
+    }
+    // Parse an arguments list
+    loop {
+        let (exp, terminator) = Expression::parse(tokens, false, |t| {
+            t == TokenType::Comma || t == TokenType::RightParen
+        })?;
+        args.push(exp);
+        if terminator.token_type == TokenType::RightParen {
+            Token::expect_type(tokens, TokenType::Colon)?;
+            break;
+        }
+    }
+    Ok(args)
+}
+
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been consumed.
 // "axiomatic" is whether this is an axiom.
 fn parse_theorem_statement<'a, I>(
@@ -129,33 +157,7 @@ where
 {
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text;
-    let mut args = Vec::new();
-    let token = Token::expect_token(tokens)?;
-    match token.token_type {
-        TokenType::LeftParen => {
-            // Parse an arguments list
-            loop {
-                let (exp, terminator) = Expression::parse(tokens, false, |t| {
-                    t == TokenType::Comma || t == TokenType::RightParen
-                })?;
-                args.push(exp);
-                if terminator.token_type == TokenType::RightParen {
-                    Token::expect_type(tokens, TokenType::Colon)?;
-                    break;
-                }
-            }
-        }
-        TokenType::Colon => {}
-        _ => {
-            return Err(Error::new(
-                &token,
-                &format!(
-                    "unexpected token after {} keyword",
-                    if axiomatic { "axiom" } else { "theorem" }
-                ),
-            ))
-        }
-    }
+    let args = parse_args(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
     let (claim, terminator) = Expression::parse(tokens, true, |t| {
         t == TokenType::NewLine || t == TokenType::LeftBrace
@@ -216,6 +218,31 @@ where
     Ok(TypeStatement { name, type_expr })
 }
 
+// Parses a forall statement where the "forall" keyword has already been consumed.
+fn parse_forall_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<ForAllStatement<'a>>
+where
+    I: Iterator<Item = Token<'a>>,
+{
+    let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
+    let body = parse_block(tokens)?;
+    Ok(ForAllStatement { quantifiers, body })
+}
+
+fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {
+    if args.len() == 0 {
+        return Ok(());
+    }
+    write!(f, "(")?;
+    for (i, arg) in args.iter().enumerate() {
+        if i > 0 {
+            write!(f, ", ")?;
+        }
+        write!(f, "{}", arg)?;
+    }
+    write!(f, ")")?;
+    Ok(())
+}
+
 impl Statement<'_> {
     fn fmt_helper(&self, f: &mut fmt::Formatter<'_>, indent: u8) -> fmt::Result {
         for _ in 0..indent {
@@ -231,16 +258,7 @@ impl Statement<'_> {
                     write!(f, "theorem")?;
                 }
                 write!(f, " {}", ts.name)?;
-                if ts.args.len() > 0 {
-                    write!(f, "(")?;
-                    for (i, arg) in ts.args.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ", ")?;
-                        }
-                        write!(f, "{}", arg)?;
-                    }
-                    write!(f, ")")?;
-                }
+                write_args(f, &ts.args)?;
                 write!(f, ": {}", ts.claim)?;
                 if ts.body.len() > 0 {
                     write_block(f, &ts.body, indent)?;
@@ -255,6 +273,12 @@ impl Statement<'_> {
 
             Statement::Type(ts) => {
                 write!(f, "type {}: {}", ts.name, ts.type_expr)
+            }
+
+            Statement::ForAll(fas) => {
+                write!(f, "forall")?;
+                write_args(f, &fas.quantifiers)?;
+                write_block(f, &fas.body, indent)
             }
 
             Statement::EndBlock => {
@@ -310,6 +334,10 @@ impl Statement<'_> {
                         Token::expect_type(tokens, TokenType::NewLine)?;
                         return Ok(Some(Statement::EndBlock));
                     }
+                    // TokenType::ForAll => {
+                    //     tokens.next();
+                    //     return Ok(Some(Statement::ForAll(parse_forall_statement(tokens)?)));
+                    // }
                     _ => {
                         let (claim, _) =
                             Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;

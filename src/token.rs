@@ -194,6 +194,17 @@ impl Error {
             index: token.index,
         })
     }
+
+    pub fn from_iter<'a, I>(tokens: &mut Peekable<I>, message: &str) -> Self
+    where
+        I: Iterator<Item = Token<'a>>,
+    {
+        if let Some(token) = tokens.peek() {
+            Error::new(token, message)
+        } else {
+            Error::EOF
+        }
+    }
 }
 
 pub type Result<'a, T> = std::result::Result<T, Error>;

@@ -1065,6 +1065,9 @@ impl Environment {
                 self.propositions.push(prop);
                 Ok(())
             }
+            Statement::ForAll(_) => {
+                todo!("handle forall statements in the environment");
+            }
             Statement::EndBlock => {
                 panic!("unexpected endblock");
             }
