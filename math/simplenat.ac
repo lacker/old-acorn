@@ -22,7 +22,9 @@ theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
 theorem add_assoc(aa: Nat, bb: Nat, cc: Nat): add(add(aa, bb), cc) = add(aa, add(bb, cc)) {
     let f(x: Nat) -> bool = add_assoc(x, bb, cc) 
     induction(f)
-    forall(x: Nat, f(x) -> f(Suc(x)))
+    forall(x: Nat) {
+        f(x) -> f(Suc(x))
+    }
     f(0)
     f(aa)
 }
