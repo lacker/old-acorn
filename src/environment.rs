@@ -147,6 +147,7 @@ impl Environment {
         unbound_claim: Option<AcornValue>,
         body: &Vec<Statement>,
         theorem_name: Option<&str>,
+        extra_fact: Option<&AcornValue>,
     ) -> Result<Option<Block>> {
         if body.is_empty() {
             return Ok(None);
@@ -161,6 +162,14 @@ impl Environment {
             propositions: Vec::new(),
             theorem_names: self.theorem_names.clone(),
         };
+        if let Some(fact) = extra_fact {
+            subenv.propositions.push(Proposition {
+                display_name: None,
+                proven: true,
+                claim: fact.clone(),
+                block: None,
+            });
+        }
         if let Some(theorem_name) = theorem_name {
             subenv.add_identity_props(theorem_name);
         }
@@ -1015,44 +1024,44 @@ impl Environment {
                 let (arg_names, arg_types) = self.bind_args(ts.args.iter().collect())?;
 
                 // Handle the claim
-                let ret_val = match self
-                    .evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))
-                {
-                    Ok(claim_value) => {
-                        // The claim of the theorem is what we need to prove
-                        let claim = if arg_types.is_empty() {
-                            claim_value.clone()
-                        } else {
-                            AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
-                        };
+                let ret_val =
+                    match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
+                        Ok(claim_value) => {
+                            // The claim of the theorem is what we need to prove
+                            let claim = if arg_types.is_empty() {
+                                claim_value.clone()
+                            } else {
+                                AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
+                            };
 
-                        // The functional value of the theorem is the lambda that
-                        // is constantly "true" if the theorem is true
-                        let functional_value = if arg_types.is_empty() {
-                            claim_value
-                        } else {
-                            AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
-                        };
+                            // The functional value of the theorem is the lambda that
+                            // is constantly "true" if the theorem is true
+                            let functional_value = if arg_types.is_empty() {
+                                claim_value
+                            } else {
+                                AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
+                            };
 
-                        self.add_constant(
-                            &ts.name,
-                            functional_value.get_type(),
-                            Some(functional_value.clone()),
-                        );
-                        let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
-                        let block = self.new_block(Some(unbound_claim), &ts.body, Some(ts.name))?;
-                        let prop = Proposition {
-                            display_name: Some(ts.name.to_string()),
-                            proven: ts.axiomatic,
-                            claim,
-                            block,
-                        };
-                        self.propositions.push(prop);
-                        self.theorem_names.insert(ts.name.to_string());
-                        Ok(())
-                    }
-                    Err(e) => Err(e),
-                };
+                            self.add_constant(
+                                &ts.name,
+                                functional_value.get_type(),
+                                Some(functional_value.clone()),
+                            );
+                            let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
+                            let block =
+                                self.new_block(Some(unbound_claim), &ts.body, Some(ts.name), None)?;
+                            let prop = Proposition {
+                                display_name: Some(ts.name.to_string()),
+                                proven: ts.axiomatic,
+                                claim,
+                                block,
+                            };
+                            self.propositions.push(prop);
+                            self.theorem_names.insert(ts.name.to_string());
+                            Ok(())
+                        }
+                        Err(e) => Err(e),
+                    };
 
                 self.unbind_args(arg_names);
 
@@ -1073,7 +1082,7 @@ impl Environment {
                 let (quant_names, quant_types) =
                     self.bind_args(fas.quantifiers.iter().collect())?;
 
-                let block = self.new_block(None, &fas.body, None)?.unwrap();
+                let block = self.new_block(None, &fas.body, None, None)?.unwrap();
 
                 // The last claim in the block is exported to the outside environment.
                 // It may have variables that are bound to the "forall" names, which
@@ -1104,8 +1113,26 @@ impl Environment {
                 self.unbind_args(quant_names);
                 Ok(())
             }
-            Statement::If(_is) => {
-                todo!("handle the if statement");
+            Statement::If(is) => {
+                let condition = self.evaluate_value_expression(&is.condition, None)?;
+                let block = self
+                    .new_block(None, &is.body, None, Some(&condition))?
+                    .unwrap();
+                let last_claim: &AcornValue = match block.env.propositions.last() {
+                    Some(p) => &p.claim,
+                    None => {
+                        return Err(Error::new(&is.token, "expected a claim in this block"));
+                    }
+                };
+                let claim = AcornValue::Implies(Box::new(condition), Box::new(last_claim.clone()));
+                let prop = Proposition {
+                    display_name: None,
+                    proven: false,
+                    claim,
+                    block: Some(block),
+                };
+                self.propositions.push(prop);
+                Ok(())
             }
             Statement::EndBlock => {
                 panic!("unexpected endblock");
