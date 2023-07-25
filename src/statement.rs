@@ -61,6 +61,9 @@ pub struct TypeStatement<'a> {
 pub struct ForAllStatement<'a> {
     pub quantifiers: Vec<Expression<'a>>,
     pub body: Vec<Statement<'a>>,
+
+    // Just for error reporting
+    pub token: Token<'a>,
 }
 
 // Acorn is a statement-based language. There are several types.
@@ -223,9 +226,14 @@ fn parse_forall_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<ForAllState
 where
     I: Iterator<Item = Token<'a>>,
 {
+    let token = *tokens.peek().unwrap();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
-    Ok(ForAllStatement { quantifiers, body })
+    Ok(ForAllStatement {
+        quantifiers,
+        body,
+        token,
+    })
 }
 
 fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {

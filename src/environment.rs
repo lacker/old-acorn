@@ -170,15 +170,15 @@ impl Environment {
         for (name, i) in &self.stack {
             names[*i as usize] = name;
         }
+        for name in &names {
+            subenv.move_stack_variable_to_constant(name);
+        }
         let claim = match unbound_claim {
             None => None,
             Some(unbound_claim) => {
                 if names.is_empty() {
                     Some(unbound_claim)
                 } else {
-                    for name in &names {
-                        subenv.move_stack_variable_to_constant(name);
-                    }
                     let args: Vec<_> = names
                         .iter()
                         .map(|name| subenv.get_constant_atom(name).unwrap())
@@ -368,12 +368,12 @@ impl Environment {
 
     // Replaces each defined constant with its definition, recursively.
     fn expand_constants(&self, value: &AcornValue) -> AcornValue {
-        value.replace_constants(0, &|i| self.get_defined_value_for_id(i))
+        value.replace_constants_with_values(0, &|i| self.get_defined_value_for_id(i))
     }
 
     // Replaces each theorem with its definition.
     fn expand_theorems(&self, value: &AcornValue) -> AcornValue {
-        value.replace_constants(0, &|i| self.get_theorem_value_for_id(i))
+        value.replace_constants_with_values(0, &|i| self.get_theorem_value_for_id(i))
     }
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {
@@ -1073,7 +1073,36 @@ impl Environment {
                 let (quant_names, quant_types) =
                     self.bind_args(fas.quantifiers.iter().collect())?;
 
-                todo!("handle forall statements in the environment");
+                let block = self.new_block(None, &fas.body, None)?.unwrap();
+
+                // The last claim in the block is exported to the outside environment.
+                // It may have variables that are bound to the "forall" names, which
+                // aren't available in the outside environment, so we need to unbind them.
+                let bound_claim: &AcornValue = match block.env.propositions.last() {
+                    Some(p) => &p.claim,
+                    None => {
+                        return Err(Error::new(&fas.token, "expected a claim in this block"));
+                    }
+                };
+                let mut constants: Vec<AtomId> = Vec::new();
+                for name in &quant_names {
+                    if let Some(info) = block.env.constants.get(name) {
+                        constants.push(info.id);
+                    } else {
+                        panic!("name {} not found in block constants", name);
+                    }
+                }
+                let unbound_claim_value = bound_claim.replace_constants_with_variables(&constants);
+                let claim = AcornValue::ForAll(quant_types, Box::new(unbound_claim_value));
+                let prop = Proposition {
+                    display_name: None,
+                    proven: false,
+                    claim,
+                    block: Some(block),
+                };
+                self.propositions.push(prop);
+                self.unbind_args(quant_names);
+                Ok(())
             }
             Statement::EndBlock => {
                 panic!("unexpected endblock");
