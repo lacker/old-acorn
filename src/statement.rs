@@ -70,6 +70,9 @@ pub struct ForAllStatement<'a> {
 pub struct IfStatement<'a> {
     pub condition: Expression<'a>,
     pub body: Vec<Statement<'a>>,
+
+    // Just for error reporting
+    pub token: Token<'a>,
 }
 
 // Acorn is a statement-based language. There are several types.
@@ -243,6 +246,21 @@ where
     })
 }
 
+// Parses an if statement where the "if" keyword has already been consumed.
+fn parse_if_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<IfStatement<'a>>
+where
+    I: Iterator<Item = Token<'a>>,
+{
+    let token = *tokens.peek().unwrap();
+    let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
+    let body = parse_block(tokens)?;
+    Ok(IfStatement {
+        condition,
+        body,
+        token,
+    })
+}
+
 fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {
     if args.len() == 0 {
         return Ok(());
@@ -357,6 +375,10 @@ impl Statement<'_> {
                     TokenType::ForAll => {
                         tokens.next();
                         return Ok(Some(Statement::ForAll(parse_forall_statement(tokens)?)));
+                    }
+                    TokenType::If => {
+                        tokens.next();
+                        return Ok(Some(Statement::If(parse_if_statement(tokens)?)));
                     }
                     _ => {
                         let (claim, _) =
