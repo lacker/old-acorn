@@ -340,7 +340,10 @@ mod tests {
     use indoc::indoc;
 
     fn ok(input: &str) {
-        let statement = Statement::parse_str(input).unwrap();
+        let statement = match Statement::parse_str(input) {
+            Ok(statement) => statement,
+            Err(e) => panic!("failed to parse {}: {}", input, e),
+        };
         assert_eq!(input, statement.to_string());
     }
 
