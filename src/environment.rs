@@ -82,8 +82,9 @@ pub struct Proposition {
 }
 
 pub struct Block {
-    // The claim of this block, relative to the block's environment, rather than the external one.
-    pub claim: AcornValue,
+    // The externally-defined claim of this block, relative to the block's environment.
+    // Some blocks do not have a claim.
+    pub claim: Option<AcornValue>,
 
     // The environment created inside the block.
     pub env: Environment,
@@ -143,7 +144,7 @@ impl Environment {
     // should improve this when we need to.
     fn new_block(
         &self,
-        unbound_claim: AcornValue,
+        unbound_claim: Option<AcornValue>,
         body: &Vec<Statement>,
         theorem_name: Option<&str>,
     ) -> Result<Option<Block>> {
@@ -169,26 +170,28 @@ impl Environment {
         for (name, i) in &self.stack {
             names[*i as usize] = name;
         }
-        let bound_claim = if names.is_empty() {
-            unbound_claim
-        } else {
-            for name in &names {
-                subenv.move_stack_variable_to_constant(name);
+        let claim = match unbound_claim {
+            None => None,
+            Some(unbound_claim) => {
+                if names.is_empty() {
+                    Some(unbound_claim)
+                } else {
+                    for name in &names {
+                        subenv.move_stack_variable_to_constant(name);
+                    }
+                    let args: Vec<_> = names
+                        .iter()
+                        .map(|name| subenv.get_constant_atom(name).unwrap())
+                        .collect();
+                    Some(AcornValue::apply(unbound_claim, args))
+                }
             }
-            let args: Vec<_> = names
-                .iter()
-                .map(|name| subenv.get_constant_atom(name).unwrap())
-                .collect();
-            AcornValue::apply(unbound_claim, args)
         };
 
         for s in body {
             subenv.add_statement(s)?;
         }
-        Ok(Some(Block {
-            env: subenv,
-            claim: bound_claim,
-        }))
+        Ok(Some(Block { env: subenv, claim }))
     }
 
     pub fn load_file(&mut self, filename: &str) -> io::Result<()> {
@@ -1012,43 +1015,44 @@ impl Environment {
                 let (arg_names, arg_types) = self.bind_args(ts.args.iter().collect())?;
 
                 // Handle the claim
-                let ret_val =
-                    match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
-                        Ok(claim_value) => {
-                            // The claim of the theorem is what we need to prove
-                            let claim = if arg_types.is_empty() {
-                                claim_value.clone()
-                            } else {
-                                AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
-                            };
+                let ret_val = match self
+                    .evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))
+                {
+                    Ok(claim_value) => {
+                        // The claim of the theorem is what we need to prove
+                        let claim = if arg_types.is_empty() {
+                            claim_value.clone()
+                        } else {
+                            AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
+                        };
 
-                            // The functional value of the theorem is the lambda that
-                            // is constantly "true" if the theorem is true
-                            let functional_value = if arg_types.is_empty() {
-                                claim_value
-                            } else {
-                                AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
-                            };
+                        // The functional value of the theorem is the lambda that
+                        // is constantly "true" if the theorem is true
+                        let functional_value = if arg_types.is_empty() {
+                            claim_value
+                        } else {
+                            AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
+                        };
 
-                            self.add_constant(
-                                &ts.name,
-                                functional_value.get_type(),
-                                Some(functional_value.clone()),
-                            );
-                            let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
-                            let block = self.new_block(unbound_claim, &ts.body, Some(ts.name))?;
-                            let prop = Proposition {
-                                display_name: Some(ts.name.to_string()),
-                                proven: ts.axiomatic,
-                                claim,
-                                block,
-                            };
-                            self.propositions.push(prop);
-                            self.theorem_names.insert(ts.name.to_string());
-                            Ok(())
-                        }
-                        Err(e) => Err(e),
-                    };
+                        self.add_constant(
+                            &ts.name,
+                            functional_value.get_type(),
+                            Some(functional_value.clone()),
+                        );
+                        let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
+                        let block = self.new_block(Some(unbound_claim), &ts.body, Some(ts.name))?;
+                        let prop = Proposition {
+                            display_name: Some(ts.name.to_string()),
+                            proven: ts.axiomatic,
+                            claim,
+                            block,
+                        };
+                        self.propositions.push(prop);
+                        self.theorem_names.insert(ts.name.to_string());
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
 
                 self.unbind_args(arg_names);
 
@@ -1065,7 +1069,10 @@ impl Environment {
                 self.propositions.push(prop);
                 Ok(())
             }
-            Statement::ForAll(_) => {
+            Statement::ForAll(fas) => {
+                let (quant_names, quant_types) =
+                    self.bind_args(fas.quantifiers.iter().collect())?;
+
                 todo!("handle forall statements in the environment");
             }
             Statement::EndBlock => {
@@ -1131,7 +1138,9 @@ impl Environment {
             };
             if let Some(block) = &prop.block {
                 let mut subpaths = block.env.prepend_goal_paths(&path);
-                paths.append(&mut subpaths);
+                if block.claim.is_some() {
+                    paths.append(&mut subpaths);
+                }
             }
             paths.push(path);
         }
@@ -1160,7 +1169,7 @@ impl Environment {
                         env: &block.env,
                         facts,
                         name: env.get_proposition_name(&prop),
-                        goal: block.env.expand_theorems(&block.claim),
+                        goal: block.env.expand_theorems(block.claim.as_ref().unwrap()),
                     };
                 }
                 env = &block.env;
