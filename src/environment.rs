@@ -648,8 +648,8 @@ impl Environment {
                 "unexpected function application in type expression",
             )),
             Expression::Grouping(e) => self.evaluate_partial_type_expression(e),
-            Expression::Block(token, _) => {
-                Err(Error::new(token, "unexpected block in type expression"))
+            Expression::Macro(token, _, _) => {
+                Err(Error::new(token, "unexpected macro in type expression"))
             }
         }
     }
@@ -861,8 +861,8 @@ impl Environment {
                 }))
             }
             Expression::Grouping(e) => self.evaluate_value_expression(e, expected_type),
-            Expression::Block(token, _) => {
-                Err(Error::new(token, "unexpected block in value expression"))
+            Expression::Macro(token, _, _) => {
+                Err(Error::new(token, "unexpected macro in value expression"))
             }
         }
     }
@@ -1475,12 +1475,12 @@ mod tests {
         assert_ne!(env.get_expanded_value("x"), env.get_expanded_value("y"));
     }
 
-    // #[test]
-    // fn test_forall_value() {
-    //     let mut env = Environment::new();
-    //     env.add("define p: bool = forall(x: bool) { x | !x }");
-    //     env.valuecheck("p", "forall(x0: bool, (x0 | !x0))");
-    // }
+    #[test]
+    fn test_forall_value() {
+        let mut env = Environment::new();
+        env.add("define p: bool = forall(x: bool) { x | !x }");
+        env.valuecheck("p", "forall(x0: bool, (x0 | !x0))");
+    }
 
     #[test]
     fn test_nat_ac_piecewise() {

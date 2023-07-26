@@ -11,9 +11,10 @@ use crate::token::{Error, Result, Token, TokenType};
 // And declaration expressions, like
 //   p: bool
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
-// "Apply" is the application of a function, a macro, or a partial macro that still needs a block.
+// "Apply" is the application of a function. The second expression must be an arg list.
 // "Grouping" is another expression enclosed in parentheses.
-// "Block" is another expression enclosed in braces. Just one, for now.
+// "Block" is another expression enclosed in braces. Just one for now.
+// "Macro" is the application of a macro. The second expression must be an arg list.
 #[derive(Debug)]
 pub enum Expression<'a> {
     Identifier(Token<'a>),
@@ -21,7 +22,7 @@ pub enum Expression<'a> {
     Binary(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
     Apply(Box<Expression<'a>>, Box<Expression<'a>>),
     Grouping(Box<Expression<'a>>),
-    Block(Token<'a>, Box<Expression<'a>>),
+    Macro(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
 }
 
 impl fmt::Display for Expression<'_> {
@@ -45,8 +46,8 @@ impl fmt::Display for Expression<'_> {
             Expression::Grouping(e) => {
                 write!(f, "({})", e)
             }
-            Expression::Block(_, e) => {
-                write!(f, " {{ {} }}", e)
+            Expression::Macro(token, args, sub) => {
+                write!(f, "{}{} {{ {} }}", token, args, sub)
             }
         }
     }
@@ -60,7 +61,7 @@ impl Expression<'_> {
             Expression::Binary(token, _, _) => token,
             Expression::Apply(left, _) => left.token(),
             Expression::Grouping(e) => e.token(),
-            Expression::Block(token, _) => token,
+            Expression::Macro(token, _, _) => token,
         }
     }
 
@@ -107,6 +108,7 @@ enum PartialExpression<'a> {
     Expression(Expression<'a>),
     Unary(Token<'a>),
     Binary(Token<'a>),
+    Block(Token<'a>, Expression<'a>),
 }
 
 impl fmt::Display for PartialExpression<'_> {
@@ -115,6 +117,7 @@ impl fmt::Display for PartialExpression<'_> {
             PartialExpression::Expression(e) => write!(f, "{}", e),
             PartialExpression::Unary(token) => write!(f, "{}", token),
             PartialExpression::Binary(token) => write!(f, "{}", token),
+            PartialExpression::Block(_, e) => write!(f, "{{ {} }}", e),
         }
     }
 }
@@ -125,6 +128,14 @@ impl PartialExpression<'_> {
             PartialExpression::Expression(e) => e.token(),
             PartialExpression::Unary(token) => token,
             PartialExpression::Binary(token) => token,
+            PartialExpression::Block(token, _) => token,
+        }
+    }
+
+    fn is_block(&self) -> bool {
+        match self {
+            PartialExpression::Block(_, _) => true,
+            _ => false,
         }
     }
 }
@@ -166,10 +177,9 @@ fn parse_partial_expressions<'a>(
                     .push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
             TokenType::LeftBrace => {
-                let (subexpression, _) =
+                let (subexp, _) =
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
-                let block = Expression::Block(token, Box::new(subexpression));
-                partial_expressions.push_back(PartialExpression::Expression(block));
+                partial_expressions.push_back(PartialExpression::Block(token, subexp));
             }
             token_type if token_type.is_binary() => {
                 partial_expressions.push_back(PartialExpression::Binary(token));
@@ -211,7 +221,7 @@ fn combine_partial_expressions<'a>(
         .iter()
         .enumerate()
         .filter_map(|(i, partial)| match partial {
-            PartialExpression::Expression(_) => None,
+            PartialExpression::Expression(_) | PartialExpression::Block(_, _) => None,
             PartialExpression::Unary(token) => {
                 // Only a unary operator at the beginning of the expression can operate last
                 if i == 0 {
@@ -226,8 +236,42 @@ fn combine_partial_expressions<'a>(
     {
         Some((neg_precedence, index)) => (neg_precedence, index),
         None => {
-            // There are no operators in partials. This must be a sequence of function applications.
             let first_partial = partials.pop_front().unwrap();
+
+            // Check if this is a macro.
+            // TODO(step3): remove this line to disable old-format macros
+            if partials.len() == 2 && partials[1].is_block() {
+                if let PartialExpression::Expression(Expression::Identifier(token)) = first_partial
+                {
+                    if token.token_type.is_macro() {
+                        if partials.len() != 2 {
+                            return Err(Error::new(
+                                &token,
+                                "macro must have arguments and a block",
+                            ));
+                        }
+                        let expect_args = partials.pop_front().unwrap();
+                        if let PartialExpression::Expression(args) = expect_args {
+                            let expect_block = partials.pop_back().unwrap();
+                            if let PartialExpression::Block(_, block) = expect_block {
+                                return Ok(Expression::Macro(
+                                    token,
+                                    Box::new(args),
+                                    Box::new(block),
+                                ));
+                            } else {
+                                return Err(Error::new(
+                                    expect_block.token(),
+                                    "expected a macro block",
+                                ));
+                            }
+                        }
+                        return Err(Error::new(expect_args.token(), "expected macro arguments"));
+                    }
+                }
+            }
+
+            // Otherwise, this must be a sequence of function applications.
             let mut answer = match first_partial {
                 PartialExpression::Expression(e) => e,
                 _ => return Err(Error::new(first_partial.token(), "expected an expression")),
@@ -235,12 +279,10 @@ fn combine_partial_expressions<'a>(
             for partial in partials.into_iter() {
                 if let PartialExpression::Expression(expr) = partial {
                     match expr {
-                        Expression::Grouping(_) | Expression::Block(_, _) => {
+                        Expression::Grouping(_) => {
                             answer = Expression::Apply(Box::new(answer), Box::new(expr))
                         }
-                        _ => {
-                            return Err(Error::new(expr.token(), "expected a grouping or a block"))
-                        }
+                        _ => return Err(Error::new(expr.token(), "expected a grouping")),
                     }
                 } else {
                     return Err(Error::new(partial.token(), "unexpected operator"));

@@ -117,6 +117,14 @@ impl TokenType {
             _ => true,
         }
     }
+
+    pub fn is_macro(&self) -> bool {
+        match self {
+            TokenType::ForAll => true,
+            TokenType::Exists => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
