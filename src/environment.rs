@@ -845,6 +845,7 @@ impl Environment {
                     Ok(value) => match token.token_type {
                         TokenType::ForAll => Ok(AcornValue::ForAll(arg_types, Box::new(value))),
                         TokenType::Exists => Ok(AcornValue::Exists(arg_types, Box::new(value))),
+                        TokenType::Function => Ok(AcornValue::Lambda(arg_types, Box::new(value))),
                         _ => Err(Error::new(token, "expected a macro identifier token")),
                     },
                     Err(e) => Err(e),
@@ -1468,6 +1469,16 @@ mod tests {
         let mut env = Environment::new();
         env.add("define p: bool = forall(x: bool) { x | !x }");
         env.valuecheck("p", "forall(x0: bool) { (x0 | !x0) }");
+    }
+
+    #[test]
+    fn test_inline_function_value() {
+        let mut env = Environment::new();
+        env.add("define ander(a: bool) -> (bool -> bool) = function(b: bool) { a & b }");
+        env.valuecheck(
+            "ander",
+            "lambda(x0: bool) { lambda(x1: bool) { (x0 & x1) } }",
+        );
     }
 
     #[test]
