@@ -9,6 +9,7 @@ pub struct FunctionType {
 // An argument list isn't really a type, but it's part of a type.
 // It's used when we have more than one argument to a function.
 // "Macro" indicates either "forall" or "exists".
+// "PartialMacro" is a macro applied to arguments but not to a block, like "forall(b: bool)".
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
     Bool,
@@ -16,6 +17,7 @@ pub enum AcornType {
     Function(FunctionType),
     ArgList(Vec<AcornType>),
     Macro,
+    PartialMacro,
     Any,
 }
 
@@ -155,6 +157,7 @@ impl fmt::Display for AcornType {
                 write!(f, "({})", AcornType::vec_to_str(arg_types))
             }
             AcornType::Macro => write!(f, "macro"),
+            AcornType::PartialMacro => write!(f, "partialmacro"),
             AcornType::Any => write!(f, "any"),
         }
     }
