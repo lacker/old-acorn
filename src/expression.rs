@@ -11,7 +11,7 @@ use crate::token::{Error, Result, Token, TokenType};
 // And declaration expressions, like
 //   p: bool
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
-// "Apply" is a function application which doesn't have a top-level token.
+// "Apply" is the application of a function, a macro, or a partial macro that still needs a block.
 // "Grouping" is another expression enclosed in parentheses.
 // "Block" is another expression enclosed in braces. Just one, for now.
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub enum Expression<'a> {
     Binary(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
     Apply(Box<Expression<'a>>, Box<Expression<'a>>),
     Grouping(Box<Expression<'a>>),
-    Block(Box<Expression<'a>>),
+    Block(Token<'a>, Box<Expression<'a>>),
 }
 
 impl fmt::Display for Expression<'_> {
@@ -45,8 +45,8 @@ impl fmt::Display for Expression<'_> {
             Expression::Grouping(e) => {
                 write!(f, "({})", e)
             }
-            Expression::Block(e) => {
-                write!(f, "{{{}}}", e)
+            Expression::Block(_, e) => {
+                write!(f, " {{ {} }}", e)
             }
         }
     }
@@ -60,7 +60,7 @@ impl Expression<'_> {
             Expression::Binary(token, _, _) => token,
             Expression::Apply(left, _) => left.token(),
             Expression::Grouping(e) => e.token(),
-            Expression::Block(e) => e.token(),
+            Expression::Block(token, _) => token,
         }
     }
 
@@ -165,6 +165,12 @@ fn parse_partial_expressions<'a>(
                 partial_expressions
                     .push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
+            TokenType::LeftBrace => {
+                let (subexpression, _) =
+                    Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
+                let block = Expression::Block(token, Box::new(subexpression));
+                partial_expressions.push_back(PartialExpression::Expression(block));
+            }
             token_type if token_type.is_binary() => {
                 partial_expressions.push_back(PartialExpression::Binary(token));
             }
@@ -228,13 +234,13 @@ fn combine_partial_expressions<'a>(
             };
             for partial in partials.into_iter() {
                 if let PartialExpression::Expression(expr) = partial {
-                    if let Expression::Grouping(_) = expr {
-                        answer = Expression::Apply(Box::new(answer), Box::new(expr));
-                    } else {
-                        return Err(Error::new(
-                            expr.token(),
-                            "function arguments must be parenthesized",
-                        ));
+                    match expr {
+                        Expression::Grouping(_) | Expression::Block(_, _) => {
+                            answer = Expression::Apply(Box::new(answer), Box::new(expr))
+                        }
+                        _ => {
+                            return Err(Error::new(expr.token(), "expected a grouping or a block"))
+                        }
                     }
                 } else {
                     return Err(Error::new(partial.token(), "unexpected operator"));
