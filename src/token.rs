@@ -33,6 +33,7 @@ pub enum TokenType {
     Exists,
     If,
     By,
+    Function,
 }
 
 pub const MAX_PRECEDENCE: i8 = 100;
@@ -329,6 +330,7 @@ impl Token<'_> {
                             "exists" => TokenType::Exists,
                             "if" => TokenType::If,
                             "by" => TokenType::By,
+                            "function" => TokenType::Function,
                             _ => TokenType::Identifier,
                         }
                     }

@@ -153,19 +153,11 @@ fn parse_partial_expressions<'a>(
                 let group = Expression::Grouping(Box::new(subexpression));
                 partial_expressions.push_back(PartialExpression::Expression(group));
             }
-            TokenType::Identifier => {
-                partial_expressions
-                    .push_back(PartialExpression::Expression(Expression::Identifier(token)));
-            }
-            TokenType::Axiom => {
-                partial_expressions
-                    .push_back(PartialExpression::Expression(Expression::Identifier(token)));
-            }
-            TokenType::ForAll => {
-                partial_expressions
-                    .push_back(PartialExpression::Expression(Expression::Identifier(token)));
-            }
-            TokenType::Exists => {
+            TokenType::Identifier
+            | TokenType::Axiom
+            | TokenType::ForAll
+            | TokenType::Exists
+            | TokenType::Function => {
                 partial_expressions
                     .push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
