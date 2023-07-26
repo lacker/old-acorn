@@ -657,15 +657,16 @@ mod tests {
         assert_eq!(Prover::prove(&env, "(x = y)"), Outcome::Success);
     }
 
-    fn nat_ac_env() -> Environment {
+    // An environment with theorems that we should be able to prove in testing.
+    fn snap_env() -> Environment {
         let mut env = Environment::new();
-        env.load_file("nat.ac").unwrap();
+        env.load_file("snapnat.ac").unwrap();
         env
     }
 
     #[test]
     fn test_proving_add_zero_right() {
-        let env = nat_ac_env();
+        let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "add_zero_right"),
             Outcome::Success
@@ -674,7 +675,7 @@ mod tests {
 
     #[test]
     fn test_proving_one_plus_one() {
-        let env = nat_ac_env();
+        let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "one_plus_one"),
             Outcome::Success
@@ -683,7 +684,7 @@ mod tests {
 
     #[test]
     fn test_proving_add_zero_left() {
-        let env = nat_ac_env();
+        let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "add_zero_left"),
             Outcome::Success
@@ -692,7 +693,7 @@ mod tests {
 
     #[test]
     fn test_proving_add_suc_right() {
-        let env = nat_ac_env();
+        let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "add_suc_right"),
             Outcome::Success
@@ -701,7 +702,7 @@ mod tests {
 
     #[test]
     fn test_proving_add_suc_left() {
-        let env = nat_ac_env();
+        let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "add_suc_left"),
             Outcome::Success
@@ -710,19 +711,19 @@ mod tests {
 
     #[test]
     fn test_suc_ne() {
-        let env = nat_ac_env();
+        let env = snap_env();
         assert_eq!(Prover::prove_theorem(&env, "suc_ne"), Outcome::Success);
     }
 
     #[test]
     fn test_suc_suc_ne() {
-        let env = nat_ac_env();
+        let env = snap_env();
         assert_eq!(Prover::prove_theorem(&env, "suc_suc_ne"), Outcome::Success);
     }
 
     #[test]
     fn test_add_comm() {
-        let env = nat_ac_env();
+        let env = snap_env();
         assert_eq!(Prover::prove_theorem(&env, "add_comm"), Outcome::Success);
     }
 }

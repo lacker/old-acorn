@@ -1,5 +1,5 @@
-// The axioms of Peano arithmetic.
-// Contains enough detail that we can prove these with "check".
+// Theorems in nat.ac that we should be able to snap-prove.
+// Useful for testing.
 
 type Nat: axiom
 
@@ -40,20 +40,3 @@ theorem suc_ne(a: Nat): Suc(a) != a
 theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a
 
 theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
-
-theorem add_assoc(a: Nat, bb: Nat, cc: Nat): add(add(a, bb), cc) = add(a, add(bb, cc)) {
-    let f(x: Nat) -> bool = add_assoc(x, bb, cc) 
-    induction(f)
-    forall(x: Nat) {
-        if f(x) {
-            add(add(Suc(x), bb), cc) = add(Suc(add(x, bb)), cc)
-            add(add(Suc(x), bb), cc) = Suc(add(add(x, bb), cc))
-            Suc(add(add(x, bb), cc)) = Suc(add(x, add(bb, cc)))
-            add(add(Suc(x), bb), cc) = Suc(add(x, add(bb, cc)))
-            add(add(Suc(x), bb), cc) = add(Suc(x), add(bb, cc))
-            f(Suc(x))
-        }
-    }
-    f(0)
-    f(a)
-}
