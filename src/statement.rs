@@ -463,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn test_forall_value() {
+    fn test_forall_value_in_statement() {
         ok("let p: bool = forall(b: bool) { b | !b }");
     }
 

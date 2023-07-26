@@ -24,6 +24,21 @@ impl FunctionApplication {
     }
 }
 
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum MacroType {
+    ForAll,
+    Exists,
+}
+
+impl fmt::Display for MacroType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MacroType::ForAll => write!(f, "forall"),
+            MacroType::Exists => write!(f, "exists"),
+        }
+    }
+}
+
 // Two AcornValue compare to equal if they are structurally identical.
 // Comparison doesn't do any evaluations.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -52,9 +67,8 @@ pub enum AcornValue {
     ForAll(Vec<AcornType>, Box<AcornValue>),
     Exists(Vec<AcornType>, Box<AcornValue>),
 
-    // The unbound macros themselves
-    ForAllMacro,
-    ExistsMacro,
+    // The keyword that identifies a macro
+    MacroIdentifier(MacroType),
 }
 
 // An AcornValue has an implicit stack size that determines what index new stack variables
@@ -87,8 +101,7 @@ impl fmt::Display for Subvalue<'_> {
             }
             AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
-            AcornValue::ForAllMacro => write!(f, "forall"),
-            AcornValue::ExistsMacro => write!(f, "exists"),
+            AcornValue::MacroIdentifier(macro_type) => write!(f, "{}", macro_type),
         }
     }
 }
@@ -209,8 +222,7 @@ impl AcornValue {
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
-            AcornValue::ForAllMacro => AcornType::Macro,
-            AcornValue::ExistsMacro => AcornType::Macro,
+            AcornValue::MacroIdentifier(_) => AcornType::Macro,
         }
     }
 

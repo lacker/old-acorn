@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::{fmt, io};
 
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, FunctionApplication};
+use crate::acorn_value::{AcornValue, FunctionApplication, MacroType};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::expression::Expression;
 use crate::statement::Statement;
@@ -692,11 +692,11 @@ impl Environment {
                 }
 
                 if token.token_type == TokenType::ForAll {
-                    return Ok(AcornValue::ForAllMacro);
+                    return Ok(AcornValue::MacroIdentifier(MacroType::ForAll));
                 }
 
                 if token.token_type == TokenType::Exists {
-                    return Ok(AcornValue::ExistsMacro);
+                    return Ok(AcornValue::MacroIdentifier(MacroType::Exists));
                 }
 
                 // Check the type for this identifier
@@ -819,10 +819,10 @@ impl Environment {
                     let ret_val = match self.evaluate_value_expression(body, Some(&AcornType::Bool))
                     {
                         Ok(value) => match function {
-                            AcornValue::ForAllMacro => {
+                            AcornValue::MacroIdentifier(MacroType::ForAll) => {
                                 Ok(AcornValue::ForAll(arg_types, Box::new(value)))
                             }
-                            AcornValue::ExistsMacro => {
+                            AcornValue::MacroIdentifier(MacroType::Exists) => {
                                 Ok(AcornValue::Exists(arg_types, Box::new(value)))
                             }
                             _ => Err(Error::new(function_expr.token(), "expected a macro")),
@@ -1473,6 +1473,13 @@ mod tests {
         env.add("define y: bool = axiom");
         assert_ne!(env.get_expanded_value("x"), env.get_expanded_value("y"));
     }
+
+    // #[test]
+    // fn test_forall_value() {
+    //     let mut env = Environment::new();
+    //     env.add("define p: bool = forall(x: bool) { x | !x }");
+    //     env.valuecheck("p", "forall(x0: bool, (x0 | !x0))");
+    // }
 
     #[test]
     fn test_nat_ac_piecewise() {
