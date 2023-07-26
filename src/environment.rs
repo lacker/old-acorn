@@ -807,32 +807,7 @@ impl Environment {
                 let function_type = function.get_type();
 
                 if function_type == AcornType::Macro {
-                    // TODO(step3): throw an error here
-                    let mut macro_args = args_expr.flatten_arg_list();
-                    if macro_args.len() < 2 {
-                        return Err(Error::new(
-                            args_expr.token(),
-                            "quantifier macros must have at least two arguments",
-                        ));
-                    }
-                    let body = macro_args.pop().unwrap();
-                    let (arg_names, arg_types) = self.bind_args(macro_args)?;
-
-                    let ret_val = match self.evaluate_value_expression(body, Some(&AcornType::Bool))
-                    {
-                        Ok(value) => match function {
-                            AcornValue::MacroIdentifier(MacroType::ForAll) => {
-                                Ok(AcornValue::ForAll(arg_types, Box::new(value)))
-                            }
-                            AcornValue::MacroIdentifier(MacroType::Exists) => {
-                                Ok(AcornValue::Exists(arg_types, Box::new(value)))
-                            }
-                            _ => Err(Error::new(function_expr.token(), "expected a macro")),
-                        },
-                        Err(e) => Err(e),
-                    };
-                    self.unbind_args(arg_names);
-                    return ret_val;
+                    return Err(Error::new(function_expr.token(), "macro did not get bound"));
                 }
 
                 let function_type = match function_type {

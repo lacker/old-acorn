@@ -12,7 +12,7 @@ axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
 
 axiom suc_neq_zero(x: Nat): Suc(x) != 0
 
-axiom induction(f: Nat -> bool): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> forall(n: Nat, f(n))
+axiom induction(f: Nat -> bool): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
 
 // Ideally a and f would be templated rather than just Nat.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom
@@ -35,7 +35,7 @@ theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
 
 theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))
 
-theorem suc_ne(a: Nat): Suc(a) != a {
+theorem suc_ne(a: Nat): Suc(a) != a by {
     induction(suc_ne)
 }
 
@@ -43,7 +43,7 @@ theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a
 
 theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
 
-theorem add_assoc(a: Nat, bb: Nat, cc: Nat): add(add(a, bb), cc) = add(a, add(bb, cc)) {
+theorem add_assoc(a: Nat, bb: Nat, cc: Nat): add(add(a, bb), cc) = add(a, add(bb, cc)) by {
     let f(x: Nat) -> bool = add_assoc(x, bb, cc) 
     induction(f)
     forall(x: Nat) {
