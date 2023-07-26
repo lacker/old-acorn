@@ -149,7 +149,7 @@ fn fmt_macro(
 ) -> fmt::Result {
     write!(
         f,
-        "{}({}, {})",
+        "{}({}) {{ {} }}",
         name,
         AcornType::decs_to_str(decs, stack_size),
         Subvalue::new(body, stack_size + decs.len())
