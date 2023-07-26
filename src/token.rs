@@ -124,6 +124,7 @@ impl TokenType {
         match self {
             TokenType::ForAll => true,
             TokenType::Exists => true,
+            TokenType::Function => true,
             _ => false,
         }
     }

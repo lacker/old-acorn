@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::{fmt, io};
 
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, FunctionApplication, MacroType};
+use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::expression::Expression;
 use crate::statement::Statement;
@@ -444,7 +444,6 @@ impl Environment {
                 format!("{} -> {}", s, self.type_str(&function_type.return_type))
             }
             AcornType::ArgList(types) => self.type_list_str(types),
-            AcornType::Macro => "macro".to_string(),
             AcornType::Any => "any".to_string(),
         }
     }
@@ -691,12 +690,8 @@ impl Environment {
                     };
                 }
 
-                if token.token_type == TokenType::ForAll {
-                    return Ok(AcornValue::MacroIdentifier(MacroType::ForAll));
-                }
-
-                if token.token_type == TokenType::Exists {
-                    return Ok(AcornValue::MacroIdentifier(MacroType::Exists));
+                if token.token_type.is_macro() {
+                    return Err(Error::new(token, "macros cannot be used as values"));
                 }
 
                 // Check the type for this identifier
@@ -804,10 +799,6 @@ impl Environment {
             Expression::Apply(function_expr, args_expr) => {
                 let function = self.evaluate_value_expression(function_expr, None)?;
                 let function_type = function.get_type();
-
-                if function_type == AcornType::Macro {
-                    return Err(Error::new(function_expr.token(), "macro did not get bound"));
-                }
 
                 let function_type = match function_type {
                     AcornType::Function(f) => f,
