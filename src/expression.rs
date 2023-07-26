@@ -13,6 +13,7 @@ use crate::token::{Error, Result, Token, TokenType};
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
 // "Apply" is a function application which doesn't have a top-level token.
 // "Grouping" is another expression enclosed in parentheses.
+// "Block" is another expression enclosed in braces. Just one, for now.
 #[derive(Debug)]
 pub enum Expression<'a> {
     Identifier(Token<'a>),
@@ -20,6 +21,7 @@ pub enum Expression<'a> {
     Binary(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
     Apply(Box<Expression<'a>>, Box<Expression<'a>>),
     Grouping(Box<Expression<'a>>),
+    Block(Box<Expression<'a>>),
 }
 
 impl fmt::Display for Expression<'_> {
@@ -43,6 +45,9 @@ impl fmt::Display for Expression<'_> {
             Expression::Grouping(e) => {
                 write!(f, "({})", e)
             }
+            Expression::Block(e) => {
+                write!(f, "{{{}}}", e)
+            }
         }
     }
 }
@@ -55,6 +60,7 @@ impl Expression<'_> {
             Expression::Binary(token, _, _) => token,
             Expression::Apply(left, _) => left.token(),
             Expression::Grouping(e) => e.token(),
+            Expression::Block(e) => e.token(),
         }
     }
 
@@ -360,6 +366,11 @@ mod tests {
         check_value("p <= q");
         check_value("p > q");
         check_value("p >= q");
+    }
+
+    #[test]
+    fn test_blocks() {
+        check_value("forall(x: Nat) { x = x }");
     }
 
     #[test]

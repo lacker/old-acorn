@@ -647,6 +647,9 @@ impl Environment {
                 "unexpected function application in type expression",
             )),
             Expression::Grouping(e) => self.evaluate_partial_type_expression(e),
+            Expression::Block(e) => {
+                Err(Error::new(e.token(), "unexpected block in type expression"))
+            }
         }
     }
 
@@ -857,6 +860,10 @@ impl Environment {
                 }))
             }
             Expression::Grouping(e) => self.evaluate_value_expression(e, expected_type),
+            Expression::Block(e) => Err(Error::new(
+                e.token(),
+                "unexpected block in value expression",
+            )),
         }
     }
 
