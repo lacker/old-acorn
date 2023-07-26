@@ -463,6 +463,11 @@ mod tests {
     }
 
     #[test]
+    fn test_forall_value() {
+        ok("let p: bool = forall(b: bool) { b | !b }");
+    }
+
+    #[test]
     fn test_nat_ac_statements() {
         ok("type Nat: axiom");
         ok("define 0: Nat = axiom");
