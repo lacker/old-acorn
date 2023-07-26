@@ -69,6 +69,9 @@ pub enum AcornValue {
 
     // The keyword that identifies a macro
     MacroIdentifier(MacroType),
+
+    // A macro that has had its arguments bound, but not its block
+    PartialMacro(MacroType, Vec<AcornType>),
 }
 
 // An AcornValue has an implicit stack size that determines what index new stack variables
@@ -102,6 +105,14 @@ impl fmt::Display for Subvalue<'_> {
             AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
             AcornValue::MacroIdentifier(macro_type) => write!(f, "{}", macro_type),
+            AcornValue::PartialMacro(macro_type, args) => {
+                write!(
+                    f,
+                    "{}({})",
+                    macro_type,
+                    AcornType::decs_to_str(args, self.stack_size)
+                )
+            }
         }
     }
 }
@@ -223,6 +234,7 @@ impl AcornValue {
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
             AcornValue::MacroIdentifier(_) => AcornType::Macro,
+            AcornValue::PartialMacro(_, _) => AcornType::Macro,
         }
     }
 
