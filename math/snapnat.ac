@@ -12,7 +12,7 @@ axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
 
 axiom suc_neq_zero(x: Nat): Suc(x) != 0
 
-axiom induction(f: Nat -> bool): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> forall(n: Nat, f(n))
+axiom induction(f: Nat -> bool): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
 
 // Ideally a and f would be templated rather than just Nat.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom

@@ -178,7 +178,7 @@ mod tests {
 
         env.add(
             "axiom induction(f: Nat -> bool):\
-            f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> forall(n: Nat, f(n))",
+            f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }",
         );
         norm.check(
             &env,
@@ -241,7 +241,7 @@ mod tests {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
-        env.add("theorem exists_eq(x : Nat): exists(y: Nat, x = y)");
+        env.add("theorem exists_eq(x: Nat): exists(y: Nat) { x = y }");
         norm.check(&env, "exists_eq", &["s0(x0) = x0"]);
     }
 
@@ -251,7 +251,7 @@ mod tests {
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("define 0: Nat = axiom");
-        env.add("theorem exists_zero: exists(x: Nat, x = 0)");
+        env.add("theorem exists_zero: exists(x: Nat) { x = 0 }");
         norm.check(&env, "exists_zero", &["s0 = c0"]);
     }
 
@@ -266,7 +266,7 @@ mod tests {
             define bb: Nat = axiom
             define cc: Nat = axiom
             define specific_borf(x: Nat) -> bool = also_borf(x, bb, cc)
-            define always_true(f: Nat -> bool) -> bool = forall(n: Nat, f(n))
+            define always_true(f: Nat -> bool) -> bool = forall(n: Nat) { f(n) }
             theorem goal: !always_true(specific_borf)
         "#,
         );

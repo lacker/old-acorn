@@ -477,7 +477,7 @@ mod tests {
         ok("define 1: Nat = Suc(0)");
         ok("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         ok("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        ok("axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)");
+        ok("axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> f(n)");
         ok("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
         ok("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
         ok("axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))");

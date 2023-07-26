@@ -131,13 +131,6 @@ impl PartialExpression<'_> {
             PartialExpression::Block(token, _) => token,
         }
     }
-
-    fn is_block(&self) -> bool {
-        match self {
-            PartialExpression::Block(_, _) => true,
-            _ => false,
-        }
-    }
 }
 
 // Create partial expressions from tokens.
@@ -239,35 +232,21 @@ fn combine_partial_expressions<'a>(
             let first_partial = partials.pop_front().unwrap();
 
             // Check if this is a macro.
-            // TODO(step3): remove this line to disable old-format macros
-            if partials.len() == 2 && partials[1].is_block() {
-                if let PartialExpression::Expression(Expression::Identifier(token)) = first_partial
-                {
-                    if token.token_type.is_macro() {
-                        if partials.len() != 2 {
-                            return Err(Error::new(
-                                &token,
-                                "macro must have arguments and a block",
-                            ));
-                        }
-                        let expect_args = partials.pop_front().unwrap();
-                        if let PartialExpression::Expression(args) = expect_args {
-                            let expect_block = partials.pop_back().unwrap();
-                            if let PartialExpression::Block(_, block) = expect_block {
-                                return Ok(Expression::Macro(
-                                    token,
-                                    Box::new(args),
-                                    Box::new(block),
-                                ));
-                            } else {
-                                return Err(Error::new(
-                                    expect_block.token(),
-                                    "expected a macro block",
-                                ));
-                            }
-                        }
-                        return Err(Error::new(expect_args.token(), "expected macro arguments"));
+            if let PartialExpression::Expression(Expression::Identifier(token)) = first_partial {
+                if token.token_type.is_macro() {
+                    if partials.len() != 2 {
+                        return Err(Error::new(&token, "macro must have arguments and a block"));
                     }
+                    let expect_args = partials.pop_front().unwrap();
+                    if let PartialExpression::Expression(args) = expect_args {
+                        let expect_block = partials.pop_back().unwrap();
+                        if let PartialExpression::Block(_, block) = expect_block {
+                            return Ok(Expression::Macro(token, Box::new(args), Box::new(block)));
+                        } else {
+                            return Err(Error::new(expect_block.token(), "expected a macro block"));
+                        }
+                    }
+                    return Err(Error::new(expect_args.token(), "expected macro arguments"));
                 }
             }
 

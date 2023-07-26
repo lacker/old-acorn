@@ -871,7 +871,12 @@ impl Environment {
                     ));
                 }
                 let (arg_names, arg_types) = self.bind_args(macro_args)?;
-                let ret_val = match self.evaluate_value_expression(body, None) {
+                let expected_type = match token.token_type {
+                    TokenType::ForAll => Some(&AcornType::Bool),
+                    TokenType::Exists => Some(&AcornType::Bool),
+                    _ => None,
+                };
+                let ret_val = match self.evaluate_value_expression(body, expected_type) {
                     Ok(value) => match token.token_type {
                         TokenType::ForAll => Ok(AcornValue::ForAll(arg_types, Box::new(value))),
                         TokenType::Exists => Ok(AcornValue::Exists(arg_types, Box::new(value))),
@@ -1560,18 +1565,18 @@ mod tests {
 
         env.add(
             "axiom induction(f: Nat -> bool, n: Nat):
-            f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> f(n)",
+            f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> f(n)",
         );
         env.valuecheck("induction", "lambda(x0: Nat -> bool, x1: Nat) { ((x0(0) & forall(x2: Nat) { (x0(x2) -> x0(Suc(x2))) }) -> x0(x1)) }");
 
         env.bad("theorem foo(x: Nat): 0");
-        env.bad("theorem foo(x: Nat): forall(0, 0)");
-        env.bad("theorem foo(x: Nat): forall(y: Nat, 0)");
+        env.bad("theorem foo(x: Nat): forall(0, 0) { 0 }");
+        env.bad("theorem foo(x: Nat): forall(y: Nat) { 0 }");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
         env.typecheck("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
-        env.bad("theorem foo(x: Nat): forall(0: Nat, 0 = 0)");
+        env.bad("theorem foo(x: Nat): forall(0: Nat) { 0 = 0 }");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
         env.add(
@@ -1609,7 +1614,7 @@ axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
 
 axiom suc_neq_zero(x: Nat): Suc(x) != 0
 
-axiom induction(f: Nat -> bool): f(0) & forall(k: Nat, f(k) -> f(Suc(k))) -> forall(n: Nat, f(n))
+axiom induction(f: Nat -> bool): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
 
 // Ideally a and f would be templated rather than just Nat.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom

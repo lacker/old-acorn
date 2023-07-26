@@ -467,7 +467,7 @@ mod tests {
         let env = thing_env(
             r#"
         axiom f_one: f(t)
-        theorem goal: exists(x: Thing, f(x))
+        theorem goal: exists(x: Thing) { f(x) }
         "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
@@ -602,7 +602,7 @@ mod tests {
     fn test_higher_order_synthesis() {
         let env = thing_env(
             r#"
-            axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing, q(x))
+            axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing) { q(x) }
             theorem goal(x: Thing): x = t
             "#,
         );
