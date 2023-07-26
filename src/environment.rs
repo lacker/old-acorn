@@ -1257,13 +1257,16 @@ impl Environment {
 
     pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
         let paths = self.goal_paths();
+        let mut names = Vec::new();
         for path in paths {
             let context = self.get_goal_context(&path);
             if context.name == name {
                 return context;
             }
+            names.push(context.name);
         }
-        panic!("no context found for {}", name);
+
+        panic!("no context found for {} in:\n{}\n", name, names.join("\n"));
     }
 
     #[cfg(test)]

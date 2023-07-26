@@ -582,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proof_inside_block() {
+    fn test_proof_inside_theorem_block() {
         let mut env = Environment::new();
         env.add(
             r#"
@@ -593,8 +593,24 @@ mod tests {
             }
             "#,
         );
-
         assert_eq!(Prover::prove(&env, "reflexivity(t)"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_proof_inside_forall_block() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Thing: axiom
+            define t: Thing = axiom
+            define foo: Thing -> bool = axiom
+            axiom foo_t: foo(t)
+            forall(x: Thing) {
+                x = t -> foo(x)
+            }
+            "#,
+        );
+        assert_eq!(Prover::prove(&env, "((x = t) -> foo(x))"), Outcome::Success);
     }
 
     fn nat_ac_env() -> Environment {
