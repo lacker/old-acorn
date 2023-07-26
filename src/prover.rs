@@ -613,6 +613,22 @@ mod tests {
         assert_eq!(Prover::prove(&env, "((x = t) -> foo(x))"), Outcome::Success);
     }
 
+    #[test]
+    fn test_proof_inside_if_block() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Thing: axiom
+            forall(x: Thing, y: Thing) {
+                if x = y {
+                    x = y
+                }
+            }
+            "#,
+        );
+        assert_eq!(Prover::prove(&env, "(x = y)"), Outcome::Success);
+    }
+
     fn nat_ac_env() -> Environment {
         let mut env = Environment::new();
         env.load_file("nat.ac").unwrap();
