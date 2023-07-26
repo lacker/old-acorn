@@ -23,7 +23,14 @@ theorem add_assoc(aa: Nat, bb: Nat, cc: Nat): add(add(aa, bb), cc) = add(aa, add
     let f(x: Nat) -> bool = add_assoc(x, bb, cc) 
     induction(f)
     forall(x: Nat) {
-        f(x) -> f(Suc(x))
+        if f(x) {
+            add(add(Suc(x), bb), cc) = add(Suc(add(x, bb)), cc)
+            add(add(Suc(x), bb), cc) = Suc(add(add(x, bb), cc))
+            Suc(add(add(x, bb), cc)) = Suc(add(x, add(bb, cc)))
+            add(add(Suc(x), bb), cc) = Suc(add(x, add(bb, cc)))
+            add(add(Suc(x), bb), cc) = add(Suc(x), add(bb, cc))
+            f(Suc(x))
+        }
     }
     f(0)
     f(aa)

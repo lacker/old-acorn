@@ -7,7 +7,7 @@ use std::io::Write;
 use acorn::environment::Environment;
 use acorn::prover::{Outcome, Prover};
 
-const USAGE: &str = "Usage: cargo run --bin=debug <filename> <theorem name>";
+const USAGE: &str = "Usage: cargo run --bin=debug <filename> <goal name>";
 
 fn trim_command<'a>(command: &str, line: &'a str) -> Option<&'a str> {
     if line.starts_with(command) {
@@ -33,10 +33,17 @@ fn main() {
         .collect::<Vec<_>>();
 
     // Find the goal whose name matches theorem_name
-    let mut current: usize = goals
-        .iter()
-        .position(|goal| goal.name == theorem_name)
-        .expect("no such theorem");
+    let current: Option<usize> = goals.iter().position(|goal| goal.name == theorem_name);
+    let mut current = match current {
+        Some(current) => current,
+        None => {
+            println!("theorem {} not found in:", theorem_name);
+            for goal in &goals {
+                println!("  {}", goal.name);
+            }
+            return;
+        }
+    };
     let mut prover = Prover::load_goal(&goals[current]);
     println!("loaded {}", goals[current].name);
 
@@ -100,6 +107,11 @@ fn main() {
 
         if let Some(_) = trim_command("stats", &line) {
             prover.print_stats();
+            continue;
+        }
+
+        if let Some(_) = trim_command("env", &line) {
+            prover.print_env();
             continue;
         }
 
