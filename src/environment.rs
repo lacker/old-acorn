@@ -807,6 +807,7 @@ impl Environment {
                 let function_type = function.get_type();
 
                 if function_type == AcornType::Macro {
+                    // TODO(step3): throw an error here
                     let mut macro_args = args_expr.flatten_arg_list();
                     if macro_args.len() < 2 {
                         return Err(Error::new(
@@ -861,8 +862,25 @@ impl Environment {
                 }))
             }
             Expression::Grouping(e) => self.evaluate_value_expression(e, expected_type),
-            Expression::Macro(token, _, _) => {
-                Err(Error::new(token, "unexpected macro in value expression"))
+            Expression::Macro(token, args_expr, body) => {
+                let macro_args = args_expr.flatten_arg_list();
+                if macro_args.len() < 1 {
+                    return Err(Error::new(
+                        args_expr.token(),
+                        "macros must have at least one argument",
+                    ));
+                }
+                let (arg_names, arg_types) = self.bind_args(macro_args)?;
+                let ret_val = match self.evaluate_value_expression(body, None) {
+                    Ok(value) => match token.token_type {
+                        TokenType::ForAll => Ok(AcornValue::ForAll(arg_types, Box::new(value))),
+                        TokenType::Exists => Ok(AcornValue::Exists(arg_types, Box::new(value))),
+                        _ => Err(Error::new(token, "expected a macro identifier token")),
+                    },
+                    Err(e) => Err(e),
+                };
+                self.unbind_args(arg_names);
+                ret_val
             }
         }
     }
