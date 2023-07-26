@@ -1255,6 +1255,17 @@ impl Environment {
         panic!("control should not get here");
     }
 
+    pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
+        let paths = self.goal_paths();
+        for path in paths {
+            let context = self.get_goal_context(&path);
+            if context.name == name {
+                return context;
+            }
+        }
+        panic!("no context found for {}", name);
+    }
+
     #[cfg(test)]
     fn assert_type_ok(&mut self, input: &str) {
         let tokens = Token::scan(input).unwrap();
