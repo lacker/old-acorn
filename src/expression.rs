@@ -422,6 +422,12 @@ mod tests {
     }
 
     #[test]
+    fn test_block_inside_binary() {
+        check_value("p -> forall(x: Nat) { x = x }");
+        check_value("f(forall(x: Nat) { x = x }, forall(y: Nat) { y = y })");
+    }
+
+    #[test]
     fn test_bad_values() {
         check_not_value("+ + +");
 
