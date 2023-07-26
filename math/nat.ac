@@ -60,6 +60,6 @@ theorem add_assoc(a: Nat, bb: Nat, cc: Nat): add(add(a, bb), cc) = add(a, add(bb
     f(a)
 }
 
-define adder(a: Nat): Nat -> Nat = function(b: Nat) { add(a, b) }
+define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
 
 define mul(a: Nat, b: Nat) -> Nat = recursion(adder(a), 0, b)
