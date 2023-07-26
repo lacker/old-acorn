@@ -35,7 +35,9 @@ theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
 
 theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))
 
-theorem suc_ne(a: Nat): Suc(a) != a
+theorem suc_ne(a: Nat): Suc(a) != a {
+    induction(suc_ne)
+}
 
 theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a
 
