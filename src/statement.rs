@@ -173,9 +173,10 @@ where
     let args = parse_args(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
     let (claim, terminator) = Expression::parse(tokens, true, |t| {
-        t == TokenType::NewLine || t == TokenType::LeftBrace
+        t == TokenType::NewLine || t == TokenType::By
     })?;
-    let body = if terminator.token_type == TokenType::LeftBrace {
+    let body = if terminator.token_type == TokenType::By {
+        Token::expect_type(tokens, TokenType::LeftBrace)?;
         parse_block(tokens)?
     } else {
         Vec::new()
@@ -294,6 +295,7 @@ impl Statement<'_> {
                 write_args(f, &ts.args)?;
                 write!(f, ": {}", ts.claim)?;
                 if ts.body.len() > 0 {
+                    write!(f, " by")?;
                     write_block(f, &ts.body, indent)?;
                 }
                 Ok(())
@@ -497,7 +499,7 @@ mod tests {
     #[test]
     fn test_block_parsing() {
         ok(indoc! {"
-            theorem foo: bar {
+            theorem foo: bar by {
                 baz
             }"});
         fail(indoc! {"

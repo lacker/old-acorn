@@ -616,7 +616,7 @@ mod tests {
             r#"
             type Thing: axiom
             define t: Thing = axiom
-            theorem reflexivity(x: Thing): x = x {
+            theorem reflexivity(x: Thing): x = x by {
                 reflexivity(t)
             }
             "#,
