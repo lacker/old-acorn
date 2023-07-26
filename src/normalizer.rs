@@ -107,7 +107,7 @@ impl Normalizer {
     }
 
     pub fn normalize(&mut self, value: AcornValue) -> Vec<Clause> {
-        // println!("value: {}", value);
+        // println!("\nvalue: {}", value);
         let expanded = value.expand_lambdas(0);
         // println!("expanded: {}", expanded);
         let neg_in = expanded.move_negation_inwards(false);

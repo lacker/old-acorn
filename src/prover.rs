@@ -12,8 +12,16 @@ use crate::synthesizer::Synthesizer;
 use crate::term::Clause;
 
 pub struct Prover<'a> {
+    // The environment in which all the AcornValues we are passed live.
     env: &'a Environment,
+
+    // The normalizer is used when we are turning the facts and goals from the environment into
+    // clauses when we can use internally.
     normalizer: Normalizer,
+
+    // The synthesizer creates new functions during the proof.
+    // This is probably a bad idea - it's a lot of complexity and does not really do a good job
+    // of solving the problem of how to do induction.
     synthesizer: Synthesizer,
 
     // The facts we start out with.
