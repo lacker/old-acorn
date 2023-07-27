@@ -106,7 +106,7 @@ impl Normalizer {
         }
     }
 
-    pub fn normalize(&mut self, value: AcornValue) -> Vec<Clause> {
+    pub fn normalize(&mut self, env: &Environment, value: AcornValue) -> Vec<Clause> {
         // println!("\nvalue: {}", value);
         let expanded = value.expand_lambdas(0);
         // println!("expanded: {}", expanded);
@@ -119,7 +119,11 @@ impl Normalizer {
         // println!("universal: {}", AcornType::vec_to_str(&universal));
         let mut literal_lists = vec![];
         if let Err(e) = self.typespace.into_cnf(&dequantified, &mut literal_lists) {
-            panic!("\nerror converting {} to CNF:\n{}", dequantified, e);
+            panic!(
+                "\nerror converting {} to CNF:\n{}",
+                env.value_str(&dequantified),
+                e
+            );
         }
 
         let mut clauses = vec![];
@@ -135,7 +139,7 @@ impl Normalizer {
             Some(val) => val,
             None => panic!("no value named {}", name),
         };
-        let actual = self.normalize(val);
+        let actual = self.normalize(env, val);
         if actual.len() != expected.len() {
             panic!(
                 "expected {} clauses, got {}:\n{}",

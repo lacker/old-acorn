@@ -154,12 +154,13 @@ mod tests {
         env.add("axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing) { q(x) }");
         env.add("theorem goal(x: Thing): x = t");
 
-        let clauses = norm.normalize(env.get_theorem_claim("t_implies_all").unwrap());
+        let clauses = norm.normalize(&env, env.get_theorem_claim("t_implies_all").unwrap());
         for clause in &clauses {
             synth.observe(clause);
         }
 
-        let neg_goal_clauses = norm.normalize(env.get_theorem_claim("goal").unwrap().negate());
+        let neg_goal_clauses =
+            norm.normalize(&env, env.get_theorem_claim("goal").unwrap().negate());
         assert_eq!(neg_goal_clauses.len(), 1);
         let synthesized = synth.synthesize(&neg_goal_clauses[0]);
         assert_eq!(synthesized.len(), 2);
