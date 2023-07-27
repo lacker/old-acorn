@@ -837,32 +837,40 @@ impl AcornValue {
     // Returns whether this is a valid top-level value.
     // It should not refer to variables with indices larger than the stack.
     pub fn validate(&self) -> bool {
-        self.validate_stacked(0)
+        let mut stack: Vec<AcornType> = vec![];
+        self.validate_against_stack(&mut stack)
     }
 
-    fn validate_stacked(&self, stack_size: AtomId) -> bool {
+    fn validate_against_stack(&self, stack: &mut Vec<AcornType>) -> bool {
         match self {
             AcornValue::Atom(ta) => match ta.atom {
-                Atom::Variable(i) => i < stack_size,
+                Atom::Variable(i) => match stack.get(i as usize) {
+                    Some(t) => ta.acorn_type == *t,
+                    None => false,
+                },
                 _ => true,
             },
             AcornValue::Application(app) => {
-                app.function.validate_stacked(stack_size)
-                    && app.args.iter().all(|x| x.validate_stacked(stack_size))
+                app.function.validate_against_stack(stack)
+                    && app.args.iter().all(|x| x.validate_against_stack(stack))
             }
             AcornValue::Lambda(args, value)
             | AcornValue::ForAll(args, value)
             | AcornValue::Exists(args, value) => {
-                value.validate_stacked(stack_size + args.len() as AtomId)
+                let original_len = args.len();
+                stack.extend(args.iter().cloned());
+                let answer = value.validate_against_stack(stack);
+                stack.truncate(original_len);
+                answer
             }
             AcornValue::Implies(left, right)
             | AcornValue::Equals(left, right)
             | AcornValue::NotEquals(left, right)
             | AcornValue::And(left, right)
             | AcornValue::Or(left, right) => {
-                left.validate_stacked(stack_size) && right.validate_stacked(stack_size)
+                left.validate_against_stack(stack) && right.validate_against_stack(stack)
             }
-            AcornValue::Not(x) => x.validate_stacked(stack_size),
+            AcornValue::Not(x) => x.validate_against_stack(stack),
             _ => panic!("unexpected match"),
         }
     }
