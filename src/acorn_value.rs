@@ -476,29 +476,116 @@ impl AcornValue {
 
     // Converts function types to a primitive type by applying them to new unbound variables.
     // Inserts these unbound variables as new stack variables starting at stack_size.
-    // Returns the number of newly created unbound variables, along with the converted value.
-    fn apply_to_free_variables(self, stack_size: AtomId) -> (usize, AcornValue) {
+    // Returns the types of the newly created unbound variables, along with the converted value.
+    fn apply_to_free_variables(self, stack_size: AtomId) -> (Vec<AcornType>, AcornValue) {
         let current_type = self.get_type();
         if let AcornType::Function(ftype) = current_type {
-            let num_new_vars = ftype.arg_types.len();
-            let shifted = self.insert_stack(stack_size, num_new_vars as AtomId);
+            let shifted = self.insert_stack(stack_size, ftype.arg_types.len() as AtomId);
             let new_value = AcornValue::Application(FunctionApplication {
                 function: Box::new(shifted),
-                args: (0..num_new_vars)
-                    .map(|i| {
+                args: ftype
+                    .arg_types
+                    .iter()
+                    .enumerate()
+                    .map(|(i, t)| {
                         AcornValue::Atom(TypedAtom {
                             atom: Atom::Variable(i as AtomId),
-                            acorn_type: ftype.arg_types[i].clone(),
+                            acorn_type: t.clone(),
                         })
                     })
                     .collect(),
             });
 
             // We need to recurse in case we have functions that generate more functions.
-            let (sub_new_vars, final_value) = new_value.apply_to_free_variables(stack_size);
-            (num_new_vars + sub_new_vars, final_value)
+            let (mut new_args, final_value) = new_value.apply_to_free_variables(stack_size);
+            new_args.extend(ftype.arg_types);
+            (new_args, final_value)
         } else {
-            (0, self)
+            (vec![], self)
+        }
+    }
+
+    // Replaces functional comparisons with comparisons between primitive values.
+    // f = g is equivalent to forall(x) { f(x) = g(x) }
+    // f != g is equivalent to exists(x) { f(x) != g(x) }
+    pub fn replace_function_equality(&self, stack_size: AtomId) -> AcornValue {
+        match self {
+            AcornValue::Atom(_) => self.clone(),
+            AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
+                function: Box::new(app.function.replace_function_equality(stack_size)),
+                args: app
+                    .args
+                    .iter()
+                    .map(|x| x.replace_function_equality(stack_size))
+                    .collect(),
+            }),
+            AcornValue::Implies(left, right) => AcornValue::Implies(
+                Box::new(left.replace_function_equality(stack_size)),
+                Box::new(right.replace_function_equality(stack_size)),
+            ),
+            AcornValue::Equals(left, right) => {
+                let (left_quants, left) = left
+                    .replace_function_equality(stack_size)
+                    .apply_to_free_variables(stack_size);
+                let (right_quants, right) = right
+                    .replace_function_equality(stack_size)
+                    .apply_to_free_variables(stack_size);
+                assert_eq!(left_quants, right_quants);
+                let equality = AcornValue::Equals(Box::new(left), Box::new(right));
+                if left_quants.is_empty() {
+                    equality
+                } else {
+                    AcornValue::ForAll(left_quants, Box::new(equality))
+                }
+            }
+            AcornValue::NotEquals(left, right) => {
+                let (left_quants, left) = left
+                    .replace_function_equality(stack_size)
+                    .apply_to_free_variables(stack_size);
+                let (right_quants, right) = right
+                    .replace_function_equality(stack_size)
+                    .apply_to_free_variables(stack_size);
+                assert_eq!(left_quants, right_quants);
+                let inequality = AcornValue::NotEquals(Box::new(left), Box::new(right));
+                if left_quants.is_empty() {
+                    inequality
+                } else {
+                    AcornValue::Exists(left_quants, Box::new(inequality))
+                }
+            }
+            AcornValue::And(left, right) => AcornValue::And(
+                Box::new(left.replace_function_equality(stack_size)),
+                Box::new(right.replace_function_equality(stack_size)),
+            ),
+            AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.replace_function_equality(stack_size)),
+                Box::new(right.replace_function_equality(stack_size)),
+            ),
+            AcornValue::Not(x) => {
+                AcornValue::Not(Box::new(x.replace_function_equality(stack_size)))
+            }
+            AcornValue::ForAll(quants, value) => {
+                let new_stack_size = stack_size + quants.len() as AtomId;
+                AcornValue::ForAll(
+                    quants.clone(),
+                    Box::new(value.replace_function_equality(new_stack_size)),
+                )
+            }
+            AcornValue::Exists(quants, value) => {
+                let new_stack_size = stack_size + quants.len() as AtomId;
+                AcornValue::Exists(
+                    quants.clone(),
+                    Box::new(value.replace_function_equality(new_stack_size)),
+                )
+            }
+            AcornValue::Lambda(args, value) => {
+                let new_stack_size = stack_size + args.len() as AtomId;
+                AcornValue::Lambda(
+                    args.clone(),
+                    Box::new(value.replace_function_equality(new_stack_size)),
+                )
+            }
+            AcornValue::ArgList(_) => panic!("cannot replace function equality in arg list"),
         }
     }
 
