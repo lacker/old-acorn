@@ -598,13 +598,14 @@ impl AcornValue {
         match self {
             AcornValue::Atom(_) => self.clone(),
             AcornValue::Application(app) => {
-                if let AcornValue::Lambda(_, return_value) = *app.function {
+                let function = app.function.expand_lambdas(stack_size);
+                if let AcornValue::Lambda(_, return_value) = function {
                     // Expand the lambda
                     let expanded = return_value.bind_values(stack_size, stack_size, &app.args);
                     expanded.expand_lambdas(stack_size)
                 } else {
                     AcornValue::Application(FunctionApplication {
-                        function: app.function,
+                        function: Box::new(function),
                         args: app
                             .args
                             .into_iter()
@@ -645,8 +646,9 @@ impl AcornValue {
                 let new_stack_size = stack_size + quants.len() as AtomId;
                 AcornValue::Exists(quants, Box::new(value.expand_lambdas(new_stack_size)))
             }
-            AcornValue::Lambda(_, _) => {
-                panic!("cannot expand lambdas when the value itself is a lambda");
+            AcornValue::Lambda(args, value) => {
+                let new_stack_size = stack_size + args.len() as AtomId;
+                AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
             }
             AcornValue::ArgList(_) => panic!("cannot expand lambdas in arg list"),
         }
