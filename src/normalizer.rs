@@ -313,4 +313,17 @@ mod tests {
         let mut norm = Normalizer::new();
         norm.check(&env, "goal", &["c3 != c2 | c1 != c0", "c3 = c2 | c1 = c0"]);
     }
+
+    #[test]
+    fn test_functions_returning_lambdas() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            define ander(a: bool) -> (bool -> bool) = function(b: bool) { a & b }
+            theorem goal: ander = ander
+            "#,
+        );
+        let mut norm = Normalizer::new();
+        norm.check(&env, "goal", &["c0 = c0"]);
+    }
 }

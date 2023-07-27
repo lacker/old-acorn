@@ -474,6 +474,38 @@ impl AcornValue {
         }
     }
 
+    // Converts function types to a primitive type by applying them to new unbound variables.
+    // Inserts these unbound variables as new stack variables starting at stack_size.
+    // Returns the number of newly created unbound variables, along with the converted value.
+    fn apply_to_free_variables(self, stack_size: AtomId) -> (usize, AcornValue) {
+        let current_type = self.get_type();
+        if let AcornType::Function(ftype) = current_type {
+            let num_new_vars = ftype.arg_types.len();
+            let shifted = self.insert_stack(stack_size, num_new_vars as AtomId);
+            let new_value = AcornValue::Application(FunctionApplication {
+                function: Box::new(shifted),
+                args: (0..num_new_vars)
+                    .map(|i| {
+                        AcornValue::Atom(TypedAtom {
+                            atom: Atom::Variable(i as AtomId),
+                            acorn_type: ftype.arg_types[i].clone(),
+                        })
+                    })
+                    .collect(),
+            });
+
+            // We need to recurse in case we have functions that generate more functions.
+            let (sub_new_vars, final_value) = new_value.apply_to_free_variables(stack_size);
+            (num_new_vars + sub_new_vars, final_value)
+        } else {
+            (0, self)
+        }
+    }
+
+    // Attempts to remove all lambdas from a value.
+    //
+    // Replaces lambda(...) { value } (args) by substituting the args into the value.
+    //
     // stack_size is the number of variables that are already on the stack.
     pub fn expand_lambdas(self, stack_size: AtomId) -> AcornValue {
         match self {
