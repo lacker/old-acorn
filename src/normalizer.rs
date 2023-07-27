@@ -328,4 +328,19 @@ mod tests {
         let mut norm = Normalizer::new();
         norm.check(&env, "goal", &["c0(x0, x1) = c0(x1, x0)"]);
     }
+
+    #[test]
+    fn test_functional_equality() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define 0: Nat = axiom
+            define zerof(a: Nat) -> (Nat -> Nat) = function(b: Nat) { 0 }
+            theorem goal(a: Nat, b: Nat): zerof(a) = zerof(b)
+            "#,
+        );
+        let mut norm = Normalizer::new();
+        norm.check(&env, "goal", &[]);
+    }
 }
