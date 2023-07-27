@@ -123,7 +123,7 @@ impl TypeSpace {
             AcornValue::Atom(atom) => Ok(self.term_from_atom(atom)),
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
             _ => Err(Error::Normalization(format!(
-                "Cannot convert {:?} to term",
+                "Cannot convert {} to term",
                 value
             ))),
         }
@@ -149,7 +149,7 @@ impl TypeSpace {
             }
             AcornValue::Not(subvalue) => Ok(Literal::negative(self.term_from_value(subvalue)?)),
             _ => Err(Error::Normalization(format!(
-                "Cannot convert {:?} to literal",
+                "Cannot convert {} to literal",
                 value
             ))),
         }

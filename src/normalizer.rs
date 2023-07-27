@@ -119,7 +119,7 @@ impl Normalizer {
         // println!("universal: {}", AcornType::vec_to_str(&universal));
         let mut literal_lists = vec![];
         if let Err(e) = self.typespace.into_cnf(&dequantified, &mut literal_lists) {
-            panic!("error converting {} to CNF: {}", dequantified, e);
+            panic!("\nerror converting {} to CNF:\n{}", dequantified, e);
         }
 
         let mut clauses = vec![];
