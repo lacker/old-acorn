@@ -835,7 +835,7 @@ impl AcornValue {
     }
 
     // Returns whether this is a valid top-level value.
-    // It should not refer to variables with indices larger than the stack.
+    // The types of variables should match the type of the quantifier they correspond to.
     pub fn validate(&self) -> bool {
         let mut stack: Vec<AcornType> = vec![];
         self.validate_against_stack(&mut stack)
