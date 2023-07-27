@@ -219,7 +219,7 @@ impl Error {
     }
 }
 
-pub type Result<'a, T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 impl Token<'_> {
     pub fn value_precedence(&self) -> i8 {

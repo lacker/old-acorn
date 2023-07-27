@@ -543,7 +543,7 @@ impl Environment {
         token: &Token<'a>,
         expected_type: Option<&AcornType>,
         actual_type: &AcornType,
-    ) -> Result<'a, ()> {
+    ) -> Result<()> {
         match expected_type {
             Some(e) => {
                 if e != actual_type {

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
@@ -14,6 +16,20 @@ pub const BOOL: TypeId = 1;
 pub struct TypeSpace {
     types: Vec<AcornType>,
 }
+
+pub enum Error {
+    Normalization(String),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Normalization(msg) => write!(f, "Normalization error: {}", msg),
+        }
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 impl TypeSpace {
     pub fn new() -> TypeSpace {
@@ -71,8 +87,8 @@ impl TypeSpace {
     }
 
     // Constructs a new term from an atom
-    pub fn term_from_atom(&mut self, atom: TypedAtom) -> Term {
-        let type_id = self.add_type(atom.acorn_type);
+    pub fn term_from_atom(&mut self, atom: &TypedAtom) -> Term {
+        let type_id = self.add_type(atom.acorn_type.clone());
         Term {
             term_type: type_id,
             head_type: type_id,
@@ -83,29 +99,33 @@ impl TypeSpace {
 
     // Constructs a new term from a function application
     // Function applications that are nested like f(x)(y) are flattened to f(x, y)
-    pub fn term_from_application(&mut self, application: FunctionApplication) -> Term {
+    pub fn term_from_application(&mut self, application: &FunctionApplication) -> Result<Term> {
         let term_type = self.add_type(application.return_type());
-        let func_term = self.term_from_value(*application.function);
+        let func_term = self.term_from_value(&application.function)?;
         let head = func_term.head;
         let head_type = func_term.head_type;
         let mut args = func_term.args;
-        for arg in application.args {
-            args.push(self.term_from_value(arg));
+        for arg in &application.args {
+            args.push(self.term_from_value(arg)?);
         }
-        Term {
+        Ok(Term {
             term_type,
             head_type,
             head,
             args,
-        }
+        })
     }
 
     // Constructs a new term from an AcornValue
-    pub fn term_from_value(&mut self, value: AcornValue) -> Term {
+    // Returns None if it's inconvertible
+    pub fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
         match value {
-            AcornValue::Atom(atom) => self.term_from_atom(atom),
-            AcornValue::Application(application) => self.term_from_application(application),
-            _ => panic!("cannot convert value to term: {}", value),
+            AcornValue::Atom(atom) => Ok(self.term_from_atom(atom)),
+            AcornValue::Application(application) => Ok(self.term_from_application(application)?),
+            _ => Err(Error::Normalization(format!(
+                "Cannot convert {:?} to term",
+                value
+            ))),
         }
     }
 
@@ -113,22 +133,25 @@ impl TypeSpace {
     // Swaps left and right if needed, to sort.
     // Normalizes literals to <larger> = <smaller>, because that's the logical direction
     // to do rewrite-type lookups, on the larger literal first.
-    pub fn literal_from_value(&mut self, value: AcornValue) -> Literal {
+    pub fn literal_from_value(&mut self, value: &AcornValue) -> Result<Literal> {
         match value {
-            AcornValue::Atom(atom) => Literal::positive(self.term_from_atom(atom)),
-            AcornValue::Application(app) => Literal::positive(self.term_from_application(app)),
+            AcornValue::Atom(atom) => Ok(Literal::positive(self.term_from_atom(atom))),
+            AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),
             AcornValue::Equals(left, right) => {
-                let left_term = self.term_from_value(*left);
-                let right_term = self.term_from_value(*right);
-                Literal::equals(left_term, right_term)
+                let left_term = self.term_from_value(&*left)?;
+                let right_term = self.term_from_value(&*right)?;
+                Ok(Literal::equals(left_term, right_term))
             }
             AcornValue::NotEquals(left, right) => {
-                let left_term = self.term_from_value(*left);
-                let right_term = self.term_from_value(*right);
-                Literal::not_equals(left_term, right_term)
+                let left_term = self.term_from_value(&*left)?;
+                let right_term = self.term_from_value(&*right)?;
+                Ok(Literal::not_equals(left_term, right_term))
             }
-            AcornValue::Not(subvalue) => Literal::negative(self.term_from_value(*subvalue)),
-            _ => panic!("cannot convert {:?} to a literal", value),
+            AcornValue::Not(subvalue) => Ok(Literal::negative(self.term_from_value(subvalue)?)),
+            _ => Err(Error::Normalization(format!(
+                "Cannot convert {:?} to literal",
+                value
+            ))),
         }
     }
 
@@ -136,17 +159,17 @@ impl TypeSpace {
     // Everything below "and" and "or" nodes must be literals.
     // Skips any tautologies.
     // Appends all results found.
-    pub fn into_cnf(&mut self, value: AcornValue, results: &mut Vec<Vec<Literal>>) {
+    pub fn into_cnf(&mut self, value: &AcornValue, results: &mut Vec<Vec<Literal>>) -> Result<()> {
         match value {
             AcornValue::And(left, right) => {
-                self.into_cnf(*left, results);
-                self.into_cnf(*right, results);
+                self.into_cnf(left, results)?;
+                self.into_cnf(right, results)
             }
             AcornValue::Or(left, right) => {
                 let mut left_results = Vec::new();
-                self.into_cnf(*left, &mut left_results);
+                self.into_cnf(left, &mut left_results)?;
                 let mut right_results = Vec::new();
-                self.into_cnf(*right, &mut right_results);
+                self.into_cnf(right, &mut right_results)?;
                 for left_result in left_results {
                     for right_result in &right_results {
                         let mut combined = left_result.clone();
@@ -154,19 +177,21 @@ impl TypeSpace {
                         results.push(combined);
                     }
                 }
+                Ok(())
             }
             _ => {
-                let literal = self.literal_from_value(value);
+                let literal = self.literal_from_value(&value)?;
                 if !literal.is_tautology() {
                     results.push(vec![literal]);
                 }
+                Ok(())
             }
         }
     }
 
     // For testing, make a boolean reference
     pub fn bref(&mut self, index: AtomId) -> Term {
-        self.term_from_atom(TypedAtom {
+        self.term_from_atom(&TypedAtom {
             atom: Atom::Variable(index),
             acorn_type: AcornType::Bool,
         })
