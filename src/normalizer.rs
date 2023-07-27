@@ -107,9 +107,11 @@ impl Normalizer {
     }
 
     pub fn normalize(&mut self, env: &Environment, value: AcornValue) -> Vec<Clause> {
-        println!("\nvalue: {}", env.value_str(&value));
-        let expanded = value.expand_lambdas(0);
-        println!("\nexpanded: {}\n", env.value_str(&expanded));
+        // println!("\nvalue: {}", env.value_str(&value));
+        let replaced = value.replace_function_equality(0);
+        // println!("\nreplaced: {}", env.value_str(&replaced));
+        let expanded = replaced.expand_lambdas(0);
+        // println!("\nexpanded: {}\n", env.value_str(&expanded));
         let neg_in = expanded.move_negation_inwards(false);
         // println!("negin: {}", neg_in);
         let skolemized = self.skolemize(&vec![], neg_in);
