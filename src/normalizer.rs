@@ -319,8 +319,10 @@ mod tests {
         let mut env = Environment::new();
         env.add(
             r#"
-            define ander(a: bool) -> (bool -> bool) = function(b: bool) { a & b }
-            theorem goal: ander = ander
+            type Nat: axiom
+            define add: (Nat, Nat) -> Nat = axiom
+            define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
+            theorem goal(a: Nat, b: Nat): adder(a)(b) = adder(b)(a)
             "#,
         );
         let mut norm = Normalizer::new();
