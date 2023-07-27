@@ -477,6 +477,7 @@ impl AcornValue {
     // stack_size is the number of variables that are already on the stack.
     pub fn expand_lambdas(self, stack_size: AtomId) -> AcornValue {
         match self {
+            AcornValue::Atom(_) => self.clone(),
             AcornValue::Application(app) => {
                 if let AcornValue::Lambda(_, return_value) = *app.function {
                     // Expand the lambda
@@ -528,7 +529,7 @@ impl AcornValue {
             AcornValue::Lambda(_, _) => {
                 panic!("cannot expand lambdas when the value itself is a lambda");
             }
-            _ => self,
+            AcornValue::ArgList(_) => panic!("cannot expand lambdas in arg list"),
         }
     }
 
