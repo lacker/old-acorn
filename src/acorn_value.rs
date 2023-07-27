@@ -516,11 +516,17 @@ impl AcornValue {
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.expand_lambdas(stack_size))),
             AcornValue::ForAll(quants, value) => {
                 let new_stack_size = stack_size + quants.len() as AtomId;
-                AcornValue::ForAll(quants, Box::new(value.expand_lambdas(new_stack_size)))
+                AcornValue::ForAll(
+                    quants.clone(),
+                    Box::new(value.expand_lambdas(new_stack_size)),
+                )
             }
             AcornValue::Exists(quants, value) => {
                 let new_stack_size = stack_size + quants.len() as AtomId;
                 AcornValue::Exists(quants, Box::new(value.expand_lambdas(new_stack_size)))
+            }
+            AcornValue::Lambda(_, _) => {
+                panic!("cannot expand lambdas when the value itself is a lambda");
             }
             _ => self,
         }
@@ -630,7 +636,7 @@ impl AcornValue {
                     .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            _ => self.clone(),
+            _ => panic!("unexpected match"),
         }
     }
 
@@ -702,7 +708,40 @@ impl AcornValue {
                 let new_value = value.replace_constants_with_variables(constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            _ => self.clone(),
+            _ => panic!("unexpected match"),
+        }
+    }
+
+    // Returns whether this is a valid top-level value.
+    // It should not refer to variables with indices larger than the stack.
+    pub fn validate(&self) -> bool {
+        self.validate_stacked(0)
+    }
+
+    fn validate_stacked(&self, stack_size: AtomId) -> bool {
+        match self {
+            AcornValue::Atom(ta) => match ta.atom {
+                Atom::Variable(i) => i < stack_size,
+                _ => true,
+            },
+            AcornValue::Application(app) => {
+                app.function.validate_stacked(stack_size)
+                    && app.args.iter().all(|x| x.validate_stacked(stack_size))
+            }
+            AcornValue::Lambda(args, value)
+            | AcornValue::ForAll(args, value)
+            | AcornValue::Exists(args, value) => {
+                value.validate_stacked(stack_size + args.len() as AtomId)
+            }
+            AcornValue::Implies(left, right)
+            | AcornValue::Equals(left, right)
+            | AcornValue::NotEquals(left, right)
+            | AcornValue::And(left, right)
+            | AcornValue::Or(left, right) => {
+                left.validate_stacked(stack_size) && right.validate_stacked(stack_size)
+            }
+            AcornValue::Not(x) => x.validate_stacked(stack_size),
+            _ => panic!("unexpected match"),
         }
     }
 }
