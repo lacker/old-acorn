@@ -117,6 +117,7 @@ impl fmt::Display for Statement<'_> {
 }
 
 // Parses a block (a list of statements) where the left brace has already been consumed.
+// Consumes the final right brace.
 fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> Result<Vec<Statement<'a>>>
 where
     I: Iterator<Item = Token<'a>>,
@@ -328,7 +329,8 @@ impl Statement<'_> {
     }
 
     // Tries to parse a single statement from the provided tokens.
-    // A statement should end with a newline, which is consumed.
+    // A statement can always end with a newline, which is consumed.
+    // If in_block is true, a statement can also end with a right brace.
     // The iterator may also end, in which case this returns None.
     pub fn parse<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Statement<'a>>>
     where
@@ -383,9 +385,12 @@ impl Statement<'_> {
                         return Ok(Some(Statement::If(parse_if_statement(tokens)?)));
                     }
                     _ => {
-                        let (claim, _) =
-                            Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
-
+                        let (claim, token) = Expression::parse(tokens, true, |t| {
+                            t == TokenType::NewLine || t == TokenType::RightBrace
+                        })?;
+                        if token.token_type == TokenType::RightBrace {
+                            return Err(Error::new(&token, "unmatched right brace"));
+                        }
                         return Ok(Some(Statement::Prop(PropStatement { claim })));
                     }
                 }
