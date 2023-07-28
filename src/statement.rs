@@ -521,4 +521,9 @@ mod tests {
     fn test_only_declarations_in_signatures() {
         fail("theorem foo(x: int, x > 0): x + 1 > 0");
     }
+
+    #[test]
+    fn test_single_line_forall() {
+        ok("forall(x: Nat) { f(x) -> f(Suc(x)) }")
+    }
 }
