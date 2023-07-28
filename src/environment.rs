@@ -1130,9 +1130,6 @@ impl Environment {
                 self.propositions.push(prop);
                 Ok(())
             }
-            Statement::EndBlock => {
-                panic!("unexpected endblock");
-            }
         }
     }
 
@@ -1147,12 +1144,12 @@ impl Environment {
         let mut tokens = tokens.into_iter().peekable();
         loop {
             match Statement::parse(&mut tokens, false) {
-                Ok(Some(statement)) => {
+                Ok((Some(statement), _)) => {
                     if let Err(e) = self.add_statement(&statement) {
                         panic!("\nerror adding statement:\n{}\n{}", statement, e);
                     }
                 }
-                Ok(None) => break,
+                Ok((None, _)) => break,
                 Err(e) => panic!("error parsing statement: {}", e),
             }
         }

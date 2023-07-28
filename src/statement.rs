@@ -82,9 +82,6 @@ pub struct IfStatement<'a> {
 // For example, in:
 //   def (p | q) = !p -> q
 // the equality is the whole "(p | q) = !p -> q".
-//
-// "EndBlock" is maybe not really a statement; it indicates a } ending a block with
-// a bunch of statements.
 pub enum Statement<'a> {
     Definition(DefinitionStatement<'a>),
     Theorem(TheoremStatement<'a>),
@@ -92,7 +89,6 @@ pub enum Statement<'a> {
     Type(TypeStatement<'a>),
     ForAll(ForAllStatement<'a>),
     If(IfStatement<'a>),
-    EndBlock,
 }
 
 const INDENT_WIDTH: u8 = 4;
@@ -125,9 +121,18 @@ where
     let mut body = Vec::new();
     loop {
         match Statement::parse(tokens, true)? {
-            Some(Statement::EndBlock) => break,
-            Some(s) => body.push(s),
-            None => return Err(Error::EOF),
+            (Some(s), end_block) => {
+                body.push(s);
+                if end_block {
+                    break;
+                }
+            }
+            (None, end_block) => {
+                if end_block {
+                    break;
+                }
+                return Err(Error::EOF);
+            }
         }
     }
     Ok(body)
@@ -321,18 +326,18 @@ impl Statement<'_> {
                 write!(f, "if {}", is.condition)?;
                 write_block(f, &is.body, indent)
             }
-
-            Statement::EndBlock => {
-                write!(f, "}}")
-            }
         }
     }
 
     // Tries to parse a single statement from the provided tokens.
     // A statement can always end with a newline, which is consumed.
-    // If in_block is true, a statement can also end with a right brace.
+    // If in_block is true, a prop statement can also end with a right brace.
     // The iterator may also end, in which case this returns None.
-    pub fn parse<'a, I>(tokens: &mut Peekable<I>, in_block: bool) -> Result<Option<Statement<'a>>>
+    // Returns statement as well as a flag for whether the current block or file ended.
+    pub fn parse<'a, I>(
+        tokens: &mut Peekable<I>,
+        in_block: bool,
+    ) -> Result<(Option<Statement<'a>>, bool)>
     where
         I: Iterator<Item = Token<'a>>,
     {
@@ -345,60 +350,65 @@ impl Statement<'_> {
                     }
                     TokenType::Let => {
                         tokens.next();
-                        return Ok(Some(Statement::Definition(parse_definition_statement(
-                            tokens, false,
-                        )?)));
+                        let s = Statement::Definition(parse_definition_statement(tokens, false)?);
+                        return Ok((Some(s), false));
                     }
                     TokenType::Axiom => {
                         tokens.next();
-                        return Ok(Some(Statement::Theorem(parse_theorem_statement(
-                            tokens, true,
-                        )?)));
+                        let s = Statement::Theorem(parse_theorem_statement(tokens, true)?);
+                        return Ok((Some(s), false));
                     }
                     TokenType::Theorem => {
                         tokens.next();
-                        return Ok(Some(Statement::Theorem(parse_theorem_statement(
-                            tokens, false,
-                        )?)));
+                        let s = Statement::Theorem(parse_theorem_statement(tokens, false)?);
+                        return Ok((Some(s), false));
                     }
                     TokenType::Define => {
                         tokens.next();
-                        return Ok(Some(Statement::Definition(parse_definition_statement(
-                            tokens, true,
-                        )?)));
+                        let s = Statement::Definition(parse_definition_statement(tokens, true)?);
+                        return Ok((Some(s), false));
                     }
                     TokenType::Type => {
                         tokens.next();
-                        return Ok(Some(Statement::Type(parse_type_statement(tokens)?)));
+                        let s = Statement::Type(parse_type_statement(tokens)?);
+                        return Ok((Some(s), false));
                     }
                     TokenType::RightBrace => {
+                        if !in_block {
+                            return Err(Error::new(token, "unmatched right brace at top level"));
+                        }
                         tokens.next();
                         Token::expect_type(tokens, TokenType::NewLine)?;
-                        return Ok(Some(Statement::EndBlock));
+
+                        return Ok((None, true));
                     }
                     TokenType::ForAll => {
                         tokens.next();
-                        return Ok(Some(Statement::ForAll(parse_forall_statement(tokens)?)));
+                        let s = Statement::ForAll(parse_forall_statement(tokens)?);
+                        return Ok((Some(s), false));
                     }
                     TokenType::If => {
                         tokens.next();
-                        return Ok(Some(Statement::If(parse_if_statement(tokens)?)));
+                        let s = Statement::If(parse_if_statement(tokens)?);
+                        return Ok((Some(s), false));
                     }
                     _ => {
                         let (claim, token) = Expression::parse(tokens, true, |t| {
                             t == TokenType::NewLine || t == TokenType::RightBrace
                         })?;
-                        if token.token_type == TokenType::RightBrace {
-                            if !in_block {
-                                return Err(Error::new(&token, "unmatched right brace"));
-                            }
-                            todo!("handle statements in blocks ending with right brace");
+                        let block_ended = token.token_type == TokenType::RightBrace;
+                        if block_ended && !in_block {
+                            return Err(Error::new(
+                                &token,
+                                "unmatched right brace after expression",
+                            ));
                         }
-                        return Ok(Some(Statement::Prop(PropStatement { claim })));
+                        let s = Statement::Prop(PropStatement { claim });
+                        return Ok((Some(s), block_ended));
                     }
                 }
             } else {
-                return Ok(None);
+                return Ok((None, true));
             }
         }
     }
@@ -408,8 +418,8 @@ impl Statement<'_> {
         let tokens = Token::scan(input)?;
         let mut tokens = tokens.into_iter().peekable();
         match Statement::parse(&mut tokens, false)? {
-            Some(statement) => Ok(statement),
-            None => panic!("expected statement, got EOF"),
+            (Some(statement), _) => Ok(statement),
+            _ => panic!("expected statement, got EOF"),
         }
     }
 }
@@ -419,11 +429,15 @@ mod tests {
     use super::*;
     use indoc::indoc;
 
-    fn ok(input: &str) {
-        let statement = match Statement::parse_str(input) {
+    fn should_parse(input: &str) -> Statement {
+        match Statement::parse_str(input) {
             Ok(statement) => statement,
             Err(e) => panic!("failed to parse {}: {}", input, e),
-        };
+        }
+    }
+
+    fn ok(input: &str) {
+        let statement = should_parse(input);
         assert_eq!(input, statement.to_string());
     }
 
@@ -532,6 +546,6 @@ mod tests {
 
     #[test]
     fn test_single_line_forall() {
-        ok("forall(x: Nat) { f(x) -> f(Suc(x)) }")
+        should_parse("forall(x: Nat) { f(x) -> f(Suc(x)) }");
     }
 }
