@@ -74,10 +74,41 @@ theorem mul_zero_left(a: Nat): mul(0, a) = 0
 
 theorem mul_suc_right(a: Nat, b: Nat): mul(a, Suc(b)) = add(a, mul(a, b))
 
+theorem mul_suc_left(a: Nat, b: Nat): mul(Suc(a), b) = add(b, mul(a, b)) by {
+    let f(x: Nat) -> bool = mul_suc_left(a, x)
+    induction(f)
+    f(0)
+    forall(x: Nat) {
+        if f(x) {
+            mul(Suc(a), x) = add(x, mul(a, x))
+            mul(Suc(a), Suc(x)) = add(Suc(a), mul(Suc(a), x))
+            mul(Suc(a), Suc(x)) = add(Suc(a), add(x, mul(a, x)))
+            mul(a, Suc(x)) = add(a, mul(a, x))
+            add(Suc(a), add(x, mul(a, x))) = add(add(Suc(a), x), mul(a, x))
+            add(Suc(a), add(x, mul(a, x))) = add(Suc(add(a, x)), mul(a, x))
+            add(Suc(a), add(x, mul(a, x))) = add(Suc(add(x, a)), mul(a, x))
+            add(Suc(a), add(x, mul(a, x))) = add(add(Suc(x), a), mul(a, x))
+            add_assoc(Suc(x), a, mul(a, x))
+            add(add(Suc(x), a), mul(a, x)) = add(Suc(x), add(a, mul(a, x)))
+            add(Suc(a), add(x, mul(a, x))) = add(Suc(x), add(a, mul(a, x)))
+            mul(Suc(a), Suc(x)) = add(Suc(x), add(a, mul(a, x)))
+            mul(Suc(a), Suc(x)) = add(Suc(x), mul(a, Suc(x)))
+            f(Suc(x))
+        }
+    }
+    f(b)
+}
+
 theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
     let f(x: Nat) -> bool = mul_comm(x, b)
     induction(f)
     f(0)
-    forall(x: Nat) { f(x) -> f(Suc(x)) }
+    forall(x: Nat) {
+        if f(x) {
+            mul(x, b) = mul(b, x)
+            mul(Suc(x), b) = mul(b, Suc(x))
+            f(Suc(x))
+        }
+    }
     f(a)
 }

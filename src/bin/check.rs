@@ -24,7 +24,7 @@ fn main() {
 
         match outcome {
             Outcome::Success => {
-                println!("{} proved", goal_context.name);
+                // println!("{} proved", goal_context.name);
             }
             Outcome::Failure => {
                 println!("{} is unprovable", goal_context.name);
