@@ -124,7 +124,7 @@ where
 {
     let mut body = Vec::new();
     loop {
-        match Statement::parse(tokens)? {
+        match Statement::parse(tokens, true)? {
             Some(Statement::EndBlock) => break,
             Some(s) => body.push(s),
             None => return Err(Error::EOF),
@@ -332,7 +332,7 @@ impl Statement<'_> {
     // A statement can always end with a newline, which is consumed.
     // If in_block is true, a statement can also end with a right brace.
     // The iterator may also end, in which case this returns None.
-    pub fn parse<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Statement<'a>>>
+    pub fn parse<'a, I>(tokens: &mut Peekable<I>, in_block: bool) -> Result<Option<Statement<'a>>>
     where
         I: Iterator<Item = Token<'a>>,
     {
@@ -389,7 +389,10 @@ impl Statement<'_> {
                             t == TokenType::NewLine || t == TokenType::RightBrace
                         })?;
                         if token.token_type == TokenType::RightBrace {
-                            return Err(Error::new(&token, "unmatched right brace"));
+                            if !in_block {
+                                return Err(Error::new(&token, "unmatched right brace"));
+                            }
+                            todo!("handle statements in blocks ending with right brace");
                         }
                         return Ok(Some(Statement::Prop(PropStatement { claim })));
                     }
@@ -404,7 +407,7 @@ impl Statement<'_> {
     pub fn parse_str(input: &str) -> Result<Statement> {
         let tokens = Token::scan(input)?;
         let mut tokens = tokens.into_iter().peekable();
-        match Statement::parse(&mut tokens)? {
+        match Statement::parse(&mut tokens, false)? {
             Some(statement) => Ok(statement),
             None => panic!("expected statement, got EOF"),
         }

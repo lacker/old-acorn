@@ -1146,7 +1146,7 @@ impl Environment {
         };
         let mut tokens = tokens.into_iter().peekable();
         loop {
-            match Statement::parse(&mut tokens) {
+            match Statement::parse(&mut tokens, false) {
                 Ok(Some(statement)) => {
                     if let Err(e) = self.add_statement(&statement) {
                         panic!("\nerror adding statement:\n{}\n{}", statement, e);
