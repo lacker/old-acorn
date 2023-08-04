@@ -44,6 +44,9 @@ pub struct TermInfo {
     // The symmetry group formed by the permutations of this term's arguments for which
     // the term is invariant.
     symmetry: PermutationGroup,
+
+    // The terms that this term can never be equal to.
+    not_equal: HashSet<TermInstance>,
 }
 pub type TermId = u32;
 
@@ -156,6 +159,7 @@ impl TermInfo {
             type_template: None,
             depth,
             symmetry: PermutationGroup::trivial(num_args),
+            not_equal: HashSet::default(),
         }
     }
 }
@@ -1250,6 +1254,73 @@ impl TermGraph {
     pub fn identify_terms(&mut self, instance1: TermInstance, instance2: TermInstance) {
         let ops = vec![(instance1, instance2)];
         self.process_all(ops)
+    }
+
+    // Sets these terms to be not equal.
+    // The caller should handle the contradictory case where they are already known to be equal.
+    pub fn set_not_equal(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
+        assert_ne!(instance1, instance2);
+        let mut inserted = 0;
+        if let TermInstance::Mapped(t1) = instance1 {
+            inserted += 1;
+            self.set_mapped_term_not_equal(t1, instance2);
+        }
+        if let TermInstance::Mapped(t2) = instance2 {
+            inserted += 1;
+            self.set_mapped_term_not_equal(t2, instance1);
+        }
+        if inserted == 0 {
+            panic!("observe_not_equal called with two variables");
+        }
+    }
+
+    // Helper function
+    fn set_mapped_term_not_equal(&mut self, mapped: &MappedTerm, instance: &TermInstance) {
+        let new_instance = instance.backward_map_vars(&mapped.var_map);
+        let info = self.mut_term_info(mapped.term_id);
+        info.not_equal.insert(new_instance);
+    }
+
+    // Checks whether these terms are known to be equal or not equal.
+    // "true" means that these terms are equal.
+    // "false" means that these terms are not equal, for every value of the free variables.
+    // "None" means that we don't know, or that they are only sometimes equal.
+    pub fn evaluate_equality(
+        &self,
+        instance1: &TermInstance,
+        instance2: &TermInstance,
+    ) -> Option<bool> {
+        if instance1 == instance2 {
+            return Some(true);
+        }
+        let id1 = match instance1 {
+            TermInstance::Mapped(t1) => {
+                let new_instance = instance2.backward_map_vars(&t1.var_map);
+                let info = self.get_term_info(t1.term_id);
+                if info.not_equal.contains(&new_instance) {
+                    return Some(false);
+                } else {
+                    return None;
+                }
+            }
+            TermInstance::Variable(_type, i) => i,
+        };
+        let id2 = match instance2 {
+            TermInstance::Mapped(t2) => {
+                let new_instance = instance1.backward_map_vars(&t2.var_map);
+                let info = self.get_term_info(t2.term_id);
+                if info.not_equal.contains(&new_instance) {
+                    return Some(false);
+                } else {
+                    return None;
+                }
+            }
+            TermInstance::Variable(_type, i) => i,
+        };
+        if id1 == id2 {
+            return Some(true);
+        }
+        None
     }
 
     // Find edges that can be a template expansion to create this term.
