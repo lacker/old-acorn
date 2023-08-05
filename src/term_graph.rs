@@ -10,7 +10,7 @@ use crate::atom::{Atom, AtomId};
 use crate::permutation;
 use crate::permutation_group::PermutationGroup;
 use crate::specializer::Specializer;
-use crate::term::Term;
+use crate::term::{Literal, Term};
 use crate::type_space::{self, TypeId};
 
 // The TermInfo stores information about an abstract term.
@@ -1251,23 +1251,23 @@ impl TermGraph {
 
     // Identifies the two terms, and continues processing any followup Identifications until
     // all Identifications are processed.
-    pub fn identify_terms(&mut self, instance1: TermInstance, instance2: TermInstance) {
+    pub fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
         let ops = vec![(instance1, instance2)];
         self.process_all(ops)
     }
 
     // Sets these terms to be not equal.
     // The caller should handle the contradictory case where they are already known to be equal.
-    pub fn set_not_equal(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
+    pub fn make_not_equal(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
         assert_ne!(instance1, instance2);
         let mut inserted = 0;
         if let TermInstance::Mapped(t1) = instance1 {
             inserted += 1;
-            self.set_mapped_term_not_equal(t1, instance2);
+            self.make_mapped_term_not_equal(t1, instance2);
         }
         if let TermInstance::Mapped(t2) = instance2 {
             inserted += 1;
-            self.set_mapped_term_not_equal(t2, instance1);
+            self.make_mapped_term_not_equal(t2, instance1);
         }
         if inserted == 0 {
             panic!("observe_not_equal called with two variables");
@@ -1275,7 +1275,7 @@ impl TermGraph {
     }
 
     // Helper function
-    fn set_mapped_term_not_equal(&mut self, mapped: &MappedTerm, instance: &TermInstance) {
+    fn make_mapped_term_not_equal(&mut self, mapped: &MappedTerm, instance: &TermInstance) {
         let new_instance = instance.backward_map_vars(&mapped.var_map);
         let info = self.mut_term_info(mapped.term_id);
         info.not_equal.insert(new_instance);
@@ -1285,7 +1285,7 @@ impl TermGraph {
     // "true" means that these terms are equal.
     // "false" means that these terms are not equal, for every value of the free variables.
     // "None" means that we don't know, or that they are only sometimes equal.
-    pub fn evaluate_equality(
+    fn evaluate_equality(
         &self,
         instance1: &TermInstance,
         instance2: &TermInstance,
@@ -1508,6 +1508,35 @@ impl TermGraph {
         }
     }
 
+    pub fn insert_literal(&mut self, literal: &Literal) {
+        let left = self.insert_term(&literal.left);
+        let right = self.insert_term(&literal.right);
+        if literal.positive {
+            self.make_equal(left, right);
+        } else {
+            self.make_not_equal(&left, &right);
+        }
+    }
+
+    // Checks if we have an evaluation for this literal.
+    // Return Some(true) if this literal is true (for all values of the free variables).
+    // Return Some(false) if this literal is false (for all values of the free variables).
+    // Return None if we don't know or if the literal does not consistently evaluate.
+    pub fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
+        let left = self.insert_term(&literal.left);
+        let right = self.insert_term(&literal.right);
+        match self.evaluate_equality(&left, &right) {
+            Some(equality) => {
+                if literal.positive {
+                    Some(equality)
+                } else {
+                    Some(!equality)
+                }
+            }
+            None => None,
+        }
+    }
+
     // A linear pass through the graph checking that everything is consistent.
     pub fn check(&self) {
         println!();
@@ -1600,8 +1629,8 @@ impl TermGraph {
         term_instance
     }
 
-    pub fn check_identify_terms(&mut self, term1: &TermInstance, term2: &TermInstance) {
-        self.identify_terms(term1.clone(), term2.clone());
+    pub fn check_make_equal(&mut self, term1: &TermInstance, term2: &TermInstance) {
+        self.make_equal(term1.clone(), term2.clone());
         self.check();
     }
 }
@@ -1668,7 +1697,7 @@ mod tests {
         let mut g = TermGraph::new();
         let c0 = g.parse("c0(c3)");
         let c1 = g.parse("c1(c3)");
-        g.check_identify_terms(&c0, &c1);
+        g.check_make_equal(&c0, &c1);
         let c2c0 = g.parse("c2(c0(c3))");
         let c2c1 = g.parse("c2(c1(c3))");
         assert_eq!(c2c0, c2c1);
@@ -1679,7 +1708,7 @@ mod tests {
         let mut g = TermGraph::new();
         let c0 = g.parse("c0");
         let c1 = g.parse("c1");
-        g.check_identify_terms(&c0, &c1);
+        g.check_make_equal(&c0, &c1);
         let c2c0 = g.parse("c2(c0)");
         let c2c1 = g.parse("c2(c1)");
         assert_eq!(c2c0, c2c1);
@@ -1690,7 +1719,7 @@ mod tests {
         let mut g = TermGraph::new();
         let c0 = g.parse("c0(x0, x1)");
         let c1 = g.parse("c1(x1, x0)");
-        g.check_identify_terms(&c0, &c1);
+        g.check_make_equal(&c0, &c1);
         let rep0 = g.update_term(c0);
         let rep1 = g.update_term(c1);
         assert_eq!(&rep0, &rep1);
@@ -1703,7 +1732,7 @@ mod tests {
         let c1 = g.parse("c1");
         g.parse("c2(c0)");
         g.parse("c2(c1)");
-        g.check_identify_terms(&c0, &c1);
+        g.check_make_equal(&c0, &c1);
         let c2c0 = g.parse("c2(c0)");
         let c2c1 = g.parse("c2(c1)");
         assert_eq!(c2c0, c2c1);
@@ -1716,9 +1745,9 @@ mod tests {
         let c1 = g.parse("c1");
         let c2 = g.parse("c2");
         let c3 = g.parse("c3");
-        g.check_identify_terms(&c0, &c1);
-        g.check_identify_terms(&c2, &c3);
-        g.check_identify_terms(&c0, &c2);
+        g.check_make_equal(&c0, &c1);
+        g.check_make_equal(&c2, &c3);
+        g.check_make_equal(&c0, &c2);
         let c4c3 = g.parse("c4(c3)");
         let c4c1 = g.parse("c4(c1)");
         assert_eq!(c4c3, c4c1);
@@ -1729,7 +1758,7 @@ mod tests {
         let mut g = TermGraph::new();
         let c0x0x1 = g.parse("c0(x0, x1)");
         let c1x1x0 = g.parse("c1(x1, x0)");
-        g.check_identify_terms(&c0x0x1, &c1x1x0);
+        g.check_make_equal(&c0x0x1, &c1x1x0);
         let c0c2c3 = g.parse("c0(c2, c3)");
         let c1c3c2 = g.parse("c1(c3, c2)");
         assert_eq!(c0c2c3, c1c3c2);
@@ -1740,7 +1769,7 @@ mod tests {
         let mut g = TermGraph::new();
         let c0x0 = g.parse("c0(x0)");
         let c1 = g.parse("c1");
-        g.check_identify_terms(&c0x0, &c1);
+        g.check_make_equal(&c0x0, &c1);
         let c0c2 = g.parse("c0(c2)");
         let c0c3 = g.parse("c0(c3)");
         assert_eq!(c0c2, c0c3);
@@ -1753,7 +1782,7 @@ mod tests {
         // Make the less concise term the more popular one
         g.parse("c0(c2)");
         let c1 = g.parse("c1");
-        g.check_identify_terms(&c0x0, &c1);
+        g.check_make_equal(&c0x0, &c1);
         let c0c2 = g.parse("c0(c2)");
         let c0c3 = g.parse("c0(c3)");
         assert_eq!(c0c2, c0c3);
@@ -1764,9 +1793,9 @@ mod tests {
         let mut g = TermGraph::new();
         let c0c0c1 = g.parse("c0(c1)");
         let other_term = g.parse("c2(c3)");
-        g.check_identify_terms(&c0c0c1, &other_term);
+        g.check_make_equal(&c0c0c1, &other_term);
         let c1 = g.parse("c1");
-        g.check_identify_terms(&c0c0c1, &c1);
+        g.check_make_equal(&c0c0c1, &c1);
     }
 
     #[test]
@@ -1775,11 +1804,11 @@ mod tests {
 
         let c0c1c1 = g.parse("c0(c1, c1)");
         let c2 = g.parse("c2");
-        g.check_identify_terms(&c0c1c1, &c2);
+        g.check_make_equal(&c0c1c1, &c2);
 
         let c1 = g.parse("c1");
         let c2 = g.parse("c3");
-        g.check_identify_terms(&c1, &c2);
+        g.check_make_equal(&c1, &c2);
 
         let c0c3c3 = g.parse("c0(c3, c3)");
         let c2 = g.parse("c2");
@@ -1791,7 +1820,7 @@ mod tests {
         let mut g = TermGraph::new();
         let c0x0 = g.parse("c0(x0)");
         let c1c2 = g.parse("c1(c2)");
-        g.check_identify_terms(&c0x0, &c1c2);
+        g.check_make_equal(&c0x0, &c1c2);
     }
 
     #[test]
@@ -1799,7 +1828,7 @@ mod tests {
         let mut g = TermGraph::new();
         let c0x0 = g.parse("c0(x0)");
         let c1x1 = g.parse("c1(x1)");
-        g.check_identify_terms(&c0x0, &c1x1);
+        g.check_make_equal(&c0x0, &c1x1);
         let c0c2 = g.parse("c0(c2)");
         let c0c3 = g.parse("c0(c3)");
         assert_eq!(c0c2, c0c3);
@@ -1812,7 +1841,7 @@ mod tests {
         let mut g = TermGraph::new();
         let c0x0 = g.parse("c0(x0)");
         let x0 = g.parse("x0");
-        g.check_identify_terms(&c0x0, &x0);
+        g.check_make_equal(&c0x0, &x0);
         let c0c1 = g.parse("c0(c1)");
         let c1 = g.parse("c1");
         assert_eq!(c0c1, c1);
@@ -1824,7 +1853,7 @@ mod tests {
         g.parse("c0(c1)");
         let x0 = g.parse("x0");
         let c0x0 = g.parse("c0(x0)");
-        g.check_identify_terms(&x0, &c0x0);
+        g.check_make_equal(&x0, &c0x0);
     }
 
     #[test]
@@ -1832,7 +1861,7 @@ mod tests {
         let mut g = TermGraph::new();
         let c0c1x0 = g.parse("c0(c1, x0)");
         let c2 = g.parse("c2");
-        g.check_identify_terms(&c0c1x0, &c2);
+        g.check_make_equal(&c0c1x0, &c2);
         let c0c1c3 = g.parse("c0(c1, c3)");
         let c2 = g.parse("c2");
         assert_eq!(c0c1c3, c2);
@@ -1843,7 +1872,7 @@ mod tests {
         let mut g = TermGraph::new();
         let template = g.parse("c0(x0, c1(x1))");
         let reduction = g.parse("c2(x0)");
-        g.check_identify_terms(&template, &reduction);
+        g.check_make_equal(&template, &reduction);
         let matching = g.parse("c0(x0, c1(c3))");
         let expected = g.parse("c2(x0)");
         assert_eq!(matching, expected);
@@ -1854,10 +1883,10 @@ mod tests {
         let mut g = TermGraph::new();
         let c0c1x0 = g.parse("c0(c1(x0))");
         let c2x0 = g.parse("c2(x0)");
-        g.check_identify_terms(&c0c1x0, &c2x0);
+        g.check_make_equal(&c0c1x0, &c2x0);
         let c1x0 = g.parse("c1(x0)");
         let c3 = g.parse("c3");
-        g.check_identify_terms(&c1x0, &c3);
+        g.check_make_equal(&c1x0, &c3);
     }
 
     #[test]
@@ -1865,7 +1894,7 @@ mod tests {
         let mut g = TermGraph::new();
         let template = g.parse("c0(c1(x0), x1)");
         let reduction = g.parse("c2");
-        g.check_identify_terms(&template, &reduction);
+        g.check_make_equal(&template, &reduction);
         let matching = g.parse("c0(c1(c3), x1)");
         let expected = g.parse("c2");
         assert_eq!(matching, expected);
@@ -1876,7 +1905,7 @@ mod tests {
         let mut g = TermGraph::new();
         let template = g.parse("c0(x0, c1, x2, c2(x3), x4)");
         let reduction = g.parse("c3(x2)");
-        g.check_identify_terms(&template, &reduction);
+        g.check_make_equal(&template, &reduction);
         let matching = g.parse("c0(c4, c1, x0, c2(c5), x1)");
         let expected = g.parse("c3(x0)");
         assert_eq!(matching, expected);
@@ -1887,7 +1916,7 @@ mod tests {
         let mut g = TermGraph::new();
         let template = g.parse("c0(c1, x0)");
         let reduction = g.parse("c2(x1)");
-        g.check_identify_terms(&template, &reduction);
+        g.check_make_equal(&template, &reduction);
         let left = g.parse("c0(c1, c3)");
         let right = g.parse("c2(c4)");
         assert_eq!(left, right);
@@ -1898,13 +1927,13 @@ mod tests {
         let mut g = TermGraph::new();
         let template = g.parse("c0(c1, x0, x1)");
         let reduction = g.parse("c2");
-        g.check_identify_terms(&template, &reduction);
+        g.check_make_equal(&template, &reduction);
         let template = g.parse("c0(x0, c1, x1)");
         let reduction = g.parse("c3");
-        g.check_identify_terms(&template, &reduction);
+        g.check_make_equal(&template, &reduction);
         let template = g.parse("c0(x0, x1, c1)");
         let reduction = g.parse("c4");
-        g.check_identify_terms(&template, &reduction);
+        g.check_make_equal(&template, &reduction);
         g.parse("c0(c1, c1, c1)");
         let c3 = g.parse("c3");
         let c4 = g.parse("c4");
@@ -1916,7 +1945,7 @@ mod tests {
         let mut g = TermGraph::new();
         let template = g.parse("c0(x0, c1(x1))");
         let reduction = g.parse("c2(x0)");
-        g.check_identify_terms(&template, &reduction);
+        g.check_make_equal(&template, &reduction);
         let left = g.parse("c2(c3)");
         let right = g.parse("c0(c3, c1(c4))");
         assert_eq!(left, right);
@@ -1927,7 +1956,7 @@ mod tests {
         let mut g = TermGraph::new();
         let first = g.parse("c0(x0, x1)");
         let second = g.parse("c0(x0, x2)");
-        g.check_identify_terms(&first, &second);
+        g.check_make_equal(&first, &second);
         let left = g.parse("c0(c1, c2)");
         let right = g.parse("c0(c1, c3)");
         assert_eq!(left, right);
@@ -1938,7 +1967,7 @@ mod tests {
         let mut g = TermGraph::new();
         let base = g.parse("c0(x0, x1, x2)");
         let rotated = g.parse("c0(x1, x2, x0)");
-        g.check_identify_terms(&base, &rotated);
+        g.check_make_equal(&base, &rotated);
 
         let term1 = g.parse("c0(c1, c2, c3)");
         let term2 = g.parse("c0(c2, c3, c1)");
@@ -1963,15 +1992,15 @@ mod tests {
 
         let c0c1c2 = g.parse("c0(c1, c2)");
         let c3 = g.parse("c3");
-        g.check_identify_terms(&c0c1c2, &c3);
+        g.check_make_equal(&c0c1c2, &c3);
 
         let c0c2c1 = g.parse("c0(c2, c1)");
         let c4 = g.parse("c4");
-        g.check_identify_terms(&c0c2c1, &c4);
+        g.check_make_equal(&c0c2c1, &c4);
 
         let c0x0x1 = g.parse("c0(x0, x1)");
         let c0x1x0 = g.parse("c0(x1, x0)");
-        g.check_identify_terms(&c0x0x1, &c0x1x0);
+        g.check_make_equal(&c0x0x1, &c0x1x0);
 
         let c3 = g.parse("c3");
         let c4 = g.parse("c4");
