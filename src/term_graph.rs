@@ -1629,6 +1629,16 @@ impl TermGraph {
         term_instance
     }
 
+    pub fn insert_literal_str(&mut self, literal_string: &str) {
+        let literal = Literal::parse(literal_string);
+        self.insert_literal(&literal);
+    }
+
+    pub fn evaluate_literal_str(&mut self, literal_string: &str) -> Option<bool> {
+        let literal = Literal::parse(literal_string);
+        self.evaluate_literal(&literal)
+    }
+
     pub fn check_make_equal(&mut self, term1: &TermInstance, term2: &TermInstance) {
         self.make_equal(term1.clone(), term2.clone());
         self.check();
@@ -2005,5 +2015,13 @@ mod tests {
         let c3 = g.parse("c3");
         let c4 = g.parse("c4");
         assert_eq!(c3, c4);
+    }
+
+    #[test]
+    fn test_literal_evaluation() {
+        let mut g = TermGraph::new();
+        g.insert_literal_str("c0(x0, c1) = x0");
+        assert_eq!(g.evaluate_literal_str("c0(x0, c1) = x0"), Some(true));
+        assert_eq!(g.evaluate_literal_str("c0(c2, c1) = c2"), Some(true));
     }
 }
