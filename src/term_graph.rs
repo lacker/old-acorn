@@ -2023,5 +2023,6 @@ mod tests {
         g.insert_literal_str("c0(x0, c1) = x0");
         assert_eq!(g.evaluate_literal_str("c0(x0, c1) = x0"), Some(true));
         assert_eq!(g.evaluate_literal_str("c0(c2, c1) = c2"), Some(true));
+        assert_eq!(g.evaluate_literal_str("c0(x0, x1) = x0"), None);
     }
 }
