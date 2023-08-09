@@ -1598,6 +1598,7 @@ impl TermGraph {
             if !self.has_edge_info(*edge_id) {
                 panic!("edge {} has been collapsed", edge_id);
             }
+            self.print_edge(*edge_id);
             let edge_info = self.get_edge_info(*edge_id);
             for term_id in edge_info.adjacent_terms().iter() {
                 if !self.has_term_info(*term_id) {
