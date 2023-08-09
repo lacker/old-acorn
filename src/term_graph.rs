@@ -10,7 +10,7 @@ use crate::atom::{Atom, AtomId};
 use crate::permutation;
 use crate::permutation_group::PermutationGroup;
 use crate::specializer::Specializer;
-use crate::term::{Literal, Term};
+use crate::term::{Literal, Term, TermFormatter};
 use crate::type_space::{self, TypeId};
 
 // The TermInfo stores information about an abstract term.
@@ -1539,7 +1539,25 @@ impl TermGraph {
 
     pub fn print_edge(&self, edge_id: EdgeId) {
         let edge_info = self.get_edge_info(edge_id);
-        println!("edge {}: {}", edge_id, edge_info);
+        let template = self.extract_term_id(edge_info.key.template);
+        print!(
+            "edge: {}",
+            TermFormatter {
+                term: &template,
+                var: 'y'
+            }
+        );
+        for (i, replacement) in edge_info.key.replacements.iter().enumerate() {
+            let term = self.extract_term_instance(replacement);
+            print!(
+                "{} y{} = {}",
+                if i == 0 { " replacing" } else { "," },
+                i,
+                term
+            );
+        }
+        let result = self.extract_term_instance(&edge_info.result);
+        println!(" yields {}", result);
     }
 
     // A linear pass through the graph checking that everything is consistent.
