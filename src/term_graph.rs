@@ -1390,10 +1390,6 @@ impl TermGraph {
                 continue;
             }
             let short_edge_info = self.get_edge_info(short_edge_id);
-            if let TermInstance::Variable(_, _) = short_edge_info.result {
-                // Ignore short edges that cancel out a term entirely
-                continue;
-            }
             let short_reps = &short_edge_info.normalize_result();
             assert_eq!(short_reps.len(), inbound.len());
 
