@@ -22,14 +22,40 @@ pub struct Term {
 
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.head)?;
-        if self.args.len() > 0 {
+        let tf = TermFormatter {
+            term: self,
+            var: 'x',
+        };
+        write!(f, "{}", tf)
+    }
+}
+
+// Formatting terms with slight changes.
+pub struct TermFormatter<'a> {
+    pub term: &'a Term,
+    pub var: char,
+}
+
+impl fmt::Display for TermFormatter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.term.head {
+            Atom::Variable(i) => write!(f, "{}{}", self.var, i)?,
+            _ => write!(f, "{}", self.term.head)?,
+        }
+        if self.term.args.len() > 0 {
             write!(f, "(")?;
-            for (i, arg) in self.args.iter().enumerate() {
+            for (i, arg) in self.term.args.iter().enumerate() {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "{}", arg)?;
+                write!(
+                    f,
+                    "{}",
+                    TermFormatter {
+                        term: &arg,
+                        var: self.var
+                    }
+                )?;
             }
             write!(f, ")")?;
         }
