@@ -1541,7 +1541,8 @@ impl TermGraph {
         let edge_info = self.get_edge_info(edge_id);
         let template = self.extract_term_id(edge_info.key.template);
         print!(
-            "edge: {}",
+            "edge {}: {}",
+            edge_id,
             TermFormatter {
                 term: &template,
                 var: 'y'
