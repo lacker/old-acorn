@@ -1537,9 +1537,13 @@ impl TermGraph {
         }
     }
 
+    pub fn print_edge(&self, edge_id: EdgeId) {
+        let edge_info = self.get_edge_info(edge_id);
+        println!("edge {}: {}", edge_id, edge_info);
+    }
+
     // A linear pass through the graph checking that everything is consistent.
     pub fn check(&self) {
-        println!();
         let mut all_terms: HashSet<String> = HashSet::new();
         for term_id in 0..self.terms.len() {
             let term_id = term_id as TermId;
@@ -1622,6 +1626,7 @@ impl TermGraph {
     }
 
     pub fn parse(&mut self, term_string: &str) -> TermInstance {
+        println!();
         println!("parsing: {}", term_string);
         let term = Term::parse(term_string);
         let term_instance = self.insert_term(&term);
@@ -1640,6 +1645,8 @@ impl TermGraph {
     }
 
     pub fn check_make_equal(&mut self, term1: &TermInstance, term2: &TermInstance) {
+        println!();
+        println!("making equal: {} = {}", term1, term2);
         self.make_equal(term1.clone(), term2.clone());
         self.check();
     }
