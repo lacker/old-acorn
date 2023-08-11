@@ -744,6 +744,40 @@ impl TermGraph {
         self.replace_in_term_instance(&term_instance, &replacements, true)
     }
 
+    // Get a TermInstance for a type template.
+    // A type template is a term where everything is a variable.
+    // Like x0(x1, x2).
+    // The variables will be numbered in increasing order, but you can decide where to start at.
+    // This will use (num_args + 1) variables.
+    fn type_template_instance(
+        &mut self,
+        term_type: TypeId,
+        head_type: TypeId,
+        arg_types: &Vec<TypeId>,
+        first_var: AtomId,
+    ) -> TermInstance {
+        let term_id = self
+            .type_templates
+            .entry((head_type, arg_types.len() as u8))
+            .or_insert_with(|| {
+                let term_id = self.terms.len() as TermId;
+                // The head of the term is an argument for the term instance.
+                let mut instance_arg_types = vec![head_type];
+                for arg_type in arg_types {
+                    instance_arg_types.push(*arg_type);
+                }
+                let term_info = TermInfo::new(term_type, instance_arg_types, 0);
+                self.terms.push(TermInfoReference::TermInfo(term_info));
+                term_id
+            });
+
+        // Construct the instance by shifting the variable numbers
+        TermInstance::mapped(
+            *term_id,
+            (first_var..(first_var + 1 + arg_types.len() as AtomId)).collect(),
+        )
+    }
+
     // Inserts a new term using "skinny edges".
     // A skinny edge is one that changes only a single variable.
     // Returns the existing term if there is one.

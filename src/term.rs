@@ -318,14 +318,14 @@ impl Term {
         }
     }
 
-    // Assumes any intermediate ones are taken, so essentially 1 plus the maximum.
-    pub fn num_quantifiers(&self) -> AtomId {
+    // The lowest variable number this term doesn't use.
+    pub fn least_unused_variable(&self) -> AtomId {
         let mut answer = match self.head {
             Atom::Variable(i) => i + 1,
             _ => 0,
         };
         for arg in &self.args {
-            answer = answer.max(arg.num_quantifiers());
+            answer = answer.max(arg.least_unused_variable());
         }
         answer
     }
@@ -511,15 +511,15 @@ impl Term {
         }
     }
 
-    fn inorder_helper(&self, answer: &mut Vec<(Atom, AtomId)>) {
-        answer.push((self.head, self.args.len() as AtomId));
+    fn inorder_helper(&self, answer: &mut Vec<(TypeId, Atom, u8)>) {
+        answer.push((self.term_type, self.head, self.args.len() as u8));
         for arg in &self.args {
             arg.inorder_helper(answer);
         }
     }
 
-    // An inorder traversal of each subterm, reporting (head, number of args).
-    pub fn inorder(&self) -> Vec<(Atom, AtomId)> {
+    // An inorder traversal of each subterm, reporting (term type, head, number of args).
+    pub fn inorder(&self) -> Vec<(TypeId, Atom, u8)> {
         let mut answer = vec![];
         self.inorder_helper(&mut answer);
         answer
@@ -643,8 +643,8 @@ impl Literal {
 
     pub fn num_quantifiers(&self) -> AtomId {
         self.left
-            .num_quantifiers()
-            .max(self.right.num_quantifiers())
+            .least_unused_variable()
+            .max(self.right.least_unused_variable())
     }
 
     pub fn var_type(&self, i: AtomId) -> Option<AtomId> {
