@@ -2052,7 +2052,7 @@ mod tests {
     }
 
     #[test]
-    fn test_identifying_with_variable_in_reverse_order() {
+    fn test_identifying_with_variable_seeing_template_last() {
         let mut g = TermGraph::new();
         g.parse("c0(c2, c1)");
 
@@ -2065,13 +2065,26 @@ mod tests {
     }
 
     #[test]
-    fn test_variable_occurring_twice_in_template() {
+    fn test_repeated_variable() {
+        let mut g = TermGraph::new();
+        let c0x0x0 = g.parse("c0(x0, x0)");
+        let c0c1c1 = g.parse("c0(c1, c1)");
+        let c2 = g.parse("c2");
+        g.check_make_equal(&c2, &c0x0x0);
+        let c0c1c1 = g.update_term(c0c1c1);
+        let c2 = g.update_term(c2);
+        assert_eq!(c0c1c1, c2);
+    }
+
+    #[test]
+    fn test_repeated_variable_seeing_template_last() {
         let mut g = TermGraph::new();
         let c0c1c1 = g.parse("c0(c1, c1)");
         let c0x0x0 = g.parse("c0(x0, x0)");
         let c2 = g.parse("c2");
         g.check_make_equal(&c2, &c0x0x0);
         let c0c1c1 = g.update_term(c0c1c1);
+        let c2 = g.update_term(c2);
         assert_eq!(c0c1c1, c2);
     }
 
