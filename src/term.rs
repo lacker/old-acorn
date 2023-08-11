@@ -511,15 +511,17 @@ impl Term {
         }
     }
 
-    fn inorder_helper(&self, answer: &mut Vec<(TypeId, Atom, u8)>) {
-        answer.push((self.term_type, self.head, self.args.len() as u8));
+    fn inorder_helper(&self, answer: &mut Vec<(TypeId, TypeId, Atom, Vec<TypeId>)>) {
+        let arg_types = self.args.iter().map(|arg| arg.term_type).collect();
+        answer.push((self.term_type, self.head_type, self.head, arg_types));
         for arg in &self.args {
             arg.inorder_helper(answer);
         }
     }
 
-    // An inorder traversal of each subterm, reporting (term type, head, number of args).
-    pub fn inorder(&self) -> Vec<(TypeId, Atom, u8)> {
+    // An inorder traversal of each subterm. Returns a vector of:
+    // (term type, head type, head, arg types).
+    pub fn inorder(&self) -> Vec<(TypeId, TypeId, Atom, Vec<TypeId>)> {
         let mut answer = vec![];
         self.inorder_helper(&mut answer);
         answer

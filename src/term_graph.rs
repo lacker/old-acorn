@@ -685,6 +685,19 @@ impl TermGraph {
         }
     }
 
+    // Replaces a single variable with a new value.
+    // Creates new entries in the term graph if necessary.
+    // Assumes we are using "skinny edges", and thus the replacement is minimal.
+    // The template does not need to have consecutively numbered variables.
+    fn replace_one_var(
+        &mut self,
+        template: &TermInstance,
+        replace_var: AtomId,
+        replacement: &TermInstance,
+    ) -> TermInstance {
+        todo!();
+    }
+
     // Inserts a new term using "fat edges".
     // A fat edge is one that replaces all the arguments of a term at once.
     // Returns the existing term if there is one.
@@ -744,18 +757,18 @@ impl TermGraph {
         self.replace_in_term_instance(&term_instance, &replacements, true)
     }
 
-    // Get a TermInstance for a type template.
+    // Get a TermInstance for a type template, plus the number of variables used.
     // A type template is a term where everything is a variable.
     // Like x0(x1, x2).
     // The variables will be numbered in increasing order, but you can decide where to start at.
-    // This will use (num_args + 1) variables.
+    // This will use (arg_types.len() + 1) variables.
     fn type_template_instance(
         &mut self,
         term_type: TypeId,
         head_type: TypeId,
         arg_types: &Vec<TypeId>,
-        first_var: AtomId,
-    ) -> TermInstance {
+        next_var: AtomId,
+    ) -> (TermInstance, AtomId) {
         let term_id = self
             .type_templates
             .entry((head_type, arg_types.len() as u8))
@@ -772,10 +785,32 @@ impl TermGraph {
             });
 
         // Construct the instance by shifting the variable numbers
-        TermInstance::mapped(
-            *term_id,
-            (first_var..(first_var + 1 + arg_types.len() as AtomId)).collect(),
+        let delta = 1 + arg_types.len() as AtomId;
+        (
+            TermInstance::mapped(*term_id, (next_var..(next_var + delta)).collect()),
+            delta,
         )
+    }
+
+    fn atomic_instance(&mut self, atom_type: TypeId, atom: Atom) -> TermInstance {
+        match atom {
+            Atom::Variable(i) => TermInstance::Variable(atom_type, i),
+            _ => {
+                let atom_key = (atom, 0);
+                if !self.atoms.contains_key(&atom_key) {
+                    let term_id = self.terms.len() as TermId;
+                    let term_info = TermInfo::new(atom_type, vec![], 0);
+                    self.terms.push(TermInfoReference::TermInfo(term_info));
+                    let term_instance = TermInstance::mapped(term_id, vec![]);
+                    let atom_info = AtomInfo {
+                        term: term_instance.clone(),
+                        head_type: atom_type,
+                    };
+                    self.atoms.insert(atom_key, atom_info);
+                };
+                self.atoms.get(&atom_key).unwrap().term.clone()
+            }
+        }
     }
 
     // Inserts a new term using "skinny edges".
@@ -789,7 +824,49 @@ impl TermGraph {
             return TermInstance::Variable(term.term_type, i);
         }
 
-        todo!();
+        // We accumulate an instance by substituting in one atom or type template at a time
+        let mut accumulated_instance: Option<TermInstance> = None;
+
+        // Temporary variables, used during construction only, start numbering here
+        let mut next_var = term.least_unused_variable();
+
+        // Stored in reverse order for nice popping
+        let mut temporary_vars: Vec<AtomId> = vec![];
+
+        for (term_type, head_type, head, arg_types) in term.inorder() {
+            // Expand the accumulated instance with a type template
+            let (type_template_instance, vars_used) =
+                self.type_template_instance(term_type, head_type, &arg_types, next_var);
+            if let Some(instance) = accumulated_instance {
+                let replace_var = temporary_vars.pop().unwrap();
+                let replaced =
+                    self.replace_one_var(&instance, replace_var, &type_template_instance);
+                accumulated_instance = Some(replaced);
+            } else {
+                // This is the root type template for the term
+                accumulated_instance = Some(type_template_instance);
+            }
+            next_var += vars_used;
+            for i in 0..vars_used {
+                temporary_vars.push(next_var - 1 - i);
+            }
+
+            // Expand the accumulated instance with an atom
+            let replace_var = temporary_vars.pop().unwrap();
+            let atomic_instance = self.atomic_instance(head_type, head);
+            let replaced = self.replace_one_var(
+                &accumulated_instance.unwrap(),
+                replace_var,
+                &atomic_instance,
+            );
+            accumulated_instance = Some(replaced);
+
+            if temporary_vars.is_empty() {
+                return accumulated_instance.unwrap();
+            }
+        }
+
+        panic!("control flow should not reach here");
     }
 
     // The depth of an edge is the maximum depth of any term that its key references.
