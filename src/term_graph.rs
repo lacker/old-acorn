@@ -685,12 +685,10 @@ impl TermGraph {
         }
     }
 
+    // Inserts a new term using "fat edges".
+    // A fat edge is one that replaces all the arguments of a term at once.
+    // Returns the existing term if there is one.
     pub fn insert_term_fat(&mut self, term: &Term) -> TermInstance {
-        self.insert_term(term, true)
-    }
-
-    // Inserts a new term, or returns the existing term if there is one.
-    fn insert_term(&mut self, term: &Term, fat_edges: bool) -> TermInstance {
         if term.is_true() {
             panic!("True should not be a separate node in the term graph")
         }
@@ -717,7 +715,7 @@ impl TermGraph {
             for arg in &term.args {
                 replacements.push(self.insert_term_fat(arg));
             }
-            return self.replace_in_term_id(type_template, replacements, fat_edges);
+            return self.replace_in_term_id(type_template, replacements, true);
         }
 
         // Handle the (much more common) case where the head is not a variable
@@ -743,7 +741,7 @@ impl TermGraph {
         // Substitute the arguments into the head
         let term_instance = self.atoms.get(&atom_key).unwrap().term.clone();
         let replacements: Vec<_> = term.args.iter().map(|a| self.insert_term_fat(a)).collect();
-        self.replace_in_term_instance(&term_instance, &replacements, fat_edges)
+        self.replace_in_term_instance(&term_instance, &replacements, true)
     }
 
     // The depth of an edge is the maximum depth of any term that its key references.
