@@ -744,6 +744,20 @@ impl TermGraph {
         self.replace_in_term_instance(&term_instance, &replacements, true)
     }
 
+    // Inserts a new term using "skinny edges".
+    // A skinny edge is one that changes only a single variable.
+    // Returns the existing term if there is one.
+    pub fn insert_term_skinny(&mut self, term: &Term) -> TermInstance {
+        if term.is_true() {
+            panic!("True should not be a separate node in the term graph")
+        }
+        if let Some(i) = term.atomic_variable() {
+            return TermInstance::Variable(term.term_type, i);
+        }
+
+        todo!();
+    }
+
     // The depth of an edge is the maximum depth of any term that its key references.
     fn edge_depth(&self, edge_id: EdgeId) -> u32 {
         let edge_info = self.get_edge_info(edge_id);
