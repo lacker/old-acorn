@@ -694,7 +694,18 @@ impl TermGraph {
         replace_var: AtomId,
         replacement: &TermInstance,
     ) -> TermInstance {
-        todo!();
+        match template {
+            TermInstance::Mapped(template) => {
+                todo!();
+            }
+            TermInstance::Variable(_, i) => {
+                if i == &replace_var {
+                    return replacement.clone();
+                } else {
+                    return template.clone();
+                }
+            }
+        }
     }
 
     // Inserts a new term using "fat edges".
