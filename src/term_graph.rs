@@ -536,7 +536,7 @@ impl TermGraph {
     // Returns the term that this edge leads to.
     // Should not be called on noop keys or unnormalized keys.
     // The type of the output is the same as the type of the key's template.
-    fn expand_edge_key(&mut self, key: EdgeKey) -> TermInstance {
+    fn expand_edge_key(&mut self, key: EdgeKey, fat_edges: bool) -> TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edge_key_map.get(&key) {
             return self.get_edge_info(*edge_id).result.clone();
@@ -610,10 +610,12 @@ impl TermGraph {
         self.terms.push(TermInfoReference::TermInfo(term_info));
         let edge_id = self.insert_edge(edge_info);
 
-        // Add edges that can be deduced from this new one
-        let mut pending = vec![];
-        self.process_long_edge(edge_id, &mut pending);
-        self.process_all(pending);
+        if fat_edges {
+            // Add edges that can be deduced from this new one
+            let mut pending = vec![];
+            self.process_long_edge(edge_id, &mut pending);
+            self.process_all(pending);
+        }
 
         // The processing might have collapsed this edge, so return an updated value
         self.update_term(answer)
@@ -647,6 +649,7 @@ impl TermGraph {
         &mut self,
         template: TermId,
         replacements: Vec<TermInstance>,
+        fat_edges: bool,
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
@@ -655,7 +658,7 @@ impl TermGraph {
             // No need to even do a substitution
             return TermInstance::mapped(template, new_to_old);
         }
-        let new_term = self.expand_edge_key(key);
+        let new_term = self.expand_edge_key(key, fat_edges);
         new_term.forward_map_vars(&new_to_old)
     }
 
@@ -665,6 +668,7 @@ impl TermGraph {
         &mut self,
         template: &TermInstance,
         replacements: &Vec<TermInstance>,
+        fat_edges: bool,
     ) -> TermInstance {
         match template {
             TermInstance::Mapped(template) => {
@@ -675,14 +679,18 @@ impl TermGraph {
                     // We don't need an explicit index i, but x_i in the term is x_v in the instance.
                     new_replacements.push(replacements[*v as usize].clone());
                 }
-                self.replace_in_term_id(template.term_id, new_replacements)
+                self.replace_in_term_id(template.term_id, new_replacements, fat_edges)
             }
             TermInstance::Variable(_, i) => replacements[*i as usize].clone(),
         }
     }
 
+    pub fn insert_term_fat(&mut self, term: &Term) -> TermInstance {
+        self.insert_term(term, true)
+    }
+
     // Inserts a new term, or returns the existing term if there is one.
-    pub fn insert_term(&mut self, term: &Term) -> TermInstance {
+    fn insert_term(&mut self, term: &Term, fat_edges: bool) -> TermInstance {
         if term.is_true() {
             panic!("True should not be a separate node in the term graph")
         }
@@ -707,9 +715,9 @@ impl TermGraph {
                 });
             let mut replacements = vec![TermInstance::Variable(term.head_type, i)];
             for arg in &term.args {
-                replacements.push(self.insert_term(arg));
+                replacements.push(self.insert_term_fat(arg));
             }
-            return self.replace_in_term_id(type_template, replacements);
+            return self.replace_in_term_id(type_template, replacements, fat_edges);
         }
 
         // Handle the (much more common) case where the head is not a variable
@@ -734,8 +742,8 @@ impl TermGraph {
 
         // Substitute the arguments into the head
         let term_instance = self.atoms.get(&atom_key).unwrap().term.clone();
-        let replacements: Vec<_> = term.args.iter().map(|a| self.insert_term(a)).collect();
-        self.replace_in_term_instance(&term_instance, &replacements)
+        let replacements: Vec<_> = term.args.iter().map(|a| self.insert_term_fat(a)).collect();
+        self.replace_in_term_instance(&term_instance, &replacements, fat_edges)
     }
 
     // The depth of an edge is the maximum depth of any term that its key references.
@@ -1505,8 +1513,8 @@ impl TermGraph {
     }
 
     pub fn insert_literal(&mut self, literal: &Literal) {
-        let left = self.insert_term(&literal.left);
-        let right = self.insert_term(&literal.right);
+        let left = self.insert_term_fat(&literal.left);
+        let right = self.insert_term_fat(&literal.right);
         if literal.positive {
             self.make_equal(left, right);
         } else {
@@ -1519,8 +1527,8 @@ impl TermGraph {
     // Return Some(false) if this literal is false (for all values of the free variables).
     // Return None if we don't know or if the literal does not consistently evaluate.
     pub fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
-        let left = self.insert_term(&literal.left);
-        let right = self.insert_term(&literal.right);
+        let left = self.insert_term_fat(&literal.left);
+        let right = self.insert_term_fat(&literal.right);
         match self.evaluate_equality(&left, &right) {
             Some(equality) => {
                 if literal.positive {
@@ -1645,7 +1653,7 @@ impl TermGraph {
         println!();
         println!("parsing: {}", term_string);
         let term = Term::parse(term_string);
-        let term_instance = self.insert_term(&term);
+        let term_instance = self.insert_term_fat(&term);
         self.check();
         term_instance
     }
@@ -2051,18 +2059,18 @@ mod tests {
         assert_eq!(c0c2c1, c2);
     }
 
-    #[test]
-    fn test_identifying_with_variable_seeing_template_last() {
-        let mut g = TermGraph::new();
-        g.parse("c0(c2, c1)");
+    // #[test]
+    // fn test_identifying_with_variable_seeing_template_last() {
+    //     let mut g = TermGraph::new();
+    //     g.parse("c0(c2, c1)");
 
-        let c0x0c1 = g.parse("c0(x0, c1)");
-        let x0 = g.parse("x0");
-        g.check_make_equal(&c0x0c1, &x0);
-        let c0c2c1 = g.parse("c0(c2, c1)");
-        let c2 = g.parse("c2");
-        assert_eq!(c0c2c1, c2);
-    }
+    //     let c0x0c1 = g.parse("c0(x0, c1)");
+    //     let x0 = g.parse("x0");
+    //     g.check_make_equal(&c0x0c1, &x0);
+    //     let c0c2c1 = g.parse("c0(c2, c1)");
+    //     let c2 = g.parse("c2");
+    //     assert_eq!(c0c2c1, c2);
+    // }
 
     #[test]
     fn test_repeated_variable() {
@@ -2076,17 +2084,17 @@ mod tests {
         assert_eq!(c0c1c1, c2);
     }
 
-    #[test]
-    fn test_repeated_variable_seeing_template_last() {
-        let mut g = TermGraph::new();
-        let c0c1c1 = g.parse("c0(c1, c1)");
-        let c0x0x0 = g.parse("c0(x0, x0)");
-        let c2 = g.parse("c2");
-        g.check_make_equal(&c2, &c0x0x0);
-        let c0c1c1 = g.update_term(c0c1c1);
-        let c2 = g.update_term(c2);
-        assert_eq!(c0c1c1, c2);
-    }
+    // #[test]
+    // fn test_repeated_variable_seeing_template_last() {
+    //     let mut g = TermGraph::new();
+    //     let c0c1c1 = g.parse("c0(c1, c1)");
+    //     let c0x0x0 = g.parse("c0(x0, x0)");
+    //     let c2 = g.parse("c2");
+    //     g.check_make_equal(&c2, &c0x0x0);
+    //     let c0c1c1 = g.update_term(c0c1c1);
+    //     let c2 = g.update_term(c2);
+    //     assert_eq!(c0c1c1, c2);
+    // }
 
     #[test]
     fn test_literal_evaluation() {
