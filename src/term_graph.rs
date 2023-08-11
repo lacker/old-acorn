@@ -687,7 +687,6 @@ impl TermGraph {
 
     // Replaces a single variable with a new value.
     // Creates new entries in the term graph if necessary.
-    // Assumes we are using "skinny edges", and thus the replacement is minimal.
     // The template does not need to have consecutively numbered variables.
     fn replace_one_var(
         &mut self,
