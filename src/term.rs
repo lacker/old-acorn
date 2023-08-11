@@ -101,6 +101,28 @@ fn dominates(a: &Vec<u8>, b: &Vec<u8>) -> bool {
     true
 }
 
+// An AtomicSubstitution represents substituting a single variable for
+// a term that just has a single head.
+// For example, the substitution that takes
+//
+// foo(x0, x1) -> foo(x0, bar(x2))
+//
+// is:
+//
+// AtomicSubstitution {
+//     replace: 1,
+//     atom: bar,
+//     args: [2],
+// }
+//
+// atom may be a variable that matches an already-existing variable.
+// args may not match any existing variable.
+pub struct AtomicSubstitution {
+    pub replace: AtomId,
+    pub atom: Atom,
+    pub args: Vec<AtomId>,
+}
+
 impl Term {
     // This creates an untyped term, good for testing but not for real use.
     // For example, this parses
@@ -509,6 +531,11 @@ impl Term {
                 .map(|arg| arg.remap_variables(var_map))
                 .collect(),
         }
+    }
+
+    // Represent this term as a list of atomic substitutions, starting with x0.
+    pub fn decompose(&self) -> Vec<AtomicSubstitution> {
+        todo!();
     }
 }
 
