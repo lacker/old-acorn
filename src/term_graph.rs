@@ -1853,6 +1853,7 @@ mod tests {
 
     fn insert_and_extract(term_strings: &[&str]) {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         for s in term_strings {
             check_insert(&mut g, s, s);
         }
