@@ -805,6 +805,9 @@ impl TermGraph {
         arg_types: &Vec<TypeId>,
         next_var: AtomId,
     ) -> (TermInstance, AtomId) {
+        if arg_types.len() == 0 {
+            panic!("there should be no zero-arg type templates");
+        }
         let term_id = self
             .type_templates
             .entry((head_type, arg_types.len() as u8))
@@ -873,21 +876,26 @@ impl TermGraph {
         let mut temporary_vars: Vec<AtomId> = vec![];
 
         for (term_type, head_type, head, arg_types) in term.inorder() {
-            // Expand the accumulated instance with a type template
-            let (type_template_instance, vars_used) =
-                self.type_template_instance(term_type, head_type, &arg_types, next_var);
-            if let Some(instance) = accumulated_instance {
-                let replace_var = temporary_vars.pop().unwrap();
-                let replaced =
-                    self.replace_one_var(&instance, replace_var, &type_template_instance);
-                accumulated_instance = Some(replaced);
-            } else {
-                // This is the root type template for the term
-                accumulated_instance = Some(type_template_instance);
-            }
-            next_var += vars_used;
-            for i in 0..vars_used {
-                temporary_vars.push(next_var - 1 - i);
+            if arg_types.len() > 0 {
+                // Expand the accumulated instance with a type template
+                let (type_template_instance, vars_used) =
+                    self.type_template_instance(term_type, head_type, &arg_types, next_var);
+                if let Some(instance) = accumulated_instance {
+                    let replace_var = temporary_vars.pop().unwrap();
+                    let replaced =
+                        self.replace_one_var(&instance, replace_var, &type_template_instance);
+                    accumulated_instance = Some(replaced);
+                } else {
+                    // This is the root type template for the term
+                    accumulated_instance = Some(type_template_instance);
+                }
+                next_var += vars_used;
+                for i in 0..vars_used {
+                    temporary_vars.push(next_var - 1 - i);
+                }
+            } else if accumulated_instance == None {
+                // This term is just a single constant.
+                return self.atomic_instance(head_type, head);
             }
 
             // Expand the accumulated instance with an atom
