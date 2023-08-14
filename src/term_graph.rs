@@ -142,6 +142,9 @@ pub struct TermGraph {
 
     // Maps (template, replacement) -> edges
     edge_key_map: FxHashMap<EdgeKey, EdgeId>,
+
+    // Whether to use "fat edges" mode
+    pub fat_edges: bool,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -492,6 +495,7 @@ impl TermGraph {
             atoms: HashMap::default(),
             type_templates: HashMap::default(),
             edge_key_map: HashMap::default(),
+            fat_edges: true,
         }
     }
 
@@ -722,10 +726,18 @@ impl TermGraph {
         }
     }
 
-    // Inserts a new term using "fat edges".
-    // A fat edge is one that replaces all the arguments of a term at once.
+    pub fn insert_term(&mut self, term: &Term) -> TermInstance {
+        if self.fat_edges {
+            self.insert_term_fat(term)
+        } else {
+            self.insert_term_skinny(term)
+        }
+    }
+
+    // Inserts a new term.
     // Returns the existing term if there is one.
-    pub fn insert_term_fat(&mut self, term: &Term) -> TermInstance {
+    fn insert_term_fat(&mut self, term: &Term) -> TermInstance {
+        assert!(self.fat_edges);
         if term.is_true() {
             panic!("True should not be a separate node in the term graph")
         }
@@ -840,7 +852,8 @@ impl TermGraph {
     // Inserts a new term using "skinny edges".
     // A skinny edge is one that changes only a single variable.
     // Returns the existing term if there is one.
-    pub fn insert_term_skinny(&mut self, term: &Term) -> TermInstance {
+    fn insert_term_skinny(&mut self, term: &Term) -> TermInstance {
+        assert!(!self.fat_edges);
         if term.is_true() {
             panic!("True should not be a separate node in the term graph")
         }
@@ -1660,8 +1673,8 @@ impl TermGraph {
     }
 
     pub fn insert_literal(&mut self, literal: &Literal) {
-        let left = self.insert_term_fat(&literal.left);
-        let right = self.insert_term_fat(&literal.right);
+        let left = self.insert_term(&literal.left);
+        let right = self.insert_term(&literal.right);
         if literal.positive {
             self.make_equal(left, right);
         } else {
@@ -1674,8 +1687,8 @@ impl TermGraph {
     // Return Some(false) if this literal is false (for all values of the free variables).
     // Return None if we don't know or if the literal does not consistently evaluate.
     pub fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
-        let left = self.insert_term_fat(&literal.left);
-        let right = self.insert_term_fat(&literal.right);
+        let left = self.insert_term(&literal.left);
+        let right = self.insert_term(&literal.right);
         match self.evaluate_equality(&left, &right) {
             Some(equality) => {
                 if literal.positive {
@@ -1800,7 +1813,7 @@ impl TermGraph {
         println!();
         println!("parsing: {}", term_string);
         let term = Term::parse(term_string);
-        let term_instance = self.insert_term_fat(&term);
+        let term_instance = self.insert_term(&term);
         self.check();
         term_instance
     }
