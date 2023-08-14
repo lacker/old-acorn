@@ -815,7 +815,8 @@ impl TermGraph {
                 for arg_type in arg_types {
                     instance_arg_types.push(*arg_type);
                 }
-                let term_info = TermInfo::new(term_type, instance_arg_types, 0);
+                let mut term_info = TermInfo::new(term_type, instance_arg_types, 0);
+                term_info.type_template = Some(head_type);
                 self.terms.push(TermInfoReference::TermInfo(term_info));
                 term_id
             });
@@ -835,7 +836,8 @@ impl TermGraph {
                 let atom_key = (atom, 0);
                 if !self.atoms.contains_key(&atom_key) {
                     let term_id = self.terms.len() as TermId;
-                    let term_info = TermInfo::new(atom_type, vec![], 0);
+                    let mut term_info = TermInfo::new(atom_type, vec![], 0);
+                    term_info.atom_keys.push(atom_key.clone());
                     self.terms.push(TermInfoReference::TermInfo(term_info));
                     let term_instance = TermInstance::mapped(term_id, vec![]);
                     let atom_info = AtomInfo {
@@ -926,7 +928,10 @@ impl TermGraph {
     fn shallowest_edge(&self, term_id: TermId) -> EdgeId {
         let term_info = self.get_term_info(term_id);
         if term_info.depth == 0 {
-            panic!("don't call shallowest_edge for terms that are atoms or type templates");
+            panic!(
+                "don't call shallowest_edge for non-composite terms like term {} = {:?}",
+                term_id, term_info
+            );
         }
         let mut shallowest_edge = None;
         let mut shallowest_depth = std::u32::MAX;
