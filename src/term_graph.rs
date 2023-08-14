@@ -685,7 +685,7 @@ impl TermGraph {
         }
     }
 
-    // Replaces a single variable with a new value.
+    // Replaces a single variable with a new value, leaving all other values the same.
     // Creates new entries in the term graph if necessary.
     // The template does not need to have consecutively numbered variables.
     fn replace_one_var(
@@ -696,7 +696,21 @@ impl TermGraph {
     ) -> TermInstance {
         match template {
             TermInstance::Mapped(template) => {
-                todo!();
+                let term_info = self.get_term_info(template.term_id);
+                let replacements = template
+                    .var_map
+                    .iter()
+                    .enumerate()
+                    .map(|(i, v)| {
+                        if *v == replace_var {
+                            replacement.clone()
+                        } else {
+                            // Leave this variable unchanged
+                            TermInstance::Variable(term_info.arg_types[i], *v)
+                        }
+                    })
+                    .collect();
+                self.replace_in_term_id(template.term_id, replacements, false)
             }
             TermInstance::Variable(_, i) => {
                 if i == &replace_var {
