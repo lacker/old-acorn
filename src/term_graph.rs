@@ -620,7 +620,7 @@ impl TermGraph {
     //
     // Creating an edge can cause terms in the graph to collapse, so any term you have
     // before calling expand_edge_key may need to be updated.
-    fn expand_edge_key(&mut self, key: EdgeKey) -> TermInstance {
+    fn expand_edge_key(&mut self, key: EdgeKey, pending: &mut Vec<Operation>) -> TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edge_key_map.get(&key) {
             return self.get_edge_info(*edge_id).result.clone();
@@ -693,13 +693,8 @@ impl TermGraph {
         // Insert everything into the graph
         self.terms.push(TermInfoReference::TermInfo(term_info));
         let edge_id = self.insert_edge(edge_info);
-
-        let mut pending = vec![];
-        self.infer_from_edge(edge_id, &mut pending);
-        self.process_all(pending);
-
-        // The processing might have collapsed this edge, so return an updated value
-        self.update_term(answer)
+        self.infer_from_edge(edge_id, pending);
+        answer
     }
 
     fn infer_from_edge(&mut self, edge_id: EdgeId, pending: &mut Vec<Operation>) {
@@ -738,6 +733,7 @@ impl TermGraph {
         &mut self,
         template: TermId,
         replacements: Vec<TermInstance>,
+        pending: &mut Vec<Operation>,
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
@@ -746,7 +742,7 @@ impl TermGraph {
             // No need to even do a substitution
             return TermInstance::mapped(template, new_to_old);
         }
-        let new_term = self.expand_edge_key(key);
+        let new_term = self.expand_edge_key(key, pending);
         new_term.forward_map_vars(&new_to_old)
     }
 
@@ -756,6 +752,7 @@ impl TermGraph {
         &mut self,
         template: &TermInstance,
         replacements: &Vec<TermInstance>,
+        pending: &mut Vec<Operation>,
     ) -> TermInstance {
         match template {
             TermInstance::Mapped(template) => {
@@ -766,7 +763,7 @@ impl TermGraph {
                     // We don't need an explicit index i, but x_i in the term is x_v in the instance.
                     new_replacements.push(replacements[*v as usize].clone());
                 }
-                self.replace_in_term_id(template.term_id, new_replacements)
+                self.replace_in_term_id(template.term_id, new_replacements, pending)
             }
             TermInstance::Variable(_, i) => replacements[*i as usize].clone(),
         }
@@ -797,7 +794,10 @@ impl TermGraph {
                         }
                     })
                     .collect();
-                self.replace_in_term_id(template.term_id, replacements)
+                let mut pending = vec![];
+                let answer = self.replace_in_term_id(template.term_id, replacements, &mut pending);
+                self.process_all(pending);
+                self.update_term(answer)
             }
             TermInstance::Variable(_, i) => {
                 if i == &replace_var {
@@ -847,7 +847,10 @@ impl TermGraph {
             for arg in &term.args {
                 replacements.push(self.insert_term_fat(arg));
             }
-            return self.replace_in_term_id(type_template, replacements);
+            let mut pending = vec![];
+            let answer = self.replace_in_term_id(type_template, replacements, &mut pending);
+            self.process_all(pending);
+            return self.update_term(answer);
         }
 
         // Handle the (much more common) case where the head is not a variable
@@ -873,7 +876,10 @@ impl TermGraph {
         // Substitute the arguments into the head
         let term_instance = self.atoms.get(&atom_key).unwrap().term.clone();
         let replacements: Vec<_> = term.args.iter().map(|a| self.insert_term_fat(a)).collect();
-        self.replace_in_term_instance(&term_instance, &replacements)
+        let mut pending = vec![];
+        let answer = self.replace_in_term_instance(&term_instance, &replacements, &mut pending);
+        self.process_all(pending);
+        self.update_term(answer)
     }
 
     // Get a TermInstance for a type template, plus the number of variables used.
