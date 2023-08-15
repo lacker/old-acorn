@@ -627,19 +627,19 @@ impl TermGraph {
         let edge_id = self.insert_edge(edge_info);
 
         let mut pending = vec![];
-
-        if self.fat_edges {
-            // Add edges that can be deduced from this new one
-            self.infer_from_fat_edge(edge_id, &mut pending);
-        } else {
-            // Add edges that can be deduced from this new one
-            self.infer_from_skinny_edge(edge_id, &mut pending);
-        }
-
+        self.infer_from_edge(edge_id, &mut pending);
         self.process_all(pending);
 
         // The processing might have collapsed this edge, so return an updated value
         self.update_term(answer)
+    }
+
+    fn infer_from_edge(&mut self, edge_id: EdgeId, pending: &mut Vec<Operation>) {
+        if self.fat_edges {
+            self.infer_from_fat_edge(edge_id, pending);
+        } else {
+            self.infer_from_skinny_edge(edge_id, pending);
+        }
     }
 
     // Returns an EdgeKey along with a new_to_old map that shows how we renumbered the variables.
