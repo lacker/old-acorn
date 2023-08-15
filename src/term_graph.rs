@@ -116,6 +116,21 @@ pub struct EdgeInfo {
 }
 pub type EdgeId = u32;
 
+// Tracing how an edge created a particular variable through an edge.
+enum BackwardTrace {
+    // Renamed(i) indicates that x_i turned into the variable in question.
+    Renamed(AtomId),
+
+    // Combined(i, j) indicates that *both* x_i and x_j turned into our variable.
+    Combined(AtomId, AtomId),
+
+    // Added(i, j) indicates that our variable was x_j in the term that replaced x_i.
+    Added(AtomId, AtomId),
+
+    // Collapsed indicates that this variable wasn't created at all.
+    Collapsed,
+}
+
 // An operation on the graph that is pending.
 // We keep a pending operation queue rather than doing operations immediately so that we
 // can control when we do expensive operations.
@@ -368,6 +383,42 @@ impl EdgeKey {
             self.template,
             (0..self.replacements.len() as AtomId).collect(),
         )
+    }
+
+    // Figure out how this edge created a particular variable.
+    // Numbering is according to the output TermInstance.
+    fn backward_trace(&self, result_var: AtomId) -> BackwardTrace {
+        let mut renames = vec![];
+        for (i, replacement) in self.replacements.iter().enumerate() {
+            match replacement {
+                TermInstance::Mapped(term) => {
+                    if let Some(j) = term.var_map.iter().position(|&v| v == result_var) {
+                        return BackwardTrace::Added(i as AtomId, j as AtomId);
+                    }
+                }
+                TermInstance::Variable(_, j) => {
+                    if j == &result_var {
+                        renames.push(i as AtomId);
+                    }
+                }
+            }
+        }
+        if renames.len() == 0 {
+            // Nothing creates this variable
+            return BackwardTrace::Collapsed;
+        }
+        if renames.len() == 1 {
+            // Your standard rename
+            return BackwardTrace::Renamed(renames[0]);
+        }
+        if renames.len() == 2 {
+            return BackwardTrace::Combined(renames[0], renames[1]);
+        }
+        panic!(
+            "expected skinny edge, but variable {} created by {} things",
+            result_var,
+            renames.len()
+        );
     }
 }
 
@@ -1777,8 +1828,22 @@ impl TermGraph {
             TermInstance::Mapped(t) => t,
         };
 
-        // The variable index that represents b_var in the A->B edge.
+        // Figure out what b_var corresponds to in the A term.
         let b_result_var = first_result.var_map[b_var as usize];
+        match first_edge_info.key.backward_trace(b_result_var) {
+            BackwardTrace::Collapsed => {
+                panic!("we should never have a collapsed edge here");
+            }
+            BackwardTrace::Renamed(template_var) => {
+                // TODO
+            }
+            BackwardTrace::Added(template_var, replacement_var) => {
+                // TODO
+            }
+            BackwardTrace::Combined(template_var_1, template_var_2) => {
+                // TODO
+            }
+        }
     }
 
     // Look for inferences that involve this edge.
