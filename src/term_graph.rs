@@ -1445,8 +1445,8 @@ impl TermGraph {
                 Some(Operation::Identification(instance1, instance2)) => {
                     self.process_identify_terms(instance1, instance2, &mut pending);
                 }
-                Some(Operation::Inference(_)) => {
-                    todo!();
+                Some(Operation::Inference(edge_id)) => {
+                    self.infer_from_edge(edge_id, &mut pending);
                 }
                 None => break,
             }
