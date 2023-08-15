@@ -618,12 +618,17 @@ impl TermGraph {
         self.terms.push(TermInfoReference::TermInfo(term_info));
         let edge_id = self.insert_edge(edge_info);
 
+        let mut pending = vec![];
+
         if self.fat_edges {
             // Add edges that can be deduced from this new one
-            let mut pending = vec![];
-            self.process_long_edge(edge_id, &mut pending);
-            self.process_all(pending);
+            self.infer_from_fat_edge(edge_id, &mut pending);
+        } else {
+            // Add edges that can be deduced from this new one
+            self.infer_from_skinny_edge(edge_id, &mut pending);
         }
+
+        self.process_all(pending);
 
         // The processing might have collapsed this edge, so return an updated value
         self.update_term(answer)
@@ -1512,7 +1517,10 @@ impl TermGraph {
     //
     // Does not include the cases where a single variable expands into
     // this term, or where a term maps to itself.
-    fn inbound_edges(&self, term_id: TermId) -> HashMap<TermId, EdgeId, BuildNoHashHasher<TermId>> {
+    fn inbound_edge_map(
+        &self,
+        term_id: TermId,
+    ) -> HashMap<TermId, EdgeId, BuildNoHashHasher<TermId>> {
         let term_info = self.get_term_info(term_id);
         let mut answer: HashMap<TermId, EdgeId, BuildNoHashHasher<TermId>> = HashMap::default();
         for edge_id in &term_info.adjacent {
@@ -1526,6 +1534,20 @@ impl TermGraph {
             }
         }
         answer
+    }
+
+    // All edges that result in this term.
+    fn inbound_edges(&self, term_id: TermId) -> Vec<EdgeId> {
+        let term_info = self.get_term_info(term_id);
+        term_info
+            .adjacent
+            .iter()
+            .filter(move |edge_id| {
+                let edge_info = self.get_edge_info(**edge_id);
+                edge_info.result.term_id() == Some(term_id)
+            })
+            .copied()
+            .collect()
     }
 
     // All edges that use this term as a template.
@@ -1548,9 +1570,7 @@ impl TermGraph {
     // A -> C is the "long edge" that we start with.
     // A -> B is the "short edge" that we will look for.
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
-    //
-    // This is fundamentally a "fat edges" algorithm.
-    fn process_long_edge(&mut self, long_edge_id: EdgeId, pending: &mut Vec<Identification>) {
+    fn infer_from_fat_edge(&mut self, long_edge_id: EdgeId, pending: &mut Vec<Identification>) {
         assert!(self.fat_edges);
         let long_edge_info = self.get_edge_info(long_edge_id);
         let long_reps = long_edge_info.normalize_result();
@@ -1564,7 +1584,7 @@ impl TermGraph {
             .iter()
             .map(|r| match r {
                 TermInstance::Variable(_, _) => None,
-                TermInstance::Mapped(t) => Some(self.inbound_edges(t.term_id)),
+                TermInstance::Mapped(t) => Some(self.inbound_edge_map(t.term_id)),
             })
             .collect();
 
@@ -1686,6 +1706,42 @@ impl TermGraph {
                 long_result.clone(),
                 pending,
             );
+        }
+    }
+
+    // Checks for any inferences from a pair of consecutive edges.
+    // The edges should form a pattern:
+    //
+    // A -> B -> C
+    //
+    // where the first edge goes A -> B, the second goes B -> C.
+    fn infer_from_edge_pair(
+        &mut self,
+        first_edge: EdgeId,
+        second_edge: EdgeId,
+        pending: &mut Vec<Identification>,
+    ) {
+        // todo!();
+    }
+
+    // Look for inferences that involve this edge.
+    fn infer_from_skinny_edge(&mut self, edge_id: EdgeId, pending: &mut Vec<Identification>) {
+        let edge_info = self.get_edge_info(edge_id);
+        let result_term_id = edge_info.result.term_id();
+
+        // Find A -> B -> C patterns where this edge is B -> C
+        let template_term_id = edge_info.key.template;
+        let inbound_edges = self.inbound_edges(template_term_id);
+        for inbound_edge_id in inbound_edges {
+            self.infer_from_edge_pair(inbound_edge_id, edge_id, pending);
+        }
+
+        // Find A -> B -> C patterns where this edge is A -> B
+        if let Some(result_term_id) = result_term_id {
+            let outbound_edges = self.outbound_edges(result_term_id);
+            for outbound_edge_id in outbound_edges {
+                self.infer_from_edge_pair(edge_id, outbound_edge_id, pending);
+            }
         }
     }
 
