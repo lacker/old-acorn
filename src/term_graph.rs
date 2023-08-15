@@ -534,12 +534,16 @@ impl TermGraph {
         self.edges[edge as usize].take().unwrap()
     }
 
-    // An EdgeKey represents a substitution. It can exist before the analogous edge
-    // in the graph exists.
+    // An EdgeKey represents a substitution. The EdgeKey object can exist before the
+    // analogous edge in the graph exists.
     // This method creates the analogous edge and term if they don't already exist.
-    // Returns the term that this edge leads to.
     // Should not be called on noop keys or unnormalized keys.
+    //
+    // Returns the term that this edge leads to.
     // The type of the output is the same as the type of the key's template.
+    //
+    // Creating an edge can cause terms in the graph to collapse, so any term you have
+    // before calling expand_edge_key may need to be updated.
     fn expand_edge_key(&mut self, key: EdgeKey) -> TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edge_key_map.get(&key) {
@@ -1092,8 +1096,7 @@ impl TermGraph {
     }
 
     // Replaces old_term_id with new_term in the given edge.
-    // This removes the old edge immediately, and pushes an Identification to add the new edge onto
-    // pending.
+    // This can lead us to discover new Identifications, which we push onto pending.
     fn replace_edge_term(
         &mut self,
         old_edge_id: EdgeId,
