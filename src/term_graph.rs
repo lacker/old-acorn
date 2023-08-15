@@ -245,6 +245,13 @@ impl TermInstance {
         }
     }
 
+    fn is_variable(&self) -> bool {
+        match self {
+            TermInstance::Mapped(_) => false,
+            TermInstance::Variable(_, _) => true,
+        }
+    }
+
     fn term_id(&self) -> Option<TermId> {
         match self {
             TermInstance::Mapped(term) => Some(term.term_id),
@@ -483,6 +490,16 @@ impl EdgeInfo {
             answer.push((provided_template_var, renumbered_replacement));
         }
         answer
+    }
+
+    // Returns a variable that this edge replaces.
+    fn replaced_var(&self) -> Option<AtomId> {
+        for (i, r) in self.key.replacements.iter().enumerate() {
+            if !r.is_variable() {
+                return Some(i as AtomId);
+            }
+        }
+        None
     }
 }
 
@@ -870,7 +887,9 @@ impl TermGraph {
     }
 
     // Inserts a new term using "skinny edges".
-    // A skinny edge is one that changes only a single variable.
+    // A skinny edge is one that:
+    //   * changes only a single variable
+    //   * uses only new variables in replacements
     // Returns the existing term if there is one.
     fn insert_term_skinny(&mut self, term: &Term) -> TermInstance {
         assert!(!self.fat_edges);
@@ -1738,7 +1757,28 @@ impl TermGraph {
         second_edge: EdgeId,
         pending: &mut Vec<Operation>,
     ) {
-        // todo!();
+        // Find the variable in B that the B->C edge replaces.
+        let second_edge_info = self.get_edge_info(second_edge);
+        let b_var = if let Some(b_var) = second_edge_info.replaced_var() {
+            b_var
+        } else {
+            // The B -> C edge is a variable-to-variable identification.
+            // I feel like we should be able to do something here, but for now, we don't.
+            return;
+        };
+
+        let first_edge_info = self.get_edge_info(first_edge);
+        let first_result = match &first_edge_info.result {
+            TermInstance::Variable(_, _) => {
+                // The first edge results in a variable. This could happen if the
+                // B vertex got collapsed. I don't think we can conclude anything here though.
+                return;
+            }
+            TermInstance::Mapped(t) => t,
+        };
+
+        // The variable index that represents b_var in the A->B edge.
+        let b_result_var = first_result.var_map[b_var as usize];
     }
 
     // Look for inferences that involve this edge.
