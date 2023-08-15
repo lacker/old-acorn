@@ -1910,6 +1910,7 @@ mod tests {
     #[test]
     fn test_identifying_terms() {
         let mut g = TermGraph::new();
+        // g.fat_edges = false;
         let c0 = g.parse("c0(c3)");
         let c1 = g.parse("c1(c3)");
         g.check_make_equal(&c0, &c1);
@@ -1921,6 +1922,7 @@ mod tests {
     #[test]
     fn test_updating_constructor() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0 = g.parse("c0");
         let c1 = g.parse("c1");
         g.check_make_equal(&c0, &c1);
@@ -1932,6 +1934,7 @@ mod tests {
     #[test]
     fn test_apply_replacements() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0 = g.parse("c0(x0, x1)");
         let c1 = g.parse("c1(x1, x0)");
         g.check_make_equal(&c0, &c1);
@@ -1943,6 +1946,7 @@ mod tests {
     #[test]
     fn test_duplicating_edge() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0 = g.parse("c0");
         let c1 = g.parse("c1");
         g.parse("c2(c0)");
@@ -1956,6 +1960,7 @@ mod tests {
     #[test]
     fn test_multi_hop_term_identification() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0 = g.parse("c0");
         let c1 = g.parse("c1");
         let c2 = g.parse("c2");
