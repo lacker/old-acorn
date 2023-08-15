@@ -540,7 +540,7 @@ impl TermGraph {
     // Returns the term that this edge leads to.
     // Should not be called on noop keys or unnormalized keys.
     // The type of the output is the same as the type of the key's template.
-    fn expand_edge_key(&mut self, key: EdgeKey, fat_edges: bool) -> TermInstance {
+    fn expand_edge_key(&mut self, key: EdgeKey) -> TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edge_key_map.get(&key) {
             return self.get_edge_info(*edge_id).result.clone();
@@ -614,7 +614,7 @@ impl TermGraph {
         self.terms.push(TermInfoReference::TermInfo(term_info));
         let edge_id = self.insert_edge(edge_info);
 
-        if fat_edges {
+        if self.fat_edges {
             // Add edges that can be deduced from this new one
             let mut pending = vec![];
             self.process_long_edge(edge_id, &mut pending);
@@ -653,7 +653,6 @@ impl TermGraph {
         &mut self,
         template: TermId,
         replacements: Vec<TermInstance>,
-        fat_edges: bool,
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
@@ -662,7 +661,7 @@ impl TermGraph {
             // No need to even do a substitution
             return TermInstance::mapped(template, new_to_old);
         }
-        let new_term = self.expand_edge_key(key, fat_edges);
+        let new_term = self.expand_edge_key(key);
         new_term.forward_map_vars(&new_to_old)
     }
 
@@ -672,7 +671,6 @@ impl TermGraph {
         &mut self,
         template: &TermInstance,
         replacements: &Vec<TermInstance>,
-        fat_edges: bool,
     ) -> TermInstance {
         match template {
             TermInstance::Mapped(template) => {
@@ -683,7 +681,7 @@ impl TermGraph {
                     // We don't need an explicit index i, but x_i in the term is x_v in the instance.
                     new_replacements.push(replacements[*v as usize].clone());
                 }
-                self.replace_in_term_id(template.term_id, new_replacements, fat_edges)
+                self.replace_in_term_id(template.term_id, new_replacements)
             }
             TermInstance::Variable(_, i) => replacements[*i as usize].clone(),
         }
@@ -714,7 +712,7 @@ impl TermGraph {
                         }
                     })
                     .collect();
-                self.replace_in_term_id(template.term_id, replacements, false)
+                self.replace_in_term_id(template.term_id, replacements)
             }
             TermInstance::Variable(_, i) => {
                 if i == &replace_var {
@@ -764,7 +762,7 @@ impl TermGraph {
             for arg in &term.args {
                 replacements.push(self.insert_term_fat(arg));
             }
-            return self.replace_in_term_id(type_template, replacements, true);
+            return self.replace_in_term_id(type_template, replacements);
         }
 
         // Handle the (much more common) case where the head is not a variable
@@ -790,7 +788,7 @@ impl TermGraph {
         // Substitute the arguments into the head
         let term_instance = self.atoms.get(&atom_key).unwrap().term.clone();
         let replacements: Vec<_> = term.args.iter().map(|a| self.insert_term_fat(a)).collect();
-        self.replace_in_term_instance(&term_instance, &replacements, true)
+        self.replace_in_term_instance(&term_instance, &replacements)
     }
 
     // Get a TermInstance for a type template, plus the number of variables used.
@@ -1547,7 +1545,10 @@ impl TermGraph {
     // A -> C is the "long edge" that we start with.
     // A -> B is the "short edge" that we will look for.
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
+    //
+    // This is fundamentally a "fat edges" algorithm.
     fn process_long_edge(&mut self, long_edge_id: EdgeId, pending: &mut Vec<Identification>) {
+        assert!(self.fat_edges);
         let long_edge_info = self.get_edge_info(long_edge_id);
         let long_reps = long_edge_info.normalize_result();
         let long_result = long_edge_info.result.normalize_vars();
