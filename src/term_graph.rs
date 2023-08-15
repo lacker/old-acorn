@@ -116,19 +116,13 @@ pub struct EdgeInfo {
 }
 pub type EdgeId = u32;
 
-// Tracing how an edge created a particular variable through an edge.
-enum BackwardTrace {
-    // Renamed(i) indicates that x_i turned into the variable in question.
-    Renamed(AtomId),
+// A simple edge forbids the renumbering of variables, and only supports a single change.
+enum SimpleEdge {
+    // Combines two variables in the template, to become a single variable in the result.
+    Combine(AtomId, AtomId, AtomId),
 
-    // Combined(i, j) indicates that *both* x_i and x_j turned into our variable.
-    Combined(AtomId, AtomId),
-
-    // Added(i, j) indicates that our variable was x_j in the term that replaced x_i.
-    Added(AtomId, AtomId),
-
-    // Collapsed indicates that this variable wasn't created at all.
-    Collapsed,
+    // Replaces a variable in the template with a new term.
+    Replace(AtomId, MappedTerm),
 }
 
 // An operation on the graph that is pending.
@@ -384,42 +378,6 @@ impl EdgeKey {
             (0..self.replacements.len() as AtomId).collect(),
         )
     }
-
-    // Figure out how this edge created a particular variable.
-    // Numbering is according to the output TermInstance.
-    fn backward_trace(&self, result_var: AtomId) -> BackwardTrace {
-        let mut renames = vec![];
-        for (i, replacement) in self.replacements.iter().enumerate() {
-            match replacement {
-                TermInstance::Mapped(term) => {
-                    if let Some(j) = term.var_map.iter().position(|&v| v == result_var) {
-                        return BackwardTrace::Added(i as AtomId, j as AtomId);
-                    }
-                }
-                TermInstance::Variable(_, j) => {
-                    if j == &result_var {
-                        renames.push(i as AtomId);
-                    }
-                }
-            }
-        }
-        if renames.len() == 0 {
-            // Nothing creates this variable
-            return BackwardTrace::Collapsed;
-        }
-        if renames.len() == 1 {
-            // Your standard rename
-            return BackwardTrace::Renamed(renames[0]);
-        }
-        if renames.len() == 2 {
-            return BackwardTrace::Combined(renames[0], renames[1]);
-        }
-        panic!(
-            "expected skinny edge, but variable {} created by {} things",
-            result_var,
-            renames.len()
-        );
-    }
 }
 
 // Renumbers the variables in the replacements so that they are in increasing order.
@@ -551,6 +509,19 @@ impl EdgeInfo {
             }
         }
         None
+    }
+
+    // Returns a SimpleEdge describing this edge in terms of the variable numbering used in
+    // the provided template instance.
+    // Any new variables needed are allocated starting at next_var.
+    // Returns the simple edge, the result term instance, and the least unused variable after
+    // taking into account all variables in the template, replacement, and result.
+    fn simplify(
+        &self,
+        template_instance: &TermInstance,
+        next_var: AtomId,
+    ) -> (SimpleEdge, TermInstance, AtomId) {
+        todo!();
     }
 }
 
@@ -1814,46 +1785,8 @@ impl TermGraph {
         second_edge: EdgeId,
         pending: &mut Vec<Operation>,
     ) {
-        // Find the variable in B that the B->C edge replaces.
-        let second_edge_info = self.get_edge_info(second_edge);
-        let b_var = if let Some(b_var) = second_edge_info.replaced_var() {
-            b_var
-        } else {
-            // The B -> C edge is a variable-to-variable identification.
-            // I feel like we should be able to do something here, but for now, we don't.
-            return;
-        };
-
-        let first_edge_info = self.get_edge_info(first_edge);
-        let first_result = match &first_edge_info.result {
-            TermInstance::Variable(_, _) => {
-                // The first edge results in a variable. This could happen if the
-                // B vertex got collapsed. I don't think we can conclude anything here though.
-                return;
-            }
-            TermInstance::Mapped(t) => t,
-        };
-
-        // Figure out what b_var corresponds to in the A term.
-        let b_result_var = first_result.var_map[b_var as usize];
-        match first_edge_info.key.backward_trace(b_result_var) {
-            BackwardTrace::Collapsed => {
-                panic!("we should never have a collapsed edge here");
-            }
-            BackwardTrace::Renamed(_template_var) => {
-                // This is the "commuting" case. The two edges touch different variables.
-            }
-            BackwardTrace::Added(template_var, replacement_var) => {
-                // This is a "combining" inference. The second edge is modifying a term
-                // that the first edge introduced.
-                // TODO
-            }
-            BackwardTrace::Combined(_template_var_1, _template_var_2) => {
-                // These edges are first combining two variables, then replacing the combined
-                // variable with a new term.
-                // We could infer two separate replacements, but I'm not sure if we want to.
-            }
-        }
+        // Create term instances that use the same numbering scheme for all of A, B, and C.
+        // TODO
     }
 
     // Look for inferences that involve this edge.
