@@ -1834,14 +1834,18 @@ impl TermGraph {
             BackwardTrace::Collapsed => {
                 panic!("we should never have a collapsed edge here");
             }
-            BackwardTrace::Renamed(template_var) => {
-                // TODO
+            BackwardTrace::Renamed(_template_var) => {
+                // This is the "commuting" case. The two edges touch different variables.
             }
             BackwardTrace::Added(template_var, replacement_var) => {
+                // This is a "combining" inference. The second edge is modifying a term
+                // that the first edge introduced.
                 // TODO
             }
-            BackwardTrace::Combined(template_var_1, template_var_2) => {
-                // TODO
+            BackwardTrace::Combined(_template_var_1, _template_var_2) => {
+                // These edges are first combining two variables, then replacing the combined
+                // variable with a new term.
+                // We could infer two separate replacements, but I'm not sure if we want to.
             }
         }
     }
