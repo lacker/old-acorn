@@ -320,6 +320,13 @@ impl TermInstance {
             TermInstance::Variable(_, _) => 1,
         }
     }
+
+    fn as_mapped(&self) -> &MappedTerm {
+        match self {
+            TermInstance::Mapped(term) => term,
+            TermInstance::Variable(_, _) => panic!("TermInstance is a variable"),
+        }
+    }
 }
 
 impl fmt::Display for EdgeKey {
@@ -1841,6 +1848,16 @@ impl TermGraph {
         pending: &mut Vec<Operation>,
     ) {
         // Create term instances that use the same numbering scheme for all of A, B, and C.
+        let first_edge_info = self.get_edge_info(first_edge);
+        let instance_a = first_edge_info.key.template_instance();
+        let mapped_a = instance_a.as_mapped();
+        let next_var = mapped_a.var_map.len() as AtomId;
+        let (first_simple_edge, instance_b, next_var) =
+            first_edge_info.simplify(mapped_a, next_var);
+        let mapped_b = instance_b.as_mapped();
+        let second_edge_info = self.get_edge_info(second_edge);
+        let (second_simple_edge, instance_c, _) = second_edge_info.simplify(mapped_b, next_var);
+
         // TODO
     }
 
