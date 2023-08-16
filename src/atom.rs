@@ -6,6 +6,7 @@ use std::fmt;
 pub type AtomId = u16;
 
 pub const MIN_ATOM: Atom = Atom::Constant(0);
+pub const INVALID_ATOM_ID: AtomId = 0xffff;
 
 // An atomic value does not have any internal structure.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

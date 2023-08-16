@@ -1,12 +1,12 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-use std::{fmt, mem};
+use std::{fmt, mem, vec};
 
 use fxhash::FxHashMap;
 use nohash_hasher::BuildNoHashHasher;
 
-use crate::atom::{Atom, AtomId};
+use crate::atom::{Atom, AtomId, INVALID_ATOM_ID};
 use crate::permutation;
 use crate::permutation_group::PermutationGroup;
 use crate::specializer::Specializer;
@@ -117,6 +117,7 @@ pub struct EdgeInfo {
 pub type EdgeId = u32;
 
 // A simple edge forbids the renumbering of variables, and only supports a single change.
+#[derive(Debug, Eq, PartialEq)]
 enum SimpleEdge {
     // Combines two variables in the template, to become a single variable in the result.
     Combine(AtomId, AtomId, AtomId),
@@ -513,14 +514,45 @@ impl EdgeInfo {
 
     // Returns a SimpleEdge describing this edge in terms of the variable numbering used in
     // the provided template instance.
-    // Any new variables needed are allocated starting at next_var.
+    //
+    // Any new variables used are allocated starting at next_var.
+    // This includes both variables introduced in the replacement, and the variable introduced
+    // by combining two variables in the template.
+    //
     // Returns the simple edge, the result term instance, and the least unused variable after
     // taking into account all variables in the template, replacement, and result.
     fn simplify(
         &self,
-        template_instance: &TermInstance,
+        template_instance: &MappedTerm,
         next_var: AtomId,
     ) -> (SimpleEdge, TermInstance, AtomId) {
+        // We need to renumber the variables that are in the result instance.
+        // Keep track of the renumbering.
+        let mut result_rename = vec![INVALID_ATOM_ID; self.key.vars_used];
+
+        let mut simple_edge: Option<SimpleEdge> = None;
+
+        for (i, rep) in template_instance.var_map.iter().zip(&self.key.replacements) {
+            match rep {
+                TermInstance::Mapped(_) => {
+                    todo!();
+                }
+                TermInstance::Variable(_, j) => {
+                    // This edge is renaming x_i -> x_j
+                    let existing = result_rename[*j as usize];
+                    if existing != INVALID_ATOM_ID {
+                        // This is a "combine" edge. Both x_existing and x_i are being
+                        // renamed to x_j.
+                        assert_eq!(simple_edge, None);
+                        simple_edge = Some(SimpleEdge::Combine(existing, *i, next_var));
+                        result_rename[*j as usize] = next_var;
+                    } else {
+                        result_rename[*j as usize] = *i;
+                    }
+                }
+            }
+        }
+
         todo!();
     }
 }
