@@ -2414,6 +2414,7 @@ mod tests {
     #[test]
     fn test_unused_vars_on_both_sides() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let template = g.parse("c0(c1, x0)");
         let reduction = g.parse("c2(x1)");
         g.check_make_equal(&template, &reduction);
@@ -2425,6 +2426,7 @@ mod tests {
     #[test]
     fn test_collapses_during_long_edge() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let template = g.parse("c0(c1, x0, x1)");
         let reduction = g.parse("c2");
         g.check_make_equal(&template, &reduction);
