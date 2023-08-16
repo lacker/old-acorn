@@ -2014,7 +2014,11 @@ impl TermGraph {
             all_terms.insert(s);
         }
 
-        for (key, edge_id) in self.edge_key_map.iter() {
+        let mut edge_keys_and_ids = self.edge_key_map.iter().collect::<Vec<_>>();
+        // Sort by id
+        edge_keys_and_ids.sort_by_key(|(_, id)| *id);
+
+        for (key, edge_id) in edge_keys_and_ids {
             key.check();
             if !self.has_edge_info(*edge_id) {
                 panic!("edge {} has been collapsed", edge_id);
