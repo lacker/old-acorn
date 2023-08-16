@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 use std::{fmt, mem, vec};
 
@@ -637,7 +637,7 @@ impl TermGraph {
     //
     // Creating an edge can cause terms in the graph to collapse, so any term you have
     // before calling expand_edge_key may need to be updated.
-    fn expand_edge_key(&mut self, key: EdgeKey, pending: &mut Vec<Operation>) -> TermInstance {
+    fn expand_edge_key(&mut self, key: EdgeKey, pending: &mut VecDeque<Operation>) -> TermInstance {
         // Check if this edge is already in the graph
         if let Some(edge_id) = self.edge_key_map.get(&key) {
             return self.get_edge_info(*edge_id).result.clone();
@@ -714,7 +714,7 @@ impl TermGraph {
         answer
     }
 
-    fn infer_from_edge(&mut self, edge_id: EdgeId, pending: &mut Vec<Operation>) {
+    fn infer_from_edge(&mut self, edge_id: EdgeId, pending: &mut VecDeque<Operation>) {
         if self.fat_edges {
             self.infer_from_fat_edge(edge_id, pending);
         } else {
@@ -750,7 +750,7 @@ impl TermGraph {
         &mut self,
         template: TermId,
         replacements: Vec<TermInstance>,
-        pending: &mut Vec<Operation>,
+        pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
@@ -769,7 +769,7 @@ impl TermGraph {
         &mut self,
         template: &TermInstance,
         replacements: &Vec<TermInstance>,
-        pending: &mut Vec<Operation>,
+        pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
         match template {
             TermInstance::Mapped(template) => {
@@ -794,7 +794,7 @@ impl TermGraph {
         template: &TermInstance,
         replace_var: AtomId,
         replacement: &TermInstance,
-        pending: &mut Vec<Operation>,
+        pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
         match template {
             TermInstance::Mapped(template) => {
@@ -862,7 +862,7 @@ impl TermGraph {
             for arg in &term.args {
                 replacements.push(self.insert_term_fat(arg));
             }
-            let mut pending = vec![];
+            let mut pending = VecDeque::new();
             let answer = self.replace_in_term_id(type_template, replacements, &mut pending);
             self.process_all(pending);
             return self.update_term(answer);
@@ -891,7 +891,7 @@ impl TermGraph {
         // Substitute the arguments into the head
         let term_instance = self.atoms.get(&atom_key).unwrap().term.clone();
         let replacements: Vec<_> = term.args.iter().map(|a| self.insert_term_fat(a)).collect();
-        let mut pending = vec![];
+        let mut pending = VecDeque::new();
         let answer = self.replace_in_term_instance(&term_instance, &replacements, &mut pending);
         self.process_all(pending);
         self.update_term(answer)
@@ -981,7 +981,7 @@ impl TermGraph {
         // Stored in reverse order for nice popping
         let mut temporary_vars: Vec<AtomId> = vec![];
 
-        let mut pending: Vec<Operation> = vec![];
+        let mut pending: VecDeque<Operation> = VecDeque::new();
 
         let mut answer = None;
 
@@ -1195,7 +1195,7 @@ impl TermGraph {
     // Inserts a single edge that already has a normalized key.
     // If it's a duplicate, identify the appropriate terms instead.
     // When this discovers more valid Identifications it pushes them onto pending.
-    fn process_normalized_edge(&mut self, edge_info: EdgeInfo, pending: &mut Vec<Operation>) {
+    fn process_normalized_edge(&mut self, edge_info: EdgeInfo, pending: &mut VecDeque<Operation>) {
         // Check to see if the new edge is a duplicate
         if let Some(duplicate_edge_id) = self.edge_key_map.get(&edge_info.key) {
             let duplicate_edge_info = self.get_edge_info(*duplicate_edge_id);
@@ -1220,7 +1220,7 @@ impl TermGraph {
         old_edge_id: EdgeId,
         old_term_id: TermId,
         new_term: &TermInstance,
-        pending: &mut Vec<Operation>,
+        pending: &mut VecDeque<Operation>,
     ) {
         let old_edge_info = self.remove_edge(old_edge_id);
 
@@ -1250,7 +1250,7 @@ impl TermGraph {
         &mut self,
         old_term_id: TermId,
         new_term: &TermInstance,
-        pending: &mut Vec<Operation>,
+        pending: &mut VecDeque<Operation>,
     ) {
         let old_term_info_ref = mem::replace(
             &mut self.terms[old_term_id as usize],
@@ -1380,14 +1380,14 @@ impl TermGraph {
         template: &TermInstance,
         replacements: &Vec<TermInstance>,
         result: TermInstance,
-        pending: &mut Vec<Operation>,
+        pending: &mut VecDeque<Operation>,
     ) {
         let mapped_term = match template {
             TermInstance::Mapped(term) => term,
             TermInstance::Variable(_, var_id) => {
                 let new_template = &replacements[*var_id as usize];
                 // We want to identify new_template and new_result here.
-                pending.push(Operation::Identification(new_template.clone(), result));
+                pending.push_back(Operation::Identification(new_template.clone(), result));
                 return;
             }
         };
@@ -1420,7 +1420,7 @@ impl TermGraph {
                 // We can eliminate these variables
                 let reduced_result =
                     self.eliminate_vars(mapped_result, |v| !new_to_old.contains(&v));
-                pending.push(Operation::Identification(result, reduced_result.clone()));
+                pending.push_back(Operation::Identification(result, reduced_result.clone()));
                 reduced_result.forward_map_vars(&new_to_old)
             } else {
                 panic!("a replacement with no variables becomes a variable. what does this mean?");
@@ -1435,7 +1435,7 @@ impl TermGraph {
 
         if key.is_noop() {
             // There's no edge here, we just want to identify two terms
-            pending.push(Operation::Identification(
+            pending.push_back(Operation::Identification(
                 key.template_instance(),
                 normalized_result,
             ));
@@ -1457,7 +1457,7 @@ impl TermGraph {
         &mut self,
         instance1: TermInstance,
         instance2: TermInstance,
-        pending: &mut Vec<Operation>,
+        pending: &mut VecDeque<Operation>,
     ) {
         let instance1 = self.update_term(instance1);
         let instance2 = self.update_term(instance2);
@@ -1488,11 +1488,15 @@ impl TermGraph {
                 let reduced_instance = self.eliminate_vars(keep, |v| !discard.var_map.contains(&v));
 
                 // Identify both onto the reduced term
-                pending.push(Operation::Identification(
+                // Note: order matters!
+                pending.push_back(Operation::Identification(
+                    keep_instance,
                     reduced_instance.clone(),
+                ));
+                pending.push_back(Operation::Identification(
+                    reduced_instance,
                     discard_instance,
                 ));
-                pending.push(Operation::Identification(keep_instance, reduced_instance));
                 return;
             }
 
@@ -1543,10 +1547,10 @@ impl TermGraph {
         self.replace_term_id(discard.term_id, &new_instance, pending);
     }
 
-    fn process_all(&mut self, pending: Vec<Operation>) {
+    fn process_all(&mut self, pending: VecDeque<Operation>) {
         let mut pending = pending;
         loop {
-            match pending.pop() {
+            match pending.pop_front() {
                 Some(Operation::Identification(instance1, instance2)) => {
                     self.process_identify_terms(instance1, instance2, &mut pending);
                 }
@@ -1561,7 +1565,8 @@ impl TermGraph {
     // Identifies the two terms, and continues processing any followup Identifications until
     // all Identifications are processed.
     pub fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
-        let ops = vec![Operation::Identification(instance1, instance2)];
+        let mut ops = VecDeque::new();
+        ops.push_back(Operation::Identification(instance1, instance2));
         self.process_all(ops)
     }
 
@@ -1692,7 +1697,7 @@ impl TermGraph {
     // A -> C is the "long edge" that we start with.
     // A -> B is the "short edge" that we will look for.
     // B -> C is the "new edge" that we will create, when the long and short edges are compatible.
-    fn infer_from_fat_edge(&mut self, long_edge_id: EdgeId, pending: &mut Vec<Operation>) {
+    fn infer_from_fat_edge(&mut self, long_edge_id: EdgeId, pending: &mut VecDeque<Operation>) {
         assert!(self.fat_edges);
         let long_edge_info = self.get_edge_info(long_edge_id);
         let long_reps = long_edge_info.normalize_result();
@@ -1841,7 +1846,7 @@ impl TermGraph {
         &mut self,
         first_edge: EdgeId,
         second_edge: EdgeId,
-        pending: &mut Vec<Operation>,
+        pending: &mut VecDeque<Operation>,
     ) {
         // Create term instances that use the same numbering scheme for all of A, B, and C.
         let first_edge_info = self.get_edge_info(first_edge);
@@ -1881,7 +1886,7 @@ impl TermGraph {
             );
             let one_step_result =
                 self.replace_one_var(&instance_a, ab_id, &composite_instance, pending);
-            pending.push(Operation::Identification(instance_c, one_step_result));
+            pending.push_back(Operation::Identification(instance_c, one_step_result));
             return;
         }
 
@@ -1890,7 +1895,7 @@ impl TermGraph {
     }
 
     // Look for inferences that involve this edge.
-    fn infer_from_skinny_edge(&mut self, edge_id: EdgeId, pending: &mut Vec<Operation>) {
+    fn infer_from_skinny_edge(&mut self, edge_id: EdgeId, pending: &mut VecDeque<Operation>) {
         let edge_info = self.get_edge_info(edge_id);
         let result_term_id = edge_info.result.term_id();
 
