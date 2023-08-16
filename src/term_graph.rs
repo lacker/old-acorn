@@ -1862,44 +1862,46 @@ impl TermGraph {
             }
             SimpleEdge::Replace(ab_id, ab_replacement) => (ab_id, ab_replacement),
         };
-        let (bc_id, bc_replacement) = match bc_simple_edge {
-            SimpleEdge::Identify(_, _, _) => {
+        match bc_simple_edge {
+            SimpleEdge::Identify(_in_var_1, _in_var_2, _out_var) => {
                 // B->C is a variable identification edge.
+                // We don't do anything with this now, but we should.
                 return;
             }
-            SimpleEdge::Replace(bc_id, bc_replacement) => (bc_id, bc_replacement),
-        };
+            SimpleEdge::Replace(bc_id, bc_replacement) => {
+                if bc_id >= num_a_vars {
+                    // B->C is changing a variable that was newly introduced in A->B.
+                    // This means we can do a "combining" inference, to introduce a composite term
+                    // in one step.
+                    let composite_instance = self.replace_one_var(
+                        &TermInstance::Mapped(ab_replacement),
+                        bc_id,
+                        &TermInstance::Mapped(bc_replacement),
+                        pending,
+                    );
+                    let one_step_result =
+                        self.replace_one_var(&instance_a, ab_id, &composite_instance, pending);
+                    pending.push_back(Operation::Identification(instance_c, one_step_result));
+                    return;
+                }
 
-        if bc_id >= num_a_vars {
-            // B->C is changing a variable that was newly introduced in A->B.
-            // This means we can do a "combining" inference, to introduce a composite term
-            // in one step.
-            let composite_instance = self.replace_one_var(
-                &TermInstance::Mapped(ab_replacement),
-                bc_id,
-                &TermInstance::Mapped(bc_replacement),
-                pending,
-            );
-            let one_step_result =
-                self.replace_one_var(&instance_a, ab_id, &composite_instance, pending);
-            pending.push_back(Operation::Identification(instance_c, one_step_result));
-            return;
+                // A->B and B->C touch different variables. So we can do a "commuting" inference.
+                let bc_first = self.replace_one_var(
+                    &instance_a,
+                    bc_id,
+                    &TermInstance::Mapped(bc_replacement),
+                    pending,
+                );
+                let bc_then_ab = self.replace_one_var(
+                    &bc_first,
+                    ab_id,
+                    &TermInstance::Mapped(ab_replacement),
+                    pending,
+                );
+                pending.push_back(Operation::Identification(instance_c, bc_then_ab));
+                return;
+            }
         }
-
-        // A->B and B->C touch different variables. So we can do a "commuting" inference.
-        let bc_first = self.replace_one_var(
-            &instance_a,
-            bc_id,
-            &TermInstance::Mapped(bc_replacement),
-            pending,
-        );
-        let bc_then_ab = self.replace_one_var(
-            &bc_first,
-            ab_id,
-            &TermInstance::Mapped(ab_replacement),
-            pending,
-        );
-        pending.push_back(Operation::Identification(instance_c, bc_then_ab));
     }
 
     // Look for inferences that involve this edge.
@@ -2541,7 +2543,7 @@ mod tests {
     #[test]
     fn test_repeated_variable() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+        // g.fat_edges = false;
         let c0x0x0 = g.parse("c0(x0, x0)");
         let c0c1c1 = g.parse("c0(c1, c1)");
         let c2 = g.parse("c2");
