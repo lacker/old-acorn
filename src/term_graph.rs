@@ -1129,12 +1129,10 @@ impl TermGraph {
             let i = i as AtomId;
             match r {
                 TermInstance::Variable(var_type, j) => {
-                    println!("x_{} -> x_{}", i, j);
                     assert!(s.match_var(i, &Term::atom(*var_type, Atom::Variable(*j))));
                 }
                 TermInstance::Mapped(t) => {
                     let t = self.extract_term_id(t.term_id).remap_variables(&t.var_map);
-                    println!("x_{} -> {}", i, t);
                     assert!(s.match_var(i, &t));
                 }
             }
@@ -1392,27 +1390,24 @@ impl TermGraph {
             }
         };
 
-        if replacements.len() < mapped_term.var_map.len() {
-            panic!(
-                "not enough replacements in {:?} for template {}",
-                replacements, mapped_term
-            );
-        }
-
-        let mut reordered_replacements = vec![None; mapped_term.var_map.len()];
-        for (i, j) in mapped_term.var_map.iter().enumerate() {
-            // x_i in the old term is x_j in the new term.
-            reordered_replacements[*j as usize] = Some(replacements[i].clone());
-        }
-
-        // We shouldn't have missed any
-        let unwrapped_replacements: Vec<_> = reordered_replacements
-            .into_iter()
-            .map(|replacement| replacement.unwrap())
+        // Renumber the replacements so that they are relative to term_id rather than the instance
+        let new_replacements = mapped_term
+            .var_map
+            .iter()
+            .map(|v| {
+                if *v >= replacements.len() as AtomId {
+                    panic!(
+                        "template {:?} has variable {} but only {} replacements",
+                        mapped_term,
+                        v,
+                        replacements.len()
+                    );
+                }
+                replacements[*v as usize].clone()
+            })
             .collect();
 
-        let (key, new_to_old) =
-            self.normalize_edge_key(mapped_term.term_id, unwrapped_replacements);
+        let (key, new_to_old) = self.normalize_edge_key(mapped_term.term_id, new_replacements);
 
         let normalized_result = if result.num_vars() > new_to_old.len() {
             // The result must have some variables that aren't in new_to_old at all.
@@ -2337,6 +2332,7 @@ mod tests {
     #[test]
     fn test_identifying_with_the_identity() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0x0 = g.parse("c0(x0)");
         let x0 = g.parse("x0");
         g.check_make_equal(&c0x0, &x0);
@@ -2348,6 +2344,7 @@ mod tests {
     #[test]
     fn test_edge_template_identifying_with_variable() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         g.parse("c0(c1)");
         let x0 = g.parse("x0");
         let c0x0 = g.parse("c0(x0)");
@@ -2357,6 +2354,7 @@ mod tests {
     #[test]
     fn test_template_discovery() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0c1x0 = g.parse("c0(c1, x0)");
         let c2 = g.parse("c2");
         g.check_make_equal(&c0c1x0, &c2);
@@ -2368,6 +2366,7 @@ mod tests {
     #[test]
     fn test_ignoring_var_in_replacement() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let template = g.parse("c0(x0, c1(x1))");
         let reduction = g.parse("c2(x0)");
         g.check_make_equal(&template, &reduction);
@@ -2379,6 +2378,7 @@ mod tests {
     #[test]
     fn test_eliminating_a_replacement_var() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0c1x0 = g.parse("c0(c1(x0))");
         let c2x0 = g.parse("c2(x0)");
         g.check_make_equal(&c0c1x0, &c2x0);
@@ -2390,6 +2390,7 @@ mod tests {
     #[test]
     fn test_ignoring_two_vars() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let template = g.parse("c0(c1(x0), x1)");
         let reduction = g.parse("c2");
         g.check_make_equal(&template, &reduction);
@@ -2401,6 +2402,7 @@ mod tests {
     #[test]
     fn test_long_template() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let template = g.parse("c0(x0, c1, x2, c2(x3), x4)");
         let reduction = g.parse("c3(x2)");
         g.check_make_equal(&template, &reduction);
