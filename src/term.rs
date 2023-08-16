@@ -511,6 +511,20 @@ impl Term {
         }
     }
 
+    // Replaces x_{var_map[i]} with x_i, or Atom::Anonymous if nothing matches.
+    pub fn unmap_variables(&self, var_map: &Vec<AtomId>) -> Term {
+        Term {
+            head_type: self.head_type,
+            term_type: self.term_type,
+            head: self.head.unmap_variables(var_map),
+            args: self
+                .args
+                .iter()
+                .map(|arg| arg.unmap_variables(var_map))
+                .collect(),
+        }
+    }
+
     fn inorder_helper(&self, answer: &mut Vec<(TypeId, TypeId, Atom, Vec<TypeId>)>) {
         let arg_types = self.args.iter().map(|arg| arg.term_type).collect();
         answer.push((self.term_type, self.head_type, self.head, arg_types));

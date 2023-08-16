@@ -1129,10 +1129,12 @@ impl TermGraph {
             let i = i as AtomId;
             match r {
                 TermInstance::Variable(var_type, j) => {
+                    println!("x_{} -> x_{}", i, j);
                     assert!(s.match_var(i, &Term::atom(*var_type, Atom::Variable(*j))));
                 }
                 TermInstance::Mapped(t) => {
                     let t = self.extract_term_id(t.term_id).remap_variables(&t.var_map);
+                    println!("x_{} -> {}", i, t);
                     assert!(s.match_var(i, &t));
                 }
             }
@@ -1142,8 +1144,7 @@ impl TermGraph {
             TermInstance::Mapped(t) => &t.var_map,
             TermInstance::Variable(_, _) => panic!("shallowest edge should never be a variable"),
         };
-
-        unmapped_term.remap_variables(var_map)
+        unmapped_term.unmap_variables(var_map)
     }
 
     pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
@@ -2302,11 +2303,27 @@ mod tests {
         let c0x0 = g.parse("c0(x0)");
         let c1c2 = g.parse("c1(c2)");
         g.check_make_equal(&c0x0, &c1c2);
+        let c0x0_str = g.extract_term_instance(&g.update_term(c0x0)).to_string();
+        assert_eq!(c0x0_str, "c0(_)");
+        let c1c2_str = g.extract_term_instance(&g.update_term(c1c2)).to_string();
+        assert_eq!(c1c2_str, "c0(_)");
     }
 
     #[test]
-    fn test_implicit_argument_collapse() {
+    fn test_argument_collapse() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
+        let term1 = g.parse("c0(c1, x0, x1, x2, x3)");
+        let term2 = g.parse("c0(c1, x0, x4, x2, x5)");
+        g.check_make_equal(&term1, &term2);
+        let term1_str = g.extract_term_instance(&g.update_term(term1)).to_string();
+        assert_eq!(term1_str, "c0(c1, x0, _, x2, _)");
+    }
+
+    #[test]
+    fn test_inference_from_argument_collapse() {
+        let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0x0 = g.parse("c0(x0)");
         let c1x1 = g.parse("c1(x1)");
         g.check_make_equal(&c0x0, &c1x1);
