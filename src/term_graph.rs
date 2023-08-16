@@ -133,6 +133,9 @@ enum SimpleEdge {
 enum Operation {
     // Make these two term instances represent the same thing.
     Identification(TermInstance, TermInstance),
+
+    // Infer new relations based on this new edge
+    Inference(EdgeId),
 }
 
 enum TermInfoReference {
@@ -707,16 +710,12 @@ impl TermGraph {
         // Insert everything into the graph
         self.terms.push(TermInfoReference::TermInfo(term_info));
         let edge_id = self.insert_edge(edge_info);
-        self.infer_from_edge(edge_id, pending);
-        answer
-    }
-
-    fn infer_from_edge(&mut self, edge_id: EdgeId, pending: &mut VecDeque<Operation>) {
         if self.fat_edges {
             self.infer_from_fat_edge(edge_id, pending);
         } else {
-            self.infer_from_skinny_edge(edge_id, pending);
+            pending.push_back(Operation::Inference(edge_id));
         }
+        answer
     }
 
     // Returns an EdgeKey along with a new_to_old map that shows how we renumbered the variables.
@@ -1209,7 +1208,7 @@ impl TermGraph {
 
         let edge_id = self.insert_edge(edge_info);
         if !self.fat_edges {
-            self.infer_from_edge(edge_id, pending);
+            pending.push_back(Operation::Inference(edge_id));
         }
     }
 
@@ -1554,6 +1553,10 @@ impl TermGraph {
                 Some(Operation::Identification(instance1, instance2)) => {
                     self.process_identify_terms(instance1, instance2, &mut pending);
                 }
+                Some(Operation::Inference(edge_id)) => {
+                    assert!(!self.fat_edges);
+                    self.infer_from_skinny_edge(edge_id, &mut pending);
+                }
                 None => break,
             }
         }
@@ -1888,11 +1891,27 @@ impl TermGraph {
         }
 
         // A->B and B->C touch different variables. So we can do a "commuting" inference.
-        // TODO: actually do it
+        let bc_first = self.replace_one_var(
+            &instance_a,
+            bc_id,
+            &TermInstance::Mapped(bc_replacement),
+            pending,
+        );
+        let bc_then_ab = self.replace_one_var(
+            &bc_first,
+            ab_id,
+            &TermInstance::Mapped(ab_replacement),
+            pending,
+        );
+        pending.push_back(Operation::Identification(instance_c, bc_then_ab));
     }
 
     // Look for inferences that involve this edge.
     fn infer_from_skinny_edge(&mut self, edge_id: EdgeId, pending: &mut VecDeque<Operation>) {
+        if !self.has_edge_info(edge_id) {
+            // This edge has been collapsed
+            return;
+        }
         let edge_info = self.get_edge_info(edge_id);
         let result_term_id = edge_info.result.term_id();
 
@@ -1968,6 +1987,7 @@ impl TermGraph {
     // A linear pass through the graph checking that everything is consistent.
     pub fn check(&self) {
         let mut all_terms: HashSet<String> = HashSet::new();
+        let mut duplicate_term = None;
         for term_id in 0..self.terms.len() {
             let term_id = term_id as TermId;
             if let TermInfoReference::Replaced(ti) = self.get_term_info_ref(term_id) {
@@ -2009,11 +2029,11 @@ impl TermGraph {
             let s = term.to_string();
             println!("term {}: {}", term_id, s);
 
-            // This check can raise a false alarm with type templates, for which
-            // different ones can stringify the same
-            assert!(!all_terms.contains(&s), "duplicate term: {}", s);
-
-            all_terms.insert(s);
+            if all_terms.contains(&s) {
+                duplicate_term = Some(s);
+            } else {
+                all_terms.insert(s);
+            }
         }
 
         let mut edge_keys_and_ids = self.edge_key_map.iter().collect::<Vec<_>>();
@@ -2050,6 +2070,10 @@ impl TermGraph {
                     );
                 }
             }
+        }
+
+        if let Some(duplicate_term) = duplicate_term {
+            panic!("duplicate term: {}", duplicate_term);
         }
     }
 
@@ -2207,6 +2231,7 @@ mod tests {
     #[test]
     fn test_atom_identification() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0x0x1 = g.parse("c0(x0, x1)");
         let c1x1x0 = g.parse("c1(x1, x0)");
         g.check_make_equal(&c0x0x1, &c1x1x0);
