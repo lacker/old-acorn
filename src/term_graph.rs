@@ -2243,6 +2243,7 @@ mod tests {
     #[test]
     fn test_explicit_argument_collapse() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0x0 = g.parse("c0(x0)");
         let c1 = g.parse("c1");
         g.check_make_equal(&c0x0, &c1);
@@ -2254,6 +2255,7 @@ mod tests {
     #[test]
     fn test_template_collapse() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0x0 = g.parse("c0(x0)");
         // Make the less concise term the more popular one
         g.parse("c0(c2)");
@@ -2267,6 +2269,7 @@ mod tests {
     #[test]
     fn test_extracting_infinite_loop() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0c0c1 = g.parse("c0(c1)");
         let other_term = g.parse("c2(c3)");
         g.check_make_equal(&c0c0c1, &other_term);
@@ -2277,6 +2280,7 @@ mod tests {
     #[test]
     fn test_double_touched_edges() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
 
         let c0c1c1 = g.parse("c0(c1, c1)");
         let c2 = g.parse("c2");
@@ -2294,6 +2298,7 @@ mod tests {
     #[test]
     fn test_atom_vs_less_args() {
         let mut g = TermGraph::new();
+        g.fat_edges = false;
         let c0x0 = g.parse("c0(x0)");
         let c1c2 = g.parse("c1(c2)");
         g.check_make_equal(&c0x0, &c1c2);
