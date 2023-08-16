@@ -119,8 +119,9 @@ pub type EdgeId = u32;
 // A simple edge forbids the renumbering of variables, and only supports a single change.
 #[derive(Debug, Eq, PartialEq)]
 enum SimpleEdge {
-    // Combines two variables in the template, to become a single variable in the result.
-    Combine(AtomId, AtomId, AtomId),
+    // Makes two variables in the template refer to the same variable in the result.
+    // Variable ids are (input, input, output).
+    Identify(AtomId, AtomId, AtomId),
 
     // Replaces a variable in the template with a new term.
     Replace(AtomId, MappedTerm),
@@ -252,13 +253,6 @@ impl TermInstance {
         match self {
             TermInstance::Mapped(_) => None,
             TermInstance::Variable(_, var_id) => Some(*var_id),
-        }
-    }
-
-    fn is_variable(&self) -> bool {
-        match self {
-            TermInstance::Mapped(_) => false,
-            TermInstance::Variable(_, _) => true,
         }
     }
 
@@ -509,16 +503,6 @@ impl EdgeInfo {
         answer
     }
 
-    // Returns a variable that this edge replaces.
-    fn replaced_var(&self) -> Option<AtomId> {
-        for (i, r) in self.key.replacements.iter().enumerate() {
-            if !r.is_variable() {
-                return Some(i as AtomId);
-            }
-        }
-        None
-    }
-
     // Returns a SimpleEdge describing this edge in terms of the variable numbering used in
     // the provided template instance.
     //
@@ -565,7 +549,7 @@ impl EdgeInfo {
                         // This is a "combine" edge. Both x_existing and x_i are being
                         // renamed to x_j.
                         assert_eq!(simple_edge, None);
-                        simple_edge = Some(SimpleEdge::Combine(existing, *i, next_var));
+                        simple_edge = Some(SimpleEdge::Identify(existing, *i, next_var));
                         result_rename[*j as usize] = next_var;
                         next_var += 1;
                     } else {
@@ -1851,14 +1835,44 @@ impl TermGraph {
         let first_edge_info = self.get_edge_info(first_edge);
         let instance_a = first_edge_info.key.template_instance();
         let mapped_a = instance_a.as_mapped();
-        let next_var = mapped_a.var_map.len() as AtomId;
-        let (first_simple_edge, instance_b, next_var) =
-            first_edge_info.simplify(mapped_a, next_var);
+        let num_a_vars = mapped_a.var_map.len() as AtomId;
+        let (ab_simple_edge, instance_b, num_ab_vars) =
+            first_edge_info.simplify(mapped_a, num_a_vars);
         let mapped_b = instance_b.as_mapped();
         let second_edge_info = self.get_edge_info(second_edge);
-        let (second_simple_edge, instance_c, _) = second_edge_info.simplify(mapped_b, next_var);
+        let (bc_simple_edge, instance_c, _) = second_edge_info.simplify(mapped_b, num_ab_vars);
 
-        // TODO
+        let (ab_id, ab_replacement) = match ab_simple_edge {
+            SimpleEdge::Identify(_, _, _) => {
+                // A->B is a variable identification edge.
+                return;
+            }
+            SimpleEdge::Replace(ab_id, ab_replacement) => (ab_id, ab_replacement),
+        };
+        let (bc_id, bc_replacement) = match bc_simple_edge {
+            SimpleEdge::Identify(_, _, _) => {
+                // B->C is a variable identification edge.
+                return;
+            }
+            SimpleEdge::Replace(bc_id, bc_replacement) => (bc_id, bc_replacement),
+        };
+
+        if bc_id > num_a_vars {
+            // B->C is changing a variable that was newly introduced in A->B.
+            // This means we can do a "combining" inference, to introduce a composite term
+            // in one step.
+            let composite_instance = self.replace_one_var(
+                &TermInstance::Mapped(ab_replacement),
+                bc_id,
+                &TermInstance::Mapped(bc_replacement),
+            );
+            let one_step_result = self.replace_one_var(&instance_a, ab_id, &composite_instance);
+            pending.push(Operation::Identification(instance_c, one_step_result));
+            return;
+        }
+
+        // A->B and B->C touch different variables. So we can do a "commuting" inference.
+        // TODO: actually do it
     }
 
     // Look for inferences that involve this edge.
