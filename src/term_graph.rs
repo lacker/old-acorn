@@ -794,6 +794,7 @@ impl TermGraph {
         template: &TermInstance,
         replace_var: AtomId,
         replacement: &TermInstance,
+        pending: &mut Vec<Operation>,
     ) -> TermInstance {
         match template {
             TermInstance::Mapped(template) => {
@@ -811,10 +812,7 @@ impl TermGraph {
                         }
                     })
                     .collect();
-                let mut pending = vec![];
-                let answer = self.replace_in_term_id(template.term_id, replacements, &mut pending);
-                self.process_all(pending);
-                self.update_term(answer)
+                return self.replace_in_term_id(template.term_id, replacements, pending);
             }
             TermInstance::Variable(_, i) => {
                 if i == &replace_var {
@@ -983,15 +981,24 @@ impl TermGraph {
         // Stored in reverse order for nice popping
         let mut temporary_vars: Vec<AtomId> = vec![];
 
+        let mut pending: Vec<Operation> = vec![];
+
+        let mut answer = None;
+
         for (term_type, head_type, head, arg_types) in term.inorder() {
+            assert_eq!(answer, None);
             if arg_types.len() > 0 {
                 // Expand the accumulated instance with a type template
                 let (type_template_instance, vars_used) =
                     self.type_template_instance(term_type, head_type, &arg_types, next_var);
                 if let Some(instance) = accumulated_instance {
                     let replace_var = temporary_vars.pop().unwrap();
-                    let replaced =
-                        self.replace_one_var(&instance, replace_var, &type_template_instance);
+                    let replaced = self.replace_one_var(
+                        &instance,
+                        replace_var,
+                        &type_template_instance,
+                        &mut pending,
+                    );
                     accumulated_instance = Some(replaced);
                 } else {
                     // This is the root type template for the term
@@ -1003,7 +1010,8 @@ impl TermGraph {
                 }
             } else if accumulated_instance == None {
                 // This term is just a single constant.
-                return self.atomic_instance(head_type, head);
+                answer = Some(self.atomic_instance(head_type, head));
+                break;
             }
 
             // Expand the accumulated instance with an atom
@@ -1013,15 +1021,19 @@ impl TermGraph {
                 &accumulated_instance.unwrap(),
                 replace_var,
                 &atomic_instance,
+                &mut pending,
             );
             accumulated_instance = Some(replaced);
 
             if temporary_vars.is_empty() {
-                return accumulated_instance.unwrap();
+                answer = accumulated_instance;
+                break;
             }
         }
 
-        panic!("control flow should not reach here");
+        let answer = answer.unwrap();
+        self.process_all(pending);
+        self.update_term(answer)
     }
 
     // The depth of an edge is the maximum depth of any term that its key references.
@@ -1865,8 +1877,10 @@ impl TermGraph {
                 &TermInstance::Mapped(ab_replacement),
                 bc_id,
                 &TermInstance::Mapped(bc_replacement),
+                pending,
             );
-            let one_step_result = self.replace_one_var(&instance_a, ab_id, &composite_instance);
+            let one_step_result =
+                self.replace_one_var(&instance_a, ab_id, &composite_instance, pending);
             pending.push(Operation::Identification(instance_c, one_step_result));
             return;
         }
@@ -2121,7 +2135,7 @@ mod tests {
     #[test]
     fn test_identifying_terms() {
         let mut g = TermGraph::new();
-        // g.fat_edges = false;
+        g.fat_edges = false;
         let c0 = g.parse("c0(c3)");
         let c1 = g.parse("c1(c3)");
         g.check_make_equal(&c0, &c1);
