@@ -531,11 +531,25 @@ impl EdgeInfo {
         let mut result_rename = vec![INVALID_ATOM_ID; self.key.vars_used];
 
         let mut simple_edge: Option<SimpleEdge> = None;
+        let mut next_var = next_var;
 
         for (i, rep) in template_instance.var_map.iter().zip(&self.key.replacements) {
             match rep {
-                TermInstance::Mapped(_) => {
-                    todo!();
+                TermInstance::Mapped(replacement) => {
+                    // This is a "replace" edge.
+                    assert_eq!(simple_edge, None);
+                    for (j, &k) in replacement.var_map.iter().enumerate() {
+                        result_rename[k as usize] = (j as AtomId) + next_var;
+                    }
+                    let new_vars = replacement.var_map.len() as AtomId;
+                    simple_edge = Some(SimpleEdge::Replace(
+                        *i,
+                        MappedTerm {
+                            term_id: replacement.term_id,
+                            var_map: (next_var..(next_var + new_vars as AtomId)).collect(),
+                        },
+                    ));
+                    next_var += new_vars;
                 }
                 TermInstance::Variable(_, j) => {
                     // This edge is renaming x_i -> x_j
@@ -546,6 +560,7 @@ impl EdgeInfo {
                         assert_eq!(simple_edge, None);
                         simple_edge = Some(SimpleEdge::Combine(existing, *i, next_var));
                         result_rename[*j as usize] = next_var;
+                        next_var += 1;
                     } else {
                         result_rename[*j as usize] = *i;
                     }
@@ -553,7 +568,15 @@ impl EdgeInfo {
             }
         }
 
-        todo!();
+        match simple_edge {
+            Some(simple_edge) => {
+                let instance = self.result.forward_map_vars(&result_rename);
+                (simple_edge, instance, next_var)
+            }
+            None => {
+                panic!("noop edge in simplify");
+            }
+        }
     }
 }
 
