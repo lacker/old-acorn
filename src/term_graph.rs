@@ -133,9 +133,6 @@ enum SimpleEdge {
 enum Operation {
     // Make these two term instances represent the same thing.
     Identification(TermInstance, TermInstance),
-
-    // Do any inferences that happen as a result of this edge.
-    Inference(EdgeId),
 }
 
 enum TermInfoReference {
@@ -1210,7 +1207,10 @@ impl TermGraph {
             return;
         }
 
-        self.insert_edge(edge_info);
+        let edge_id = self.insert_edge(edge_info);
+        if !self.fat_edges {
+            self.infer_from_edge(edge_id, pending);
+        }
     }
 
     // Replaces old_term_id with new_term in the given edge.
@@ -1554,9 +1554,6 @@ impl TermGraph {
                 Some(Operation::Identification(instance1, instance2)) => {
                     self.process_identify_terms(instance1, instance2, &mut pending);
                 }
-                Some(Operation::Inference(edge_id)) => {
-                    self.infer_from_edge(edge_id, &mut pending);
-                }
                 None => break,
             }
         }
@@ -1874,7 +1871,7 @@ impl TermGraph {
             SimpleEdge::Replace(bc_id, bc_replacement) => (bc_id, bc_replacement),
         };
 
-        if bc_id > num_a_vars {
+        if bc_id >= num_a_vars {
             // B->C is changing a variable that was newly introduced in A->B.
             // This means we can do a "combining" inference, to introduce a composite term
             // in one step.
