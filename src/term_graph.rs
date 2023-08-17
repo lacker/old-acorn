@@ -1898,7 +1898,15 @@ impl TermGraph {
                     return;
                 }
 
-                // A->B and B->C touch different variables. So we can do a "commuting" inference.
+                if ab_replacement.var_map.contains(&bc_id) {
+                    // B->C is changing a variable that exists in A, but the A->B replacement also
+                    // used that variable.
+                    // TODO: handle this case
+                    return;
+                }
+
+                // B->C doesn't change anything that was affected by A->B.
+                // So we can do a "commuting" inference.
                 let bc_first = self.replace_one_var(
                     &instance_a,
                     bc_id,
@@ -1915,6 +1923,7 @@ impl TermGraph {
                 return;
             }
             _ => {
+                // TODO: handle more cases
                 return;
             }
         }
