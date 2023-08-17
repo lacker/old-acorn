@@ -526,23 +526,16 @@ impl EdgeInfo {
         let mut simple_edge: Option<SimpleEdge> = None;
         let mut next_var = next_var;
 
+        // Deal with replacements at the end, so that we know which variable ids are
+        // renames of existing variables, and which are new variables.
+        let mut replacement_info: Option<(AtomId, &MappedTerm)> = None;
+
         for (i, rep) in template_instance.var_map.iter().zip(&self.key.replacements) {
             match rep {
-                TermInstance::Mapped(replacement) => {
+                TermInstance::Mapped(r) => {
                     // This is a "replace" edge.
-                    assert_eq!(simple_edge, None);
-                    for (j, &k) in replacement.var_map.iter().enumerate() {
-                        result_rename[k as usize] = (j as AtomId) + next_var;
-                    }
-                    let new_vars = replacement.var_map.len() as AtomId;
-                    simple_edge = Some(SimpleEdge::Replace(
-                        *i,
-                        MappedTerm {
-                            term_id: replacement.term_id,
-                            var_map: (next_var..(next_var + new_vars as AtomId)).collect(),
-                        },
-                    ));
-                    next_var += new_vars;
+                    assert_eq!(replacement_info, None);
+                    replacement_info = Some((*i, &r));
                 }
                 TermInstance::Variable(_, j) => {
                     // This edge is renaming x_i -> x_j
@@ -559,6 +552,33 @@ impl EdgeInfo {
                     }
                 }
             }
+        }
+
+        if let Some((i, replacement)) = replacement_info {
+            assert_eq!(simple_edge, None);
+
+            // Renumber the replacement's var_map so that reused variables are correct,
+            // and newly introduced variables get new variable numbers.
+            let var_map = replacement.var_map.iter().map(|&j| {
+                let existing = result_rename[j as usize];
+                if existing == INVALID_ATOM_ID {
+                    // This is a new variable, introduced by the replacement.
+                    let answer = next_var;
+                    next_var += 1;
+                    result_rename[j as usize] = answer;
+                    answer
+                } else {
+                    existing
+                }
+            });
+
+            simple_edge = Some(SimpleEdge::Replace(
+                i,
+                MappedTerm {
+                    term_id: replacement.term_id,
+                    var_map: var_map.collect(),
+                },
+            ));
         }
 
         match simple_edge {
