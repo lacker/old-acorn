@@ -517,6 +517,8 @@ impl EdgeInfo {
         template_instance: &MappedTerm,
         next_var: AtomId,
     ) -> (SimpleEdge, TermInstance, AtomId) {
+        assert_eq!(self.key.template, template_instance.term_id);
+
         // We need to renumber the variables that are in the result instance.
         // Keep track of the renumbering.
         let mut result_rename = vec![INVALID_ATOM_ID; self.key.vars_used];
