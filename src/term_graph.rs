@@ -593,17 +593,6 @@ impl EdgeInfo {
     }
 }
 
-impl SimpleEdge {
-    // Swaps the order of self and other, making modifications if needed, so that if:
-    //
-    // A then B = B' then A'
-    //
-    // A.commute(B) will return B', A'.
-    fn commute(&self, other: &SimpleEdge) -> Option<(SimpleEdge, SimpleEdge)> {
-        todo!();
-    }
-}
-
 impl TermInfoReference {
     pub fn is_there(&self) -> bool {
         match self {
