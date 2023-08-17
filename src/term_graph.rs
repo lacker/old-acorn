@@ -1877,20 +1877,11 @@ impl TermGraph {
         let second_edge_info = self.get_edge_info(second_edge);
         let (bc_simple_edge, instance_c, _) = second_edge_info.simplify(mapped_b, num_ab_vars);
 
-        let (ab_id, ab_replacement) = match ab_simple_edge {
-            SimpleEdge::Identify(_, _, _) => {
-                // A->B is a variable identification edge.
-                return;
-            }
-            SimpleEdge::Replace(ab_id, ab_replacement) => (ab_id, ab_replacement),
-        };
-        match bc_simple_edge {
-            SimpleEdge::Identify(_in_var_1, _in_var_2, _out_var) => {
-                // B->C is a variable identification edge.
-                // We don't do anything with this now, but we should.
-                return;
-            }
-            SimpleEdge::Replace(bc_id, bc_replacement) => {
+        match (ab_simple_edge, bc_simple_edge) {
+            (
+                SimpleEdge::Replace(ab_id, ab_replacement),
+                SimpleEdge::Replace(bc_id, bc_replacement),
+            ) => {
                 if bc_id >= num_a_vars {
                     // B->C is changing a variable that was newly introduced in A->B.
                     // This means we can do a "combining" inference, to introduce a composite term
@@ -1921,6 +1912,9 @@ impl TermGraph {
                     pending,
                 );
                 pending.push_back(Operation::Identification(instance_c, bc_then_ab));
+                return;
+            }
+            _ => {
                 return;
             }
         }
