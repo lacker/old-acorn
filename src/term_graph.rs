@@ -2544,24 +2544,24 @@ mod tests {
         assert_eq!(left, right);
     }
 
-    // #[test]
-    // fn test_collapses_during_long_edge() {
-    //     let mut g = TermGraph::new();
-    //     g.fat_edges = false;
-    //     let template = g.parse("c0(c1, x0, x1)");
-    //     let reduction = g.parse("c2");
-    //     g.check_make_equal(&template, &reduction);
-    //     let template = g.parse("c0(x0, c1, x1)");
-    //     let reduction = g.parse("c3");
-    //     g.check_make_equal(&template, &reduction);
-    //     let template = g.parse("c0(x0, x1, c1)");
-    //     let reduction = g.parse("c4");
-    //     g.check_make_equal(&template, &reduction);
-    //     g.parse("c0(c1, c1, c1)");
-    //     let c3 = g.parse("c3");
-    //     let c4 = g.parse("c4");
-    //     assert_eq!(c3, c4);
-    // }
+    #[test]
+    fn test_collapses_during_long_edge() {
+        let mut g = TermGraph::new();
+        // g.fat_edges = false;
+        let template = g.parse("c0(c1, x0, x1)");
+        let reduction = g.parse("c2");
+        g.check_make_equal(&template, &reduction);
+        let template = g.parse("c0(x0, c1, x1)");
+        let reduction = g.parse("c3");
+        g.check_make_equal(&template, &reduction);
+        let template = g.parse("c0(x0, x1, c1)");
+        let reduction = g.parse("c4");
+        g.check_make_equal(&template, &reduction);
+        g.parse("c0(c1, c1, c1)");
+        let c3 = g.parse("c3");
+        let c4 = g.parse("c4");
+        assert_eq!(c3, c4);
+    }
 
     #[test]
     fn test_variable_used_only_in_replacement() {
@@ -2646,18 +2646,19 @@ mod tests {
         assert_eq!(c0c2c1, c2);
     }
 
-    // #[test]
-    // fn test_identifying_with_variable_seeing_template_last() {
-    //     let mut g = TermGraph::new();
-    //     g.parse("c0(c2, c1)");
+    #[test]
+    fn test_identifying_with_variable_seeing_template_last() {
+        let mut g = TermGraph::new();
+        g.fat_edges = false;
+        g.parse("c0(c2, c1)");
 
-    //     let c0x0c1 = g.parse("c0(x0, c1)");
-    //     let x0 = g.parse("x0");
-    //     g.check_make_equal(&c0x0c1, &x0);
-    //     let c0c2c1 = g.parse("c0(c2, c1)");
-    //     let c2 = g.parse("c2");
-    //     assert_eq!(c0c2c1, c2);
-    // }
+        let c0x0c1 = g.parse("c0(x0, c1)");
+        let x0 = g.parse("x0");
+        g.check_make_equal(&c0x0c1, &x0);
+        let c0c2c1 = g.parse("c0(c2, c1)");
+        let c2 = g.parse("c2");
+        assert_eq!(c0c2c1, c2);
+    }
 
     #[test]
     fn test_repeated_variable() {
@@ -2672,17 +2673,18 @@ mod tests {
         assert_eq!(c0c1c1, c2);
     }
 
-    // #[test]
-    // fn test_repeated_variable_seeing_template_last() {
-    //     let mut g = TermGraph::new();
-    //     let c0c1c1 = g.parse("c0(c1, c1)");
-    //     let c0x0x0 = g.parse("c0(x0, x0)");
-    //     let c2 = g.parse("c2");
-    //     g.check_make_equal(&c2, &c0x0x0);
-    //     let c0c1c1 = g.update_term(c0c1c1);
-    //     let c2 = g.update_term(c2);
-    //     assert_eq!(c0c1c1, c2);
-    // }
+    #[test]
+    fn test_repeated_variable_seeing_template_last() {
+        let mut g = TermGraph::new();
+        g.fat_edges = false;
+        let c0c1c1 = g.parse("c0(c1, c1)");
+        let c0x0x0 = g.parse("c0(x0, x0)");
+        let c2 = g.parse("c2");
+        g.check_make_equal(&c2, &c0x0x0);
+        let c0c1c1 = g.update_term(c0c1c1);
+        let c2 = g.update_term(c2);
+        assert_eq!(c0c1c1, c2);
+    }
 
     #[test]
     fn test_literal_evaluation() {
