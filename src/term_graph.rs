@@ -119,9 +119,8 @@ pub type EdgeId = u32;
 // A simple edge forbids the renumbering of variables, and only supports a single change.
 #[derive(Debug, Eq, PartialEq)]
 enum SimpleEdge {
-    // Makes two variables in the template refer to the same variable in the result.
-    // Variable ids are (input, input, output).
-    Identify(AtomId, AtomId, AtomId),
+    // Identify(i, j) changes x_j to an x_i.
+    Identify(AtomId, AtomId),
 
     // Replaces a variable in the template with a new term.
     Replace(AtomId, MappedTerm),
@@ -541,12 +540,10 @@ impl EdgeInfo {
                     // This edge is renaming x_i -> x_j
                     let existing = result_rename[*j as usize];
                     if existing != INVALID_ATOM_ID {
-                        // This is a "combine" edge. Both x_existing and x_i are being
-                        // renamed to x_j.
+                        // This is an "identify" edge. It is renumbering both
+                        // x_existing and x_i to x_j.
                         assert_eq!(simple_edge, None);
-                        simple_edge = Some(SimpleEdge::Identify(existing, *i, next_var));
-                        result_rename[*j as usize] = next_var;
-                        next_var += 1;
+                        simple_edge = Some(SimpleEdge::Identify(existing, *i));
                     } else {
                         result_rename[*j as usize] = *i;
                     }
@@ -1878,18 +1875,15 @@ impl TermGraph {
         let (bc_simple_edge, instance_c, _) = second_edge_info.simplify(mapped_b, num_ab_vars);
 
         match (ab_simple_edge, bc_simple_edge) {
-            (
-                SimpleEdge::Replace(ab_id, ab_replacement),
-                SimpleEdge::Replace(bc_id, bc_replacement),
-            ) => {
+            (SimpleEdge::Replace(ab_id, ab_rep), SimpleEdge::Replace(bc_id, bc_rep)) => {
                 if bc_id >= num_a_vars {
                     // B->C is changing a variable that was newly introduced in A->B.
                     // This means we can do a "combining" inference, to introduce a composite term
                     // in one step.
                     let composite_instance = self.replace_one_var(
-                        &TermInstance::Mapped(ab_replacement),
+                        &TermInstance::Mapped(ab_rep),
                         bc_id,
-                        &TermInstance::Mapped(bc_replacement),
+                        &TermInstance::Mapped(bc_rep),
                         pending,
                     );
                     let one_step_result =
@@ -1898,11 +1892,34 @@ impl TermGraph {
                     return;
                 }
 
-                if ab_replacement.var_map.contains(&bc_id) {
+                if ab_rep.var_map.contains(&bc_id) {
                     // B->C is changing a variable that exists in A, but the A->B replacement also
                     // used that variable.
                     // TODO: handle this case
                     return;
+                }
+
+                if ab_rep == bc_rep {
+                    // A->B->C is swapping the same thing in for multiple variables.
+                    // We could also do a variable combination first, then a substitution.
+                    let a_info = self.get_term_info(mapped_a.term_id);
+                    let var_type = a_info.arg_types[ab_id as usize];
+                    let combine_first = self.replace_one_var(
+                        &instance_a,
+                        ab_id,
+                        &TermInstance::Variable(var_type, bc_id),
+                        pending,
+                    );
+                    let then_substitute = self.replace_one_var(
+                        &combine_first,
+                        bc_id,
+                        &TermInstance::Mapped(bc_rep.clone()),
+                        pending,
+                    );
+                    pending.push_back(Operation::Identification(
+                        instance_c.clone(),
+                        then_substitute,
+                    ));
                 }
 
                 // B->C doesn't change anything that was affected by A->B.
@@ -1910,17 +1927,38 @@ impl TermGraph {
                 let bc_first = self.replace_one_var(
                     &instance_a,
                     bc_id,
-                    &TermInstance::Mapped(bc_replacement),
+                    &TermInstance::Mapped(bc_rep),
                     pending,
                 );
-                let bc_then_ab = self.replace_one_var(
-                    &bc_first,
-                    ab_id,
-                    &TermInstance::Mapped(ab_replacement),
-                    pending,
-                );
+                let bc_then_ab =
+                    self.replace_one_var(&bc_first, ab_id, &TermInstance::Mapped(ab_rep), pending);
                 pending.push_back(Operation::Identification(instance_c, bc_then_ab));
                 return;
+            }
+            (SimpleEdge::Identify(keep_id, discard_id), SimpleEdge::Replace(bc_id, bc_rep)) => {
+                if keep_id == bc_id {
+                    // B->C is substituting into the variable that A->B identified.
+                    // TODO: handle this case
+                    return;
+                } else {
+                    // These operations purely commute.
+                    let bc_first = self.replace_one_var(
+                        &instance_a,
+                        bc_id,
+                        &TermInstance::Mapped(bc_rep),
+                        pending,
+                    );
+                    let a_info = self.get_term_info(mapped_a.term_id);
+                    let var_type = a_info.arg_types[keep_id as usize];
+                    let bc_then_ab = self.replace_one_var(
+                        &bc_first,
+                        discard_id,
+                        &TermInstance::Variable(var_type, keep_id),
+                        pending,
+                    );
+                    pending.push_back(Operation::Identification(instance_c, bc_then_ab));
+                    return;
+                }
             }
             _ => {
                 // TODO: handle more cases
@@ -1987,8 +2025,9 @@ impl TermGraph {
         let edge_info = self.get_edge_info(edge_id);
         let template = self.extract_term_id(edge_info.key.template);
         print!(
-            "edge {}: {}",
+            "edge {}: in term {}, {},",
             edge_id,
+            edge_info.key.template,
             TermFormatter {
                 term: &template,
                 var: 'y'
@@ -2004,7 +2043,14 @@ impl TermGraph {
             );
         }
         let result = self.extract_term_instance(&edge_info.result);
-        println!(" yields {}", result);
+        match &edge_info.result {
+            TermInstance::Mapped(t) => {
+                println!(" yields term {}, {}", t.term_id, result);
+            }
+            TermInstance::Variable(_, _) => {
+                println!(" yields variable {}", result);
+            }
+        }
     }
 
     // A linear pass through the graph checking that everything is consistent.
