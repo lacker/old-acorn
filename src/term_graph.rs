@@ -607,7 +607,7 @@ impl TermGraph {
             atoms: HashMap::default(),
             type_templates: HashMap::default(),
             edge_key_map: HashMap::default(),
-            fat_edges: true,
+            fat_edges: false,
         }
     }
 
@@ -2545,9 +2545,25 @@ mod tests {
     }
 
     #[test]
-    fn test_collapses_during_long_edge() {
+    fn test_implicit_unification() {
         let mut g = TermGraph::new();
-        // g.fat_edges = false;
+        g.fat_edges = true;
+        let template = g.parse("c0(c1, x0)");
+        let reduction = g.parse("c2");
+        g.check_make_equal(&template, &reduction);
+        let template = g.parse("c0(x0, c1)");
+        let reduction = g.parse("c3");
+        g.check_make_equal(&template, &reduction);
+        g.parse("c0(c1, c1)");
+        let c2 = g.parse("c2");
+        let c3 = g.parse("c3");
+        assert_eq!(c2, c3);
+    }
+
+    #[test]
+    fn test_implicit_three_way_unification() {
+        let mut g = TermGraph::new();
+        g.fat_edges = true;
         let template = g.parse("c0(c1, x0, x1)");
         let reduction = g.parse("c2");
         g.check_make_equal(&template, &reduction);
