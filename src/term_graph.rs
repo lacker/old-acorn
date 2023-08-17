@@ -2662,7 +2662,7 @@ mod tests {
     #[test]
     fn test_repeated_variable() {
         let mut g = TermGraph::new();
-        // g.fat_edges = false;
+        g.fat_edges = false;
         let c0x0x0 = g.parse("c0(x0, x0)");
         let c0c1c1 = g.parse("c0(c1, c1)");
         let c2 = g.parse("c2");
