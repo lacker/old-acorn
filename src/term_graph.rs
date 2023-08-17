@@ -1960,6 +1960,54 @@ impl TermGraph {
                     return;
                 }
             }
+            (
+                SimpleEdge::Identify(keep_id_1, discard_id_1),
+                SimpleEdge::Identify(keep_id_2, discard_id_2),
+            ) => {
+                // TODO: there's three ways to represent any 3-to-1 identification.
+                // Do we need to handle all of them?
+
+                if keep_id_1 == keep_id_2 {
+                    // Both discard_id_1 and discard_id_2 are getting identified into keep_id_2.
+                    // They are getting identified into their final value directly.
+                    let a_info = self.get_term_info(mapped_a.term_id);
+                    let var_type = a_info.arg_types[keep_id_1 as usize];
+
+                    // Try doing it in the other order
+                    let one_step = self.replace_one_var(
+                        &instance_a,
+                        discard_id_2,
+                        &TermInstance::Variable(var_type, keep_id_2),
+                        pending,
+                    );
+                    let two_steps = self.replace_one_var(
+                        &one_step,
+                        discard_id_1,
+                        &TermInstance::Variable(var_type, keep_id_2),
+                        pending,
+                    );
+                    pending.push_back(Operation::Identification(instance_c.clone(), two_steps));
+
+                    // Try identifying them together first
+                    let one_step = self.replace_one_var(
+                        &instance_a,
+                        discard_id_1,
+                        &TermInstance::Variable(var_type, discard_id_2),
+                        pending,
+                    );
+                    let two_steps = self.replace_one_var(
+                        &one_step,
+                        discard_id_2,
+                        &TermInstance::Variable(var_type, keep_id_2),
+                        pending,
+                    );
+                    pending.push_back(Operation::Identification(instance_c, two_steps));
+                    return;
+                }
+
+                // TODO: handle the other cases
+                return;
+            }
             _ => {
                 // TODO: handle more cases
                 return;
