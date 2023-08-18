@@ -2201,13 +2201,17 @@ impl TermGraph {
         assert_eq!(t1, t2);
     }
 
-    pub fn term_str(&self, term: &TypedTermInstance) -> String {
-        let updated = self.update_term(term.instance.clone());
+    fn term_str(&self, term: &TermInstance) -> String {
+        let updated = self.update_term(term.clone());
         let t = TypedTermInstance {
-            term_type: term.term_type,
+            term_type: ANY,
             instance: updated,
         };
         self.extract_term_instance(&t).to_string()
+    }
+
+    pub fn check_str(&self, term: &TypedTermInstance, s: &str) {
+        assert_eq!(self.term_str(&term.instance), s)
     }
 }
 
@@ -2405,8 +2409,8 @@ mod tests {
         let c0x0 = g.parse("c0(x0)");
         let c1c2 = g.parse("c1(c2)");
         g.check_make_equal(&c0x0, &c1c2);
-        assert_eq!(g.term_str(&c0x0), "c0(_)");
-        assert_eq!(g.term_str(&c1c2), "c0(_)");
+        g.check_str(&c0x0, "c0(_)");
+        g.check_str(&c1c2, "c0(_)");
     }
 
     #[test]
@@ -2416,7 +2420,7 @@ mod tests {
         let term1 = g.parse("c0(c1, x0, x1, x2, x3)");
         let term2 = g.parse("c0(c1, x0, x4, x2, x5)");
         g.check_make_equal(&term1, &term2);
-        assert_eq!(g.term_str(&term1), "c0(c1, x0, _, x2, _)");
+        g.check_str(&term1, "c0(c1, x0, _, x2, _)");
     }
 
     #[test]
