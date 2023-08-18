@@ -277,20 +277,26 @@ impl TermInstance {
         }
     }
 
-    fn backward_map_vars(&self, var_map: &Vec<AtomId>) -> TermInstance {
+    // Attempt to backward map the variables, so that when var_map[i] = j, we replace x_j with x_i.
+    // Returns None if there's any variable with no entry to backward map it to.
+    fn try_backward_map_vars(&self, var_map: &Vec<AtomId>) -> Option<TermInstance> {
         match self {
             TermInstance::Mapped(term) => {
-                let new_var_map = term
-                    .var_map
-                    .iter()
-                    .map(|v| var_map.iter().position(|w| w == v).unwrap() as AtomId)
-                    .collect();
-                TermInstance::mapped(term.term_id, new_var_map)
+                let mut new_var_map = vec![];
+                for v in &term.var_map {
+                    new_var_map.push(var_map.iter().position(|w| w == v)? as AtomId);
+                }
+                Some(TermInstance::mapped(term.term_id, new_var_map))
             }
             TermInstance::Variable(v) => {
-                TermInstance::Variable(var_map.iter().position(|w| w == v).unwrap() as AtomId)
+                let i = var_map.iter().position(|w| w == v)?;
+                Some(TermInstance::Variable(i as AtomId))
             }
         }
+    }
+
+    fn backward_map_vars(&self, var_map: &Vec<AtomId>) -> TermInstance {
+        self.try_backward_map_vars(var_map).unwrap()
     }
 
     fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> TermInstance {
@@ -1642,7 +1648,10 @@ impl TermGraph {
         }
         let id1 = match instance1 {
             TermInstance::Mapped(t1) => {
+                println!("XXX instance1 = {}", self.term_str(instance1));
+                println!("XXX instance2 = {}", self.term_str(instance2));
                 let new_instance = instance2.backward_map_vars(&t1.var_map);
+                println!("XXX OK");
                 let info = self.get_term_info(t1.term_id);
                 if info.not_equal.contains(&new_instance) {
                     return Some(false);
@@ -2693,6 +2702,6 @@ mod tests {
         assert_eq!(g.evaluate_literal_str("c0(x0, c1) != x0"), Some(false));
 
         g.insert_literal_str("x0 = x0");
-        // assert_eq!(g.evaluate_literal_str("x0 = c0"), None);
+        assert_eq!(g.evaluate_literal_str("x0 = c0"), None);
     }
 }
