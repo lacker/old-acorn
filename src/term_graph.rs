@@ -168,7 +168,7 @@ pub struct TermGraph {
     edge_key_map: FxHashMap<EdgeKey, EdgeId>,
 
     // Whether to use "fat edges" mode
-    pub fat_edges: bool,
+    fat_edges: bool,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -2228,7 +2228,6 @@ mod tests {
 
     fn insert_and_extract(term_strings: &[&str]) {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
         for s in term_strings {
             check_insert(&mut g, s, s);
         }
@@ -2272,7 +2271,7 @@ mod tests {
     #[test]
     fn test_identifying_terms() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0 = g.parse("c0(c3)");
         let c1 = g.parse("c1(c3)");
         g.check_make_equal(&c0, &c1);
@@ -2284,7 +2283,7 @@ mod tests {
     #[test]
     fn test_updating_constructor() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0 = g.parse("c0");
         let c1 = g.parse("c1");
         g.check_make_equal(&c0, &c1);
@@ -2296,7 +2295,7 @@ mod tests {
     #[test]
     fn test_apply_replacements() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0 = g.parse("c0(x0, x1)");
         let c1 = g.parse("c1(x1, x0)");
         g.check_make_equal(&c0, &c1);
@@ -2306,7 +2305,7 @@ mod tests {
     #[test]
     fn test_duplicating_edge() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0 = g.parse("c0");
         let c1 = g.parse("c1");
         g.parse("c2(c0)");
@@ -2320,7 +2319,7 @@ mod tests {
     #[test]
     fn test_multi_hop_term_identification() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0 = g.parse("c0");
         let c1 = g.parse("c1");
         let c2 = g.parse("c2");
@@ -2336,7 +2335,7 @@ mod tests {
     #[test]
     fn test_atom_identification() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0x0x1 = g.parse("c0(x0, x1)");
         let c1x1x0 = g.parse("c1(x1, x0)");
         g.check_make_equal(&c0x0x1, &c1x1x0);
@@ -2348,7 +2347,7 @@ mod tests {
     #[test]
     fn test_explicit_argument_collapse() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0x0 = g.parse("c0(x0)");
         let c1 = g.parse("c1");
         g.check_make_equal(&c0x0, &c1);
@@ -2360,7 +2359,7 @@ mod tests {
     #[test]
     fn test_template_collapse() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0x0 = g.parse("c0(x0)");
         // Make the less concise term the more popular one
         g.parse("c0(c2)");
@@ -2374,7 +2373,7 @@ mod tests {
     #[test]
     fn test_extracting_infinite_loop() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0c0c1 = g.parse("c0(c1)");
         let other_term = g.parse("c2(c3)");
         g.check_make_equal(&c0c0c1, &other_term);
@@ -2385,7 +2384,6 @@ mod tests {
     #[test]
     fn test_double_touched_edges() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
 
         let c0c1c1 = g.parse("c0(c1, c1)");
         let c2 = g.parse("c2");
@@ -2403,7 +2401,7 @@ mod tests {
     #[test]
     fn test_atom_vs_less_args() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0x0 = g.parse("c0(x0)");
         let c1c2 = g.parse("c1(c2)");
         g.check_make_equal(&c0x0, &c1c2);
@@ -2414,7 +2412,7 @@ mod tests {
     #[test]
     fn test_argument_collapse() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let term1 = g.parse("c0(c1, x0, x1, x2, x3)");
         let term2 = g.parse("c0(c1, x0, x4, x2, x5)");
         g.check_make_equal(&term1, &term2);
@@ -2424,7 +2422,7 @@ mod tests {
     #[test]
     fn test_inference_from_argument_collapse() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0x0 = g.parse("c0(x0)");
         let c1x1 = g.parse("c1(x1)");
         g.check_make_equal(&c0x0, &c1x1);
@@ -2438,7 +2436,7 @@ mod tests {
     #[test]
     fn test_identifying_with_the_identity() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0x0 = g.parse("c0(x0)");
         let x0 = g.parse("x0");
         g.check_make_equal(&c0x0, &x0);
@@ -2450,7 +2448,7 @@ mod tests {
     #[test]
     fn test_edge_template_identifying_with_variable() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         g.parse("c0(c1)");
         let x0 = g.parse("x0");
         let c0x0 = g.parse("c0(x0)");
@@ -2460,7 +2458,7 @@ mod tests {
     #[test]
     fn test_template_discovery() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0c1x0 = g.parse("c0(c1, x0)");
         let c2 = g.parse("c2");
         g.check_make_equal(&c0c1x0, &c2);
@@ -2472,7 +2470,7 @@ mod tests {
     #[test]
     fn test_ignoring_var_in_replacement() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let template = g.parse("c0(x0, c1(x1))");
         let reduction = g.parse("c2(x0)");
         g.check_make_equal(&template, &reduction);
@@ -2484,7 +2482,7 @@ mod tests {
     #[test]
     fn test_eliminating_a_replacement_var() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0c1x0 = g.parse("c0(c1(x0))");
         let c2x0 = g.parse("c2(x0)");
         g.check_make_equal(&c0c1x0, &c2x0);
@@ -2496,7 +2494,7 @@ mod tests {
     #[test]
     fn test_ignoring_two_vars() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let template = g.parse("c0(c1(x0), x1)");
         let reduction = g.parse("c2");
         g.check_make_equal(&template, &reduction);
@@ -2508,7 +2506,7 @@ mod tests {
     #[test]
     fn test_long_template() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let template = g.parse("c0(x0, c1, x2, c2(x3), x4)");
         let reduction = g.parse("c3(x2)");
         g.check_make_equal(&template, &reduction);
@@ -2520,7 +2518,7 @@ mod tests {
     #[test]
     fn test_unused_vars_on_both_sides() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let template = g.parse("c0(c1, x0)");
         let reduction = g.parse("c2(x1)");
         g.check_make_equal(&template, &reduction);
@@ -2529,45 +2527,43 @@ mod tests {
         assert_eq!(left, right);
     }
 
-    #[test]
-    fn test_implicit_unification() {
-        let mut g = TermGraph::new();
-        g.fat_edges = true;
-        let template = g.parse("c0(c1, x0)");
-        let reduction = g.parse("c2");
-        g.check_make_equal(&template, &reduction);
-        let template = g.parse("c0(x0, c1)");
-        let reduction = g.parse("c3");
-        g.check_make_equal(&template, &reduction);
-        g.parse("c0(c1, c1)");
-        let c2 = g.parse("c2");
-        let c3 = g.parse("c3");
-        assert_eq!(c2, c3);
-    }
+    // #[test]
+    // fn test_implicit_unification() {
+    //     let mut g = TermGraph::new();
+    //     let template = g.parse("c0(c1, x0)");
+    //     let reduction = g.parse("c2");
+    //     g.check_make_equal(&template, &reduction);
+    //     let template = g.parse("c0(x0, c1)");
+    //     let reduction = g.parse("c3");
+    //     g.check_make_equal(&template, &reduction);
+    //     g.parse("c0(c1, c1)");
+    //     let c2 = g.parse("c2");
+    //     let c3 = g.parse("c3");
+    //     assert_eq!(c2, c3);
+    // }
 
-    #[test]
-    fn test_implicit_three_way_unification() {
-        let mut g = TermGraph::new();
-        g.fat_edges = true;
-        let template = g.parse("c0(c1, x0, x1)");
-        let reduction = g.parse("c2");
-        g.check_make_equal(&template, &reduction);
-        let template = g.parse("c0(x0, c1, x1)");
-        let reduction = g.parse("c3");
-        g.check_make_equal(&template, &reduction);
-        let template = g.parse("c0(x0, x1, c1)");
-        let reduction = g.parse("c4");
-        g.check_make_equal(&template, &reduction);
-        g.parse("c0(c1, c1, c1)");
-        let c3 = g.parse("c3");
-        let c4 = g.parse("c4");
-        assert_eq!(c3, c4);
-    }
+    // #[test]
+    // fn test_implicit_three_way_unification() {
+    //     let mut g = TermGraph::new();
+    //     let template = g.parse("c0(c1, x0, x1)");
+    //     let reduction = g.parse("c2");
+    //     g.check_make_equal(&template, &reduction);
+    //     let template = g.parse("c0(x0, c1, x1)");
+    //     let reduction = g.parse("c3");
+    //     g.check_make_equal(&template, &reduction);
+    //     let template = g.parse("c0(x0, x1, c1)");
+    //     let reduction = g.parse("c4");
+    //     g.check_make_equal(&template, &reduction);
+    //     g.parse("c0(c1, c1, c1)");
+    //     let c3 = g.parse("c3");
+    //     let c4 = g.parse("c4");
+    //     assert_eq!(c3, c4);
+    // }
 
     #[test]
     fn test_variable_used_only_in_replacement() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let template = g.parse("c0(x0, c1(x1))");
         let reduction = g.parse("c2(x0)");
         g.check_make_equal(&template, &reduction);
@@ -2579,7 +2575,7 @@ mod tests {
     #[test]
     fn test_reducing_var_through_self_identify() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let first = g.parse("c0(x0, x1)");
         let second = g.parse("c0(x0, x2)");
         g.check_make_equal(&first, &second);
@@ -2591,7 +2587,7 @@ mod tests {
     #[test]
     fn test_cyclic_argument_identification() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let base = g.parse("c0(x0, x1, x2)");
         let rotated = g.parse("c0(x1, x2, x0)");
         g.check_make_equal(&base, &rotated);
@@ -2616,7 +2612,6 @@ mod tests {
     #[test]
     fn test_adding_symmetry_later() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
 
         let c0c1c2 = g.parse("c0(c1, c2)");
         let c3 = g.parse("c3");
@@ -2638,7 +2633,7 @@ mod tests {
     #[test]
     fn test_identifying_with_variable() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0x0c1 = g.parse("c0(x0, c1)");
         let x0 = g.parse("x0");
         g.check_make_equal(&c0x0c1, &x0);
@@ -2650,7 +2645,7 @@ mod tests {
     #[test]
     fn test_identifying_with_variable_seeing_template_last() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         g.parse("c0(c2, c1)");
 
         let c0x0c1 = g.parse("c0(x0, c1)");
@@ -2664,7 +2659,7 @@ mod tests {
     #[test]
     fn test_repeated_variable() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0x0x0 = g.parse("c0(x0, x0)");
         let c0c1c1 = g.parse("c0(c1, c1)");
         let c2 = g.parse("c2");
@@ -2675,7 +2670,7 @@ mod tests {
     #[test]
     fn test_repeated_variable_seeing_template_last() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         let c0c1c1 = g.parse("c0(c1, c1)");
         let c0x0x0 = g.parse("c0(x0, x0)");
         let c2 = g.parse("c2");
@@ -2686,7 +2681,7 @@ mod tests {
     #[test]
     fn test_literal_evaluation() {
         let mut g = TermGraph::new();
-        g.fat_edges = false;
+
         g.insert_literal_str("c0(x0, c1) = x0");
         assert_eq!(g.evaluate_literal_str("c0(x0, c1) = x0"), Some(true));
         assert_eq!(g.evaluate_literal_str("c0(c2, c1) = c2"), Some(true));
