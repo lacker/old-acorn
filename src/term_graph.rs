@@ -349,6 +349,20 @@ impl fmt::Display for EdgeKey {
 }
 
 impl SimpleEdge {
+    fn replace(var: AtomId, replacement: MappedTerm) -> SimpleEdge {
+        SimpleEdge {
+            var,
+            replacement: TermInstance::Mapped(replacement),
+        }
+    }
+
+    fn identify(from: AtomId, to: AtomId) -> SimpleEdge {
+        SimpleEdge {
+            var: from,
+            replacement: TermInstance::Variable(to),
+        }
+    }
+
     fn to_old(&self) -> OldSimpleEdge {
         match &self.replacement {
             TermInstance::Mapped(term) => OldSimpleEdge::Replace(self.var, term.clone()),
@@ -544,7 +558,7 @@ impl EdgeInfo {
         // Keep track of the renumbering.
         let mut result_rename = vec![INVALID_ATOM_ID; self.key.vars_used];
 
-        let mut simple_edge: Option<OldSimpleEdge> = None;
+        let mut simple_edge: Option<SimpleEdge> = None;
         let mut next_var = next_var;
 
         // Deal with replacements at the end, so that we know which variable ids are
@@ -565,7 +579,7 @@ impl EdgeInfo {
                         // This is an "identify" edge. It is renumbering both
                         // x_existing and x_i to x_j.
                         assert_eq!(simple_edge, None);
-                        simple_edge = Some(OldSimpleEdge::Identify(existing, *i));
+                        simple_edge = Some(SimpleEdge::identify(*i, existing));
                     } else {
                         result_rename[*j as usize] = *i;
                     }
@@ -591,7 +605,7 @@ impl EdgeInfo {
                 }
             });
 
-            simple_edge = Some(OldSimpleEdge::Replace(
+            simple_edge = Some(SimpleEdge::replace(
                 i,
                 MappedTerm {
                     term_id: replacement.term_id,
@@ -603,7 +617,7 @@ impl EdgeInfo {
         match simple_edge {
             Some(simple_edge) => {
                 let instance = self.result.forward_map_vars(&result_rename);
-                (simple_edge, instance, next_var)
+                (simple_edge.to_old(), instance, next_var)
             }
             None => {
                 panic!("noop edge in simplify");
