@@ -123,9 +123,18 @@ pub struct EdgeInfo {
 }
 pub type EdgeId = u32;
 
+#[derive(Debug, Eq, PartialEq)]
+struct SimpleEdge {
+    // The variable we are replacing
+    var: AtomId,
+
+    // What we replace it with
+    replacement: TermInstance,
+}
+
 // A simple edge forbids the renumbering of variables, and only supports a single change.
 #[derive(Debug, Eq, PartialEq)]
-enum SimpleEdge {
+enum OldSimpleEdge {
     // Identify(i, j) changes x_j to an x_i.
     Identify(AtomId, AtomId),
 
@@ -339,6 +348,15 @@ impl fmt::Display for EdgeKey {
     }
 }
 
+impl SimpleEdge {
+    fn to_old(&self) -> OldSimpleEdge {
+        match &self.replacement {
+            TermInstance::Mapped(term) => OldSimpleEdge::Replace(self.var, term.clone()),
+            TermInstance::Variable(var) => OldSimpleEdge::Identify(*var, self.var),
+        }
+    }
+}
+
 impl EdgeKey {
     // Panics if this edge is not normalized.
     pub fn check(&self) {
@@ -519,14 +537,14 @@ impl EdgeInfo {
         &self,
         template_instance: &MappedTerm,
         next_var: AtomId,
-    ) -> (SimpleEdge, TermInstance, AtomId) {
+    ) -> (OldSimpleEdge, TermInstance, AtomId) {
         assert_eq!(self.key.template, template_instance.term_id);
 
         // We need to renumber the variables that are in the result instance.
         // Keep track of the renumbering.
         let mut result_rename = vec![INVALID_ATOM_ID; self.key.vars_used];
 
-        let mut simple_edge: Option<SimpleEdge> = None;
+        let mut simple_edge: Option<OldSimpleEdge> = None;
         let mut next_var = next_var;
 
         // Deal with replacements at the end, so that we know which variable ids are
@@ -547,7 +565,7 @@ impl EdgeInfo {
                         // This is an "identify" edge. It is renumbering both
                         // x_existing and x_i to x_j.
                         assert_eq!(simple_edge, None);
-                        simple_edge = Some(SimpleEdge::Identify(existing, *i));
+                        simple_edge = Some(OldSimpleEdge::Identify(existing, *i));
                     } else {
                         result_rename[*j as usize] = *i;
                     }
@@ -573,7 +591,7 @@ impl EdgeInfo {
                 }
             });
 
-            simple_edge = Some(SimpleEdge::Replace(
+            simple_edge = Some(OldSimpleEdge::Replace(
                 i,
                 MappedTerm {
                     term_id: replacement.term_id,
@@ -1877,7 +1895,7 @@ impl TermGraph {
         let (bc_simple_edge, instance_c, _) = second_edge_info.simplify(mapped_b, num_ab_vars);
 
         match (ab_simple_edge, bc_simple_edge) {
-            (SimpleEdge::Replace(ab_id, ab_rep), SimpleEdge::Replace(bc_id, bc_rep)) => {
+            (OldSimpleEdge::Replace(ab_id, ab_rep), OldSimpleEdge::Replace(bc_id, bc_rep)) => {
                 if bc_id >= num_a_vars {
                     // B->C is changing a variable that was newly introduced in A->B.
                     // This means we can do a "combining" inference, to introduce a composite term
@@ -1935,7 +1953,10 @@ impl TermGraph {
                 pending.push_back(Operation::Identification(instance_c, bc_then_ab));
                 return;
             }
-            (SimpleEdge::Identify(keep_id, discard_id), SimpleEdge::Replace(bc_id, bc_rep)) => {
+            (
+                OldSimpleEdge::Identify(keep_id, discard_id),
+                OldSimpleEdge::Replace(bc_id, bc_rep),
+            ) => {
                 if keep_id == bc_id {
                     // B->C is substituting into the variable that A->B identified.
                     // TODO: handle this case
@@ -1959,8 +1980,8 @@ impl TermGraph {
                 }
             }
             (
-                SimpleEdge::Identify(keep_id_1, discard_id_1),
-                SimpleEdge::Identify(keep_id_2, discard_id_2),
+                OldSimpleEdge::Identify(keep_id_1, discard_id_1),
+                OldSimpleEdge::Identify(keep_id_2, discard_id_2),
             ) => {
                 // TODO: there's three ways to represent any 3-to-1 identification.
                 // Do we need to handle all of them?
