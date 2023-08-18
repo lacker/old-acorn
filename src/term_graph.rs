@@ -1905,27 +1905,31 @@ impl TermGraph {
         let (ab_edge, instance_b, num_ab_vars) = ab_edge_info.simplify(mapped_a, num_a_vars);
         let mapped_b = instance_b.as_mapped();
         let bc_edge_info = self.get_edge_info(bc_edge_id);
-        let (bc_simple_edge, instance_c, _) = bc_edge_info.simplify(mapped_b, num_ab_vars);
+        let (bc_edge, instance_c, _) = bc_edge_info.simplify(mapped_b, num_ab_vars);
 
-        match (ab_edge.to_old(), bc_simple_edge.to_old()) {
-            (OldSimpleEdge::Replace(ab_id, ab_rep), OldSimpleEdge::Replace(bc_id, bc_rep)) => {
-                if bc_id >= num_a_vars {
+        match (ab_edge.to_old(), bc_edge.to_old()) {
+            (OldSimpleEdge::Replace(_, ab_rep), OldSimpleEdge::Replace(_, bc_rep)) => {
+                if bc_edge.var >= num_a_vars {
                     // B->C is changing a variable that was newly introduced in A->B.
                     // This means we can do a "combining" inference, to introduce a composite term
                     // in one step.
                     let composite_instance = self.replace_one_var(
                         &TermInstance::Mapped(ab_rep),
-                        bc_id,
+                        bc_edge.var,
                         &TermInstance::Mapped(bc_rep),
                         pending,
                     );
-                    let one_step_result =
-                        self.replace_one_var(&instance_a, ab_id, &composite_instance, pending);
+                    let one_step_result = self.replace_one_var(
+                        &instance_a,
+                        ab_edge.var,
+                        &composite_instance,
+                        pending,
+                    );
                     pending.push_back(Operation::Identification(instance_c, one_step_result));
                     return;
                 }
 
-                if ab_rep.var_map.contains(&bc_id) {
+                if ab_rep.var_map.contains(&bc_edge.var) {
                     // B->C is changing a variable that exists in A, but the A->B replacement also
                     // used that variable.
                     // TODO: handle this case
@@ -1937,13 +1941,13 @@ impl TermGraph {
                     // We could also do a variable combination first, then a substitution.
                     let combine_first = self.replace_one_var(
                         &instance_a,
-                        ab_id,
-                        &TermInstance::Variable(bc_id),
+                        ab_edge.var,
+                        &TermInstance::Variable(bc_edge.var),
                         pending,
                     );
                     let then_substitute = self.replace_one_var(
                         &combine_first,
-                        bc_id,
+                        bc_edge.var,
                         &TermInstance::Mapped(bc_rep.clone()),
                         pending,
                     );
@@ -1957,12 +1961,16 @@ impl TermGraph {
                 // So we can do a "commuting" inference.
                 let bc_first = self.replace_one_var(
                     &instance_a,
-                    bc_id,
+                    bc_edge.var,
                     &TermInstance::Mapped(bc_rep),
                     pending,
                 );
-                let bc_then_ab =
-                    self.replace_one_var(&bc_first, ab_id, &TermInstance::Mapped(ab_rep), pending);
+                let bc_then_ab = self.replace_one_var(
+                    &bc_first,
+                    ab_edge.var,
+                    &TermInstance::Mapped(ab_rep),
+                    pending,
+                );
                 pending.push_back(Operation::Identification(instance_c, bc_then_ab));
                 return;
             }
