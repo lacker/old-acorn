@@ -857,42 +857,6 @@ impl TermGraph {
         }
     }
 
-    // Replaces a single variable with a new value, leaving all other values the same.
-    // Creates new entries in the term graph if necessary.
-    // The template does not need to have consecutively numbered variables.
-    fn replace_one_var(
-        &mut self,
-        template: &TermInstance,
-        replace_var: AtomId,
-        replacement: &TermInstance,
-        pending: &mut VecDeque<Operation>,
-    ) -> TermInstance {
-        match template {
-            TermInstance::Mapped(template) => {
-                let replacements = template
-                    .var_map
-                    .iter()
-                    .map(|v| {
-                        if *v == replace_var {
-                            replacement.clone()
-                        } else {
-                            // Leave this variable unchanged
-                            TermInstance::Variable(*v)
-                        }
-                    })
-                    .collect();
-                return self.replace_in_term_id(template.term_id, replacements, pending);
-            }
-            TermInstance::Variable(i) => {
-                if i == &replace_var {
-                    return replacement.clone();
-                } else {
-                    return template.clone();
-                }
-            }
-        }
-    }
-
     pub fn insert_term(&mut self, term: &Term) -> TermInstance {
         if self.fat_edges {
             self.insert_term_fat(term)
@@ -1989,33 +1953,17 @@ impl TermGraph {
                     // Both edge vars are getting identified into bc_keep_id.
                     // They are getting identified into their final value directly.
                     // Try doing it in the other order
-                    let one_step = self.replace_one_var(
-                        &instance_a,
-                        bc_edge.var,
-                        &TermInstance::Variable(*bc_keep_id),
-                        pending,
-                    );
-                    let two_steps = self.replace_one_var(
-                        &one_step,
-                        ab_edge.var,
-                        &TermInstance::Variable(*bc_keep_id),
-                        pending,
-                    );
+                    let one_step = self.insert_edge(&instance_a, &bc_edge, pending);
+                    let two_steps = self.insert_edge(&one_step, &ab_edge, pending);
                     pending.push_back(Operation::Identification(instance_c.clone(), two_steps));
 
                     // Try identifying them together first
-                    let one_step = self.replace_one_var(
+                    let one_step = self.insert_edge(
                         &instance_a,
-                        ab_edge.var,
-                        &TermInstance::Variable(bc_edge.var),
+                        &SimpleEdge::identify(ab_edge.var, bc_edge.var),
                         pending,
                     );
-                    let two_steps = self.replace_one_var(
-                        &one_step,
-                        bc_edge.var,
-                        &TermInstance::Variable(*bc_keep_id),
-                        pending,
-                    );
+                    let two_steps = self.insert_edge(&one_step, &bc_edge, pending);
                     pending.push_back(Operation::Identification(instance_c, two_steps));
                     return;
                 }
