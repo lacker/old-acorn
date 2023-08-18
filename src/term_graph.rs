@@ -551,7 +551,7 @@ impl EdgeInfo {
         &self,
         template_instance: &MappedTerm,
         next_var: AtomId,
-    ) -> (OldSimpleEdge, TermInstance, AtomId) {
+    ) -> (SimpleEdge, TermInstance, AtomId) {
         assert_eq!(self.key.template, template_instance.term_id);
 
         // We need to renumber the variables that are in the result instance.
@@ -617,7 +617,7 @@ impl EdgeInfo {
         match simple_edge {
             Some(simple_edge) => {
                 let instance = self.result.forward_map_vars(&result_rename);
-                (simple_edge.to_old(), instance, next_var)
+                (simple_edge, instance, next_var)
             }
             None => {
                 panic!("noop edge in simplify");
@@ -1893,22 +1893,21 @@ impl TermGraph {
     // where the first edge goes A -> B, the second goes B -> C.
     fn infer_from_edge_pair(
         &mut self,
-        first_edge: EdgeId,
-        second_edge: EdgeId,
+        ab_edge_id: EdgeId,
+        bc_edge_id: EdgeId,
         pending: &mut VecDeque<Operation>,
     ) {
         // Create term instances that use the same numbering scheme for all of A, B, and C.
-        let first_edge_info = self.get_edge_info(first_edge);
-        let instance_a = first_edge_info.key.template_instance();
+        let ab_edge_info = self.get_edge_info(ab_edge_id);
+        let instance_a = ab_edge_info.key.template_instance();
         let mapped_a = instance_a.as_mapped();
         let num_a_vars = mapped_a.var_map.len() as AtomId;
-        let (ab_simple_edge, instance_b, num_ab_vars) =
-            first_edge_info.simplify(mapped_a, num_a_vars);
+        let (ab_edge, instance_b, num_ab_vars) = ab_edge_info.simplify(mapped_a, num_a_vars);
         let mapped_b = instance_b.as_mapped();
-        let second_edge_info = self.get_edge_info(second_edge);
-        let (bc_simple_edge, instance_c, _) = second_edge_info.simplify(mapped_b, num_ab_vars);
+        let bc_edge_info = self.get_edge_info(bc_edge_id);
+        let (bc_simple_edge, instance_c, _) = bc_edge_info.simplify(mapped_b, num_ab_vars);
 
-        match (ab_simple_edge, bc_simple_edge) {
+        match (ab_edge.to_old(), bc_simple_edge.to_old()) {
             (OldSimpleEdge::Replace(ab_id, ab_rep), OldSimpleEdge::Replace(bc_id, bc_rep)) => {
                 if bc_id >= num_a_vars {
                     // B->C is changing a variable that was newly introduced in A->B.
