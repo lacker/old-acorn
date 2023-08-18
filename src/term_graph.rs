@@ -352,6 +352,10 @@ impl SimpleEdge {
             replacement: TermInstance::Variable(to),
         }
     }
+
+    fn new(var: AtomId, replacement: TermInstance) -> SimpleEdge {
+        SimpleEdge { var, replacement }
+    }
 }
 
 impl EdgeKey {
@@ -747,7 +751,7 @@ impl TermGraph {
 
         // Insert everything into the graph
         self.terms.push(TermInfoReference::TermInfo(term_info));
-        let edge_id = self.insert_edge(edge_info);
+        let edge_id = self.insert_edge_info(edge_info);
         if self.fat_edges {
             self.infer_from_fat_edge(edge_id, pending);
         } else {
@@ -817,6 +821,39 @@ impl TermGraph {
                 self.replace_in_term_id(template.term_id, new_replacements, pending)
             }
             TermInstance::Variable(i) => replacements[*i as usize].clone(),
+        }
+    }
+
+    // Inserts an edge into the graph, if it isn't there already.
+    // Returns the term instance that it leads to.
+    fn insert_edge(
+        &mut self,
+        template: &TermInstance,
+        edge: &SimpleEdge,
+        pending: &mut VecDeque<Operation>,
+    ) -> TermInstance {
+        match template {
+            TermInstance::Mapped(template) => {
+                let replacements = template
+                    .var_map
+                    .iter()
+                    .map(|&v| {
+                        if v == edge.var {
+                            edge.replacement.clone()
+                        } else {
+                            TermInstance::Variable(v)
+                        }
+                    })
+                    .collect();
+                self.replace_in_term_id(template.term_id, replacements, pending)
+            }
+            TermInstance::Variable(i) => {
+                if i == &edge.var {
+                    edge.replacement.clone()
+                } else {
+                    template.clone()
+                }
+            }
         }
     }
 
@@ -1025,10 +1062,9 @@ impl TermGraph {
                     self.type_template_instance(term_type, head_type, &arg_types, next_var);
                 if let Some(instance) = accumulated_instance {
                     let replace_var = temporary_vars.pop().unwrap();
-                    let replaced = self.replace_one_var(
+                    let replaced = self.insert_edge(
                         &instance,
-                        replace_var,
-                        &type_template_instance,
+                        &SimpleEdge::new(replace_var, type_template_instance),
                         &mut pending,
                     );
                     accumulated_instance = Some(replaced);
@@ -1198,7 +1234,7 @@ impl TermGraph {
 
     // Inserts an edge, updating the appropriate maps.
     // The edge must not already exist.
-    fn insert_edge(&mut self, edge_info: EdgeInfo) -> EdgeId {
+    fn insert_edge_info(&mut self, edge_info: EdgeInfo) -> EdgeId {
         let new_edge_id = self.edges.len() as EdgeId;
         self.edge_key_map.insert(edge_info.key.clone(), new_edge_id);
         for term in edge_info.adjacent_terms() {
@@ -1243,7 +1279,7 @@ impl TermGraph {
             return;
         }
 
-        let edge_id = self.insert_edge(edge_info);
+        let edge_id = self.insert_edge_info(edge_info);
         if !self.fat_edges {
             pending.push_back(Operation::Inference(edge_id));
         }
