@@ -11,7 +11,7 @@ use crate::permutation;
 use crate::permutation_group::PermutationGroup;
 use crate::specializer::Specializer;
 use crate::term::{Literal, Term, TermFormatter};
-use crate::type_space::{self, TypeId};
+use crate::type_space::{self, TypeId, ANY};
 
 // The TermInfo stores information about an abstract term.
 // The idea behind the abstract term is that if we know two terms are identical, like:
@@ -80,6 +80,13 @@ pub struct MappedTerm {
 pub enum TermInstance {
     Mapped(MappedTerm),
     Variable(TypeId, AtomId),
+}
+
+// A TermInstance along with type information.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct TypedTermInstance {
+    pub term_type: TypeId,
+    pub instance: TermInstance,
 }
 
 // An edge represents a single substitution.
@@ -1094,7 +1101,7 @@ impl TermGraph {
         shallowest_edge.unwrap()
     }
 
-    pub fn extract_term_id(&self, term_id: TermId) -> Term {
+    fn extract_term_id(&self, term_id: TermId) -> Term {
         let term_info = self.get_term_info(term_id);
 
         if let Some(type_id) = term_info.type_template {
@@ -1164,15 +1171,15 @@ impl TermGraph {
         unmapped_term.unmap_variables(var_map)
     }
 
-    pub fn extract_term_instance(&self, instance: &TermInstance) -> Term {
-        match instance {
+    pub fn extract_term_instance(&self, instance: &TypedTermInstance) -> Term {
+        match &instance.instance {
             TermInstance::Mapped(term) => {
                 let unmapped_term = self.extract_term_id(term.term_id);
                 let answer = unmapped_term.remap_variables(&term.var_map);
                 answer
             }
-            TermInstance::Variable(term_type, var_id) => {
-                Term::atom(*term_type, Atom::Variable(*var_id))
+            TermInstance::Variable(_, var_id) => {
+                Term::atom(instance.term_type, Atom::Variable(*var_id))
             }
         }
     }
@@ -2082,7 +2089,11 @@ impl TermGraph {
             }
         );
         for (i, replacement) in edge_info.key.replacements.iter().enumerate() {
-            let term = self.extract_term_instance(replacement);
+            let untyped_rep = TypedTermInstance {
+                term_type: ANY,
+                instance: replacement.clone(),
+            };
+            let term = self.extract_term_instance(&untyped_rep);
             print!(
                 "{} y{} = {}",
                 if i == 0 { " replacing" } else { "," },
@@ -2090,7 +2101,11 @@ impl TermGraph {
                 term
             );
         }
-        let result = self.extract_term_instance(&edge_info.result);
+        let untyped_result = TypedTermInstance {
+            term_type: ANY,
+            instance: edge_info.result.clone(),
+        };
+        let result = self.extract_term_instance(&untyped_result);
         match &edge_info.result {
             TermInstance::Mapped(t) => {
                 println!(" yields term {}, {}", t.term_id, result);
@@ -2194,13 +2209,16 @@ impl TermGraph {
         }
     }
 
-    pub fn parse(&mut self, term_string: &str) -> TermInstance {
+    pub fn parse(&mut self, term_string: &str) -> TypedTermInstance {
         println!();
         println!("parsing: {}", term_string);
         let term = Term::parse(term_string);
-        let term_instance = self.insert_term(&term);
+        let instance = self.insert_term(&term);
         self.check();
-        term_instance
+        TypedTermInstance {
+            term_type: term.term_type,
+            instance,
+        }
     }
 
     pub fn insert_literal_str(&mut self, literal_string: &str) {
@@ -2213,11 +2231,27 @@ impl TermGraph {
         self.evaluate_literal(&literal)
     }
 
-    pub fn check_make_equal(&mut self, term1: &TermInstance, term2: &TermInstance) {
+    pub fn check_make_equal(&mut self, term1: &TypedTermInstance, term2: &TypedTermInstance) {
         println!();
-        println!("making equal: {} = {}", term1, term2);
-        self.make_equal(term1.clone(), term2.clone());
+        println!("making equal: {} = {}", term1.instance, term2.instance);
+        self.make_equal(term1.instance.clone(), term2.instance.clone());
         self.check();
+    }
+
+    // Updates first for convenience
+    pub fn check_equal(&self, term1: &TypedTermInstance, term2: &TypedTermInstance) {
+        let t1 = self.update_term(term1.instance.clone());
+        let t2 = self.update_term(term2.instance.clone());
+        assert_eq!(t1, t2);
+    }
+
+    pub fn term_str(&self, term: &TypedTermInstance) -> String {
+        let updated = self.update_term(term.instance.clone());
+        let t = TypedTermInstance {
+            term_type: term.term_type,
+            instance: updated,
+        };
+        self.extract_term_instance(&t).to_string()
     }
 }
 
@@ -2310,9 +2344,7 @@ mod tests {
         let c0 = g.parse("c0(x0, x1)");
         let c1 = g.parse("c1(x1, x0)");
         g.check_make_equal(&c0, &c1);
-        let rep0 = g.update_term(c0);
-        let rep1 = g.update_term(c1);
-        assert_eq!(&rep0, &rep1);
+        g.check_equal(&c0, &c1);
     }
 
     #[test]
@@ -2419,10 +2451,8 @@ mod tests {
         let c0x0 = g.parse("c0(x0)");
         let c1c2 = g.parse("c1(c2)");
         g.check_make_equal(&c0x0, &c1c2);
-        let c0x0_str = g.extract_term_instance(&g.update_term(c0x0)).to_string();
-        assert_eq!(c0x0_str, "c0(_)");
-        let c1c2_str = g.extract_term_instance(&g.update_term(c1c2)).to_string();
-        assert_eq!(c1c2_str, "c0(_)");
+        assert_eq!(g.term_str(&c0x0), "c0(_)");
+        assert_eq!(g.term_str(&c1c2), "c0(_)");
     }
 
     #[test]
@@ -2432,8 +2462,7 @@ mod tests {
         let term1 = g.parse("c0(c1, x0, x1, x2, x3)");
         let term2 = g.parse("c0(c1, x0, x4, x2, x5)");
         g.check_make_equal(&term1, &term2);
-        let term1_str = g.extract_term_instance(&g.update_term(term1)).to_string();
-        assert_eq!(term1_str, "c0(c1, x0, _, x2, _)");
+        assert_eq!(g.term_str(&term1), "c0(c1, x0, _, x2, _)");
     }
 
     #[test]
@@ -2684,9 +2713,7 @@ mod tests {
         let c0c1c1 = g.parse("c0(c1, c1)");
         let c2 = g.parse("c2");
         g.check_make_equal(&c2, &c0x0x0);
-        let c0c1c1 = g.update_term(c0c1c1);
-        let c2 = g.update_term(c2);
-        assert_eq!(c0c1c1, c2);
+        g.check_equal(&c2, &c0c1c1);
     }
 
     #[test]
@@ -2697,9 +2724,7 @@ mod tests {
         let c0x0x0 = g.parse("c0(x0, x0)");
         let c2 = g.parse("c2");
         g.check_make_equal(&c2, &c0x0x0);
-        let c0c1c1 = g.update_term(c0c1c1);
-        let c2 = g.update_term(c2);
-        assert_eq!(c0c1c1, c2);
+        g.check_equal(&c2, &c0c1c1);
     }
 
     #[test]
