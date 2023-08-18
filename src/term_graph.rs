@@ -1648,10 +1648,7 @@ impl TermGraph {
         }
         let id1 = match instance1 {
             TermInstance::Mapped(t1) => {
-                println!("XXX instance1 = {}", self.term_str(instance1));
-                println!("XXX instance2 = {}", self.term_str(instance2));
-                let new_instance = instance2.backward_map_vars(&t1.var_map);
-                println!("XXX OK");
+                let new_instance = instance2.try_backward_map_vars(&t1.var_map)?;
                 let info = self.get_term_info(t1.term_id);
                 if info.not_equal.contains(&new_instance) {
                     return Some(false);
@@ -1663,7 +1660,7 @@ impl TermGraph {
         };
         let id2 = match instance2 {
             TermInstance::Mapped(t2) => {
-                let new_instance = instance1.backward_map_vars(&t2.var_map);
+                let new_instance = instance1.try_backward_map_vars(&t2.var_map)?;
                 let info = self.get_term_info(t2.term_id);
                 if info.not_equal.contains(&new_instance) {
                     return Some(false);
