@@ -1085,10 +1085,9 @@ impl TermGraph {
             // Expand the accumulated instance with an atom
             let replace_var = temporary_vars.pop().unwrap();
             let atomic_instance = self.atomic_instance(head_type, head);
-            let replaced = self.replace_one_var(
+            let replaced = self.insert_edge(
                 &accumulated_instance.unwrap(),
-                replace_var,
-                &atomic_instance,
+                &SimpleEdge::new(replace_var, atomic_instance),
                 &mut pending,
             );
             accumulated_instance = Some(replaced);
