@@ -132,16 +132,6 @@ struct SimpleEdge {
     replacement: TermInstance,
 }
 
-// A simple edge forbids the renumbering of variables, and only supports a single change.
-#[derive(Debug, Eq, PartialEq)]
-enum OldSimpleEdge {
-    // Identify(i, j) changes x_j to an x_i.
-    Identify(AtomId, AtomId),
-
-    // Replaces a variable in the template with a new term.
-    Replace(AtomId, MappedTerm),
-}
-
 // An operation on the graph that is pending.
 // We keep a pending operation queue rather than doing operations immediately so that we
 // can control when we do expensive operations.
@@ -360,13 +350,6 @@ impl SimpleEdge {
         SimpleEdge {
             var: from,
             replacement: TermInstance::Variable(to),
-        }
-    }
-
-    fn to_old(&self) -> OldSimpleEdge {
-        match &self.replacement {
-            TermInstance::Mapped(term) => OldSimpleEdge::Replace(self.var, term.clone()),
-            TermInstance::Variable(var) => OldSimpleEdge::Identify(*var, self.var),
         }
     }
 }
@@ -1985,31 +1968,21 @@ impl TermGraph {
                     return;
                 }
             }
-            _ => {}
-        }
-
-        match (ab_edge.to_old(), bc_edge.to_old()) {
-            (
-                OldSimpleEdge::Identify(keep_id_1, discard_id_1),
-                OldSimpleEdge::Identify(keep_id_2, discard_id_2),
-            ) => {
-                // TODO: there's three ways to represent any 3-to-1 identification.
-                // Do we need to handle all of them?
-
-                if keep_id_1 == keep_id_2 {
-                    // Both discard_id_1 and discard_id_2 are getting identified into keep_id_2.
+            (TermInstance::Variable(ab_keep_id), TermInstance::Variable(bc_keep_id)) => {
+                if ab_keep_id == bc_keep_id {
+                    // Both edge vars are getting identified into bc_keep_id.
                     // They are getting identified into their final value directly.
                     // Try doing it in the other order
                     let one_step = self.replace_one_var(
                         &instance_a,
-                        discard_id_2,
-                        &TermInstance::Variable(keep_id_2),
+                        bc_edge.var,
+                        &TermInstance::Variable(*bc_keep_id),
                         pending,
                     );
                     let two_steps = self.replace_one_var(
                         &one_step,
-                        discard_id_1,
-                        &TermInstance::Variable(keep_id_2),
+                        ab_edge.var,
+                        &TermInstance::Variable(*bc_keep_id),
                         pending,
                     );
                     pending.push_back(Operation::Identification(instance_c.clone(), two_steps));
@@ -2017,25 +1990,25 @@ impl TermGraph {
                     // Try identifying them together first
                     let one_step = self.replace_one_var(
                         &instance_a,
-                        discard_id_1,
-                        &TermInstance::Variable(discard_id_2),
+                        ab_edge.var,
+                        &TermInstance::Variable(bc_edge.var),
                         pending,
                     );
                     let two_steps = self.replace_one_var(
                         &one_step,
-                        discard_id_2,
-                        &TermInstance::Variable(keep_id_2),
+                        bc_edge.var,
+                        &TermInstance::Variable(*bc_keep_id),
                         pending,
                     );
                     pending.push_back(Operation::Identification(instance_c, two_steps));
                     return;
                 }
 
-                // TODO: handle the other cases
+                // TODO: do we want to infer from the other cases?
                 return;
             }
-            _ => {
-                // TODO: handle more cases
+            (TermInstance::Mapped(_), TermInstance::Variable(_)) => {
+                // TODO: do we want to infer from this case?
                 return;
             }
         }
