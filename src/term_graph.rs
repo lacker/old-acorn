@@ -277,6 +277,33 @@ impl TermInstance {
         }
     }
 
+    // Backward map the variables, so that when var_map[i] = j, we replace x_j with x_i.
+    // For any variables that are not present in the var map, we extend the var map.
+    fn extended_backward_map(&self, var_map: &Vec<AtomId>) -> TermInstance {
+        match self {
+            TermInstance::Mapped(term) => {
+                // Make a copy so that we can extend if we need to
+                let mut old_var_map = var_map.clone();
+                let mut new_var_map = vec![];
+                for v in &term.var_map {
+                    match old_var_map.iter().position(|w| w == v) {
+                        Some(i) => new_var_map.push(i as AtomId),
+                        None => {
+                            let i = old_var_map.len();
+                            old_var_map.push(*v);
+                            new_var_map.push(i as AtomId);
+                        }
+                    }
+                }
+                TermInstance::mapped(term.term_id, new_var_map)
+            }
+            TermInstance::Variable(var_id) => match var_map.iter().position(|&w| w == *var_id) {
+                Some(i) => TermInstance::Variable(i as AtomId),
+                None => TermInstance::Variable(var_map.len() as AtomId),
+            },
+        }
+    }
+
     // Attempt to backward map the variables, so that when var_map[i] = j, we replace x_j with x_i.
     // Returns None if there's any variable with no entry to backward map it to.
     fn try_backward_map_vars(&self, var_map: &Vec<AtomId>) -> Option<TermInstance> {
@@ -1626,7 +1653,7 @@ impl TermGraph {
 
     // Helper function
     fn make_mapped_term_not_equal(&mut self, mapped: &MappedTerm, instance: &TermInstance) {
-        let new_instance = instance.backward_map_vars(&mapped.var_map);
+        let new_instance = instance.extended_backward_map(&mapped.var_map);
         let info = self.mut_term_info(mapped.term_id);
         info.not_equal.insert(new_instance);
     }
@@ -1645,7 +1672,7 @@ impl TermGraph {
         }
         let id1 = match instance1 {
             TermInstance::Mapped(t1) => {
-                let new_instance = instance2.try_backward_map_vars(&t1.var_map)?;
+                let new_instance = instance2.extended_backward_map(&t1.var_map);
                 let info = self.get_term_info(t1.term_id);
                 if info.not_equal.contains(&new_instance) {
                     return Some(false);
@@ -1657,7 +1684,7 @@ impl TermGraph {
         };
         let id2 = match instance2 {
             TermInstance::Mapped(t2) => {
-                let new_instance = instance1.try_backward_map_vars(&t2.var_map)?;
+                let new_instance = instance1.extended_backward_map(&t2.var_map);
                 let info = self.get_term_info(t2.term_id);
                 if info.not_equal.contains(&new_instance) {
                     return Some(false);
