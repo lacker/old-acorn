@@ -1640,6 +1640,7 @@ impl TermGraph {
 
     fn process_all(&mut self, pending: VecDeque<Operation>) {
         let mut pending = pending;
+        let mut processed = 0;
         loop {
             match pending.pop_front() {
                 Some(Operation::Identification(instance1, instance2)) => {
@@ -1650,6 +1651,10 @@ impl TermGraph {
                     self.infer_from_skinny_edge(edge_id, &mut pending);
                 }
                 None => break,
+            }
+            processed += 1;
+            if processed > 1000000 {
+                panic!("too many operations");
             }
         }
     }
