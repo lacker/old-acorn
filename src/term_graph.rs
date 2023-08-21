@@ -264,6 +264,13 @@ impl TermInstance {
         }
     }
 
+    fn has_var_not_in(&self, not_in: &Vec<AtomId>) -> bool {
+        match self {
+            TermInstance::Mapped(term) => term.var_map.iter().any(|j| !not_in.contains(j)),
+            TermInstance::Variable(j) => !not_in.contains(j),
+        }
+    }
+
     fn variable(&self) -> Option<AtomId> {
         match self {
             TermInstance::Mapped(_) => None,
@@ -1486,19 +1493,19 @@ impl TermGraph {
 
         let (key, new_to_old) = self.normalize_edge_key(mapped_term.term_id, new_replacements);
 
-        let normalized_result = if result.num_vars() > new_to_old.len() {
+        let normalized_result = if result.has_var_not_in(&new_to_old) {
             // The result must have some variables that aren't in new_to_old at all.
             if let TermInstance::Mapped(mapped_result) = &result {
                 // We can eliminate these variables
                 let reduced_result =
                     self.eliminate_vars(mapped_result, |v| !new_to_old.contains(&v));
                 pending.push_back(Operation::Identification(result, reduced_result.clone()));
-                reduced_result.forward_map_vars(&new_to_old)
+                reduced_result.backward_map_vars(&new_to_old)
             } else {
                 panic!("a replacement with no variables becomes a variable. what does this mean?");
             }
         } else {
-            result.forward_map_vars(&new_to_old)
+            result.backward_map_vars(&new_to_old)
         };
 
         if key.is_noop() {
