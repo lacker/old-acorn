@@ -418,12 +418,21 @@ impl ActiveSet {
     }
 
     fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
+        let answer: Option<bool> = match self.literal_set.lookup(&literal) {
+            Some((positive, _)) => Some(positive),
+            None => None,
+        };
         if self.use_graph {
-            self.graph.evaluate_literal(literal)
-        } else {
-            let (answer, _) = self.literal_set.lookup(literal)?;
-            Some(answer)
+            let graph_answer = self.graph.evaluate_literal(literal);
+            // It's okay for one of them not to know, but they shouldn't get opposite answers
+            if answer != None && graph_answer != None && answer != graph_answer {
+                panic!(
+                    "literal_set and graph disagree on {}: {:?} vs {:?}",
+                    literal, answer, graph_answer
+                );
+            }
         }
+        answer
     }
 
     // Simplifies the clause based on both structural rules and the active set.
@@ -501,10 +510,10 @@ impl ActiveSet {
         self.clause_set.insert(clause.clone());
 
         if clause.literals.len() == 1 {
+            self.literal_set.insert(clause.literals[0].clone());
+
             if self.use_graph {
                 self.graph.insert_literal(&clause.literals[0]);
-            } else {
-                self.literal_set.insert(clause.literals[0].clone());
             }
         }
 

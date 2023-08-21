@@ -1663,9 +1663,11 @@ impl TermGraph {
     }
 
     // Sets these terms to be not equal.
-    // The caller should handle the contradictory case where they are already known to be equal.
     pub fn make_not_equal(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
-        assert_ne!(instance1, instance2);
+        if instance1 == instance2 {
+            self.found_contradiction = true;
+            return;
+        }
         let mut inserted = 0;
         if let TermInstance::Mapped(t1) = instance1 {
             inserted += 1;
