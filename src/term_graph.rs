@@ -1275,11 +1275,10 @@ impl TermGraph {
             // new_edge_info and duplicate_edge_info are the same edge, but
             // they may go to different terms.
             // This means we need to identify the terms.
-            self.process_identify_terms(
-                edge_info.result.clone(),
+            pending.push_back(Operation::Identification(
+                edge_info.result,
                 duplicate_edge_info.result.clone(),
-                pending,
-            );
+            ));
             return;
         }
 
