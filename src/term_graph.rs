@@ -169,6 +169,9 @@ pub struct TermGraph {
 
     // Whether to use "fat edges" mode
     fat_edges: bool,
+
+    // A flag to indicate when we find a contradiction
+    found_contradiction: bool,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -251,6 +254,13 @@ impl TermInstance {
                 }
             }
             TermInstance::Variable(var_id) => f(var_id),
+        }
+    }
+
+    fn has_var(&self, i: AtomId) -> bool {
+        match self {
+            TermInstance::Mapped(term) => term.var_map.iter().any(|&j| j == i),
+            TermInstance::Variable(j) => *j == i,
         }
     }
 
@@ -664,6 +674,7 @@ impl TermGraph {
             type_templates: HashMap::default(),
             edge_key_map: HashMap::default(),
             fat_edges: false,
+            found_contradiction: false,
         }
     }
 
@@ -1543,64 +1554,80 @@ impl TermGraph {
             TermInstance::Mapped(t) => t,
         };
 
-        if let TermInstance::Mapped(keep) = &keep_instance {
-            if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
-                // The "keep" term contains some arguments that the "discard" term doesn't.
-                // These arguments can be eliminated.
-                let reduced_instance = self.eliminate_vars(keep, |v| !discard.var_map.contains(&v));
+        match &keep_instance {
+            TermInstance::Mapped(keep) => {
+                if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
+                    // The "keep" term contains some arguments that the "discard" term doesn't.
+                    // These arguments can be eliminated.
+                    let reduced_instance =
+                        self.eliminate_vars(keep, |v| !discard.var_map.contains(&v));
 
-                // Identify both onto the reduced term
-                // Note: order matters!
-                pending.push_back(Operation::Identification(
-                    keep_instance,
-                    reduced_instance.clone(),
-                ));
-                pending.push_back(Operation::Identification(
-                    reduced_instance,
-                    discard_instance,
-                ));
-                return;
-            }
-
-            if keep.term_id == discard.term_id {
-                // This is a permutation of arguments.
-                let permutation =
-                    permutation::compose_inverse(keep.var_map.clone(), discard.var_map.clone());
-                let term_info = self.mut_term_info(keep.term_id);
-                if term_info.symmetry.contains(&permutation) {
-                    // We already know about this permutation
+                    // Identify both onto the reduced term
+                    // Note: order matters!
+                    pending.push_back(Operation::Identification(
+                        keep_instance,
+                        reduced_instance.clone(),
+                    ));
+                    pending.push_back(Operation::Identification(
+                        reduced_instance,
+                        discard_instance,
+                    ));
                     return;
                 }
-                term_info.symmetry.add(permutation);
-                let term_info = self.get_term_info(keep.term_id);
 
-                // Find all edges that have this term as the template
-                let mut edge_ids: Vec<EdgeId> = vec![];
-                for edge_id in &term_info.adjacent {
-                    let edge_info = self.get_edge_info(*edge_id);
-                    if edge_info.key.template == keep.term_id {
-                        edge_ids.push(*edge_id);
+                if keep.term_id == discard.term_id {
+                    // This is a permutation of arguments.
+                    let permutation =
+                        permutation::compose_inverse(keep.var_map.clone(), discard.var_map.clone());
+                    let term_info = self.mut_term_info(keep.term_id);
+                    if term_info.symmetry.contains(&permutation) {
+                        // We already know about this permutation
+                        return;
                     }
+                    term_info.symmetry.add(permutation);
+                    let term_info = self.get_term_info(keep.term_id);
+
+                    // Find all edges that have this term as the template
+                    let mut edge_ids: Vec<EdgeId> = vec![];
+                    for edge_id in &term_info.adjacent {
+                        let edge_info = self.get_edge_info(*edge_id);
+                        if edge_info.key.template == keep.term_id {
+                            edge_ids.push(*edge_id);
+                        }
+                    }
+
+                    // Find the edges that need to be renormalized
+                    for edge_id in edge_ids {
+                        let edge_info = self.get_edge_info(edge_id);
+                        if edge_info.key.template != keep.term_id {
+                            continue;
+                        }
+
+                        let (key, new_to_old) = self
+                            .normalize_edge_key(keep.term_id, edge_info.key.replacements.clone());
+                        if key == edge_info.key {
+                            // The edge is already normalized
+                            continue;
+                        }
+
+                        let result = edge_info.result.forward_map_vars(&new_to_old);
+                        self.process_normalized_edge(EdgeInfo { key, result }, pending);
+                    }
+                    return;
                 }
-
-                // Find the edges that need to be renormalized
-                for edge_id in edge_ids {
-                    let edge_info = self.get_edge_info(edge_id);
-                    if edge_info.key.template != keep.term_id {
-                        continue;
-                    }
-
-                    let (key, new_to_old) =
-                        self.normalize_edge_key(keep.term_id, edge_info.key.replacements.clone());
-                    if key == edge_info.key {
-                        // The edge is already normalized
-                        continue;
-                    }
-
-                    let result = edge_info.result.forward_map_vars(&new_to_old);
-                    self.process_normalized_edge(EdgeInfo { key, result }, pending);
+            }
+            TermInstance::Variable(i) => {
+                if !discard_instance.has_var(*i) {
+                    // We are trying to identify a variable x_i with a formula that doesn't
+                    // have an x_i in it.
+                    // That means that all values of this type must be the same.
+                    // For now, this is considered to be a contradiction. We will only
+                    // allow types with multiple things in them. The correct thing to do would
+                    // be more like, identifying this type as a singleton and handling singleton
+                    // types explicitly.
+                    self.found_contradiction = true;
+                    return;
                 }
-                return;
             }
         }
 
