@@ -1004,9 +1004,6 @@ impl TermGraph {
     // Returns the existing term if there is one.
     fn insert_term_skinny(&mut self, term: &Term) -> TermInstance {
         assert!(!self.fat_edges);
-        if term.is_true() {
-            panic!("True should not be a separate node in the term graph")
-        }
         if let Some(i) = term.atomic_variable() {
             return TermInstance::Variable(i);
         }
