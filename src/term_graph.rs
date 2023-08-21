@@ -1502,10 +1502,6 @@ impl TermGraph {
             result.forward_map_vars(&new_to_old)
         };
 
-        if let TermInstance::Variable(i) = normalized_result {
-            assert_eq!(i, 0);
-        }
-
         if key.is_noop() {
             // There's no edge here, we just want to identify two terms
             pending.push_back(Operation::Identification(
