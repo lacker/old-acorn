@@ -5,6 +5,7 @@ use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
 use crate::specializer::Specializer;
 use crate::term::{Clause, Literal, Term};
+use crate::term_graph::TermGraph;
 use crate::unifier::{Scope, Unifier};
 
 // The ActiveSet stores a bunch of clauses that are indexed for various efficient lookups.
@@ -20,6 +21,12 @@ pub struct ActiveSet {
 
     // A LiteralSet for checking specific literals we already know, including generalization
     literal_set: LiteralSet,
+
+    // An alternative to the LiteralSet.
+    graph: TermGraph,
+
+    // Whether to use literal_set or graph.
+    use_graph: bool,
 
     resolution_targets: FingerprintTree<ResolutionTarget>,
 
@@ -105,11 +112,13 @@ impl ProofStep {
 }
 
 impl ActiveSet {
-    pub fn new() -> ActiveSet {
+    pub fn new(use_graph: bool) -> ActiveSet {
         ActiveSet {
             clauses: vec![],
             clause_set: HashSet::new(),
             literal_set: LiteralSet::new(),
+            graph: TermGraph::new(),
+            use_graph: use_graph,
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
             rewrite_rules: FingerprintTree::new(),
@@ -408,6 +417,15 @@ impl ActiveSet {
         Literal::new(literal.positive, left, right)
     }
 
+    fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
+        if self.use_graph {
+            self.graph.evaluate_literal(literal)
+        } else {
+            let (answer, _) = self.literal_set.lookup(literal)?;
+            Some(answer)
+        }
+    }
+
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
@@ -422,13 +440,13 @@ impl ActiveSet {
         for literal in &clause.literals {
             let rewritten_literal = self.rewrite_literal(literal);
 
-            match self.literal_set.lookup(&rewritten_literal) {
-                Some((true, _)) => {
+            match self.evaluate_literal(&rewritten_literal) {
+                Some(true) => {
                     // This literal is already known to be true.
                     // Thus, the whole clause is a tautology.
                     return None;
                 }
-                Some((false, _)) => {
+                Some(false) => {
                     // This literal is already known to be false.
                     // Thus, we can just omit it from the disjunction.
                     continue;
@@ -483,7 +501,11 @@ impl ActiveSet {
         self.clause_set.insert(clause.clone());
 
         if clause.literals.len() == 1 {
-            self.literal_set.insert(clause.literals[0].clone());
+            if self.use_graph {
+                self.graph.insert_literal(&clause.literals[0]);
+            } else {
+                self.literal_set.insert(clause.literals[0].clone());
+            }
         }
 
         self.clauses.push(clause);
@@ -556,7 +578,7 @@ mod tests {
         // Create an active set that knows c0(c3) = c2
         let res_left = Term::parse("c0(c3)");
         let res_right = Term::parse("c2");
-        let mut set = ActiveSet::new();
+        let mut set = ActiveSet::new(true);
         set.insert(Clause::new(vec![Literal::equals(res_left, res_right)]));
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
@@ -578,7 +600,7 @@ mod tests {
         // Create an active set that knows c1 = c3
         let pm_left = Term::parse("c1");
         let pm_right = Term::parse("c3");
-        let mut set = ActiveSet::new();
+        let mut set = ActiveSet::new(true);
         set.insert(Clause::new(vec![Literal::equals(pm_left, pm_right)]));
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
@@ -630,7 +652,7 @@ mod tests {
 
     #[test]
     fn test_rewrite_rules() {
-        let mut set = ActiveSet::new();
+        let mut set = ActiveSet::new(true);
         let rule = Clause::parse("c0(x0) = x0");
         set.insert(rule);
 

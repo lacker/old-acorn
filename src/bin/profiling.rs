@@ -11,7 +11,7 @@ fn main() {
     let mut env = Environment::new();
     env.load_file(&input_file).unwrap();
     let goal_context = env.get_theorem_context(theorem_name);
-    let mut prover = Prover::load_goal(&goal_context);
+    let mut prover = Prover::load_goal(&goal_context, false);
     let result = prover.search_for_contradiction(1000000, 30.0);
     println!("result: {:?}", result);
     prover.print_stats();

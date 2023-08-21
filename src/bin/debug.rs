@@ -44,7 +44,7 @@ fn main() {
             return;
         }
     };
-    let mut prover = Prover::load_goal(&goals[current]);
+    let mut prover = Prover::load_goal(&goals[current], false);
     println!("loaded {}", goals[current].name);
 
     loop {
@@ -122,13 +122,13 @@ fn main() {
                 continue;
             }
             current = current + 1;
-            prover = Prover::load_goal(&goals[current]);
+            prover = Prover::load_goal(&goals[current], false);
             println!("loaded {}", goals[current].name);
             continue;
         }
 
         if let Some(_) = trim_command("reset", &line) {
-            prover = Prover::load_goal(&goals[current]);
+            prover = Prover::load_goal(&goals[current], false);
             println!("loaded {}", goals[current].name);
             continue;
         }

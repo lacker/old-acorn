@@ -69,13 +69,13 @@ pub enum Outcome {
 }
 
 impl Prover<'_> {
-    pub fn new(env: &Environment) -> Prover {
+    pub fn new(env: &Environment, use_graph: bool) -> Prover {
         Prover {
             normalizer: Normalizer::new(),
             synthesizer: Synthesizer::new(),
             facts: Vec::new(),
             goal: None,
-            active_set: ActiveSet::new(),
+            active_set: ActiveSet::new(use_graph),
             passive: PassiveSet::new(),
             env,
             dirty: false,
@@ -409,8 +409,8 @@ impl Prover<'_> {
         }
     }
 
-    pub fn load_goal<'a>(goal_context: &GoalContext<'a>) -> Prover<'a> {
-        let mut prover = Prover::new(&goal_context.env);
+    pub fn load_goal<'a>(goal_context: &GoalContext<'a>, use_graph: bool) -> Prover<'a> {
+        let mut prover = Prover::new(&goal_context.env, use_graph);
         for fact in &goal_context.facts {
             prover.add_fact(fact.clone());
         }
@@ -418,19 +418,19 @@ impl Prover<'_> {
         prover
     }
 
-    pub fn prove_theorem(env: &Environment, theorem_name: &str) -> Outcome {
+    pub fn prove_theorem(env: &Environment, theorem_name: &str, use_graph: bool) -> Outcome {
         let goal_context = env.get_theorem_context(theorem_name);
-        Prover::prove_goal(&goal_context)
+        Prover::prove_goal(&goal_context, use_graph)
     }
 
-    fn prove_goal(goal_context: &GoalContext) -> Outcome {
-        let mut prover = Prover::load_goal(&goal_context);
+    fn prove_goal(goal_context: &GoalContext, use_graph: bool) -> Outcome {
+        let mut prover = Prover::load_goal(&goal_context, use_graph);
         prover.search_for_contradiction(2000, 2.0)
     }
 
-    pub fn prove(env: &Environment, name: &str) -> Outcome {
+    pub fn prove(env: &Environment, name: &str, use_graph: bool) -> Outcome {
         let goal_context = env.get_goal_context_by_name(name);
-        Prover::prove_goal(&goal_context)
+        Prover::prove_goal(&goal_context, use_graph)
     }
 }
 
@@ -462,7 +462,7 @@ mod tests {
         theorem goal: f(t)
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -473,7 +473,7 @@ mod tests {
         theorem goal(x: Thing): f(x)
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Failure);
     }
 
     #[test]
@@ -484,7 +484,7 @@ mod tests {
         theorem goal: exists(x: Thing) { f(x) }
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -495,7 +495,7 @@ mod tests {
         theorem goal: !f(t)
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -506,7 +506,7 @@ mod tests {
             theorem goal: f(t) = f(t2) 
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -518,7 +518,7 @@ mod tests {
         theorem goal: f(g(t, t))
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -530,7 +530,7 @@ mod tests {
         theorem goal: f(g(t, t2))
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Failure);
     }
 
     #[test]
@@ -542,7 +542,7 @@ mod tests {
             theorem goal: !f(g(t, t))
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -553,7 +553,7 @@ mod tests {
         theorem goal: t != t2
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -564,7 +564,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -575,7 +575,7 @@ mod tests {
             theorem goal(x: Thing): x = t2
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -587,7 +587,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Failure);
     }
 
     #[test]
@@ -598,7 +598,7 @@ mod tests {
             theorem goal: f(t2)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Failure);
     }
 
     #[test]
@@ -609,7 +609,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -620,7 +620,7 @@ mod tests {
             theorem goal(x: Thing): x = t
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove_theorem(&env, "goal", false), Outcome::Success);
     }
 
     #[test]
@@ -635,7 +635,10 @@ mod tests {
             }
             "#,
         );
-        assert_eq!(Prover::prove(&env, "reflexivity(t)"), Outcome::Success);
+        assert_eq!(
+            Prover::prove(&env, "reflexivity(t)", false),
+            Outcome::Success
+        );
     }
 
     #[test]
@@ -652,7 +655,10 @@ mod tests {
             }
             "#,
         );
-        assert_eq!(Prover::prove(&env, "((x = t) -> foo(x))"), Outcome::Success);
+        assert_eq!(
+            Prover::prove(&env, "((x = t) -> foo(x))", false),
+            Outcome::Success
+        );
     }
 
     #[test]
@@ -668,7 +674,7 @@ mod tests {
             }
             "#,
         );
-        assert_eq!(Prover::prove(&env, "(x = y)"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "(x = y)", false), Outcome::Success);
     }
 
     // An environment with theorems that we should be able to prove in testing.
@@ -682,7 +688,7 @@ mod tests {
     fn test_proving_add_zero_right() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "add_zero_right"),
+            Prover::prove_theorem(&env, "add_zero_right", false),
             Outcome::Success
         );
     }
@@ -691,7 +697,7 @@ mod tests {
     fn test_proving_one_plus_one() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "one_plus_one"),
+            Prover::prove_theorem(&env, "one_plus_one", false),
             Outcome::Success
         );
     }
@@ -700,7 +706,7 @@ mod tests {
     fn test_proving_add_zero_left() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "add_zero_left"),
+            Prover::prove_theorem(&env, "add_zero_left", false),
             Outcome::Success
         );
     }
@@ -709,7 +715,7 @@ mod tests {
     fn test_proving_add_suc_right() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "add_suc_right"),
+            Prover::prove_theorem(&env, "add_suc_right", false),
             Outcome::Success
         );
     }
@@ -718,7 +724,7 @@ mod tests {
     fn test_proving_add_suc_left() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "add_suc_left"),
+            Prover::prove_theorem(&env, "add_suc_left", false),
             Outcome::Success
         );
     }
@@ -726,18 +732,27 @@ mod tests {
     #[test]
     fn test_suc_ne() {
         let env = snap_env();
-        assert_eq!(Prover::prove_theorem(&env, "suc_ne"), Outcome::Success);
+        assert_eq!(
+            Prover::prove_theorem(&env, "suc_ne", false),
+            Outcome::Success
+        );
     }
 
     #[test]
     fn test_suc_suc_ne() {
         let env = snap_env();
-        assert_eq!(Prover::prove_theorem(&env, "suc_suc_ne"), Outcome::Success);
+        assert_eq!(
+            Prover::prove_theorem(&env, "suc_suc_ne", false),
+            Outcome::Success
+        );
     }
 
     #[test]
     fn test_add_comm() {
         let env = snap_env();
-        assert_eq!(Prover::prove_theorem(&env, "add_comm"), Outcome::Success);
+        assert_eq!(
+            Prover::prove_theorem(&env, "add_comm", false),
+            Outcome::Success
+        );
     }
 }
