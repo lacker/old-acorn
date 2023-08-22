@@ -1131,7 +1131,10 @@ impl TermGraph {
     // The edge must not already exist.
     fn insert_edge_info(&mut self, edge_info: EdgeInfo) -> EdgeId {
         let new_edge_id = self.edges.len() as EdgeId;
-        self.edge_key_map.insert(edge_info.key.clone(), new_edge_id);
+        assert!(self
+            .edge_key_map
+            .insert(edge_info.key.clone(), new_edge_id)
+            .is_none());
         for term in edge_info.adjacent_terms() {
             let mut_term = self.mut_term_info(term);
             mut_term.adjacent.insert(new_edge_id);
