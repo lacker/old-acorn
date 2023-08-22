@@ -729,27 +729,27 @@ impl TermGraph {
             }
         }
 
-        // Create the info structs
-        let term_id = self.terms.len() as TermId;
-        let term_type = template.term_type;
-        let num_args = result_arg_types.len() as AtomId;
-        let var_map: Vec<AtomId> = (0..num_args).collect();
-        let mapped_term = MappedTerm { term_id, var_map };
-        let term_info = TermInfo::new(term_type, result_arg_types, max_edge_depth + 1);
-        let answer = TermInstance::Mapped(mapped_term);
+        // Create a new term if we need to, for the answer
+        let answer = if let Some(result) = result {
+            result
+        } else {
+            let term_id = self.terms.len() as TermId;
+            let term_type = template.term_type;
+            let num_args = result_arg_types.len() as AtomId;
+            let var_map: Vec<AtomId> = (0..num_args).collect();
+            let mapped_term = MappedTerm { term_id, var_map };
+            let term_info = TermInfo::new(term_type, result_arg_types, max_edge_depth + 1);
+            self.terms.push(TermInfoReference::TermInfo(term_info));
+            TermInstance::Mapped(mapped_term)
+        };
         let edge_info = EdgeInfo {
             key,
             result: answer.clone(),
         };
 
         // Insert everything into the graph
-        self.terms.push(TermInfoReference::TermInfo(term_info));
         let edge_id = self.insert_edge_info(edge_info);
         pending.push_back(Operation::Inference(edge_id));
-
-        if let Some(result) = result {
-            pending.push_back(Operation::Identification(answer.clone(), result));
-        }
 
         answer
     }

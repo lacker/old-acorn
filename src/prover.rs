@@ -697,7 +697,7 @@ mod tests {
     fn test_proving_one_plus_one() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "one_plus_one", true),
+            Prover::prove_theorem(&env, "one_plus_one", false),
             Outcome::Success
         );
     }
