@@ -875,15 +875,23 @@ impl TermGraph {
         }
     }
 
-    // Inserts an edge into the graph, if it isn't there already.
-    // Returns the term instance that it leads to.
+    // Inserts an edge into the graph.
+    // If the edge is already there, it doesn't need to be inserted.
+    //
+    // result is provided if the result of the edge is in the graph.
+    // If result is None, that means we should create a new node if there isn't one.
+    // If result is provided and also there is already a node in the graph for this edge,
+    // then we identify the two results.
+    //
+    // Returns the term instance that this edge leads to after the insertion.
     fn insert_edge(
         &mut self,
         template: &TermInstance,
         edge: &SimpleEdge,
+        result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
-        match template {
+        let answer = match template {
             TermInstance::Mapped(template) => {
                 let replacements = template
                     .var_map
@@ -905,7 +913,25 @@ impl TermGraph {
                     template.clone()
                 }
             }
+        };
+
+        if let Some(result) = result {
+            pending.push_back(Operation::Identification(answer.clone(), result));
         }
+        answer
+    }
+
+    // Inserts a path that goes template --edge1--> _ --edge2--> result.
+    fn insert_mini_path(
+        &mut self,
+        template: &TermInstance,
+        edge1: &SimpleEdge,
+        edge2: &SimpleEdge,
+        result: TermInstance,
+        pending: &mut VecDeque<Operation>,
+    ) {
+        let intermediate_node = self.insert_edge(template, edge1, None, pending);
+        self.insert_edge(&intermediate_node, edge2, Some(result), pending);
     }
 
     pub fn insert_term(&mut self, term: &Term) -> TermInstance {
@@ -1077,6 +1103,7 @@ impl TermGraph {
                     let replaced = self.insert_edge(
                         &instance,
                         &SimpleEdge::new(replace_var, type_template_instance),
+                        None,
                         &mut pending,
                     );
                     accumulated_instance = Some(replaced);
@@ -1100,6 +1127,7 @@ impl TermGraph {
             let replaced = self.insert_edge(
                 &accumulated_instance.unwrap(),
                 &SimpleEdge::new(replace_var, atomic_instance),
+                None,
                 &mut pending,
             );
             accumulated_instance = Some(replaced);
@@ -1962,13 +1990,13 @@ impl TermGraph {
                     // This means we can do a "combining" inference, to introduce a composite term
                     // in one step.
                     let composite_instance =
-                        self.insert_edge(&ab_edge.replacement, &bc_edge, pending);
-                    let one_step_result = self.insert_edge(
+                        self.insert_edge(&ab_edge.replacement, &bc_edge, None, pending);
+                    self.insert_edge(
                         &instance_a,
                         &SimpleEdge::new(ab_edge.var, composite_instance),
+                        Some(instance_c),
                         pending,
                     );
-                    pending.push_back(Operation::Identification(instance_c, one_step_result));
                     return;
                 }
 
@@ -1982,22 +2010,19 @@ impl TermGraph {
                 if ab_rep == bc_rep {
                     // A->B->C is swapping the same thing in for multiple variables.
                     // We could also do a variable combination first, then a substitution.
-                    let combine_first = self.insert_edge(
+                    self.insert_mini_path(
                         &instance_a,
                         &SimpleEdge::identify(ab_edge.var, bc_edge.var),
+                        &bc_edge,
+                        instance_c.clone(),
                         pending,
                     );
-                    let then_substitute = self.insert_edge(&combine_first, &bc_edge, pending);
-                    pending.push_back(Operation::Identification(
-                        instance_c.clone(),
-                        then_substitute,
-                    ));
                 }
 
                 // B->C doesn't change anything that was affected by A->B.
                 // So we can do a "commuting" inference.
-                let bc_first = self.insert_edge(&instance_a, &bc_edge, pending);
-                let bc_then_ab = self.insert_edge(&bc_first, &ab_edge, pending);
+                let bc_first = self.insert_edge(&instance_a, &bc_edge, None, pending);
+                let bc_then_ab = self.insert_edge(&bc_first, &ab_edge, None, pending);
                 pending.push_back(Operation::Identification(instance_c, bc_then_ab));
                 return;
             }
@@ -2008,8 +2033,8 @@ impl TermGraph {
                     return;
                 } else {
                     // These operations purely commute.
-                    let bc_first = self.insert_edge(&instance_a, &bc_edge, pending);
-                    let bc_then_ab = self.insert_edge(&bc_first, &ab_edge, pending);
+                    let bc_first = self.insert_edge(&instance_a, &bc_edge, None, pending);
+                    let bc_then_ab = self.insert_edge(&bc_first, &ab_edge, None, pending);
                     pending.push_back(Operation::Identification(instance_c, bc_then_ab));
                     return;
                 }
@@ -2019,17 +2044,18 @@ impl TermGraph {
                     // Both edge vars are getting identified into bc_keep_id.
                     // They are getting identified into their final value directly.
                     // Try doing it in the other order
-                    let one_step = self.insert_edge(&instance_a, &bc_edge, pending);
-                    let two_steps = self.insert_edge(&one_step, &ab_edge, pending);
+                    let one_step = self.insert_edge(&instance_a, &bc_edge, None, pending);
+                    let two_steps = self.insert_edge(&one_step, &ab_edge, None, pending);
                     pending.push_back(Operation::Identification(instance_c.clone(), two_steps));
 
                     // Try identifying them together first
                     let one_step = self.insert_edge(
                         &instance_a,
                         &SimpleEdge::identify(ab_edge.var, bc_edge.var),
+                        None,
                         pending,
                     );
-                    let two_steps = self.insert_edge(&one_step, &bc_edge, pending);
+                    let two_steps = self.insert_edge(&one_step, &bc_edge, None, pending);
                     pending.push_back(Operation::Identification(instance_c, two_steps));
                     return;
                 }
