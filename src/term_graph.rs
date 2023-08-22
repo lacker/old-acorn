@@ -833,12 +833,14 @@ impl TermGraph {
     }
 
     // Does a substitution with the given template and replacements.
-    // Creates new entries in the term graph if necessary.
+    // If result is provided, we create an edge leading to result.
+    // If result is not provided and there is no appropriate node in the graph, we create a new entry.
     // This does not have to be normalized.
     fn replace_in_term_id(
         &mut self,
         template: TermId,
         replacements: Vec<TermInstance>,
+        result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
@@ -869,7 +871,7 @@ impl TermGraph {
                     // We don't need an explicit index i, but x_i in the term is x_v in the instance.
                     new_replacements.push(replacements[*v as usize].clone());
                 }
-                self.replace_in_term_id(template.term_id, new_replacements, pending)
+                self.replace_in_term_id(template.term_id, new_replacements, None, pending)
             }
             TermInstance::Variable(i) => replacements[*i as usize].clone(),
         }
@@ -904,7 +906,7 @@ impl TermGraph {
                         }
                     })
                     .collect();
-                self.replace_in_term_id(template.term_id, replacements, pending)
+                self.replace_in_term_id(template.term_id, replacements, None, pending)
             }
             TermInstance::Variable(i) => {
                 if i == &edge.var {
@@ -973,7 +975,7 @@ impl TermGraph {
                 replacements.push(self.insert_term_fat(arg));
             }
             let mut pending = VecDeque::new();
-            let answer = self.replace_in_term_id(type_template, replacements, &mut pending);
+            let answer = self.replace_in_term_id(type_template, replacements, None, &mut pending);
             self.process_all(pending);
             return self.update_term(answer);
         }
