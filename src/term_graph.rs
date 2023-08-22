@@ -2021,9 +2021,7 @@ impl TermGraph {
 
                 // B->C doesn't change anything that was affected by A->B.
                 // So we can do a "commuting" inference.
-                let bc_first = self.insert_edge(&instance_a, &bc_edge, None, pending);
-                let bc_then_ab = self.insert_edge(&bc_first, &ab_edge, None, pending);
-                pending.push_back(Operation::Identification(instance_c, bc_then_ab));
+                self.insert_mini_path(&instance_a, &bc_edge, &ab_edge, instance_c, pending);
                 return;
             }
             (TermInstance::Variable(ab_keep_id), TermInstance::Mapped(_)) => {
