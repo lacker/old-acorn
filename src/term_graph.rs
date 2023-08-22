@@ -2031,9 +2031,7 @@ impl TermGraph {
                     return;
                 } else {
                     // These operations purely commute.
-                    let bc_first = self.insert_edge(&instance_a, &bc_edge, None, pending);
-                    let bc_then_ab = self.insert_edge(&bc_first, &ab_edge, None, pending);
-                    pending.push_back(Operation::Identification(instance_c, bc_then_ab));
+                    self.insert_mini_path(&instance_a, &bc_edge, &ab_edge, instance_c, pending);
                     return;
                 }
             }
@@ -2041,20 +2039,23 @@ impl TermGraph {
                 if ab_keep_id == bc_keep_id {
                     // Both edge vars are getting identified into bc_keep_id.
                     // They are getting identified into their final value directly.
-                    // Try doing it in the other order
-                    let one_step = self.insert_edge(&instance_a, &bc_edge, None, pending);
-                    let two_steps = self.insert_edge(&one_step, &ab_edge, None, pending);
-                    pending.push_back(Operation::Identification(instance_c.clone(), two_steps));
-
-                    // Try identifying them together first
-                    let one_step = self.insert_edge(
+                    // So for one, we can purely commute.
+                    self.insert_mini_path(
                         &instance_a,
-                        &SimpleEdge::identify(ab_edge.var, bc_edge.var),
-                        None,
+                        &bc_edge,
+                        &ab_edge,
+                        instance_c.clone(),
                         pending,
                     );
-                    let two_steps = self.insert_edge(&one_step, &bc_edge, None, pending);
-                    pending.push_back(Operation::Identification(instance_c, two_steps));
+
+                    // We can also identify the variables together first, then do the substitution.
+                    self.insert_mini_path(
+                        &instance_a,
+                        &SimpleEdge::identify(ab_edge.var, bc_edge.var),
+                        &bc_edge,
+                        instance_c,
+                        pending,
+                    );
                     return;
                 }
 
