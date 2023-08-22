@@ -898,7 +898,7 @@ impl TermGraph {
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
-        let answer = match template {
+        match template {
             TermInstance::Mapped(template) => {
                 let replacements = template
                     .var_map
@@ -911,21 +911,20 @@ impl TermGraph {
                         }
                     })
                     .collect();
-                return self.replace_in_term_id(template.term_id, replacements, result, pending);
+                self.replace_in_term_id(template.term_id, replacements, result, pending)
             }
             TermInstance::Variable(i) => {
-                if i == &edge.var {
+                let answer = if i == &edge.var {
                     edge.replacement.clone()
                 } else {
                     template.clone()
+                };
+                if let Some(result) = result {
+                    pending.push_back(Operation::Identification(answer.clone(), result));
                 }
+                answer
             }
-        };
-
-        if let Some(result) = result {
-            pending.push_back(Operation::Identification(answer.clone(), result));
         }
-        answer
     }
 
     // Inserts a path that goes template --edge1--> _ --edge2--> result.
