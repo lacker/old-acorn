@@ -720,22 +720,16 @@ impl TermGraph {
         self.edges[edge as usize].take().unwrap()
     }
 
-    // An EdgeKey represents a substitution. The EdgeKey object can exist before the
-    // analogous edge in the graph exists.
-    // This method creates the analogous edge and term if they don't already exist.
-    // Should not be called on noop keys or unnormalized keys.
+    // An EdgeKey represents a substitution.
+    // key must be normalized.
+    // The edge for this key must not already exist.
     //
     // Returns the term that this edge leads to.
     // The type of the output is the same as the type of the key's template.
     //
     // Creating an edge can cause terms in the graph to collapse, so any term you have
-    // before calling expand_edge_key may need to be updated.
-    fn expand_edge_key(&mut self, key: EdgeKey, pending: &mut VecDeque<Operation>) -> TermInstance {
-        // Check if this edge is already in the graph
-        if let Some(edge_id) = self.edge_key_map.get(&key) {
-            return self.get_edge_info(*edge_id).result.clone();
-        }
-
+    // before calling create_edge may need to be updated.
+    fn create_edge(&mut self, key: EdgeKey, pending: &mut VecDeque<Operation>) -> TermInstance {
         // Figure out the type signature of our new term
         let template = self.get_term_info(key.template);
         let mut max_edge_depth = template.depth;
@@ -846,13 +840,29 @@ impl TermGraph {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
         let (key, new_to_old) = self.normalize_edge_key(template, replacements);
-        let answer = if key.is_noop() {
-            // No need to even do a substitution
-            TermInstance::mapped(template, new_to_old)
-        } else {
-            let new_term = self.expand_edge_key(key, pending);
-            new_term.forward_map_vars(&new_to_old)
-        };
+        if key.is_noop() {
+            // No-op keys may lead to an identification but not to creating a new edge
+            let answer = TermInstance::mapped(template, new_to_old);
+            if let Some(result) = result {
+                pending.push_back(Operation::Identification(answer.clone(), result));
+            }
+            return answer;
+        }
+
+        // We have a nondegenerate, normalized edge.
+        if let Some(edge_id) = self.edge_key_map.get(&key) {
+            // This edge already exists in the graph.
+            let existing_result = &self.get_edge_info(*edge_id).result;
+            let answer = existing_result.forward_map_vars(&new_to_old);
+            if let Some(result) = result {
+                pending.push_back(Operation::Identification(answer.clone(), result));
+            }
+            return answer;
+        }
+
+        // No such edge exists. Let's create one.
+        let new_term = self.create_edge(key, pending);
+        let answer = new_term.forward_map_vars(&new_to_old);
         if let Some(result) = result {
             pending.push_back(Operation::Identification(answer.clone(), result));
         }
@@ -914,6 +924,8 @@ impl TermGraph {
                 self.replace_in_term_id(template.term_id, replacements, result, pending)
             }
             TermInstance::Variable(i) => {
+                // This edge is degenerate because it just starts from a variable.
+                // Still, we might be supposed to identify two terms as a result.
                 let answer = if i == &edge.var {
                     edge.replacement.clone()
                 } else {
