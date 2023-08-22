@@ -846,12 +846,17 @@ impl TermGraph {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
         let (key, new_to_old) = self.normalize_edge_key(template, replacements);
-        if key.is_noop() {
+        let answer = if key.is_noop() {
             // No need to even do a substitution
-            return TermInstance::mapped(template, new_to_old);
+            TermInstance::mapped(template, new_to_old)
+        } else {
+            let new_term = self.expand_edge_key(key, pending);
+            new_term.forward_map_vars(&new_to_old)
+        };
+        if let Some(result) = result {
+            pending.push_back(Operation::Identification(answer.clone(), result));
         }
-        let new_term = self.expand_edge_key(key, pending);
-        new_term.forward_map_vars(&new_to_old)
+        answer
     }
 
     // Does a substitution with the given template and replacements.
@@ -906,7 +911,7 @@ impl TermGraph {
                         }
                     })
                     .collect();
-                self.replace_in_term_id(template.term_id, replacements, None, pending)
+                return self.replace_in_term_id(template.term_id, replacements, result, pending);
             }
             TermInstance::Variable(i) => {
                 if i == &edge.var {
