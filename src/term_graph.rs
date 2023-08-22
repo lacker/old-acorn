@@ -664,13 +664,20 @@ impl TermGraph {
     // An EdgeKey represents a substitution.
     // key must be normalized.
     // The edge for this key must not already exist.
+    // If we know what term this edge should go to, it's provided in result.
+    // Otherwise, we create a new node fo the term.
     //
     // Returns the term that this edge leads to.
     // The type of the output is the same as the type of the key's template.
     //
     // Creating an edge can cause terms in the graph to collapse, so any term you have
     // before calling create_edge may need to be updated.
-    fn create_edge(&mut self, key: EdgeKey, pending: &mut VecDeque<Operation>) -> TermInstance {
+    fn create_edge(
+        &mut self,
+        key: EdgeKey,
+        result: Option<TermInstance>,
+        pending: &mut VecDeque<Operation>,
+    ) -> TermInstance {
         // Figure out the type signature of our new term
         let template = self.get_term_info(key.template);
         let mut max_edge_depth = template.depth;
@@ -727,9 +734,9 @@ impl TermGraph {
         let term_type = template.term_type;
         let num_args = result_arg_types.len() as AtomId;
         let var_map: Vec<AtomId> = (0..num_args).collect();
-        let result = MappedTerm { term_id, var_map };
+        let mapped_term = MappedTerm { term_id, var_map };
         let term_info = TermInfo::new(term_type, result_arg_types, max_edge_depth + 1);
-        let answer = TermInstance::Mapped(result);
+        let answer = TermInstance::Mapped(mapped_term);
         let edge_info = EdgeInfo {
             key,
             result: answer.clone(),
@@ -739,6 +746,11 @@ impl TermGraph {
         self.terms.push(TermInfoReference::TermInfo(term_info));
         let edge_id = self.insert_edge_info(edge_info);
         pending.push_back(Operation::Inference(edge_id));
+
+        if let Some(result) = result {
+            pending.push_back(Operation::Identification(answer.clone(), result));
+        }
+
         answer
     }
 
@@ -798,12 +810,13 @@ impl TermGraph {
         }
 
         // No such edge exists. Let's create one.
-        let new_term = self.create_edge(key, pending);
-        let answer = new_term.forward_map_vars(&new_to_old);
-        if let Some(result) = result {
-            pending.push_back(Operation::Identification(answer.clone(), result));
-        }
-        answer
+        let remapped_result = if let Some(result) = result {
+            Some(result.backward_map_vars(&new_to_old))
+        } else {
+            None
+        };
+        let new_term = self.create_edge(key, remapped_result, pending);
+        new_term.forward_map_vars(&new_to_old)
     }
 
     // Given a template term and an edge, follow the edge.
