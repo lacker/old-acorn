@@ -2435,9 +2435,9 @@ mod tests {
     #[test]
     fn test_double_speculation() {
         let mut g = TermGraph::new();
-        let template = g.parse("c0(x0, c1, x3, c2(x3), x4)");
-        let result = g.parse("c0(c4, c1, x0, c2(c5), x1)");
-        g.check_path(&template, &result);
+        let base_term = g.parse("x0(x1, c2, x3, c4)");
+        let leaf_term = g.parse("x0(c1, c2, c3, c4)");
+        g.check_path(&base_term, &leaf_term);
     }
 
     // #[test]
