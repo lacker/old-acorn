@@ -674,6 +674,10 @@ impl TermGraph {
         &self.edges[edge as usize].as_ref().unwrap()
     }
 
+    fn mut_edge_info(&mut self, edge: EdgeId) -> &mut EdgeInfo {
+        self.edges[edge as usize].as_mut().unwrap()
+    }
+
     fn take_edge_info(&mut self, edge: EdgeId) -> EdgeInfo {
         self.edges[edge as usize].take().unwrap()
     }
@@ -1730,8 +1734,13 @@ impl TermGraph {
         let ab_edge_type = ab_edge_info.edge_type;
         let bc_edge_type = bc_edge_info.edge_type;
 
-        // Only do inference on constructive -> {constructive or speculative}
-        if ab_edge_type != EdgeType::Constructive || bc_edge_type == EdgeType::Lateral {
+        if ab_edge_type != EdgeType::Constructive {
+            return;
+        }
+        if bc_edge_type == EdgeType::Lateral {
+            // When constructive->lateral, promote the lateral to constructive
+            self.mut_edge_info(bc_edge_id).edge_type = EdgeType::Constructive;
+            pending.push_back(Operation::Inference(bc_edge_id));
             return;
         }
 
