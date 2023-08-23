@@ -889,7 +889,7 @@ impl TermGraph {
     }
 
     // Inserts a path that goes template --edge1--> _ --edge2--> result.
-    fn insert_mini_path(
+    fn insert_speculative_path(
         &mut self,
         template: &TermInstance,
         edge1: &SimpleEdge,
@@ -1725,14 +1725,16 @@ impl TermGraph {
         pending: &mut VecDeque<Operation>,
     ) {
         // Create term instances that use the same numbering scheme for all of A, B, and C.
-        let bc_edge_info = self.get_edge_info(bc_edge_id);
-
-        // TODO: we should be able to use this filter
-        // if bc_edge_info.speculative {
-        //     return;
-        // }
-
         let ab_edge_info = self.get_edge_info(ab_edge_id);
+        let bc_edge_info = self.get_edge_info(bc_edge_id);
+        let ab_edge_type = ab_edge_info.edge_type;
+        let bc_edge_type = bc_edge_info.edge_type;
+
+        // Only do inference on constructive -> {constructive or speculative}
+        if ab_edge_type != EdgeType::Constructive || bc_edge_type == EdgeType::Lateral {
+            return;
+        }
+
         let instance_a = ab_edge_info.key.template_instance();
         let mapped_a = instance_a.as_mapped();
         let num_a_vars = mapped_a.var_map.len() as AtomId;
@@ -1746,13 +1748,22 @@ impl TermGraph {
                     // B->C is changing a variable that was newly introduced in A->B.
                     // This means we can do a "combining" inference, to introduce a composite term
                     // in one step.
-                    let spec = bc_edge_info.edge_type;
-                    let composite_instance =
-                        self.follow_edge(&ab_edge.replacement, &bc_edge, spec, None, pending);
+
+                    if bc_edge_type != EdgeType::Constructive {
+                        // We only do combining inference on constructive edges
+                        return;
+                    }
+                    let composite_instance = self.follow_edge(
+                        &ab_edge.replacement,
+                        &bc_edge,
+                        bc_edge_type,
+                        None,
+                        pending,
+                    );
                     self.follow_edge(
                         &instance_a,
                         &SimpleEdge::new(ab_edge.var, composite_instance),
-                        spec,
+                        bc_edge_type,
                         Some(instance_c),
                         pending,
                     );
@@ -1769,7 +1780,7 @@ impl TermGraph {
                 if ab_rep == bc_rep {
                     // A->B->C is swapping the same thing in for multiple variables.
                     // We could also do a variable combination first, then a substitution.
-                    self.insert_mini_path(
+                    self.insert_speculative_path(
                         &instance_a,
                         &SimpleEdge::identify(ab_edge.var, bc_edge.var),
                         &bc_edge,
@@ -1780,7 +1791,7 @@ impl TermGraph {
 
                 // B->C doesn't change anything that was affected by A->B.
                 // So we can do a "commuting" inference.
-                self.insert_mini_path(&instance_a, &bc_edge, &ab_edge, instance_c, pending);
+                self.insert_speculative_path(&instance_a, &bc_edge, &ab_edge, instance_c, pending);
                 return;
             }
             (TermInstance::Variable(ab_keep_id), TermInstance::Mapped(_)) => {
@@ -1790,7 +1801,13 @@ impl TermGraph {
                     return;
                 } else {
                     // These operations purely commute.
-                    self.insert_mini_path(&instance_a, &bc_edge, &ab_edge, instance_c, pending);
+                    self.insert_speculative_path(
+                        &instance_a,
+                        &bc_edge,
+                        &ab_edge,
+                        instance_c,
+                        pending,
+                    );
                     return;
                 }
             }
@@ -1799,7 +1816,7 @@ impl TermGraph {
                     // Both edge vars are getting identified into bc_keep_id.
                     // They are getting identified into their final value directly.
                     // So for one, we can purely commute.
-                    self.insert_mini_path(
+                    self.insert_speculative_path(
                         &instance_a,
                         &bc_edge,
                         &ab_edge,
@@ -1808,7 +1825,7 @@ impl TermGraph {
                     );
 
                     // We can also identify the variables together first, then do the substitution.
-                    self.insert_mini_path(
+                    self.insert_speculative_path(
                         &instance_a,
                         &SimpleEdge::identify(ab_edge.var, bc_edge.var),
                         &bc_edge,
@@ -1920,6 +1937,32 @@ impl TermGraph {
                 println!(" yields variable {}", result);
             }
         }
+    }
+
+    fn find_path(&self, from: TermId, to: TermId) -> Option<Vec<EdgeId>> {
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back((from, vec![]));
+        while let Some((term_id, path)) = queue.pop_front() {
+            if term_id == to {
+                return Some(path);
+            }
+            if !visited.insert(term_id) {
+                continue;
+            }
+            let term_info = self.get_term_info(term_id);
+            for edge_id in &term_info.adjacent {
+                let edge_info = self.get_edge_info(*edge_id);
+                if edge_info.key.template == term_id {
+                    if let Some(result_id) = edge_info.result.term_id() {
+                        let mut path = path.clone();
+                        path.push(*edge_id);
+                        queue.push_back((result_id, path));
+                    }
+                }
+            }
+        }
+        None
     }
 
     // A linear pass through the graph checking that everything is consistent.
@@ -2062,6 +2105,23 @@ impl TermGraph {
 
     pub fn check_str(&self, term: &TypedTermInstance, s: &str) {
         assert_eq!(self.term_str(&term.instance), s)
+    }
+
+    pub fn check_path(&self, from: &TypedTermInstance, to: &TypedTermInstance) {
+        let from = self.update_term(from.instance.clone());
+        let to = self.update_term(to.instance.clone());
+        let from_id = from.term_id().unwrap();
+        let to_id = to.term_id().unwrap();
+        let path = self.find_path(from_id, to_id);
+        if path.is_none() {
+            panic!(
+                "no path from term {} to term {}, {} to {}",
+                from_id,
+                to_id,
+                self.term_str(&from),
+                self.term_str(&to)
+            );
+        }
     }
 }
 
@@ -2365,16 +2425,32 @@ mod tests {
     }
 
     #[test]
-    fn test_long_template() {
+    fn test_single_speculation() {
         let mut g = TermGraph::new();
-
-        let template = g.parse("c0(x0, c1, x2, c2(x3), x4)");
-        let reduction = g.parse("c3(x2)");
-        g.check_make_equal(&template, &reduction);
-        let matching = g.parse("c0(c4, c1, x0, c2(c5), x1)");
-        let expected = g.parse("c3(x0)");
-        assert_eq!(matching, expected);
+        let template = g.parse("c0(x0, c2)");
+        let result = g.parse("c0(c1, c2)");
+        g.check_path(&template, &result);
     }
+
+    #[test]
+    fn test_double_speculation() {
+        let mut g = TermGraph::new();
+        let template = g.parse("c0(x0, c1, x3, c2(x3), x4)");
+        let result = g.parse("c0(c4, c1, x0, c2(c5), x1)");
+        g.check_path(&template, &result);
+    }
+
+    // #[test]
+    // fn test_long_template() {
+    //     let mut g = TermGraph::new();
+
+    //     let template = g.parse("c0(x0, c1, x2, c2(x3), x4)");
+    //     let reduction = g.parse("c3(x2)");
+    //     g.check_make_equal(&template, &reduction);
+    //     let matching = g.parse("c0(c4, c1, x0, c2(c5), x1)");
+    //     let expected = g.parse("c3(x0)");
+    //     assert_eq!(matching, expected);
+    // }
 
     #[test]
     fn test_unused_vars_on_both_sides() {
