@@ -2195,7 +2195,13 @@ mod tests {
     fn test_insertion_efficiency() {
         let mut g = TermGraph::new();
         g.parse("c0(c1, c2, c3)");
-        // todo!("c0(x0, c2, c3) should not be in the graph");
+        let pre_size = g.terms.len();
+        g.parse("c0(x0, c2, c3)");
+        let post_size = g.terms.len();
+        assert!(
+            post_size > pre_size,
+            "c0(x0, c2, c3) should not be in the initial graph"
+        );
     }
 
     #[test]
