@@ -2064,6 +2064,13 @@ mod tests {
     }
 
     #[test]
+    fn test_insertion_efficiency() {
+        let mut g = TermGraph::new();
+        g.parse("c0(c1, c2, c3)");
+        // todo!("c0(x0, c2, c3) should not be in the graph");
+    }
+
+    #[test]
     fn test_identifying_terms() {
         let mut g = TermGraph::new();
 
