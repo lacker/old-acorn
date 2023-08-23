@@ -2448,10 +2448,18 @@ mod tests {
     }
 
     #[test]
-    fn test_double_speculation() {
+    fn test_double_speculation_base_first() {
         let mut g = TermGraph::new();
         let base_term = g.parse("x0(x1, c2, x3, c4)");
         let leaf_term = g.parse("x0(c1, c2, c3, c4)");
+        g.check_path(&base_term, &leaf_term);
+    }
+
+    #[test]
+    fn test_double_speculation_leaf_first() {
+        let mut g = TermGraph::new();
+        let leaf_term = g.parse("x0(c1, c2, c3, c4)");
+        let base_term = g.parse("x0(x1, c2, x3, c4)");
         g.check_path(&base_term, &leaf_term);
     }
 
