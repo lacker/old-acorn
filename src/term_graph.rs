@@ -823,9 +823,15 @@ impl TermGraph {
         }
 
         // We have a nondegenerate, normalized edge.
-        if let Some(edge_id) = self.edge_key_map.get(&key) {
+        if let Some(edge_id) = self.edge_key_map.get(&key).cloned() {
             // This edge already exists in the graph.
-            let existing_result = &self.get_edge_info(*edge_id).result;
+            let mut edge_info = self.mut_edge_info(edge_id);
+            if edge_info.edge_type != EdgeType::Constructive && edge_info.edge_type != edge_type {
+                // The existing edge can be upgraded to a constructive one
+                edge_info.edge_type = EdgeType::Constructive;
+                pending.push_back(Operation::Inference(edge_id));
+            }
+            let existing_result = &edge_info.result;
             let answer = existing_result.forward_map_vars(&new_to_old);
             if let Some(result) = result {
                 pending.push_back(Operation::Identification(answer.clone(), result));
