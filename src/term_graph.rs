@@ -112,6 +112,21 @@ pub struct EdgeKey {
     vars_used: usize,
 }
 
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum EdgeType {
+    // Edges that we insert while parsing an externally-provided term are all constructive.
+    // The constructive edges form a DAG from the root, containing all important terms.
+    Constructive,
+
+    // A speculative edge is doing one step of parsing out of order.
+    // Speculative edges all start in the constructive DAG.
+    Speculative,
+
+    // Every speculative edge is followed a path of lateral edges leading it back to the
+    // constructive DAG.
+    Lateral,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct EdgeInfo {
     // The parameters that determine the substitution
@@ -121,9 +136,7 @@ pub struct EdgeInfo {
     // This can have reordered variable ids but not duplicated or non-consecutive ones.
     result: TermInstance,
 
-    // A speculative edge is true, but not needed for the canonical form of any term.
-    // We limit inferences from speculative edges to evade some combinatorial explosion.
-    speculative: bool,
+    edge_type: EdgeType,
 }
 pub type EdgeId = u32;
 
@@ -679,7 +692,7 @@ impl TermGraph {
     fn create_edge(
         &mut self,
         key: EdgeKey,
-        speculative: bool,
+        edge_type: EdgeType,
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
@@ -749,7 +762,7 @@ impl TermGraph {
         };
         let edge_info = EdgeInfo {
             key,
-            speculative,
+            edge_type,
             result: answer.clone(),
         };
 
@@ -789,7 +802,7 @@ impl TermGraph {
         &mut self,
         template: TermId,
         replacements: Vec<TermInstance>,
-        speculative: bool,
+        edge_type: EdgeType,
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
@@ -822,7 +835,7 @@ impl TermGraph {
         } else {
             None
         };
-        let new_term = self.create_edge(key, speculative, remapped_result, pending);
+        let new_term = self.create_edge(key, edge_type, remapped_result, pending);
         new_term.forward_map_vars(&new_to_old)
     }
 
@@ -840,7 +853,7 @@ impl TermGraph {
         &mut self,
         template: &TermInstance,
         edge: &SimpleEdge,
-        speculative: bool,
+        edge_type: EdgeType,
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
@@ -857,13 +870,7 @@ impl TermGraph {
                         }
                     })
                     .collect();
-                self.replace_in_term_id(
-                    template.term_id,
-                    replacements,
-                    speculative,
-                    result,
-                    pending,
-                )
+                self.replace_in_term_id(template.term_id, replacements, edge_type, result, pending)
             }
             TermInstance::Variable(i) => {
                 // This edge is degenerate because it just starts from a variable.
@@ -890,8 +897,15 @@ impl TermGraph {
         result: TermInstance,
         pending: &mut VecDeque<Operation>,
     ) {
-        let intermediate_node = self.follow_edge(template, edge1, true, None, pending);
-        self.follow_edge(&intermediate_node, edge2, false, Some(result), pending);
+        let intermediate_node =
+            self.follow_edge(template, edge1, EdgeType::Speculative, None, pending);
+        self.follow_edge(
+            &intermediate_node,
+            edge2,
+            EdgeType::Lateral,
+            Some(result),
+            pending,
+        );
     }
 
     // Get a TermInstance for a type template, plus the number of variables used.
@@ -986,7 +1000,7 @@ impl TermGraph {
                     let replaced = self.follow_edge(
                         &instance,
                         &SimpleEdge::new(replace_var, type_template_instance),
-                        false,
+                        EdgeType::Constructive,
                         None,
                         &mut pending,
                     );
@@ -1011,7 +1025,7 @@ impl TermGraph {
             let replaced = self.follow_edge(
                 &accumulated_instance.unwrap(),
                 &SimpleEdge::new(replace_var, atomic_instance),
-                false,
+                EdgeType::Constructive,
                 None,
                 &mut pending,
             );
@@ -1234,7 +1248,7 @@ impl TermGraph {
             self.process_unnormalized_edge(
                 new_term,
                 &new_replacements,
-                old_edge_info.speculative,
+                old_edge_info.edge_type,
                 new_result,
                 pending,
             );
@@ -1244,7 +1258,7 @@ impl TermGraph {
             self.process_unnormalized_edge(
                 &template,
                 &new_replacements,
-                old_edge_info.speculative,
+                old_edge_info.edge_type,
                 new_result,
                 pending,
             );
@@ -1387,7 +1401,7 @@ impl TermGraph {
         &mut self,
         template: &TermInstance,
         replacements: &Vec<TermInstance>,
-        speculative: bool,
+        edge_type: EdgeType,
         result: TermInstance,
         pending: &mut VecDeque<Operation>,
     ) {
@@ -1447,7 +1461,7 @@ impl TermGraph {
         self.process_normalized_edge(
             EdgeInfo {
                 key,
-                speculative,
+                edge_type,
                 result: normalized_result,
             },
             pending,
@@ -1544,7 +1558,7 @@ impl TermGraph {
                         self.process_normalized_edge(
                             EdgeInfo {
                                 key,
-                                speculative: edge_info.speculative,
+                                edge_type: edge_info.edge_type,
                                 result,
                             },
                             pending,
@@ -1711,13 +1725,19 @@ impl TermGraph {
         pending: &mut VecDeque<Operation>,
     ) {
         // Create term instances that use the same numbering scheme for all of A, B, and C.
+        let bc_edge_info = self.get_edge_info(bc_edge_id);
+
+        // TODO: we should be able to use this filter
+        // if bc_edge_info.speculative {
+        //     return;
+        // }
+
         let ab_edge_info = self.get_edge_info(ab_edge_id);
         let instance_a = ab_edge_info.key.template_instance();
         let mapped_a = instance_a.as_mapped();
         let num_a_vars = mapped_a.var_map.len() as AtomId;
         let (ab_edge, instance_b, num_ab_vars) = ab_edge_info.simplify(mapped_a, num_a_vars);
         let mapped_b = instance_b.as_mapped();
-        let bc_edge_info = self.get_edge_info(bc_edge_id);
         let (bc_edge, instance_c, _) = bc_edge_info.simplify(mapped_b, num_ab_vars);
 
         match (&ab_edge.replacement, &bc_edge.replacement) {
@@ -1726,7 +1746,7 @@ impl TermGraph {
                     // B->C is changing a variable that was newly introduced in A->B.
                     // This means we can do a "combining" inference, to introduce a composite term
                     // in one step.
-                    let spec = bc_edge_info.speculative;
+                    let spec = bc_edge_info.edge_type;
                     let composite_instance =
                         self.follow_edge(&ab_edge.replacement, &bc_edge, spec, None, pending);
                     self.follow_edge(
