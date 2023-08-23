@@ -2449,17 +2449,17 @@ mod tests {
         g.check_path(&base_term, &leaf_term);
     }
 
-    // #[test]
-    // fn test_long_template() {
-    //     let mut g = TermGraph::new();
+    #[test]
+    fn test_long_template() {
+        let mut g = TermGraph::new();
 
-    //     let template = g.parse("c0(x0, c1, x2, c2(x3), x4)");
-    //     let reduction = g.parse("c3(x2)");
-    //     g.check_make_equal(&template, &reduction);
-    //     let matching = g.parse("c0(c4, c1, x0, c2(c5), x1)");
-    //     let expected = g.parse("c3(x0)");
-    //     assert_eq!(matching, expected);
-    // }
+        let template = g.parse("c0(x0, c1, x2, c2(x3), x4)");
+        let reduction = g.parse("c3(x2)");
+        g.check_make_equal(&template, &reduction);
+        let matching = g.parse("c0(c4, c1, x0, c2(c5), x1)");
+        let expected = g.parse("c3(x0)");
+        assert_eq!(matching, expected);
+    }
 
     #[test]
     fn test_unused_vars_on_both_sides() {
