@@ -817,7 +817,7 @@ impl TermGraph {
             // No-op keys may lead to an identification but not to creating a new edge
             let answer = TermInstance::mapped(template, new_to_old);
             if let Some(result) = result {
-                pending.push_back(Operation::Identification(answer.clone(), result));
+                pending.push_front(Operation::Identification(answer.clone(), result));
             }
             return answer;
         }
@@ -834,7 +834,7 @@ impl TermGraph {
             let existing_result = &edge_info.result;
             let answer = existing_result.forward_map_vars(&new_to_old);
             if let Some(result) = result {
-                pending.push_back(Operation::Identification(answer.clone(), result));
+                pending.push_front(Operation::Identification(answer.clone(), result));
             }
             return answer;
         }
@@ -891,7 +891,7 @@ impl TermGraph {
                     template.clone()
                 };
                 if let Some(result) = result {
-                    pending.push_back(Operation::Identification(answer.clone(), result));
+                    pending.push_front(Operation::Identification(answer.clone(), result));
                 }
                 answer
             }
@@ -1225,7 +1225,7 @@ impl TermGraph {
             // new_edge_info and duplicate_edge_info are the same edge, but
             // they may go to different terms.
             // This means we need to identify the terms.
-            pending.push_back(Operation::Identification(
+            pending.push_front(Operation::Identification(
                 edge_info.result,
                 duplicate_edge_info.result.clone(),
             ));
@@ -1423,7 +1423,7 @@ impl TermGraph {
             TermInstance::Variable(var_id) => {
                 let new_template = &replacements[*var_id as usize];
                 // We want to identify new_template and new_result here.
-                pending.push_back(Operation::Identification(new_template.clone(), result));
+                pending.push_front(Operation::Identification(new_template.clone(), result));
                 return;
             }
         };
@@ -1453,7 +1453,7 @@ impl TermGraph {
                 // We can eliminate these variables
                 let reduced_result =
                     self.eliminate_vars(mapped_result, |v| !new_to_old.contains(&v));
-                pending.push_back(Operation::Identification(result, reduced_result.clone()));
+                pending.push_front(Operation::Identification(result, reduced_result.clone()));
                 reduced_result.backward_map_vars(&new_to_old)
             } else {
                 panic!("a replacement with no variables becomes a variable. what does this mean?");
@@ -1464,7 +1464,7 @@ impl TermGraph {
 
         if key.is_noop() {
             // There's no edge here, we just want to identify two terms
-            pending.push_back(Operation::Identification(
+            pending.push_front(Operation::Identification(
                 key.template_instance(),
                 normalized_result,
             ));
@@ -1521,14 +1521,11 @@ impl TermGraph {
 
                     // Identify both onto the reduced term
                     // Note: order matters!
-                    pending.push_back(Operation::Identification(
-                        keep_instance,
+                    pending.push_front(Operation::Identification(
                         reduced_instance.clone(),
-                    ));
-                    pending.push_back(Operation::Identification(
-                        reduced_instance,
                         discard_instance,
                     ));
+                    pending.push_front(Operation::Identification(keep_instance, reduced_instance));
                     return;
                 }
 
@@ -1614,7 +1611,7 @@ impl TermGraph {
                 None => break,
             }
             processed += 1;
-            if processed > 10000 {
+            if processed > 50000 {
                 panic!("too many operations");
             }
         }
@@ -1624,7 +1621,7 @@ impl TermGraph {
     // all Identifications are processed.
     pub fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
         let mut ops = VecDeque::new();
-        ops.push_back(Operation::Identification(instance1, instance2));
+        ops.push_front(Operation::Identification(instance1, instance2));
         self.process_all(ops);
     }
 
