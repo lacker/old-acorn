@@ -1066,9 +1066,12 @@ impl TermGraph {
         max_depth
     }
 
-    // Find the least deep edge that creates this term
+    // Find the least deep edge that creates this term.
     // Panics if no edge creates this term.
     // Don't call this for terms that are atoms or type templates.
+    //
+    // The depths are accurate, but only if we process all of the pending operation queue.
+    // So this function does not work correctly when there are still pending operations.
     fn shallowest_edge(&self, term_id: TermId) -> EdgeId {
         let term_info = self.get_term_info(term_id);
         if term_info.depth == 0 {
@@ -1611,7 +1614,7 @@ impl TermGraph {
                 None => break,
             }
             processed += 1;
-            if processed > 1000000 {
+            if processed > 10000 {
                 panic!("too many operations");
             }
         }
@@ -1622,7 +1625,7 @@ impl TermGraph {
     pub fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
         let mut ops = VecDeque::new();
         ops.push_back(Operation::Identification(instance1, instance2));
-        self.process_all(ops)
+        self.process_all(ops);
     }
 
     // Sets these terms to be not equal.
