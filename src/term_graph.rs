@@ -951,8 +951,8 @@ impl TermGraph {
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
-        let (key, new_to_old) = self.normalize_edge_key(template, replacements);
-        if key.is_noop() {
+        let (old_key, new_to_old) = self.normalize_edge_key(template, replacements);
+        if old_key.is_noop() {
             // No-op keys may lead to an identification but not to creating a new edge
             let answer = TermInstance::mapped(template, new_to_old);
             if let Some(result) = result {
@@ -960,9 +960,10 @@ impl TermGraph {
             }
             return answer;
         }
+        let simple_key = old_key.to_simple();
 
         // We have a nondegenerate, normalized edge.
-        if let Some(edge_id) = self.old_edge_key_map.get(&key).cloned() {
+        if let Some(edge_id) = self.simple_edge_key_map.get(&simple_key).cloned() {
             // This edge already exists in the graph.
             let edge_info = self.get_old_edge_info(edge_id);
             let existing_result = &edge_info.result;
@@ -985,7 +986,7 @@ impl TermGraph {
         } else {
             None
         };
-        let new_term = self.create_edge(key, edge_type, remapped_result, pending);
+        let new_term = self.create_edge(old_key, edge_type, remapped_result, pending);
         new_term.forward_map_vars(&new_to_old)
     }
 
