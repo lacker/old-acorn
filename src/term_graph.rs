@@ -2231,7 +2231,7 @@ impl TermGraph {
             }
         }
 
-        for edge_id in 0..self.old_edges.len() {
+        for edge_id in 0..self.simple_edges.len() {
             let edge_id = edge_id as EdgeId;
 
             if !self.has_edge_info(edge_id) {
