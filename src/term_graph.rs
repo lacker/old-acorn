@@ -1390,23 +1390,24 @@ impl TermGraph {
     // When this discovers more valid Identifications it pushes them onto pending.
     fn process_normalized_edge(
         &mut self,
-        edge_info: OldEdgeInfo,
+        old_edge_info: OldEdgeInfo,
         pending: &mut VecDeque<Operation>,
     ) {
         // Check to see if the new edge is a duplicate
-        if let Some(duplicate_edge_id) = self.old_edge_key_map.get(&edge_info.key) {
+        let simple_edge_info = old_edge_info.to_simple();
+        if let Some(duplicate_edge_id) = self.simple_edge_key_map.get(&simple_edge_info.key) {
             let duplicate_edge_info = self.get_old_edge_info(*duplicate_edge_id);
             // new_edge_info and duplicate_edge_info are the same edge, but
             // they may go to different terms.
             // This means we need to identify the terms.
             pending.push_front(Operation::Identification(
-                edge_info.result,
+                old_edge_info.result,
                 duplicate_edge_info.result.clone(),
             ));
             return;
         }
 
-        let edge_id = self.insert_edge_info(edge_info);
+        let edge_id = self.insert_edge_info(old_edge_info);
         pending.push_back(Operation::Inference(edge_id));
     }
 
