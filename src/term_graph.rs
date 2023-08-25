@@ -819,7 +819,7 @@ impl TermGraph {
     // key must be normalized.
     // The edge for this key must not already exist.
     // If we know what term this edge should go to, it's provided in result.
-    // Otherwise, we create a new node fo the term.
+    // Otherwise, we create a new node for the term.
     //
     // Returns the term that this edge leads to.
     // The type of the output is the same as the type of the key's template.
