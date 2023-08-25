@@ -1364,7 +1364,7 @@ impl TermGraph {
     // Removes an edge, updating the appropriate maps.
     // The term may not exist any more by the time this is called.
     // The edge must exist.
-    fn remove_edge(&mut self, edge_id: EdgeId) -> OldEdgeInfo {
+    fn remove_edge(&mut self, edge_id: EdgeId) -> SimpleEdgeInfo {
         let simple_edge_info = self.simple_edges[edge_id as usize].take().unwrap();
         for term in simple_edge_info.adjacent_terms() {
             match &mut self.terms[term as usize] {
@@ -1382,7 +1382,7 @@ impl TermGraph {
         // Also remove the simple key
         self.simple_edge_key_map.remove(&simple_edge_info.key);
 
-        old_edge_info
+        simple_edge_info
     }
 
     // Inserts a single edge that already has a normalized key.
@@ -1420,19 +1420,16 @@ impl TermGraph {
         new_term: &TermInstance,
         pending: &mut VecDeque<Operation>,
     ) {
-        let old_edge_info = self.remove_edge(old_edge_id);
+        let simple_edge_info = self.remove_edge(old_edge_id);
 
-        let old_edge_num_args = if old_edge_info.key.template == old_term_id {
+        let old_edge_num_args = if simple_edge_info.key.template == old_term_id {
             old_term_num_args
         } else {
-            self.get_term_info(old_edge_info.key.template)
+            self.get_term_info(simple_edge_info.key.template)
                 .arg_types
                 .len() as AtomId
         };
-        assert_eq!(
-            old_edge_info.key.replacements.len(),
-            old_edge_num_args as usize
-        );
+        let old_edge_info = simple_edge_info.desimplify(old_edge_num_args);
 
         // The result and the replacements are relatively straightforward, we just recurse.
         let new_result = old_edge_info.result.replace_term_id(old_term_id, new_term);
