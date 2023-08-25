@@ -127,7 +127,7 @@ pub enum EdgeType {
     Lateral,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OldEdgeInfo {
     // The parameters that determine the substitution
     key: OldEdgeKey,
@@ -759,11 +759,12 @@ impl TermGraph {
     }
 
     fn has_edge_info(&self, edge: EdgeId) -> bool {
-        self.old_edges[edge as usize].is_some()
+        self.simple_edges[edge as usize].is_some()
     }
 
-    fn get_edge_info(&self, edge: EdgeId) -> &OldEdgeInfo {
-        &self.old_edges[edge as usize].as_ref().unwrap()
+    fn get_old_edge_info(&self, edge: EdgeId) -> OldEdgeInfo {
+        let simple_info = self.simple_edges[edge as usize].as_ref().unwrap();
+        self.desimplify(simple_info)
     }
 
     fn set_edge_type(&mut self, edge: EdgeId, edge_type: EdgeType) {
@@ -919,7 +920,7 @@ impl TermGraph {
         // We have a nondegenerate, normalized edge.
         if let Some(edge_id) = self.old_edge_key_map.get(&key).cloned() {
             // This edge already exists in the graph.
-            let edge_info = self.get_edge_info(edge_id);
+            let edge_info = self.get_old_edge_info(edge_id);
             let existing_result = &edge_info.result;
             let answer = existing_result.forward_map_vars(&new_to_old);
             if edge_info.edge_type != EdgeType::Constructive && edge_info.edge_type != edge_type {
@@ -1190,7 +1191,7 @@ impl TermGraph {
 
     // The depth of an edge is the maximum depth of any term that its key references.
     fn edge_depth(&self, edge_id: EdgeId) -> u32 {
-        let edge_info = self.get_edge_info(edge_id);
+        let edge_info = self.get_old_edge_info(edge_id);
         let template_info = self.get_term_info(edge_info.key.template);
         let mut max_depth = template_info.depth;
         for rep in &edge_info.key.replacements {
@@ -1279,7 +1280,7 @@ impl TermGraph {
         // Figure out which edge is the best one to represent this term
         assert!(term_info.depth > 0);
         let edge_id = self.shallowest_edge(term_id);
-        let edge_info = self.get_edge_info(edge_id);
+        let edge_info = self.get_old_edge_info(edge_id);
 
         // Construct a Term according to the information provided by the edge
         let template = self.extract_term_id(edge_info.key.template);
@@ -1375,7 +1376,7 @@ impl TermGraph {
     ) {
         // Check to see if the new edge is a duplicate
         if let Some(duplicate_edge_id) = self.old_edge_key_map.get(&edge_info.key) {
-            let duplicate_edge_info = self.get_edge_info(*duplicate_edge_id);
+            let duplicate_edge_info = self.get_old_edge_info(*duplicate_edge_id);
             // new_edge_info and duplicate_edge_info are the same edge, but
             // they may go to different terms.
             // This means we need to identify the terms.
@@ -1698,7 +1699,7 @@ impl TermGraph {
                     // Find all edges that have this term as the template
                     let mut edge_ids: Vec<EdgeId> = vec![];
                     for edge_id in &term_info.adjacent {
-                        let edge_info = self.get_edge_info(*edge_id);
+                        let edge_info = self.get_old_edge_info(*edge_id);
                         if edge_info.key.template == keep.term_id {
                             edge_ids.push(*edge_id);
                         }
@@ -1706,7 +1707,7 @@ impl TermGraph {
 
                     // Find the edges that need to be renormalized
                     for edge_id in edge_ids {
-                        let edge_info = self.get_edge_info(edge_id);
+                        let edge_info = self.get_old_edge_info(edge_id);
                         if edge_info.key.template != keep.term_id {
                             continue;
                         }
@@ -1855,7 +1856,7 @@ impl TermGraph {
             .adjacent
             .iter()
             .filter(move |edge_id| {
-                let edge_info = self.get_edge_info(**edge_id);
+                let edge_info = self.get_old_edge_info(**edge_id);
                 edge_info.result.term_id() == Some(term_id)
             })
             .copied()
@@ -1869,7 +1870,7 @@ impl TermGraph {
             .adjacent
             .iter()
             .filter(move |edge_id| {
-                let edge_info = self.get_edge_info(**edge_id);
+                let edge_info = self.get_old_edge_info(**edge_id);
                 edge_info.key.template == term_id
             })
             .copied()
@@ -1889,8 +1890,8 @@ impl TermGraph {
         pending: &mut VecDeque<Operation>,
     ) {
         // Create term instances that use the same numbering scheme for all of A, B, and C.
-        let ab_edge_info = self.get_edge_info(ab_edge_id);
-        let bc_edge_info = self.get_edge_info(bc_edge_id);
+        let ab_edge_info = self.get_old_edge_info(ab_edge_id);
+        let bc_edge_info = self.get_old_edge_info(bc_edge_id);
         let ab_edge_type = ab_edge_info.edge_type;
         let bc_edge_type = bc_edge_info.edge_type;
 
@@ -2020,7 +2021,7 @@ impl TermGraph {
             // This edge has been collapsed
             return;
         }
-        let edge_info = self.get_edge_info(edge_id);
+        let edge_info = self.get_old_edge_info(edge_id);
         let result_term_id = edge_info.result.term_id();
 
         // Find A -> B -> C patterns where this edge is B -> C
@@ -2077,7 +2078,7 @@ impl TermGraph {
     //
 
     pub fn print_edge(&self, edge_id: EdgeId) {
-        let edge_info = self.get_edge_info(edge_id);
+        let edge_info = self.get_old_edge_info(edge_id);
         let template = self.extract_term_id(edge_info.key.template);
         print!(
             "edge {}: in term {}, {},",
@@ -2129,7 +2130,7 @@ impl TermGraph {
             }
             let term_info = self.get_term_info(term_id);
             for edge_id in &term_info.adjacent {
-                let edge_info = self.get_edge_info(*edge_id);
+                let edge_info = self.get_old_edge_info(*edge_id);
                 if edge_info.key.template == term_id {
                     if let Some(result_id) = edge_info.result.term_id() {
                         let mut path = path.clone();
@@ -2161,7 +2162,7 @@ impl TermGraph {
                 if !self.has_edge_info(*edge_id) {
                     panic!("term {} is adjacent to collapsed edge {}", term_id, edge_id);
                 }
-                let edge_info = self.get_edge_info(*edge_id);
+                let edge_info = self.get_old_edge_info(*edge_id);
                 if !edge_info.adjacent_terms().contains(&term_id) {
                     panic!(
                         "term {} thinks it is adjacent to edge {} ({}) but not vice versa",
@@ -2201,7 +2202,7 @@ impl TermGraph {
                 continue;
             }
             self.print_edge(edge_id);
-            let edge_info = self.get_edge_info(edge_id);
+            let edge_info = self.get_old_edge_info(edge_id);
             edge_info.key.check();
 
             for term_id in edge_info.adjacent_terms().iter() {
