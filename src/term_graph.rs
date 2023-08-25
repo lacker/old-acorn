@@ -567,19 +567,9 @@ impl EdgeKey {
             ));
         }
 
-        match simple_edge {
-            Some(simple_edge) => {
-                let instance = if let Some(result) = result {
-                    Some(result.forward_map_vars(&result_rename))
-                } else {
-                    None
-                };
-                (simple_edge, instance, next_var)
-            }
-            None => {
-                panic!("noop edge in simplify");
-            }
-        }
+        let simple_edge = simple_edge.expect("noop edge in simplify");
+        let instance = result.map(|result| result.forward_map_vars(&result_rename));
+        (simple_edge, instance, next_var)
     }
 }
 
