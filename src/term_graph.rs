@@ -444,6 +444,20 @@ impl SimpleEdge {
     }
 }
 
+impl SimpleEdgeInfo {
+    fn adjacent_terms(&self) -> Vec<TermId> {
+        let mut terms = vec![];
+        terms.push(self.key.template);
+        if let TermInstance::Mapped(term) = &self.key.edge.replacement {
+            terms.push(term.term_id);
+        }
+        if let Some(term_id) = self.result.term_id() {
+            terms.push(term_id);
+        }
+        terms
+    }
+}
+
 impl OldEdgeKey {
     // Panics if this edge is not normalized.
     pub fn check(&self) {
@@ -770,11 +784,6 @@ impl TermGraph {
     fn set_edge_type(&mut self, edge: EdgeId, edge_type: EdgeType) {
         self.old_edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
         self.simple_edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
-    }
-
-    fn take_edge_info(&mut self, edge: EdgeId) -> OldEdgeInfo {
-        self.simple_edges[edge as usize].take().unwrap();
-        self.old_edges[edge as usize].take().unwrap()
     }
 
     // An EdgeKey represents a substitution.
@@ -1349,8 +1358,8 @@ impl TermGraph {
     // The term may not exist any more by the time this is called.
     // The edge must exist.
     fn remove_edge(&mut self, edge_id: EdgeId) -> OldEdgeInfo {
-        let old_edge_info = self.take_edge_info(edge_id);
-        for term in old_edge_info.adjacent_terms() {
+        let simple_edge_info = self.simple_edges[edge_id as usize].take().unwrap();
+        for term in simple_edge_info.adjacent_terms() {
             match &mut self.terms[term as usize] {
                 TermInfoReference::Replaced(_) => (),
                 TermInfoReference::TermInfo(term_info) => {
@@ -1358,11 +1367,13 @@ impl TermGraph {
                 }
             }
         }
+
+        // Remove the old info
+        let old_edge_info = self.old_edges[edge_id as usize].take().unwrap();
         self.old_edge_key_map.remove(&old_edge_info.key);
 
         // Also remove the simple key
-        let simple_edge_key = old_edge_info.key.to_simple();
-        self.simple_edge_key_map.remove(&simple_edge_key);
+        self.simple_edge_key_map.remove(&simple_edge_info.key);
 
         old_edge_info
     }
