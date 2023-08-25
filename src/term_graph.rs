@@ -993,6 +993,41 @@ impl TermGraph {
         }
     }
 
+    fn desimplify(&self, simple_edge_info: &SimpleEdgeInfo) -> OldEdgeInfo {
+        // First construct a non-normalized edge
+        let template = simple_edge_info.key.template;
+        let num_replacements = self.get_term_info(template).arg_types.len();
+        let replacements = (0..num_replacements as AtomId)
+            .map(|i| {
+                if i == simple_edge_info.key.edge.var {
+                    simple_edge_info.key.edge.replacement.clone()
+                } else {
+                    TermInstance::Variable(i)
+                }
+            })
+            .collect();
+
+        // Minus one because it doesn't count the variable we replaced away
+        let vars_used = (simple_edge_info.key.vars_used - 1) as usize;
+
+        // Now we normalize
+        let mut new_to_old = vec![];
+        let replacements = normalize_replacements(&replacements, &mut new_to_old);
+        assert_eq!(new_to_old.len(), vars_used);
+        let result = simple_edge_info.result.backward_map_vars(&new_to_old);
+
+        let key = OldEdgeKey {
+            template,
+            replacements,
+            vars_used,
+        };
+        OldEdgeInfo {
+            key,
+            edge_type: simple_edge_info.edge_type,
+            result,
+        }
+    }
+
     // If there is an edge, returns the term it leads to.
     // Returns None if there is no such edge.
     fn get_edge(&self, template: &TermInstance, edge: &SimpleEdge) -> Option<TermInstance> {
@@ -1287,7 +1322,7 @@ impl TermGraph {
     // Inserts an edge, updating the appropriate maps.
     // The edge must not already exist.
     fn insert_edge_info(&mut self, edge_info: OldEdgeInfo) -> EdgeId {
-        let new_edge_id = self.old_edges.len() as EdgeId;
+        let new_edge_id = self.simple_edges.len() as EdgeId;
         assert!(self
             .old_edge_key_map
             .insert(edge_info.key.clone(), new_edge_id)
@@ -2159,23 +2194,22 @@ impl TermGraph {
             }
         }
 
-        let mut edge_keys_and_ids = self.old_edge_key_map.iter().collect::<Vec<_>>();
-        // Sort by id
-        edge_keys_and_ids.sort_by_key(|(_, id)| *id);
+        for edge_id in 0..self.old_edges.len() {
+            let edge_id = edge_id as EdgeId;
 
-        for (key, edge_id) in edge_keys_and_ids {
-            key.check();
-            if !self.has_edge_info(*edge_id) {
-                panic!("edge {} has been collapsed", edge_id);
+            if !self.has_edge_info(edge_id) {
+                continue;
             }
-            self.print_edge(*edge_id);
-            let edge_info = self.get_edge_info(*edge_id);
+            self.print_edge(edge_id);
+            let edge_info = self.get_edge_info(edge_id);
+            edge_info.key.check();
+
             for term_id in edge_info.adjacent_terms().iter() {
                 if !self.has_term_info(*term_id) {
                     panic!("edge {} refers to collapsed term {}", edge_info, term_id);
                 }
                 let term_info = self.get_term_info(*term_id);
-                if !term_info.adjacent.contains(edge_id) {
+                if !term_info.adjacent.contains(&edge_id) {
                     panic!(
                         "edge {} thinks it is adjacent to term {} but not vice versa",
                         edge_info, term_id
