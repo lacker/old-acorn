@@ -198,8 +198,6 @@ pub struct TermGraph {
     // We replace elements of terms or edges with None when they are replaced with
     // an identical one that we have chosen to be the canonical one.
     terms: Vec<TermInfoReference>,
-
-    old_edges: Vec<Option<OldEdgeInfo>>,
     simple_edges: Vec<Option<SimpleEdgeInfo>>,
 
     // We expand non-variable atoms into different terms depending on the number of
@@ -213,7 +211,6 @@ pub struct TermGraph {
     type_templates: HashMap<(TypeId, u8), TermId>,
 
     // Maps (template, replacement) -> edges
-    old_edge_key_map: FxHashMap<OldEdgeKey, EdgeId>,
     simple_edge_key_map: FxHashMap<SimpleEdgeKey, EdgeId>,
 
     // A flag to indicate when we find a contradiction
@@ -774,11 +771,9 @@ impl TermGraph {
     pub fn new() -> TermGraph {
         TermGraph {
             terms: Vec::new(),
-            old_edges: Vec::new(),
             simple_edges: Vec::new(),
             atoms: HashMap::default(),
             type_templates: HashMap::default(),
-            old_edge_key_map: HashMap::default(),
             simple_edge_key_map: HashMap::default(),
             found_contradiction: false,
         }
@@ -817,7 +812,6 @@ impl TermGraph {
     }
 
     fn set_edge_type(&mut self, edge: EdgeId, edge_type: EdgeType) {
-        self.old_edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
         self.simple_edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
     }
 
@@ -1341,10 +1335,6 @@ impl TermGraph {
     // The edge must not already exist.
     fn insert_edge_info(&mut self, edge_info: OldEdgeInfo) -> EdgeId {
         let new_edge_id = self.simple_edges.len() as EdgeId;
-        assert!(self
-            .old_edge_key_map
-            .insert(edge_info.key.clone(), new_edge_id)
-            .is_none());
 
         // Also insert a simple key
         let simple_edge_key = edge_info.key.to_simple();
@@ -1358,7 +1348,6 @@ impl TermGraph {
             mut_term.adjacent.insert(new_edge_id);
         }
         self.simple_edges.push(Some(edge_info.to_simple()));
-        self.old_edges.push(Some(edge_info));
         new_edge_id
     }
 
@@ -1375,10 +1364,6 @@ impl TermGraph {
                 }
             }
         }
-
-        // Remove the old info
-        let old_edge_info = self.old_edges[edge_id as usize].take().unwrap();
-        self.old_edge_key_map.remove(&old_edge_info.key);
 
         // Also remove the simple key
         self.simple_edge_key_map.remove(&simple_edge_info.key);
