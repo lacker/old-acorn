@@ -766,8 +766,9 @@ impl TermGraph {
         &self.old_edges[edge as usize].as_ref().unwrap()
     }
 
-    fn mut_edge_info(&mut self, edge: EdgeId) -> &mut OldEdgeInfo {
-        self.old_edges[edge as usize].as_mut().unwrap()
+    fn set_edge_type(&mut self, edge: EdgeId, edge_type: EdgeType) {
+        self.old_edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
+        self.simple_edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
     }
 
     fn take_edge_info(&mut self, edge: EdgeId) -> OldEdgeInfo {
@@ -918,14 +919,15 @@ impl TermGraph {
         // We have a nondegenerate, normalized edge.
         if let Some(edge_id) = self.old_edge_key_map.get(&key).cloned() {
             // This edge already exists in the graph.
-            let mut edge_info = self.mut_edge_info(edge_id);
-            if edge_info.edge_type != EdgeType::Constructive && edge_info.edge_type != edge_type {
-                // The existing edge can be upgraded to a constructive one
-                edge_info.edge_type = EdgeType::Constructive;
-                pending.push_back(Operation::Inference(edge_id));
-            }
+            let edge_info = self.get_edge_info(edge_id);
             let existing_result = &edge_info.result;
             let answer = existing_result.forward_map_vars(&new_to_old);
+            if edge_info.edge_type != EdgeType::Constructive && edge_info.edge_type != edge_type {
+                // The existing edge can be upgraded to a constructive one
+                self.set_edge_type(edge_id, EdgeType::Constructive);
+                pending.push_back(Operation::Inference(edge_id));
+            }
+
             if let Some(result) = result {
                 pending.push_front(Operation::Identification(answer.clone(), result));
             }
@@ -1862,7 +1864,7 @@ impl TermGraph {
         }
         if bc_edge_type == EdgeType::Lateral {
             // When constructive->lateral, promote the lateral to constructive
-            self.mut_edge_info(bc_edge_id).edge_type = EdgeType::Constructive;
+            self.set_edge_type(bc_edge_id, EdgeType::Constructive);
             pending.push_back(Operation::Inference(bc_edge_id));
             return;
         }
