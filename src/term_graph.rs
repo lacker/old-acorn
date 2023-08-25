@@ -456,6 +456,41 @@ impl SimpleEdgeInfo {
         }
         terms
     }
+
+    // The simple edge doesn't quite contain all the information that the old edges did,
+    // because it doesn't specify how many arguments the template has.
+    fn desimplify(&self, num_template_args: AtomId) -> OldEdgeInfo {
+        let template = self.key.template;
+        let replacements = (0..num_template_args)
+            .map(|i| {
+                if i == self.key.edge.var {
+                    self.key.edge.replacement.clone()
+                } else {
+                    TermInstance::Variable(i)
+                }
+            })
+            .collect();
+
+        // Minus one because it doesn't count the variable we replaced away
+        let vars_used = (self.key.vars_used - 1) as usize;
+
+        // Now we normalize
+        let mut new_to_old = vec![];
+        let replacements = normalize_replacements(&replacements, &mut new_to_old);
+        assert_eq!(new_to_old.len(), vars_used);
+        let result = self.result.backward_map_vars(&new_to_old);
+
+        let key = OldEdgeKey {
+            template,
+            replacements,
+            vars_used,
+        };
+        OldEdgeInfo {
+            key,
+            edge_type: self.edge_type,
+            result,
+        }
+    }
 }
 
 impl OldEdgeKey {
@@ -1006,36 +1041,8 @@ impl TermGraph {
     fn desimplify(&self, simple_edge_info: &SimpleEdgeInfo) -> OldEdgeInfo {
         // First construct a non-normalized edge
         let template = simple_edge_info.key.template;
-        let num_replacements = self.get_term_info(template).arg_types.len();
-        let replacements = (0..num_replacements as AtomId)
-            .map(|i| {
-                if i == simple_edge_info.key.edge.var {
-                    simple_edge_info.key.edge.replacement.clone()
-                } else {
-                    TermInstance::Variable(i)
-                }
-            })
-            .collect();
-
-        // Minus one because it doesn't count the variable we replaced away
-        let vars_used = (simple_edge_info.key.vars_used - 1) as usize;
-
-        // Now we normalize
-        let mut new_to_old = vec![];
-        let replacements = normalize_replacements(&replacements, &mut new_to_old);
-        assert_eq!(new_to_old.len(), vars_used);
-        let result = simple_edge_info.result.backward_map_vars(&new_to_old);
-
-        let key = OldEdgeKey {
-            template,
-            replacements,
-            vars_used,
-        };
-        OldEdgeInfo {
-            key,
-            edge_type: simple_edge_info.edge_type,
-            result,
-        }
+        let num_replacements = self.get_term_info(template).arg_types.len() as AtomId;
+        simple_edge_info.desimplify(num_replacements)
     }
 
     // If there is an edge, returns the term it leads to.
@@ -1409,10 +1416,23 @@ impl TermGraph {
         &mut self,
         old_edge_id: EdgeId,
         old_term_id: TermId,
+        old_term_num_args: AtomId,
         new_term: &TermInstance,
         pending: &mut VecDeque<Operation>,
     ) {
         let old_edge_info = self.remove_edge(old_edge_id);
+
+        let old_edge_num_args = if old_edge_info.key.template == old_term_id {
+            old_term_num_args
+        } else {
+            self.get_term_info(old_edge_info.key.template)
+                .arg_types
+                .len() as AtomId
+        };
+        assert_eq!(
+            old_edge_info.key.replacements.len(),
+            old_edge_num_args as usize
+        );
 
         // The result and the replacements are relatively straightforward, we just recurse.
         let new_result = old_edge_info.result.replace_term_id(old_term_id, new_term);
@@ -1462,6 +1482,7 @@ impl TermGraph {
             TermInfoReference::TermInfo(t) => t,
             TermInfoReference::Replaced(_) => panic!("term {} already replaced", old_term_id),
         };
+        let old_term_num_args = old_term_info.arg_types.len() as AtomId;
 
         if old_term_info.type_template.is_some() {
             panic!("we should never be replacing a type template");
@@ -1484,7 +1505,13 @@ impl TermGraph {
 
         // Update all edges that touch this term
         for old_edge_id in &old_term_info.adjacent {
-            self.replace_edge_term(*old_edge_id, old_term_id, new_term, pending);
+            self.replace_edge_term(
+                *old_edge_id,
+                old_term_id,
+                old_term_num_args,
+                new_term,
+                pending,
+            );
         }
     }
 
