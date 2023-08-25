@@ -140,13 +140,31 @@ pub struct EdgeInfo {
 }
 pub type EdgeId = u32;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 struct SimpleEdge {
     // The variable we are replacing
     var: AtomId,
 
     // What we replace it with
     replacement: TermInstance,
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
+struct SimpleEdgeKey {
+    // The template that we are substituting into
+    template: TermId,
+
+    // The replacement we are doing
+    edge: SimpleEdge,
+
+    // The number of variables used in the replacements.
+    //
+    // NOTE: This also includes the variable that the SimpleEdge is removing.
+    // So it is generally one more than the EdgeKey vars_used would be.
+    //
+    // This can be larger than the number of variables used in the result, if the result ignores
+    // some of the variables.
+    vars_used: AtomId,
 }
 
 // An operation on the graph that is pending.
@@ -183,9 +201,17 @@ pub struct TermGraph {
 
     // Maps (template, replacement) -> edges
     edge_key_map: FxHashMap<EdgeKey, EdgeId>,
+    simple_edge_key_map: FxHashMap<SimpleEdgeKey, EdgeId>,
 
     // A flag to indicate when we find a contradiction
     found_contradiction: bool,
+}
+
+// A HybridTerm expresses a match or a partial match between a Term and the data in the TermGraph.
+// When values[i] is Some(term), it indicates a binding from x_i to that term.
+struct HybridTerm<'a> {
+    term: TermInstance,
+    values: Vec<Option<&'a Term>>,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -620,6 +646,20 @@ impl EdgeInfo {
             }
         }
     }
+
+    fn to_simple(&self) -> SimpleEdgeKey {
+        let next_var = self.key.replacements.len() as AtomId;
+        let template = MappedTerm {
+            term_id: self.key.template,
+            var_map: (0..next_var).collect(),
+        };
+        let (simple_edge, _simple_result, vars_used) = self.simplify(&template, next_var);
+        SimpleEdgeKey {
+            template: template.term_id,
+            edge: simple_edge,
+            vars_used,
+        }
+    }
 }
 
 impl TermInfoReference {
@@ -639,6 +679,7 @@ impl TermGraph {
             atoms: HashMap::default(),
             type_templates: HashMap::default(),
             edge_key_map: HashMap::default(),
+            simple_edge_key_map: HashMap::default(),
             found_contradiction: false,
         }
     }
@@ -850,7 +891,7 @@ impl TermGraph {
     }
 
     // Given a template term and an edge, follow the edge.
-    // If the edge is already there, it doesn't need to be inserted.
+    // If the edge is already there, this uses the existing edge.
     // If the edge is not already there, this will create one.
     //
     // result is provided if the result of the edge should be an existing node in the graph.
@@ -859,7 +900,7 @@ impl TermGraph {
     // then we identify the two results.
     //
     // Returns the term instance that this edge leads to after the insertion.
-    fn follow_edge(
+    fn get_or_create_edge(
         &mut self,
         template: &TermInstance,
         edge: &SimpleEdge,
@@ -898,6 +939,12 @@ impl TermGraph {
         }
     }
 
+    // If there is an edge, returns the term it leads to.
+    // Returns None if there is no such edge.
+    fn get_edge(&self, template: &TermInstance, edge: &SimpleEdge) -> Option<TermInstance> {
+        todo!();
+    }
+
     // Inserts a path that goes template --edge1--> _ --edge2--> result.
     fn insert_speculative_path(
         &mut self,
@@ -908,8 +955,8 @@ impl TermGraph {
         pending: &mut VecDeque<Operation>,
     ) {
         let intermediate_node =
-            self.follow_edge(template, edge1, EdgeType::Speculative, None, pending);
-        self.follow_edge(
+            self.get_or_create_edge(template, edge1, EdgeType::Speculative, None, pending);
+        self.get_or_create_edge(
             &intermediate_node,
             edge2,
             EdgeType::Lateral,
@@ -1007,7 +1054,7 @@ impl TermGraph {
                     self.type_template_instance(term_type, head_type, &arg_types, next_var);
                 if let Some(instance) = accumulated_instance {
                     let replace_var = temporary_vars.pop().unwrap();
-                    let replaced = self.follow_edge(
+                    let replaced = self.get_or_create_edge(
                         &instance,
                         &SimpleEdge::new(replace_var, type_template_instance),
                         EdgeType::Constructive,
@@ -1032,7 +1079,7 @@ impl TermGraph {
             // Expand the accumulated instance with an atom
             let replace_var = temporary_vars.pop().unwrap();
             let atomic_instance = self.atomic_instance(head_type, head);
-            let replaced = self.follow_edge(
+            let replaced = self.get_or_create_edge(
                 &accumulated_instance.unwrap(),
                 &SimpleEdge::new(replace_var, atomic_instance),
                 EdgeType::Constructive,
@@ -1191,6 +1238,14 @@ impl TermGraph {
             .edge_key_map
             .insert(edge_info.key.clone(), new_edge_id)
             .is_none());
+
+        // Also insert a simple key
+        let simple_edge_key = edge_info.to_simple();
+        assert!(self
+            .simple_edge_key_map
+            .insert(simple_edge_key, new_edge_id)
+            .is_none());
+
         for term in edge_info.adjacent_terms() {
             let mut_term = self.mut_term_info(term);
             mut_term.adjacent.insert(new_edge_id);
@@ -1212,6 +1267,11 @@ impl TermGraph {
             }
         }
         self.edge_key_map.remove(&old_edge_info.key);
+
+        // Also remove the simple key
+        let simple_edge_key = old_edge_info.to_simple();
+        self.simple_edge_key_map.remove(&simple_edge_key);
+
         old_edge_info
     }
 
@@ -1768,14 +1828,14 @@ impl TermGraph {
                         // We only do combining inference on constructive edges
                         return;
                     }
-                    let composite_instance = self.follow_edge(
+                    let composite_instance = self.get_or_create_edge(
                         &ab_edge.replacement,
                         &bc_edge,
                         bc_edge_type,
                         None,
                         pending,
                     );
-                    self.follow_edge(
+                    self.get_or_create_edge(
                         &instance_a,
                         &SimpleEdge::new(ab_edge.var, composite_instance),
                         bc_edge_type,
@@ -1913,6 +1973,14 @@ impl TermGraph {
             None => None,
         }
     }
+
+    fn hybridize(&self, term: &Term) -> Vec<HybridTerm> {
+        todo!();
+    }
+
+    //
+    // Tools for testing and inspecting the term graph.
+    //
 
     pub fn print_edge(&self, edge_id: EdgeId) {
         let edge_info = self.get_edge_info(edge_id);
