@@ -1346,6 +1346,7 @@ impl TermGraph {
     }
 
     // Removes an edge, updating the appropriate maps.
+    // The term may not exist any more by the time this is called.
     // The edge must exist.
     fn remove_edge(&mut self, edge_id: EdgeId) -> OldEdgeInfo {
         let old_edge_info = self.take_edge_info(edge_id);
