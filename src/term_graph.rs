@@ -940,10 +940,7 @@ impl TermGraph {
             result: answer.clone(),
         };
 
-        // Insert everything into the graph
-        let edge_id = self.insert_simple_edge_info(edge_info.to_simple());
-        pending.push_back(Operation::Inference(edge_id));
-
+        self.create_edge(edge_info.to_simple(), pending);
         answer
     }
 
@@ -1368,9 +1365,13 @@ impl TermGraph {
         }
     }
 
-    // Inserts an edge, updating the appropriate maps.
-    // The edge must not already exist.
-    fn insert_simple_edge_info(&mut self, edge_info: SimpleEdgeInfo) -> EdgeId {
+    // Creates a new edge.
+    // All adjacent terms must already exist, and the edge itself must not already exist.
+    fn create_edge(
+        &mut self,
+        edge_info: SimpleEdgeInfo,
+        pending: &mut VecDeque<Operation>,
+    ) -> EdgeId {
         let new_edge_id = self.simple_edges.len() as EdgeId;
         assert!(self
             .simple_edge_key_map
@@ -1381,6 +1382,7 @@ impl TermGraph {
             mut_term.adjacent.insert(new_edge_id);
         }
         self.simple_edges.push(Some(edge_info));
+        pending.push_back(Operation::Inference(new_edge_id));
         new_edge_id
     }
 
@@ -1426,8 +1428,7 @@ impl TermGraph {
             return;
         }
 
-        let edge_id = self.insert_simple_edge_info(old_edge_info.to_simple());
-        pending.push_back(Operation::Inference(edge_id));
+        self.create_edge(old_edge_info.to_simple(), pending);
     }
 
     // Replaces old_term_id with new_term in the given edge.
