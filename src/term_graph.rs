@@ -815,6 +815,30 @@ impl TermGraph {
         self.simple_edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
     }
 
+    // The arg types for every variable used in the given term and replacement.
+    // The simple edge should be normalized, always using either an existing variable
+    // or the next available one.
+    fn get_arg_types(&self, term_info: &TermInfo, simple_edge: &SimpleEdge) -> Vec<TypeId> {
+        match simple_edge.replacement {
+            TermInstance::Variable(_) => term_info.arg_types.clone(),
+            TermInstance::Mapped(ref replacement) => {
+                let mut arg_types = term_info.arg_types.clone();
+                let replacement_info = self.get_term_info(replacement.term_id);
+                for (i, v) in replacement.var_map.iter().enumerate() {
+                    if *v < arg_types.len() as AtomId {
+                        // This is a variable that we already know about
+                        continue;
+                    }
+                    if *v > arg_types.len() as AtomId {
+                        panic!("non-normalized variable numbering in get_arg_types")
+                    }
+                    arg_types.push(replacement_info.arg_types[i]);
+                }
+                arg_types
+            }
+        }
+    }
+
     // An EdgeKey represents a substitution.
     // key must be normalized.
     // The edge for this key must not already exist.
@@ -826,18 +850,31 @@ impl TermGraph {
     //
     // Creating an edge can cause terms in the graph to collapse, so any term you have
     // before calling create_edge may need to be updated.
-    fn create_edge(
+    fn old_create_edge(
         &mut self,
-        key: OldEdgeKey,
+        old_key: OldEdgeKey,
         edge_type: EdgeType,
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
+        let template = self.get_term_info(old_key.template);
+        let (simple_key, simple_result) = match &result {
+            Some(result) => {
+                let old_info = OldEdgeInfo {
+                    key: old_key.clone(),
+                    edge_type,
+                    result: result.clone(),
+                };
+                let simple_info = old_info.to_simple();
+                (simple_info.key, Some(simple_info.result))
+            }
+            None => (old_key.to_simple(), None),
+        };
+
         // Figure out the type signature of our new term
-        let template = self.get_term_info(key.template);
         let mut max_edge_depth = template.depth;
         let mut result_arg_types = vec![];
-        for (i, replacement) in key.replacements.iter().enumerate() {
+        for (i, replacement) in old_key.replacements.iter().enumerate() {
             match replacement {
                 TermInstance::Variable(j) => {
                     // x_i in the template is being renamed to x_j in the result.
@@ -898,13 +935,13 @@ impl TermGraph {
             TermInstance::Mapped(mapped_term)
         };
         let edge_info = OldEdgeInfo {
-            key,
+            key: old_key,
             edge_type,
             result: answer.clone(),
         };
 
         // Insert everything into the graph
-        let edge_id = self.insert_edge_info(edge_info);
+        let edge_id = self.insert_simple_edge_info(edge_info.to_simple());
         pending.push_back(Operation::Inference(edge_id));
 
         answer
@@ -980,7 +1017,7 @@ impl TermGraph {
         } else {
             None
         };
-        let new_term = self.create_edge(old_key, edge_type, remapped_result, pending);
+        let new_term = self.old_create_edge(old_key, edge_type, remapped_result, pending);
         new_term.forward_map_vars(&new_to_old)
     }
 
@@ -1333,21 +1370,17 @@ impl TermGraph {
 
     // Inserts an edge, updating the appropriate maps.
     // The edge must not already exist.
-    fn insert_edge_info(&mut self, edge_info: OldEdgeInfo) -> EdgeId {
+    fn insert_simple_edge_info(&mut self, edge_info: SimpleEdgeInfo) -> EdgeId {
         let new_edge_id = self.simple_edges.len() as EdgeId;
-
-        // Also insert a simple key
-        let simple_edge_key = edge_info.key.to_simple();
         assert!(self
             .simple_edge_key_map
-            .insert(simple_edge_key.clone(), new_edge_id)
+            .insert(edge_info.key.clone(), new_edge_id)
             .is_none());
-
         for term in edge_info.adjacent_terms() {
             let mut_term = self.mut_term_info(term);
             mut_term.adjacent.insert(new_edge_id);
         }
-        self.simple_edges.push(Some(edge_info.to_simple()));
+        self.simple_edges.push(Some(edge_info));
         new_edge_id
     }
 
@@ -1393,7 +1426,7 @@ impl TermGraph {
             return;
         }
 
-        let edge_id = self.insert_edge_info(old_edge_info);
+        let edge_id = self.insert_simple_edge_info(old_edge_info.to_simple());
         pending.push_back(Operation::Inference(edge_id));
     }
 
