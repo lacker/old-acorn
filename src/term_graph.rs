@@ -141,7 +141,7 @@ pub struct OldEdgeInfo {
 pub type EdgeId = u32;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct SimpleEdge {
+pub struct SimpleEdge {
     // The variable we are replacing
     var: AtomId,
 
@@ -278,6 +278,40 @@ impl MappedTerm {
                 TermInstance::Variable(new_index)
             }
         }
+    }
+
+    // Normalizes a MappedTerm and an edge that comes from that term.
+    // Returns (normalized edge key, denormalizer).
+    // The denormalizer maps (normalized ids) -> (original ids).
+    // If you think about it, that makes sense, since the normalized ids are consecutive
+    // starting at zero.
+    fn normalize_edge_key(&self, edge: &SimpleEdge) -> (SimpleEdgeKey, Vec<AtomId>) {
+        println!("XXX self: {}, edge: {:?}", self, edge);
+
+        // First assign variable ids starting at zero to the template variables.
+        let mut denormalizer = self.var_map.clone();
+
+        if let TermInstance::Mapped(replacement) = &edge.replacement {
+            // Now assign variable ids starting at the end of the template variables
+            // to the replacement variables.
+            for &var in &replacement.var_map {
+                match denormalizer.iter().position(|&v| v == var) {
+                    Some(_) => {}
+                    None => {
+                        denormalizer.push(var);
+                    }
+                }
+            }
+        }
+
+        println!("XXX denormalizer: {:?}", denormalizer);
+
+        let key = SimpleEdgeKey {
+            template: self.term_id,
+            edge: edge.backward_map_vars(&denormalizer),
+            vars_used: denormalizer.len() as AtomId,
+        };
+        (key, denormalizer)
     }
 }
 
@@ -438,6 +472,13 @@ impl SimpleEdge {
 
     fn new(var: AtomId, replacement: TermInstance) -> SimpleEdge {
         SimpleEdge { var, replacement }
+    }
+
+    fn backward_map_vars(&self, var_map: &Vec<AtomId>) -> SimpleEdge {
+        SimpleEdge {
+            var: var_map.iter().position(|&v| v == self.var).unwrap() as AtomId,
+            replacement: self.replacement.backward_map_vars(var_map),
+        }
     }
 }
 
@@ -845,20 +886,8 @@ impl TermGraph {
         &mut self,
         old_key: OldEdgeKey,
         edge_type: EdgeType,
-        result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
-        if let Some(result) = result {
-            let old_info = OldEdgeInfo {
-                key: old_key.clone(),
-                edge_type,
-                result: result.clone(),
-            };
-            let simple_info = old_info.to_simple();
-            self.create_edge(simple_info, pending);
-            return result;
-        }
-
         let template = self.get_term_info(old_key.template);
 
         // Figure out the type signature of our new term
@@ -930,7 +959,7 @@ impl TermGraph {
     }
 
     // Returns an EdgeKey along with a new_to_old map that shows how we renumbered the variables.
-    fn normalize_edge_key(
+    fn old_normalize_edge_key(
         &self,
         template: TermId,
         replacements: Vec<TermInstance>,
@@ -964,7 +993,7 @@ impl TermGraph {
     ) -> TermInstance {
         // The overall strategy is to normalize the replacements, do the substitution with
         // the graph, and then map from new ids back to old ones.
-        let (old_key, new_to_old) = self.normalize_edge_key(template, replacements);
+        let (old_key, new_to_old) = self.old_normalize_edge_key(template, replacements);
         if old_key.is_noop() {
             // No-op keys may lead to an identification but not to creating a new edge
             let answer = TermInstance::mapped(template, new_to_old);
@@ -1004,8 +1033,51 @@ impl TermGraph {
             self.create_edge(simple_info, pending);
             result
         } else {
-            let new_term = self.create_term(old_key, edge_type, None, pending);
+            let new_term = self.create_term(old_key, edge_type, pending);
             new_term.forward_map_vars(&new_to_old)
+        }
+    }
+
+    // Returns a TermInstance if there is an edge in the graph that matches this.
+    // Handles degenerate cases.
+    pub fn follow_edge(
+        &mut self,
+        template: &TermInstance,
+        edge: &SimpleEdge,
+    ) -> Option<TermInstance> {
+        match template {
+            TermInstance::Mapped(mapped) => {
+                if let TermInstance::Variable(i) = &edge.replacement {
+                    // Check for degenerate cases.
+                    if i == &edge.var {
+                        // We're replacing a variable with itself.
+                        return Some(template.clone());
+                    }
+                    if !mapped.var_map.iter().any(|&v| v == *i) {
+                        // We're renaming a variable but not duplicating anything.
+                        let new_var_map = mapped
+                            .var_map
+                            .iter()
+                            .map(|&v| if v == edge.var { *i } else { v })
+                            .collect();
+                        return Some(TermInstance::mapped(mapped.term_id, new_var_map));
+                    }
+                }
+
+                let (key, denormalizer) = mapped.normalize_edge_key(edge);
+                let edge_id = self.simple_edge_key_map.get(&key).cloned()?;
+                let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+                Some(edge_info.result.forward_map_vars(&denormalizer))
+            }
+            TermInstance::Variable(i) => {
+                // This edge is degenerate because it just starts from a variable.
+                // Still, we can give the degenerate answer.
+                if i == &edge.var {
+                    Some(edge.replacement.clone())
+                } else {
+                    Some(template.clone())
+                }
+            }
         }
     }
 
@@ -1019,7 +1091,7 @@ impl TermGraph {
     // then we identify the two results.
     //
     // Returns the term instance that this edge leads to after the insertion.
-    fn get_or_create_edge(
+    fn follow_or_create_edge(
         &mut self,
         template: &TermInstance,
         edge: &SimpleEdge,
@@ -1027,6 +1099,16 @@ impl TermGraph {
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
+        // Handle the case where the edge is already in the graph
+        if false {
+            if let Some(answer) = self.follow_edge(template, edge) {
+                if let Some(result) = result {
+                    pending.push_front(Operation::Identification(answer.clone(), result));
+                }
+                return answer;
+            }
+        }
+
         match template {
             TermInstance::Mapped(template) => {
                 let replacements = template
@@ -1065,12 +1147,6 @@ impl TermGraph {
         simple_edge_info.desimplify(num_replacements)
     }
 
-    // If there is an edge, returns the term it leads to.
-    // Returns None if there is no such edge.
-    fn get_edge(&self, template: &TermInstance, edge: &SimpleEdge) -> Option<TermInstance> {
-        todo!();
-    }
-
     // Inserts a path that goes template --edge1--> _ --edge2--> result.
     fn insert_speculative_path(
         &mut self,
@@ -1081,8 +1157,8 @@ impl TermGraph {
         pending: &mut VecDeque<Operation>,
     ) {
         let intermediate_node =
-            self.get_or_create_edge(template, edge1, EdgeType::Speculative, None, pending);
-        self.get_or_create_edge(
+            self.follow_or_create_edge(template, edge1, EdgeType::Speculative, None, pending);
+        self.follow_or_create_edge(
             &intermediate_node,
             edge2,
             EdgeType::Lateral,
@@ -1180,7 +1256,7 @@ impl TermGraph {
                     self.type_template_instance(term_type, head_type, &arg_types, next_var);
                 if let Some(instance) = accumulated_instance {
                     let replace_var = temporary_vars.pop().unwrap();
-                    let replaced = self.get_or_create_edge(
+                    let replaced = self.follow_or_create_edge(
                         &instance,
                         &SimpleEdge::new(replace_var, type_template_instance),
                         EdgeType::Constructive,
@@ -1205,7 +1281,7 @@ impl TermGraph {
             // Expand the accumulated instance with an atom
             let replace_var = temporary_vars.pop().unwrap();
             let atomic_instance = self.atomic_instance(head_type, head);
-            let replaced = self.get_or_create_edge(
+            let replaced = self.follow_or_create_edge(
                 &accumulated_instance.unwrap(),
                 &SimpleEdge::new(replace_var, atomic_instance),
                 EdgeType::Constructive,
@@ -1648,7 +1724,7 @@ impl TermGraph {
             })
             .collect();
 
-        let (key, new_to_old) = self.normalize_edge_key(mapped_term.term_id, new_replacements);
+        let (key, new_to_old) = self.old_normalize_edge_key(mapped_term.term_id, new_replacements);
 
         let normalized_result = if result.has_var_not_in(&new_to_old) {
             // The result must have some variables that aren't in new_to_old at all.
@@ -1760,8 +1836,10 @@ impl TermGraph {
                             continue;
                         }
 
-                        let (key, new_to_old) = self
-                            .normalize_edge_key(keep.term_id, edge_info.key.replacements.clone());
+                        let (key, new_to_old) = self.old_normalize_edge_key(
+                            keep.term_id,
+                            edge_info.key.replacements.clone(),
+                        );
                         if key == edge_info.key {
                             // The edge is already normalized
                             continue;
@@ -1971,14 +2049,14 @@ impl TermGraph {
                         // We only do combining inference on constructive edges
                         return;
                     }
-                    let composite_instance = self.get_or_create_edge(
+                    let composite_instance = self.follow_or_create_edge(
                         &ab_edge.replacement,
                         &bc_edge,
                         bc_edge_type,
                         None,
                         pending,
                     );
-                    self.get_or_create_edge(
+                    self.follow_or_create_edge(
                         &instance_a,
                         &SimpleEdge::new(ab_edge.var, composite_instance),
                         bc_edge_type,
