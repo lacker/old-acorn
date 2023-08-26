@@ -839,37 +839,27 @@ impl TermGraph {
         }
     }
 
-    // An EdgeKey represents a substitution.
-    // key must be normalized.
-    // The edge for this key must not already exist.
-    // If we know what term this edge should go to, it's provided in result.
-    // Otherwise, we create a new node for the term.
-    //
-    // Returns the term that this edge leads to.
-    // The type of the output is the same as the type of the key's template.
-    //
-    // Creating an edge can cause terms in the graph to collapse, so any term you have
-    // before calling create_edge may need to be updated.
-    fn old_create_edge(
+    // Creates a new term, along with an edge that leads to it.
+    // There must be no analogous edge already in the graph.
+    fn create_term(
         &mut self,
         old_key: OldEdgeKey,
         edge_type: EdgeType,
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
+        if let Some(result) = result {
+            let old_info = OldEdgeInfo {
+                key: old_key.clone(),
+                edge_type,
+                result: result.clone(),
+            };
+            let simple_info = old_info.to_simple();
+            self.create_edge(simple_info, pending);
+            return result;
+        }
+
         let template = self.get_term_info(old_key.template);
-        let (simple_key, simple_result) = match &result {
-            Some(result) => {
-                let old_info = OldEdgeInfo {
-                    key: old_key.clone(),
-                    edge_type,
-                    result: result.clone(),
-                };
-                let simple_info = old_info.to_simple();
-                (simple_info.key, Some(simple_info.result))
-            }
-            None => (old_key.to_simple(), None),
-        };
 
         // Figure out the type signature of our new term
         let mut max_edge_depth = template.depth;
@@ -921,19 +911,14 @@ impl TermGraph {
             }
         }
 
-        // Create a new term if we need to, for the answer
-        let answer = if let Some(result) = result {
-            result
-        } else {
-            let term_id = self.terms.len() as TermId;
-            let term_type = template.term_type;
-            let num_args = result_arg_types.len() as AtomId;
-            let var_map: Vec<AtomId> = (0..num_args).collect();
-            let mapped_term = MappedTerm { term_id, var_map };
-            let term_info = TermInfo::new(term_type, result_arg_types, max_edge_depth + 1);
-            self.terms.push(TermInfoReference::TermInfo(term_info));
-            TermInstance::Mapped(mapped_term)
-        };
+        let term_id = self.terms.len() as TermId;
+        let term_type = template.term_type;
+        let num_args = result_arg_types.len() as AtomId;
+        let var_map: Vec<AtomId> = (0..num_args).collect();
+        let mapped_term = MappedTerm { term_id, var_map };
+        let term_info = TermInfo::new(term_type, result_arg_types, max_edge_depth + 1);
+        self.terms.push(TermInfoReference::TermInfo(term_info));
+        let answer = TermInstance::Mapped(mapped_term);
         let edge_info = OldEdgeInfo {
             key: old_key,
             edge_type,
@@ -1009,13 +994,19 @@ impl TermGraph {
         }
 
         // No such edge exists. Let's create one.
-        let remapped_result = if let Some(result) = result {
-            Some(result.backward_map_vars(&new_to_old))
+        if let Some(result) = result {
+            let old_info = OldEdgeInfo {
+                key: old_key.clone(),
+                edge_type,
+                result: result.backward_map_vars(&new_to_old),
+            };
+            let simple_info = old_info.to_simple();
+            self.create_edge(simple_info, pending);
+            result
         } else {
-            None
-        };
-        let new_term = self.old_create_edge(old_key, edge_type, remapped_result, pending);
-        new_term.forward_map_vars(&new_to_old)
+            let new_term = self.create_term(old_key, edge_type, None, pending);
+            new_term.forward_map_vars(&new_to_old)
+        }
     }
 
     // Given a template term and an edge, follow the edge.
