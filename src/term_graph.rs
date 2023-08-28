@@ -305,54 +305,6 @@ impl MappedTerm {
             }
         }
     }
-
-    // Normalizes a MappedTerm and an edge that comes from that term.
-    // Returns (normalized edge key, denormalizer).
-    // Does not handle degenerate cases, only the cases where there really is an edge.
-    // The denormalizer maps (normalized ids) -> (original ids).
-    // If you think about it, that makes sense, since the normalized ids are consecutive
-    // starting at zero.
-    fn normalize_edge_key(&self, edge: &SimpleEdge) -> (SimpleEdgeKey, Vec<AtomId>) {
-        // First assign variable ids starting at zero to the template variables.
-        let mut denormalizer = self.var_map.clone();
-
-        let edge = match &edge.replacement {
-            TermInstance::Mapped(replacement) => {
-                // Now assign variable ids starting at the end of the template variables
-                // to the replacement variables.
-                for &var in &replacement.var_map {
-                    match denormalizer.iter().position(|&v| v == var) {
-                        Some(_) => {}
-                        None => {
-                            denormalizer.push(var);
-                        }
-                    }
-                }
-                edge.backward_map_vars(&denormalizer)
-            }
-            TermInstance::Variable(i) => {
-                if *i > edge.var {
-                    // This is as it should be, using the lower variable in the output
-                    edge.clone()
-                } else {
-                    assert_ne!(*i, edge.var);
-
-                    // The initial edge is combining both i and edge.var into edge.var.
-                    // However, i is the smallest, so the normalized way to do it is to use
-                    // i instead of edge.var.
-                    denormalizer[*i as usize] = edge.var;
-                    SimpleEdge::new(*i, TermInstance::Variable(edge.var))
-                }
-            }
-        };
-
-        let key = SimpleEdgeKey {
-            template: self.term_id,
-            edge,
-            vars_used: denormalizer.len() as AtomId,
-        };
-        (key, denormalizer)
-    }
 }
 
 impl fmt::Display for TermInstance {
@@ -572,6 +524,10 @@ impl SimpleEdgeInfo {
 }
 
 impl NormalizedEdge {
+    // Normalizes a TermInstance and an edge that comes from that term.
+    // The denormalizer maps (normalized ids) -> (original ids).
+    // If you think about it, that makes sense, since the normalized ids are consecutive
+    // starting at zero.
     fn new(template: &TermInstance, edge: &SimpleEdge) -> NormalizedEdge {
         match template {
             TermInstance::Mapped(mapped) => {
@@ -594,7 +550,44 @@ impl NormalizedEdge {
                     }
                 }
 
-                let (key, denormalizer) = mapped.normalize_edge_key(edge);
+                // First assign variable ids starting at zero to the template variables.
+                let mut denormalizer = mapped.var_map.clone();
+
+                let edge = match &edge.replacement {
+                    TermInstance::Mapped(replacement) => {
+                        // Now assign variable ids starting at the end of the template variables
+                        // to the replacement variables.
+                        for &var in &replacement.var_map {
+                            match denormalizer.iter().position(|&v| v == var) {
+                                Some(_) => {}
+                                None => {
+                                    denormalizer.push(var);
+                                }
+                            }
+                        }
+                        edge.backward_map_vars(&denormalizer)
+                    }
+                    TermInstance::Variable(i) => {
+                        if *i < edge.var {
+                            // This is as it should be, using the lower variable in the output
+                            edge.clone()
+                        } else {
+                            assert_ne!(*i, edge.var);
+
+                            // The initial edge is combining both i and edge.var into edge.var.
+                            // However, i is the smallest, so the normalized way to do it is to use
+                            // i instead of edge.var.
+                            denormalizer[*i as usize] = edge.var;
+                            SimpleEdge::new(*i, TermInstance::Variable(edge.var))
+                        }
+                    }
+                };
+                let key = SimpleEdgeKey {
+                    template: mapped.term_id,
+                    edge,
+                    vars_used: denormalizer.len() as AtomId,
+                };
+
                 NormalizedEdge::Key(key, denormalizer)
             }
             TermInstance::Variable(i) => {
@@ -1159,6 +1152,23 @@ impl TermGraph {
             }
             return existing;
         }
+
+        // if let Some(result) = result {
+        //     println!("\nXXX template: {:?}", template);
+        //     println!("XXX edge: {:?}", edge);
+        //     println!("XXX key: {:?}", key);
+        //     println!("XXX denormalizer: {:?}", denormalizer);
+        //     println!("XXX result: {:?}", result);
+
+        //     // We need to create a new edge to an existing term.
+        //     let edge_info = SimpleEdgeInfo {
+        //         key,
+        //         result: result.backward_map_vars(&denormalizer),
+        //         edge_type,
+        //     };
+        //     self.create_edge(edge_info, pending);
+        //     return result;
+        // }
 
         match template {
             TermInstance::Mapped(template) => {
