@@ -1849,6 +1849,8 @@ impl TermGraph {
         let bc_edge_info = self.get_old_edge_info(bc_edge_id);
         let ab_edge_type = ab_edge_info.edge_type;
         let bc_edge_type = bc_edge_info.edge_type;
+        let simple_ab_edge_info = self.simple_edges[ab_edge_id as usize].as_ref().unwrap();
+        let simple_bc_edge_info = self.simple_edges[bc_edge_id as usize].as_ref().unwrap();
 
         if ab_edge_type != EdgeType::Constructive {
             return;
@@ -1865,19 +1867,14 @@ impl TermGraph {
         let num_a_vars = mapped_a.var_map.len() as AtomId;
         let (ab_edge, instance_b, num_ab_vars) = ab_edge_info.simplify(mapped_a, num_a_vars);
         let mapped_b = instance_b.as_mapped();
-        let (bc_edge, instance_c, _) = bc_edge_info.simplify(mapped_b, num_ab_vars);
 
-        let simple_ab_edge_info = self.simple_edges[ab_edge_id as usize].as_ref().unwrap();
         let alt_ab_edge = &simple_ab_edge_info.key.edge;
         assert_eq!(alt_ab_edge, &ab_edge);
         let alt_instance_b = &simple_ab_edge_info.result;
         assert_eq!(alt_instance_b, &instance_b);
-        let simple_bc_edge_info = self.simple_edges[bc_edge_id as usize].as_ref().unwrap();
         let existing_bc_edge = &simple_bc_edge_info.key.edge;
-        let (alt_bc_edge, alt_instance_c) =
+        let (bc_edge, instance_c) =
             existing_bc_edge.relativize(&mapped_b, num_ab_vars, &simple_bc_edge_info.result);
-        assert_eq!(alt_bc_edge, bc_edge);
-        assert_eq!(alt_instance_c, instance_c);
 
         match (&ab_edge.replacement, &bc_edge.replacement) {
             (TermInstance::Mapped(ab_rep), TermInstance::Mapped(bc_rep)) => {
