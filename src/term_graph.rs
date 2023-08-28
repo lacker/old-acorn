@@ -178,6 +178,16 @@ struct SimpleEdgeInfo {
     edge_type: EdgeType,
 }
 
+enum NormalizedEdge {
+    // The edge is degenerate.
+    // Without using the graph, we know that the result of the edge is this TermInstance.
+    Degenerate(TermInstance),
+
+    // The edge is not degenerate.
+    // The key for edge lookup, and the denormalizer which maps from normalized to original ids.
+    Key(SimpleEdgeKey, Vec<AtomId>),
+}
+
 // An operation on the graph that is pending.
 // We keep a pending operation queue rather than doing operations immediately so that we
 // can control when we do expensive operations.
@@ -557,6 +567,45 @@ impl SimpleEdgeInfo {
             key,
             edge_type: self.edge_type,
             result,
+        }
+    }
+}
+
+impl NormalizedEdge {
+    fn new(template: &TermInstance, edge: &SimpleEdge) -> NormalizedEdge {
+        match template {
+            TermInstance::Mapped(mapped) => {
+                if !mapped.has_var(edge.var) {
+                    // This edge isn't changing anything.
+                    return NormalizedEdge::Degenerate(template.clone());
+                }
+
+                if let TermInstance::Variable(i) = &edge.replacement {
+                    // Check for degenerate cases.
+                    if i == &edge.var {
+                        // We're replacing a variable with itself.
+                        return NormalizedEdge::Degenerate(template.clone());
+                    }
+                    if !mapped.has_var(*i) {
+                        // We're renaming a variable but not duplicating anything.
+                        return NormalizedEdge::Degenerate(TermInstance::Mapped(
+                            mapped.rename_var(edge.var, *i),
+                        ));
+                    }
+                }
+
+                let (key, denormalizer) = mapped.normalize_edge_key(edge);
+                NormalizedEdge::Key(key, denormalizer)
+            }
+            TermInstance::Variable(i) => {
+                // This edge is degenerate because it just starts from a variable.
+                // Still, we can give the degenerate answer.
+                if i == &edge.var {
+                    NormalizedEdge::Degenerate(edge.replacement.clone())
+                } else {
+                    NormalizedEdge::Degenerate(template.clone())
+                }
+            }
         }
     }
 }
@@ -1078,29 +1127,9 @@ impl TermGraph {
         template: &TermInstance,
         edge: &SimpleEdge,
     ) -> (Option<EdgeId>, Option<TermInstance>) {
-        match template {
-            TermInstance::Mapped(mapped) => {
-                if !mapped.has_var(edge.var) {
-                    // This edge isn't changing anything.
-                    return (None, Some(template.clone()));
-                }
-
-                if let TermInstance::Variable(i) = &edge.replacement {
-                    // Check for degenerate cases.
-                    if i == &edge.var {
-                        // We're replacing a variable with itself.
-                        return (None, Some(template.clone()));
-                    }
-                    if !mapped.has_var(*i) {
-                        // We're renaming a variable but not duplicating anything.
-                        return (
-                            None,
-                            Some(TermInstance::Mapped(mapped.rename_var(edge.var, *i))),
-                        );
-                    }
-                }
-
-                let (key, denormalizer) = mapped.normalize_edge_key(edge);
+        match NormalizedEdge::new(template, edge) {
+            NormalizedEdge::Degenerate(term) => (None, Some(term)),
+            NormalizedEdge::Key(key, denormalizer) => {
                 if let Some(edge_id) = self.simple_edge_key_map.get(&key).cloned() {
                     let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
                     (
@@ -1109,15 +1138,6 @@ impl TermGraph {
                     )
                 } else {
                     (None, None)
-                }
-            }
-            TermInstance::Variable(i) => {
-                // This edge is degenerate because it just starts from a variable.
-                // Still, we can give the degenerate answer.
-                if i == &edge.var {
-                    (None, Some(edge.replacement.clone()))
-                } else {
-                    (None, Some(template.clone()))
                 }
             }
         }
@@ -1175,17 +1195,7 @@ impl TermGraph {
                 self.replace_in_term_id(template.term_id, replacements, edge_type, result, pending)
             }
             TermInstance::Variable(i) => {
-                // This edge is degenerate because it just starts from a variable.
-                // Still, we might be supposed to identify two terms as a result.
-                let answer = if i == &edge.var {
-                    edge.replacement.clone()
-                } else {
-                    template.clone()
-                };
-                if let Some(result) = result {
-                    pending.push_front(Operation::Identification(answer.clone(), result));
-                }
-                answer
+                panic!("this should already be handled");
             }
         }
     }
