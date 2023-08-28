@@ -263,6 +263,22 @@ impl fmt::Display for MappedTerm {
 }
 
 impl MappedTerm {
+    fn has_var(&self, i: AtomId) -> bool {
+        self.var_map.iter().any(|&j| j == i)
+    }
+
+    fn rename_var(&self, from: AtomId, to: AtomId) -> MappedTerm {
+        let new_var_map = self
+            .var_map
+            .iter()
+            .map(|&v| if v == from { to } else { v })
+            .collect();
+        MappedTerm {
+            term_id: self.term_id,
+            var_map: new_var_map,
+        }
+    }
+
     // Replaces any use of old_term_id with a new term instance.
     fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> TermInstance {
         if self.term_id != old_term_id {
@@ -282,12 +298,11 @@ impl MappedTerm {
 
     // Normalizes a MappedTerm and an edge that comes from that term.
     // Returns (normalized edge key, denormalizer).
+    // Does not handle degenerate cases, only the cases where there really is an edge.
     // The denormalizer maps (normalized ids) -> (original ids).
     // If you think about it, that makes sense, since the normalized ids are consecutive
     // starting at zero.
     fn normalize_edge_key(&self, edge: &SimpleEdge) -> (SimpleEdgeKey, Vec<AtomId>) {
-        println!("XXX self: {}, edge: {:?}", self, edge);
-
         // First assign variable ids starting at zero to the template variables.
         let mut denormalizer = self.var_map.clone();
 
@@ -320,8 +335,6 @@ impl MappedTerm {
                 }
             }
         };
-
-        println!("XXX denormalizer: {:?}", denormalizer);
 
         let key = SimpleEdgeKey {
             template: self.term_id,
@@ -1055,44 +1068,56 @@ impl TermGraph {
         }
     }
 
-    // Returns a TermInstance if there is an edge in the graph that matches this.
-    // Handles degenerate cases.
+    // Tries to follow an edge from a template term.
+    // If we have an edge, return both the edge and the resulting term.
+    // If we don't have an edge, return None, None.
+    // If this edge is degenerate in some way, so that there is a term but no edge, we just
+    // return the term.
     pub fn follow_edge(
         &mut self,
         template: &TermInstance,
         edge: &SimpleEdge,
-    ) -> Option<TermInstance> {
+    ) -> (Option<EdgeId>, Option<TermInstance>) {
         match template {
             TermInstance::Mapped(mapped) => {
+                if !mapped.has_var(edge.var) {
+                    // This edge isn't changing anything.
+                    return (None, Some(template.clone()));
+                }
+
                 if let TermInstance::Variable(i) = &edge.replacement {
                     // Check for degenerate cases.
                     if i == &edge.var {
                         // We're replacing a variable with itself.
-                        return Some(template.clone());
+                        return (None, Some(template.clone()));
                     }
-                    if !mapped.var_map.iter().any(|&v| v == *i) {
+                    if !mapped.has_var(*i) {
                         // We're renaming a variable but not duplicating anything.
-                        let new_var_map = mapped
-                            .var_map
-                            .iter()
-                            .map(|&v| if v == edge.var { *i } else { v })
-                            .collect();
-                        return Some(TermInstance::mapped(mapped.term_id, new_var_map));
+                        return (
+                            None,
+                            Some(TermInstance::Mapped(mapped.rename_var(edge.var, *i))),
+                        );
                     }
                 }
 
                 let (key, denormalizer) = mapped.normalize_edge_key(edge);
-                let edge_id = self.simple_edge_key_map.get(&key).cloned()?;
-                let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
-                Some(edge_info.result.forward_map_vars(&denormalizer))
+                if let Some(edge_id) = self.simple_edge_key_map.get(&key).cloned() {
+                    let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+                    (
+                        Some(edge_id),
+                        Some(edge_info.result.forward_map_vars(&denormalizer)),
+                    )
+                } else {
+                    (None, None)
+                }
             }
             TermInstance::Variable(i) => {
                 // This edge is degenerate because it just starts from a variable.
                 // Still, we can give the degenerate answer.
                 if i == &edge.var {
-                    Some(edge.replacement.clone())
+                    (None, Some(edge.replacement.clone()))
                 } else {
-                    Some(template.clone())
+                    (None, Some(template.clone()))
                 }
             }
         }
@@ -1117,13 +1142,21 @@ impl TermGraph {
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
         // Handle the case where the edge is already in the graph
-        if false {
-            if let Some(answer) = self.follow_edge(template, edge) {
-                if let Some(result) = result {
-                    pending.push_front(Operation::Identification(answer.clone(), result));
-                }
-                return answer;
+        let (edge_id, term) = self.follow_edge(template, edge);
+        if let Some(answer) = term {
+            if let Some(result) = result {
+                pending.push_front(Operation::Identification(answer.clone(), result));
             }
+            if let Some(edge_id) = edge_id {
+                // We already have an edge, but we might need to upgrade it to constructive
+                let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+                if edge_info.edge_type != EdgeType::Constructive && edge_info.edge_type != edge_type
+                {
+                    self.set_edge_type(edge_id, EdgeType::Constructive);
+                    pending.push_back(Operation::Inference(edge_id));
+                }
+            }
+            return answer;
         }
 
         match template {
