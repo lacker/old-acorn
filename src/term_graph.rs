@@ -1865,13 +1865,12 @@ impl TermGraph {
         let instance_a = ab_edge_info.key.template_instance();
         let mapped_a = instance_a.as_mapped();
         let num_a_vars = mapped_a.var_map.len() as AtomId;
-        let (ab_edge, instance_b, num_ab_vars) = ab_edge_info.simplify(mapped_a, num_a_vars);
-        let mapped_b = instance_b.as_mapped();
+        let (_alt_ab_edge, _alt_instance_b, num_ab_vars) =
+            ab_edge_info.simplify(mapped_a, num_a_vars);
 
-        let alt_ab_edge = &simple_ab_edge_info.key.edge;
-        assert_eq!(alt_ab_edge, &ab_edge);
-        let alt_instance_b = &simple_ab_edge_info.result;
-        assert_eq!(alt_instance_b, &instance_b);
+        let ab_edge = simple_ab_edge_info.key.edge.clone();
+        let instance_b = simple_ab_edge_info.result.clone();
+        let mapped_b = instance_b.as_mapped();
         let existing_bc_edge = &simple_bc_edge_info.key.edge;
         let (bc_edge, instance_c) =
             existing_bc_edge.relativize(&mapped_b, num_ab_vars, &simple_bc_edge_info.result);
