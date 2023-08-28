@@ -949,7 +949,7 @@ impl TermGraph {
 
     fn term_instance(&self, term_id: TermId) -> TermInstance {
         let info = self.get_term_info(term_id);
-        TermInstance::mapped(term_id, vec![])
+        TermInstance::mapped(term_id, (0..info.arg_types.len() as AtomId).collect())
     }
 
     fn has_edge_info(&self, edge: EdgeId) -> bool {
@@ -1844,13 +1844,10 @@ impl TermGraph {
         bc_edge_id: EdgeId,
         pending: &mut VecDeque<Operation>,
     ) {
-        // Create term instances that use the same numbering scheme for all of A, B, and C.
-        let ab_edge_info = self.get_old_edge_info(ab_edge_id);
-        let bc_edge_info = self.get_old_edge_info(bc_edge_id);
-        let ab_edge_type = ab_edge_info.edge_type;
-        let bc_edge_type = bc_edge_info.edge_type;
         let simple_ab_edge_info = self.simple_edges[ab_edge_id as usize].as_ref().unwrap();
         let simple_bc_edge_info = self.simple_edges[bc_edge_id as usize].as_ref().unwrap();
+        let ab_edge_type = simple_ab_edge_info.edge_type;
+        let bc_edge_type = simple_bc_edge_info.edge_type;
 
         if ab_edge_type != EdgeType::Constructive {
             return;
@@ -1862,12 +1859,11 @@ impl TermGraph {
             return;
         }
 
-        let instance_a = ab_edge_info.key.template_instance();
+        // Create term instances that use the same numbering scheme for all of A, B, and C.
+        let instance_a = self.term_instance(simple_ab_edge_info.key.template);
         let mapped_a = instance_a.as_mapped();
         let num_a_vars = mapped_a.var_map.len() as AtomId;
-        let (_alt_ab_edge, _alt_instance_b, num_ab_vars) =
-            ab_edge_info.simplify(mapped_a, num_a_vars);
-
+        let num_ab_vars = simple_ab_edge_info.key.vars_used;
         let ab_edge = simple_ab_edge_info.key.edge.clone();
         let instance_b = simple_ab_edge_info.result.clone();
         let mapped_b = instance_b.as_mapped();
@@ -1984,7 +1980,7 @@ impl TermGraph {
             // This edge has been collapsed
             return;
         }
-        let edge_info = self.get_old_edge_info(edge_id);
+        let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
         let result_term_id = edge_info.result.term_id();
 
         // Find A -> B -> C patterns where this edge is B -> C
