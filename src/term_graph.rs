@@ -475,6 +475,55 @@ impl SimpleEdge {
             TermInstance::Variable(_) => self.clone(),
         }
     }
+
+    // This edge should be a normalized edge, relative to the underlying term id.
+    // Renumbers this edge in terms of the numbering used in the provided template instance.
+    // Any new variables used are allocated starting at next_var.
+    //
+    // Providing the result instance is optional. If we get it, we create a new result term
+    // instance that is renumbered in the same way that the simple edge is renumbered.
+    //
+    // Returns the simple edge, the least unused variable, and the renumbered result.
+    fn relativize(
+        &self,
+        template_instance: &MappedTerm,
+        next_var: AtomId,
+        result: &TermInstance,
+    ) -> (SimpleEdge, TermInstance) {
+        let mut var_map = template_instance.var_map.clone();
+        let mut next_var = next_var;
+        let relative_var = var_map[self.var as usize];
+        let relative_replacement = match &self.replacement {
+            TermInstance::Mapped(mapped) => {
+                // rep_var_map is a translation of mapped.var_map into the template instance's space.
+                let mut rep_var_map = vec![];
+                for &var in &mapped.var_map {
+                    // var is a variable in the normalized space.
+                    if var < var_map.len() as AtomId {
+                        // This variable is already in the template instance's space.
+                        rep_var_map.push(var_map[var as usize]);
+                    } else {
+                        // The edge is supposed to be normalized
+                        assert_eq!(var, var_map.len() as AtomId);
+
+                        // This variable doesn't exist in the template instance's space, yet.
+                        // We need to add a var -> next_var mapping.
+                        var_map.push(next_var);
+                        rep_var_map.push(next_var);
+                        next_var += 1;
+                    }
+                }
+                TermInstance::mapped(mapped.term_id, rep_var_map)
+            }
+            TermInstance::Variable(i) => {
+                let relative_i = var_map[*i as usize];
+                TermInstance::Variable(relative_i)
+            }
+        };
+        let edge = SimpleEdge::new(relative_var, relative_replacement);
+        let answer = result.forward_map_vars(&var_map);
+        (edge, answer)
+    }
 }
 
 impl fmt::Display for SimpleEdge {
@@ -896,6 +945,11 @@ impl TermGraph {
             TermInfoReference::TermInfo(info) => info,
             TermInfoReference::Replaced(_) => panic!("Term {} has been replaced", term),
         }
+    }
+
+    fn term_instance(&self, term_id: TermId) -> TermInstance {
+        let info = self.get_term_info(term_id);
+        TermInstance::mapped(term_id, vec![])
     }
 
     fn has_edge_info(&self, edge: EdgeId) -> bool {
@@ -1812,6 +1866,18 @@ impl TermGraph {
         let (ab_edge, instance_b, num_ab_vars) = ab_edge_info.simplify(mapped_a, num_a_vars);
         let mapped_b = instance_b.as_mapped();
         let (bc_edge, instance_c, _) = bc_edge_info.simplify(mapped_b, num_ab_vars);
+
+        let simple_ab_edge_info = self.simple_edges[ab_edge_id as usize].as_ref().unwrap();
+        let alt_ab_edge = &simple_ab_edge_info.key.edge;
+        assert_eq!(alt_ab_edge, &ab_edge);
+        let alt_instance_b = &simple_ab_edge_info.result;
+        assert_eq!(alt_instance_b, &instance_b);
+        let simple_bc_edge_info = self.simple_edges[bc_edge_id as usize].as_ref().unwrap();
+        let existing_bc_edge = &simple_bc_edge_info.key.edge;
+        let (alt_bc_edge, alt_instance_c) =
+            existing_bc_edge.relativize(&mapped_b, num_ab_vars, &simple_bc_edge_info.result);
+        assert_eq!(alt_bc_edge, bc_edge);
+        assert_eq!(alt_instance_c, instance_c);
 
         match (&ab_edge.replacement, &bc_edge.replacement) {
             (TermInstance::Mapped(ab_rep), TermInstance::Mapped(bc_rep)) => {
