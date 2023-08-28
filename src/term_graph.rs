@@ -534,6 +534,7 @@ impl SimpleEdgeInfo {
 
 impl NormalizedEdge {
     // Normalizes a TermInstance and an edge that comes from that term.
+    // This constructor ignores symmetry.
     // The denormalizer maps (normalized ids) -> (original ids).
     // If you think about it, that makes sense, since the normalized ids are consecutive
     // starting at zero.
@@ -851,25 +852,6 @@ impl OldEdgeInfo {
                 .simplify(template_instance, next_var, Some(&self.result));
         (simple_edge, result.unwrap(), next_var)
     }
-
-    fn to_simple(&self) -> SimpleEdgeInfo {
-        let next_var = self.key.replacements.len() as AtomId;
-        let template = MappedTerm {
-            term_id: self.key.template,
-            var_map: (0..next_var).collect(),
-        };
-        let (simple_edge, simple_result, vars_used) = self.simplify(&template, next_var);
-        let key = SimpleEdgeKey {
-            template: template.term_id,
-            edge: simple_edge,
-            vars_used,
-        };
-        SimpleEdgeInfo {
-            key,
-            result: simple_result,
-            edge_type: self.edge_type,
-        }
-    }
 }
 
 impl TermInfoReference {
@@ -991,27 +973,6 @@ impl TermGraph {
 
         self.create_edge(edge_info, pending);
         answer
-    }
-
-    // Returns an EdgeKey along with a new_to_old map that shows how we renumbered the variables.
-    fn old_normalize_edge_key(
-        &self,
-        template: TermId,
-        replacements: Vec<TermInstance>,
-    ) -> (OldEdgeKey, Vec<AtomId>) {
-        // Use the template's symmetry group to normalize the replacements
-        let template_info = self.get_term_info(template);
-        let replacements = template_info.symmetry.normalize(replacements);
-
-        // Number variables in ascending order
-        let mut new_to_old = vec![];
-        let replacements = normalize_replacements(&replacements, &mut new_to_old);
-        let key = OldEdgeKey {
-            template,
-            replacements,
-            vars_used: new_to_old.len(),
-        };
-        (key, new_to_old)
     }
 
     // Given a template term and an edge, follow the edge.
@@ -1413,31 +1374,6 @@ impl TermGraph {
         simple_edge_info
     }
 
-    // Inserts a single edge that already has a normalized key.
-    // If it's a duplicate, identify the appropriate terms instead.
-    // When this discovers more valid Identifications it pushes them onto pending.
-    fn process_normalized_edge(
-        &mut self,
-        old_edge_info: OldEdgeInfo,
-        pending: &mut VecDeque<Operation>,
-    ) {
-        // Check to see if the new edge is a duplicate
-        let simple_edge_info = old_edge_info.to_simple();
-        if let Some(duplicate_edge_id) = self.simple_edge_key_map.get(&simple_edge_info.key) {
-            let duplicate_edge_info = self.get_old_edge_info(*duplicate_edge_id);
-            // new_edge_info and duplicate_edge_info are the same edge, but
-            // they may go to different terms.
-            // This means we need to identify the terms.
-            pending.push_front(Operation::Identification(
-                old_edge_info.result,
-                duplicate_edge_info.result.clone(),
-            ));
-            return;
-        }
-
-        self.create_edge(old_edge_info.to_simple(), pending);
-    }
-
     // Replaces old_term_id with new_term in the given edge.
     // This can lead us to discover new Identifications, which we push onto pending.
     fn replace_term_id_in_edge(
@@ -1688,43 +1624,8 @@ impl TermGraph {
                         return;
                     }
                     term_info.symmetry.add(permutation);
-                    let term_info = self.get_term_info(keep.term_id);
-
-                    // Find all edges that have this term as the template
-                    let mut edge_ids: Vec<EdgeId> = vec![];
-                    for edge_id in &term_info.adjacent {
-                        let edge_info = self.get_old_edge_info(*edge_id);
-                        if edge_info.key.template == keep.term_id {
-                            edge_ids.push(*edge_id);
-                        }
-                    }
-
-                    // Find the edges that need to be renormalized
-                    for edge_id in edge_ids {
-                        let edge_info = self.get_old_edge_info(edge_id);
-                        if edge_info.key.template != keep.term_id {
-                            continue;
-                        }
-
-                        let (key, new_to_old) = self.old_normalize_edge_key(
-                            keep.term_id,
-                            edge_info.key.replacements.clone(),
-                        );
-                        if key == edge_info.key {
-                            // The edge is already normalized
-                            continue;
-                        }
-
-                        let result = edge_info.result.forward_map_vars(&new_to_old);
-                        self.process_normalized_edge(
-                            OldEdgeInfo {
-                                key,
-                                edge_type: edge_info.edge_type,
-                                result,
-                            },
-                            pending,
-                        );
-                    }
+                    // We track the symmetries we know about, but we don't use them to normalize
+                    // anything.
                     return;
                 }
             }
@@ -2731,26 +2632,22 @@ mod tests {
     //     assert_eq!(term4, term6);
     // }
 
-    #[test]
-    fn test_adding_symmetry_later() {
-        let mut g = TermGraph::new();
-
-        let c0c1c2 = g.parse("c0(c1, c2)");
-        let c3 = g.parse("c3");
-        g.check_make_equal(&c0c1c2, &c3);
-
-        let c0c2c1 = g.parse("c0(c2, c1)");
-        let c4 = g.parse("c4");
-        g.check_make_equal(&c0c2c1, &c4);
-
-        let c0x0x1 = g.parse("c0(x0, x1)");
-        let c0x1x0 = g.parse("c0(x1, x0)");
-        g.check_make_equal(&c0x0x1, &c0x1x0);
-
-        let c3 = g.parse("c3");
-        let c4 = g.parse("c4");
-        assert_eq!(c3, c4);
-    }
+    // #[test]
+    // fn test_adding_symmetry_later() {
+    //     let mut g = TermGraph::new();
+    //     let c0c1c2 = g.parse("c0(c1, c2)");
+    //     let c3 = g.parse("c3");
+    //     g.check_make_equal(&c0c1c2, &c3);
+    //     let c0c2c1 = g.parse("c0(c2, c1)");
+    //     let c4 = g.parse("c4");
+    //     g.check_make_equal(&c0c2c1, &c4);
+    //     let c0x0x1 = g.parse("c0(x0, x1)");
+    //     let c0x1x0 = g.parse("c0(x1, x0)");
+    //     g.check_make_equal(&c0x0x1, &c0x1x0);
+    //     let c3 = g.parse("c3");
+    //     let c4 = g.parse("c4");
+    //     assert_eq!(c3, c4);
+    // }
 
     #[test]
     fn test_identifying_with_variable() {
