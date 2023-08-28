@@ -472,6 +472,16 @@ impl SimpleEdge {
             replacement: self.replacement.backward_map_vars(var_map),
         }
     }
+
+    fn replace_term_id(&self, old_term_id: TermId, new_term: &TermInstance) -> SimpleEdge {
+        match self.replacement {
+            TermInstance::Mapped(ref term) => SimpleEdge {
+                var: self.var,
+                replacement: term.replace_term_id(old_term_id, new_term),
+            },
+            TermInstance::Variable(_) => self.clone(),
+        }
+    }
 }
 
 impl fmt::Display for SimpleEdge {
@@ -1055,16 +1065,26 @@ impl TermGraph {
         }
 
         if let Some(result) = result {
-            // We need to create a new edge to an existing term.
-            let edge_info = SimpleEdgeInfo {
-                key,
-                result: result.backward_map_vars(&denormalizer),
-                edge_type,
-            };
-            self.create_edge(edge_info, pending);
-            return result;
+            if let Some(normalized_result) = result.try_backward_map_vars(&denormalizer) {
+                // We can just create a new edge to an existing term
+                let edge_info = SimpleEdgeInfo {
+                    key,
+                    result: normalized_result,
+                    edge_type,
+                };
+                self.create_edge(edge_info, pending);
+                return result;
+            }
+
+            // We have an existing term, but its argument is collapsing.
+            // So create a new term and subsequently identify the result.
+            let new_term = self.create_term(key, edge_type, pending);
+            let answer = new_term.forward_map_vars(&denormalizer);
+            pending.push_front(Operation::Identification(answer.clone(), result));
+            return answer;
         }
 
+        // Simple case of creating a new term
         let new_term = self.create_term(key, edge_type, pending);
         new_term.forward_map_vars(&denormalizer)
     }
@@ -1429,7 +1449,7 @@ impl TermGraph {
 
     // Replaces old_term_id with new_term in the given edge.
     // This can lead us to discover new Identifications, which we push onto pending.
-    fn replace_edge_term(
+    fn replace_term_id_in_edge(
         &mut self,
         old_edge_id: EdgeId,
         old_term_id: TermId,
@@ -1446,34 +1466,35 @@ impl TermGraph {
                 .arg_types
                 .len() as AtomId
         };
-        let old_edge_info = simple_edge_info.desimplify(old_edge_num_args);
 
-        // The result and the replacements are relatively straightforward, we just recurse.
-        let new_result = old_edge_info.result.replace_term_id(old_term_id, new_term);
-        let new_replacements: Vec<_> = old_edge_info
+        // Recurse on the result and the edge key.
+        let new_result = simple_edge_info
+            .result
+            .replace_term_id(old_term_id, new_term);
+        let new_edge = simple_edge_info
             .key
-            .replacements
-            .iter()
-            .map(|replacement| replacement.replace_term_id(old_term_id, new_term))
-            .collect();
+            .edge
+            .replace_term_id(old_term_id, new_term);
 
-        if old_edge_info.key.template == old_term_id {
-            // We're also replacing the template
-            self.process_unnormalized_edge(
+        if simple_edge_info.key.template == old_term_id {
+            self.follow_or_create_edge(
                 new_term,
-                &new_replacements,
-                old_edge_info.edge_type,
-                new_result,
+                &new_edge,
+                simple_edge_info.edge_type,
+                Some(new_result),
                 pending,
             );
         } else {
             // The template is unchanged, but we still have to renormalize the edge
-            let template = old_edge_info.key.template_instance();
-            self.process_unnormalized_edge(
+            let template = TermInstance::mapped(
+                simple_edge_info.key.template,
+                (0..old_edge_num_args).collect(),
+            );
+            self.follow_or_create_edge(
                 &template,
-                &new_replacements,
-                old_edge_info.edge_type,
-                new_result,
+                &new_edge,
+                simple_edge_info.edge_type,
+                Some(new_result),
                 pending,
             );
         }
@@ -1482,7 +1503,7 @@ impl TermGraph {
     // Replaces all references to old_term_id with references to new_term.
     // The caller should be sure that old_term_id has not been replaced already.
     // When this discovers more valid Identifications it pushes them onto pending.
-    fn replace_term_id(
+    fn identify_term_id(
         &mut self,
         old_term_id: TermId,
         new_term: &TermInstance,
@@ -1519,7 +1540,7 @@ impl TermGraph {
 
         // Update all edges that touch this term
         for old_edge_id in &old_term_info.adjacent {
-            self.replace_edge_term(
+            self.replace_term_id_in_edge(
                 *old_edge_id,
                 old_term_id,
                 old_term_num_args,
@@ -1804,7 +1825,7 @@ impl TermGraph {
 
         // Find a TermInstance equal to the term to be discarded
         let new_instance = keep_instance.backward_map_vars(&discard.var_map);
-        self.replace_term_id(discard.term_id, &new_instance, pending);
+        self.identify_term_id(discard.term_id, &new_instance, pending);
     }
 
     fn process_all(&mut self, pending: VecDeque<Operation>) {
