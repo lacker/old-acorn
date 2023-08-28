@@ -1245,14 +1245,12 @@ impl TermGraph {
 
     // The depth of an edge is the maximum depth of any term that its key references.
     fn edge_depth(&self, edge_id: EdgeId) -> u32 {
-        let edge_info = self.get_old_edge_info(edge_id);
+        let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
         let template_info = self.get_term_info(edge_info.key.template);
         let mut max_depth = template_info.depth;
-        for rep in &edge_info.key.replacements {
-            if let TermInstance::Mapped(term) = rep {
-                let term_info = self.get_term_info(term.term_id);
-                max_depth = std::cmp::max(max_depth, term_info.depth);
-            }
+        if let TermInstance::Mapped(replacement) = &edge_info.key.edge.replacement {
+            let replacement_info = self.get_term_info(replacement.term_id);
+            max_depth = std::cmp::max(max_depth, replacement_info.depth);
         }
         max_depth
     }
