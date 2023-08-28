@@ -291,24 +291,41 @@ impl MappedTerm {
         // First assign variable ids starting at zero to the template variables.
         let mut denormalizer = self.var_map.clone();
 
-        if let TermInstance::Mapped(replacement) = &edge.replacement {
-            // Now assign variable ids starting at the end of the template variables
-            // to the replacement variables.
-            for &var in &replacement.var_map {
-                match denormalizer.iter().position(|&v| v == var) {
-                    Some(_) => {}
-                    None => {
-                        denormalizer.push(var);
+        let edge = match &edge.replacement {
+            TermInstance::Mapped(replacement) => {
+                // Now assign variable ids starting at the end of the template variables
+                // to the replacement variables.
+                for &var in &replacement.var_map {
+                    match denormalizer.iter().position(|&v| v == var) {
+                        Some(_) => {}
+                        None => {
+                            denormalizer.push(var);
+                        }
                     }
                 }
+                edge.backward_map_vars(&denormalizer)
             }
-        }
+            TermInstance::Variable(i) => {
+                if *i > edge.var {
+                    // This is as it should be, using the lower variable in the output
+                    edge.clone()
+                } else {
+                    assert_ne!(*i, edge.var);
+
+                    // The initial edge is combining both i and edge.var into edge.var.
+                    // However, i is the smallest, so the normalized way to do it is to use
+                    // i instead of edge.var.
+                    denormalizer[*i as usize] = edge.var;
+                    SimpleEdge::new(*i, TermInstance::Variable(edge.var))
+                }
+            }
+        };
 
         println!("XXX denormalizer: {:?}", denormalizer);
 
         let key = SimpleEdgeKey {
             template: self.term_id,
-            edge: edge.backward_map_vars(&denormalizer),
+            edge,
             vars_used: denormalizer.len() as AtomId,
         };
         (key, denormalizer)
