@@ -1117,32 +1117,6 @@ impl TermGraph {
         }
     }
 
-    // Tries to follow an edge from a template term.
-    // If we have an edge, return both the edge and the resulting term.
-    // If we don't have an edge, return None, None.
-    // If this edge is degenerate in some way, so that there is a term but no edge, we just
-    // return the term.
-    pub fn follow_edge(
-        &mut self,
-        template: &TermInstance,
-        edge: &SimpleEdge,
-    ) -> (Option<EdgeId>, Option<TermInstance>) {
-        match NormalizedEdge::new(template, edge) {
-            NormalizedEdge::Degenerate(term) => (None, Some(term)),
-            NormalizedEdge::Key(key, denormalizer) => {
-                if let Some(edge_id) = self.simple_edge_key_map.get(&key).cloned() {
-                    let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
-                    (
-                        Some(edge_id),
-                        Some(edge_info.result.forward_map_vars(&denormalizer)),
-                    )
-                } else {
-                    (None, None)
-                }
-            }
-        }
-    }
-
     // Given a template term and an edge, follow the edge.
     // If the edge is already there, this uses the existing edge.
     // If the edge is not already there, this will create one.
@@ -1161,22 +1135,29 @@ impl TermGraph {
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
-        // Handle the case where the edge is already in the graph
-        let (edge_id, term) = self.follow_edge(template, edge);
-        if let Some(answer) = term {
-            if let Some(result) = result {
-                pending.push_front(Operation::Identification(answer.clone(), result));
-            }
-            if let Some(edge_id) = edge_id {
-                // We already have an edge, but we might need to upgrade it to constructive
-                let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
-                if edge_info.edge_type != EdgeType::Constructive && edge_info.edge_type != edge_type
-                {
-                    self.set_edge_type(edge_id, EdgeType::Constructive);
-                    pending.push_back(Operation::Inference(edge_id));
+        let (key, denormalizer) = match NormalizedEdge::new(template, edge) {
+            NormalizedEdge::Degenerate(term) => {
+                if let Some(result) = result {
+                    pending.push_front(Operation::Identification(term.clone(), result));
                 }
+                return term;
             }
-            return answer;
+            NormalizedEdge::Key(key, denormalizer) => (key, denormalizer),
+        };
+
+        if let Some(edge_id) = self.simple_edge_key_map.get(&key).cloned() {
+            // We already have an edge
+            let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+            let existing = edge_info.result.forward_map_vars(&denormalizer);
+            if let Some(result) = result {
+                pending.push_front(Operation::Identification(existing.clone(), result));
+            }
+            if edge_info.edge_type != EdgeType::Constructive && edge_info.edge_type != edge_type {
+                // The existing edge can be upgraded to a constructive one
+                self.set_edge_type(edge_id, EdgeType::Constructive);
+                pending.push_back(Operation::Inference(edge_id));
+            }
+            return existing;
         }
 
         match template {
