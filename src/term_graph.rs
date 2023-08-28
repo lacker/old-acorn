@@ -744,20 +744,6 @@ impl OldEdgeKey {
         let instance = result.map(|result| result.forward_map_vars(&result_rename));
         (simple_edge, instance, next_var)
     }
-
-    fn to_simple(&self) -> SimpleEdgeKey {
-        let next_var = self.replacements.len() as AtomId;
-        let template = MappedTerm {
-            term_id: self.template,
-            var_map: (0..next_var).collect(),
-        };
-        let (simple_edge, _simple_result, vars_used) = self.simplify(&template, next_var, None);
-        SimpleEdgeKey {
-            template: template.term_id,
-            edge: simple_edge,
-            vars_used,
-        }
-    }
 }
 
 // Renumbers the variables in the replacements so that they are in increasing order.
@@ -1004,84 +990,6 @@ impl TermGraph {
         answer
     }
 
-    // Creates a new term, along with an edge that leads to it.
-    // There must be no analogous edge already in the graph.
-    fn old_create_term(
-        &mut self,
-        old_key: OldEdgeKey,
-        edge_type: EdgeType,
-        pending: &mut VecDeque<Operation>,
-    ) -> TermInstance {
-        let template = self.get_term_info(old_key.template);
-
-        // Figure out the type signature of our new term
-        let mut max_edge_depth = template.depth;
-        let mut result_arg_types = vec![];
-        for (i, replacement) in old_key.replacements.iter().enumerate() {
-            match replacement {
-                TermInstance::Variable(j) => {
-                    // x_i in the template is being renamed to x_j in the result.
-                    let next_open_var = result_arg_types.len() as AtomId;
-                    if j < &next_open_var {
-                        // Check that the type matches
-                        if template.arg_types[i] != result_arg_types[*j as usize] {
-                            panic!(
-                                "Type mismatch: {} != {}",
-                                template.arg_types[i], result_arg_types[*j as usize]
-                            );
-                        }
-                    } else if j == &next_open_var {
-                        // This is the first time we've seen this variable
-                        result_arg_types.push(template.arg_types[i]);
-                    } else {
-                        panic!("bad variable numbering");
-                    }
-                }
-                TermInstance::Mapped(term) => {
-                    // x_i in the template is being replaced with a term
-                    let term_info = self.get_term_info(term.term_id);
-                    max_edge_depth = std::cmp::max(max_edge_depth, term_info.depth);
-                    for (j, k) in term.var_map.iter().enumerate() {
-                        // x_j in the template is being renamed to x_k in the result.
-                        let next_open_var = result_arg_types.len() as AtomId;
-                        if k < &next_open_var {
-                            // Check that the type matches
-                            let expected_type = result_arg_types[*k as usize];
-                            if term_info.arg_types[j] != expected_type {
-                                panic!(
-                                    "Type mismatch: {} != {}",
-                                    term_info.arg_types[j], expected_type
-                                );
-                            }
-                        } else if k == &next_open_var {
-                            // This is the first time we've seen this variable
-                            result_arg_types.push(term_info.arg_types[j]);
-                        } else {
-                            panic!("bad variable numbering");
-                        }
-                    }
-                }
-            }
-        }
-
-        let term_id = self.terms.len() as TermId;
-        let term_type = template.term_type;
-        let num_args = result_arg_types.len() as AtomId;
-        let var_map: Vec<AtomId> = (0..num_args).collect();
-        let mapped_term = MappedTerm { term_id, var_map };
-        let term_info = TermInfo::new(term_type, result_arg_types, max_edge_depth + 1);
-        self.terms.push(TermInfoReference::TermInfo(term_info));
-        let answer = TermInstance::Mapped(mapped_term);
-        let edge_info = OldEdgeInfo {
-            key: old_key,
-            edge_type,
-            result: answer.clone(),
-        };
-
-        self.create_edge(edge_info.to_simple(), pending);
-        answer
-    }
-
     // Returns an EdgeKey along with a new_to_old map that shows how we renumbered the variables.
     fn old_normalize_edge_key(
         &self,
@@ -1101,65 +1009,6 @@ impl TermGraph {
             vars_used: new_to_old.len(),
         };
         (key, new_to_old)
-    }
-
-    // Does a substitution with the given template and replacements.
-    // If result is provided, we create an edge leading to result.
-    // If result is not provided and there is no appropriate node in the graph, we create a new entry.
-    // This does not have to be normalized.
-    fn replace_in_term_id(
-        &mut self,
-        template: TermId,
-        replacements: Vec<TermInstance>,
-        edge_type: EdgeType,
-        result: Option<TermInstance>,
-        pending: &mut VecDeque<Operation>,
-    ) -> TermInstance {
-        // The overall strategy is to normalize the replacements, do the substitution with
-        // the graph, and then map from new ids back to old ones.
-        let (old_key, new_to_old) = self.old_normalize_edge_key(template, replacements);
-        if old_key.is_noop() {
-            // No-op keys may lead to an identification but not to creating a new edge
-            let answer = TermInstance::mapped(template, new_to_old);
-            if let Some(result) = result {
-                pending.push_front(Operation::Identification(answer.clone(), result));
-            }
-            return answer;
-        }
-        let simple_key = old_key.to_simple();
-
-        // We have a nondegenerate, normalized edge.
-        if let Some(edge_id) = self.simple_edge_key_map.get(&simple_key).cloned() {
-            // This edge already exists in the graph.
-            let edge_info = self.get_old_edge_info(edge_id);
-            let existing_result = &edge_info.result;
-            let answer = existing_result.forward_map_vars(&new_to_old);
-            if edge_info.edge_type != EdgeType::Constructive && edge_info.edge_type != edge_type {
-                // The existing edge can be upgraded to a constructive one
-                self.set_edge_type(edge_id, EdgeType::Constructive);
-                pending.push_back(Operation::Inference(edge_id));
-            }
-
-            if let Some(result) = result {
-                pending.push_front(Operation::Identification(answer.clone(), result));
-            }
-            return answer;
-        }
-
-        // No such edge exists. Let's create one.
-        if let Some(result) = result {
-            let old_info = OldEdgeInfo {
-                key: old_key.clone(),
-                edge_type,
-                result: result.backward_map_vars(&new_to_old),
-            };
-            let simple_info = old_info.to_simple();
-            self.create_edge(simple_info, pending);
-            result
-        } else {
-            let new_term = self.old_create_term(old_key, edge_type, pending);
-            new_term.forward_map_vars(&new_to_old)
-        }
     }
 
     // Given a template term and an edge, follow the edge.
