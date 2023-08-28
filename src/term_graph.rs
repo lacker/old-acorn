@@ -1757,7 +1757,7 @@ impl TermGraph {
             .adjacent
             .iter()
             .filter(move |edge_id| {
-                let edge_info = self.get_old_edge_info(**edge_id);
+                let edge_info = self.simple_edges[**edge_id as usize].as_ref().unwrap();
                 edge_info.result.term_id() == Some(term_id)
             })
             .copied()
@@ -1771,7 +1771,7 @@ impl TermGraph {
             .adjacent
             .iter()
             .filter(move |edge_id| {
-                let edge_info = self.get_old_edge_info(**edge_id);
+                let edge_info = self.simple_edges[**edge_id as usize].as_ref().unwrap();
                 edge_info.key.template == term_id
             })
             .copied()
