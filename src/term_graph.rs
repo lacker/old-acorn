@@ -340,13 +340,6 @@ impl TermInstance {
         }
     }
 
-    fn has_var_not_in(&self, not_in: &Vec<AtomId>) -> bool {
-        match self {
-            TermInstance::Mapped(term) => term.var_map.iter().any(|j| !not_in.contains(j)),
-            TermInstance::Variable(j) => !not_in.contains(j),
-        }
-    }
-
     fn variable(&self) -> Option<AtomId> {
         match self {
             TermInstance::Mapped(_) => None,
@@ -1635,79 +1628,6 @@ impl TermGraph {
         // If all else fails, the lower term ids are more keepable.
         // This probably doesn't matter very much.
         right_id.cmp(&left_id)
-    }
-
-    // Handles a template + replacements -> result data that is not normalized.
-    // This might lead to a new edge but it might not.
-    fn process_unnormalized_edge(
-        &mut self,
-        template: &TermInstance,
-        replacements: &Vec<TermInstance>,
-        edge_type: EdgeType,
-        result: TermInstance,
-        pending: &mut VecDeque<Operation>,
-    ) {
-        let mapped_term = match template {
-            TermInstance::Mapped(term) => term,
-            TermInstance::Variable(var_id) => {
-                let new_template = &replacements[*var_id as usize];
-                // We want to identify new_template and new_result here.
-                pending.push_front(Operation::Identification(new_template.clone(), result));
-                return;
-            }
-        };
-
-        // Renumber the replacements so that they are relative to term_id rather than the instance
-        let new_replacements = mapped_term
-            .var_map
-            .iter()
-            .map(|v| {
-                if *v >= replacements.len() as AtomId {
-                    panic!(
-                        "template {:?} has variable {} but only {} replacements",
-                        mapped_term,
-                        v,
-                        replacements.len()
-                    );
-                }
-                replacements[*v as usize].clone()
-            })
-            .collect();
-
-        let (key, new_to_old) = self.old_normalize_edge_key(mapped_term.term_id, new_replacements);
-
-        let normalized_result = if result.has_var_not_in(&new_to_old) {
-            // The result must have some variables that aren't in new_to_old at all.
-            if let TermInstance::Mapped(mapped_result) = &result {
-                // We can eliminate these variables
-                let reduced_result =
-                    self.eliminate_vars(mapped_result, |v| !new_to_old.contains(&v));
-                pending.push_front(Operation::Identification(result, reduced_result.clone()));
-                reduced_result.backward_map_vars(&new_to_old)
-            } else {
-                panic!("a replacement with no variables becomes a variable. what does this mean?");
-            }
-        } else {
-            result.backward_map_vars(&new_to_old)
-        };
-
-        if key.is_noop() {
-            // There's no edge here, we just want to identify two terms
-            pending.push_front(Operation::Identification(
-                key.template_instance(),
-                normalized_result,
-            ));
-            return;
-        }
-
-        self.process_normalized_edge(
-            OldEdgeInfo {
-                key,
-                edge_type,
-                result: normalized_result,
-            },
-            pending,
-        );
     }
 
     // Identifies the two terms, and adds any followup Identifications to the queue rather than
