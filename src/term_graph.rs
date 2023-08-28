@@ -1293,25 +1293,29 @@ impl TermGraph {
         // Figure out which edge is the best one to represent this term
         assert!(term_info.depth > 0);
         let edge_id = self.shallowest_edge(term_id);
-        let edge_info = self.get_old_edge_info(edge_id);
+        let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
 
         // Construct a Term according to the information provided by the edge
         let template = self.extract_term_id(edge_info.key.template);
         let template_info = self.get_term_info(edge_info.key.template);
         let mut s = Specializer::new();
-        for (i, r) in edge_info.key.replacements.iter().enumerate() {
+        for (i, arg_type) in template_info.arg_types.iter().enumerate() {
             let i = i as AtomId;
-            match r {
-                TermInstance::Variable(j) => {
-                    let var_type = template_info.arg_types[i as usize];
-                    assert!(s.match_var(i, &Term::atom(var_type, Atom::Variable(*j))));
+            if i == edge_info.key.edge.var {
+                match &edge_info.key.edge.replacement {
+                    TermInstance::Variable(j) => {
+                        s.match_var(i, &Term::atom(*arg_type, Atom::Variable(*j)));
+                    }
+                    TermInstance::Mapped(t) => {
+                        let t = self.extract_term_id(t.term_id).remap_variables(&t.var_map);
+                        s.match_var(i, &t);
+                    }
                 }
-                TermInstance::Mapped(t) => {
-                    let t = self.extract_term_id(t.term_id).remap_variables(&t.var_map);
-                    assert!(s.match_var(i, &t));
-                }
+            } else {
+                s.match_var(i, &Term::atom(*arg_type, Atom::Variable(i)));
             }
         }
+
         let unmapped_term = s.specialize(&template);
         let var_map = match &edge_info.result {
             TermInstance::Mapped(t) => &t.var_map,
