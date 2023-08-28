@@ -1662,11 +1662,13 @@ impl TermGraph {
             TermInstance::Mapped(keep) => {
                 if keep.var_map.iter().any(|v| !discard.var_map.contains(v)) {
                     // The "keep" term contains some arguments that the "discard" term doesn't.
-                    // These arguments can be eliminated.
+                    // The "discard" term must also contain some arguments that the "keep" term
+                    // doesn't, because otherwise we would have discarded the keep term.
+                    // These arguments can be eliminated to form a third, reduced term.
                     let reduced_instance =
                         self.eliminate_vars(keep, |v| !discard.var_map.contains(&v));
 
-                    // Identify both onto the reduced term
+                    // Identify both onto the reduced term.
                     // Note: order matters!
                     pending.push_front(Operation::Identification(
                         reduced_instance.clone(),
