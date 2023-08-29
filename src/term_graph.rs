@@ -10,7 +10,7 @@ use crate::atom::{Atom, AtomId};
 use crate::permutation;
 use crate::permutation_group::PermutationGroup;
 use crate::specializer::Specializer;
-use crate::term::{Literal, Term, TermFormatter};
+use crate::term::{Literal, Term};
 use crate::type_space::{self, TypeId, ANY};
 
 // The TermInfo stores information about an abstract term.
@@ -167,6 +167,7 @@ struct SimpleEdgeKey {
     vars_used: AtomId,
 }
 
+#[derive(Debug)]
 struct SimpleEdgeInfo {
     // The parameters that determine the substitution
     key: SimpleEdgeKey,
@@ -1918,43 +1919,16 @@ impl TermGraph {
     //
 
     pub fn print_edge(&self, edge_id: EdgeId) {
-        let edge_info = self.get_old_edge_info(edge_id);
-        let template = self.extract_term_id(edge_info.key.template);
+        let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+        let term_id = edge_info.key.template;
         print!(
-            "edge {}: in term {}, {},",
+            "edge {}: term {} = {}; {} => {}",
             edge_id,
-            edge_info.key.template,
-            TermFormatter {
-                term: &template,
-                var: 'y'
-            }
+            term_id,
+            self.extract_term_id(term_id),
+            self.edge_str(&edge_info.key.edge),
+            self.term_str(&edge_info.result)
         );
-        for (i, replacement) in edge_info.key.replacements.iter().enumerate() {
-            let untyped_rep = TypedTermInstance {
-                term_type: ANY,
-                instance: replacement.clone(),
-            };
-            let term = self.extract_term_instance(&untyped_rep);
-            print!(
-                "{} y{} = {}",
-                if i == 0 { " replacing" } else { "," },
-                i,
-                term
-            );
-        }
-        let untyped_result = TypedTermInstance {
-            term_type: ANY,
-            instance: edge_info.result.clone(),
-        };
-        let result = self.extract_term_instance(&untyped_result);
-        match &edge_info.result {
-            TermInstance::Mapped(t) => {
-                println!(" yields term {}, {}", t.term_id, result);
-            }
-            TermInstance::Variable(_) => {
-                println!(" yields variable {}", result);
-            }
-        }
     }
 
     fn find_path(&self, from: TermId, to: TermId) -> Option<Vec<EdgeId>> {
@@ -1970,7 +1944,7 @@ impl TermGraph {
             }
             let term_info = self.get_term_info(term_id);
             for edge_id in &term_info.adjacent {
-                let edge_info = self.get_old_edge_info(*edge_id);
+                let edge_info = self.simple_edges[*edge_id as usize].as_ref().unwrap();
                 if edge_info.key.template == term_id {
                     if let Some(result_id) = edge_info.result.term_id() {
                         let mut path = path.clone();
@@ -2002,20 +1976,12 @@ impl TermGraph {
                 if !self.has_edge_info(*edge_id) {
                     panic!("term {} is adjacent to collapsed edge {}", term_id, edge_id);
                 }
-                let edge_info = self.get_old_edge_info(*edge_id);
+                let edge_info = self.simple_edges[*edge_id as usize].as_ref().unwrap();
                 if !edge_info.adjacent_terms().contains(&term_id) {
                     panic!(
-                        "term {} thinks it is adjacent to edge {} ({}) but not vice versa",
+                        "term {} thinks it is adjacent to edge {} ({:?}) but not vice versa",
                         term_id, edge_id, edge_info
                     );
-                }
-                if term_id == edge_info.key.template {
-                    if edge_info.key.replacements.len() != term_info.arg_types.len() {
-                        panic!(
-                            "edge {} has template {:?} but arg lengths mismatch",
-                            edge_info, term_info,
-                        );
-                    }
                 }
                 if let TermInstance::Mapped(result) = &edge_info.result {
                     if term_id == result.term_id {
@@ -2042,17 +2008,16 @@ impl TermGraph {
                 continue;
             }
             self.print_edge(edge_id);
-            let edge_info = self.get_old_edge_info(edge_id);
-            edge_info.key.check();
+            let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
 
             for term_id in edge_info.adjacent_terms().iter() {
                 if !self.has_term_info(*term_id) {
-                    panic!("edge {} refers to collapsed term {}", edge_info, term_id);
+                    panic!("edge {:?} refers to collapsed term {}", edge_info, term_id);
                 }
                 let term_info = self.get_term_info(*term_id);
                 if !term_info.adjacent.contains(&edge_id) {
                     panic!(
-                        "edge {} thinks it is adjacent to term {} but not vice versa",
+                        "edge {:?} thinks it is adjacent to term {} but not vice versa",
                         edge_info, term_id
                     );
                 }
