@@ -6,7 +6,7 @@ use std::{fmt, mem, vec};
 use fxhash::FxHashMap;
 use nohash_hasher::BuildNoHashHasher;
 
-use crate::atom::{Atom, AtomId, INVALID_ATOM_ID};
+use crate::atom::{Atom, AtomId};
 use crate::permutation;
 use crate::permutation_group::PermutationGroup;
 use crate::specializer::Specializer;
@@ -712,91 +712,6 @@ impl OldEdgeKey {
             (0..self.replacements.len() as AtomId).collect(),
         )
     }
-
-    // Returns a SimpleEdge describing this edge in terms of the variable numbering used in
-    // the provided template instance.
-    //
-    // Any new variables used are allocated starting at next_var.
-    // This includes both variables introduced in the replacement, and the variable introduced
-    // by combining two variables in the template.
-    //
-    // Providing the result instance is optional. If we get it, we create a simple result term
-    // instance that is renumbered in the same way that the simple edge is renumbered.
-    //
-    // Returns the simple edge, the simple result term instance, and the least unused variable after
-    // taking into account all variables in the template, replacement, and result.
-    fn simplify(
-        &self,
-        template_instance: &MappedTerm,
-        next_var: AtomId,
-        result: Option<&TermInstance>,
-    ) -> (SimpleEdge, Option<TermInstance>, AtomId) {
-        assert_eq!(self.template, template_instance.term_id);
-
-        // We need to renumber the variables that are in the result instance.
-        // Keep track of the renumbering.
-        let mut result_rename = vec![INVALID_ATOM_ID; self.vars_used];
-
-        let mut simple_edge: Option<SimpleEdge> = None;
-        let mut next_var = next_var;
-
-        // Deal with replacements at the end, so that we know which variable ids are
-        // renames of existing variables, and which are new variables.
-        let mut replacement_info: Option<(AtomId, &MappedTerm)> = None;
-
-        for (i, rep) in template_instance.var_map.iter().zip(&self.replacements) {
-            match rep {
-                TermInstance::Mapped(r) => {
-                    // This is a "replace" edge.
-                    assert_eq!(replacement_info, None);
-                    replacement_info = Some((*i, &r));
-                }
-                TermInstance::Variable(j) => {
-                    // This edge is renaming x_i -> x_j
-                    let existing = result_rename[*j as usize];
-                    if existing != INVALID_ATOM_ID {
-                        // This is an "identify" edge. It is renumbering both
-                        // x_existing and x_i to x_j.
-                        assert_eq!(simple_edge, None);
-                        simple_edge = Some(SimpleEdge::identify(*i, existing));
-                    } else {
-                        result_rename[*j as usize] = *i;
-                    }
-                }
-            }
-        }
-
-        if let Some((i, replacement)) = replacement_info {
-            assert_eq!(simple_edge, None);
-
-            // Renumber the replacement's var_map so that reused variables are correct,
-            // and newly introduced variables get new variable numbers.
-            let var_map = replacement.var_map.iter().map(|&j| {
-                let existing = result_rename[j as usize];
-                if existing == INVALID_ATOM_ID {
-                    // This is a new variable, introduced by the replacement.
-                    let answer = next_var;
-                    next_var += 1;
-                    result_rename[j as usize] = answer;
-                    answer
-                } else {
-                    existing
-                }
-            });
-
-            simple_edge = Some(SimpleEdge::replace(
-                i,
-                MappedTerm {
-                    term_id: replacement.term_id,
-                    var_map: var_map.collect(),
-                },
-            ));
-        }
-
-        let simple_edge = simple_edge.expect("noop edge in simplify");
-        let instance = result.map(|result| result.forward_map_vars(&result_rename));
-        (simple_edge, instance, next_var)
-    }
 }
 
 // Renumbers the variables in the replacements so that they are in increasing order.
@@ -880,26 +795,6 @@ impl OldEdgeInfo {
             }
         }
         terms
-    }
-
-    // Returns a SimpleEdge describing this edge in terms of the variable numbering used in
-    // the provided template instance.
-    //
-    // Any new variables used are allocated starting at next_var.
-    // This includes both variables introduced in the replacement, and the variable introduced
-    // by combining two variables in the template.
-    //
-    // Returns the simple edge, the result term instance, and the least unused variable after
-    // taking into account all variables in the template, replacement, and result.
-    fn simplify(
-        &self,
-        template_instance: &MappedTerm,
-        next_var: AtomId,
-    ) -> (SimpleEdge, TermInstance, AtomId) {
-        let (simple_edge, result, next_var) =
-            self.key
-                .simplify(template_instance, next_var, Some(&self.result));
-        (simple_edge, result.unwrap(), next_var)
     }
 }
 
