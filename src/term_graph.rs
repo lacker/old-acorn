@@ -96,7 +96,7 @@ pub struct TypedTermInstance {
 // template = add(x0, x1)
 // replacement = mul(x0, x1)
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct OldEdgeKey {
+struct OldEdgeKey {
     // The base term that will be substituted into
     template: TermId,
 
@@ -113,7 +113,7 @@ pub struct OldEdgeKey {
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum EdgeType {
+enum EdgeType {
     // Edges that we insert while parsing an externally-provided term are all constructive.
     // The constructive edges form a DAG from the root, containing all important terms.
     Constructive,
@@ -128,7 +128,7 @@ pub enum EdgeType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OldEdgeInfo {
+struct OldEdgeInfo {
     // The parameters that determine the substitution
     key: OldEdgeKey,
 
@@ -322,29 +322,10 @@ impl TermInstance {
         TermInstance::Mapped(MappedTerm { term_id, var_map })
     }
 
-    // Calls f on each variable id used by this term
-    fn for_var(&self, f: &mut impl FnMut(&AtomId)) {
-        match self {
-            TermInstance::Mapped(term) => {
-                for &var in &term.var_map {
-                    f(&var);
-                }
-            }
-            TermInstance::Variable(var_id) => f(var_id),
-        }
-    }
-
     fn has_var(&self, i: AtomId) -> bool {
         match self {
             TermInstance::Mapped(term) => term.var_map.iter().any(|&j| j == i),
             TermInstance::Variable(j) => *j == i,
-        }
-    }
-
-    fn variable(&self) -> Option<AtomId> {
-        match self {
-            TermInstance::Mapped(_) => None,
-            TermInstance::Variable(var_id) => Some(*var_id),
         }
     }
 
@@ -425,19 +406,6 @@ impl TermInstance {
             TermInstance::Mapped(term) => term,
             TermInstance::Variable(_) => panic!("TermInstance is a variable"),
         }
-    }
-}
-
-impl fmt::Display for OldEdgeKey {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "t{}[", self.template)?;
-        for (i, replacement) in self.replacements.iter().enumerate() {
-            if i != 0 {
-                write!(f, ", ")?;
-            }
-            write!(f, "x{} -> {}", i, replacement)?;
-        }
-        write!(f, "]")
     }
 }
 
@@ -538,41 +506,6 @@ impl SimpleEdgeInfo {
         }
         terms
     }
-
-    // The simple edge doesn't quite contain all the information that the old edges did,
-    // because it doesn't specify how many arguments the template has.
-    fn desimplify(&self, num_template_args: AtomId) -> OldEdgeInfo {
-        let template = self.key.template;
-        let replacements = (0..num_template_args)
-            .map(|i| {
-                if i == self.key.edge.var {
-                    self.key.edge.replacement.clone()
-                } else {
-                    TermInstance::Variable(i)
-                }
-            })
-            .collect();
-
-        // Minus one because it doesn't count the variable we replaced away
-        let vars_used = (self.key.vars_used - 1) as usize;
-
-        // Now we normalize
-        let mut new_to_old = vec![];
-        let replacements = normalize_replacements(&replacements, &mut new_to_old);
-        assert_eq!(new_to_old.len(), vars_used);
-        let result = self.result.backward_map_vars(&new_to_old);
-
-        let key = OldEdgeKey {
-            template,
-            replacements,
-            vars_used,
-        };
-        OldEdgeInfo {
-            key,
-            edge_type: self.edge_type,
-            result,
-        }
-    }
 }
 
 impl NormalizedEdge {
@@ -662,129 +595,6 @@ impl NormalizedEdge {
     }
 }
 
-impl OldEdgeKey {
-    // Panics if this edge is not normalized.
-    pub fn check(&self) {
-        // We expect to see the variables in increasing order
-        let mut expected = 0;
-
-        for replacement in &self.replacements {
-            replacement.for_var(&mut |&var| {
-                if var > expected {
-                    panic!(
-                        "EdgeKey is not normalized: expected {}, got {}",
-                        expected, var
-                    );
-                }
-                if var == expected {
-                    expected += 1;
-                }
-            });
-        }
-        assert_eq!(
-            expected, self.vars_used as AtomId,
-            "edge key {} uses {} vars but vars_used is {}",
-            self, expected, self.vars_used
-        );
-
-        if self.is_noop() {
-            panic!("edge is a noop");
-        }
-    }
-
-    // Whether this is an edge that does nothing, taking the template to itself
-    pub fn is_noop(&self) -> bool {
-        self.replacements
-            .iter()
-            .enumerate()
-            .all(|(i, r)| r.variable() == Some(i as AtomId))
-    }
-}
-
-// Renumbers the variables in the replacements so that they are in increasing order.
-// Returns the new replacements, and a vector mapping new variable ids to old ones.
-//
-// For example, if the replacements are:
-//   x0 -> foo(x2, x4)
-//   x1 -> foo(x2, x6)
-// Then we see the variables in the order x2, x4, x6.
-// The normalized numbering would be 0, 1, 2.
-// So the new replacements would be:
-//   x0 -> foo(x0, x1)
-//   x1 -> foo(x0, x2)
-// and the vector map would be:
-//   [2, 4, 6]
-//
-// This is useful when we want to create new edges, and check whether an edge that
-// "does the same thing" already exists.
-//
-// This function takes "new_to_old" as a constraint on the replacements. It can be
-// empty if we don't want to constrain them.
-fn normalize_replacements(
-    replacements: &Vec<TermInstance>,
-    new_to_old: &mut Vec<AtomId>,
-) -> Vec<TermInstance> {
-    let mut new_replacements = vec![];
-    for r in replacements {
-        match r {
-            TermInstance::Variable(old_var) => {
-                // Figure out the new id for this variable
-                let new_var = match new_to_old.iter().position(|&v| v == *old_var) {
-                    Some(i) => i,
-                    None => {
-                        let new_var = new_to_old.len();
-                        new_to_old.push(*old_var);
-                        new_var
-                    }
-                };
-                new_replacements.push(TermInstance::Variable(new_var as AtomId));
-            }
-            TermInstance::Mapped(old_term) => {
-                let mut new_term = MappedTerm {
-                    term_id: old_term.term_id,
-                    var_map: vec![],
-                };
-                for old_var in &old_term.var_map {
-                    // Figure out the new id for this variable
-                    let new_var = match new_to_old.iter().position(|&v| v == *old_var) {
-                        Some(i) => i,
-                        None => {
-                            let new_var = new_to_old.len();
-                            new_to_old.push(*old_var);
-                            new_var
-                        }
-                    };
-                    new_term.var_map.push(new_var as AtomId);
-                }
-                new_replacements.push(TermInstance::Mapped(new_term));
-            }
-        }
-    }
-    new_replacements
-}
-
-impl fmt::Display for OldEdgeInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} -> {}", self.key, self.result)
-    }
-}
-
-impl OldEdgeInfo {
-    fn adjacent_terms(&self) -> Vec<TermId> {
-        let mut terms = vec![];
-        terms.push(self.key.template);
-        if let Some(term_id) = self.result.term_id() {
-            terms.push(term_id);
-        }
-        for replacement in &self.key.replacements {
-            if let TermInstance::Mapped(term) = replacement {
-                terms.push(term.term_id);
-            }
-        }
-        terms
-    }
-}
-
 impl TermInfoReference {
     pub fn is_there(&self) -> bool {
         match self {
@@ -836,11 +646,6 @@ impl TermGraph {
 
     fn has_edge_info(&self, edge: EdgeId) -> bool {
         self.simple_edges[edge as usize].is_some()
-    }
-
-    fn get_old_edge_info(&self, edge: EdgeId) -> OldEdgeInfo {
-        let simple_info = self.simple_edges[edge as usize].as_ref().unwrap();
-        self.desimplify(simple_info)
     }
 
     fn set_edge_type(&mut self, edge: EdgeId, edge_type: EdgeType) {
@@ -977,13 +782,6 @@ impl TermGraph {
         // Simple case of creating a new term
         let new_term = self.create_term(key, edge_type, pending);
         new_term.forward_map_vars(&denormalizer)
-    }
-
-    fn desimplify(&self, simple_edge_info: &SimpleEdgeInfo) -> OldEdgeInfo {
-        // First construct a non-normalized edge
-        let template = simple_edge_info.key.template;
-        let num_replacements = self.get_term_info(template).arg_types.len() as AtomId;
-        simple_edge_info.desimplify(num_replacements)
     }
 
     // Inserts a path that goes template --edge1--> _ --edge2--> result.
