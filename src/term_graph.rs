@@ -125,7 +125,7 @@ struct EdgeKey {
 
     // The number of variables used in the replacements.
     //
-    // NOTE: This also includes the variable that the SimpleEdge is removing.
+    // NOTE: This also includes the variable that the Replacement is removing.
     // So it is generally one more than the EdgeKey vars_used would be.
     //
     // This can be larger than the number of variables used in the result, if the result ignores
@@ -175,7 +175,7 @@ pub struct TermGraph {
     // We replace elements of terms or edges with None when they are replaced with
     // an identical one that we have chosen to be the canonical one.
     terms: Vec<TermInfoReference>,
-    simple_edges: Vec<Option<EdgeInfo>>,
+    edges: Vec<Option<EdgeInfo>>,
 
     // We expand non-variable atoms into different terms depending on the number of
     // arguments they have. This lets us handle, for example, "add(2, 3)" and "reduce(add, mylist)".
@@ -188,7 +188,7 @@ pub struct TermGraph {
     type_templates: HashMap<(TypeId, u8), TermId>,
 
     // Maps (template, replacement) -> edges
-    simple_edge_key_map: FxHashMap<EdgeKey, EdgeId>,
+    edge_key_map: FxHashMap<EdgeKey, EdgeId>,
 
     // A flag to indicate when we find a contradiction
     found_contradiction: bool,
@@ -407,14 +407,14 @@ impl Replacement {
         }
     }
 
-    // This edge should be a normalized edge, relative to the underlying term id.
-    // Renumbers this edge in terms of the numbering used in the provided template instance.
+    // This replacement should be normalized, relative to the underlying term id.
+    // Renumbers this replacement in terms of the numbering used in the provided template instance.
     // Any new variables used are allocated starting at next_var.
     //
     // Providing the result instance is optional. If we get it, we create a new result term
-    // instance that is renumbered in the same way that the simple edge is renumbered.
+    // instance that is renumbered in the same way that this replacement renumbered.
     //
-    // Returns the simple edge, the least unused variable, and the renumbered result.
+    // Returns the replacement, the least unused variable, and the renumbered result.
     fn relativize(
         &self,
         template_instance: &MappedTerm,
@@ -577,10 +577,10 @@ impl TermGraph {
     pub fn new() -> TermGraph {
         TermGraph {
             terms: Vec::new(),
-            simple_edges: Vec::new(),
+            edges: Vec::new(),
             atoms: HashMap::default(),
             type_templates: HashMap::default(),
-            simple_edge_key_map: HashMap::default(),
+            edge_key_map: HashMap::default(),
             found_contradiction: false,
         }
     }
@@ -614,22 +614,22 @@ impl TermGraph {
     }
 
     fn has_edge_info(&self, edge: EdgeId) -> bool {
-        self.simple_edges[edge as usize].is_some()
+        self.edges[edge as usize].is_some()
     }
 
     fn set_edge_type(&mut self, edge: EdgeId, edge_type: EdgeType) {
-        self.simple_edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
+        self.edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
     }
 
     // The arg types for every variable used in the given term and replacement.
-    // The simple edge should be normalized, always using either an existing variable
+    // The replacement should be normalized, always using either an existing variable
     // or the next available one.
-    fn get_var_types(&self, term_info: &TermInfo, simple_edge: &Replacement) -> Vec<TypeId> {
-        match simple_edge.value {
+    fn get_var_types(&self, term_info: &TermInfo, replacement: &Replacement) -> Vec<TypeId> {
+        match replacement.value {
             TermInstance::Variable(_) => term_info.arg_types.clone(),
             TermInstance::Mapped(ref replacement) => {
                 let mut arg_types = term_info.arg_types.clone();
-                let replacement_info = self.get_term_info(replacement.term_id);
+                let term_info = self.get_term_info(replacement.term_id);
                 for (i, v) in replacement.var_map.iter().enumerate() {
                     if *v < arg_types.len() as AtomId {
                         // This is a variable that we already know about
@@ -638,7 +638,7 @@ impl TermGraph {
                     if *v > arg_types.len() as AtomId {
                         panic!("non-normalized variable numbering in get_arg_types")
                     }
-                    arg_types.push(replacement_info.arg_types[i]);
+                    arg_types.push(term_info.arg_types[i]);
                 }
                 arg_types
             }
@@ -713,9 +713,9 @@ impl TermGraph {
             NormalizedEdge::Key(key, denormalizer) => (key, denormalizer),
         };
 
-        if let Some(edge_id) = self.simple_edge_key_map.get(&key).cloned() {
+        if let Some(edge_id) = self.edge_key_map.get(&key).cloned() {
             // We already have an edge
-            let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+            let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
             let existing = edge_info.result.forward_map_vars(&denormalizer);
             if let Some(result) = result {
                 pending.push_front(Operation::Identification(existing.clone(), result));
@@ -748,7 +748,7 @@ impl TermGraph {
             return answer;
         }
 
-        // Simple case of creating a new term
+        // No existing term, so create a new one
         let new_term = self.create_term(key, edge_type, pending);
         new_term.forward_map_vars(&denormalizer)
     }
@@ -909,7 +909,7 @@ impl TermGraph {
 
     // The depth of an edge is the maximum depth of any term that its key references.
     fn edge_depth(&self, edge_id: EdgeId) -> u32 {
-        let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+        let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
         let template_info = self.get_term_info(edge_info.key.template);
         let mut max_depth = template_info.depth;
         if let TermInstance::Mapped(replacement) = &edge_info.key.replacement.value {
@@ -996,7 +996,7 @@ impl TermGraph {
         // Figure out which edge is the best one to represent this term
         assert!(term_info.depth > 0);
         let edge_id = self.shallowest_edge(term_id);
-        let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+        let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
 
         // Construct a Term according to the information provided by the edge
         let template = self.extract_term_id(edge_info.key.template);
@@ -1043,16 +1043,16 @@ impl TermGraph {
     // Creates a new edge.
     // All adjacent terms must already exist, and the edge itself must not already exist.
     fn create_edge(&mut self, edge_info: EdgeInfo, pending: &mut VecDeque<Operation>) -> EdgeId {
-        let new_edge_id = self.simple_edges.len() as EdgeId;
+        let new_edge_id = self.edges.len() as EdgeId;
         assert!(self
-            .simple_edge_key_map
+            .edge_key_map
             .insert(edge_info.key.clone(), new_edge_id)
             .is_none());
         for term in edge_info.adjacent_terms() {
             let mut_term = self.mut_term_info(term);
             mut_term.adjacent.insert(new_edge_id);
         }
-        self.simple_edges.push(Some(edge_info));
+        self.edges.push(Some(edge_info));
         pending.push_back(Operation::Inference(new_edge_id));
         new_edge_id
     }
@@ -1061,8 +1061,8 @@ impl TermGraph {
     // The term may not exist any more by the time this is called.
     // The edge must exist.
     fn remove_edge(&mut self, edge_id: EdgeId) -> EdgeInfo {
-        let simple_edge_info = self.simple_edges[edge_id as usize].take().unwrap();
-        for term in simple_edge_info.adjacent_terms() {
+        let edge_info = self.edges[edge_id as usize].take().unwrap();
+        for term in edge_info.adjacent_terms() {
             match &mut self.terms[term as usize] {
                 TermInfoReference::Replaced(_) => (),
                 TermInfoReference::TermInfo(term_info) => {
@@ -1070,11 +1070,8 @@ impl TermGraph {
                 }
             }
         }
-
-        // Also remove the simple key
-        self.simple_edge_key_map.remove(&simple_edge_info.key);
-
-        simple_edge_info
+        self.edge_key_map.remove(&edge_info.key);
+        edge_info
     }
 
     // Replaces old_term_id with new_term in the given edge.
@@ -1087,43 +1084,37 @@ impl TermGraph {
         new_term: &TermInstance,
         pending: &mut VecDeque<Operation>,
     ) {
-        let simple_edge_info = self.remove_edge(old_edge_id);
+        let edge_info = self.remove_edge(old_edge_id);
 
-        let old_edge_num_args = if simple_edge_info.key.template == old_term_id {
+        let old_edge_num_args = if edge_info.key.template == old_term_id {
             old_term_num_args
         } else {
-            self.get_term_info(simple_edge_info.key.template)
-                .arg_types
-                .len() as AtomId
+            self.get_term_info(edge_info.key.template).arg_types.len() as AtomId
         };
 
         // Recurse on the result and the edge key.
-        let new_result = simple_edge_info
-            .result
-            .replace_term_id(old_term_id, new_term);
-        let new_edge = simple_edge_info
+        let new_result = edge_info.result.replace_term_id(old_term_id, new_term);
+        let new_edge = edge_info
             .key
             .replacement
             .replace_term_id(old_term_id, new_term);
 
-        if simple_edge_info.key.template == old_term_id {
+        if edge_info.key.template == old_term_id {
             self.follow_or_create_edge(
                 new_term,
                 &new_edge,
-                simple_edge_info.edge_type,
+                edge_info.edge_type,
                 Some(new_result),
                 pending,
             );
         } else {
             // The template is unchanged, but we still have to renormalize the edge
-            let template = TermInstance::mapped(
-                simple_edge_info.key.template,
-                (0..old_edge_num_args).collect(),
-            );
+            let template =
+                TermInstance::mapped(edge_info.key.template, (0..old_edge_num_args).collect());
             self.follow_or_create_edge(
                 &template,
                 &new_edge,
-                simple_edge_info.edge_type,
+                edge_info.edge_type,
                 Some(new_result),
                 pending,
             );
@@ -1456,7 +1447,7 @@ impl TermGraph {
             .adjacent
             .iter()
             .filter(move |edge_id| {
-                let edge_info = self.simple_edges[**edge_id as usize].as_ref().unwrap();
+                let edge_info = self.edges[**edge_id as usize].as_ref().unwrap();
                 edge_info.result.term_id() == Some(term_id)
             })
             .copied()
@@ -1470,7 +1461,7 @@ impl TermGraph {
             .adjacent
             .iter()
             .filter(move |edge_id| {
-                let edge_info = self.simple_edges[**edge_id as usize].as_ref().unwrap();
+                let edge_info = self.edges[**edge_id as usize].as_ref().unwrap();
                 edge_info.key.template == term_id
             })
             .copied()
@@ -1489,10 +1480,10 @@ impl TermGraph {
         bc_edge_id: EdgeId,
         pending: &mut VecDeque<Operation>,
     ) {
-        let simple_ab_edge_info = self.simple_edges[ab_edge_id as usize].as_ref().unwrap();
-        let simple_bc_edge_info = self.simple_edges[bc_edge_id as usize].as_ref().unwrap();
-        let ab_edge_type = simple_ab_edge_info.edge_type;
-        let bc_edge_type = simple_bc_edge_info.edge_type;
+        let ab_edge_info = self.edges[ab_edge_id as usize].as_ref().unwrap();
+        let bc_edge_info = self.edges[bc_edge_id as usize].as_ref().unwrap();
+        let ab_edge_type = ab_edge_info.edge_type;
+        let bc_edge_type = bc_edge_info.edge_type;
 
         if ab_edge_type != EdgeType::Constructive {
             return;
@@ -1505,16 +1496,16 @@ impl TermGraph {
         }
 
         // Create term instances that use the same numbering scheme for all of A, B, and C.
-        let instance_a = self.term_instance(simple_ab_edge_info.key.template);
+        let instance_a = self.term_instance(ab_edge_info.key.template);
         let mapped_a = instance_a.as_mapped();
         let num_a_vars = mapped_a.var_map.len() as AtomId;
-        let num_ab_vars = simple_ab_edge_info.key.vars_used;
-        let ab_edge = simple_ab_edge_info.key.replacement.clone();
-        let instance_b = simple_ab_edge_info.result.clone();
+        let num_ab_vars = ab_edge_info.key.vars_used;
+        let ab_edge = ab_edge_info.key.replacement.clone();
+        let instance_b = ab_edge_info.result.clone();
         let mapped_b = instance_b.as_mapped();
-        let existing_bc_edge = &simple_bc_edge_info.key.replacement;
+        let existing_bc_edge = &bc_edge_info.key.replacement;
         let (bc_edge, instance_c) =
-            existing_bc_edge.relativize(&mapped_b, num_ab_vars, &simple_bc_edge_info.result);
+            existing_bc_edge.relativize(&mapped_b, num_ab_vars, &bc_edge_info.result);
 
         match (&ab_edge.value, &bc_edge.value) {
             (TermInstance::Mapped(ab_rep), TermInstance::Mapped(bc_rep)) => {
@@ -1625,7 +1616,7 @@ impl TermGraph {
             // This edge has been collapsed
             return;
         }
-        let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+        let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
         let result_term_id = edge_info.result.term_id();
 
         // Find A -> B -> C patterns where this edge is B -> C
@@ -1682,7 +1673,7 @@ impl TermGraph {
     //
 
     pub fn print_edge(&self, edge_id: EdgeId) {
-        let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+        let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
         let term_id = edge_info.key.template;
         print!(
             "edge {}: term {} = {}; {} => {}",
@@ -1707,7 +1698,7 @@ impl TermGraph {
             }
             let term_info = self.get_term_info(term_id);
             for edge_id in &term_info.adjacent {
-                let edge_info = self.simple_edges[*edge_id as usize].as_ref().unwrap();
+                let edge_info = self.edges[*edge_id as usize].as_ref().unwrap();
                 if edge_info.key.template == term_id {
                     if let Some(result_id) = edge_info.result.term_id() {
                         let mut path = path.clone();
@@ -1739,7 +1730,7 @@ impl TermGraph {
                 if !self.has_edge_info(*edge_id) {
                     panic!("term {} is adjacent to collapsed edge {}", term_id, edge_id);
                 }
-                let edge_info = self.simple_edges[*edge_id as usize].as_ref().unwrap();
+                let edge_info = self.edges[*edge_id as usize].as_ref().unwrap();
                 if !edge_info.adjacent_terms().contains(&term_id) {
                     panic!(
                         "term {} thinks it is adjacent to edge {} ({:?}) but not vice versa",
@@ -1764,14 +1755,14 @@ impl TermGraph {
             }
         }
 
-        for edge_id in 0..self.simple_edges.len() {
+        for edge_id in 0..self.edges.len() {
             let edge_id = edge_id as EdgeId;
 
             if !self.has_edge_info(edge_id) {
                 continue;
             }
             self.print_edge(edge_id);
-            let edge_info = self.simple_edges[edge_id as usize].as_ref().unwrap();
+            let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
 
             for term_id in edge_info.adjacent_terms().iter() {
                 if !self.has_term_info(*term_id) {
