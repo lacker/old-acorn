@@ -194,13 +194,6 @@ pub struct TermGraph {
     found_contradiction: bool,
 }
 
-// A HybridTerm expresses a match or a partial match between a Term and the data in the TermGraph.
-// When values[i] is Some(term), it indicates a binding from x_i to that term.
-struct HybridTerm<'a> {
-    term: TermInstance,
-    values: Vec<Option<&'a Term>>,
-}
-
 // -----------------------------------------------------------------------------------------------
 //                       implementation
 // -----------------------------------------------------------------------------------------------
@@ -1662,10 +1655,6 @@ impl TermGraph {
             }
             None => None,
         }
-    }
-
-    fn hybridize(&self, term: &Term) -> Vec<HybridTerm> {
-        todo!();
     }
 
     //
