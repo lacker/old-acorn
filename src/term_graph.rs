@@ -746,6 +746,22 @@ impl TermGraph {
         new_term.forward_map_vars(&denormalizer)
     }
 
+    // Follows this edge, if there is such an edge in the graph.
+    // Returns None is there is not.
+    fn follow_edge(&self, template: &TermInstance, edge: &Replacement) -> Option<TermInstance> {
+        let (key, denormalizer) = match NormalizedEdge::new(template, edge) {
+            NormalizedEdge::Degenerate(term) => return Some(term),
+            NormalizedEdge::Key(key, denormalizer) => (key, denormalizer),
+        };
+
+        if let Some(edge_id) = self.edge_key_map.get(&key).cloned() {
+            let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
+            let existing = edge_info.result.forward_map_vars(&denormalizer);
+            return Some(existing);
+        }
+        None
+    }
+
     // Inserts a path that goes template --edge1--> _ --edge2--> result.
     fn insert_speculative_path(
         &mut self,
