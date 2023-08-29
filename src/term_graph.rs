@@ -441,13 +441,6 @@ impl fmt::Display for OldEdgeKey {
 }
 
 impl SimpleEdge {
-    fn replace(var: AtomId, replacement: MappedTerm) -> SimpleEdge {
-        SimpleEdge {
-            var,
-            replacement: TermInstance::Mapped(replacement),
-        }
-    }
-
     fn identify(from: AtomId, to: AtomId) -> SimpleEdge {
         SimpleEdge {
             var: from,
@@ -704,13 +697,6 @@ impl OldEdgeKey {
             .iter()
             .enumerate()
             .all(|(i, r)| r.variable() == Some(i as AtomId))
-    }
-
-    fn template_instance(&self) -> TermInstance {
-        TermInstance::mapped(
-            self.template,
-            (0..self.replacements.len() as AtomId).collect(),
-        )
     }
 }
 
