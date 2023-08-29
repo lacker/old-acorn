@@ -748,7 +748,7 @@ impl TermGraph {
 
     // Follows this edge, if there is such an edge in the graph.
     // Returns None is there is not.
-    fn follow_edge(&self, template: &TermInstance, edge: &Replacement) -> Option<TermInstance> {
+    pub fn follow_edge(&self, template: &TermInstance, edge: &Replacement) -> Option<TermInstance> {
         let (key, denormalizer) = match NormalizedEdge::new(template, edge) {
             NormalizedEdge::Degenerate(term) => return Some(term),
             NormalizedEdge::Key(key, denormalizer) => (key, denormalizer),
