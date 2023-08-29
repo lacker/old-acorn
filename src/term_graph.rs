@@ -89,29 +89,6 @@ pub struct TypedTermInstance {
     pub instance: TermInstance,
 }
 
-// An edge represents a single substitution.
-// An EdgeKey is enough information to uniquely specify one substitution.
-// All variables get renamed, and some in the template can get replaced.
-// For example:
-// template = add(x0, x1)
-// replacement = mul(x0, x1)
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct OldEdgeKey {
-    // The base term that will be substituted into
-    template: TermId,
-
-    // The replacement for each variable in the template.
-    // Should have as many entries as the template has variables.
-    // This list is normalized so that a single substitution is represented in only one way.
-    // The first time a new variable appears, it should get the first available index.
-    replacements: Vec<TermInstance>,
-
-    // The number of variables used in the replacements.
-    // This can be larger than the number of variables used in the result, if the result ignores
-    // some of the variables.
-    vars_used: usize,
-}
-
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 enum EdgeType {
     // Edges that we insert while parsing an externally-provided term are all constructive.
@@ -127,17 +104,6 @@ enum EdgeType {
     Lateral,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OldEdgeInfo {
-    // The parameters that determine the substitution
-    key: OldEdgeKey,
-
-    // The result of the substitution.
-    // This can have reordered variable ids but not duplicated or non-consecutive ones.
-    result: TermInstance,
-
-    edge_type: EdgeType,
-}
 pub type EdgeId = u32;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
