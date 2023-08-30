@@ -194,6 +194,13 @@ pub struct TermGraph {
     found_contradiction: bool,
 }
 
+// A template term to start at, and a sequence of replacements to apply to that term.
+// This may or may not correspond to a path that is already in the TermGraph.
+pub struct Path {
+    pub template: TermInstance,
+    pub replacements: Vec<Replacement>,
+}
+
 // -----------------------------------------------------------------------------------------------
 //                       implementation
 // -----------------------------------------------------------------------------------------------
@@ -1673,6 +1680,10 @@ impl TermGraph {
         }
     }
 
+    pub fn find_paths(&self, term: &Term) -> Vec<Path> {
+        todo!("use term: {:?}", term);
+    }
+
     //
     // Tools for testing and inspecting the term graph.
     //
@@ -1690,7 +1701,9 @@ impl TermGraph {
         );
     }
 
-    fn find_path(&self, from: TermId, to: TermId) -> Option<Vec<EdgeId>> {
+    // Finds edges that connect two terms.
+    // This ignores variables, so is only really useful for debugging.
+    fn find_edges(&self, from: TermId, to: TermId) -> Option<Vec<EdgeId>> {
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
         queue.push_back((from, vec![]));
@@ -1857,7 +1870,7 @@ impl TermGraph {
         let to = self.update_term(to.instance.clone());
         let from_id = from.term_id().unwrap();
         let to_id = to.term_id().unwrap();
-        let path = self.find_path(from_id, to_id);
+        let path = self.find_edges(from_id, to_id);
         if path.is_none() {
             panic!(
                 "no path from term {} to term {}, {} to {}",
