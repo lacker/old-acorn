@@ -194,11 +194,20 @@ pub struct TermGraph {
     found_contradiction: bool,
 }
 
-// A template term to start at, and a sequence of replacements to apply to that term.
-// This may or may not correspond to a path that is already in the TermGraph.
-pub struct Path {
-    pub template: TermInstance,
-    pub replacements: Vec<Replacement>,
+// A conversion of all the parts of a Term to TermInstance.
+struct DecomposedTerm {
+    // When we decompose a term, we break it into a bunch of atomic replacements.
+    replacements: Vec<Replacement>,
+
+    // The parsing process introduces a bunch of extra variables.
+    // Each of these extra variables represents a subterm.
+    // The first one of them is numbered subterm_start.
+    // Any variable below subterm_start is in the original term.
+    subterm_start: AtomId,
+
+    // subterms[i] tracks which replacements represent the i'th subterm.
+    // It is (first index, number of replacements).
+    subterms: Vec<(usize, usize)>,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -1680,7 +1689,7 @@ impl TermGraph {
         }
     }
 
-    pub fn find_paths(&self, term: &Term) -> Vec<Path> {
+    fn decompose(&self, term: &Term) -> DecomposedTerm {
         todo!("use term: {:?}", term);
     }
 
