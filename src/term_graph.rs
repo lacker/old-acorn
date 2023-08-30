@@ -201,9 +201,9 @@ struct DecomposedTerm {
 
     // The parsing process introduces a bunch of extra variables.
     // Each of these extra variables represents a subterm.
-    // The first one of them is numbered subterm_start.
-    // Any variable below subterm_start is in the original term.
-    subterm_start: AtomId,
+    // The first one of them is numbered start_var.
+    // Any variable below start_var is in the original term.
+    start_var: AtomId,
 
     // subterms[i] tracks which replacements represent the i'th subterm.
     // It is (first index, number of replacements).
@@ -1689,8 +1689,16 @@ impl TermGraph {
         }
     }
 
-    fn decompose(&self, term: &Term) -> DecomposedTerm {
+    // Helper function for decompose.
+    // Turns the provided term into a DecomposedTerm, starting at start_var.
+    fn decompose_starting_at(&self, term: &Term, start_var: AtomId) -> DecomposedTerm {
         todo!("use term: {:?}", term);
+    }
+
+    // Turns the provided term into a DecomposedTerm, starting at the first available variable.
+    fn decompose(&self, term: &Term) -> DecomposedTerm {
+        let start_var = term.least_unused_variable();
+        self.decompose_starting_at(term, start_var)
     }
 
     //
