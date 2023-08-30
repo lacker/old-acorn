@@ -171,6 +171,22 @@ enum TermInfoReference {
     Replaced(TermInstance),
 }
 
+// A conversion of all the parts of a Term to TermInstance.
+struct DecomposedTerm {
+    term_type: TypeId,
+
+    // The initial variable that we substitute into.
+    start_var: AtomId,
+
+    // x_{i+start_var} gets replaced with replacement_values[i].
+    replacement_values: Vec<TypedTermInstance>,
+
+    // subterm_sizes[n] is the number of replacements used for the nth subterm.
+    // This only includes strict subterms.
+    // Ie, replacements[n+1] to replacements[n+subterm_sizes[n]] represent the nth subterm.
+    subterm_sizes: Vec<usize>,
+}
+
 pub struct TermGraph {
     // We replace elements of terms or edges with None when they are replaced with
     // an identical one that we have chosen to be the canonical one.
@@ -192,22 +208,6 @@ pub struct TermGraph {
 
     // A flag to indicate when we find a contradiction
     found_contradiction: bool,
-}
-
-// A conversion of all the parts of a Term to TermInstance.
-struct DecomposedTerm {
-    // When we decompose a term, we break it into a bunch of atomic replacements.
-    replacements: Vec<Replacement>,
-
-    // The parsing process introduces a bunch of extra variables.
-    // Each of these extra variables represents a subterm.
-    // The first one of them is numbered start_var.
-    // Any variable below start_var is in the original term.
-    start_var: AtomId,
-
-    // subterms[i] tracks which replacements represent the i'th subterm.
-    // It is (first index, number of replacements).
-    subterms: Vec<(usize, usize)>,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -1691,14 +1691,57 @@ impl TermGraph {
 
     // Helper function for decompose.
     // Turns the provided term into a DecomposedTerm, starting at start_var.
-    fn decompose_starting_at(&self, term: &Term, start_var: AtomId) -> DecomposedTerm {
-        todo!("use term: {:?}", term);
+    fn decompose_starting_at(&mut self, term: &Term, start_var: AtomId) -> DecomposedTerm {
+        if term.is_atomic() {
+            // This is a leaf term, just a single atom
+            let instance = TypedTermInstance {
+                term_type: term.term_type,
+                instance: self.atomic_instance(term.term_type, term.head),
+            };
+            return DecomposedTerm {
+                term_type: term.term_type,
+                start_var,
+                replacement_values: vec![instance],
+                subterm_sizes: vec![],
+            };
+        }
+
+        let mut replacement_values = vec![];
+        let mut subterm_sizes = vec![];
+        let mut next_var = start_var;
+
+        for subterm in &term.args {
+            let subterm_decomp = self.decompose_starting_at(subterm, next_var);
+            next_var += subterm_decomp.replacement_values.len() as AtomId;
+            subterm_sizes.push(subterm_decomp.replacement_values.len());
+            replacement_values.extend(subterm_decomp.replacement_values);
+            subterm_sizes.extend(subterm_decomp.subterm_sizes);
+        }
+
+        DecomposedTerm {
+            term_type: term.term_type,
+            start_var,
+            replacement_values,
+            subterm_sizes,
+        }
     }
 
     // Turns the provided term into a DecomposedTerm, starting at the first available variable.
-    fn decompose(&self, term: &Term) -> DecomposedTerm {
+    fn decompose(&mut self, term: &Term) -> DecomposedTerm {
         let start_var = term.least_unused_variable();
         self.decompose_starting_at(term, start_var)
+    }
+
+    // Should be the same thing as we started with, unless there are multiple atoms identified,
+    // in which case we might get different ones.
+    fn recompose(&self, decomposed: &DecomposedTerm) -> Term {
+        let mut term = Term::atom(decomposed.term_type, Atom::Variable(decomposed.start_var));
+        for (i, replacement_value) in decomposed.replacement_values.iter().enumerate() {
+            let var = decomposed.start_var + i as AtomId;
+            let replacement_term = self.extract_term_instance(replacement_value);
+            term = term.replace_variable(var, &replacement_term);
+        }
+        term
     }
 
     //
@@ -2408,5 +2451,15 @@ mod tests {
         assert_eq!(g.evaluate_literal_str("x0 = c0"), None);
         assert_eq!(g.evaluate_literal_str("c0 = x0"), None);
         assert_eq!(g.evaluate_literal_str("c0 = c0"), Some(true));
+    }
+
+    #[test]
+    fn test_decompose_and_recompose() {
+        let mut g = TermGraph::new();
+        let term = Term::parse("c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))");
+        let decomp = g.decompose(&term);
+        let recomp = g.recompose(&decomp);
+        assert_eq!(term.to_string(), recomp.to_string());
+        assert_eq!(term, recomp);
     }
 }
