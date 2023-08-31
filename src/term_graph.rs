@@ -89,21 +89,6 @@ pub struct TypedTermInstance {
     pub instance: TermInstance,
 }
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-enum EdgeType {
-    // Edges that we insert while parsing an externally-provided term are all constructive.
-    // The constructive edges form a DAG from the root, containing all important terms.
-    Constructive,
-
-    // A speculative edge is doing one step of parsing out of order.
-    // Speculative edges all start in the constructive DAG.
-    Speculative,
-
-    // Every speculative edge is followed a path of lateral edges leading it back to the
-    // constructive DAG.
-    Lateral,
-}
-
 pub type EdgeId = u32;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -141,8 +126,6 @@ struct EdgeInfo {
     // The result of the substitution.
     // This can have non-consecutive variable ids but not duplicated ones.
     result: TermInstance,
-
-    edge_type: EdgeType,
 }
 
 enum NormalizedEdge {
@@ -161,9 +144,6 @@ enum NormalizedEdge {
 enum Operation {
     // Make these two term instances represent the same thing.
     Identification(TermInstance, TermInstance),
-
-    // Infer new relations based on this new edge
-    Inference(EdgeId),
 }
 
 enum TermInfoReference {
@@ -386,13 +366,6 @@ impl TermInstance {
 }
 
 impl Replacement {
-    fn identify(from: AtomId, to: AtomId) -> Replacement {
-        Replacement {
-            var: from,
-            value: TermInstance::Variable(to),
-        }
-    }
-
     fn new(var: AtomId, replacement: TermInstance) -> Replacement {
         Replacement {
             var,
@@ -425,7 +398,8 @@ impl Replacement {
     // instance that is renumbered in the same way that this replacement renumbered.
     //
     // Returns the replacement, the least unused variable, and the renumbered result.
-    fn relativize(
+    // TODO: are we going to use this?
+    pub fn relativize(
         &self,
         template_instance: &MappedTerm,
         next_var: AtomId,
@@ -618,17 +592,13 @@ impl TermGraph {
         }
     }
 
-    fn term_instance(&self, term_id: TermId) -> TermInstance {
+    pub fn term_instance(&self, term_id: TermId) -> TermInstance {
         let info = self.get_term_info(term_id);
         TermInstance::mapped(term_id, (0..info.arg_types.len() as AtomId).collect())
     }
 
     fn has_edge_info(&self, edge: EdgeId) -> bool {
         self.edges[edge as usize].is_some()
-    }
-
-    fn set_edge_type(&mut self, edge: EdgeId, edge_type: EdgeType) {
-        self.edges[edge as usize].as_mut().unwrap().edge_type = edge_type;
     }
 
     // The arg types for every variable used in the given term and replacement.
@@ -658,12 +628,7 @@ impl TermGraph {
     // Creates a new term, along with an edge that leads to it.
     // key should already be normalized.
     // There must be no analogous edge already in the graph.
-    fn create_term(
-        &mut self,
-        key: EdgeKey,
-        edge_type: EdgeType,
-        pending: &mut VecDeque<Operation>,
-    ) -> TermInstance {
+    fn create_term(&mut self, key: EdgeKey) -> TermInstance {
         // Figure out the type signature of the new term
         let template = self.get_term_info(key.template);
         let mut arg_types = self.get_var_types(template, &key.replacement);
@@ -687,11 +652,10 @@ impl TermGraph {
         let answer = TermInstance::mapped(term_id, var_map);
         let edge_info = EdgeInfo {
             key,
-            edge_type,
             result: answer.clone(),
         };
 
-        self.create_edge(edge_info, pending);
+        self.create_edge(edge_info);
         answer
     }
 
@@ -709,7 +673,6 @@ impl TermGraph {
         &mut self,
         template: &TermInstance,
         edge: &Replacement,
-        edge_type: EdgeType,
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
@@ -730,11 +693,6 @@ impl TermGraph {
             if let Some(result) = result {
                 pending.push_front(Operation::Identification(existing.clone(), result));
             }
-            if edge_info.edge_type != EdgeType::Constructive && edge_info.edge_type != edge_type {
-                // The existing edge can be upgraded to a constructive one
-                self.set_edge_type(edge_id, EdgeType::Constructive);
-                pending.push_back(Operation::Inference(edge_id));
-            }
             return existing;
         }
 
@@ -744,22 +702,21 @@ impl TermGraph {
                 let edge_info = EdgeInfo {
                     key,
                     result: normalized_result,
-                    edge_type,
                 };
-                self.create_edge(edge_info, pending);
+                self.create_edge(edge_info);
                 return result;
             }
 
             // We have an existing term, but its argument is collapsing.
             // So create a new term and subsequently identify the result.
-            let new_term = self.create_term(key, edge_type, pending);
+            let new_term = self.create_term(key);
             let answer = new_term.forward_map_vars(&denormalizer);
             pending.push_front(Operation::Identification(answer.clone(), result));
             return answer;
         }
 
         // No existing term, so create a new one
-        let new_term = self.create_term(key, edge_type, pending);
+        let new_term = self.create_term(key);
         new_term.forward_map_vars(&denormalizer)
     }
 
@@ -777,26 +734,6 @@ impl TermGraph {
             return Some(existing);
         }
         None
-    }
-
-    // Inserts a path that goes template --edge1--> _ --edge2--> result.
-    fn insert_speculative_path(
-        &mut self,
-        template: &TermInstance,
-        edge1: &Replacement,
-        edge2: &Replacement,
-        result: TermInstance,
-        pending: &mut VecDeque<Operation>,
-    ) {
-        let intermediate_node =
-            self.follow_or_create_edge(template, edge1, EdgeType::Speculative, None, pending);
-        self.follow_or_create_edge(
-            &intermediate_node,
-            edge2,
-            EdgeType::Lateral,
-            Some(result),
-            pending,
-        );
     }
 
     fn type_template_term_id(
@@ -901,7 +838,6 @@ impl TermGraph {
                     let replaced = self.follow_or_create_edge(
                         &instance,
                         &Replacement::new(replace_var, type_template_instance),
-                        EdgeType::Constructive,
                         None,
                         &mut pending,
                     );
@@ -926,7 +862,6 @@ impl TermGraph {
             let replaced = self.follow_or_create_edge(
                 &accumulated_instance.unwrap(),
                 &Replacement::new(replace_var, atomic_instance),
-                EdgeType::Constructive,
                 None,
                 &mut pending,
             );
@@ -1096,7 +1031,7 @@ impl TermGraph {
 
     // Creates a new edge.
     // All adjacent terms must already exist, and the edge itself must not already exist.
-    fn create_edge(&mut self, edge_info: EdgeInfo, pending: &mut VecDeque<Operation>) -> EdgeId {
+    fn create_edge(&mut self, edge_info: EdgeInfo) -> EdgeId {
         let new_edge_id = self.edges.len() as EdgeId;
         assert!(self
             .edge_key_map
@@ -1107,7 +1042,6 @@ impl TermGraph {
             mut_term.adjacent.insert(new_edge_id);
         }
         self.edges.push(Some(edge_info));
-        pending.push_back(Operation::Inference(new_edge_id));
         new_edge_id
     }
 
@@ -1154,24 +1088,12 @@ impl TermGraph {
             .replace_term_id(old_term_id, new_term);
 
         if edge_info.key.template == old_term_id {
-            self.follow_or_create_edge(
-                new_term,
-                &new_edge,
-                edge_info.edge_type,
-                Some(new_result),
-                pending,
-            );
+            self.follow_or_create_edge(new_term, &new_edge, Some(new_result), pending);
         } else {
             // The template is unchanged, but we still have to renormalize the edge
             let template =
                 TermInstance::mapped(edge_info.key.template, (0..old_edge_num_args).collect());
-            self.follow_or_create_edge(
-                &template,
-                &new_edge,
-                edge_info.edge_type,
-                Some(new_result),
-                pending,
-            );
+            self.follow_or_create_edge(&template, &new_edge, Some(new_result), pending);
         }
     }
 
@@ -1405,11 +1327,6 @@ impl TermGraph {
                 Some(Operation::Identification(instance1, instance2)) => {
                     self.process_identify_terms(instance1, instance2, &mut pending);
                 }
-                Some(Operation::Inference(edge_id)) => {
-                    if false {
-                        self.infer_from_edge(edge_id, &mut pending);
-                    }
-                }
                 None => break,
             }
             processed += 1;
@@ -1494,201 +1411,6 @@ impl TermGraph {
             return Some(true);
         }
         None
-    }
-
-    // All edges that result in this term.
-    fn inbound_edges(&self, term_id: TermId) -> Vec<EdgeId> {
-        let term_info = self.get_term_info(term_id);
-        term_info
-            .adjacent
-            .iter()
-            .filter(move |edge_id| {
-                let edge_info = self.edges[**edge_id as usize].as_ref().unwrap();
-                edge_info.result.term_id() == Some(term_id)
-            })
-            .copied()
-            .collect()
-    }
-
-    // All edges that use this term as a template.
-    fn outbound_edges(&self, term_id: TermId) -> Vec<EdgeId> {
-        let term_info = self.get_term_info(term_id);
-        term_info
-            .adjacent
-            .iter()
-            .filter(move |edge_id| {
-                let edge_info = self.edges[**edge_id as usize].as_ref().unwrap();
-                edge_info.key.template == term_id
-            })
-            .copied()
-            .collect()
-    }
-
-    // Checks for any inferences from a pair of consecutive edges.
-    // The edges should form a pattern:
-    //
-    // A -> B -> C
-    //
-    // where the first edge goes A -> B, the second goes B -> C.
-    fn infer_from_edge_pair(
-        &mut self,
-        ab_edge_id: EdgeId,
-        bc_edge_id: EdgeId,
-        pending: &mut VecDeque<Operation>,
-    ) {
-        let ab_edge_info = self.edges[ab_edge_id as usize].as_ref().unwrap();
-        let bc_edge_info = self.edges[bc_edge_id as usize].as_ref().unwrap();
-        let ab_edge_type = ab_edge_info.edge_type;
-        let bc_edge_type = bc_edge_info.edge_type;
-
-        if ab_edge_type != EdgeType::Constructive {
-            return;
-        }
-        if bc_edge_type == EdgeType::Lateral {
-            // When constructive->lateral, promote the lateral to constructive
-            self.set_edge_type(bc_edge_id, EdgeType::Constructive);
-            pending.push_back(Operation::Inference(bc_edge_id));
-            return;
-        }
-
-        // Create term instances that use the same numbering scheme for all of A, B, and C.
-        let instance_a = self.term_instance(ab_edge_info.key.template);
-        let mapped_a = instance_a.as_mapped();
-        let num_a_vars = mapped_a.var_map.len() as AtomId;
-        let num_ab_vars = ab_edge_info.key.vars_used;
-        let ab_edge = ab_edge_info.key.replacement.clone();
-        let instance_b = ab_edge_info.result.clone();
-        let mapped_b = instance_b.as_mapped();
-        let existing_bc_edge = &bc_edge_info.key.replacement;
-        let (bc_edge, instance_c) =
-            existing_bc_edge.relativize(&mapped_b, num_ab_vars, &bc_edge_info.result);
-
-        match (&ab_edge.value, &bc_edge.value) {
-            (TermInstance::Mapped(ab_rep), TermInstance::Mapped(bc_rep)) => {
-                if bc_edge.var >= num_a_vars {
-                    // B->C is changing a variable that was newly introduced in A->B.
-                    // This means we can do a "combining" inference, to introduce a composite term
-                    // in one step.
-
-                    if bc_edge_type != EdgeType::Constructive {
-                        // We only do combining inference on constructive edges
-                        return;
-                    }
-                    let composite_instance = self.follow_or_create_edge(
-                        &ab_edge.value,
-                        &bc_edge,
-                        bc_edge_type,
-                        None,
-                        pending,
-                    );
-                    self.follow_or_create_edge(
-                        &instance_a,
-                        &Replacement::new(ab_edge.var, composite_instance),
-                        bc_edge_type,
-                        Some(instance_c),
-                        pending,
-                    );
-                    return;
-                }
-
-                if ab_rep.var_map.contains(&bc_edge.var) {
-                    // B->C is changing a variable that exists in A, but the A->B replacement also
-                    // used that variable.
-                    // TODO: handle this case
-                    return;
-                }
-
-                if ab_rep == bc_rep {
-                    // A->B->C is swapping the same thing in for multiple variables.
-                    // We could also do a variable combination first, then a substitution.
-                    self.insert_speculative_path(
-                        &instance_a,
-                        &Replacement::identify(ab_edge.var, bc_edge.var),
-                        &bc_edge,
-                        instance_c.clone(),
-                        pending,
-                    );
-                }
-
-                // B->C doesn't change anything that was affected by A->B.
-                // So we can do a "commuting" inference.
-                self.insert_speculative_path(&instance_a, &bc_edge, &ab_edge, instance_c, pending);
-                return;
-            }
-            (TermInstance::Variable(ab_keep_id), TermInstance::Mapped(_)) => {
-                if *ab_keep_id == bc_edge.var {
-                    // B->C is substituting into the variable that A->B identified.
-                    // TODO: handle this case
-                    return;
-                } else {
-                    // These operations purely commute.
-                    self.insert_speculative_path(
-                        &instance_a,
-                        &bc_edge,
-                        &ab_edge,
-                        instance_c,
-                        pending,
-                    );
-                    return;
-                }
-            }
-            (TermInstance::Variable(ab_keep_id), TermInstance::Variable(bc_keep_id)) => {
-                if ab_keep_id == bc_keep_id {
-                    // Both edge vars are getting identified into bc_keep_id.
-                    // They are getting identified into their final value directly.
-                    // So for one, we can purely commute.
-                    self.insert_speculative_path(
-                        &instance_a,
-                        &bc_edge,
-                        &ab_edge,
-                        instance_c.clone(),
-                        pending,
-                    );
-
-                    // We can also identify the variables together first, then do the substitution.
-                    self.insert_speculative_path(
-                        &instance_a,
-                        &Replacement::identify(ab_edge.var, bc_edge.var),
-                        &bc_edge,
-                        instance_c,
-                        pending,
-                    );
-                    return;
-                }
-
-                // TODO: do we want to infer from the other cases?
-                return;
-            }
-            (TermInstance::Mapped(_), TermInstance::Variable(_)) => {
-                // TODO: do we want to infer from this case?
-                return;
-            }
-        }
-    }
-
-    // Look for inferences that involve this edge.
-    fn infer_from_edge(&mut self, edge_id: EdgeId, pending: &mut VecDeque<Operation>) {
-        if !self.has_edge_info(edge_id) {
-            // This edge has been collapsed
-            return;
-        }
-        let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
-        let result_term_id = edge_info.result.term_id();
-
-        // Find A -> B -> C patterns where this edge is B -> C
-        let template_term_id = edge_info.key.template;
-        let inbound_edges = self.inbound_edges(template_term_id);
-        for inbound_edge_id in inbound_edges {
-            self.infer_from_edge_pair(inbound_edge_id, edge_id, pending);
-        }
-
-        // Find A -> B -> C patterns where this edge is A -> B
-        if let Some(result_term_id) = result_term_id {
-            let outbound_edges = self.outbound_edges(result_term_id);
-            for outbound_edge_id in outbound_edges {
-                self.infer_from_edge_pair(edge_id, outbound_edge_id, pending);
-            }
-        }
     }
 
     pub fn insert_literal(&mut self, literal: &Literal) {
