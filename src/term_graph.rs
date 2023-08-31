@@ -2587,4 +2587,35 @@ mod tests {
         assert_eq!(subterm(12), "c6");
         assert_eq!(subterm(13), "c7");
     }
+
+    #[test]
+    fn test_match_decomposed() {
+        let mut g = TermGraph::new();
+        let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
+        let term = Term::parse(s);
+        let decomp = g.decompose(&term);
+
+        let subterms = g.match_decomposed(&decomp);
+        assert_eq!(subterms.len(), 14);
+
+        let subterm = |i: usize| match &subterms[i] {
+            Some(instance) => g.term_str(instance),
+            None => "None".to_string(),
+        };
+
+        // assert_eq!(subterm(0), "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))");
+        assert_eq!(subterm(1), "c0");
+        assert_eq!(subterm(2), "c1");
+        // assert_eq!(subterm(3), "c2(c3)");
+        assert_eq!(subterm(4), "c2");
+        assert_eq!(subterm(5), "c3");
+        // assert_eq!(subterm(6), "x0(c4, x1, c5(c6, c7))");
+        assert_eq!(subterm(7), "x0");
+        assert_eq!(subterm(8), "c4");
+        assert_eq!(subterm(9), "x1");
+        // assert_eq!(subterm(10), "c5(c6, c7)");
+        assert_eq!(subterm(11), "c5");
+        assert_eq!(subterm(12), "c6");
+        assert_eq!(subterm(13), "c7");
+    }
 }
