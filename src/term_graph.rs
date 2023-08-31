@@ -1810,7 +1810,46 @@ impl TermGraph {
     // This only looks for subterms in one way, the postorder approach of constructing each argument
     // before constructing the term itself.
     pub fn match_decomposed(&self, decomposed: &DecomposedTerm) -> Vec<Option<TermInstance>> {
-        todo!("match_decomposed for {}", self.recompose(decomposed));
+        let mut answer: Vec<Option<TermInstance>> = vec![None; decomposed.replacement_values.len()];
+
+        // Iterate backwards so that term arguments are created before the term is
+        for i in (0..answer.len()).rev() {
+            let instance = &decomposed.replacement_values[i].instance;
+            if decomposed.subterm_sizes[i] == 1 {
+                answer[i] = Some(instance.clone());
+                continue;
+            }
+            let mapped = instance.as_mapped();
+
+            // Construct the term via its arguments
+            let mut term = instance.clone();
+            let mut early_exit: bool = false;
+            for var in &mapped.var_map {
+                let j = (*var - decomposed.start_var) as usize;
+                assert!(j > i);
+                let arg = match &answer[j] {
+                    Some(arg) => arg,
+                    None => {
+                        early_exit = true;
+                        break;
+                    }
+                };
+
+                let replacement = Replacement::new(*var, arg.clone());
+                term = match self.follow_edge(&term, &replacement) {
+                    Some(t) => t,
+                    None => {
+                        early_exit = true;
+                        break;
+                    }
+                }
+            }
+            if !early_exit {
+                // We did manage to construct this term
+                answer[i] = Some(term);
+            }
+        }
+        answer
     }
 
     //
