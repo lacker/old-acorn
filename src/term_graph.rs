@@ -798,18 +798,12 @@ impl TermGraph {
         );
     }
 
-    // Get a TermInstance for a type template, plus the number of variables used.
-    // A type template is a term where everything is a variable.
-    // Like x0(x1, x2).
-    // The variables will be numbered in increasing order, but you can decide where to start at.
-    // This will use (arg_types.len() + 1) variables.
-    fn type_template_instance(
+    fn type_template_term_id(
         &mut self,
         term_type: TypeId,
         head_type: TypeId,
         arg_types: &Vec<TypeId>,
-        next_var: AtomId,
-    ) -> (TermInstance, AtomId) {
+    ) -> TermId {
         if arg_types.len() == 0 {
             panic!("there should be no zero-arg type templates");
         }
@@ -828,11 +822,27 @@ impl TermGraph {
                 self.terms.push(TermInfoReference::TermInfo(term_info));
                 term_id
             });
+        *term_id
+    }
+
+    // Get a TermInstance for a type template, plus the number of variables used.
+    // A type template is a term where everything is a variable.
+    // Like x0(x1, x2).
+    // The variables will be numbered in increasing order, but you can decide where to start at.
+    // This will use (arg_types.len() + 1) variables.
+    fn type_template_instance(
+        &mut self,
+        term_type: TypeId,
+        head_type: TypeId,
+        arg_types: &Vec<TypeId>,
+        next_var: AtomId,
+    ) -> (TermInstance, AtomId) {
+        let term_id = self.type_template_term_id(term_type, head_type, arg_types);
 
         // Construct the instance by shifting the variable numbers
         let delta = 1 + arg_types.len() as AtomId;
         (
-            TermInstance::mapped(*term_id, (next_var..(next_var + delta)).collect()),
+            TermInstance::mapped(term_id, (next_var..(next_var + delta)).collect()),
             delta,
         )
     }
@@ -1052,7 +1062,25 @@ impl TermGraph {
         unmapped_term.unmap_variables(var_map)
     }
 
+    pub fn validate_typed_term_instance(&self, instance: &TypedTermInstance) {
+        match &instance.instance {
+            TermInstance::Mapped(mapped) => {
+                let term_info = self.get_term_info(mapped.term_id);
+                assert_eq!(term_info.term_type, instance.term_type, "type mismatch");
+                assert_eq!(
+                    term_info.arg_types.len(),
+                    mapped.var_map.len(),
+                    "num args mismatch"
+                );
+            }
+            TermInstance::Variable(_) => {
+                // We have no way to validate these, so don't try
+            }
+        }
+    }
+
     pub fn extract_term_instance(&self, instance: &TypedTermInstance) -> Term {
+        self.validate_typed_term_instance(instance);
         match &instance.instance {
             TermInstance::Mapped(term) => {
                 let unmapped_term = self.extract_term_id(term.term_id);
@@ -1692,31 +1720,51 @@ impl TermGraph {
     // Helper function for decompose.
     // Turns the provided term into a DecomposedTerm, starting at start_var.
     fn decompose_starting_at(&mut self, term: &Term, start_var: AtomId) -> DecomposedTerm {
+        let head_instance = TypedTermInstance {
+            term_type: term.head_type,
+            instance: self.atomic_instance(term.head_type, term.head),
+        };
+
         if term.is_atomic() {
-            // This is a leaf term, just a single atom
-            let instance = TypedTermInstance {
-                term_type: term.term_type,
-                instance: self.atomic_instance(term.term_type, term.head),
-            };
+            // This is a leaf term, the head instance is all we have
             return DecomposedTerm {
                 term_type: term.term_type,
                 start_var,
-                replacement_values: vec![instance],
+                replacement_values: vec![head_instance],
                 subterm_sizes: vec![],
             };
         }
 
-        let mut replacement_values = vec![];
-        let mut subterm_sizes = vec![];
-        let mut next_var = start_var;
+        // We need to start the replacement values with a type template instance, but
+        // we don't know what the replaced vars will be yet.
+        // So we need to track all the replaced vars as we generate them, and we
+        // initialize the data with just the head node.
+        // start_var will be the template itself.
+        // start_var + 1 will be the head of the term.
+        let mut replaced_vars = vec![start_var + 1];
+        let mut replacement_values = vec![head_instance];
+        let mut subterm_sizes = vec![1];
+        let mut next_var = start_var + 2;
 
         for subterm in &term.args {
             let subterm_decomp = self.decompose_starting_at(subterm, next_var);
+            replaced_vars.push(next_var);
             next_var += subterm_decomp.replacement_values.len() as AtomId;
             subterm_sizes.push(subterm_decomp.replacement_values.len());
             replacement_values.extend(subterm_decomp.replacement_values);
             subterm_sizes.extend(subterm_decomp.subterm_sizes);
         }
+
+        // Now we are finally able to construct the type template instance.
+        let arg_types: Vec<_> = term.args.iter().map(|t| t.term_type).collect();
+        let type_template_term_id =
+            self.type_template_term_id(term.term_type, term.head_type, &arg_types);
+        let instance = TypedTermInstance {
+            term_type: term.term_type,
+            instance: TermInstance::mapped(type_template_term_id, replaced_vars),
+        };
+        self.validate_typed_term_instance(&instance);
+        replacement_values.insert(0, instance);
 
         DecomposedTerm {
             term_type: term.term_type,
