@@ -153,18 +153,20 @@ enum TermInfoReference {
 
 // A conversion of all the parts of a Term to TermInstance.
 pub struct DecomposedTerm {
+    // The 0th subterm is the whole term itself.
+    subterms: Vec<TypedTermInstance>,
+
     // The initial variable that we substitute into.
+    // Each subsequent replacement will increment its variable by 1.
     start_var: AtomId,
 
     // x_{i+start_var} gets replaced with replacement_values[i].
     replacement_values: Vec<TypedTermInstance>,
 
-    // subterm_sizes[n] is the number of replacements used for the nth subterm.
+    // subterm_sizes[n] is the number of replacements used for subterms[n].
     // The first entry is the whole term as a subterm, even though its size is always
     // the entire list of replacement_values, so it's a bit redundant.
     // The last entry is always the last atom, so it should be 1.
-    // subterm_sizes is parallel to replacement_values.
-    // Ie, subterm_sizes[n] tells you the length of the subterm starting at replacements[n].
     subterm_sizes: Vec<usize>,
 }
 
@@ -357,7 +359,7 @@ impl TermInstance {
         }
     }
 
-    fn as_mapped(&self) -> &MappedTerm {
+    fn _as_mapped(&self) -> &MappedTerm {
         match self {
             TermInstance::Mapped(term) => term,
             TermInstance::Variable(_) => panic!("TermInstance is a variable"),
@@ -808,8 +810,11 @@ impl TermGraph {
     }
 
     // Inserts a new term.
+    // Uses any prefixes that already exist.
+    // So, if we are inserting a(b(c), d), this will catch the relation to
+    // a(b(c), x) but not the relation to b(c).
     // Returns the existing term if there is one.
-    fn insert_term(&mut self, term: &Term) -> TermInstance {
+    fn old_insert_term(&mut self, term: &Term) -> TermInstance {
         if let Some(i) = term.atomic_variable() {
             return TermInstance::Variable(i);
         }
@@ -1336,6 +1341,100 @@ impl TermGraph {
         }
     }
 
+    //
+    // Tools for interacting with more complicated graph things like DecomposedTerm and Literal.
+    //
+
+    // The linear insertion algorithm finds or creates O(n) graph nodes for a term of size n.
+    // Imagine the term as a binary tree where each interior node is an "apply" operator
+    // with two arguments.
+    // We find or create a graph node for each node in this binary tree.
+    //
+    // The decomposition uses temporary variable ids, starting at the first available variable.
+    pub fn linear_insert(&mut self, term: &Term) -> DecomposedTerm {
+        let start_var = term.least_unused_variable();
+        self.linear_insert_with_start_var(term, start_var)
+    }
+
+    // Helper function for linear insertion.
+    // Turns the provided term into a DecomposedTerm, starting at start_var.
+    fn linear_insert_with_start_var(&mut self, term: &Term, start_var: AtomId) -> DecomposedTerm {
+        let head_instance = TypedTermInstance {
+            term_type: term.head_type,
+            instance: self.atomic_instance(term.head_type, term.head),
+        };
+
+        if term.is_atomic() {
+            // This is a leaf term, the head instance is all we have
+            return DecomposedTerm {
+                subterms: vec![head_instance.clone()],
+                start_var,
+                replacement_values: vec![head_instance],
+                subterm_sizes: vec![1],
+            };
+        }
+
+        // The first subterm is the entire term, but we don't know its information yet.
+        // So we populate all the rest of the information first, starting with the information
+        // about the head of the root, and insert the root information at the end.
+        // start_var will be the root term, with the first replacement being its type template.
+        // start_var + 1 will be the head of the term.
+        let mut replaced_vars = vec![start_var + 1];
+        let mut args = vec![head_instance.clone()];
+        let mut subterms = vec![head_instance.clone()];
+        let mut replacement_values = vec![head_instance];
+        let mut subterm_sizes = vec![1];
+        let mut next_var = start_var + 2;
+
+        for subterm in &term.args {
+            let subterm_decomp = self.linear_insert_with_start_var(subterm, next_var);
+            replaced_vars.push(next_var);
+            args.push(subterm_decomp.subterms[0].clone());
+            next_var += subterm_decomp.replacement_values.len() as AtomId;
+            subterms.extend(subterm_decomp.subterms);
+            replacement_values.extend(subterm_decomp.replacement_values);
+            subterm_sizes.extend(subterm_decomp.subterm_sizes);
+        }
+
+        // Construct the type template instance for the root term
+        let arg_types: Vec<_> = term.args.iter().map(|t| t.term_type).collect();
+        let type_template_term_id =
+            self.type_template_term_id(term.term_type, term.head_type, &arg_types);
+        let type_template_instance = TypedTermInstance {
+            term_type: term.term_type,
+            instance: TermInstance::mapped(type_template_term_id, replaced_vars.clone()),
+        };
+        self.validate_typed_term_instance(&type_template_instance);
+
+        // Construct a TermInstance for the root term
+        let mut term_instance = type_template_instance.instance.clone();
+        for (&var, arg) in replaced_vars.iter().zip(args.into_iter()) {
+            let replacement = Replacement::new(var, arg.instance);
+            let mut pending = VecDeque::new();
+            term_instance =
+                self.follow_or_create_edge(&term_instance, &replacement, None, &mut pending);
+            self.process_all(pending);
+        }
+
+        // Insert the root term information at the beginning
+        subterms.insert(
+            0,
+            TypedTermInstance {
+                term_type: type_template_instance.term_type,
+                instance: term_instance,
+            },
+        );
+        replacement_values.insert(0, type_template_instance.clone());
+        subterm_sizes.insert(0, replacement_values.len());
+
+        DecomposedTerm {
+            subterms,
+            start_var,
+            replacement_values,
+            subterm_sizes,
+        }
+    }
+
     // Identifies the two terms, and continues processing any followup Identifications until
     // all Identifications are processed.
     pub fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
@@ -1414,8 +1513,8 @@ impl TermGraph {
     }
 
     pub fn insert_literal(&mut self, literal: &Literal) {
-        let left = self.insert_term(&literal.left);
-        let right = self.insert_term(&literal.right);
+        let left = self.old_insert_term(&literal.left);
+        let right = self.old_insert_term(&literal.right);
         if literal.positive {
             self.make_equal(left, right);
         } else {
@@ -1428,8 +1527,8 @@ impl TermGraph {
     // Return Some(false) if this literal is false (for all values of the free variables).
     // Return None if we don't know or if the literal does not consistently evaluate.
     pub fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
-        let left = self.insert_term(&literal.left);
-        let right = self.insert_term(&literal.right);
+        let left = self.old_insert_term(&literal.left);
+        let right = self.old_insert_term(&literal.right);
         match self.evaluate_equality(&left, &right) {
             Some(equality) => {
                 if literal.positive {
@@ -1440,140 +1539,6 @@ impl TermGraph {
             }
             None => None,
         }
-    }
-
-    // Helper function for decompose.
-    // Turns the provided term into a DecomposedTerm, starting at start_var.
-    fn decompose_starting_at(&mut self, term: &Term, start_var: AtomId) -> DecomposedTerm {
-        let head_instance = TypedTermInstance {
-            term_type: term.head_type,
-            instance: self.atomic_instance(term.head_type, term.head),
-        };
-
-        if term.is_atomic() {
-            // This is a leaf term, the head instance is all we have
-            return DecomposedTerm {
-                start_var,
-                replacement_values: vec![head_instance],
-                subterm_sizes: vec![1],
-            };
-        }
-
-        // We need to start the replacement values with a type template instance, but
-        // we don't know what the replaced vars will be yet.
-        // So we need to track all the replaced vars as we generate them, and we
-        // initialize the data with just the head node.
-        // start_var will be the template itself.
-        // start_var + 1 will be the head of the term.
-        let mut replaced_vars = vec![start_var + 1];
-        let mut replacement_values = vec![head_instance];
-        let mut subterm_sizes = vec![1];
-        let mut next_var = start_var + 2;
-
-        for subterm in &term.args {
-            let subterm_decomp = self.decompose_starting_at(subterm, next_var);
-            replaced_vars.push(next_var);
-            next_var += subterm_decomp.replacement_values.len() as AtomId;
-            replacement_values.extend(subterm_decomp.replacement_values);
-            subterm_sizes.extend(subterm_decomp.subterm_sizes);
-        }
-
-        // Now we are finally able to construct the type template instance.
-        let arg_types: Vec<_> = term.args.iter().map(|t| t.term_type).collect();
-        let type_template_term_id =
-            self.type_template_term_id(term.term_type, term.head_type, &arg_types);
-        let instance = TypedTermInstance {
-            term_type: term.term_type,
-            instance: TermInstance::mapped(type_template_term_id, replaced_vars),
-        };
-        self.validate_typed_term_instance(&instance);
-        replacement_values.insert(0, instance);
-        subterm_sizes.insert(0, replacement_values.len());
-
-        DecomposedTerm {
-            start_var,
-            replacement_values,
-            subterm_sizes,
-        }
-    }
-
-    // Turns the provided term into a DecomposedTerm, starting at the first available variable.
-    pub fn decompose(&mut self, term: &Term) -> DecomposedTerm {
-        let start_var = term.least_unused_variable();
-        self.decompose_starting_at(term, start_var)
-    }
-
-    // Turns part of a DecomposedTerm back into a Term.
-    pub fn recompose_subterm(&self, decomposed: &DecomposedTerm, i: usize) -> Term {
-        let start_var = decomposed.start_var + i as AtomId;
-        let term_type = decomposed.replacement_values[i].term_type;
-        let mut term = Term::atom(term_type, Atom::Variable(start_var));
-        let subterm_size = decomposed.subterm_sizes[i];
-        for j in i..(i + subterm_size) {
-            let var = decomposed.start_var + j as AtomId;
-            let replacement_term = self.extract_term_instance(&decomposed.replacement_values[j]);
-            term = term.replace_variable(var, &replacement_term);
-        }
-        term
-    }
-
-    // Should be the same thing as we started with, unless there are multiple atoms identified,
-    // in which case we might get different ones.
-    pub fn recompose(&self, decomposed: &DecomposedTerm) -> Term {
-        assert_eq!(
-            decomposed.replacement_values.len(),
-            decomposed.subterm_sizes.len()
-        );
-        assert!(decomposed.replacement_values.len() > 0);
-        assert_eq!(decomposed.subterm_sizes[0], decomposed.subterm_sizes.len());
-        assert_eq!(*decomposed.subterm_sizes.last().unwrap() as usize, 1);
-        self.recompose_subterm(decomposed, 0)
-    }
-
-    // Finds a TermInstance that corresponds to each subterm of the DecomposedTerm, if there is one.
-    // This only looks for subterms in one way, the postorder approach of constructing each argument
-    // before constructing the term itself.
-    pub fn match_decomposed(&self, decomposed: &DecomposedTerm) -> Vec<Option<TermInstance>> {
-        let mut answer: Vec<Option<TermInstance>> = vec![None; decomposed.replacement_values.len()];
-
-        // Iterate backwards so that term arguments are created before the term is
-        for i in (0..answer.len()).rev() {
-            let instance = &decomposed.replacement_values[i].instance;
-            if decomposed.subterm_sizes[i] == 1 {
-                answer[i] = Some(instance.clone());
-                continue;
-            }
-            let mapped = instance.as_mapped();
-
-            // Construct the term via its arguments
-            let mut term = instance.clone();
-            let mut early_exit: bool = false;
-            for var in &mapped.var_map {
-                let j = (*var - decomposed.start_var) as usize;
-                assert!(j > i);
-                let arg = match &answer[j] {
-                    Some(arg) => arg,
-                    None => {
-                        early_exit = true;
-                        break;
-                    }
-                };
-
-                let replacement = Replacement::new(*var, arg.clone());
-                term = match self.follow_edge(&term, &replacement) {
-                    Some(t) => t,
-                    None => {
-                        early_exit = true;
-                        break;
-                    }
-                }
-            }
-            if !early_exit {
-                // We did manage to construct this term
-                answer[i] = Some(term);
-            }
-        }
-        answer
     }
 
     //
@@ -1708,7 +1673,7 @@ impl TermGraph {
         println!();
         println!("parsing: {}", term_string);
         let term = Term::parse(term_string);
-        let instance = self.insert_term(&term);
+        let instance = self.old_insert_term(&term);
         self.check();
         TypedTermInstance {
             term_type: term.term_type,
@@ -2275,17 +2240,19 @@ mod tests {
     // }
 
     #[test]
-    fn test_decompose_and_recompose() {
+    fn test_linear_insert() {
         let mut g = TermGraph::new();
         let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
         let term = Term::parse(s);
-        let decomp = g.decompose(&term);
-        let recomp = g.recompose(&decomp);
-        assert_eq!(s, recomp.to_string());
+        let decomp = g.linear_insert(&term);
         assert_eq!(decomp.subterm_sizes.len(), 14);
 
-        let subterm = |i| g.recompose_subterm(&decomp, i).to_string();
+        let subterm = |i: usize| {
+            let sub = &decomp.subterms[i].instance;
+            g.term_str(sub)
+        };
 
+        assert_eq!(subterm(0), "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))");
         assert_eq!(subterm(1), "c0");
         assert_eq!(subterm(2), "c1");
         assert_eq!(subterm(3), "c2(c3)");
@@ -2296,37 +2263,6 @@ mod tests {
         assert_eq!(subterm(8), "c4");
         assert_eq!(subterm(9), "x1");
         assert_eq!(subterm(10), "c5(c6, c7)");
-        assert_eq!(subterm(11), "c5");
-        assert_eq!(subterm(12), "c6");
-        assert_eq!(subterm(13), "c7");
-    }
-
-    #[test]
-    fn test_match_decomposed() {
-        let mut g = TermGraph::new();
-        let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
-        let term = Term::parse(s);
-        let decomp = g.decompose(&term);
-
-        let subterms = g.match_decomposed(&decomp);
-        assert_eq!(subterms.len(), 14);
-
-        let subterm = |i: usize| match &subterms[i] {
-            Some(instance) => g.term_str(instance),
-            None => "None".to_string(),
-        };
-
-        // assert_eq!(subterm(0), "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))");
-        assert_eq!(subterm(1), "c0");
-        assert_eq!(subterm(2), "c1");
-        // assert_eq!(subterm(3), "c2(c3)");
-        assert_eq!(subterm(4), "c2");
-        assert_eq!(subterm(5), "c3");
-        // assert_eq!(subterm(6), "x0(c4, x1, c5(c6, c7))");
-        assert_eq!(subterm(7), "x0");
-        assert_eq!(subterm(8), "c4");
-        assert_eq!(subterm(9), "x1");
-        // assert_eq!(subterm(10), "c5(c6, c7)");
         assert_eq!(subterm(11), "c5");
         assert_eq!(subterm(12), "c6");
         assert_eq!(subterm(13), "c7");
