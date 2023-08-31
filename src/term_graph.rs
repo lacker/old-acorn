@@ -182,8 +182,11 @@ pub struct DecomposedTerm {
     replacement_values: Vec<TypedTermInstance>,
 
     // subterm_sizes[n] is the number of replacements used for the nth subterm.
-    // This only includes strict subterms.
-    // Ie, replacements[n+1] to replacements[n+subterm_sizes[n]] represent the nth subterm.
+    // The first entry is the whole term as a subterm, even though its size is always
+    // the entire list of replacement_values, so it's a bit redundant.
+    // The last entry is always the last atom, so it should be 1.
+    // subterm_sizes is parallel to replacement_values.
+    // Ie, subterm_sizes[n] tells you the length of the subterm starting at replacements[n].
     subterm_sizes: Vec<usize>,
 }
 
@@ -1731,7 +1734,7 @@ impl TermGraph {
                 term_type: term.term_type,
                 start_var,
                 replacement_values: vec![head_instance],
-                subterm_sizes: vec![],
+                subterm_sizes: vec![1],
             };
         }
 
@@ -1750,7 +1753,6 @@ impl TermGraph {
             let subterm_decomp = self.decompose_starting_at(subterm, next_var);
             replaced_vars.push(next_var);
             next_var += subterm_decomp.replacement_values.len() as AtomId;
-            subterm_sizes.push(subterm_decomp.replacement_values.len());
             replacement_values.extend(subterm_decomp.replacement_values);
             subterm_sizes.extend(subterm_decomp.subterm_sizes);
         }
@@ -1765,6 +1767,7 @@ impl TermGraph {
         };
         self.validate_typed_term_instance(&instance);
         replacement_values.insert(0, instance);
+        subterm_sizes.insert(0, replacement_values.len());
 
         DecomposedTerm {
             term_type: term.term_type,
@@ -1783,6 +1786,14 @@ impl TermGraph {
     // Should be the same thing as we started with, unless there are multiple atoms identified,
     // in which case we might get different ones.
     pub fn recompose(&self, decomposed: &DecomposedTerm) -> Term {
+        assert_eq!(
+            decomposed.replacement_values.len(),
+            decomposed.subterm_sizes.len()
+        );
+        assert!(decomposed.replacement_values.len() > 0);
+        assert_eq!(decomposed.subterm_sizes[0], decomposed.subterm_sizes.len());
+        assert_eq!(*decomposed.subterm_sizes.last().unwrap() as usize, 1);
+
         let mut term = Term::atom(decomposed.term_type, Atom::Variable(decomposed.start_var));
         for (i, replacement_value) in decomposed.replacement_values.iter().enumerate() {
             let var = decomposed.start_var + i as AtomId;
@@ -1790,6 +1801,13 @@ impl TermGraph {
             term = term.replace_variable(var, &replacement_term);
         }
         term
+    }
+
+    // Finds a TermInstance that corresponds to each subterm of the DecomposedTerm, if there is one.
+    // This only looks for subterms in one way, the postorder approach of constructing each argument
+    // before constructing the term itself.
+    pub fn match_decomposed(&self, decomposed: &DecomposedTerm) -> Vec<Option<TermInstance>> {
+        todo!("match_decomposed for {}", self.recompose(decomposed));
     }
 
     //
