@@ -172,7 +172,7 @@ enum TermInfoReference {
 }
 
 // A conversion of all the parts of a Term to TermInstance.
-struct DecomposedTerm {
+pub struct DecomposedTerm {
     term_type: TypeId,
 
     // The initial variable that we substitute into.
@@ -1775,14 +1775,14 @@ impl TermGraph {
     }
 
     // Turns the provided term into a DecomposedTerm, starting at the first available variable.
-    fn decompose(&mut self, term: &Term) -> DecomposedTerm {
+    pub fn decompose(&mut self, term: &Term) -> DecomposedTerm {
         let start_var = term.least_unused_variable();
         self.decompose_starting_at(term, start_var)
     }
 
     // Should be the same thing as we started with, unless there are multiple atoms identified,
     // in which case we might get different ones.
-    fn recompose(&self, decomposed: &DecomposedTerm) -> Term {
+    pub fn recompose(&self, decomposed: &DecomposedTerm) -> Term {
         let mut term = Term::atom(decomposed.term_type, Atom::Variable(decomposed.start_var));
         for (i, replacement_value) in decomposed.replacement_values.iter().enumerate() {
             let var = decomposed.start_var + i as AtomId;
