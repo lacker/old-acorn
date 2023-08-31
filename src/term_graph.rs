@@ -1783,6 +1783,20 @@ impl TermGraph {
         self.decompose_starting_at(term, start_var)
     }
 
+    // Turns part of a DecomposedTerm back into a Term.
+    pub fn recompose_subterm(&self, decomposed: &DecomposedTerm, i: usize) -> Term {
+        let start_var = decomposed.start_var + i as AtomId;
+        let term_type = decomposed.replacement_values[i].term_type;
+        let mut term = Term::atom(term_type, Atom::Variable(start_var));
+        let subterm_size = decomposed.subterm_sizes[i];
+        for j in i..(i + subterm_size) {
+            let var = decomposed.start_var + j as AtomId;
+            let replacement_term = self.extract_term_instance(&decomposed.replacement_values[j]);
+            term = term.replace_variable(var, &replacement_term);
+        }
+        term
+    }
+
     // Should be the same thing as we started with, unless there are multiple atoms identified,
     // in which case we might get different ones.
     pub fn recompose(&self, decomposed: &DecomposedTerm) -> Term {
@@ -1793,14 +1807,7 @@ impl TermGraph {
         assert!(decomposed.replacement_values.len() > 0);
         assert_eq!(decomposed.subterm_sizes[0], decomposed.subterm_sizes.len());
         assert_eq!(*decomposed.subterm_sizes.last().unwrap() as usize, 1);
-
-        let mut term = Term::atom(decomposed.term_type, Atom::Variable(decomposed.start_var));
-        for (i, replacement_value) in decomposed.replacement_values.iter().enumerate() {
-            let var = decomposed.start_var + i as AtomId;
-            let replacement_term = self.extract_term_instance(replacement_value);
-            term = term.replace_variable(var, &replacement_term);
-        }
-        term
+        self.recompose_subterm(decomposed, 0)
     }
 
     // Finds a TermInstance that corresponds to each subterm of the DecomposedTerm, if there is one.
