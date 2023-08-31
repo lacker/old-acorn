@@ -173,8 +173,6 @@ enum TermInfoReference {
 
 // A conversion of all the parts of a Term to TermInstance.
 pub struct DecomposedTerm {
-    term_type: TypeId,
-
     // The initial variable that we substitute into.
     start_var: AtomId,
 
@@ -1731,7 +1729,6 @@ impl TermGraph {
         if term.is_atomic() {
             // This is a leaf term, the head instance is all we have
             return DecomposedTerm {
-                term_type: term.term_type,
                 start_var,
                 replacement_values: vec![head_instance],
                 subterm_sizes: vec![1],
@@ -1770,7 +1767,6 @@ impl TermGraph {
         subterm_sizes.insert(0, replacement_values.len());
 
         DecomposedTerm {
-            term_type: term.term_type,
             start_var,
             replacement_values,
             subterm_sizes,
@@ -2529,10 +2525,27 @@ mod tests {
     #[test]
     fn test_decompose_and_recompose() {
         let mut g = TermGraph::new();
-        let term = Term::parse("c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))");
+        let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
+        let term = Term::parse(s);
         let decomp = g.decompose(&term);
         let recomp = g.recompose(&decomp);
-        assert_eq!(term.to_string(), recomp.to_string());
-        assert_eq!(term, recomp);
+        assert_eq!(s, recomp.to_string());
+        assert_eq!(decomp.subterm_sizes.len(), 14);
+
+        let subterm = |i| g.recompose_subterm(&decomp, i).to_string();
+
+        assert_eq!(subterm(1), "c0");
+        assert_eq!(subterm(2), "c1");
+        assert_eq!(subterm(3), "c2(c3)");
+        assert_eq!(subterm(4), "c2");
+        assert_eq!(subterm(5), "c3");
+        assert_eq!(subterm(6), "x0(c4, x1, c5(c6, c7))");
+        assert_eq!(subterm(7), "x0");
+        assert_eq!(subterm(8), "c4");
+        assert_eq!(subterm(9), "x1");
+        assert_eq!(subterm(10), "c5(c6, c7)");
+        assert_eq!(subterm(11), "c5");
+        assert_eq!(subterm(12), "c6");
+        assert_eq!(subterm(13), "c7");
     }
 }
