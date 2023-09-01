@@ -169,25 +169,6 @@ pub struct AtomicMap {
     subterm_sizes: Vec<usize>,
 }
 
-// A mapping from each subterm to a TermInstance.
-pub struct SubtermMap {
-    // The 0th subterm is the whole term itself.
-    subterms: Vec<TypedTermInstance>,
-
-    // The initial variable that we substitute into.
-    // Each subsequent replacement will increment its variable by 1.
-    start_var: AtomId,
-
-    // x_{i+start_var} gets replaced with replacement_values[i].
-    replacement_values: Vec<TypedTermInstance>,
-
-    // subterm_sizes[n] is the number of replacements used for subterms[n].
-    // The first entry is the whole term as a subterm, even though its size is always
-    // the entire list of replacement_values, so it's a bit redundant.
-    // The last entry is always the last atom, so it should be 1.
-    subterm_sizes: Vec<usize>,
-}
-
 pub struct TermGraph {
     // We replace elements of terms or edges with None when they are replaced with
     // an identical one that we have chosen to be the canonical one.
@@ -574,6 +555,12 @@ impl TermInfoReference {
             TermInfoReference::TermInfo(_) => true,
             TermInfoReference::Replaced(_) => false,
         }
+    }
+}
+
+impl AtomicMap {
+    pub fn len(&self) -> usize {
+        self.replacements.len()
     }
 }
 
@@ -1268,26 +1255,22 @@ impl TermGraph {
     //
 
     pub fn insert_term(&mut self, term: &Term) -> TermInstance {
-        let mut linear_map = self.linear_insert(term);
-        linear_map.subterms.swap_remove(0).instance
+        let atomic_map = self.atomize(term);
+        let mut subterms = self.linear_insert(&atomic_map);
+        subterms.swap_remove(0).instance
     }
 
-    // The linear insertion algorithm finds or creates O(n) graph edges for a term of size n.
-    // Imagine the term as a binary tree where each interior node is an "apply" operator
-    // with two arguments.
-    // We find or create an edge for each one of these nodes.
-    //
-    // The linear map uses temporary variable ids, starting at the first available variable.
-    pub fn linear_insert(&mut self, term: &Term) -> SubtermMap {
+    // Convenient wrapper around atomize_starting_at to pick a start_var.
+    pub fn atomize(&mut self, term: &Term) -> AtomicMap {
         let start_var = term.least_unused_variable();
-        self.linear_insert_with_start_var(term, start_var)
+        self.atomize_starting_at(term, start_var)
     }
 
     // Break down a Term into a sequence of replacements to create it.
     // To recreate the term, start with output[0] and then repeatedly substitute
     // output[i] into x_{i+start_var}
     // Each of the term instances in the output maps to an atom or type template.
-    fn atomize(&mut self, term: &Term, start_var: AtomId) -> AtomicMap {
+    fn atomize_starting_at(&mut self, term: &Term, start_var: AtomId) -> AtomicMap {
         let head_instance = TypedTermInstance {
             term_type: term.head_type,
             instance: self.atomic_instance(term.head_type, term.head),
@@ -1312,7 +1295,7 @@ impl TermGraph {
         let mut next_var = start_var + 2;
 
         for subterm in &term.args {
-            let subterm_map = self.atomize(subterm, next_var);
+            let subterm_map = self.atomize_starting_at(subterm, next_var);
             replaced_vars.push(next_var);
             next_var += subterm_map.replacements.len() as AtomId;
             atomic_replacements.extend(subterm_map.replacements);
@@ -1344,9 +1327,9 @@ impl TermGraph {
     // Imagine the term as a binary tree where each interior node is an "apply" operator
     // with two arguments.
     // We find or create an edge for each one of these nodes.
-    fn new_linear_insert(&mut self, atomic_map: &AtomicMap) -> Vec<TypedTermInstance> {
+    fn linear_insert(&mut self, atomic_map: &AtomicMap) -> Vec<TypedTermInstance> {
         let mut reversed_answer: Vec<TypedTermInstance> = vec![];
-        for i in (0..atomic_map.replacements.len()).rev() {
+        for i in (0..atomic_map.len()).rev() {
             // Figure out the term for x_i
             let term = atomic_map.replacements[i].clone();
             let var_map = match &term.instance {
@@ -1369,7 +1352,7 @@ impl TermGraph {
                 // have calculated x_var.
                 // We just need to do some index arithmetic to figure out where it is.
                 let non_reversed_index = (var - atomic_map.start_var) as usize;
-                let reversed_index = atomic_map.replacements.len() - non_reversed_index - 1;
+                let reversed_index = atomic_map.len() - non_reversed_index - 1;
                 let replacement =
                     Replacement::new(*var, reversed_answer[reversed_index].instance.clone());
                 let mut pending = VecDeque::new();
@@ -1386,85 +1369,6 @@ impl TermGraph {
         reversed_answer
     }
 
-    // Helper function for linear insertion.
-    // Turns the provided term into a LinearMap, starting at start_var.
-    fn linear_insert_with_start_var(&mut self, term: &Term, start_var: AtomId) -> SubtermMap {
-        let head_instance = TypedTermInstance {
-            term_type: term.head_type,
-            instance: self.atomic_instance(term.head_type, term.head),
-        };
-
-        if term.is_atomic() {
-            // This is a leaf term, the head instance is all we have
-            return SubtermMap {
-                subterms: vec![head_instance.clone()],
-                start_var,
-                replacement_values: vec![head_instance],
-                subterm_sizes: vec![1],
-            };
-        }
-
-        // The first subterm is the entire term, but we don't know its information yet.
-        // So we populate all the rest of the information first, starting with the information
-        // about the head of the root, and insert the root information at the end.
-        // start_var will be the root term, with the first replacement being its type template.
-        // start_var + 1 will be the head of the term.
-        let mut replaced_vars = vec![start_var + 1];
-        let mut args = vec![head_instance.clone()];
-        let mut subterms = vec![head_instance.clone()];
-        let mut replacement_values = vec![head_instance];
-        let mut subterm_sizes = vec![1];
-        let mut next_var = start_var + 2;
-
-        for subterm in &term.args {
-            let subterm_map = self.linear_insert_with_start_var(subterm, next_var);
-            replaced_vars.push(next_var);
-            args.push(subterm_map.subterms[0].clone());
-            next_var += subterm_map.replacement_values.len() as AtomId;
-            subterms.extend(subterm_map.subterms);
-            replacement_values.extend(subterm_map.replacement_values);
-            subterm_sizes.extend(subterm_map.subterm_sizes);
-        }
-
-        // Construct the type template instance for the root term
-        let arg_types: Vec<_> = term.args.iter().map(|t| t.term_type).collect();
-        let type_template_term_id =
-            self.type_template_term_id(term.term_type, term.head_type, &arg_types);
-        let type_template_instance = TypedTermInstance {
-            term_type: term.term_type,
-            instance: TermInstance::mapped(type_template_term_id, replaced_vars.clone()),
-        };
-        self.validate_typed_term_instance(&type_template_instance);
-
-        // Construct a TermInstance for the root term
-        let mut term_instance = type_template_instance.instance.clone();
-        for (&var, arg) in replaced_vars.iter().zip(args.into_iter()) {
-            let replacement = Replacement::new(var, arg.instance);
-            let mut pending = VecDeque::new();
-            term_instance =
-                self.follow_or_create_edge(&term_instance, &replacement, None, &mut pending);
-            self.process_all(pending);
-        }
-
-        // Insert the root term information at the beginning
-        subterms.insert(
-            0,
-            TypedTermInstance {
-                term_type: type_template_instance.term_type,
-                instance: term_instance,
-            },
-        );
-        replacement_values.insert(0, type_template_instance.clone());
-        subterm_sizes.insert(0, replacement_values.len());
-
-        SubtermMap {
-            subterms,
-            start_var,
-            replacement_values,
-            subterm_sizes,
-        }
-    }
-
     // For each pair of subterms t1 and t2, where t1 is an ancestor of t2, the quadratic
     // insertion algorithm finds or creates a graph edge for the partial application of t2,
     // in the construction of t1.
@@ -1475,8 +1379,8 @@ impl TermGraph {
     //
     // If the term has n subterms and depth d, this is O(n * d) edges.
     // This can be quadratic for a deeply nested term like a(b(c(d(...))))
-    pub fn quadratic_insert(&mut self, subterm_map: &SubtermMap) {
-        for i in 0..subterm_map.subterms.len() {
+    pub fn quadratic_insert(&mut self, atomic_map: &AtomicMap) {
+        for i in 0..atomic_map.len() {
             todo!();
         }
     }
@@ -2288,13 +2192,11 @@ mod tests {
         let mut g = TermGraph::new();
         let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
         let term = Term::parse(s);
-        let subterm_map = g.linear_insert(&term);
-        assert_eq!(subterm_map.subterm_sizes.len(), 14);
+        let atomic_map = g.atomize(&term);
+        let subterms = g.linear_insert(&atomic_map);
+        assert_eq!(subterms.len(), 14);
 
-        let subterm = |i: usize| {
-            let sub = &subterm_map.subterms[i].instance;
-            g.term_str(sub)
-        };
+        let subterm = |i: usize| g.term_str(&subterms[i].instance);
 
         assert_eq!(subterm(0), "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))");
         assert_eq!(subterm(1), "c0");
