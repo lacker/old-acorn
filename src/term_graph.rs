@@ -765,28 +765,6 @@ impl TermGraph {
         *term_id
     }
 
-    // Get a TermInstance for a type template, plus the number of variables used.
-    // A type template is a term where everything is a variable.
-    // Like x0(x1, x2).
-    // The variables will be numbered in increasing order, but you can decide where to start at.
-    // This will use (arg_types.len() + 1) variables.
-    fn type_template_instance(
-        &mut self,
-        term_type: TypeId,
-        head_type: TypeId,
-        arg_types: &Vec<TypeId>,
-        next_var: AtomId,
-    ) -> (TermInstance, AtomId) {
-        let term_id = self.type_template_term_id(term_type, head_type, arg_types);
-
-        // Construct the instance by shifting the variable numbers
-        let delta = 1 + arg_types.len() as AtomId;
-        (
-            TermInstance::mapped(term_id, (next_var..(next_var + delta)).collect()),
-            delta,
-        )
-    }
-
     fn atomic_instance(&mut self, atom_type: TypeId, atom: Atom) -> TermInstance {
         match atom {
             Atom::Variable(i) => TermInstance::Variable(i),
@@ -807,80 +785,6 @@ impl TermGraph {
                 self.atoms.get(&atom_key).unwrap().term.clone()
             }
         }
-    }
-
-    // Inserts a new term.
-    // Uses any prefixes that already exist.
-    // So, if we are inserting a(b(c), d), this will catch the relation to
-    // a(b(c), x) but not the relation to b(c).
-    // Returns the existing term if there is one.
-    fn old_insert_term(&mut self, term: &Term) -> TermInstance {
-        if let Some(i) = term.atomic_variable() {
-            return TermInstance::Variable(i);
-        }
-
-        // We accumulate an instance by substituting in one atom or type template at a time
-        let mut accumulated_instance: Option<TermInstance> = None;
-
-        // Temporary variables, used during construction only, start numbering here
-        let mut next_var = term.least_unused_variable();
-
-        // Stored in reverse order for nice popping
-        let mut temporary_vars: Vec<AtomId> = vec![];
-
-        let mut pending: VecDeque<Operation> = VecDeque::new();
-
-        let mut answer = None;
-
-        for (term_type, head_type, head, arg_types) in term.inorder() {
-            assert_eq!(answer, None);
-            if arg_types.len() > 0 {
-                // Expand the accumulated instance with a type template
-                let (type_template_instance, vars_used) =
-                    self.type_template_instance(term_type, head_type, &arg_types, next_var);
-                if let Some(instance) = accumulated_instance {
-                    let replace_var = temporary_vars.pop().unwrap();
-                    let replaced = self.follow_or_create_edge(
-                        &instance,
-                        &Replacement::new(replace_var, type_template_instance),
-                        None,
-                        &mut pending,
-                    );
-                    accumulated_instance = Some(replaced);
-                } else {
-                    // This is the root type template for the term
-                    accumulated_instance = Some(type_template_instance);
-                }
-                next_var += vars_used;
-                for i in 0..vars_used {
-                    temporary_vars.push(next_var - 1 - i);
-                }
-            } else if accumulated_instance == None {
-                // This term is just a single constant.
-                answer = Some(self.atomic_instance(head_type, head));
-                break;
-            }
-
-            // Expand the accumulated instance with an atom
-            let replace_var = temporary_vars.pop().unwrap();
-            let atomic_instance = self.atomic_instance(head_type, head);
-            let replaced = self.follow_or_create_edge(
-                &accumulated_instance.unwrap(),
-                &Replacement::new(replace_var, atomic_instance),
-                None,
-                &mut pending,
-            );
-            accumulated_instance = Some(replaced);
-
-            if temporary_vars.is_empty() {
-                answer = accumulated_instance;
-                break;
-            }
-        }
-
-        let answer = answer.unwrap();
-        self.process_all(pending);
-        self.update_term(answer)
     }
 
     // The depth of an edge is the maximum depth of any term that its key references.
