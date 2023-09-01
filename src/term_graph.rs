@@ -1345,6 +1345,11 @@ impl TermGraph {
     // Tools for interacting with more complicated graph things like DecomposedTerm and Literal.
     //
 
+    pub fn insert_term(&mut self, term: &Term) -> TermInstance {
+        let mut decomposed = self.linear_insert(term);
+        decomposed.subterms.swap_remove(0).instance
+    }
+
     // The linear insertion algorithm finds or creates O(n) graph nodes for a term of size n.
     // Imagine the term as a binary tree where each interior node is an "apply" operator
     // with two arguments.
