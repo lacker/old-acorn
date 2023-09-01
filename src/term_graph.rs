@@ -1327,6 +1327,9 @@ impl TermGraph {
     // Imagine the term as a binary tree where each interior node is an "apply" operator
     // with two arguments.
     // We find or create an edge for each one of these nodes.
+    //
+    // Returns the subterms. The nth element of the output is the subterm rooted at the nth
+    // replacement.
     fn linear_insert(&mut self, atomic_map: &AtomicMap) -> Vec<TypedTermInstance> {
         let mut reversed_answer: Vec<TypedTermInstance> = vec![];
         for i in (0..atomic_map.len()).rev() {
@@ -1369,19 +1372,75 @@ impl TermGraph {
         reversed_answer
     }
 
-    // For each pair of subterms t1 and t2, where t1 is an ancestor of t2, the quadratic
-    // insertion algorithm finds or creates a graph edge for the partial application of t2,
-    // in the construction of t1.
+    // If you think of the term as a list of atomic replacements, the cubic insertion algorithm
+    // adds an edge for every two consecutive segments of the list that can be substituted into
+    // each other.
     //
-    // For example, consider the term a(b(c, d(e), f), g(h)).
-    // If t1 = b(c, d(e), f), t2 = d(e), then the edge for these nodes is:
-    // b(c, x0, x1) : x0 -> d(e) => b(c, d(e), x1)
+    // For example, consider the term a(b(c, d(e(f)), g), h).
+    // One of the edges represents the identity:
+    // b(c, d(x0), x1) : x0 -> e(f) => b(c, d(e(f)), x1)
     //
-    // If the term has n subterms and depth d, this is O(n * d) edges.
-    // This can be quadratic for a deeply nested term like a(b(c(d(...))))
-    pub fn quadratic_insert(&mut self, atomic_map: &AtomicMap) {
-        for i in 0..atomic_map.len() {
-            todo!();
+    // If the term has n subterms and depth d, this is O(n * d^2) edges.
+    // This can be cubic for a deeply nested term like a(b(c(d(...))))
+    // For a shallow term, though, it will act linear.
+    pub fn cubic_insert(&mut self, atomic_map: &AtomicMap) {
+        // path and segments are parallel to each other.
+        // At the start of each iteration through this loop, path is a sequence of
+        // subterms, represented by index into the AtomicMap, that goes from the root
+        // to a subterm.
+        // segments[j] is a vector of prefixes starting at the path[j] subterm.
+        // segments[j][k] is a prefix corresponding to k+1 of the replacements.
+        // We initialize path and segments for the root term.
+        let mut path = vec![0];
+        let mut segments = vec![vec![atomic_map.replacements[0].instance.clone()]];
+        for i in 1..atomic_map.len() {
+            // Create new segments by adding the most recent atomic replacement
+            let var = i as AtomId + atomic_map.start_var;
+            let replacement = Replacement::new(var, atomic_map.replacements[i].instance.clone());
+            for j in 0..segments.len() {
+                let last = segments[j].last().unwrap();
+                let mut pending = VecDeque::new();
+                let new_segment =
+                    self.follow_or_create_edge(&last, &replacement, None, &mut pending);
+                self.process_all(pending);
+                segments[j].push(new_segment);
+            }
+
+            // Add in relationships between these new segments.
+            // There is one relationship for each pair (j0, j1) of terms in the path
+            // to this node, with j0 an ancestor of j1.
+            for j0 in 0..segments.len() {
+                for j1 in j0..segments.len() {
+                    let var = path[j1];
+                    let num_reps = path[j1] - path[j0];
+                    let template = &segments[j0][num_reps as usize - 1];
+                    let last0 = segments[j0].last().unwrap();
+                    let last1 = segments[j1].last().unwrap();
+                    let rep = Replacement::new(var, last1.clone());
+                    let mut pending = VecDeque::new();
+                    self.follow_or_create_edge(template, &rep, Some(last0.clone()), &mut pending);
+                    self.process_all(pending);
+                }
+            }
+
+            // Make the path deeper if we did a template expansion
+            if atomic_map.subterm_sizes[i] > 1 {
+                path.push(i as AtomId);
+                segments.push(vec![atomic_map.replacements[i].instance.clone()]);
+            }
+
+            // Make the path shorter if the leaf is finished
+            while let Some(j) = path.last() {
+                let segment_size = segments[*j as usize].len();
+                let subterm_size = atomic_map.subterm_sizes[*j as usize];
+                assert!(segment_size <= subterm_size);
+                if segment_size == subterm_size {
+                    path.pop();
+                    segments.pop();
+                } else {
+                    break;
+                }
+            }
         }
     }
 
