@@ -151,8 +151,8 @@ enum TermInfoReference {
     Replaced(TermInstance),
 }
 
-// A conversion of all the parts of a Term to TermInstance.
-pub struct DecomposedTerm {
+// A mapping from each subterm to a TermInstance.
+pub struct LinearMap {
     // The 0th subterm is the whole term itself.
     subterms: Vec<TypedTermInstance>,
 
@@ -1246,28 +1246,28 @@ impl TermGraph {
     }
 
     //
-    // Tools for interacting with more complicated graph things like DecomposedTerm and Literal.
+    // Tools for interacting with more complicated graph things like LinearMap and Literal.
     //
 
     pub fn insert_term(&mut self, term: &Term) -> TermInstance {
-        let mut decomposed = self.linear_insert(term);
-        decomposed.subterms.swap_remove(0).instance
+        let mut linear_map = self.linear_insert(term);
+        linear_map.subterms.swap_remove(0).instance
     }
 
-    // The linear insertion algorithm finds or creates O(n) graph nodes for a term of size n.
+    // The linear insertion algorithm finds or creates O(n) graph edges for a term of size n.
     // Imagine the term as a binary tree where each interior node is an "apply" operator
     // with two arguments.
-    // We find or create a graph node for each node in this binary tree.
+    // We find or create an edge for each one of these nodes.
     //
-    // The decomposition uses temporary variable ids, starting at the first available variable.
-    pub fn linear_insert(&mut self, term: &Term) -> DecomposedTerm {
+    // The linear map uses temporary variable ids, starting at the first available variable.
+    pub fn linear_insert(&mut self, term: &Term) -> LinearMap {
         let start_var = term.least_unused_variable();
         self.linear_insert_with_start_var(term, start_var)
     }
 
     // Helper function for linear insertion.
-    // Turns the provided term into a DecomposedTerm, starting at start_var.
-    fn linear_insert_with_start_var(&mut self, term: &Term, start_var: AtomId) -> DecomposedTerm {
+    // Turns the provided term into a LinearMap, starting at start_var.
+    fn linear_insert_with_start_var(&mut self, term: &Term, start_var: AtomId) -> LinearMap {
         let head_instance = TypedTermInstance {
             term_type: term.head_type,
             instance: self.atomic_instance(term.head_type, term.head),
@@ -1275,7 +1275,7 @@ impl TermGraph {
 
         if term.is_atomic() {
             // This is a leaf term, the head instance is all we have
-            return DecomposedTerm {
+            return LinearMap {
                 subterms: vec![head_instance.clone()],
                 start_var,
                 replacement_values: vec![head_instance],
@@ -1296,13 +1296,13 @@ impl TermGraph {
         let mut next_var = start_var + 2;
 
         for subterm in &term.args {
-            let subterm_decomp = self.linear_insert_with_start_var(subterm, next_var);
+            let subterm_map = self.linear_insert_with_start_var(subterm, next_var);
             replaced_vars.push(next_var);
-            args.push(subterm_decomp.subterms[0].clone());
-            next_var += subterm_decomp.replacement_values.len() as AtomId;
-            subterms.extend(subterm_decomp.subterms);
-            replacement_values.extend(subterm_decomp.replacement_values);
-            subterm_sizes.extend(subterm_decomp.subterm_sizes);
+            args.push(subterm_map.subterms[0].clone());
+            next_var += subterm_map.replacement_values.len() as AtomId;
+            subterms.extend(subterm_map.subterms);
+            replacement_values.extend(subterm_map.replacement_values);
+            subterm_sizes.extend(subterm_map.subterm_sizes);
         }
 
         // Construct the type template instance for the root term
@@ -1336,12 +1336,26 @@ impl TermGraph {
         replacement_values.insert(0, type_template_instance.clone());
         subterm_sizes.insert(0, replacement_values.len());
 
-        DecomposedTerm {
+        LinearMap {
             subterms,
             start_var,
             replacement_values,
             subterm_sizes,
         }
+    }
+
+    // For each pair of subterms t1 and t2, where t1 is an ancestor of t2, the quadratic
+    // insertion algorithm finds or creates a graph edge for the partial application of t2,
+    // in the construction of t1.
+    //
+    // For example, consider the term a(b(c, d(e), f), g(h)).
+    // If t1 = b(c, d(e), f), t2 = d(e), then the edge for these nodes is:
+    // b(c, x0, x1) : x0 -> d(e) => b(c, d(e), x1)
+    //
+    // If the term has n subterms and depth d, this is O(n * d) edges.
+    // This can be quadratic for a deeply nested term like a(b(c(d(...))))
+    pub fn quadratic_insert(&mut self, term: &Term) -> TermInstance {
+        todo!("quadratically insert {}", term);
     }
 
     // Identifies the two terms, and continues processing any followup Identifications until
@@ -2151,11 +2165,11 @@ mod tests {
         let mut g = TermGraph::new();
         let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
         let term = Term::parse(s);
-        let decomp = g.linear_insert(&term);
-        assert_eq!(decomp.subterm_sizes.len(), 14);
+        let linear_map = g.linear_insert(&term);
+        assert_eq!(linear_map.subterm_sizes.len(), 14);
 
         let subterm = |i: usize| {
-            let sub = &decomp.subterms[i].instance;
+            let sub = &linear_map.subterms[i].instance;
             g.term_str(sub)
         };
 
