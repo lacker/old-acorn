@@ -1719,16 +1719,16 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_identifying_terms() {
-    //     let mut g = TermGraph::new();
-    //     let c0 = g.parse("c0(c3)");
-    //     let c1 = g.parse("c1(c3)");
-    //     g.check_make_equal(&c0, &c1);
-    //     let c2c0 = g.parse("c2(c0(c3))");
-    //     let c2c1 = g.parse("c2(c1(c3))");
-    //     assert_eq!(c2c0, c2c1);
-    // }
+    #[test]
+    fn test_identifying_terms() {
+        let mut g = TermGraph::new();
+        let c0 = g.parse("c0(c3)");
+        let c1 = g.parse("c1(c3)");
+        g.check_make_equal(&c0, &c1);
+        let c2c0 = g.parse("c2(c0(c3))");
+        let c2c1 = g.parse("c2(c1(c3))");
+        assert_eq!(c2c0, c2c1);
+    }
 
     #[test]
     fn test_updating_constructor() {
