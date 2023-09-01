@@ -152,7 +152,7 @@ enum TermInfoReference {
 }
 
 // A mapping from each subterm to a TermInstance.
-pub struct LinearMap {
+pub struct SubtermMap {
     // The 0th subterm is the whole term itself.
     subterms: Vec<TypedTermInstance>,
 
@@ -1260,14 +1260,14 @@ impl TermGraph {
     // We find or create an edge for each one of these nodes.
     //
     // The linear map uses temporary variable ids, starting at the first available variable.
-    pub fn linear_insert(&mut self, term: &Term) -> LinearMap {
+    pub fn linear_insert(&mut self, term: &Term) -> SubtermMap {
         let start_var = term.least_unused_variable();
         self.linear_insert_with_start_var(term, start_var)
     }
 
     // Helper function for linear insertion.
     // Turns the provided term into a LinearMap, starting at start_var.
-    fn linear_insert_with_start_var(&mut self, term: &Term, start_var: AtomId) -> LinearMap {
+    fn linear_insert_with_start_var(&mut self, term: &Term, start_var: AtomId) -> SubtermMap {
         let head_instance = TypedTermInstance {
             term_type: term.head_type,
             instance: self.atomic_instance(term.head_type, term.head),
@@ -1275,7 +1275,7 @@ impl TermGraph {
 
         if term.is_atomic() {
             // This is a leaf term, the head instance is all we have
-            return LinearMap {
+            return SubtermMap {
                 subterms: vec![head_instance.clone()],
                 start_var,
                 replacement_values: vec![head_instance],
@@ -1336,7 +1336,7 @@ impl TermGraph {
         replacement_values.insert(0, type_template_instance.clone());
         subterm_sizes.insert(0, replacement_values.len());
 
-        LinearMap {
+        SubtermMap {
             subterms,
             start_var,
             replacement_values,
@@ -1354,8 +1354,8 @@ impl TermGraph {
     //
     // If the term has n subterms and depth d, this is O(n * d) edges.
     // This can be quadratic for a deeply nested term like a(b(c(d(...))))
-    pub fn quadratic_insert(&mut self, term: &Term) -> TermInstance {
-        todo!("quadratically insert {}", term);
+    pub fn quadratic_insert(&mut self, subterm_map: &SubtermMap) {
+        todo!("quadratically insert");
     }
 
     // Identifies the two terms, and continues processing any followup Identifications until
@@ -2165,11 +2165,11 @@ mod tests {
         let mut g = TermGraph::new();
         let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
         let term = Term::parse(s);
-        let linear_map = g.linear_insert(&term);
-        assert_eq!(linear_map.subterm_sizes.len(), 14);
+        let subterm_map = g.linear_insert(&term);
+        assert_eq!(subterm_map.subterm_sizes.len(), 14);
 
         let subterm = |i: usize| {
-            let sub = &linear_map.subterms[i].instance;
+            let sub = &subterm_map.subterms[i].instance;
             g.term_str(sub)
         };
 
