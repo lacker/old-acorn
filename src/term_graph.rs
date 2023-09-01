@@ -727,6 +727,23 @@ impl TermGraph {
         new_term.forward_map_vars(&denormalizer)
     }
 
+    // A helper for external use that updates the terms if needed.
+    pub fn replace(
+        &mut self,
+        template: &TermInstance,
+        var: AtomId,
+        replacement: &TermInstance,
+        result: Option<&TermInstance>,
+    ) -> TermInstance {
+        let template = self.update_term(template.clone());
+        let replacement = Replacement::new(var, self.update_term(replacement.clone()));
+        let result = result.map(|r| self.update_term(r.clone()));
+        let mut pending = VecDeque::new();
+        let answer = self.follow_or_create_edge(&template, &replacement, result, &mut pending);
+        self.process_all(pending);
+        answer
+    }
+
     // Follows this edge, if there is such an edge in the graph.
     // Returns None is there is not.
     pub fn follow_edge(&self, template: &TermInstance, edge: &Replacement) -> Option<TermInstance> {
@@ -1356,11 +1373,8 @@ impl TermGraph {
                 // We just need to do some index arithmetic to figure out where it is.
                 let non_reversed_index = (var - atomic_map.start_var) as usize;
                 let reversed_index = atomic_map.len() - non_reversed_index - 1;
-                let replacement =
-                    Replacement::new(*var, reversed_answer[reversed_index].instance.clone());
-                let mut pending = VecDeque::new();
-                instance = self.follow_or_create_edge(&instance, &replacement, None, &mut pending);
-                self.process_all(pending);
+                let replacement = &reversed_answer[reversed_index].instance;
+                instance = self.replace(&instance, *var, &replacement, None);
             }
 
             reversed_answer.push(TypedTermInstance {
@@ -1383,7 +1397,9 @@ impl TermGraph {
     // If the term has n subterms and depth d, this is O(n * d^2) edges.
     // This can be cubic for a deeply nested term like a(b(c(d(...))))
     // For a shallow term, though, it will act linear.
-    pub fn cubic_insert(&mut self, atomic_map: &AtomicMap) {
+    //
+    // Returns all the prefixes of the root term.
+    pub fn cubic_insert(&mut self, atomic_map: &AtomicMap) -> Vec<TermInstance> {
         // path and segments are parallel to each other.
         // At the start of each iteration through this loop, path is a sequence of
         // subterms, represented by index into the AtomicMap, that goes from the root
@@ -1396,13 +1412,10 @@ impl TermGraph {
         for i in 1..atomic_map.len() {
             // Create new segments by adding the most recent atomic replacement
             let var = i as AtomId + atomic_map.start_var;
-            let replacement = Replacement::new(var, atomic_map.replacements[i].instance.clone());
+            let replacement = &atomic_map.replacements[i].instance;
             for j in 0..segments.len() {
                 let last = segments[j].last().unwrap();
-                let mut pending = VecDeque::new();
-                let new_segment =
-                    self.follow_or_create_edge(&last, &replacement, None, &mut pending);
-                self.process_all(pending);
+                let new_segment = self.replace(&last, var, &replacement, None);
                 segments[j].push(new_segment);
             }
 
@@ -1410,17 +1423,20 @@ impl TermGraph {
             // There is one relationship for each pair (j0, j1) of terms in the path
             // to this node, with j0 an ancestor of j1.
             for j0 in 0..segments.len() {
-                for j1 in j0..segments.len() {
+                for j1 in (j0 + 1)..segments.len() {
                     let var = path[j1];
                     let num_reps = path[j1] - path[j0];
+                    assert!(num_reps >= 1);
                     let template = &segments[j0][num_reps as usize - 1];
                     let last0 = segments[j0].last().unwrap();
                     let last1 = segments[j1].last().unwrap();
-                    let rep = Replacement::new(var, last1.clone());
-                    let mut pending = VecDeque::new();
-                    self.follow_or_create_edge(template, &rep, Some(last0.clone()), &mut pending);
-                    self.process_all(pending);
+                    self.replace(template, var, last1, Some(&last0));
                 }
+            }
+
+            if i == atomic_map.len() - 1 {
+                // We are done
+                break;
             }
 
             // Make the path deeper if we did a template expansion
@@ -1430,9 +1446,12 @@ impl TermGraph {
             }
 
             // Make the path shorter if the leaf is finished
-            while let Some(j) = path.last() {
-                let segment_size = segments[*j as usize].len();
-                let subterm_size = atomic_map.subterm_sizes[*j as usize];
+            loop {
+                assert!(!path.is_empty());
+                let j = path.len() - 1;
+                let subterm_index = path[j];
+                let segment_size = segments[j].len();
+                let subterm_size = atomic_map.subterm_sizes[subterm_index as usize];
                 assert!(segment_size <= subterm_size);
                 if segment_size == subterm_size {
                     path.pop();
@@ -1442,6 +1461,7 @@ impl TermGraph {
                 }
             }
         }
+        segments.swap_remove(0)
     }
 
     // Identifies the two terms, and continues processing any followup Identifications until
@@ -2271,5 +2291,17 @@ mod tests {
         assert_eq!(subterm(11), "c5");
         assert_eq!(subterm(12), "c6");
         assert_eq!(subterm(13), "c7");
+    }
+
+    #[test]
+    fn test_cubic_insert() {
+        let mut g = TermGraph::new();
+        let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
+        let term = Term::parse(s);
+        let atomic_map = g.atomize(&term);
+        let prefixes = g.cubic_insert(&atomic_map);
+        assert_eq!(prefixes.len(), 14);
+
+        // TODO: more tests
     }
 }
