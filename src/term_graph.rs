@@ -1424,7 +1424,7 @@ impl TermGraph {
             // to this node, with j0 an ancestor of j1.
             for j0 in 0..segments.len() {
                 for j1 in (j0 + 1)..segments.len() {
-                    let var = path[j1];
+                    let var = path[j1] + atomic_map.start_var;
                     let num_reps = path[j1] - path[j0];
                     assert!(num_reps >= 1);
                     let template = &segments[j0][num_reps as usize - 1];
@@ -1631,6 +1631,10 @@ impl TermGraph {
             }
         }
         None
+    }
+
+    pub fn num_collapsed_terms(&self) -> usize {
+        self.terms.iter().filter(|t| !t.is_there()).count()
     }
 
     // A linear pass through the graph checking that everything is consistent.
@@ -2324,5 +2328,22 @@ mod tests {
         assert_eq!(prefix(0), "x3(x4, x5, x8)");
         assert_eq!(prefix(1), "c0(x4, x5, x8)");
         assert_eq!(prefix(2), "c0(c1, x5, x8)");
+        assert_eq!(prefix(3), "c0(c1, x6(x7), x8)");
+        assert_eq!(prefix(4), "c0(c1, c2(x7), x8)");
+        assert_eq!(prefix(5), "c0(c1, c2(c3), x8)");
+        assert_eq!(prefix(6), "c0(c1, c2(c3), x9(x10, x11, x12))");
+        assert_eq!(prefix(7), "c0(c1, c2(c3), x0(x10, x11, x12))");
+        assert_eq!(prefix(8), "c0(c1, c2(c3), x0(c4, x11, x12))");
+        assert_eq!(prefix(9), "c0(c1, c2(c3), x0(c4, x1, x12))");
+        assert_eq!(prefix(10), "c0(c1, c2(c3), x0(c4, x1, x13(x14, x15)))");
+        assert_eq!(prefix(11), "c0(c1, c2(c3), x0(c4, x1, c5(x14, x15)))");
+        assert_eq!(prefix(12), "c0(c1, c2(c3), x0(c4, x1, c5(c6, x15)))");
+        assert_eq!(prefix(13), "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))");
+
+        assert!(g.contains_term(&Term::parse("c2(c3)")));
+        assert!(g.contains_term(&Term::parse("c5(c6, c7)")));
+        assert!(g.contains_term(&Term::parse("x0(c4, x1, x2)")));
+
+        assert_eq!(g.num_collapsed_terms(), 0);
     }
 }
