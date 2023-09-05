@@ -1986,7 +1986,6 @@ mod tests {
     #[test]
     fn test_argument_collapse() {
         let mut g = TermGraph::new();
-
         g.check_insert_literal("c0(c1, x0, x1, x2, x3) = c0(c1, x0, x4, x2, x5)");
         g.check_str("c0(c1, x0, x1, x2, x3)", "c0(c1, x0, _, x2, _)");
     }
@@ -1994,15 +1993,9 @@ mod tests {
     #[test]
     fn test_inference_from_argument_collapse() {
         let mut g = TermGraph::new();
-
-        let c0x0 = g.parse_linear("c0(x0)");
-        let c1x1 = g.parse_linear("c1(x1)");
-        g.check_make_equal(&c0x0, &c1x1);
-        let c0c2 = g.parse_linear("c0(c2)");
-        let c0c3 = g.parse_linear("c0(c3)");
-        assert_eq!(c0c2, c0c3);
-
-        check_insert(&mut g, "c0(x0)", "c0(_)");
+        g.check_insert_literal("c0(x0) = c1(x1)");
+        g.check_literal("c0(c2) = c0(c3)");
+        g.check_str("c0(x0)", "c1(_)");
     }
 
     #[test]
