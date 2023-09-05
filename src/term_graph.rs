@@ -470,10 +470,6 @@ impl EdgeInfo {
 }
 
 impl NormalizedEdge {
-    fn from_replacement(template: &TermInstance, edge: &Replacement) -> NormalizedEdge {
-        NormalizedEdge::new(template, edge.var, &edge.value)
-    }
-
     // Normalizes a TermInstance and an edge that comes from that term.
     // This constructor ignores symmetry.
     // The denormalizer maps (normalized ids) -> (original ids).
@@ -697,7 +693,7 @@ impl TermGraph {
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
-        let (key, denormalizer) = match NormalizedEdge::from_replacement(template, edge) {
+        let (key, denormalizer) = match NormalizedEdge::new(template, edge.var, &edge.value) {
             NormalizedEdge::Degenerate(term) => {
                 if let Some(result) = result {
                     pending.push_front(Operation::Identification(term.clone(), result));
@@ -760,8 +756,13 @@ impl TermGraph {
 
     // Follows this edge, if there is such an edge in the graph.
     // Returns None is there is not.
-    pub fn follow_edge(&self, template: &TermInstance, edge: &Replacement) -> Option<TermInstance> {
-        let (key, denormalizer) = match NormalizedEdge::from_replacement(template, edge) {
+    pub fn follow_edge(
+        &self,
+        template: &TermInstance,
+        var: AtomId,
+        value: &TermInstance,
+    ) -> Option<TermInstance> {
+        let (key, denormalizer) = match NormalizedEdge::new(template, var, value) {
             NormalizedEdge::Degenerate(term) => return Some(term),
             NormalizedEdge::Key(key, denormalizer) => (key, denormalizer),
         };
@@ -1490,8 +1491,7 @@ impl TermGraph {
         for i in 1..atomic_map.len() {
             let var = i as AtomId + atomic_map.start_var;
             let new_term = &atomic_map.replacements[i].instance;
-            let replacement = Replacement::new(var, new_term.clone());
-            term_instance = self.follow_edge(&term_instance, &replacement)?;
+            term_instance = self.follow_edge(&term_instance, var, new_term)?;
         }
         Some(term_instance)
     }
@@ -1511,7 +1511,7 @@ impl TermGraph {
         let subterms = self.insert_map_linear(atomic_map);
         let mut replacements = vec![];
         let mut answer = vec![];
-        let template = subterms[0].instance.clone();
+        let template = atomic_map.replacements[0].instance.clone();
         self.find_matches_helper(
             atomic_map,
             &subterms,
@@ -1548,7 +1548,10 @@ impl TermGraph {
         assert!(index < atomic_map.len());
 
         // We can add this atom to the template, if such a template exists.
-        if let Some(new_template) = self.follow_edge(&template, &replacements[index]) {
+        let var = index as AtomId + atomic_map.start_var;
+        if let Some(new_template) =
+            self.follow_edge(&template, var, &atomic_map.replacements[index].instance)
+        {
             self.find_matches_helper(
                 atomic_map,
                 subterms,
@@ -1891,6 +1894,20 @@ impl TermGraph {
                 self.term_str(&from),
                 self.term_str(&to)
             );
+        }
+    }
+
+    pub fn check_matches(&self, matches: &Vec<Match>, s: &str) {
+        let strings = matches
+            .iter()
+            .map(|m| self.match_str(m))
+            .collect::<Vec<_>>();
+        if !strings.contains(&s.to_string()) {
+            println!("found templates:");
+            for s in strings {
+                println!("{}", s);
+            }
+            panic!("no match for {}", s);
         }
     }
 }
@@ -2361,11 +2378,9 @@ mod tests {
     fn test_find_matches() {
         let mut g = TermGraph::new();
         g.check_insert_literal("c0(c1, x0, c3) = c4(x0)");
-        let term = Term::parse("c0(c1, c2, c3");
+        let term = Term::parse("c0(c1, c2, c3)");
         let atomic_map = g.atomize(&term);
         let matches = g.find_matches(&atomic_map);
-        for m in matches {
-            println!("{}", g.match_str(&m));
-        }
+        g.check_matches(&matches, "c4(x3), x3 -> c2");
     }
 }
