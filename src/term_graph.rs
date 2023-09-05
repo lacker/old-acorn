@@ -592,8 +592,11 @@ impl Match {
         };
         let mut replacements = vec![];
         for var in &mapped.var_map {
-            let replacement = self.replacements.iter().find(|r| r.var == *var).unwrap();
-            replacements.push(replacement.value.clone());
+            if let Some(replacement) = self.replacements.iter().find(|r| r.var == *var) {
+                replacements.push(replacement.value.clone());
+            } else {
+                replacements.push(TermInstance::Variable(*var));
+            }
         }
         NormalizedMatch::Template(mapped.term_id, replacements)
     }
@@ -973,7 +976,9 @@ impl TermGraph {
         match &instance.instance {
             TermInstance::Mapped(mapped) => {
                 let term_info = self.get_term_info(mapped.term_id);
-                assert_eq!(term_info.term_type, instance.term_type, "type mismatch");
+                if instance.term_type != ANY {
+                    assert_eq!(term_info.term_type, instance.term_type, "type mismatch");
+                }
                 assert_eq!(
                     term_info.arg_types.len(),
                     mapped.var_map.len(),
@@ -1666,42 +1671,21 @@ impl TermGraph {
     // "true" means that these terms are equal.
     // "false" means that these terms are not equal, for every value of the free variables.
     // "None" means that we don't know, or that they are only sometimes equal.
-    fn evaluate_equality(
-        &self,
-        instance1: &TermInstance,
-        instance2: &TermInstance,
-    ) -> Option<bool> {
-        if instance1 == instance2 {
-            return Some(true);
+    fn evaluate_equality(&mut self, term1: &Term, term2: &Term) -> Option<bool> {
+        let map1 = self.atomize(term1);
+        let map2 = self.atomize(term2);
+        let mut matches = HashSet::new();
+        for m in self.find_matches(&map1) {
+            matches.insert(m.normalize());
         }
-        let id1 = match instance1 {
-            TermInstance::Mapped(t1) => {
-                let new_instance = instance2.extended_backward_map(&t1.var_map);
-                let info = self.get_term_info(t1.term_id);
-                if info.not_equal.contains(&new_instance) {
-                    return Some(false);
-                } else {
-                    return None;
-                }
+        for m in self.find_matches(&map2) {
+            if matches.contains(&m.normalize()) {
+                return Some(true);
             }
-            TermInstance::Variable(i) => i,
-        };
-        let id2 = match instance2 {
-            TermInstance::Mapped(t2) => {
-                let new_instance = instance1.extended_backward_map(&t2.var_map);
-                let info = self.get_term_info(t2.term_id);
-                if info.not_equal.contains(&new_instance) {
-                    return Some(false);
-                } else {
-                    return None;
-                }
-            }
-            TermInstance::Variable(i) => i,
-        };
-        if id1 == id2 {
-            return Some(true);
         }
-        None
+
+        // TODO: find a way to handle inequalities
+        return None;
     }
 
     pub fn insert_literal(&mut self, literal: &Literal) {
@@ -1719,9 +1703,7 @@ impl TermGraph {
     // Return Some(false) if this literal is false (for all values of the free variables).
     // Return None if we don't know or if the literal does not consistently evaluate.
     pub fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
-        let left = self.insert_term_linear(&literal.left);
-        let right = self.insert_term_linear(&literal.right);
-        match self.evaluate_equality(&left, &right) {
+        match self.evaluate_equality(&literal.left, &literal.right) {
             Some(equality) => {
                 if literal.positive {
                     Some(equality)
