@@ -470,29 +470,33 @@ impl EdgeInfo {
 }
 
 impl NormalizedEdge {
+    fn from_replacement(template: &TermInstance, edge: &Replacement) -> NormalizedEdge {
+        NormalizedEdge::new(template, edge.var, &edge.value)
+    }
+
     // Normalizes a TermInstance and an edge that comes from that term.
     // This constructor ignores symmetry.
     // The denormalizer maps (normalized ids) -> (original ids).
     // If you think about it, that makes sense, since the normalized ids are consecutive
     // starting at zero.
-    fn from_replacement(template: &TermInstance, edge: &Replacement) -> NormalizedEdge {
+    fn new(template: &TermInstance, var: AtomId, value: &TermInstance) -> NormalizedEdge {
         match template {
             TermInstance::Mapped(mapped) => {
-                if !mapped.has_var(edge.var) {
+                if !mapped.has_var(var) {
                     // This edge isn't changing anything.
                     return NormalizedEdge::Degenerate(template.clone());
                 }
 
-                if let TermInstance::Variable(i) = &edge.value {
+                if let TermInstance::Variable(i) = &value {
                     // Check for degenerate cases.
-                    if i == &edge.var {
+                    if i == &var {
                         // We're replacing a variable with itself.
                         return NormalizedEdge::Degenerate(template.clone());
                     }
                     if !mapped.has_var(*i) {
                         // We're renaming a variable but not duplicating anything.
                         return NormalizedEdge::Degenerate(TermInstance::Mapped(
-                            mapped.rename_var(edge.var, *i),
+                            mapped.rename_var(var, *i),
                         ));
                     }
                 }
@@ -500,7 +504,7 @@ impl NormalizedEdge {
                 // First assign variable ids starting at zero to the template variables.
                 let mut denormalizer = mapped.var_map.clone();
 
-                let (var, instance) = match &edge.value {
+                let (var, instance) = match &value {
                     TermInstance::Mapped(replacement) => {
                         // Now assign variable ids starting at the end of the template variables
                         // to the replacement variables.
@@ -513,16 +517,16 @@ impl NormalizedEdge {
                             }
                         }
                         (
-                            backward_map_var(edge.var, &denormalizer),
-                            edge.value.backward_map_vars(&denormalizer),
+                            backward_map_var(var, &denormalizer),
+                            value.backward_map_vars(&denormalizer),
                         )
                     }
                     TermInstance::Variable(i) => {
-                        assert_ne!(*i, edge.var);
+                        assert_ne!(*i, var);
 
-                        // In the original namespace, both i and edge.var are being combined to i.
+                        // In the original namespace, both i and var are being combined to i.
                         let new_var_1 = denormalizer.iter().position(|&v| v == *i).unwrap();
-                        let new_var_2 = denormalizer.iter().position(|&v| v == edge.var).unwrap();
+                        let new_var_2 = denormalizer.iter().position(|&v| v == var).unwrap();
                         let (low_var, high_var) = if new_var_1 < new_var_2 {
                             (new_var_1, new_var_2)
                         } else {
@@ -531,7 +535,7 @@ impl NormalizedEdge {
 
                         // We want to combine both new vars into the low var.
                         denormalizer[low_var] = *i;
-                        denormalizer[high_var] = edge.var; // shouldn't be used, but just in case
+                        denormalizer[high_var] = var; // shouldn't be used, but just in case
                         (
                             high_var as AtomId,
                             TermInstance::Variable(low_var as AtomId),
@@ -549,8 +553,8 @@ impl NormalizedEdge {
             TermInstance::Variable(i) => {
                 // This edge is degenerate because it just starts from a variable.
                 // Still, we can give the degenerate answer.
-                if i == &edge.var {
-                    NormalizedEdge::Degenerate(edge.value.clone())
+                if i == &var {
+                    NormalizedEdge::Degenerate(value.clone())
                 } else {
                     NormalizedEdge::Degenerate(template.clone())
                 }
