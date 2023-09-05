@@ -179,6 +179,13 @@ pub struct Match {
     replacements: Vec<Replacement>,
 }
 
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub enum NormalizedMatch {
+    Variable(AtomId),
+    // Replacements are in order, parallel to the variables in the template.
+    Template(TermId, Vec<TermInstance>),
+}
+
 pub struct TermGraph {
     // We replace elements of terms or edges with None when they are replaced with
     // an identical one that we have chosen to be the canonical one.
@@ -571,6 +578,24 @@ impl TermInfoReference {
 impl AtomicMap {
     pub fn len(&self) -> usize {
         self.replacements.len()
+    }
+}
+
+impl Match {
+    // Reorders the template variables.
+    pub fn normalize(&self) -> NormalizedMatch {
+        let mapped = match self.template {
+            TermInstance::Mapped(ref mapped) => mapped,
+            TermInstance::Variable(i) => {
+                return NormalizedMatch::Variable(i);
+            }
+        };
+        let mut replacements = vec![];
+        for var in &mapped.var_map {
+            let replacement = self.replacements.iter().find(|r| r.var == *var).unwrap();
+            replacements.push(replacement.value.clone());
+        }
+        NormalizedMatch::Template(mapped.term_id, replacements)
     }
 }
 
