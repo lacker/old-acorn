@@ -2352,4 +2352,16 @@ mod tests {
 
         assert_eq!(g.num_collapsed_terms(), 0);
     }
+
+    #[test]
+    fn test_find_matches() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(c1, x0, c3) = c4(x0)");
+        let term = Term::parse("c0(c1, c2, c3");
+        let atomic_map = g.atomize(&term);
+        let matches = g.find_matches(&atomic_map);
+        for m in matches {
+            println!("{}", g.match_str(&m));
+        }
+    }
 }
