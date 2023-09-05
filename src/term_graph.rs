@@ -1752,21 +1752,30 @@ impl TermGraph {
         }
     }
 
-    pub fn insert_literal_str(&mut self, literal_string: &str) {
-        let literal = Literal::parse(literal_string);
-        self.insert_literal(&literal);
-    }
-
-    pub fn evaluate_literal_str(&mut self, literal_string: &str) -> Option<bool> {
-        let literal = Literal::parse(literal_string);
-        self.evaluate_literal(&literal)
-    }
-
     pub fn check_make_equal(&mut self, term1: &TypedTermInstance, term2: &TypedTermInstance) {
         println!();
         println!("making equal: {} = {}", term1.instance, term2.instance);
         self.make_equal(term1.instance.clone(), term2.instance.clone());
         self.check();
+    }
+
+    pub fn check_insert_literal(&mut self, s: &str) {
+        println!("inserting literal: {}", s);
+        let literal = Literal::parse(s);
+        self.insert_literal(&literal);
+        self.check();
+    }
+
+    pub fn check_evaluate_literal(&mut self, literal: &str, expected: Option<bool>) {
+        println!("checking literal: {}", literal);
+        let literal = Literal::parse(literal);
+        let result = self.evaluate_literal(&literal);
+        self.check();
+        assert_eq!(result, expected);
+    }
+
+    pub fn check_literal(&mut self, literal: &str) {
+        self.check_evaluate_literal(literal, Some(true));
     }
 
     // Updates first for convenience
@@ -1884,64 +1893,40 @@ mod tests {
     #[test]
     fn test_identifying_terms() {
         let mut g = TermGraph::new();
-        let c0 = g.parse_linear("c0(c3)");
-        let c1 = g.parse_linear("c1(c3)");
-        g.check_make_equal(&c0, &c1);
-        let c2c0 = g.parse_linear("c2(c0(c3))");
-        let c2c1 = g.parse_linear("c2(c1(c3))");
-        assert_eq!(c2c0, c2c1);
+        g.check_insert_literal("c0(c3) = c1(c3)");
+        g.check_literal("c2(c0(c3)) = c2(c1(c3))");
     }
 
     #[test]
     fn test_updating_constructor() {
         let mut g = TermGraph::new();
-
-        let c0 = g.parse_linear("c0");
-        let c1 = g.parse_linear("c1");
-        g.check_make_equal(&c0, &c1);
-        let c2c0 = g.parse_linear("c2(c0)");
-        let c2c1 = g.parse_linear("c2(c1)");
-        assert_eq!(c2c0, c2c1);
+        g.check_insert_literal("c0 = c1");
+        g.check_literal("c2(c0) = c2(c1)");
     }
 
     #[test]
     fn test_apply_replacements() {
         let mut g = TermGraph::new();
-
-        let c0 = g.parse_linear("c0(x0, x1)");
-        let c1 = g.parse_linear("c1(x1, x0)");
-        g.check_make_equal(&c0, &c1);
-        g.check_equal(&c0, &c1);
+        g.check_insert_literal("c0(x0, x1) = c1(x1, x0)");
+        g.check_literal("c0(x0, x1) = c1(x1, x0)");
     }
 
     #[test]
     fn test_duplicating_edge() {
         let mut g = TermGraph::new();
-
-        let c0 = g.parse_linear("c0");
-        let c1 = g.parse_linear("c1");
-        g.parse_linear("c2(c0)");
-        g.parse_linear("c2(c1)");
-        g.check_make_equal(&c0, &c1);
-        let c2c0 = g.parse_linear("c2(c0)");
-        let c2c1 = g.parse_linear("c2(c1)");
-        assert_eq!(c2c0, c2c1);
+        g.check_insert_literal("c2(c0) = c3");
+        g.check_insert_literal("c2(c1) = c4");
+        g.check_insert_literal("c0 = c1");
+        g.check_literal("c2(c0) = c2(c1)");
     }
 
     #[test]
     fn test_multi_hop_term_identification() {
         let mut g = TermGraph::new();
-
-        let c0 = g.parse_linear("c0");
-        let c1 = g.parse_linear("c1");
-        let c2 = g.parse_linear("c2");
-        let c3 = g.parse_linear("c3");
-        g.check_make_equal(&c0, &c1);
-        g.check_make_equal(&c2, &c3);
-        g.check_make_equal(&c0, &c2);
-        let c4c3 = g.parse_linear("c4(c3)");
-        let c4c1 = g.parse_linear("c4(c1)");
-        assert_eq!(c4c3, c4c1);
+        g.check_insert_literal("c0 = c1");
+        g.check_insert_literal("c2 = c3");
+        g.check_insert_literal("c0 = c2");
+        g.check_literal("c4(c3) = c4(c1)");
     }
 
     // #[test]
@@ -1958,38 +1943,26 @@ mod tests {
     #[test]
     fn test_explicit_argument_collapse() {
         let mut g = TermGraph::new();
-
-        let c0x0 = g.parse_linear("c0(x0)");
-        let c1 = g.parse_linear("c1");
-        g.check_make_equal(&c0x0, &c1);
-        let c0c2 = g.parse_linear("c0(c2)");
-        let c0c3 = g.parse_linear("c0(c3)");
-        assert_eq!(c0c2, c0c3);
+        g.check_insert_literal("c0(x0) = c1");
+        g.check_literal("c0(c2) = c0(c3)");
     }
 
     #[test]
     fn test_template_collapse() {
         let mut g = TermGraph::new();
-
-        let c0x0 = g.parse_linear("c0(x0)");
         // Make the less concise term the more popular one
-        g.parse_linear("c0(c2)");
-        let c1 = g.parse_linear("c1");
-        g.check_make_equal(&c0x0, &c1);
-        let c0c2 = g.parse_linear("c0(c2)");
-        let c0c3 = g.parse_linear("c0(c3)");
-        assert_eq!(c0c2, c0c3);
+        g.check_insert_literal("c0(c2) = c4(c5, c6)");
+        g.check_insert_literal("c0(c2) = c7(c8, c9)");
+        g.check_insert_literal("c0(x0) = c1");
+        g.check_literal("c0(c2) = c0(c3)");
+        g.check_evaluate_literal("c0(c2) != c0(c3)", Some(false));
     }
 
     #[test]
-    fn test_extracting_infinite_loop() {
+    fn test_infinite_loop() {
         let mut g = TermGraph::new();
-
-        let c0c0c1 = g.parse_linear("c0(c1)");
-        let other_term = g.parse_linear("c2(c3)");
-        g.check_make_equal(&c0c0c1, &other_term);
-        let c1 = g.parse_linear("c1");
-        g.check_make_equal(&c0c0c1, &c1);
+        g.check_insert_literal("c0(c1) = c2(c3)");
+        g.check_insert_literal("c0(c1) = c1");
     }
 
     #[test]
