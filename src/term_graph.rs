@@ -2081,11 +2081,11 @@ mod tests {
     // #[test]
     // fn test_ignoring_var_in_replacement() {
     //     let mut g = TermGraph::new();
-    //     let template = g.parse("c0(x0, c1(x1))");
-    //     let reduction = g.parse("c2(x0)");
+    //     let template = g.parse_cubic("c0(x0, c1(x1))");
+    //     let reduction = g.parse_cubic("c2(x0)");
     //     g.check_make_equal(&template, &reduction);
-    //     let matching = g.parse("c0(x0, c1(c3))");
-    //     let expected = g.parse("c2(x0)");
+    //     let matching = g.parse_linear("c0(x0, c1(c3))");
+    //     let expected = g.parse_linear("c2(x0)");
     //     assert_eq!(matching, expected);
     // }
 
