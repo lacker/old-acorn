@@ -2030,16 +2030,12 @@ mod tests {
         g.check_literal("c4(c3) = c4(c1)");
     }
 
-    // #[test]
-    // fn test_atom_identification() {
-    //     let mut g = TermGraph::new();
-    //     let c0x0x1 = g.parse_cubic("c0(x0, x1)");
-    //     let c1x1x0 = g.parse_cubic("c1(x1, x0)");
-    //     g.check_make_equal(&c0x0x1, &c1x1x0);
-    //     let c0c2c3 = g.parse_cubic("c0(c2, c3)");
-    //     let c1c3c2 = g.parse_cubic("c1(c3, c2)");
-    //     assert_eq!(c0c2c3, c1c3c2);
-    // }
+    #[test]
+    fn test_atom_identification() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(x0, x1) = c1(x1, x0)");
+        g.check_literal("c0(c2, c3) = c1(c3, c2)");
+    }
 
     #[test]
     fn test_explicit_argument_collapse() {
