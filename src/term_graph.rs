@@ -376,18 +376,15 @@ impl TermInstance {
     }
 }
 
+fn backward_map_var(var: AtomId, var_map: &Vec<AtomId>) -> AtomId {
+    var_map.iter().position(|&v| v == var).unwrap() as AtomId
+}
+
 impl Replacement {
     fn new(var: AtomId, replacement: TermInstance) -> Replacement {
         Replacement {
             var,
             value: replacement,
-        }
-    }
-
-    fn backward_map_vars(&self, var_map: &Vec<AtomId>) -> Replacement {
-        Replacement {
-            var: var_map.iter().position(|&v| v == self.var).unwrap() as AtomId,
-            value: self.value.backward_map_vars(var_map),
         }
     }
 
@@ -478,7 +475,7 @@ impl NormalizedEdge {
     // The denormalizer maps (normalized ids) -> (original ids).
     // If you think about it, that makes sense, since the normalized ids are consecutive
     // starting at zero.
-    fn new(template: &TermInstance, edge: &Replacement) -> NormalizedEdge {
+    fn from_replacement(template: &TermInstance, edge: &Replacement) -> NormalizedEdge {
         match template {
             TermInstance::Mapped(mapped) => {
                 if !mapped.has_var(edge.var) {
@@ -503,7 +500,7 @@ impl NormalizedEdge {
                 // First assign variable ids starting at zero to the template variables.
                 let mut denormalizer = mapped.var_map.clone();
 
-                let edge = match &edge.value {
+                let (var, instance) = match &edge.value {
                     TermInstance::Mapped(replacement) => {
                         // Now assign variable ids starting at the end of the template variables
                         // to the replacement variables.
@@ -515,7 +512,10 @@ impl NormalizedEdge {
                                 }
                             }
                         }
-                        edge.backward_map_vars(&denormalizer)
+                        (
+                            backward_map_var(edge.var, &denormalizer),
+                            edge.value.backward_map_vars(&denormalizer),
+                        )
                     }
                     TermInstance::Variable(i) => {
                         assert_ne!(*i, edge.var);
@@ -532,7 +532,7 @@ impl NormalizedEdge {
                         // We want to combine both new vars into the low var.
                         denormalizer[low_var] = *i;
                         denormalizer[high_var] = edge.var; // shouldn't be used, but just in case
-                        Replacement::new(
+                        (
                             high_var as AtomId,
                             TermInstance::Variable(low_var as AtomId),
                         )
@@ -540,7 +540,7 @@ impl NormalizedEdge {
                 };
                 let key = EdgeKey {
                     template: mapped.term_id,
-                    replacement: edge,
+                    replacement: Replacement::new(var, instance),
                     vars_used: denormalizer.len() as AtomId,
                 };
 
@@ -693,7 +693,7 @@ impl TermGraph {
         result: Option<TermInstance>,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
-        let (key, denormalizer) = match NormalizedEdge::new(template, edge) {
+        let (key, denormalizer) = match NormalizedEdge::from_replacement(template, edge) {
             NormalizedEdge::Degenerate(term) => {
                 if let Some(result) = result {
                     pending.push_front(Operation::Identification(term.clone(), result));
@@ -757,7 +757,7 @@ impl TermGraph {
     // Follows this edge, if there is such an edge in the graph.
     // Returns None is there is not.
     pub fn follow_edge(&self, template: &TermInstance, edge: &Replacement) -> Option<TermInstance> {
-        let (key, denormalizer) = match NormalizedEdge::new(template, edge) {
+        let (key, denormalizer) = match NormalizedEdge::from_replacement(template, edge) {
             NormalizedEdge::Degenerate(term) => return Some(term),
             NormalizedEdge::Key(key, denormalizer) => (key, denormalizer),
         };
