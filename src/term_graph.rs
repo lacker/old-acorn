@@ -1804,10 +1804,6 @@ impl TermGraph {
         assert_eq!(self.term_str(&instance), output)
     }
 
-    pub fn old_check_str(&self, term: &TypedTermInstance, s: &str) {
-        assert_eq!(self.term_str(&term.instance), s)
-    }
-
     pub fn check_path(&self, from: &TypedTermInstance, to: &TypedTermInstance) {
         let from = self.update_term(from.instance.clone());
         let to = self.update_term(to.instance.clone());
@@ -1991,10 +1987,8 @@ mod tests {
     fn test_argument_collapse() {
         let mut g = TermGraph::new();
 
-        let term1 = g.parse_linear("c0(c1, x0, x1, x2, x3)");
-        let term2 = g.parse_linear("c0(c1, x0, x4, x2, x5)");
-        g.check_make_equal(&term1, &term2);
-        g.old_check_str(&term1, "c0(c1, x0, _, x2, _)");
+        g.check_insert_literal("c0(c1, x0, x1, x2, x3) = c0(c1, x0, x4, x2, x5)");
+        g.check_str("c0(c1, x0, x1, x2, x3)", "c0(c1, x0, _, x2, _)");
     }
 
     #[test]
