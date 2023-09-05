@@ -169,6 +169,16 @@ pub struct AtomicMap {
     subterm_sizes: Vec<usize>,
 }
 
+// A Match is a way of constructing a term based on an existing template in the TermGraph,
+// substituting in new terms for each variable.
+pub struct Match {
+    template: TermInstance,
+
+    // Generally there should be one replacement for each of the arguments of the template.
+    // TODO: what happens for collapsed arguments?
+    replacements: Vec<Replacement>,
+}
+
 pub struct TermGraph {
     // We replace elements of terms or edges with None when they are replaced with
     // an identical one that we have chosen to be the canonical one.
@@ -1488,16 +1498,91 @@ impl TermGraph {
         self.follow_atomic_map(&atomic_map).is_some()
     }
 
+    // Finds templates in the graph that are generalizations of the term represented by
+    // the atomic map.
+    // This process could be exponential in the size of the term if the map is very full,
+    // but hopefully it is limited by the size of the map.
+    // Mutates the graph to add subterms.
+    pub fn find_matches(&mut self, atomic_map: &AtomicMap) -> Vec<Match> {
+        let subterms = self.insert_map_linear(atomic_map);
+        let mut replacements = vec![];
+        let mut answer = vec![];
+        let template = subterms[0].instance.clone();
+        self.find_matches_helper(
+            atomic_map,
+            &subterms,
+            1,
+            template,
+            &mut replacements,
+            &mut answer,
+        );
+        answer
+    }
+
+    // Inner loop of the "discrimination tree" algorithm.
+    // index is the index of the next atom in the map to process
+    // replacements are the replacements we have collected from previous indices.
+    // We append stuff to replacements but should leave it as we found it.
+    // Any matches we find are appended to output
+    fn find_matches_helper(
+        &self,
+        atomic_map: &AtomicMap,
+        subterms: &Vec<TypedTermInstance>,
+        index: usize,
+        template: TermInstance,
+        replacements: &mut Vec<Replacement>,
+        output: &mut Vec<Match>,
+    ) {
+        if index == atomic_map.len() {
+            // We have found a match
+            output.push(Match {
+                template,
+                replacements: replacements.clone(),
+            });
+            return;
+        }
+        assert!(index < atomic_map.len());
+
+        // We can add this atom to the template, if such a template exists.
+        if let Some(new_template) = self.follow_edge(&template, &replacements[index]) {
+            self.find_matches_helper(
+                atomic_map,
+                subterms,
+                index + 1,
+                new_template,
+                replacements,
+                output,
+            );
+        }
+
+        // This subterm can become a substitution point of the template.
+        let new_replacement = Replacement::new(
+            index as AtomId + atomic_map.start_var,
+            subterms[index].instance.clone(),
+        );
+        replacements.push(new_replacement);
+        let new_index = index + atomic_map.subterm_sizes[index];
+        self.find_matches_helper(
+            atomic_map,
+            subterms,
+            new_index,
+            template,
+            replacements,
+            output,
+        );
+        replacements.pop();
+    }
+
     // Identifies the two terms, and continues processing any followup Identifications until
     // all Identifications are processed.
-    pub fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
+    fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
         let mut ops = VecDeque::new();
         ops.push_front(Operation::Identification(instance1, instance2));
         self.process_all(ops);
     }
 
     // Sets these terms to be not equal.
-    pub fn make_not_equal(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
+    fn make_not_equal(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
         let instance1 = self.update_term(instance1.clone());
         let instance2 = self.update_term(instance2.clone());
         if instance1 == instance2 {
@@ -1768,6 +1853,14 @@ impl TermGraph {
             instance: updated,
         };
         self.extract_term_instance(&t).to_string()
+    }
+
+    pub fn match_str(&self, m: &Match) -> String {
+        let mut s = self.term_str(&m.template);
+        for r in &m.replacements {
+            s.push_str(&format!(", {}", self.edge_str(r)));
+        }
+        s
     }
 
     pub fn edge_str(&self, edge: &Replacement) -> String {
