@@ -1464,6 +1464,24 @@ impl TermGraph {
         segments.swap_remove(0)
     }
 
+    // Returns a TermInstance for the AtomicMap, if one exists
+    pub fn follow_atomic_map(&self, atomic_map: &AtomicMap) -> Option<TermInstance> {
+        let mut term_instance = atomic_map.replacements[0].instance.clone();
+        for i in 1..atomic_map.len() {
+            let var = i as AtomId + atomic_map.start_var;
+            let new_term = &atomic_map.replacements[i].instance;
+            let replacement = Replacement::new(var, new_term.clone());
+            term_instance = self.follow_edge(&term_instance, &replacement)?;
+        }
+        Some(term_instance)
+    }
+
+    // Mutates the term graph to add atoms, but that's it
+    pub fn contains_term(&mut self, term: &Term) -> bool {
+        let atomic_map = self.atomize(term);
+        self.follow_atomic_map(&atomic_map).is_some()
+    }
+
     // Identifies the two terms, and continues processing any followup Identifications until
     // all Identifications are processed.
     pub fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
@@ -2302,6 +2320,9 @@ mod tests {
         let prefixes = g.cubic_insert(&atomic_map);
         assert_eq!(prefixes.len(), 14);
 
-        // TODO: more tests
+        let prefix = |i: usize| g.term_str(&prefixes[i]);
+        assert_eq!(prefix(0), "x3(x4, x5, x8)");
+        assert_eq!(prefix(1), "c0(x4, x5, x8)");
+        assert_eq!(prefix(2), "c0(c1, x5, x8)");
     }
 }
