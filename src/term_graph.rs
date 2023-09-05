@@ -1865,13 +1865,6 @@ impl TermGraph {
         }
     }
 
-    pub fn check_make_equal(&mut self, term1: &TypedTermInstance, term2: &TypedTermInstance) {
-        println!();
-        println!("making equal: {} = {}", term1.instance, term2.instance);
-        self.make_equal(term1.instance.clone(), term2.instance.clone());
-        self.check();
-    }
-
     pub fn check_insert_literal(&mut self, s: &str) {
         println!("inserting literal: {}", s);
         let literal = Literal::parse(s);
