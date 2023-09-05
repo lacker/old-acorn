@@ -1798,7 +1798,13 @@ impl TermGraph {
         format!("x{} -> {}", edge.var, self.term_str(&edge.value))
     }
 
-    pub fn check_str(&self, term: &TypedTermInstance, s: &str) {
+    pub fn check_str(&mut self, input: &str, output: &str) {
+        let term = Term::parse(input);
+        let instance = self.insert_term_linear(&term);
+        assert_eq!(self.term_str(&instance), output)
+    }
+
+    pub fn old_check_str(&self, term: &TypedTermInstance, s: &str) {
         assert_eq!(self.term_str(&term.instance), s)
     }
 
@@ -1968,29 +1974,17 @@ mod tests {
     #[test]
     fn test_double_touched_edges() {
         let mut g = TermGraph::new();
-
-        let c0c1c1 = g.parse_linear("c0(c1, c1)");
-        let c2 = g.parse_linear("c2");
-        g.check_make_equal(&c0c1c1, &c2);
-
-        let c1 = g.parse_linear("c1");
-        let c2 = g.parse_linear("c3");
-        g.check_make_equal(&c1, &c2);
-
-        let c0c3c3 = g.parse_linear("c0(c3, c3)");
-        let c2 = g.parse_linear("c2");
-        assert_eq!(c0c3c3, c2);
+        g.check_insert_literal("c0(c1, c1) = c2");
+        g.check_insert_literal("c1 = c3");
+        g.check_literal("c0(c3, c3) = c2");
     }
 
     #[test]
     fn test_atom_vs_less_args() {
         let mut g = TermGraph::new();
-
-        let c0x0 = g.parse_linear("c0(x0)");
-        let c1c2 = g.parse_linear("c1(c2)");
-        g.check_make_equal(&c0x0, &c1c2);
-        g.check_str(&c0x0, "c0(_)");
-        g.check_str(&c1c2, "c0(_)");
+        g.check_insert_literal("c0(x0) = c1(c2)");
+        g.check_str("c0(x0)", "c0(_)");
+        g.check_str("c1(c2)", "c0(_)");
     }
 
     #[test]
@@ -2000,7 +1994,7 @@ mod tests {
         let term1 = g.parse_linear("c0(c1, x0, x1, x2, x3)");
         let term2 = g.parse_linear("c0(c1, x0, x4, x2, x5)");
         g.check_make_equal(&term1, &term2);
-        g.check_str(&term1, "c0(c1, x0, _, x2, _)");
+        g.old_check_str(&term1, "c0(c1, x0, _, x2, _)");
     }
 
     #[test]
