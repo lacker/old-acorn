@@ -1562,13 +1562,33 @@ impl TermGraph {
             );
         }
 
-        // This subterm can become a substitution point of the template.
-        let new_replacement = Replacement::new(
-            index as AtomId + atomic_map.start_var,
-            subterms[index].instance.clone(),
-        );
-        replacements.push(new_replacement);
+        // Find ways to match this entire subterm at once. That would skip the index to
+        // right beyond this subterm.
         let new_index = index + atomic_map.subterm_sizes[index];
+
+        // Check if this subterm is a duplicate
+        for i in 0..replacements.len() {
+            if replacements[i].value == subterms[index].instance {
+                // This subterm is a duplicate of a previous subterm.
+                // So we could also match a template that replaces x_var with the previous
+                // variable.
+                let renamed = TermInstance::Variable(replacements[i].var);
+                if let Some(new_template) = self.follow_edge(&template, var, &renamed) {
+                    self.find_matches_helper(
+                        atomic_map,
+                        subterms,
+                        new_index,
+                        new_template,
+                        replacements,
+                        output,
+                    );
+                }
+            }
+        }
+
+        // This subterm can become a substitution point of the template.
+        let new_replacement = Replacement::new(var, subterms[index].instance.clone());
+        replacements.push(new_replacement);
         self.find_matches_helper(
             atomic_map,
             subterms,
@@ -2382,5 +2402,15 @@ mod tests {
         let atomic_map = g.atomize(&term);
         let matches = g.find_matches(&atomic_map);
         g.check_matches(&matches, "c4(x3), x3 -> c2");
+    }
+
+    #[test]
+    fn test_find_matches_repeat_variable() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(x0, x0) = c0(x0, x0)");
+        let term = Term::parse("c0(c2, c2)");
+        let atomic_map = g.atomize(&term);
+        let matches = g.find_matches(&atomic_map);
+        g.check_matches(&matches, "c0(x2, x2), x2 -> c2");
     }
 }
