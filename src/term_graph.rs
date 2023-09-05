@@ -2001,35 +2001,23 @@ mod tests {
     #[test]
     fn test_identifying_with_the_identity() {
         let mut g = TermGraph::new();
-
-        let c0x0 = g.parse_linear("c0(x0)");
-        let x0 = g.parse_linear("x0");
-        g.check_make_equal(&c0x0, &x0);
-        let c0c1 = g.parse_linear("c0(c1)");
-        let c1 = g.parse_linear("c1");
-        assert_eq!(c0c1, c1);
+        g.check_insert_literal("c0(x0) = x0");
+        g.check_literal("c0(c1) = c1");
     }
 
     #[test]
     fn test_edge_template_identifying_with_variable() {
         let mut g = TermGraph::new();
-
-        g.parse_linear("c0(c1)");
-        let x0 = g.parse_linear("x0");
-        let c0x0 = g.parse_linear("c0(x0)");
-        g.check_make_equal(&x0, &c0x0);
+        g.check_insert_literal("c0(c1) = c2");
+        g.check_insert_literal("c0(x0) = x0");
+        g.check_literal("c1 = c2");
     }
 
     #[test]
-    fn test_template_discovery() {
+    fn test_prefix_template_discovery() {
         let mut g = TermGraph::new();
-
-        let c0c1x0 = g.parse_linear("c0(c1, x0)");
-        let c2 = g.parse_linear("c2");
-        g.check_make_equal(&c0c1x0, &c2);
-        let c0c1c3 = g.parse_linear("c0(c1, c3)");
-        let c2 = g.parse_linear("c2");
-        assert_eq!(c0c1c3, c2);
+        g.check_insert_literal("c0(c1, x0) = c2");
+        g.check_literal("c0(c1, c3) = c2");
     }
 
     // #[test]
@@ -2046,13 +2034,9 @@ mod tests {
     #[test]
     fn test_eliminating_a_replacement_var() {
         let mut g = TermGraph::new();
-
-        let c0c1x0 = g.parse_linear("c0(c1(x0))");
-        let c2x0 = g.parse_linear("c2(x0)");
-        g.check_make_equal(&c0c1x0, &c2x0);
-        let c1x0 = g.parse_linear("c1(x0)");
-        let c3 = g.parse_linear("c3");
-        g.check_make_equal(&c1x0, &c3);
+        g.check_insert_literal("c0(c1(x0)) = c2(x0)");
+        g.check_insert_literal("c1(x0) = c3");
+        g.check_literal("c0(c3) = c2(c4)");
     }
 
     // #[test]
@@ -2104,13 +2088,8 @@ mod tests {
     #[test]
     fn test_unused_vars_on_both_sides() {
         let mut g = TermGraph::new();
-
-        let template = g.parse_linear("c0(c1, x0)");
-        let reduction = g.parse_linear("c2(x1)");
-        g.check_make_equal(&template, &reduction);
-        let left = g.parse_linear("c0(c1, c3)");
-        let right = g.parse_linear("c2(c4)");
-        assert_eq!(left, right);
+        g.check_insert_literal("c0(c1, x0) = c2(x1)");
+        g.check_literal("c0(c1, c3) = c2(c4)");
     }
 
     // #[test]
@@ -2160,13 +2139,8 @@ mod tests {
     #[test]
     fn test_reducing_var_through_self_identify() {
         let mut g = TermGraph::new();
-
-        let first = g.parse_linear("c0(x0, x1)");
-        let second = g.parse_linear("c0(x0, x2)");
-        g.check_make_equal(&first, &second);
-        let left = g.parse_linear("c0(c1, c2)");
-        let right = g.parse_linear("c0(c1, c3)");
-        assert_eq!(left, right);
+        g.check_insert_literal("c0(x0, x1) = c0(x0, x2)");
+        g.check_literal("c0(c1, c2) = c0(c1, c3)");
     }
 
     // #[test]
