@@ -1271,10 +1271,16 @@ impl TermGraph {
     // Tools for interacting with more complicated graph things like LinearMap and Literal.
     //
 
-    pub fn insert_term(&mut self, term: &Term) -> TermInstance {
+    pub fn insert_term_linear(&mut self, term: &Term) -> TermInstance {
         let atomic_map = self.atomize(term);
-        let mut subterms = self.linear_insert(&atomic_map);
+        let mut subterms = self.insert_map_linear(&atomic_map);
         subterms.swap_remove(0).instance
+    }
+
+    pub fn insert_term_cubic(&mut self, term: &Term) -> TermInstance {
+        let atomic_map = self.atomize(term);
+        let mut prefixes = self.insert_map_cubic(&atomic_map);
+        prefixes.pop().unwrap()
     }
 
     // Convenient wrapper around atomize_starting_at to pick a start_var.
@@ -1347,7 +1353,7 @@ impl TermGraph {
     //
     // Returns the subterms. The nth element of the output is the subterm rooted at the nth
     // replacement.
-    fn linear_insert(&mut self, atomic_map: &AtomicMap) -> Vec<TypedTermInstance> {
+    fn insert_map_linear(&mut self, atomic_map: &AtomicMap) -> Vec<TypedTermInstance> {
         let mut reversed_answer: Vec<TypedTermInstance> = vec![];
         for i in (0..atomic_map.len()).rev() {
             // Figure out the term for x_i
@@ -1399,7 +1405,7 @@ impl TermGraph {
     // For a shallow term, though, it will act linear.
     //
     // Returns all the prefixes of the root term.
-    pub fn cubic_insert(&mut self, atomic_map: &AtomicMap) -> Vec<TermInstance> {
+    pub fn insert_map_cubic(&mut self, atomic_map: &AtomicMap) -> Vec<TermInstance> {
         // path and segments are parallel to each other.
         // At the start of each iteration through this loop, path is a sequence of
         // subterms, represented by index into the AtomicMap, that goes from the root
@@ -1492,18 +1498,20 @@ impl TermGraph {
 
     // Sets these terms to be not equal.
     pub fn make_not_equal(&mut self, instance1: &TermInstance, instance2: &TermInstance) {
+        let instance1 = self.update_term(instance1.clone());
+        let instance2 = self.update_term(instance2.clone());
         if instance1 == instance2 {
             self.found_contradiction = true;
             return;
         }
         let mut inserted = 0;
-        if let TermInstance::Mapped(t1) = instance1 {
+        if let TermInstance::Mapped(t1) = &instance1 {
             inserted += 1;
-            self.make_mapped_term_not_equal(t1, instance2);
+            self.make_mapped_term_not_equal(t1, &instance2);
         }
-        if let TermInstance::Mapped(t2) = instance2 {
+        if let TermInstance::Mapped(t2) = &instance2 {
             inserted += 1;
-            self.make_mapped_term_not_equal(t2, instance1);
+            self.make_mapped_term_not_equal(t2, &instance1);
         }
         if inserted == 0 {
             panic!("observe_not_equal called with two variables");
@@ -1560,8 +1568,8 @@ impl TermGraph {
     }
 
     pub fn insert_literal(&mut self, literal: &Literal) {
-        let left = self.insert_term(&literal.left);
-        let right = self.insert_term(&literal.right);
+        let left = self.insert_term_cubic(&literal.left);
+        let right = self.insert_term_cubic(&literal.right);
         if literal.positive {
             self.make_equal(left, right);
         } else {
@@ -1574,8 +1582,8 @@ impl TermGraph {
     // Return Some(false) if this literal is false (for all values of the free variables).
     // Return None if we don't know or if the literal does not consistently evaluate.
     pub fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
-        let left = self.insert_term(&literal.left);
-        let right = self.insert_term(&literal.right);
+        let left = self.insert_term_linear(&literal.left);
+        let right = self.insert_term_linear(&literal.right);
         match self.evaluate_equality(&left, &right) {
             Some(equality) => {
                 if literal.positive {
@@ -1595,7 +1603,7 @@ impl TermGraph {
     pub fn print_edge(&self, edge_id: EdgeId) {
         let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
         let term_id = edge_info.key.template;
-        print!(
+        println!(
             "edge {}: term {} = {}; {} => {}",
             edge_id,
             term_id,
@@ -1720,11 +1728,23 @@ impl TermGraph {
         }
     }
 
-    pub fn parse(&mut self, term_string: &str) -> TypedTermInstance {
+    pub fn parse_linear(&mut self, term_string: &str) -> TypedTermInstance {
         println!();
         println!("parsing: {}", term_string);
         let term = Term::parse(term_string);
-        let instance = self.insert_term(&term);
+        let instance = self.insert_term_linear(&term);
+        self.check();
+        TypedTermInstance {
+            term_type: term.term_type,
+            instance,
+        }
+    }
+
+    pub fn parse_cubic(&mut self, term_string: &str) -> TypedTermInstance {
+        println!();
+        println!("parsing: {}", term_string);
+        let term = Term::parse(term_string);
+        let instance = self.insert_term_cubic(&term);
         self.check();
         TypedTermInstance {
             term_type: term.term_type,
@@ -1796,7 +1816,7 @@ mod tests {
     use super::*;
 
     fn check_insert(g: &mut TermGraph, input: &str, expected_output: &str) {
-        let ti = g.parse(input);
+        let ti = g.parse_linear(input);
         let actual_output = g.extract_term_instance(&ti);
         if expected_output != actual_output.to_string() {
             panic!(
@@ -1851,9 +1871,9 @@ mod tests {
     #[test]
     fn test_insertion_efficiency() {
         let mut g = TermGraph::new();
-        g.parse("c0(c1, c2, c3)");
+        g.parse_linear("c0(c1, c2, c3)");
         let pre_size = g.terms.len();
-        g.parse("c0(x0, c2, c3)");
+        g.parse_linear("c0(x0, c2, c3)");
         let post_size = g.terms.len();
         assert!(
             post_size > pre_size,
@@ -1864,11 +1884,11 @@ mod tests {
     #[test]
     fn test_identifying_terms() {
         let mut g = TermGraph::new();
-        let c0 = g.parse("c0(c3)");
-        let c1 = g.parse("c1(c3)");
+        let c0 = g.parse_linear("c0(c3)");
+        let c1 = g.parse_linear("c1(c3)");
         g.check_make_equal(&c0, &c1);
-        let c2c0 = g.parse("c2(c0(c3))");
-        let c2c1 = g.parse("c2(c1(c3))");
+        let c2c0 = g.parse_linear("c2(c0(c3))");
+        let c2c1 = g.parse_linear("c2(c1(c3))");
         assert_eq!(c2c0, c2c1);
     }
 
@@ -1876,11 +1896,11 @@ mod tests {
     fn test_updating_constructor() {
         let mut g = TermGraph::new();
 
-        let c0 = g.parse("c0");
-        let c1 = g.parse("c1");
+        let c0 = g.parse_linear("c0");
+        let c1 = g.parse_linear("c1");
         g.check_make_equal(&c0, &c1);
-        let c2c0 = g.parse("c2(c0)");
-        let c2c1 = g.parse("c2(c1)");
+        let c2c0 = g.parse_linear("c2(c0)");
+        let c2c1 = g.parse_linear("c2(c1)");
         assert_eq!(c2c0, c2c1);
     }
 
@@ -1888,8 +1908,8 @@ mod tests {
     fn test_apply_replacements() {
         let mut g = TermGraph::new();
 
-        let c0 = g.parse("c0(x0, x1)");
-        let c1 = g.parse("c1(x1, x0)");
+        let c0 = g.parse_linear("c0(x0, x1)");
+        let c1 = g.parse_linear("c1(x1, x0)");
         g.check_make_equal(&c0, &c1);
         g.check_equal(&c0, &c1);
     }
@@ -1898,13 +1918,13 @@ mod tests {
     fn test_duplicating_edge() {
         let mut g = TermGraph::new();
 
-        let c0 = g.parse("c0");
-        let c1 = g.parse("c1");
-        g.parse("c2(c0)");
-        g.parse("c2(c1)");
+        let c0 = g.parse_linear("c0");
+        let c1 = g.parse_linear("c1");
+        g.parse_linear("c2(c0)");
+        g.parse_linear("c2(c1)");
         g.check_make_equal(&c0, &c1);
-        let c2c0 = g.parse("c2(c0)");
-        let c2c1 = g.parse("c2(c1)");
+        let c2c0 = g.parse_linear("c2(c0)");
+        let c2c1 = g.parse_linear("c2(c1)");
         assert_eq!(c2c0, c2c1);
     }
 
@@ -1912,26 +1932,26 @@ mod tests {
     fn test_multi_hop_term_identification() {
         let mut g = TermGraph::new();
 
-        let c0 = g.parse("c0");
-        let c1 = g.parse("c1");
-        let c2 = g.parse("c2");
-        let c3 = g.parse("c3");
+        let c0 = g.parse_linear("c0");
+        let c1 = g.parse_linear("c1");
+        let c2 = g.parse_linear("c2");
+        let c3 = g.parse_linear("c3");
         g.check_make_equal(&c0, &c1);
         g.check_make_equal(&c2, &c3);
         g.check_make_equal(&c0, &c2);
-        let c4c3 = g.parse("c4(c3)");
-        let c4c1 = g.parse("c4(c1)");
+        let c4c3 = g.parse_linear("c4(c3)");
+        let c4c1 = g.parse_linear("c4(c1)");
         assert_eq!(c4c3, c4c1);
     }
 
     // #[test]
     // fn test_atom_identification() {
     //     let mut g = TermGraph::new();
-    //     let c0x0x1 = g.parse("c0(x0, x1)");
-    //     let c1x1x0 = g.parse("c1(x1, x0)");
+    //     let c0x0x1 = g.parse_cubic("c0(x0, x1)");
+    //     let c1x1x0 = g.parse_cubic("c1(x1, x0)");
     //     g.check_make_equal(&c0x0x1, &c1x1x0);
-    //     let c0c2c3 = g.parse("c0(c2, c3)");
-    //     let c1c3c2 = g.parse("c1(c3, c2)");
+    //     let c0c2c3 = g.parse_cubic("c0(c2, c3)");
+    //     let c1c3c2 = g.parse_cubic("c1(c3, c2)");
     //     assert_eq!(c0c2c3, c1c3c2);
     // }
 
@@ -1939,11 +1959,11 @@ mod tests {
     fn test_explicit_argument_collapse() {
         let mut g = TermGraph::new();
 
-        let c0x0 = g.parse("c0(x0)");
-        let c1 = g.parse("c1");
+        let c0x0 = g.parse_linear("c0(x0)");
+        let c1 = g.parse_linear("c1");
         g.check_make_equal(&c0x0, &c1);
-        let c0c2 = g.parse("c0(c2)");
-        let c0c3 = g.parse("c0(c3)");
+        let c0c2 = g.parse_linear("c0(c2)");
+        let c0c3 = g.parse_linear("c0(c3)");
         assert_eq!(c0c2, c0c3);
     }
 
@@ -1951,13 +1971,13 @@ mod tests {
     fn test_template_collapse() {
         let mut g = TermGraph::new();
 
-        let c0x0 = g.parse("c0(x0)");
+        let c0x0 = g.parse_linear("c0(x0)");
         // Make the less concise term the more popular one
-        g.parse("c0(c2)");
-        let c1 = g.parse("c1");
+        g.parse_linear("c0(c2)");
+        let c1 = g.parse_linear("c1");
         g.check_make_equal(&c0x0, &c1);
-        let c0c2 = g.parse("c0(c2)");
-        let c0c3 = g.parse("c0(c3)");
+        let c0c2 = g.parse_linear("c0(c2)");
+        let c0c3 = g.parse_linear("c0(c3)");
         assert_eq!(c0c2, c0c3);
     }
 
@@ -1965,10 +1985,10 @@ mod tests {
     fn test_extracting_infinite_loop() {
         let mut g = TermGraph::new();
 
-        let c0c0c1 = g.parse("c0(c1)");
-        let other_term = g.parse("c2(c3)");
+        let c0c0c1 = g.parse_linear("c0(c1)");
+        let other_term = g.parse_linear("c2(c3)");
         g.check_make_equal(&c0c0c1, &other_term);
-        let c1 = g.parse("c1");
+        let c1 = g.parse_linear("c1");
         g.check_make_equal(&c0c0c1, &c1);
     }
 
@@ -1976,16 +1996,16 @@ mod tests {
     fn test_double_touched_edges() {
         let mut g = TermGraph::new();
 
-        let c0c1c1 = g.parse("c0(c1, c1)");
-        let c2 = g.parse("c2");
+        let c0c1c1 = g.parse_linear("c0(c1, c1)");
+        let c2 = g.parse_linear("c2");
         g.check_make_equal(&c0c1c1, &c2);
 
-        let c1 = g.parse("c1");
-        let c2 = g.parse("c3");
+        let c1 = g.parse_linear("c1");
+        let c2 = g.parse_linear("c3");
         g.check_make_equal(&c1, &c2);
 
-        let c0c3c3 = g.parse("c0(c3, c3)");
-        let c2 = g.parse("c2");
+        let c0c3c3 = g.parse_linear("c0(c3, c3)");
+        let c2 = g.parse_linear("c2");
         assert_eq!(c0c3c3, c2);
     }
 
@@ -1993,8 +2013,8 @@ mod tests {
     fn test_atom_vs_less_args() {
         let mut g = TermGraph::new();
 
-        let c0x0 = g.parse("c0(x0)");
-        let c1c2 = g.parse("c1(c2)");
+        let c0x0 = g.parse_linear("c0(x0)");
+        let c1c2 = g.parse_linear("c1(c2)");
         g.check_make_equal(&c0x0, &c1c2);
         g.check_str(&c0x0, "c0(_)");
         g.check_str(&c1c2, "c0(_)");
@@ -2004,8 +2024,8 @@ mod tests {
     fn test_argument_collapse() {
         let mut g = TermGraph::new();
 
-        let term1 = g.parse("c0(c1, x0, x1, x2, x3)");
-        let term2 = g.parse("c0(c1, x0, x4, x2, x5)");
+        let term1 = g.parse_linear("c0(c1, x0, x1, x2, x3)");
+        let term2 = g.parse_linear("c0(c1, x0, x4, x2, x5)");
         g.check_make_equal(&term1, &term2);
         g.check_str(&term1, "c0(c1, x0, _, x2, _)");
     }
@@ -2014,11 +2034,11 @@ mod tests {
     fn test_inference_from_argument_collapse() {
         let mut g = TermGraph::new();
 
-        let c0x0 = g.parse("c0(x0)");
-        let c1x1 = g.parse("c1(x1)");
+        let c0x0 = g.parse_linear("c0(x0)");
+        let c1x1 = g.parse_linear("c1(x1)");
         g.check_make_equal(&c0x0, &c1x1);
-        let c0c2 = g.parse("c0(c2)");
-        let c0c3 = g.parse("c0(c3)");
+        let c0c2 = g.parse_linear("c0(c2)");
+        let c0c3 = g.parse_linear("c0(c3)");
         assert_eq!(c0c2, c0c3);
 
         check_insert(&mut g, "c0(x0)", "c0(_)");
@@ -2028,11 +2048,11 @@ mod tests {
     fn test_identifying_with_the_identity() {
         let mut g = TermGraph::new();
 
-        let c0x0 = g.parse("c0(x0)");
-        let x0 = g.parse("x0");
+        let c0x0 = g.parse_linear("c0(x0)");
+        let x0 = g.parse_linear("x0");
         g.check_make_equal(&c0x0, &x0);
-        let c0c1 = g.parse("c0(c1)");
-        let c1 = g.parse("c1");
+        let c0c1 = g.parse_linear("c0(c1)");
+        let c1 = g.parse_linear("c1");
         assert_eq!(c0c1, c1);
     }
 
@@ -2040,9 +2060,9 @@ mod tests {
     fn test_edge_template_identifying_with_variable() {
         let mut g = TermGraph::new();
 
-        g.parse("c0(c1)");
-        let x0 = g.parse("x0");
-        let c0x0 = g.parse("c0(x0)");
+        g.parse_linear("c0(c1)");
+        let x0 = g.parse_linear("x0");
+        let c0x0 = g.parse_linear("c0(x0)");
         g.check_make_equal(&x0, &c0x0);
     }
 
@@ -2050,11 +2070,11 @@ mod tests {
     fn test_template_discovery() {
         let mut g = TermGraph::new();
 
-        let c0c1x0 = g.parse("c0(c1, x0)");
-        let c2 = g.parse("c2");
+        let c0c1x0 = g.parse_linear("c0(c1, x0)");
+        let c2 = g.parse_linear("c2");
         g.check_make_equal(&c0c1x0, &c2);
-        let c0c1c3 = g.parse("c0(c1, c3)");
-        let c2 = g.parse("c2");
+        let c0c1c3 = g.parse_linear("c0(c1, c3)");
+        let c2 = g.parse_linear("c2");
         assert_eq!(c0c1c3, c2);
     }
 
@@ -2073,11 +2093,11 @@ mod tests {
     fn test_eliminating_a_replacement_var() {
         let mut g = TermGraph::new();
 
-        let c0c1x0 = g.parse("c0(c1(x0))");
-        let c2x0 = g.parse("c2(x0)");
+        let c0c1x0 = g.parse_linear("c0(c1(x0))");
+        let c2x0 = g.parse_linear("c2(x0)");
         g.check_make_equal(&c0c1x0, &c2x0);
-        let c1x0 = g.parse("c1(x0)");
-        let c3 = g.parse("c3");
+        let c1x0 = g.parse_linear("c1(x0)");
+        let c3 = g.parse_linear("c3");
         g.check_make_equal(&c1x0, &c3);
     }
 
@@ -2131,11 +2151,11 @@ mod tests {
     fn test_unused_vars_on_both_sides() {
         let mut g = TermGraph::new();
 
-        let template = g.parse("c0(c1, x0)");
-        let reduction = g.parse("c2(x1)");
+        let template = g.parse_linear("c0(c1, x0)");
+        let reduction = g.parse_linear("c2(x1)");
         g.check_make_equal(&template, &reduction);
-        let left = g.parse("c0(c1, c3)");
-        let right = g.parse("c2(c4)");
+        let left = g.parse_linear("c0(c1, c3)");
+        let right = g.parse_linear("c2(c4)");
         assert_eq!(left, right);
     }
 
@@ -2187,11 +2207,11 @@ mod tests {
     fn test_reducing_var_through_self_identify() {
         let mut g = TermGraph::new();
 
-        let first = g.parse("c0(x0, x1)");
-        let second = g.parse("c0(x0, x2)");
+        let first = g.parse_linear("c0(x0, x1)");
+        let second = g.parse_linear("c0(x0, x2)");
         g.check_make_equal(&first, &second);
-        let left = g.parse("c0(c1, c2)");
-        let right = g.parse("c0(c1, c3)");
+        let left = g.parse_linear("c0(c1, c2)");
+        let right = g.parse_linear("c0(c1, c3)");
         assert_eq!(left, right);
     }
 
@@ -2294,7 +2314,7 @@ mod tests {
         let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
         let term = Term::parse(s);
         let atomic_map = g.atomize(&term);
-        let subterms = g.linear_insert(&atomic_map);
+        let subterms = g.insert_map_linear(&atomic_map);
         assert_eq!(subterms.len(), 14);
 
         let subterm = |i: usize| g.term_str(&subterms[i].instance);
@@ -2321,7 +2341,7 @@ mod tests {
         let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
         let term = Term::parse(s);
         let atomic_map = g.atomize(&term);
-        let prefixes = g.cubic_insert(&atomic_map);
+        let prefixes = g.insert_map_cubic(&atomic_map);
         assert_eq!(prefixes.len(), 14);
 
         let prefix = |i: usize| g.term_str(&prefixes[i]);
