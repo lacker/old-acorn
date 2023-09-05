@@ -1728,30 +1728,6 @@ impl TermGraph {
         }
     }
 
-    pub fn parse_linear(&mut self, term_string: &str) -> TypedTermInstance {
-        println!();
-        println!("parsing: {}", term_string);
-        let term = Term::parse(term_string);
-        let instance = self.insert_term_linear(&term);
-        self.check();
-        TypedTermInstance {
-            term_type: term.term_type,
-            instance,
-        }
-    }
-
-    pub fn parse_cubic(&mut self, term_string: &str) -> TypedTermInstance {
-        println!();
-        println!("parsing: {}", term_string);
-        let term = Term::parse(term_string);
-        let instance = self.insert_term_cubic(&term);
-        self.check();
-        TypedTermInstance {
-            term_type: term.term_type,
-            instance,
-        }
-    }
-
     pub fn check_make_equal(&mut self, term1: &TypedTermInstance, term2: &TypedTermInstance) {
         println!();
         println!("making equal: {} = {}", term1.instance, term2.instance);
@@ -1826,21 +1802,10 @@ impl TermGraph {
 mod tests {
     use super::*;
 
-    fn check_insert(g: &mut TermGraph, input: &str, expected_output: &str) {
-        let ti = g.parse_linear(input);
-        let actual_output = g.extract_term_instance(&ti);
-        if expected_output != actual_output.to_string() {
-            panic!(
-                "\nwhen inserting {}, expected {} but got {}\n",
-                input, expected_output, actual_output
-            );
-        }
-    }
-
     fn insert_and_extract(term_strings: &[&str]) {
         let mut g = TermGraph::new();
         for s in term_strings {
-            check_insert(&mut g, s, s);
+            g.check_str(s, s);
         }
     }
 
@@ -1882,9 +1847,9 @@ mod tests {
     #[test]
     fn test_insertion_efficiency() {
         let mut g = TermGraph::new();
-        g.parse_linear("c0(c1, c2, c3)");
+        g.check_str("c0(c1, c2, c3)", "c0(c1, c2, c3)");
         let pre_size = g.terms.len();
-        g.parse_linear("c0(x0, c2, c3)");
+        g.check_str("c0(x0, c2, c3)", "c0(x0, c2, c3)");
         let post_size = g.terms.len();
         assert!(
             post_size > pre_size,
