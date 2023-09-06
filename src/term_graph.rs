@@ -2132,24 +2132,19 @@ mod tests {
         g.check_literal("c0(c3) = c2(c4)");
     }
 
-    // #[test]
-    // fn test_ignoring_two_vars() {
-    //     let mut g = TermGraph::new();
-    //     let template = g.parse("c0(c1(x0), x1)");
-    //     let reduction = g.parse("c2");
-    //     g.check_make_equal(&template, &reduction);
-    //     let matching = g.parse("c0(c1(c3), x1)");
-    //     let expected = g.parse("c2");
-    //     assert_eq!(matching, expected);
-    // }
+    #[test]
+    fn test_ignoring_two_vars() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(c1(x0), x1) = c2");
+        g.check_literal("c0(c1(c3), x1) = c2");
+    }
 
-    // #[test]
-    // fn test_single_speculation() {
-    //     let mut g = TermGraph::new();
-    //     let template = g.parse("c0(x0, c2)");
-    //     let result = g.parse("c0(c1, c2)");
-    //     g.check_path(&template, &result);
-    // }
+    #[test]
+    fn test_single_speculation() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(x0, c2) = c3");
+        g.check_literal("c0(c1, c2) = c3");
+    }
 
     // #[test]
     // fn test_double_speculation_base_first() {
