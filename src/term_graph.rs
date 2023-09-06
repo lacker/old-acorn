@@ -2226,16 +2226,12 @@ mod tests {
         g.check_literal("c3 = c4");
     }
 
-    // #[test]
-    // fn test_variable_used_only_in_replacement() {
-    //     let mut g = TermGraph::new();
-    //     let template = g.parse("c0(x0, c1(x1))");
-    //     let reduction = g.parse("c2(x0)");
-    //     g.check_make_equal(&template, &reduction);
-    //     let left = g.parse("c2(c3)");
-    //     let right = g.parse("c0(c3, c1(c4))");
-    //     assert_eq!(left, right);
-    // }
+    #[test]
+    fn test_variable_used_only_in_replacement() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(x0, c1(x1)) = c2(x0)");
+        g.check_literal("c2(c3) = c0(c3, c1(c4))");
+    }
 
     #[test]
     fn test_reducing_var_through_self_identify() {
