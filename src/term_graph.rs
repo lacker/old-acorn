@@ -1336,9 +1336,9 @@ impl TermGraph {
     // Tools for interacting with more complicated graph things like LinearMap and Literal.
     //
 
-    pub fn insert_term_linear(&mut self, term: &Term) -> TermInstance {
+    pub fn insert_term_subterms(&mut self, term: &Term) -> TermInstance {
         let atomic_map = self.atomize(term);
-        let mut subterms = self.insert_map_linear(&atomic_map);
+        let mut subterms = self.insert_map_subterms(&atomic_map);
         subterms.swap_remove(0).instance
     }
 
@@ -1347,7 +1347,7 @@ impl TermGraph {
     pub fn insert_term_slow(&mut self, term: &Term) -> TermInstance {
         let atomic_map = self.atomize(term);
         self.insert_map_cubic(&atomic_map);
-        let mut subterms = self.insert_map_linear(&atomic_map);
+        let mut subterms = self.insert_map_subterms(&atomic_map);
 
         let matches = self.find_matches(&atomic_map, &subterms);
         let mut result: Option<TermInstance> = None;
@@ -1421,14 +1421,14 @@ impl TermGraph {
         }
     }
 
-    // The linear insertion algorithm finds or creates O(n) graph edges for a term of size n.
+    // The subterm insertion algorithm finds or creates O(n) graph edges for a term of size n.
     // Imagine the term as a binary tree where each interior node is an "apply" operator
     // with two arguments.
     // We find or create an edge for each one of these nodes.
     //
     // Returns the subterms. The nth element of the output is the subterm rooted at the nth
     // replacement.
-    fn insert_map_linear(&mut self, atomic_map: &AtomicMap) -> Vec<TypedTermInstance> {
+    fn insert_map_subterms(&mut self, atomic_map: &AtomicMap) -> Vec<TypedTermInstance> {
         let mut reversed_answer: Vec<TypedTermInstance> = vec![];
         for i in (0..atomic_map.len()).rev() {
             // Figure out the term for x_i
@@ -1465,6 +1465,18 @@ impl TermGraph {
         }
         reversed_answer.reverse();
         reversed_answer
+    }
+
+    // The prefix insertion algorithm inserts O(n) graph edges, one edge to construct each
+    // prefix.
+    // Returns the root level term.
+    pub fn insert_map_prefixes(&mut self, atomic_map: &AtomicMap) -> TermInstance {
+        let mut term = TermInstance::Variable(atomic_map.start_var);
+        for (i, rep) in atomic_map.replacements.iter().enumerate() {
+            let var = i as AtomId + atomic_map.start_var;
+            term = self.replace(&term, var, &rep.instance, None);
+        }
+        term
     }
 
     // If you think of the term as a list of atomic replacements, the cubic insertion algorithm
@@ -1733,9 +1745,9 @@ impl TermGraph {
     // "None" means that we don't know, or that they are only sometimes equal.
     fn evaluate_equality(&mut self, term1: &Term, term2: &Term) -> Option<bool> {
         let map1 = self.atomize(term1);
-        let subterms1 = self.insert_map_linear(&map1);
+        let subterms1 = self.insert_map_subterms(&map1);
         let map2 = self.atomize(term2);
-        let subterms2 = self.insert_map_linear(&map2);
+        let subterms2 = self.insert_map_subterms(&map2);
         if subterms1[0] == subterms2[0] {
             // A straightforward parse tells us that these terms are equal, so we
             // can skip all the template-searching.
@@ -1956,7 +1968,7 @@ impl TermGraph {
 
     pub fn check_str(&mut self, input: &str, output: &str) {
         let term = Term::parse(input);
-        let instance = self.insert_term_linear(&term);
+        let instance = self.insert_term_subterms(&term);
         assert_eq!(self.term_str(&instance), output)
     }
 
@@ -2348,12 +2360,12 @@ mod tests {
     }
 
     #[test]
-    fn test_linear_insert() {
+    fn test_subterm_insert() {
         let mut g = TermGraph::new();
         let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
         let term = Term::parse(s);
         let atomic_map = g.atomize(&term);
-        let subterms = g.insert_map_linear(&atomic_map);
+        let subterms = g.insert_map_subterms(&atomic_map);
         assert_eq!(subterms.len(), 14);
 
         let subterm = |i: usize| g.term_str(&subterms[i].instance);
@@ -2407,12 +2419,35 @@ mod tests {
     }
 
     #[test]
+    fn test_prefix_insert() {
+        let mut g = TermGraph::new();
+        let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
+        let term = Term::parse(s);
+        let atomic_map = g.atomize(&term);
+        g.insert_map_prefixes(&atomic_map);
+        assert!(g.contains_term(&Term::parse("x3(x4, x5, x8)")));
+        assert!(g.contains_term(&Term::parse("c0(x4, x5, x8)")));
+        assert!(g.contains_term(&Term::parse("c0(c1, x5, x8)")));
+        assert!(g.contains_term(&Term::parse("c0(c1, x6(x7), x8)")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(x7), x8)")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(c3), x8)")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(c3), x9(x10, x11, x12))")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(c3), x0(x10, x11, x12))")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(c3), x0(c4, x11, x12))")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(c3), x0(c4, x1, x12))")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(c3), x0(c4, x1, x13(x14, x15)))")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(c3), x0(c4, x1, c5(x14, x15)))")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(c3), x0(c4, x1, c5(c6, x15)))")));
+        assert!(g.contains_term(&Term::parse("c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))")));
+    }
+
+    #[test]
     fn test_find_matches() {
         let mut g = TermGraph::new();
         g.check_insert("c0(c1, x0, c3) = c4(x0)");
         let term = Term::parse("c0(c1, c2, c3)");
         let atomic_map = g.atomize(&term);
-        let subterms = g.insert_map_linear(&atomic_map);
+        let subterms = g.insert_map_subterms(&atomic_map);
         let matches = g.find_matches(&atomic_map, &subterms);
         g.check_matches(&matches, "c4(x3), x3 -> c2");
     }
@@ -2423,7 +2458,7 @@ mod tests {
         g.check_insert("c0(x0, x0) = c0(x0, x0)");
         let term = Term::parse("c0(c2, c2)");
         let atomic_map = g.atomize(&term);
-        let subterms = g.insert_map_linear(&atomic_map);
+        let subterms = g.insert_map_subterms(&atomic_map);
         let matches = g.find_matches(&atomic_map, &subterms);
         g.check_matches(&matches, "c0(x2, x2), x2 -> c2");
     }
