@@ -2146,13 +2146,13 @@ mod tests {
         g.check_literal("c0(c1, c2) = c3");
     }
 
-    // #[test]
-    // fn test_double_speculation_base_first() {
-    //     let mut g = TermGraph::new();
-    //     let base_term = g.parse("x0(x1, c2, x3, c4)");
-    //     let leaf_term = g.parse("x0(c1, c2, c3, c4)");
-    //     g.check_path(&base_term, &leaf_term);
-    // }
+    #[test]
+    fn test_double_speculation_base_first() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("x0(x1, c2, x3, c4) = c5");
+        g.check_insert_literal("x0(c1, c2, c3, c4) = c6");
+        g.check_literal("c5 = c6");
+    }
 
     // #[test]
     // fn test_double_speculation_leaf_first() {
