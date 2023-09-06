@@ -827,6 +827,7 @@ impl TermGraph {
         template: &TermInstance,
         var: AtomId,
         value: &TermInstance,
+        template_prefix_only: bool,
     ) -> Option<TermInstance> {
         let (key, denormalizer) = match NormalizedEdge::new(template, var, value) {
             NormalizedEdge::Degenerate(term) => return Some(term),
@@ -835,6 +836,9 @@ impl TermGraph {
 
         if let Some(edge_id) = self.edge_key_map.get(&key).cloned() {
             let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
+            if template_prefix_only && !edge_info.template_prefix {
+                return None;
+            }
             let existing = edge_info.result.forward_map_vars(&denormalizer);
             return Some(existing);
         }
@@ -1372,10 +1376,12 @@ impl TermGraph {
         subterms.swap_remove(0).instance
     }
 
-    // Does both a cubic insert of all subterm-prefixes and a search for templates
+    // Insert a term, along with everything needed so that this term acts as a template.
+    // Does both a cubic insert of all subterm-prefixes and a search for other templates
     // that match this term.
-    pub fn insert_term_slow(&mut self, term: &Term) -> TermInstance {
+    pub fn insert_term_template(&mut self, term: &Term) -> TermInstance {
         let atomic_map = self.atomize(term);
+        self.insert_map_prefixes(&atomic_map, true);
         self.insert_map_cubic(&atomic_map);
         let mut subterms = self.insert_map_subterms(&atomic_map);
 
@@ -1602,7 +1608,7 @@ impl TermGraph {
         for i in 1..atomic_map.len() {
             let var = i as AtomId + atomic_map.start_var;
             let new_term = &atomic_map.replacements[i].instance;
-            term_instance = self.follow_edge(&term_instance, var, new_term)?;
+            term_instance = self.follow_edge(&term_instance, var, new_term, false)?;
         }
         Some(term_instance)
     }
@@ -1664,9 +1670,12 @@ impl TermGraph {
         // We can add this atom to the template, if such a template exists.
         // Note that this will also catch variable renames.
         let var = index as AtomId + atomic_map.start_var;
-        if let Some(new_template) =
-            self.follow_edge(&template, var, &atomic_map.replacements[index].instance)
-        {
+        if let Some(new_template) = self.follow_edge(
+            &template,
+            var,
+            &atomic_map.replacements[index].instance,
+            true,
+        ) {
             self.find_matches_helper(
                 atomic_map,
                 subterms,
@@ -1688,7 +1697,7 @@ impl TermGraph {
                 // So we could also match a template that replaces x_var with the previous
                 // variable.
                 let renamed = TermInstance::Variable(replacements[i].var);
-                if let Some(new_template) = self.follow_edge(&template, var, &renamed) {
+                if let Some(new_template) = self.follow_edge(&template, var, &renamed, true) {
                     self.find_matches_helper(
                         atomic_map,
                         subterms,
@@ -1809,8 +1818,8 @@ impl TermGraph {
     }
 
     pub fn insert_literal(&mut self, literal: &Literal) {
-        let left = self.insert_term_slow(&literal.left);
-        let right = self.insert_term_slow(&literal.right);
+        let left = self.insert_term_template(&literal.left);
+        let right = self.insert_term_template(&literal.right);
         if literal.positive {
             self.make_equal(left, right);
         } else {
