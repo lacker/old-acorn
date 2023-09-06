@@ -2207,20 +2207,14 @@ mod tests {
         g.check_literal("c0(c1, c3) = c2(c4)");
     }
 
-    // #[test]
-    // fn test_implicit_unification() {
-    //     let mut g = TermGraph::new();
-    //     let template = g.parse("c0(c1, x0)");
-    //     let reduction = g.parse("c2");
-    //     g.check_make_equal(&template, &reduction);
-    //     let template = g.parse("c0(x0, c1)");
-    //     let reduction = g.parse("c3");
-    //     g.check_make_equal(&template, &reduction);
-    //     g.parse("c0(c1, c1)");
-    //     let c2 = g.parse("c2");
-    //     let c3 = g.parse("c3");
-    //     assert_eq!(c2, c3);
-    // }
+    #[test]
+    fn test_implicit_unification() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(c1, x0) = c2");
+        g.check_insert_literal("c0(x0, c1) = c3");
+        g.check_insert_literal("c0(c1, c1) = c0(c1, c1)");
+        g.check_literal("c2 = c3");
+    }
 
     // #[test]
     // fn test_implicit_three_way_unification() {
