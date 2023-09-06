@@ -1537,8 +1537,11 @@ impl TermGraph {
     // This process could be exponential in the size of the term if the map is very full,
     // but hopefully it is limited by the size of the map.
     // Mutates the graph to add subterms.
-    pub fn find_matches(&mut self, atomic_map: &AtomicMap) -> Vec<Match> {
-        let subterms = self.insert_map_linear(atomic_map);
+    pub fn find_matches(
+        &mut self,
+        atomic_map: &AtomicMap,
+        subterms: &Vec<TypedTermInstance>,
+    ) -> Vec<Match> {
         let mut replacements = vec![];
         let mut answer = vec![];
         let template = atomic_map.replacements[0].instance.clone();
@@ -1673,12 +1676,20 @@ impl TermGraph {
     // "None" means that we don't know, or that they are only sometimes equal.
     fn evaluate_equality(&mut self, term1: &Term, term2: &Term) -> Option<bool> {
         let map1 = self.atomize(term1);
+        let subterms1 = self.insert_map_linear(&map1);
         let map2 = self.atomize(term2);
+        let subterms2 = self.insert_map_linear(&map2);
+        if subterms1[0] == subterms2[0] {
+            // A straightforward parse tells us that these terms are equal, so we
+            // can skip all the template-searching.
+            return Some(true);
+        }
+
         let mut matches = HashSet::new();
-        for m in self.find_matches(&map1) {
+        for m in self.find_matches(&map1, &subterms1) {
             matches.insert(m.normalize());
         }
-        for m in self.find_matches(&map2) {
+        for m in self.find_matches(&map2, &subterms2) {
             if matches.contains(&m.normalize()) {
                 return Some(true);
             }
@@ -2396,7 +2407,8 @@ mod tests {
         g.check_insert_literal("c0(c1, x0, c3) = c4(x0)");
         let term = Term::parse("c0(c1, c2, c3)");
         let atomic_map = g.atomize(&term);
-        let matches = g.find_matches(&atomic_map);
+        let subterms = g.insert_map_linear(&atomic_map);
+        let matches = g.find_matches(&atomic_map, &subterms);
         g.check_matches(&matches, "c4(x3), x3 -> c2");
     }
 
@@ -2406,7 +2418,8 @@ mod tests {
         g.check_insert_literal("c0(x0, x0) = c0(x0, x0)");
         let term = Term::parse("c0(c2, c2)");
         let atomic_map = g.atomize(&term);
-        let matches = g.find_matches(&atomic_map);
+        let subterms = g.insert_map_linear(&atomic_map);
+        let matches = g.find_matches(&atomic_map, &subterms);
         g.check_matches(&matches, "c0(x2, x2), x2 -> c2");
     }
 }
