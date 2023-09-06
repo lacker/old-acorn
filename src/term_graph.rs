@@ -2571,4 +2571,18 @@ mod tests {
         g.check_insert("c1(x0, c0) = c2(x0, c0)");
         g.check_true("c3(c1(c4, c0)) = c3(c2(c4, c0))");
     }
+
+    // #[test]
+    // fn test_basic_inequality() {
+    //     let mut g = TermGraph::new();
+    //     g.check_insert("c0(c2) != c1");
+    //     g.check_false("c0(c2) = c1");
+    // }
+
+    // #[test]
+    // fn test_template_inequality() {
+    //     let mut g = TermGraph::new();
+    //     g.check_insert("c0(x0, c1) != c2(x0, c3)");
+    //     g.check_false("c0(c4, c1) = c2(c4, c3)");
+    // }
 }
