@@ -1611,6 +1611,7 @@ impl TermGraph {
         assert!(index < atomic_map.len());
 
         // We can add this atom to the template, if such a template exists.
+        // Note that this will also catch variable renames.
         let var = index as AtomId + atomic_map.start_var;
         if let Some(new_template) =
             self.follow_edge(&template, var, &atomic_map.replacements[index].instance)
@@ -1647,6 +1648,11 @@ impl TermGraph {
                     );
                 }
             }
+        }
+
+        if let TermInstance::Variable(_) = subterms[index].instance {
+            // This subterm is a variable, so we already handled it above.
+            return;
         }
 
         // This subterm can become a substitution point of the template.
