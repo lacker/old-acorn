@@ -1773,8 +1773,18 @@ impl TermGraph {
         // We want to do the match in the order that the TermInstance is, so we reorder the
         // replacements.
         let mut replacements = vec![];
-        if let TermInstance::Mapped(mapped) = &m.template {
-            for v in &mapped.var_map {
+        match &m.template {
+            TermInstance::Mapped(mapped) => {
+                for v in &mapped.var_map {
+                    for r in &m.replacements {
+                        if r.var == *v {
+                            replacements.push(r.clone());
+                            break;
+                        }
+                    }
+                }
+            }
+            TermInstance::Variable(v) => {
                 for r in &m.replacements {
                     if r.var == *v {
                         replacements.push(r.clone());
@@ -1782,8 +1792,6 @@ impl TermGraph {
                     }
                 }
             }
-        } else {
-            assert!(m.replacements.is_empty());
         }
         if replacements.is_empty() {
             if let Some(result) = result {
@@ -1867,16 +1875,12 @@ impl TermGraph {
             return Some(true);
         }
 
-        let mut matches = HashSet::new();
-        for m in self.find_matches(&map1.view(), &subterms1) {
-            let normalized = m.normalize();
-            matches.insert(normalized);
-        }
-        for m in self.find_matches(&map2.view(), &subterms2) {
-            let normalized = m.normalize();
-            if matches.contains(&normalized) {
-                return Some(true);
-            }
+        self.connect_matches(&map1, &subterms1);
+        self.connect_matches(&map2, &subterms2);
+        let updated1 = self.update_term(subterms1[0].instance.clone());
+        let updated2 = self.update_term(subterms2[0].instance.clone());
+        if updated1 == updated2 {
+            return Some(true);
         }
 
         // TODO: find a way to handle inequalities
@@ -2577,10 +2581,10 @@ mod tests {
         g.check_matches(&matches, "c0(x2, x2), x2 -> c2");
     }
 
-    // #[test]
-    // fn test_template_in_subterm() {
-    //     let mut g = TermGraph::new();
-    //     g.check_insert("c1(x0, c0) = c2(x0, c0)");
-    //     g.check_true("c3(c1(c4, c0)) = c3(c2(c4, c0))");
-    // }
+    #[test]
+    fn test_template_in_subterm() {
+        let mut g = TermGraph::new();
+        g.check_insert("c1(x0, c0) = c2(x0, c0)");
+        g.check_true("c3(c1(c4, c0)) = c3(c2(c4, c0))");
+    }
 }
