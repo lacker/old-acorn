@@ -1930,13 +1930,6 @@ impl TermGraph {
         self.check_evaluate(literal, None);
     }
 
-    // Updates first for convenience
-    pub fn check_equal(&self, term1: &TypedTermInstance, term2: &TypedTermInstance) {
-        let t1 = self.update_term(term1.instance.clone());
-        let t2 = self.update_term(term2.instance.clone());
-        assert_eq!(t1, t2);
-    }
-
     fn term_str(&self, term: &TermInstance) -> String {
         let updated = self.update_term(term.clone());
         let t = TypedTermInstance {
