@@ -706,7 +706,7 @@ mod tests {
     fn test_proving_add_zero_left() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "add_zero_left", false),
+            Prover::prove_theorem(&env, "add_zero_left", true),
             Outcome::Success
         );
     }
@@ -715,7 +715,7 @@ mod tests {
     fn test_proving_add_suc_right() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "add_suc_right", false),
+            Prover::prove_theorem(&env, "add_suc_right", true),
             Outcome::Success
         );
     }
