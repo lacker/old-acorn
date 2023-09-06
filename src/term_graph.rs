@@ -1738,13 +1738,10 @@ impl TermGraph {
         let mut matches = HashSet::new();
         for m in self.find_matches(&map1, &subterms1) {
             let normalized = m.normalize();
-            println!("XXX match: {} = {:?}", self.match_str(&m), normalized);
             matches.insert(normalized);
         }
-        println!("XXX -------");
         for m in self.find_matches(&map2, &subterms2) {
             let normalized = m.normalize();
-            println!("XXX match: {} = {:?}", self.match_str(&m), normalized);
             if matches.contains(&normalized) {
                 return Some(true);
             }

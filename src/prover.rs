@@ -724,7 +724,7 @@ mod tests {
     fn test_proving_add_suc_left() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "add_suc_left", false),
+            Prover::prove_theorem(&env, "add_suc_left", true),
             Outcome::Success
         );
     }
