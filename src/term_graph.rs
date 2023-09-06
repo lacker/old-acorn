@@ -187,7 +187,6 @@ pub struct Match {
     template: TermInstance,
 
     // Generally there should be one replacement for each of the arguments of the template.
-    // TODO: what happens for collapsed arguments?
     replacements: Vec<Replacement>,
 }
 
@@ -1771,15 +1770,31 @@ impl TermGraph {
     // If the final output is known, provide it in result.
     // Returns the final output.
     fn insert_match(&mut self, m: &Match, result: Option<TermInstance>) -> TermInstance {
-        if m.replacements.is_empty() {
+        // We want to do the match in the order that the TermInstance is, so we reorder the
+        // replacements.
+        let mut replacements = vec![];
+        if let TermInstance::Mapped(mapped) = &m.template {
+            for v in &mapped.var_map {
+                for r in &m.replacements {
+                    if r.var == *v {
+                        replacements.push(r.clone());
+                        break;
+                    }
+                }
+            }
+        } else {
+            assert!(m.replacements.is_empty());
+        }
+        if replacements.is_empty() {
             if let Some(result) = result {
                 self.make_equal(result, m.template.clone());
             }
             return m.template.clone();
         }
+
         let mut term_instance = m.template.clone();
-        for (i, r) in m.replacements.iter().enumerate() {
-            if i == m.replacements.len() - 1 {
+        for (i, r) in replacements.iter().enumerate() {
+            if i == replacements.len() - 1 {
                 // This is the last replacement.
                 return self.replace(&term_instance, r.var, &r.value, false, result.as_ref());
             }
