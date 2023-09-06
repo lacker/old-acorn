@@ -418,6 +418,9 @@ impl ActiveSet {
     }
 
     fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
+        if literal.left == literal.right {
+            return Some(literal.positive);
+        }
         let answer: Option<bool> = match self.literal_set.lookup(&literal) {
             Some((positive, _)) => Some(positive),
             None => None,
