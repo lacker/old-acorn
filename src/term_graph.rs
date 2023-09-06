@@ -2314,15 +2314,12 @@ mod tests {
         g.check_literal("c0(c2, c1) = c2");
     }
 
-    // #[test]
-    // fn test_repeated_variable() {
-    //     let mut g = TermGraph::new();
-    //     let c0x0x0 = g.parse("c0(x0, x0)");
-    //     let c0c1c1 = g.parse("c0(c1, c1)");
-    //     let c2 = g.parse("c2");
-    //     g.check_make_equal(&c2, &c0x0x0);
-    //     g.check_equal(&c2, &c0c1c1);
-    // }
+    #[test]
+    fn test_repeated_variable() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c2 = c0(x0, x0)");
+        g.check_literal("c2 = c0(c1, c1)");
+    }
 
     // #[test]
     // fn test_repeated_variable_seeing_template_last() {
