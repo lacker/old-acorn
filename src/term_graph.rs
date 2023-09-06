@@ -1358,6 +1358,11 @@ impl TermGraph {
         subterms.swap_remove(0).instance
     }
 
+    pub fn insert_term_prefixes(&mut self, term: &Term) -> TermInstance {
+        let atomic_map = self.atomize(term);
+        self.insert_map_prefixes(&atomic_map)
+    }
+
     // Convenient wrapper around atomize_starting_at to pick a start_var.
     pub fn atomize(&mut self, term: &Term) -> AtomicMap {
         let start_var = term.least_unused_variable();
