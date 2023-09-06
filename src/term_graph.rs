@@ -174,6 +174,13 @@ pub struct AtomicMap {
     subterm_sizes: Vec<usize>,
 }
 
+// A slice into the AtomicMap that works just like the AtomicMap.
+pub struct AtomicMapView<'a> {
+    start_var: AtomId,
+    replacements: &'a [TypedTermInstance],
+    subterm_sizes: &'a [usize],
+}
+
 // A Match is a way of constructing a term based on an existing template in the TermGraph,
 // substituting in new terms for each variable.
 pub struct Match {
@@ -581,8 +588,31 @@ impl TermInfoReference {
 }
 
 impl AtomicMap {
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.replacements.len()
+    }
+
+    fn view(&self) -> AtomicMapView {
+        AtomicMapView {
+            start_var: self.start_var,
+            replacements: &self.replacements,
+            subterm_sizes: &self.subterm_sizes,
+        }
+    }
+}
+
+impl AtomicMapView<'_> {
+    fn len(&self) -> usize {
+        self.replacements.len()
+    }
+
+    fn subterm_view(&self, i: usize) -> AtomicMapView {
+        let subterm_size = self.subterm_sizes[i];
+        AtomicMapView {
+            start_var: self.start_var + i as AtomId,
+            replacements: &self.replacements[i..i + subterm_size],
+            subterm_sizes: &self.subterm_sizes[i..i + subterm_size],
+        }
     }
 }
 
@@ -1385,7 +1415,7 @@ impl TermGraph {
         self.insert_map_cubic(&atomic_map);
         let mut subterms = self.insert_map_subterms(&atomic_map);
 
-        let matches = self.find_matches(&atomic_map, &subterms);
+        let matches = self.find_matches(&atomic_map.view(), &subterms);
         let mut result: Option<TermInstance> = None;
         for m in &matches {
             result = Some(self.insert_match(m, result));
@@ -1626,7 +1656,7 @@ impl TermGraph {
     // Mutates the graph to add subterms.
     pub fn find_matches(
         &mut self,
-        atomic_map: &AtomicMap,
+        atomic_map: &AtomicMapView,
         subterms: &Vec<TypedTermInstance>,
     ) -> Vec<Match> {
         let mut replacements = vec![];
@@ -1650,7 +1680,7 @@ impl TermGraph {
     // Any matches we find are appended to output
     fn find_matches_helper(
         &self,
-        atomic_map: &AtomicMap,
+        atomic_map: &AtomicMapView,
         subterms: &Vec<TypedTermInstance>,
         index: usize,
         template: TermInstance,
@@ -1802,11 +1832,11 @@ impl TermGraph {
             return Some(true);
         }
         let mut matches = HashSet::new();
-        for m in self.find_matches(&map1, &subterms1) {
+        for m in self.find_matches(&map1.view(), &subterms1) {
             let normalized = m.normalize();
             matches.insert(normalized);
         }
-        for m in self.find_matches(&map2, &subterms2) {
+        for m in self.find_matches(&map2.view(), &subterms2) {
             let normalized = m.normalize();
             if matches.contains(&normalized) {
                 return Some(true);
@@ -2496,7 +2526,7 @@ mod tests {
         let term = Term::parse("c0(c1, c2, c3)");
         let atomic_map = g.atomize(&term);
         let subterms = g.insert_map_subterms(&atomic_map);
-        let matches = g.find_matches(&atomic_map, &subterms);
+        let matches = g.find_matches(&atomic_map.view(), &subterms);
         g.check_matches(&matches, "c4(x3), x3 -> c2");
     }
 
@@ -2507,7 +2537,7 @@ mod tests {
         let term = Term::parse("c0(c2, c2)");
         let atomic_map = g.atomize(&term);
         let subterms = g.insert_map_subterms(&atomic_map);
-        let matches = g.find_matches(&atomic_map, &subterms);
+        let matches = g.find_matches(&atomic_map.view(), &subterms);
         g.check_matches(&matches, "c0(x2, x2), x2 -> c2");
     }
 
