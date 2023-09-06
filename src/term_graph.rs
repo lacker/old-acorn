@@ -2427,4 +2427,11 @@ mod tests {
         let matches = g.find_matches(&atomic_map, &subterms);
         g.check_matches(&matches, "c0(x2, x2), x2 -> c2");
     }
+
+    // #[test]
+    // fn test_template_in_subterm() {
+    //     let mut g = TermGraph::new();
+    //     g.check_insert("c1(x0, c0) = c2(x0, c0)");
+    //     g.check_true("c3(c1(c4, c0)) = c3(c2(c4, c0))");
+    // }
 }
