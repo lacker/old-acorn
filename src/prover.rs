@@ -733,7 +733,7 @@ mod tests {
     fn test_suc_ne() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "suc_ne", false),
+            Prover::prove_theorem(&env, "suc_ne", true),
             Outcome::Success
         );
     }
@@ -742,7 +742,7 @@ mod tests {
     fn test_suc_suc_ne() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "suc_suc_ne", false),
+            Prover::prove_theorem(&env, "suc_suc_ne", true),
             Outcome::Success
         );
     }
@@ -751,7 +751,7 @@ mod tests {
     fn test_add_comm() {
         let env = snap_env();
         assert_eq!(
-            Prover::prove_theorem(&env, "add_comm", false),
+            Prover::prove_theorem(&env, "add_comm", true),
             Outcome::Success
         );
     }
