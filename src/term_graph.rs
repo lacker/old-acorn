@@ -599,20 +599,28 @@ impl AtomicMap {
             subterm_sizes: &self.subterm_sizes,
         }
     }
+
+    // Selects a subterm view, when given a slice of subterms parallel to the atomic map view.
+    fn subterm_view<'a>(
+        &self,
+        i: usize,
+        subterms: &'a Vec<TypedTermInstance>,
+    ) -> (AtomicMapView, &'a [TypedTermInstance]) {
+        let subterm_size = self.subterm_sizes[i];
+        (
+            AtomicMapView {
+                start_var: self.start_var + i as AtomId,
+                replacements: &self.replacements[i..i + subterm_size],
+                subterm_sizes: &self.subterm_sizes[i..i + subterm_size],
+            },
+            subterms[i..i + subterm_size].as_ref(),
+        )
+    }
 }
 
 impl AtomicMapView<'_> {
     fn len(&self) -> usize {
         self.replacements.len()
-    }
-
-    fn subterm_view(&self, i: usize) -> AtomicMapView {
-        let subterm_size = self.subterm_sizes[i];
-        AtomicMapView {
-            start_var: self.start_var + i as AtomId,
-            replacements: &self.replacements[i..i + subterm_size],
-            subterm_sizes: &self.subterm_sizes[i..i + subterm_size],
-        }
     }
 }
 
@@ -1657,7 +1665,7 @@ impl TermGraph {
     pub fn find_matches(
         &mut self,
         atomic_map: &AtomicMapView,
-        subterms: &Vec<TypedTermInstance>,
+        subterms: &[TypedTermInstance],
     ) -> Vec<Match> {
         let mut replacements = vec![];
         let mut answer = vec![];
@@ -1681,7 +1689,7 @@ impl TermGraph {
     fn find_matches_helper(
         &self,
         atomic_map: &AtomicMapView,
-        subterms: &Vec<TypedTermInstance>,
+        subterms: &[TypedTermInstance],
         index: usize,
         template: TermInstance,
         replacements: &mut Vec<Replacement>,
@@ -1780,6 +1788,18 @@ impl TermGraph {
         panic!("control should not reach here");
     }
 
+    // Connects all template matches for the root term and any subterms.
+    fn connect_matches(&mut self, atomic_map: &AtomicMap, subterms: &Vec<TypedTermInstance>) {
+        for i in (0..subterms.len()).rev() {
+            let (view, subterm_slice) = atomic_map.subterm_view(i, subterms);
+            let matches = self.find_matches(&view, &subterm_slice);
+            let mut subterm = subterms[i].instance.clone();
+            for m in matches {
+                subterm = self.insert_match(&m, Some(subterm));
+            }
+        }
+    }
+
     // Identifies the two terms, and continues processing any followup Identifications until
     // all Identifications are processed.
     fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
@@ -1831,6 +1851,7 @@ impl TermGraph {
             // can skip all the template-searching.
             return Some(true);
         }
+
         let mut matches = HashSet::new();
         for m in self.find_matches(&map1.view(), &subterms1) {
             let normalized = m.normalize();
