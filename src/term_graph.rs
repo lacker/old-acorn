@@ -1684,13 +1684,14 @@ impl TermGraph {
             // can skip all the template-searching.
             return Some(true);
         }
-
         let mut matches = HashSet::new();
         for m in self.find_matches(&map1, &subterms1) {
             matches.insert(m.normalize());
         }
+
         for m in self.find_matches(&map2, &subterms2) {
-            if matches.contains(&m.normalize()) {
+            let normalized = m.normalize();
+            if matches.contains(&normalized) {
                 return Some(true);
             }
         }
@@ -1734,12 +1735,13 @@ impl TermGraph {
         let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
         let term_id = edge_info.key.template;
         println!(
-            "edge {}: term {} = {}; {} => {}",
+            "edge {}: term {} = {}; {} => {} (term {})",
             edge_id,
             term_id,
             self.extract_term_id(term_id),
             self.edge_str(&edge_info.key.replacement),
-            self.term_str(&edge_info.result)
+            self.term_str(&edge_info.result),
+            edge_info.result.term_id().unwrap_or(u32::MAX)
         );
     }
 
@@ -1776,9 +1778,8 @@ impl TermGraph {
     }
 
     // A linear pass through the graph checking that everything is consistent.
+    // Note that duplicate terms are allowed.
     pub fn check(&self) {
-        let mut all_terms: HashSet<String> = HashSet::new();
-        let mut duplicate_term = None;
         for term_id in 0..self.terms.len() {
             let term_id = term_id as TermId;
             if let TermInfoReference::Replaced(ti) = self.get_term_info_ref(term_id) {
@@ -1811,12 +1812,6 @@ impl TermGraph {
             let term = self.extract_term_id(term_id as TermId);
             let s = term.to_string();
             println!("term {}: {}", term_id, s);
-
-            if all_terms.contains(&s) {
-                duplicate_term = Some(s);
-            } else {
-                all_terms.insert(s);
-            }
         }
 
         for edge_id in 0..self.edges.len() {
@@ -1851,10 +1846,6 @@ impl TermGraph {
                     );
                 }
             }
-        }
-
-        if let Some(duplicate_term) = duplicate_term {
-            panic!("duplicate term: {}", duplicate_term);
         }
     }
 
