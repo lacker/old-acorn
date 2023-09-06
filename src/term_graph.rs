@@ -123,6 +123,11 @@ struct EdgeInfo {
     // The parameters that determine the substitution
     key: EdgeKey,
 
+    // Whether this edge is the prefix of an identity template.
+    // Edges marked as template_prefix are the only ones used for the discrimination tree
+    // algorithm.
+    template_prefix: bool,
+
     // The result of the substitution.
     // This can have non-consecutive variable ids but not duplicated ones.
     result: TermInstance,
@@ -693,7 +698,7 @@ impl TermGraph {
     // Creates a new term, along with an edge that leads to it.
     // key should already be normalized.
     // There must be no analogous edge already in the graph.
-    fn create_term(&mut self, key: EdgeKey) -> TermInstance {
+    fn create_term(&mut self, key: EdgeKey, template_prefix: bool) -> TermInstance {
         // Figure out the type signature of the new term
         let template = self.get_term_info(key.template);
         let mut arg_types = self.get_var_types(template, &key.replacement);
@@ -717,6 +722,7 @@ impl TermGraph {
         let answer = TermInstance::mapped(term_id, var_map);
         let edge_info = EdgeInfo {
             key,
+            template_prefix,
             result: answer.clone(),
         };
 
@@ -739,6 +745,7 @@ impl TermGraph {
         template: &TermInstance,
         edge: &Replacement,
         result: Option<TermInstance>,
+        template_prefix: bool,
         pending: &mut VecDeque<Operation>,
     ) -> TermInstance {
         let (key, denormalizer) = match NormalizedEdge::new(template, edge.var, &edge.value) {
@@ -753,7 +760,10 @@ impl TermGraph {
 
         if let Some(edge_id) = self.edge_key_map.get(&key).cloned() {
             // We already have an edge
-            let edge_info = self.edges[edge_id as usize].as_ref().unwrap();
+            let mut edge_info = self.edges[edge_id as usize].as_mut().unwrap();
+            if template_prefix {
+                edge_info.template_prefix = true;
+            }
             let existing = edge_info.result.forward_map_vars(&denormalizer);
             if let Some(result) = result {
                 pending.push_front(Operation::Identification(existing.clone(), result));
@@ -766,6 +776,7 @@ impl TermGraph {
                 // We can just create a new edge to an existing term
                 let edge_info = EdgeInfo {
                     key,
+                    template_prefix,
                     result: normalized_result,
                 };
                 self.create_edge(edge_info);
@@ -774,14 +785,14 @@ impl TermGraph {
 
             // We have an existing term, but its argument is collapsing.
             // So create a new term and subsequently identify the result.
-            let new_term = self.create_term(key);
+            let new_term = self.create_term(key, template_prefix);
             let answer = new_term.forward_map_vars(&denormalizer);
             pending.push_front(Operation::Identification(answer.clone(), result));
             return answer;
         }
 
         // No existing term, so create a new one
-        let new_term = self.create_term(key);
+        let new_term = self.create_term(key, template_prefix);
         new_term.forward_map_vars(&denormalizer)
     }
 
@@ -791,13 +802,20 @@ impl TermGraph {
         template: &TermInstance,
         var: AtomId,
         replacement: &TermInstance,
+        template_prefix: bool,
         result: Option<&TermInstance>,
     ) -> TermInstance {
         let template = self.update_term(template.clone());
         let replacement = Replacement::new(var, self.update_term(replacement.clone()));
         let result = result.map(|r| self.update_term(r.clone()));
         let mut pending = VecDeque::new();
-        let answer = self.follow_or_create_edge(&template, &replacement, result, &mut pending);
+        let answer = self.follow_or_create_edge(
+            &template,
+            &replacement,
+            result,
+            template_prefix,
+            &mut pending,
+        );
         self.process_all(pending);
         answer
     }
@@ -1084,12 +1102,24 @@ impl TermGraph {
             .replace_term_id(old_term_id, new_term);
 
         if edge_info.key.template == old_term_id {
-            self.follow_or_create_edge(new_term, &new_edge, Some(new_result), pending);
+            self.follow_or_create_edge(
+                new_term,
+                &new_edge,
+                Some(new_result),
+                edge_info.template_prefix,
+                pending,
+            );
         } else {
             // The template is unchanged, but we still have to renormalize the edge
             let template =
                 TermInstance::mapped(edge_info.key.template, (0..old_edge_num_args).collect());
-            self.follow_or_create_edge(&template, &new_edge, Some(new_result), pending);
+            self.follow_or_create_edge(
+                &template,
+                &new_edge,
+                Some(new_result),
+                edge_info.template_prefix,
+                pending,
+            );
         }
     }
 
@@ -1358,9 +1388,9 @@ impl TermGraph {
         subterms.swap_remove(0).instance
     }
 
-    pub fn insert_term_prefixes(&mut self, term: &Term) -> TermInstance {
+    pub fn insert_term_prefixes(&mut self, term: &Term, template_prefix: bool) -> TermInstance {
         let atomic_map = self.atomize(term);
-        self.insert_map_prefixes(&atomic_map)
+        self.insert_map_prefixes(&atomic_map, template_prefix)
     }
 
     // Convenient wrapper around atomize_starting_at to pick a start_var.
@@ -1460,7 +1490,7 @@ impl TermGraph {
                 let non_reversed_index = (var - atomic_map.start_var) as usize;
                 let reversed_index = atomic_map.len() - non_reversed_index - 1;
                 let replacement = &reversed_answer[reversed_index].instance;
-                instance = self.replace(&instance, *var, &replacement, None);
+                instance = self.replace(&instance, *var, &replacement, false, None);
             }
 
             reversed_answer.push(TypedTermInstance {
@@ -1475,11 +1505,15 @@ impl TermGraph {
     // The prefix insertion algorithm inserts O(n) graph edges, one edge to construct each
     // prefix.
     // Returns the root level term.
-    pub fn insert_map_prefixes(&mut self, atomic_map: &AtomicMap) -> TermInstance {
+    pub fn insert_map_prefixes(
+        &mut self,
+        atomic_map: &AtomicMap,
+        template_prefix: bool,
+    ) -> TermInstance {
         let mut term = TermInstance::Variable(atomic_map.start_var);
         for (i, rep) in atomic_map.replacements.iter().enumerate() {
             let var = i as AtomId + atomic_map.start_var;
-            term = self.replace(&term, var, &rep.instance, None);
+            term = self.replace(&term, var, &rep.instance, template_prefix, None);
         }
         term
     }
@@ -1513,7 +1547,7 @@ impl TermGraph {
             let replacement = &atomic_map.replacements[i].instance;
             for j in 0..segments.len() {
                 let last = segments[j].last().unwrap();
-                let new_segment = self.replace(&last, var, &replacement, None);
+                let new_segment = self.replace(&last, var, &replacement, false, None);
                 segments[j].push(new_segment);
             }
 
@@ -1528,7 +1562,7 @@ impl TermGraph {
                     let template = &segments[j0][num_reps as usize - 1];
                     let last0 = segments[j0].last().unwrap();
                     let last1 = segments[j1].last().unwrap();
-                    self.replace(template, var, last1, Some(&last0));
+                    self.replace(template, var, last1, false, Some(&last0));
                 }
             }
 
@@ -1700,9 +1734,9 @@ impl TermGraph {
         for (i, r) in m.replacements.iter().enumerate() {
             if i == m.replacements.len() - 1 {
                 // This is the last replacement.
-                return self.replace(&term_instance, r.var, &r.value, result.as_ref());
+                return self.replace(&term_instance, r.var, &r.value, false, result.as_ref());
             }
-            term_instance = self.replace(&term_instance, r.var, &r.value, None);
+            term_instance = self.replace(&term_instance, r.var, &r.value, false, None);
         }
         panic!("control should not reach here");
     }
@@ -2429,7 +2463,7 @@ mod tests {
         let s = "c0(c1, c2(c3), x0(c4, x1, c5(c6, c7)))";
         let term = Term::parse(s);
         let atomic_map = g.atomize(&term);
-        g.insert_map_prefixes(&atomic_map);
+        g.insert_map_prefixes(&atomic_map, true);
         assert!(g.contains_term(&Term::parse("x3(x4, x5, x8)")));
         assert!(g.contains_term(&Term::parse("c0(x4, x5, x8)")));
         assert!(g.contains_term(&Term::parse("c0(c1, x5, x8)")));
