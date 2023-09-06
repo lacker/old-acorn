@@ -583,11 +583,31 @@ impl AtomicMap {
 
 impl Match {
     // Reorders the template variables.
+    // Collapses matches where the template is just a variable.
     pub fn normalize(&self) -> NormalizedMatch {
         let mapped = match self.template {
             TermInstance::Mapped(ref mapped) => mapped,
             TermInstance::Variable(i) => {
-                return NormalizedMatch::Variable(i);
+                if let Some(replacement) = self.replacements.iter().find(|r| r.var == i) {
+                    match replacement.value {
+                        TermInstance::Mapped(ref mapped) => {
+                            return NormalizedMatch::Template(
+                                mapped.term_id,
+                                mapped
+                                    .var_map
+                                    .iter()
+                                    .map(|&i| TermInstance::Variable(i as AtomId))
+                                    .collect(),
+                            )
+                        }
+
+                        TermInstance::Variable(j) => {
+                            return NormalizedMatch::Variable(j);
+                        }
+                    }
+                } else {
+                    return NormalizedMatch::Variable(i);
+                }
             }
         };
         let mut replacements = vec![];
@@ -1717,11 +1737,14 @@ impl TermGraph {
         }
         let mut matches = HashSet::new();
         for m in self.find_matches(&map1, &subterms1) {
-            matches.insert(m.normalize());
+            let normalized = m.normalize();
+            println!("XXX match: {} = {:?}", self.match_str(&m), normalized);
+            matches.insert(normalized);
         }
-
+        println!("XXX -------");
         for m in self.find_matches(&map2, &subterms2) {
             let normalized = m.normalize();
+            println!("XXX match: {} = {:?}", self.match_str(&m), normalized);
             if matches.contains(&normalized) {
                 return Some(true);
             }
@@ -2276,16 +2299,12 @@ mod tests {
     //     assert_eq!(c3, c4);
     // }
 
-    // #[test]
-    // fn test_identifying_with_variable() {
-    //     let mut g = TermGraph::new();
-    //     let c0x0c1 = g.parse("c0(x0, c1)");
-    //     let x0 = g.parse("x0");
-    //     g.check_make_equal(&c0x0c1, &x0);
-    //     let c0c2c1 = g.parse("c0(c2, c1)");
-    //     let c2 = g.parse("c2");
-    //     assert_eq!(c0c2c1, c2);
-    // }
+    #[test]
+    fn test_identifying_with_variable() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(x0, c1) = x0");
+        g.check_literal("c0(c2, c1) = c2");
+    }
 
     // #[test]
     // fn test_identifying_with_variable_seeing_template_last() {
