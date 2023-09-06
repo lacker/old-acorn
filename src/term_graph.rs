@@ -2400,37 +2400,21 @@ mod tests {
     // #[test]
     // fn test_cyclic_argument_identification() {
     //     let mut g = TermGraph::new();
-    //     let base = g.parse("c0(x0, x1, x2)");
-    //     let rotated = g.parse("c0(x1, x2, x0)");
-    //     g.check_make_equal(&base, &rotated);
-    //     let term1 = g.parse("c0(c1, c2, c3)");
-    //     let term2 = g.parse("c0(c2, c3, c1)");
-    //     assert_eq!(term1, term2);
-    //     let term3 = g.parse("c0(c3, c1, c2)");
-    //     assert_eq!(term1, term3);
-    //     let term4 = g.parse("c0(c1, c3, c2)");
-    //     assert_ne!(term1, term4);
-    //     let term5 = g.parse("c0(c3, c2, c1)");
-    //     assert_eq!(term4, term5);
-    //     let term6 = g.parse("c0(c2, c1, c3)");
-    //     assert_eq!(term4, term6);
+    //     g.check_insert("c0(x0, x1, x2) = c0(x1, x2, x0)");
+    //     g.check_true("c0(c1, c2, c3) = c0(c2, c3, c1)");
+    //     g.check_true("c0(c1, c2, c3) = c0(c3, c1, c2)");
+    //     g.check_unknown("c0(c1, c2, c3) = c0(c1, c3, c2)");
+    //     g.check_true("c0(c1, c3, c2) = c0(c3, c2, c1)");
+    //     g.check_true("c0(c2, c1, c3) = c0(c3, c2, c1)");
     // }
 
     // #[test]
     // fn test_adding_symmetry_later() {
     //     let mut g = TermGraph::new();
-    //     let c0c1c2 = g.parse("c0(c1, c2)");
-    //     let c3 = g.parse("c3");
-    //     g.check_make_equal(&c0c1c2, &c3);
-    //     let c0c2c1 = g.parse("c0(c2, c1)");
-    //     let c4 = g.parse("c4");
-    //     g.check_make_equal(&c0c2c1, &c4);
-    //     let c0x0x1 = g.parse("c0(x0, x1)");
-    //     let c0x1x0 = g.parse("c0(x1, x0)");
-    //     g.check_make_equal(&c0x0x1, &c0x1x0);
-    //     let c3 = g.parse("c3");
-    //     let c4 = g.parse("c4");
-    //     assert_eq!(c3, c4);
+    //     g.check_insert("c0(c1, c2) = c3");
+    //     g.check_insert("c0(c2, c1) = c4");
+    //     g.check_insert("c0(x0, x1) = c0(x1, x0)");
+    //     g.check_true("c3 = c4");
     // }
 
     #[test]
