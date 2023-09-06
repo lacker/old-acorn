@@ -1322,10 +1322,20 @@ impl TermGraph {
         subterms.swap_remove(0).instance
     }
 
-    pub fn insert_term_cubic(&mut self, term: &Term) -> TermInstance {
+    // Does both a cubic insert of all subterm-prefixes and a search for templates
+    // that match this term.
+    pub fn insert_term_slow(&mut self, term: &Term) -> TermInstance {
         let atomic_map = self.atomize(term);
-        let mut prefixes = self.insert_map_cubic(&atomic_map);
-        prefixes.pop().unwrap()
+        self.insert_map_cubic(&atomic_map);
+        let mut subterms = self.insert_map_linear(&atomic_map);
+
+        let matches = self.find_matches(&atomic_map, &subterms);
+        let mut result: Option<TermInstance> = None;
+        for m in &matches {
+            result = Some(self.insert_match(m, result));
+        }
+
+        subterms.swap_remove(0).instance
     }
 
     // Convenient wrapper around atomize_starting_at to pick a start_var.
@@ -1633,6 +1643,27 @@ impl TermGraph {
         replacements.pop();
     }
 
+    // Inserts every step of a match into the graph.
+    // If the final output is known, provide it in result.
+    // Returns the final output.
+    fn insert_match(&mut self, m: &Match, result: Option<TermInstance>) -> TermInstance {
+        if m.replacements.is_empty() {
+            if let Some(result) = result {
+                self.make_equal(result, m.template.clone());
+            }
+            return m.template.clone();
+        }
+        let mut term_instance = m.template.clone();
+        for (i, r) in m.replacements.iter().enumerate() {
+            if i == m.replacements.len() - 1 {
+                // This is the last replacement.
+                return self.replace(&term_instance, r.var, &r.value, result.as_ref());
+            }
+            term_instance = self.replace(&term_instance, r.var, &r.value, None);
+        }
+        panic!("control should not reach here");
+    }
+
     // Identifies the two terms, and continues processing any followup Identifications until
     // all Identifications are processed.
     fn make_equal(&mut self, instance1: TermInstance, instance2: TermInstance) {
@@ -1701,8 +1732,8 @@ impl TermGraph {
     }
 
     pub fn insert_literal(&mut self, literal: &Literal) {
-        let left = self.insert_term_cubic(&literal.left);
-        let right = self.insert_term_cubic(&literal.right);
+        let left = self.insert_term_slow(&literal.left);
+        let right = self.insert_term_slow(&literal.right);
         if literal.positive {
             self.make_equal(left, right);
         } else {
@@ -2157,21 +2188,17 @@ mod tests {
     // #[test]
     // fn test_double_replacement_specific_first() {
     //     let mut g = TermGraph::new();
-    //     let leaf_term = g.parse("x0(c1, c2, c3, c4)");
-    //     let base_term = g.parse("x0(x1, c2, x3, c4)");
-    //     g.check_path(&base_term, &leaf_term);
+    //     g.check_insert_literal("c0(c1, c2, c3) = c5");
+    //     g.check_insert_literal("c0(x1, c2, x3) = c4");
+    //     g.check_literal("c4 = c5");
     // }
 
-    // #[test]
-    // fn test_long_template() {
-    //     let mut g = TermGraph::new();
-    //     let template = g.parse("c0(x0, c1, x2, c2(x3), x4)");
-    //     let reduction = g.parse("c3(x2)");
-    //     g.check_make_equal(&template, &reduction);
-    //     let matching = g.parse("c0(c4, c1, x0, c2(c5), x1)");
-    //     let expected = g.parse("c3(x0)");
-    //     assert_eq!(matching, expected);
-    // }
+    #[test]
+    fn test_long_template() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(x0, c1, x2, c2(x3), x4) = c3(x2)");
+        g.check_literal("c0(c4, c1, x0, c2(c5), x1) = c3(x0)");
+    }
 
     #[test]
     fn test_unused_vars_on_both_sides() {
