@@ -2117,16 +2117,12 @@ mod tests {
         g.check_literal("c0(c1, c3) = c2");
     }
 
-    // #[test]
-    // fn test_ignoring_var_in_replacement() {
-    //     let mut g = TermGraph::new();
-    //     let template = g.parse_cubic("c0(x0, c1(x1))");
-    //     let reduction = g.parse_cubic("c2(x0)");
-    //     g.check_make_equal(&template, &reduction);
-    //     let matching = g.parse_linear("c0(x0, c1(c3))");
-    //     let expected = g.parse_linear("c2(x0)");
-    //     assert_eq!(matching, expected);
-    // }
+    #[test]
+    fn test_ignoring_var_in_replacement() {
+        let mut g = TermGraph::new();
+        g.check_insert_literal("c0(x0, c1(x1)) = c2(x0)");
+        g.check_literal("c0(x0, c1(c3)) = c2(x0)");
+    }
 
     #[test]
     fn test_eliminating_a_replacement_var() {
