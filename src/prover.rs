@@ -37,7 +37,9 @@ pub struct Prover<'a> {
     // we will add to the active clauses in the future.
     passive: PassiveSet,
 
-    // A prover is dirty when it has had false propositions added to it.
+    // A prover is clean when it has only true "library" statements added to it.
+    // A prover is dirty when it has had counterfactual propositions added to it, for
+    // the sake of contradiction.
     dirty: bool,
 
     // A verbose prover prints out a lot of stuff.
@@ -287,13 +289,15 @@ impl Prover<'_> {
 
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
-        let (clause, proof_step) = if let Some((clause, proof_step)) = self.passive.pop() {
-            (clause, proof_step)
+        if let Some((clause, proof_step)) = self.passive.pop() {
+            self.activate(clause, proof_step)
         } else {
             // We're out of clauses to process, so we can't make any more progress.
-            return Outcome::Failure;
-        };
+            Outcome::Failure
+        }
+    }
 
+    fn activate(&mut self, clause: Clause, proof_step: ProofStep) -> Outcome {
         let mut original_clause_string = "".to_string();
         if self.verbose {
             original_clause_string = self.display(&clause).to_string();
