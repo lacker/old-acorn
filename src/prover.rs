@@ -341,7 +341,7 @@ impl Prover<'_> {
 
                     // Treat definitions like facts, not like goals.
                     self.history.push(ProofStep::definition());
-                    self.active_set.insert(clause, false);
+                    self.active_set.insert(clause, true);
                 }
             } else if verbose {
                 println!("synthesized nothing");
