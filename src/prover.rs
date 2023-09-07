@@ -75,7 +75,7 @@ impl Prover<'_> {
             active_set: ActiveSet::new(use_graph),
             passive: PassiveSet::new(),
             env,
-            verbose: false,
+            verbose: true,
             trace: None,
             hit_trace: false,
             history: Vec::new(),
@@ -105,8 +105,13 @@ impl Prover<'_> {
     pub fn add_fact(&mut self, proposition: AcornValue) {
         self.facts.push(proposition.clone());
         for clause in self.normalize_proposition(proposition) {
-            self.passive
-                .add_with_weight(clause, ProofStep::assumption(), 0);
+            // Trying the new goal-oriented algorithm.
+            if false {
+                self.activate(clause, ProofStep::assumption(), false);
+            } else {
+                self.passive
+                    .add_with_weight(clause, ProofStep::assumption(), 0);
+            }
         }
     }
 
@@ -428,7 +433,7 @@ impl Prover<'_> {
 
     fn prove_goal(goal_context: &GoalContext, use_graph: bool) -> Outcome {
         let mut prover = Prover::load_goal(&goal_context, use_graph);
-        prover.search_for_contradiction(2000, 20.0)
+        prover.search_for_contradiction(2000, 2.0)
     }
 
     pub fn prove(env: &Environment, name: &str, use_graph: bool) -> Outcome {
@@ -680,7 +685,29 @@ mod tests {
         assert_eq!(Prover::prove(&env, "(x = y)", false), Outcome::Success);
     }
 
+    #[test]
+    fn test_multi_hop_rewriting() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define 0: Nat = axiom
+            define Suc: Nat -> Nat = axiom
+            define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom
+            axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
+            define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)
+            theorem add_zero_right(a: Nat): add(a, 0) = a
+        "#,
+        );
+        assert_eq!(
+            Prover::prove(&env, "add_zero_right", false),
+            Outcome::Success
+        );
+    }
+
     // An environment with theorems that we should be able to prove in testing.
+    // Ideally when there's a problem with one of these theorems we can simplify it
+    // to a test that doesn't use the snap environment.
     fn snap_env() -> Environment {
         let mut env = Environment::new();
         env.load_file("snapnat.ac").unwrap();
@@ -688,7 +715,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proving_add_zero_right() {
+    fn test_snap_add_zero_right() {
         let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "add_zero_right", false),
@@ -697,7 +724,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proving_one_plus_one() {
+    fn test_snap_one_plus_one() {
         let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "one_plus_one", false),
@@ -706,7 +733,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proving_add_zero_left() {
+    fn test_snap_add_zero_left() {
         let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "add_zero_left", false),
@@ -715,7 +742,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proving_add_suc_right() {
+    fn test_snap_add_suc_right() {
         let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "add_suc_right", false),
@@ -724,7 +751,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proving_add_suc_left() {
+    fn test_snap_add_suc_left() {
         let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "add_suc_left", false),
@@ -733,7 +760,7 @@ mod tests {
     }
 
     #[test]
-    fn test_suc_ne() {
+    fn test_snap_suc_ne() {
         let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "suc_ne", false),
@@ -742,7 +769,7 @@ mod tests {
     }
 
     #[test]
-    fn test_suc_suc_ne() {
+    fn test_snap_suc_suc_ne() {
         let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "suc_suc_ne", false),
@@ -751,7 +778,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_comm() {
+    fn test_snap_add_comm() {
         let env = snap_env();
         assert_eq!(
             Prover::prove_theorem(&env, "add_comm", false),
