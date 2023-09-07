@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
-use crate::specializer::Specializer;
 use crate::term::{Clause, Literal, Term};
 use crate::unifier::{Scope, Unifier};
 
@@ -25,11 +24,6 @@ pub struct ActiveSet {
     // The only information we need on a paramodulation target is the clause index, because
     // we use the entire paramodulator, not a subterm.
     paramodulation_targets: FingerprintTree<ParamodulationTarget>,
-
-    // The rewrite rules we use.
-    // A clause can only be a rewrite if it's a single foo = bar literal, and foo > bar by the KBO.
-    // So we only need to store the clause index of the rewrite rule.
-    rewrite_rules: FingerprintTree<usize>,
 }
 
 // A ResolutionTarget is a way of specifying one particular term that is "eligible for resolution".
@@ -111,7 +105,6 @@ impl ActiveSet {
             literal_set: LiteralSet::new(),
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
-            rewrite_rules: FingerprintTree::new(),
         }
     }
 
@@ -333,67 +326,6 @@ impl ActiveSet {
         self.clause_set.contains(clause)
     }
 
-    // Rewrites subterms as well.
-    // Only returns a new term if there is something to rewrite.
-    fn rewrite_once(&self, term: &Term) -> Option<Term> {
-        // Check if some args can be rewritten
-        let rewritten_args: Vec<_> = term.args.iter().map(|arg| self.rewrite_once(arg)).collect();
-        if rewritten_args.iter().any(|arg| arg.is_some()) {
-            let mut new_args = vec![];
-            for (original, rewritten) in term.args.iter().zip(rewritten_args) {
-                if let Some(rewritten) = rewritten {
-                    new_args.push(rewritten);
-                } else {
-                    new_args.push(original.clone());
-                }
-            }
-            let new_term = term.replace_args(new_args);
-            return Some(new_term);
-        }
-
-        // Check if we can rewrite this term at the root
-        let clause_indexes = self.rewrite_rules.get_generalizing(&term);
-        for i in clause_indexes {
-            let clause = &self.clauses[*i];
-            let rule = &clause.literals[0];
-            let mut s = Specializer::new();
-
-            if s.match_terms(&rule.left, term) {
-                let new_term = s.specialize(&rule.right);
-                return Some(new_term);
-            }
-        }
-
-        None
-    }
-
-    // Rewrites up to limit times.
-    fn rewrite_term_limited(&self, term: &Term, limit: u32) -> Option<Term> {
-        if limit == 0 {
-            panic!("error: ran out of rewrite stack");
-        }
-        if let Some(new_term) = self.rewrite_once(term) {
-            self.rewrite_term_limited(&new_term, limit - 1)
-                .or(Some(new_term))
-        } else {
-            None
-        }
-    }
-
-    pub fn rewrite_term(&self, term: &Term) -> Option<Term> {
-        self.rewrite_term_limited(term, 10)
-    }
-
-    pub fn rewrite_literal(&self, literal: &Literal) -> Literal {
-        let left = self
-            .rewrite_term(&literal.left)
-            .unwrap_or(literal.left.clone());
-        let right = self
-            .rewrite_term(&literal.right)
-            .unwrap_or(literal.right.clone());
-        Literal::new(literal.positive, left, right)
-    }
-
     fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
         if literal.left == literal.right {
             return Some(literal.positive);
@@ -421,9 +353,7 @@ impl ActiveSet {
         // Filter out any literals that are known to be true
         let mut literals = vec![];
         for literal in &clause.literals {
-            let rewritten_literal = self.rewrite_literal(literal);
-
-            match self.evaluate_literal(&rewritten_literal) {
+            match self.evaluate_literal(&literal) {
                 Some(true) => {
                     // This literal is already known to be true.
                     // Thus, the whole clause is a tautology.
@@ -473,12 +403,6 @@ impl ActiveSet {
                     forwards,
                 },
             );
-        }
-
-        if clause.is_rewrite_rule() {
-            let rewrite_literal = &clause.literals[0];
-            self.rewrite_rules
-                .insert(&rewrite_literal.left, clause_index);
         }
 
         self.clause_set.insert(clause.clone());
