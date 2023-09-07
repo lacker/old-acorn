@@ -410,7 +410,19 @@ impl ActiveSet {
 
         // Add paramodulation targets for the new clause.
         if select_all {
-            todo!();
+            // Use any literal for paramodulation
+            for (i, literal) in clause.literals.iter().enumerate() {
+                for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
+                    self.paramodulation_targets.insert(
+                        from,
+                        ParamodulationTarget {
+                            clause_index,
+                            literal_index: i,
+                            forwards,
+                        },
+                    );
+                }
+            }
         } else {
             // Use only the leftmost literal for paramodulation.
             for (forwards, from, _) in ActiveSet::paramodulation_terms(leftmost_literal) {
