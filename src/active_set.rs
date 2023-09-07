@@ -95,6 +95,13 @@ impl ProofStep {
     pub fn indices(&self) -> impl Iterator<Item = &usize> {
         self.activated.iter().chain(self.existing.iter())
     }
+
+    pub fn is_assumption(&self) -> bool {
+        match self.rule {
+            ProofRule::Assumption => true,
+            _ => false,
+        }
+    }
 }
 
 impl ActiveSet {

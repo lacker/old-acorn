@@ -367,21 +367,24 @@ impl Prover<'_> {
             }
         }
 
-        let synth_clauses = self.synthesizer.synthesize(&clause);
-        if !synth_clauses.is_empty() {
-            if verbose {
-                println!("synthesized {} new clauses:", synth_clauses.len());
-            }
-            for clause in synth_clauses {
-                if let Some(simp_clause) = self.active_set.simplify(&clause) {
-                    if verbose {
-                        println!("  {}", self.display(&simp_clause));
-                    }
-                    self.passive.add(simp_clause, ProofStep::definition());
+        // Only synthesize predicates for the negated goal.
+        if proof_step.is_assumption() {
+            let synth_clauses = self.synthesizer.synthesize(&clause);
+            if !synth_clauses.is_empty() {
+                if verbose {
+                    println!("synthesized {} new clauses:", synth_clauses.len());
                 }
+                for clause in synth_clauses {
+                    if let Some(simp_clause) = self.active_set.simplify(&clause) {
+                        if verbose {
+                            println!("  {}", self.display(&simp_clause));
+                        }
+                        self.passive.add(simp_clause, ProofStep::definition());
+                    }
+                }
+            } else if verbose {
+                println!("synthesized nothing");
             }
-        } else if verbose {
-            println!("synthesized nothing");
         }
 
         Outcome::Unknown
