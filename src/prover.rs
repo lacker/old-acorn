@@ -281,14 +281,16 @@ impl Prover<'_> {
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
         if let Some((clause, proof_step)) = self.passive.pop() {
-            self.activate(clause, proof_step)
+            self.activate(clause, proof_step, true)
         } else {
             // We're out of clauses to process, so we can't make any more progress.
             Outcome::Failure
         }
     }
 
-    fn activate(&mut self, clause: Clause, proof_step: ProofStep) -> Outcome {
+    // `generate` is whether to use this clause for generation immediately, or just to insert it
+    // into the active set for future generation.
+    fn activate(&mut self, clause: Clause, proof_step: ProofStep, generate: bool) -> Outcome {
         let mut original_clause_string = "".to_string();
         if self.verbose {
             original_clause_string = self.display(&clause).to_string();
@@ -316,6 +318,11 @@ impl Prover<'_> {
             return Outcome::Success;
         }
         self.history.push(proof_step);
+
+        if !generate {
+            self.active_set.insert(clause);
+            return Outcome::Unknown;
+        }
 
         let tracing = self.is_tracing(&clause);
         let verbose = self.verbose || tracing;
