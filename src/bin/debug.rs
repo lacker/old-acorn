@@ -141,7 +141,7 @@ fn main() {
                 let outcome = prover.activate_next();
                 match outcome {
                     Outcome::Success => {
-                        println!("Success!");
+                        println!("Success! ({}s)", start_time.elapsed().as_secs_f32());
                         prover.print_proof();
                         break;
                     }
