@@ -296,8 +296,11 @@ impl Prover<'_> {
     // `generate` is whether to use this clause for generation immediately, or just to insert it
     // into the active set for future generation.
     fn activate(&mut self, clause: Clause, proof_step: ProofStep, generate: bool) -> Outcome {
+        let tracing = self.is_tracing(&clause);
+        let verbose = self.verbose || tracing;
+
         let mut original_clause_string = "".to_string();
-        if self.verbose {
+        if verbose {
             original_clause_string = self.display(&clause).to_string();
             println!("activating: {}", original_clause_string);
         }
@@ -306,12 +309,12 @@ impl Prover<'_> {
             clause
         } else {
             // The clause is redundant, so skip it.
-            if self.verbose {
+            if verbose {
                 println!("  redundant");
             }
             return Outcome::Unknown;
         };
-        if self.verbose {
+        if verbose {
             let s = self.display(&clause).to_string();
             if s != original_clause_string {
                 println!("simplified: {}", s);
@@ -322,17 +325,34 @@ impl Prover<'_> {
             self.final_step = Some(proof_step);
             return Outcome::Success;
         }
-        self.history.push(proof_step);
-
         self.synthesizer.observe_types(&clause);
 
+        // Synthesize predicates if this is the negated goal.
+        if proof_step.is_assumption() {
+            let synth_clauses = self.synthesizer.synthesize(&clause);
+            if !synth_clauses.is_empty() {
+                if verbose {
+                    println!("synthesized {} new clauses:", synth_clauses.len());
+                }
+                for clause in synth_clauses {
+                    if verbose {
+                        println!("  {}", self.display(&clause));
+                    }
+
+                    // Treat definitions like facts, not like goals.
+                    self.history.push(ProofStep::definition());
+                    self.active_set.insert(clause);
+                }
+            } else if verbose {
+                println!("synthesized nothing");
+            }
+        }
+
+        self.history.push(proof_step);
         if !generate {
             self.active_set.insert(clause);
             return Outcome::Unknown;
         }
-
-        let tracing = self.is_tracing(&clause);
-        let verbose = self.verbose || tracing;
 
         let gen_clauses = self.active_set.generate(&clause);
 
@@ -364,27 +384,6 @@ impl Prover<'_> {
                     self.print_proof_step(&c, ps);
                 }
                 self.passive.add(c, ps);
-            }
-        }
-
-        // Only synthesize predicates for the negated goal.
-        if proof_step.is_assumption() {
-            let synth_clauses = self.synthesizer.synthesize(&clause);
-            if !synth_clauses.is_empty() {
-                if verbose {
-                    println!("synthesized {} new clauses:", synth_clauses.len());
-                }
-                for clause in synth_clauses {
-                    if verbose {
-                        println!("  {}", self.display(&clause));
-                    }
-
-                    // Treat definitions like facts, not like goals.
-                    self.history.push(ProofStep::definition());
-                    self.active_set.insert(clause);
-                }
-            } else if verbose {
-                println!("synthesized nothing");
             }
         }
 
