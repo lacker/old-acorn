@@ -430,8 +430,6 @@ impl ActiveSet {
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
-    // This uses simplification to check if a literal is known, but does not rewrite
-    // each component literal of the clause.
     pub fn simplify(&mut self, clause: &Clause) -> Option<Clause> {
         if clause.is_tautology() {
             return None;
@@ -441,9 +439,10 @@ impl ActiveSet {
         }
 
         // Filter out any literals that are known to be true
-        let mut literals = vec![];
+        let mut rewritten_literals = vec![];
         for literal in &clause.literals {
-            match self.evaluate_literal(&literal) {
+            let rewritten_literal = self.rewrite_literal(literal);
+            match self.evaluate_literal(&rewritten_literal) {
                 Some(true) => {
                     // This literal is already known to be true.
                     // Thus, the whole clause is a tautology.
@@ -455,11 +454,11 @@ impl ActiveSet {
                     continue;
                 }
                 None => {
-                    literals.push(literal.clone());
+                    rewritten_literals.push(rewritten_literal);
                 }
             }
         }
-        let clause = Clause::new(literals);
+        let clause = Clause::new(rewritten_literals);
         if clause.is_tautology() {
             return None;
         }
@@ -514,6 +513,12 @@ impl ActiveSet {
                     },
                 );
             }
+        }
+
+        if clause.is_rewrite_rule() {
+            let rewrite_literal = &clause.literals[0];
+            self.rewrite_rules
+                .insert(&rewrite_literal.left, clause_index);
         }
 
         self.clause_set.insert(clause.clone());
