@@ -386,7 +386,10 @@ impl ActiveSet {
         Some(clause)
     }
 
-    pub fn insert(&mut self, clause: Clause) {
+    // Adds a clause so that it becomes available for resolution and paramodulation.
+    // If select_all is set, then every literal can be used as a target for paramodulation.
+    // Otherwise, only the first one can be.
+    pub fn insert(&mut self, clause: Clause, select_all: bool) {
         // Add resolution targets for the new clause.
         let clause_index = self.clauses.len();
         let leftmost_literal = &clause.literals[0];
@@ -468,7 +471,7 @@ impl ActiveSet {
                 },
             ));
         }
-        self.insert(clause.clone());
+        self.insert(clause.clone(), false);
         generated_clauses
     }
 
@@ -489,7 +492,10 @@ mod tests {
         let res_left = Term::parse("c0(c3)");
         let res_right = Term::parse("c2");
         let mut set = ActiveSet::new();
-        set.insert(Clause::new(vec![Literal::equals(res_left, res_right)]));
+        set.insert(
+            Clause::new(vec![Literal::equals(res_left, res_right)]),
+            false,
+        );
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
         let pm_left = Term::parse("c1");
@@ -511,7 +517,7 @@ mod tests {
         let pm_left = Term::parse("c1");
         let pm_right = Term::parse("c3");
         let mut set = ActiveSet::new();
-        set.insert(Clause::new(vec![Literal::equals(pm_left, pm_right)]));
+        set.insert(Clause::new(vec![Literal::equals(pm_left, pm_right)]), false);
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
         let res_left = Term::parse("c0(c3)");
@@ -543,6 +549,16 @@ mod tests {
         // This is a bug we ran into. It shouldn't work
         let unresolvable_clause = Clause::parse("c0(x0, c0(x1, c1(x2))) != c0(c0(x2, x1), x0)");
         assert!(ActiveSet::equality_resolution(&unresolvable_clause).is_none());
+    }
+
+    #[test]
+    fn test_select_all_literals_for_paramodulation() {
+        let mut set = ActiveSet::new();
+        set.insert(Clause::parse("c0(x0) != c1 | c2 = c3"), true);
+        let resolver = Clause::parse("c2 != c3");
+        let result = set.activate_resolver(&resolver);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].0.to_string(), "c0(x0) != c1".to_string());
     }
 
     #[test]
