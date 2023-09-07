@@ -363,7 +363,7 @@ impl Prover<'_> {
             }
         }
 
-        let print_limit = 10;
+        let print_limit = 20;
         if !simp_clauses.is_empty() {
             let len = simp_clauses.len();
             if verbose {
@@ -704,6 +704,21 @@ mod tests {
         "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_matching_newly_synthesized_goal() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+        type Nat: axiom
+        define 0: Nat = axiom
+        axiom everything(x0: Nat -> bool, x1: Nat): x0(x1)
+        define add: (Nat, Nat) -> Nat = axiom
+        theorem goal(a: Nat): add(a, 0) = a
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     // An environment with theorems that we should be able to prove in testing.
