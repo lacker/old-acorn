@@ -576,11 +576,11 @@ mod tests {
     #[test]
     fn test_select_all_literals_for_paramodulation() {
         let mut set = ActiveSet::new();
-        set.insert(Clause::parse("c0(x0) != c1 | c2 = c3"), true);
+        set.insert(Clause::parse("c1 != c0(x0) | c2 = c3"), true);
         let resolver = Clause::parse("c2 != c3");
         let result = set.activate_resolver(&resolver);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0.to_string(), "c0(x0) != c1".to_string());
+        assert_eq!(result[0].0.to_string(), "c1 != c0(x0)".to_string());
     }
 
     #[test]

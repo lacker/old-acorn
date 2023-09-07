@@ -379,7 +379,6 @@ impl Unifier {
         path: &[usize],
         res_clause: &Clause,
     ) -> Clause {
-        assert_eq!(pm_literal_index, 0);
         let resolution_literal = &res_clause.literals[0];
         let u = &resolution_literal.left;
         let v = &resolution_literal.right;
@@ -406,7 +405,10 @@ impl Unifier {
         }
 
         // Type 3: the literals from unifying "S"
-        for literal in &pm_clause.literals[1..] {
+        for (i, literal) in pm_clause.literals.iter().enumerate() {
+            if i == pm_literal_index {
+                continue;
+            }
             let unified_literal = self.apply_to_literal(Scope::Left, literal);
             literals.push(unified_literal);
         }
