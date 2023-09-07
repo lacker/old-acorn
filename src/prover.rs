@@ -375,12 +375,13 @@ impl Prover<'_> {
                     println!("synthesized {} new clauses:", synth_clauses.len());
                 }
                 for clause in synth_clauses {
-                    if let Some(simp_clause) = self.active_set.simplify(&clause) {
-                        if verbose {
-                            println!("  {}", self.display(&simp_clause));
-                        }
-                        self.passive.add(simp_clause, ProofStep::definition());
+                    if verbose {
+                        println!("  {}", self.display(&clause));
                     }
+
+                    // Treat definitions like facts, not like goals.
+                    self.history.push(ProofStep::definition());
+                    self.active_set.insert(clause);
                 }
             } else if verbose {
                 println!("synthesized nothing");
