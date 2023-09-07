@@ -375,9 +375,11 @@ impl Unifier {
         &mut self,
         t: &Term,
         pm_clause: &Clause,
+        pm_literal_index: usize,
         path: &[usize],
         res_clause: &Clause,
     ) -> Clause {
+        assert_eq!(pm_literal_index, 0);
         let resolution_literal = &res_clause.literals[0];
         let u = &resolution_literal.left;
         let v = &resolution_literal.right;
@@ -503,7 +505,7 @@ mod tests {
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &s, Scope::Right, &u_subterm);
         u.print();
-        let new_clause = u.superpose(&t, &pm_clause, target_path, &resolution_clause);
+        let new_clause = u.superpose(&t, &pm_clause, 0, target_path, &resolution_clause);
         assert!(
             new_clause.to_string()
                 == "c1(c2(c1, x0, c1(c1(c0)))) != c1(x1(x2)) | c1(c1(x0)) = x1(x2)"

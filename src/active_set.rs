@@ -44,8 +44,10 @@ struct ResolutionTarget {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ParamodulationTarget {
     // Which clause the paramodulation target is in.
-    // We assume it must be the first literal.
     clause_index: usize,
+
+    // Which literal within the clause the paramodulation target is in.
+    literal_index: usize,
 
     // "forwards" paramodulation is when we use s = t to rewrite s to t.
     // "backwards" paramodulation is when we use s = t to rewrite t to s.
@@ -180,7 +182,8 @@ impl ActiveSet {
 
                 // The clauses do actually unify. Combine them according to the superposition rule.
                 let resolution_clause = &self.clauses[target.clause_index];
-                let new_clause = unifier.superpose(t, pm_clause, &target.path, resolution_clause);
+                let new_clause =
+                    unifier.superpose(t, pm_clause, 0, &target.path, resolution_clause);
 
                 result.push((new_clause, target.clause_index));
             }
@@ -220,7 +223,7 @@ impl ActiveSet {
             let targets = self.paramodulation_targets.get_unifying(u_subterm);
             for target in targets {
                 let pm_clause = &self.clauses[target.clause_index];
-                let pm_literal = &pm_clause.literals[0];
+                let pm_literal = &pm_clause.literals[target.literal_index];
                 let (s, t) = if target.forwards {
                     (&pm_literal.left, &pm_literal.right)
                 } else {
@@ -234,7 +237,8 @@ impl ActiveSet {
                 }
 
                 // The clauses do actually unify. Combine them according to the superposition rule.
-                let new_clause = unifier.superpose(t, pm_clause, &path, res_clause);
+                let new_clause =
+                    unifier.superpose(t, pm_clause, target.literal_index, &path, res_clause);
 
                 result.push((new_clause, target.clause_index));
             }
@@ -405,14 +409,20 @@ impl ActiveSet {
         }
 
         // Add paramodulation targets for the new clause.
-        for (forwards, from, _) in ActiveSet::paramodulation_terms(leftmost_literal) {
-            self.paramodulation_targets.insert(
-                from,
-                ParamodulationTarget {
-                    clause_index,
-                    forwards,
-                },
-            );
+        if select_all {
+            todo!();
+        } else {
+            // Use only the leftmost literal for paramodulation.
+            for (forwards, from, _) in ActiveSet::paramodulation_terms(leftmost_literal) {
+                self.paramodulation_targets.insert(
+                    from,
+                    ParamodulationTarget {
+                        clause_index,
+                        literal_index: 0,
+                        forwards,
+                    },
+                );
+            }
         }
 
         self.clause_set.insert(clause.clone());
