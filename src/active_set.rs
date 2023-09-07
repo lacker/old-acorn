@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use crate::fingerprint::FingerprintTree;
@@ -141,24 +140,11 @@ impl ActiveSet {
         if !literal.positive {
             return vec![].into_iter();
         }
-        let order = literal.left.kbo(&literal.right);
-        match order {
-            Ordering::Greater => {
-                // s > t, so we only do forwards
-                vec![(true, &literal.left, &literal.right)].into_iter()
-            }
-            Ordering::Equal => {
-                // s = t, so we do both directions
-                vec![
-                    (true, &literal.left, &literal.right),
-                    (false, &literal.right, &literal.left),
-                ]
-                .into_iter()
-            }
-            Ordering::Less => {
-                panic!("Backwards literal: {:?}", literal);
-            }
-        }
+        vec![
+            (true, &literal.left, &literal.right),
+            (false, &literal.right, &literal.left),
+        ]
+        .into_iter()
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the
