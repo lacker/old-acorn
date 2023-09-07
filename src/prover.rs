@@ -320,9 +320,10 @@ impl Prover<'_> {
         let tracing = self.is_tracing(&clause);
         let verbose = self.verbose || tracing;
 
+        let gen_clauses = self.active_set.generate(&clause);
+
         self.synthesizer.observe(&clause);
 
-        let gen_clauses = self.active_set.generate(&clause);
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
             if let Some(simp_clause) = self.active_set.simplify(&generated_clause) {
