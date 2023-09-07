@@ -37,11 +37,6 @@ pub struct Prover<'a> {
     // we will add to the active clauses in the future.
     passive: PassiveSet,
 
-    // A prover is clean when it has only true "library" statements added to it.
-    // A prover is dirty when it has had counterfactual propositions added to it, for
-    // the sake of contradiction.
-    dirty: bool,
-
     // A verbose prover prints out a lot of stuff.
     pub verbose: bool,
 
@@ -80,7 +75,6 @@ impl Prover<'_> {
             active_set: ActiveSet::new(use_graph),
             passive: PassiveSet::new(),
             env,
-            dirty: false,
             verbose: false,
             trace: None,
             hit_trace: false,
@@ -124,7 +118,6 @@ impl Prover<'_> {
         assert_eq!(proposition.get_type(), AcornType::Bool);
         assert!(self.goal.is_none());
         self.goal = Some(proposition.clone());
-        self.dirty = true;
         self.add_proposition(proposition.negate());
     }
 
