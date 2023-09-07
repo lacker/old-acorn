@@ -23,7 +23,7 @@ impl Synthesizer {
     }
 
     // Adds entries to types for any higher-order variables that are observed.
-    pub fn observe(&mut self, clause: &Clause) {
+    pub fn observe_types(&mut self, clause: &Clause) {
         for lit in &clause.literals {
             if lit.is_boolean() && lit.positive && lit.is_higher_order() {
                 let term = &lit.left;
@@ -156,7 +156,7 @@ mod tests {
 
         let clauses = norm.normalize(&env, env.get_theorem_claim("t_implies_all").unwrap());
         for clause in &clauses {
-            synth.observe(clause);
+            synth.observe_types(clause);
         }
 
         let neg_goal_clauses =

@@ -324,6 +324,8 @@ impl Prover<'_> {
         }
         self.history.push(proof_step);
 
+        self.synthesizer.observe_types(&clause);
+
         if !generate {
             self.active_set.insert(clause);
             return Outcome::Unknown;
@@ -334,8 +336,6 @@ impl Prover<'_> {
 
         let gen_clauses = self.active_set.generate(&clause);
 
-        self.synthesizer.observe(&clause);
-
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
             if let Some(simp_clause) = self.active_set.simplify(&generated_clause) {
@@ -343,7 +343,7 @@ impl Prover<'_> {
             }
         }
 
-        let print_limit = 5;
+        let print_limit = 10;
         if !simp_clauses.is_empty() {
             let len = simp_clauses.len();
             if verbose {
@@ -380,6 +380,8 @@ impl Prover<'_> {
                     self.passive.add(simp_clause, ProofStep::definition());
                 }
             }
+        } else if verbose {
+            println!("synthesized nothing");
         }
 
         Outcome::Unknown
@@ -716,14 +718,14 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_snap_add_zero_left() {
-    //     let env = snap_env();
-    //     assert_eq!(
-    //         Prover::prove_theorem(&env, "add_zero_left"),
-    //         Outcome::Success
-    //     );
-    // }
+    #[test]
+    fn test_snap_add_zero_left() {
+        let env = snap_env();
+        assert_eq!(
+            Prover::prove_theorem(&env, "add_zero_left"),
+            Outcome::Success
+        );
+    }
 
     // #[test]
     // fn test_snap_add_suc_right() {
