@@ -181,9 +181,14 @@ impl ActiveSet {
                 }
 
                 // The clauses do actually unify. Combine them according to the superposition rule.
-                let resolution_clause = &self.clauses[target.clause_index];
-                let new_clause =
-                    unifier.superpose(t, pm_clause, 0, &target.path, resolution_clause);
+                let res_clause = &self.clauses[target.clause_index];
+                let new_clause = unifier.superpose(t, pm_clause, 0, &target.path, res_clause);
+
+                let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
+                if pm_clause.len() > 1 && eliminated_clauses < 2 {
+                    // Single elimination is only allowed for rewrites.
+                    continue;
+                }
 
                 result.push((new_clause, target.clause_index));
             }
@@ -239,6 +244,12 @@ impl ActiveSet {
                 // The clauses do actually unify. Combine them according to the superposition rule.
                 let new_clause =
                     unifier.superpose(t, pm_clause, target.literal_index, &path, res_clause);
+
+                let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
+                if pm_clause.len() > 1 && eliminated_clauses < 2 {
+                    // Single elimination is only allowed for rewrites.
+                    continue;
+                }
 
                 result.push((new_clause, target.clause_index));
             }

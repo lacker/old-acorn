@@ -811,6 +811,10 @@ impl Clause {
         }
         return literal.left.kbo(&literal.right) == Ordering::Greater;
     }
+
+    pub fn len(&self) -> usize {
+        self.literals.len()
+    }
 }
 
 #[cfg(test)]
