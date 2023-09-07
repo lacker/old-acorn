@@ -5,7 +5,6 @@ use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
 use crate::specializer::Specializer;
 use crate::term::{Clause, Literal, Term};
-use crate::term_graph::TermGraph;
 use crate::unifier::{Scope, Unifier};
 
 // The ActiveSet stores a bunch of clauses that are indexed for various efficient lookups.
@@ -21,12 +20,6 @@ pub struct ActiveSet {
 
     // A LiteralSet for checking specific literals we already know, including generalization
     literal_set: LiteralSet,
-
-    // An alternative to the LiteralSet.
-    graph: TermGraph,
-
-    // Whether to use literal_set or graph.
-    use_graph: bool,
 
     resolution_targets: FingerprintTree<ResolutionTarget>,
 
@@ -112,13 +105,11 @@ impl ProofStep {
 }
 
 impl ActiveSet {
-    pub fn new(use_graph: bool) -> ActiveSet {
+    pub fn new() -> ActiveSet {
         ActiveSet {
             clauses: vec![],
             clause_set: HashSet::new(),
             literal_set: LiteralSet::new(),
-            graph: TermGraph::new(),
-            use_graph: use_graph,
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
             rewrite_rules: FingerprintTree::new(),
@@ -425,22 +416,14 @@ impl ActiveSet {
             Some((positive, _)) => Some(positive),
             None => None,
         };
-        if self.use_graph {
-            let graph_answer = self.graph.evaluate_literal(literal);
-            // It's okay for one of them not to know, but they shouldn't get opposite answers
-            if answer != None && graph_answer != None && answer != graph_answer {
-                panic!(
-                    "literal_set and graph disagree on {}: {:?} vs {:?}",
-                    literal, answer, graph_answer
-                );
-            }
-        }
         answer
     }
 
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
+    // This uses simplification to check if a literal is known, but does not rewrite
+    // each component literal of the clause.
     pub fn simplify(&mut self, clause: &Clause) -> Option<Clause> {
         if clause.is_tautology() {
             return None;
@@ -448,7 +431,9 @@ impl ActiveSet {
         if self.contains(&clause) {
             return None;
         }
-        let mut rewritten_literals = vec![];
+
+        // Filter out any literals that are known to be true
+        let mut literals = vec![];
         for literal in &clause.literals {
             let rewritten_literal = self.rewrite_literal(literal);
 
@@ -464,11 +449,11 @@ impl ActiveSet {
                     continue;
                 }
                 None => {
-                    rewritten_literals.push(rewritten_literal);
+                    literals.push(literal.clone());
                 }
             }
         }
-        let clause = Clause::new(rewritten_literals);
+        let clause = Clause::new(literals);
         if clause.is_tautology() {
             return None;
         }
@@ -514,10 +499,6 @@ impl ActiveSet {
 
         if clause.literals.len() == 1 {
             self.literal_set.insert(clause.literals[0].clone());
-
-            if self.use_graph {
-                self.graph.insert_literal(&clause.literals[0]);
-            }
         }
 
         self.clauses.push(clause);
@@ -590,7 +571,7 @@ mod tests {
         // Create an active set that knows c0(c3) = c2
         let res_left = Term::parse("c0(c3)");
         let res_right = Term::parse("c2");
-        let mut set = ActiveSet::new(true);
+        let mut set = ActiveSet::new();
         set.insert(Clause::new(vec![Literal::equals(res_left, res_right)]));
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
@@ -612,7 +593,7 @@ mod tests {
         // Create an active set that knows c1 = c3
         let pm_left = Term::parse("c1");
         let pm_right = Term::parse("c3");
-        let mut set = ActiveSet::new(true);
+        let mut set = ActiveSet::new();
         set.insert(Clause::new(vec![Literal::equals(pm_left, pm_right)]));
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
@@ -660,20 +641,5 @@ mod tests {
             }
         }
         panic!("Did not find expected clause");
-    }
-
-    #[test]
-    fn test_rewrite_rules() {
-        let mut set = ActiveSet::new(true);
-        let rule = Clause::parse("c0(x0) = x0");
-        set.insert(rule);
-
-        let c = Clause::parse("c0(c1) = c0(c2)");
-        let simp = set.simplify(&c).unwrap();
-        assert_eq!(simp.to_string(), "c2 = c1".to_string());
-
-        let c = Clause::parse("c1(c0(c2)) = c3");
-        let simp = set.simplify(&c).unwrap();
-        assert_eq!(simp.to_string(), "c1(c2) = c3".to_string());
     }
 }
