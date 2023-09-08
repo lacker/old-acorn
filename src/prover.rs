@@ -290,6 +290,7 @@ impl Prover<'_> {
         let verbose = self.verbose || tracing;
 
         let mut original_clause_string = "".to_string();
+        let mut simplified_clause_string = "".to_string();
         if verbose {
             original_clause_string = self.display(&clause).to_string();
         }
@@ -304,9 +305,12 @@ impl Prover<'_> {
             return Outcome::Unknown;
         };
         if verbose {
-            let s = self.display(&clause).to_string();
-            if s != original_clause_string {
-                println!("simplified: {} => {}", original_clause_string, s);
+            simplified_clause_string = self.display(&clause).to_string();
+            if simplified_clause_string != original_clause_string {
+                println!(
+                    "simplified: {} => {}",
+                    original_clause_string, simplified_clause_string
+                );
             }
         }
 
@@ -338,7 +342,7 @@ impl Prover<'_> {
         }
 
         if verbose {
-            println!("activating: {}", original_clause_string);
+            println!("activating: {}", simplified_clause_string);
         }
         self.activate(clause, clause_type, proof_step, verbose, tracing)
     }
@@ -370,7 +374,7 @@ impl Prover<'_> {
             ClauseType::Other
         };
 
-        let print_limit = 20;
+        let print_limit = 30;
         if !simp_clauses.is_empty() {
             let len = simp_clauses.len();
             if verbose {
