@@ -7,7 +7,7 @@ use crate::atom::Atom;
 use crate::display::DisplayClause;
 use crate::environment::{Environment, GoalContext};
 use crate::normalizer::Normalizer;
-use crate::passive_set::PassiveSet;
+use crate::passive_set::{ClauseType, PassiveSet};
 use crate::synthesizer::Synthesizer;
 use crate::term::Clause;
 
@@ -105,13 +105,7 @@ impl Prover<'_> {
     pub fn add_fact(&mut self, proposition: AcornValue) {
         self.facts.push(proposition.clone());
         for clause in self.normalize_proposition(proposition) {
-            // Trying the new goal-oriented algorithm.
-            if true {
-                self.activate(clause, ProofStep::assumption(), false);
-            } else {
-                self.passive
-                    .add_with_weight(clause, ProofStep::assumption(), 0);
-            }
+            self.activate(clause, ClauseType::Fact, ProofStep::assumption());
         }
     }
 
@@ -119,8 +113,7 @@ impl Prover<'_> {
         assert!(self.goal.is_none());
         self.goal = Some(proposition.clone());
         for clause in self.normalize_proposition(proposition.negate()) {
-            self.passive
-                .add_with_weight(clause, ProofStep::assumption(), 0);
+            self.passive.add_negated_goal(clause);
         }
     }
 
@@ -285,8 +278,8 @@ impl Prover<'_> {
 
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
-        if let Some((clause, proof_step)) = self.passive.pop() {
-            self.activate(clause, proof_step, true)
+        if let Some((clause, clause_type, proof_step)) = self.passive.pop() {
+            self.activate(clause, clause_type, proof_step)
         } else {
             // We're out of clauses to process, so we can't make any more progress.
             Outcome::Failure
@@ -295,7 +288,12 @@ impl Prover<'_> {
 
     // `generate` is whether to use this clause for generation immediately, or just to insert it
     // into the active set for future generation.
-    fn activate(&mut self, clause: Clause, proof_step: ProofStep, generate: bool) -> Outcome {
+    fn activate(
+        &mut self,
+        clause: Clause,
+        clause_type: ClauseType,
+        proof_step: ProofStep,
+    ) -> Outcome {
         let tracing = self.is_tracing(&clause);
         let verbose = self.verbose || tracing;
 
@@ -328,7 +326,7 @@ impl Prover<'_> {
         self.synthesizer.observe_types(&clause);
 
         // Synthesize predicates if this is the negated goal.
-        if generate && proof_step.is_assumption() {
+        if clause_type == ClauseType::NegatedGoal {
             let synth_clauses = self.synthesizer.synthesize(&clause);
             if !synth_clauses.is_empty() {
                 if verbose {
@@ -349,7 +347,7 @@ impl Prover<'_> {
         }
 
         self.history.push(proof_step);
-        if !generate {
+        if clause_type == ClauseType::Fact {
             self.active_set.insert(clause, true);
             return Outcome::Unknown;
         }
