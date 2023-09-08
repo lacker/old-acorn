@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
+use crate::passive_set::ClauseType;
 use crate::specializer::Specializer;
 use crate::term::{Clause, Literal, Term};
 use crate::unifier::{Scope, Unifier};
@@ -471,7 +472,7 @@ impl ActiveSet {
     // Adds a clause so that it becomes available for resolution and paramodulation.
     // If select_all is set, then every literal can be used as a target for paramodulation.
     // Otherwise, only the first one can be.
-    pub fn insert(&mut self, clause: Clause, select_all: bool) {
+    fn insert(&mut self, clause: Clause, clause_type: ClauseType) {
         // Add resolution targets for the new clause.
         let clause_index = self.clauses.len();
         let leftmost_literal = &clause.literals[0];
@@ -487,7 +488,7 @@ impl ActiveSet {
         }
 
         // Add paramodulation targets for the new clause.
-        if select_all {
+        if clause_type == ClauseType::Fact {
             // Use any literal for paramodulation
             for (i, literal) in clause.literals.iter().enumerate() {
                 for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
@@ -538,50 +539,58 @@ impl ActiveSet {
     // This does not simplify.
     // After generation, adds this clause to the active set.
     // Returns pairs describing how this clause was proved.
-    pub fn generate(&mut self, clause: &Clause) -> Vec<(Clause, ProofStep)> {
-        let activated = Some(self.clauses.len());
+    pub fn generate(
+        &mut self,
+        clause: &Clause,
+        clause_type: ClauseType,
+    ) -> Vec<(Clause, ProofStep)> {
         let mut generated_clauses = vec![];
-        for (new_clause, i) in self.activate_paramodulator(&clause) {
-            generated_clauses.push((
-                new_clause,
-                ProofStep {
-                    rule: ProofRule::ActivatingParamodulator,
-                    activated,
-                    existing: Some(i),
-                },
-            ))
+
+        if clause_type != ClauseType::Fact {
+            let activated = Some(self.clauses.len());
+            for (new_clause, i) in self.activate_paramodulator(&clause) {
+                generated_clauses.push((
+                    new_clause,
+                    ProofStep {
+                        rule: ProofRule::ActivatingParamodulator,
+                        activated,
+                        existing: Some(i),
+                    },
+                ))
+            }
+            for (new_clause, i) in self.activate_resolver(&clause) {
+                generated_clauses.push((
+                    new_clause,
+                    ProofStep {
+                        rule: ProofRule::ActivatingResolver,
+                        activated,
+                        existing: Some(i),
+                    },
+                ))
+            }
+            if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
+                generated_clauses.push((
+                    new_clause,
+                    ProofStep {
+                        rule: ProofRule::EqualityResolution,
+                        activated,
+                        existing: None,
+                    },
+                ));
+            }
+            for clause in ActiveSet::equality_factoring(&clause) {
+                generated_clauses.push((
+                    clause,
+                    ProofStep {
+                        rule: ProofRule::EqualityFactoring,
+                        activated,
+                        existing: None,
+                    },
+                ));
+            }
         }
-        for (new_clause, i) in self.activate_resolver(&clause) {
-            generated_clauses.push((
-                new_clause,
-                ProofStep {
-                    rule: ProofRule::ActivatingResolver,
-                    activated,
-                    existing: Some(i),
-                },
-            ))
-        }
-        if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
-            generated_clauses.push((
-                new_clause,
-                ProofStep {
-                    rule: ProofRule::EqualityResolution,
-                    activated,
-                    existing: None,
-                },
-            ));
-        }
-        for clause in ActiveSet::equality_factoring(&clause) {
-            generated_clauses.push((
-                clause,
-                ProofStep {
-                    rule: ProofRule::EqualityFactoring,
-                    activated,
-                    existing: None,
-                },
-            ));
-        }
-        self.insert(clause.clone(), false);
+
+        self.insert(clause.clone(), clause_type);
         generated_clauses
     }
 
@@ -604,7 +613,7 @@ mod tests {
         let mut set = ActiveSet::new();
         set.insert(
             Clause::new(vec![Literal::equals(res_left, res_right)]),
-            false,
+            ClauseType::Other,
         );
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
@@ -627,7 +636,10 @@ mod tests {
         let pm_left = Term::parse("c1");
         let pm_right = Term::parse("c3");
         let mut set = ActiveSet::new();
-        set.insert(Clause::new(vec![Literal::equals(pm_left, pm_right)]), false);
+        set.insert(
+            Clause::new(vec![Literal::equals(pm_left, pm_right)]),
+            ClauseType::Other,
+        );
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
         let res_left = Term::parse("c0(c3)");
@@ -664,7 +676,7 @@ mod tests {
     #[test]
     fn test_select_all_literals_for_paramodulation() {
         let mut set = ActiveSet::new();
-        set.insert(Clause::parse("c1 != c0(x0) | c2 = c3"), true);
+        set.insert(Clause::parse("c1 != c0(x0) | c2 = c3"), ClauseType::Fact);
         let resolver = Clause::parse("c2 != c3");
         let result = set.activate_resolver(&resolver);
         assert_eq!(result.len(), 1);

@@ -14,7 +14,7 @@ pub struct PassiveSet {
     num_adds: usize,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum ClauseType {
     Fact,
     NegatedGoal,

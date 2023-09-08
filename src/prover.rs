@@ -357,12 +357,8 @@ impl Prover<'_> {
         tracing: bool,
     ) -> Outcome {
         self.history.push(proof_step);
-        if clause_type == ClauseType::Fact {
-            self.active_set.insert(clause, true);
-            return Outcome::Unknown;
-        }
 
-        let gen_clauses = self.active_set.generate(&clause);
+        let gen_clauses = self.active_set.generate(&clause, clause_type);
 
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
