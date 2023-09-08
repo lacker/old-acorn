@@ -175,11 +175,12 @@ impl ActiveSet {
     // Returns whether this inference is allowed.
     // We are more restrictive on fact-fact inference than goal-based inference
     // because we have many more facts, thus we want to limit non-goal-related inference.
-    fn allow_fact_combining(&self, pm_clause: &Clause, _s: &Term, _t: &Term) -> bool {
+    fn allow_fact_combining(&self, pm_clause: &Clause, s: &Term, t: &Term) -> bool {
         if pm_clause.len() > 1 {
             return false;
         }
-        true
+
+        s.kbo(t) == Ordering::Greater
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the
