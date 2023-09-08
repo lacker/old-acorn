@@ -106,10 +106,9 @@ impl PassiveSet {
         self.add_helper(clause, ClauseType::NegatedGoal, ProofStep::assumption(), 0);
     }
 
-    // Add an intermediate calculation, that is neither fact nor direct goal
-    pub fn add(&mut self, clause: Clause, proof_step: ProofStep) {
+    pub fn add(&mut self, clause: Clause, clause_type: ClauseType, proof_step: ProofStep) {
         let weight = clause.atom_count();
-        self.add_helper(clause, ClauseType::Other, proof_step, weight);
+        self.add_helper(clause, clause_type, proof_step, weight);
     }
 
     pub fn pop(&mut self) -> Option<(Clause, ClauseType, ProofStep)> {

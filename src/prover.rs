@@ -369,6 +369,12 @@ impl Prover<'_> {
             }
         }
 
+        let generated_type = if clause_type == ClauseType::Fact {
+            ClauseType::Fact
+        } else {
+            ClauseType::Other
+        };
+
         let print_limit = 20;
         if !simp_clauses.is_empty() {
             let len = simp_clauses.len();
@@ -389,7 +395,7 @@ impl Prover<'_> {
                 } else if self.is_tracing(&c) {
                     self.print_proof_step(&c, ps);
                 }
-                self.passive.add(c, ps);
+                self.passive.add(c, generated_type, ps);
             }
         }
 
