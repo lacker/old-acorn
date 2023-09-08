@@ -780,20 +780,20 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_snap_add_suc_left() {
-    //     let env = snap_env();
-    //     assert_eq!(
-    //         Prover::prove_theorem(&env, "add_suc_left"),
-    //         Outcome::Success
-    //     );
-    // }
+    #[test]
+    fn test_snap_add_suc_left() {
+        let env = snap_env();
+        assert_eq!(
+            Prover::prove_theorem(&env, "add_suc_left"),
+            Outcome::Success
+        );
+    }
 
-    // #[test]
-    // fn test_snap_suc_ne() {
-    //     let env = snap_env();
-    //     assert_eq!(Prover::prove_theorem(&env, "suc_ne"), Outcome::Success);
-    // }
+    #[test]
+    fn test_snap_suc_ne() {
+        let env = snap_env();
+        assert_eq!(Prover::prove_theorem(&env, "suc_ne"), Outcome::Success);
+    }
 
     // #[test]
     // fn test_snap_suc_suc_ne() {
