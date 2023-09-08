@@ -727,4 +727,14 @@ mod tests {
         }
         panic!("Did not find expected clause");
     }
+
+    #[test]
+    fn test_matching_entire_literal() {
+        let mut set = ActiveSet::new();
+        set.insert(Clause::parse("!c0(x0) | c1(x0) != x0"), ClauseType::Fact);
+        let negagoal = Clause::parse("c1(s1) = s1");
+        let new_clauses = set.generate(&negagoal, ClauseType::NegatedGoal);
+        assert_eq!(new_clauses.len(), 1);
+        assert_eq!(new_clauses[0].0.to_string(), "!c0(s1)".to_string());
+    }
 }
