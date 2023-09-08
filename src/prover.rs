@@ -329,9 +329,14 @@ impl Prover<'_> {
                         println!("  {}", self.display(&clause));
                     }
 
-                    // Treat definitions like facts, not like goals.
-                    self.history.push(ProofStep::definition());
-                    self.active_set.insert(clause, true);
+                    // Treat the definition of synthesized predicates like extra facts.
+                    self.activate(
+                        clause,
+                        ClauseType::Fact,
+                        ProofStep::definition(),
+                        verbose,
+                        tracing,
+                    );
                 }
             } else if verbose {
                 println!("synthesized nothing");
