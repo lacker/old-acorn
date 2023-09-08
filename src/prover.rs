@@ -362,9 +362,7 @@ impl Prover<'_> {
 
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
-            println!("XXX generated: {}", self.display(&generated_clause));
             if let Some(simp_clause) = self.active_set.simplify(&generated_clause) {
-                println!("XXX simplifies to {}", self.display(&simp_clause));
                 simp_clauses.push((simp_clause, step));
             }
         }
@@ -397,10 +395,6 @@ impl Prover<'_> {
                 }
                 self.passive.add(c, generated_type, ps);
             }
-        }
-
-        if verbose {
-            println!("current clause type: {:?}", clause_type);
         }
         Outcome::Unknown
     }
