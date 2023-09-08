@@ -105,7 +105,7 @@ impl Prover<'_> {
     pub fn add_fact(&mut self, proposition: AcornValue) {
         self.facts.push(proposition.clone());
         for clause in self.normalize_proposition(proposition) {
-            self.activate(clause, ClauseType::Fact, ProofStep::assumption());
+            self.passive.add_fact(clause);
         }
     }
 
@@ -356,7 +356,9 @@ impl Prover<'_> {
 
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
+            println!("XXX generated: {}", self.display(&generated_clause));
             if let Some(simp_clause) = self.active_set.simplify(&generated_clause) {
+                println!("XXX simplifies to {}", self.display(&simp_clause));
                 simp_clauses.push((simp_clause, step));
             }
         }

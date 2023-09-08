@@ -517,6 +517,10 @@ impl ActiveSet {
 
         if clause.is_rewrite_rule() {
             let rewrite_literal = &clause.literals[0];
+            println!(
+                "XXX adding rewrite rule: {} -> {}",
+                rewrite_literal.left, rewrite_literal.right
+            );
             self.rewrite_rules
                 .insert(&rewrite_literal.left, clause_index);
         }
