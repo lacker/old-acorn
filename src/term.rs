@@ -643,7 +643,7 @@ impl Literal {
         self.positive && self.left == self.right
     }
 
-    // Returns whether this clause is syntactically impossible, i.e. foo != foo
+    // Returns whether this literal is syntactically impossible, i.e. foo != foo
     pub fn is_impossible(&self) -> bool {
         !self.positive && self.left == self.right
     }
