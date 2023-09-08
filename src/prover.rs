@@ -338,6 +338,19 @@ impl Prover<'_> {
             }
         }
 
+        self.activate(clause, clause_type, proof_step, verbose, tracing)
+    }
+
+    // Generates other clauses from this one.
+    // The clause should already be simplified.
+    fn activate(
+        &mut self,
+        clause: Clause,
+        clause_type: ClauseType,
+        proof_step: ProofStep,
+        verbose: bool,
+        tracing: bool,
+    ) -> Outcome {
         self.history.push(proof_step);
         if clause_type == ClauseType::Fact {
             self.active_set.insert(clause, true);
