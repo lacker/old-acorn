@@ -157,6 +157,16 @@ impl ActiveSet {
         .into_iter()
     }
 
+    // Whether this sort of inference is allowed to combine two facts into a new fact.
+    // We are more restrictive on this sort of inference than goal-based inference
+    // because we want to limit non-goal-related inference.
+    fn allow_fact_combining(&self, pm_clause: &Clause, _s: &Term, _t: &Term) -> bool {
+        if pm_clause.len() > 1 {
+            return false;
+        }
+        true
+    }
+
     // Look for superposition inferences using a paramodulator which is not yet in the
     // active set.
     // At a high level, this is when we have just learned that s = t in some circumstances,
@@ -178,13 +188,13 @@ impl ActiveSet {
         pm_clause: &Clause,
         clause_type: ClauseType,
     ) -> Vec<(Clause, usize)> {
-        if clause_type == ClauseType::Fact {
-            return vec![];
-        }
-
         let mut result = vec![];
         let pm_literal = &pm_clause.literals[0];
-        for (_, s, t) in Self::paramodulation_terms(pm_literal) {
+        for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
+            if clause_type == ClauseType::Fact && !self.allow_fact_combining(pm_clause, s, t) {
+                continue;
+            }
+
             // Look for resolution targets that match pm_left
             let targets = self.resolution_targets.get_unifying(s);
             for target in targets {
@@ -257,6 +267,9 @@ impl ActiveSet {
                 } else {
                     (&pm_literal.right, &pm_literal.left)
                 };
+                if clause_type == ClauseType::Fact && !self.allow_fact_combining(pm_clause, s, t) {
+                    continue;
+                }
 
                 // s/t must be in "left" scope and u/v must be in "right" scope
                 let mut unifier = Unifier::new();
