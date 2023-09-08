@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use crate::fingerprint::FingerprintTree;
@@ -150,16 +151,30 @@ impl ActiveSet {
         if !literal.positive {
             return vec![].into_iter();
         }
-        vec![
-            (true, &literal.left, &literal.right),
-            (false, &literal.right, &literal.left),
-        ]
-        .into_iter()
+        let order = literal.left.kbo(&literal.right);
+        match order {
+            Ordering::Greater => {
+                // s > t, so we only do forwards
+                vec![(true, &literal.left, &literal.right)].into_iter()
+            }
+            Ordering::Equal => {
+                // s = t, so we do both directions
+                vec![
+                    (true, &literal.left, &literal.right),
+                    (false, &literal.right, &literal.left),
+                ]
+                .into_iter()
+            }
+            Ordering::Less => {
+                panic!("Backwards literal: {:?}", literal);
+            }
+        }
     }
 
-    // Whether this sort of inference is allowed to combine two facts into a new fact.
-    // We are more restrictive on this sort of inference than goal-based inference
-    // because we want to limit non-goal-related inference.
+    // Considers an inference that rewrites s -> t, based on pm_clause, in a known fact.
+    // Returns whether this inference is allowed.
+    // We are more restrictive on fact-fact inference than goal-based inference
+    // because we have many more facts, thus we want to limit non-goal-related inference.
     fn allow_fact_combining(&self, pm_clause: &Clause, _s: &Term, _t: &Term) -> bool {
         if pm_clause.len() > 1 {
             return false;
