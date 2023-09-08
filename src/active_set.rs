@@ -516,19 +516,37 @@ impl ActiveSet {
     // If select_all is set, then every literal can be used as a target for paramodulation.
     // Otherwise, only the first one can be.
     fn insert(&mut self, clause: Clause, clause_type: ClauseType) {
-        // Add resolution targets for the new clause.
         let clause_index = self.clauses.len();
         let leftmost_literal = &clause.literals[0];
-        let leftmost_term = &leftmost_literal.left;
-        for (path, subterm) in leftmost_term.non_variable_subterms() {
-            self.resolution_targets.insert(
-                subterm,
-                ResolutionTarget {
-                    clause_index,
-                    literal_index: 0,
-                    path: path.clone(),
-                },
-            );
+
+        // Add resolution targets for the new clause.
+        if clause_type == ClauseType::Fact {
+            // Use any literal for resolution
+            for (i, literal) in clause.literals.iter().enumerate() {
+                for (path, subterm) in literal.left.non_variable_subterms() {
+                    self.resolution_targets.insert(
+                        subterm,
+                        ResolutionTarget {
+                            clause_index: self.clauses.len(),
+                            literal_index: i,
+                            path: path.clone(),
+                        },
+                    );
+                }
+            }
+        } else {
+            // Use only the leftmost literal for resolution.
+            let leftmost_term = &leftmost_literal.left;
+            for (path, subterm) in leftmost_term.non_variable_subterms() {
+                self.resolution_targets.insert(
+                    subterm,
+                    ResolutionTarget {
+                        clause_index,
+                        literal_index: 0,
+                        path: path.clone(),
+                    },
+                );
+            }
         }
 
         // Add paramodulation targets for the new clause.
