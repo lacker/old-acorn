@@ -366,8 +366,8 @@ impl Unifier {
     // If ?= is =, it's "superposition into positive literals".
     // If ?= is !=, it's "superposition into negative literals".
     //
-    // It is assumed that the first literal in pm_clause is the paramodulator,
-    // and assumed that the first literal in res_clause is the resolver.
+    // pm_clause.literals[pm_literal_index] is the paramodulator.
+    // res_clause.literals[res_literal_index] is the resolver.
     // These literals both get dropped in favor of the combined one, in the inferred clause.
     //
     // Refer to page 3 of "E: A Brainiac Theorem Prover" for more detail.
@@ -378,8 +378,9 @@ impl Unifier {
         pm_literal_index: usize,
         path: &[usize],
         res_clause: &Clause,
+        res_literal_index: usize,
     ) -> Clause {
-        let resolution_literal = &res_clause.literals[0];
+        let resolution_literal = &res_clause.literals[res_literal_index];
         let u = &resolution_literal.left;
         let v = &resolution_literal.right;
         let unified_u = self.apply_replace(
@@ -399,7 +400,10 @@ impl Unifier {
         let mut literals = vec![new_literal];
 
         // Type 2: the literals from unifying "R"
-        for literal in &res_clause.literals[1..] {
+        for (i, literal) in res_clause.literals.iter().enumerate() {
+            if i == res_literal_index {
+                continue;
+            }
             let unified_literal = self.apply_to_literal(Scope::Right, literal);
             literals.push(unified_literal);
         }
@@ -507,7 +511,7 @@ mod tests {
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &s, Scope::Right, &u_subterm);
         u.print();
-        let new_clause = u.superpose(&t, &pm_clause, 0, target_path, &resolution_clause);
+        let new_clause = u.superpose(&t, &pm_clause, 0, target_path, &resolution_clause, 0);
         assert!(
             new_clause.to_string()
                 == "c1(c2(c1, x0, c1(c1(c0)))) != c1(x1(x2)) | c1(c1(x0)) = x1(x2)"

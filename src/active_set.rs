@@ -38,9 +38,12 @@ pub struct ActiveSet {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ResolutionTarget {
     // Which clause the resolution target is in.
-    // For now, we assume the resolution target is the first term in the first literal of the clause.
     // For resolution, the literal can be either positive or negative.
     clause_index: usize,
+
+    // Which literal within the clause the resolution target is in.
+    // We assume the resolution target is the first term in the literal. (Is that okay?)
+    literal_index: usize,
 
     // We resolve against subterms. This is the path from the root term to the subterm to resolve against.
     // An empty path means resolve against the root.
@@ -132,7 +135,7 @@ impl ActiveSet {
 
     fn get_resolution_term(&self, target: &ResolutionTarget) -> &Term {
         let clause = &self.clauses[target.clause_index];
-        let mut term = &clause.literals[0].left;
+        let mut term = &clause.literals[target.literal_index].left;
         for i in &target.path {
             term = &term.args[*i];
         }
@@ -216,7 +219,14 @@ impl ActiveSet {
 
                 // The clauses do actually unify. Combine them according to the superposition rule.
                 let res_clause = &self.clauses[target.clause_index];
-                let new_clause = unifier.superpose(t, pm_clause, 0, &target.path, res_clause);
+                let new_clause = unifier.superpose(
+                    t,
+                    pm_clause,
+                    0,
+                    &target.path,
+                    res_clause,
+                    target.literal_index,
+                );
 
                 let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
                 if pm_clause.len() > 1 && eliminated_clauses < 2 {
@@ -284,7 +294,7 @@ impl ActiveSet {
 
                 // The clauses do actually unify. Combine them according to the superposition rule.
                 let new_clause =
-                    unifier.superpose(t, pm_clause, target.literal_index, &path, res_clause);
+                    unifier.superpose(t, pm_clause, target.literal_index, &path, res_clause, 0);
 
                 let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
                 if pm_clause.len() > 1 && eliminated_clauses < 2 {
@@ -515,6 +525,7 @@ impl ActiveSet {
                 subterm,
                 ResolutionTarget {
                     clause_index,
+                    literal_index: 0,
                     path: path.clone(),
                 },
             );
