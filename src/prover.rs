@@ -795,15 +795,15 @@ mod tests {
         assert_eq!(Prover::prove_theorem(&env, "suc_ne"), Outcome::Success);
     }
 
-    // #[test]
-    // fn test_snap_suc_suc_ne() {
-    //     let env = snap_env();
-    //     assert_eq!(Prover::prove_theorem(&env, "suc_suc_ne"), Outcome::Success);
-    // }
+    #[test]
+    fn test_snap_suc_suc_ne() {
+        let env = snap_env();
+        assert_eq!(Prover::prove_theorem(&env, "suc_suc_ne"), Outcome::Success);
+    }
 
-    // #[test]
-    // fn test_snap_add_comm() {
-    //     let env = snap_env();
-    //     assert_eq!(Prover::prove_theorem(&env, "add_comm"), Outcome::Success);
-    // }
+    #[test]
+    fn test_snap_add_comm() {
+        let env = snap_env();
+        assert_eq!(Prover::prove_theorem(&env, "add_comm"), Outcome::Success);
+    }
 }
