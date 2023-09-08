@@ -278,22 +278,14 @@ impl Prover<'_> {
 
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
-        if let Some((clause, clause_type, proof_step)) = self.passive.pop() {
-            self.activate(clause, clause_type, proof_step)
-        } else {
-            // We're out of clauses to process, so we can't make any more progress.
-            Outcome::Failure
-        }
-    }
+        let (clause, clause_type, proof_step) = match self.passive.pop() {
+            Some(tuple) => tuple,
+            None => {
+                // We're out of clauses to process, so we can't make any more progress.
+                return Outcome::Failure;
+            }
+        };
 
-    // `generate` is whether to use this clause for generation immediately, or just to insert it
-    // into the active set for future generation.
-    fn activate(
-        &mut self,
-        clause: Clause,
-        clause_type: ClauseType,
-        proof_step: ProofStep,
-    ) -> Outcome {
         let tracing = self.is_tracing(&clause);
         let verbose = self.verbose || tracing;
 
