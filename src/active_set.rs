@@ -130,13 +130,6 @@ impl ActiveSet {
         self.clauses.len()
     }
 
-    // Get an iterator of (path, subterm) for all allowable resolution targets of a term.
-    fn resolution_subterms(term: &Term) -> impl Iterator<Item = (Vec<usize>, &Term)> {
-        term.subterms()
-            .into_iter()
-            .filter(|(_, t)| !t.atomic_variable().is_some())
-    }
-
     fn get_resolution_term(&self, target: &ResolutionTarget) -> &Term {
         let clause = &self.clauses[target.clause_index];
         let mut term = &clause.literals[0].left;
@@ -261,7 +254,7 @@ impl ActiveSet {
         let mut result = vec![];
         let res_literal = &res_clause.literals[0];
         let u = &res_literal.left;
-        let u_subterms = u.subterms();
+        let u_subterms = u.non_variable_subterms();
 
         for (path, u_subterm) in u_subterms {
             if res_literal.positive && path.is_empty() {
@@ -517,7 +510,7 @@ impl ActiveSet {
         let clause_index = self.clauses.len();
         let leftmost_literal = &clause.literals[0];
         let leftmost_term = &leftmost_literal.left;
-        for (path, subterm) in ActiveSet::resolution_subterms(leftmost_term) {
+        for (path, subterm) in leftmost_term.non_variable_subterms() {
             self.resolution_targets.insert(
                 subterm,
                 ResolutionTarget {

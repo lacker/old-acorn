@@ -477,15 +477,20 @@ impl Term {
 
     // Finds all subterms of this term, and with their paths, appends to "answer".
     // prepends "prefix" to all paths.
+    // allow_variable is whether a variable atom like "x2" counts as a subterm.
     fn push_subterms<'a>(
         &'a self,
+        allow_variable: bool,
         prefix: &mut Vec<usize>,
         answer: &mut Vec<(Vec<usize>, &'a Term)>,
     ) {
+        if !allow_variable && self.is_variable() {
+            return;
+        }
         answer.push((prefix.clone(), self));
         for (i, arg) in self.args.iter().enumerate() {
             prefix.push(i);
-            arg.push_subterms(prefix, answer);
+            arg.push_subterms(allow_variable, prefix, answer);
             prefix.pop();
         }
     }
@@ -493,7 +498,14 @@ impl Term {
     pub fn subterms(&self) -> Vec<(Vec<usize>, &Term)> {
         let mut answer = vec![];
         let mut prefix = vec![];
-        self.push_subterms(&mut prefix, &mut answer);
+        self.push_subterms(true, &mut prefix, &mut answer);
+        answer
+    }
+
+    pub fn non_variable_subterms(&self) -> Vec<(Vec<usize>, &Term)> {
+        let mut answer = vec![];
+        let mut prefix = vec![];
+        self.push_subterms(false, &mut prefix, &mut answer);
         answer
     }
 
