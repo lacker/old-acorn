@@ -545,9 +545,32 @@ impl ActiveSet {
         clause_type: ClauseType,
     ) -> Vec<(Clause, ProofStep)> {
         let mut generated_clauses = vec![];
+        let activated = Some(self.clauses.len());
+
+        // We always allow ER/EF. Since they reduce the number of literals in a clause,
+        // they won't lead to infinite loops on the fact library.
+        if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
+            generated_clauses.push((
+                new_clause,
+                ProofStep {
+                    rule: ProofRule::EqualityResolution,
+                    activated,
+                    existing: None,
+                },
+            ));
+        }
+        for clause in ActiveSet::equality_factoring(&clause) {
+            generated_clauses.push((
+                clause,
+                ProofStep {
+                    rule: ProofRule::EqualityFactoring,
+                    activated,
+                    existing: None,
+                },
+            ));
+        }
 
         if clause_type != ClauseType::Fact {
-            let activated = Some(self.clauses.len());
             for (new_clause, i) in self.activate_paramodulator(&clause) {
                 generated_clauses.push((
                     new_clause,
@@ -567,26 +590,6 @@ impl ActiveSet {
                         existing: Some(i),
                     },
                 ))
-            }
-            if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
-                generated_clauses.push((
-                    new_clause,
-                    ProofStep {
-                        rule: ProofRule::EqualityResolution,
-                        activated,
-                        existing: None,
-                    },
-                ));
-            }
-            for clause in ActiveSet::equality_factoring(&clause) {
-                generated_clauses.push((
-                    clause,
-                    ProofStep {
-                        rule: ProofRule::EqualityFactoring,
-                        activated,
-                        existing: None,
-                    },
-                ));
             }
         }
 

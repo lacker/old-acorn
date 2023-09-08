@@ -577,29 +577,27 @@ mod tests {
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
     }
 
-    // I'm not sure if we need this to work or not.
-    // #[test]
-    // fn test_equality_resolution() {
-    //     let env = thing_env(
-    //         r#"
-    //         axiom foo(x: Thing): x != t | f(t)
-    //         theorem goal: f(t)
-    //         "#,
-    //     );
-    //     assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
-    // }
+    #[test]
+    fn test_equality_resolution() {
+        let env = thing_env(
+            r#"
+            axiom foo(x: Thing): x != t | f(t)
+            theorem goal: f(t)
+            "#,
+        );
+        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+    }
 
-    // I'm not sure if we need this to work or not.
-    // #[test]
-    // fn test_equality_factoring() {
-    //     let env = thing_env(
-    //         r#"
-    //         axiom foo(x: Thing, y: Thing): x = t | y = t
-    //         theorem goal(x: Thing): x = t2
-    //         "#,
-    //     );
-    //     assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
-    // }
+    #[test]
+    fn test_equality_factoring() {
+        let env = thing_env(
+            r#"
+            axiom foo(x: Thing, y: Thing): x = t | y = t
+            theorem goal(x: Thing): x = t2
+            "#,
+        );
+        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+    }
 
     #[test]
     fn test_prover_avoids_loops() {
