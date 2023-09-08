@@ -173,9 +173,16 @@ impl ActiveSet {
     //
     // in the superposition formula.
     // Returns the clauses we generated along with the index of the clause we used to generate them.
-    pub fn activate_paramodulator(&self, pm_clause: &Clause) -> Vec<(Clause, usize)> {
-        let mut result = vec![];
+    pub fn activate_paramodulator(
+        &self,
+        pm_clause: &Clause,
+        clause_type: ClauseType,
+    ) -> Vec<(Clause, usize)> {
+        if clause_type == ClauseType::Fact {
+            return vec![];
+        }
 
+        let mut result = vec![];
         let pm_literal = &pm_clause.literals[0];
         for (_, s, t) in Self::paramodulation_terms(pm_literal) {
             // Look for resolution targets that match pm_left
@@ -220,7 +227,15 @@ impl ActiveSet {
     //
     // in the superposition formula.
     // Returns the clauses we generated along with the index of the clause we used to generate them.
-    pub fn activate_resolver(&self, res_clause: &Clause) -> Vec<(Clause, usize)> {
+    pub fn activate_resolver(
+        &self,
+        res_clause: &Clause,
+        clause_type: ClauseType,
+    ) -> Vec<(Clause, usize)> {
+        if clause_type == ClauseType::Fact {
+            return vec![];
+        }
+
         let mut result = vec![];
         let res_literal = &res_clause.literals[0];
         let u = &res_literal.left;
@@ -570,27 +585,25 @@ impl ActiveSet {
             ));
         }
 
-        if clause_type != ClauseType::Fact {
-            for (new_clause, i) in self.activate_paramodulator(&clause) {
-                generated_clauses.push((
-                    new_clause,
-                    ProofStep {
-                        rule: ProofRule::ActivatingParamodulator,
-                        activated,
-                        existing: Some(i),
-                    },
-                ))
-            }
-            for (new_clause, i) in self.activate_resolver(&clause) {
-                generated_clauses.push((
-                    new_clause,
-                    ProofStep {
-                        rule: ProofRule::ActivatingResolver,
-                        activated,
-                        existing: Some(i),
-                    },
-                ))
-            }
+        for (new_clause, i) in self.activate_paramodulator(&clause, clause_type) {
+            generated_clauses.push((
+                new_clause,
+                ProofStep {
+                    rule: ProofRule::ActivatingParamodulator,
+                    activated,
+                    existing: Some(i),
+                },
+            ))
+        }
+        for (new_clause, i) in self.activate_resolver(&clause, clause_type) {
+            generated_clauses.push((
+                new_clause,
+                ProofStep {
+                    rule: ProofRule::ActivatingResolver,
+                    activated,
+                    existing: Some(i),
+                },
+            ))
         }
 
         self.insert(clause.clone(), clause_type);
@@ -623,7 +636,7 @@ mod tests {
         let pm_left = Term::parse("c1");
         let pm_right = Term::parse("c3");
         let pm_clause = Clause::new(vec![Literal::equals(pm_left.clone(), pm_right.clone())]);
-        let result = set.activate_paramodulator(&pm_clause);
+        let result = set.activate_paramodulator(&pm_clause, ClauseType::Other);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
@@ -648,7 +661,7 @@ mod tests {
         let res_left = Term::parse("c0(c3)");
         let res_right = Term::parse("c2");
         let res_clause = Clause::new(vec![Literal::equals(res_left, res_right)]);
-        let result = set.activate_resolver(&res_clause);
+        let result = set.activate_resolver(&res_clause, ClauseType::Other);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
@@ -681,7 +694,7 @@ mod tests {
         let mut set = ActiveSet::new();
         set.insert(Clause::parse("c1 != c0(x0) | c2 = c3"), ClauseType::Fact);
         let resolver = Clause::parse("c2 != c3");
-        let result = set.activate_resolver(&resolver);
+        let result = set.activate_resolver(&resolver, ClauseType::Other);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0.to_string(), "c1 != c0(x0)".to_string());
     }
