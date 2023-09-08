@@ -292,7 +292,6 @@ impl Prover<'_> {
         let mut original_clause_string = "".to_string();
         if verbose {
             original_clause_string = self.display(&clause).to_string();
-            println!("activating: {}", original_clause_string);
         }
 
         let clause = if let Some(clause) = self.active_set.simplify(&clause) {
@@ -300,14 +299,14 @@ impl Prover<'_> {
         } else {
             // The clause is redundant, so skip it.
             if verbose {
-                println!("  redundant");
+                println!("redundant: {}", original_clause_string);
             }
             return Outcome::Unknown;
         };
         if verbose {
             let s = self.display(&clause).to_string();
             if s != original_clause_string {
-                println!("simplified: {}", s);
+                println!("simplified: {} => {}", original_clause_string, s);
             }
         }
 
@@ -321,28 +320,26 @@ impl Prover<'_> {
         if clause_type == ClauseType::NegatedGoal {
             let synth_clauses = self.synthesizer.synthesize(&clause);
             if !synth_clauses.is_empty() {
-                if verbose {
-                    println!("synthesized {} new clauses:", synth_clauses.len());
-                }
                 for clause in synth_clauses {
                     if verbose {
-                        println!("  {}", self.display(&clause));
+                        println!("synthesizing: {}", self.display(&clause));
                     }
 
                     // Treat the definition of synthesized predicates like extra facts.
                     self.activate(
                         clause,
-                        ClauseType::Fact,
+                        ClauseType::Other,
                         ProofStep::definition(),
                         verbose,
                         tracing,
                     );
                 }
-            } else if verbose {
-                println!("synthesized nothing");
             }
         }
 
+        if verbose {
+            println!("activating: {}", original_clause_string);
+        }
         self.activate(clause, clause_type, proof_step, verbose, tracing)
     }
 
@@ -753,14 +750,14 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_snap_add_zero_left() {
-    //     let env = snap_env();
-    //     assert_eq!(
-    //         Prover::prove_theorem(&env, "add_zero_left"),
-    //         Outcome::Success
-    //     );
-    // }
+    #[test]
+    fn test_snap_add_zero_left() {
+        let env = snap_env();
+        assert_eq!(
+            Prover::prove_theorem(&env, "add_zero_left"),
+            Outcome::Success
+        );
+    }
 
     // #[test]
     // fn test_snap_add_suc_right() {

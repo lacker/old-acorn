@@ -258,10 +258,6 @@ impl ActiveSet {
         res_clause: &Clause,
         clause_type: ClauseType,
     ) -> Vec<(Clause, usize)> {
-        if clause_type == ClauseType::Fact {
-            return vec![];
-        }
-
         let mut result = vec![];
         let res_literal = &res_clause.literals[0];
         let u = &res_literal.left;
@@ -562,10 +558,6 @@ impl ActiveSet {
 
         if clause.is_rewrite_rule() {
             let rewrite_literal = &clause.literals[0];
-            println!(
-                "XXX adding rewrite rule: {} -> {}",
-                rewrite_literal.left, rewrite_literal.right
-            );
             self.rewrite_rules
                 .insert(&rewrite_literal.left, clause_index);
         }
