@@ -124,4 +124,8 @@ impl PassiveSet {
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
         self.clauses.iter().map(|pc| &pc.clause)
     }
+
+    pub fn next_clause_type(&self) -> Option<ClauseType> {
+        self.clauses.peek().map(|pc| pc.clause_type)
+    }
 }

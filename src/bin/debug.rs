@@ -105,84 +105,101 @@ fn main() {
             continue;
         }
 
-        if let Some(_) = trim_command("stats", &line) {
-            prover.print_stats();
-            continue;
-        }
-
-        if let Some(_) = trim_command("env", &line) {
-            prover.print_env();
-            continue;
-        }
-
-        // The "next" command moves to the next proposition.
-        if let Some(_) = trim_command("next", &line) {
-            if current == goals.len() - 1 {
-                println!("already at the last proposition");
-                continue;
+        match line.trim_end() {
+            "stats" => {
+                prover.print_stats();
             }
-            current = current + 1;
-            prover = Prover::load_goal(&goals[current]);
-            println!("loaded {}", goals[current].name);
-            continue;
-        }
+            "env" => {
+                prover.print_env();
+            }
 
-        if let Some(_) = trim_command("reset", &line) {
-            prover = Prover::load_goal(&goals[current]);
-            println!("loaded {}", goals[current].name);
-            continue;
-        }
+            "next" => {
+                if current == goals.len() - 1 {
+                    println!("already at the last proposition");
+                } else {
+                    current = current + 1;
+                    prover = Prover::load_goal(&goals[current]);
+                    println!("loaded {}", goals[current].name);
+                }
+            }
 
-        // A / will try to prove the next proposition for a while.
-        if line.trim_end() == "/" {
-            prover.hit_trace = false;
-            let start_time = std::time::Instant::now();
-            loop {
+            "reset" => {
+                prover = Prover::load_goal(&goals[current]);
+                println!("loaded {}", goals[current].name);
+            }
+
+            "/" => {
+                // A / will try to prove the next proposition for a while.
+                prover.hit_trace = false;
+                let start_time = std::time::Instant::now();
+                loop {
+                    let outcome = prover.activate_next();
+                    match outcome {
+                        Outcome::Success => {
+                            println!("Success! ({}s)", start_time.elapsed().as_secs_f32());
+                            prover.print_proof();
+                            break;
+                        }
+                        Outcome::Failure => {
+                            println!("Failure!");
+                            break;
+                        }
+                        Outcome::Unknown => {
+                            if prover.hit_trace {
+                                println!("trace found!");
+                                break;
+                            }
+                        }
+                    }
+                    if start_time.elapsed().as_secs_f32() > 10.0 {
+                        println!("Timeout!");
+                        break;
+                    }
+                }
+            }
+
+            "ff" => {
+                // "ff" runs to the end of the fact-fact inference stage.
+                prover.verbose = true;
+                while !prover.done_with_facts() {
+                    let outcome = prover.activate_next();
+                    match outcome {
+                        Outcome::Success => {
+                            println!("Success!");
+                            break;
+                        }
+                        Outcome::Failure => {
+                            println!("Failure!");
+                            break;
+                        }
+                        Outcome::Unknown => (),
+                    }
+                }
+                prover.verbose = false;
+                todo!();
+            }
+
+            "" => {
+                // Hitting enter does one step of proving.
+                prover.verbose = true;
                 let outcome = prover.activate_next();
                 match outcome {
                     Outcome::Success => {
-                        println!("Success! ({}s)", start_time.elapsed().as_secs_f32());
-                        prover.print_proof();
+                        println!("Success!");
                         break;
                     }
                     Outcome::Failure => {
                         println!("Failure!");
                         break;
                     }
-                    Outcome::Unknown => {
-                        if prover.hit_trace {
-                            println!("trace found!");
-                            break;
-                        }
-                    }
+                    Outcome::Unknown => (),
                 }
-                if start_time.elapsed().as_secs_f32() > 10.0 {
-                    println!("Timeout!");
-                    break;
-                }
+                prover.verbose = false;
             }
-            continue;
-        }
 
-        if line.trim_end() != "" {
-            println!("bad command: {}", line);
-            continue;
-        }
-
-        // Hitting enter does one step of proving.
-        prover.verbose = true;
-        let outcome = prover.activate_next();
-        match outcome {
-            Outcome::Success => {
-                println!("Success!");
-                break;
+            _ => {
+                println!("bad command: {}", line);
             }
-            Outcome::Failure => {
-                println!("Failure!");
-                break;
-            }
-            Outcome::Unknown => (),
         }
-        prover.verbose = false;
     }
 }

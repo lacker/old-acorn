@@ -440,6 +440,10 @@ impl Prover<'_> {
         }
     }
 
+    pub fn done_with_facts(&self) -> bool {
+        self.passive.next_clause_type() != Some(ClauseType::Fact)
+    }
+
     pub fn load_goal<'a>(goal_context: &GoalContext<'a>) -> Prover<'a> {
         let mut prover = Prover::new(&goal_context.env);
         for fact in &goal_context.facts {
