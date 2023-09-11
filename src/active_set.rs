@@ -214,9 +214,19 @@ impl ActiveSet {
         );
 
         let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
-        if pm_clause.len() > 1 && eliminated_clauses < 2 {
+        assert!(eliminated_clauses > 0);
+
+        if pm_clause.len() > 1 && eliminated_clauses == 1 {
             // Single elimination is only allowed for rewrites.
             return None;
+        }
+
+        if fact_fact && eliminated_clauses == 1 {
+            // We don't want fact-fact inference to go on forever, so we make sure there
+            // is a monovariant.
+            if new_clause.atom_count() > res_clause.atom_count() {
+                return None;
+            }
         }
 
         Some(new_clause)
