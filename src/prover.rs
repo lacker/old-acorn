@@ -75,7 +75,7 @@ impl Prover<'_> {
             active_set: ActiveSet::new(),
             passive: PassiveSet::new(),
             env,
-            verbose: true,
+            verbose: false,
             trace: None,
             hit_trace: false,
             history: Vec::new(),

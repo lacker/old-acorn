@@ -228,9 +228,12 @@ impl ActiveSet {
                     target.literal_index,
                 );
 
-                let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
-                if pm_clause.len() > 1 && eliminated_clauses < 2 {
-                    // Single elimination is only allowed for rewrites.
+                if !self.heuristic_ok(
+                    res_clause,
+                    pm_clause,
+                    &new_clause,
+                    clause_type == ClauseType::Fact,
+                ) {
                     continue;
                 }
 
@@ -296,9 +299,12 @@ impl ActiveSet {
                 let new_clause =
                     unifier.superpose(t, pm_clause, target.literal_index, &path, res_clause, 0);
 
-                let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
-                if pm_clause.len() > 1 && eliminated_clauses < 2 {
-                    // Single elimination is only allowed for rewrites.
+                if !self.heuristic_ok(
+                    res_clause,
+                    pm_clause,
+                    &new_clause,
+                    clause_type == ClauseType::Fact,
+                ) {
                     continue;
                 }
 
@@ -307,6 +313,23 @@ impl ActiveSet {
         }
 
         result
+    }
+
+    // Heuristics for whether to allow this paramodulation inference.
+    // fact_fact is whether both clause are factual, in which case we are more restrictive.
+    fn heuristic_ok(
+        &self,
+        res_clause: &Clause,
+        pm_clause: &Clause,
+        new_clause: &Clause,
+        fact_fact: bool,
+    ) -> bool {
+        let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
+        if pm_clause.len() > 1 && eliminated_clauses < 2 {
+            // Single elimination is only allowed for rewrites.
+            return false;
+        }
+        true
     }
 
     // Tries to do inference using the equality resolution (ER) rule.
