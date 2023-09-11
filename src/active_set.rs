@@ -213,7 +213,9 @@ impl ActiveSet {
             res_literal_index,
         );
 
-        if !self.heuristic_ok(res_clause, pm_clause, &new_clause, fact_fact) {
+        let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
+        if pm_clause.len() > 1 && eliminated_clauses < 2 {
+            // Single elimination is only allowed for rewrites.
             return None;
         }
 
@@ -317,47 +319,23 @@ impl ActiveSet {
                     continue;
                 }
 
-                // s/t must be in "left" scope and u/v must be in "right" scope
-                let mut unifier = Unifier::new();
-                if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
-                    continue;
-                }
-
-                // The clauses do actually unify. Combine them according to the superposition rule.
-                let new_clause =
-                    unifier.superpose(t, pm_clause, target.literal_index, &path, res_clause, 0);
-
-                if !self.heuristic_ok(
-                    res_clause,
+                if let Some(new_clause) = self.maybe_superpose(
+                    s,
+                    t,
                     pm_clause,
-                    &new_clause,
+                    target.literal_index,
+                    u_subterm,
+                    &path,
+                    res_clause,
+                    0,
                     clause_type == ClauseType::Fact,
                 ) {
-                    continue;
+                    result.push((new_clause, target.clause_index));
                 }
-
-                result.push((new_clause, target.clause_index));
             }
         }
 
         result
-    }
-
-    // Heuristics for whether to allow this paramodulation inference.
-    // fact_fact is whether both clause are factual, in which case we are more restrictive.
-    fn heuristic_ok(
-        &self,
-        res_clause: &Clause,
-        pm_clause: &Clause,
-        new_clause: &Clause,
-        fact_fact: bool,
-    ) -> bool {
-        let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
-        if pm_clause.len() > 1 && eliminated_clauses < 2 {
-            // Single elimination is only allowed for rewrites.
-            return false;
-        }
-        true
     }
 
     // Tries to do inference using the equality resolution (ER) rule.
