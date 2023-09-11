@@ -114,3 +114,24 @@ theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
     }
     f(a)
 }
+
+theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
+    add(add(a, b), add(c, d)) = add(add(a, c), add(b, d))
+
+theorem distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
+    let f(x: Nat) -> bool = distrib(x, b, c)
+    induction(f)
+    f(0)
+    forall(x: Nat) {
+        if f(x) {
+            mul(x, add(b, c)) = add(mul(x, b), mul(x, c))
+            mul(Suc(x), add(b, c)) = add(add(b, c), mul(x, add(b, c)))
+            mul(Suc(x), add(b, c)) = add(add(b, c), add(mul(x, b), mul(x, c)))
+            mul(Suc(x), add(b, c)) = add(add(b, c), add(mul(x, b), mul(x, c)))
+            mul(Suc(x), add(b, c)) = add(add(b, mul(x, b)), add(c, mul(x, c)))
+            mul(Suc(x), add(b, c)) = add(mul(Suc(x), b), mul(Suc(x), c))
+            f(Suc(x))
+        }
+    }
+}
+
