@@ -512,7 +512,7 @@ impl ActiveSet {
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
-    pub fn simplify(&mut self, clause: &Clause) -> Option<Clause> {
+    pub fn simplify(&mut self, clause: &Clause, clause_type: ClauseType) -> Option<Clause> {
         if clause.is_tautology() {
             return None;
         }
@@ -536,7 +536,12 @@ impl ActiveSet {
                     continue;
                 }
                 None => {
-                    rewritten_literals.push(rewritten_literal);
+                    if clause_type == ClauseType::NegatedGoal {
+                        // Don't automatically simplify the goal.
+                        rewritten_literals.push(literal.clone());
+                    } else {
+                        rewritten_literals.push(rewritten_literal);
+                    }
                 }
             }
         }

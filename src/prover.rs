@@ -295,7 +295,7 @@ impl Prover<'_> {
             original_clause_string = self.display(&clause).to_string();
         }
 
-        let clause = if let Some(clause) = self.active_set.simplify(&clause) {
+        let clause = if let Some(clause) = self.active_set.simplify(&clause, clause_type) {
             clause
         } else {
             // The clause is redundant, so skip it.
@@ -354,7 +354,6 @@ impl Prover<'_> {
     }
 
     // Generates other clauses from this one.
-    // The clause should already be simplified.
     fn activate(
         &mut self,
         clause: Clause,
@@ -369,7 +368,7 @@ impl Prover<'_> {
 
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
-            if let Some(simp_clause) = self.active_set.simplify(&generated_clause) {
+            if let Some(simp_clause) = self.active_set.simplify(&generated_clause, clause_type) {
                 simp_clauses.push((simp_clause, step));
             }
         }
