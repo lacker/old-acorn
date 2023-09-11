@@ -179,6 +179,47 @@ impl ActiveSet {
         s.kbo(t) == Ordering::Greater
     }
 
+    // Tries to do superposition, but uses heuristics to not do the inference sometimes.
+    //
+    // The pm clause is:
+    //   s = t | S
+    // The res clause is:
+    //   u ?= v | R
+    //
+    // fact_fact is whether both clause are factual, in which case we are more restrictive.
+    fn maybe_superpose(
+        &self,
+        s: &Term,
+        t: &Term,
+        pm_clause: &Clause,
+        pm_literal_index: usize,
+        u_subterm: &Term,
+        u_subterm_path: &[usize],
+        res_clause: &Clause,
+        res_literal_index: usize,
+        fact_fact: bool,
+    ) -> Option<Clause> {
+        let mut unifier = Unifier::new();
+        // s/t must be in "left" scope and u/v must be in "right" scope
+        if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
+            return None;
+        }
+        let new_clause = unifier.superpose(
+            t,
+            pm_clause,
+            pm_literal_index,
+            u_subterm_path,
+            res_clause,
+            res_literal_index,
+        );
+
+        if !self.heuristic_ok(res_clause, pm_clause, &new_clause, fact_fact) {
+            return None;
+        }
+
+        Some(new_clause)
+    }
+
     // Look for superposition inferences using a paramodulator which is not yet in the
     // active set.
     // At a high level, this is when we have just learned that s = t in some circumstances,
@@ -211,33 +252,20 @@ impl ActiveSet {
             let targets = self.resolution_targets.get_unifying(s);
             for target in targets {
                 let u_subterm = self.get_resolution_term(target);
-                let mut unifier = Unifier::new();
-                // s/t must be in "left" scope and u/v must be in "right" scope
-                if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
-                    continue;
-                }
 
-                // The clauses do actually unify. Combine them according to the superposition rule.
-                let res_clause = &self.clauses[target.clause_index];
-                let new_clause = unifier.superpose(
+                if let Some(new_clause) = self.maybe_superpose(
+                    s,
                     t,
                     pm_clause,
                     0,
+                    u_subterm,
                     &target.path,
-                    res_clause,
+                    &self.clauses[target.clause_index],
                     target.literal_index,
-                );
-
-                if !self.heuristic_ok(
-                    res_clause,
-                    pm_clause,
-                    &new_clause,
                     clause_type == ClauseType::Fact,
                 ) {
-                    continue;
+                    result.push((new_clause, target.clause_index));
                 }
-
-                result.push((new_clause, target.clause_index));
             }
         }
 
