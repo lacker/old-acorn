@@ -106,6 +106,8 @@ theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
     forall(x: Nat) {
         if f(x) {
             mul(x, b) = mul(b, x)
+            mul(Suc(x), b) = add(b, mul(x, b))
+            mul(b, Suc(x)) = add(b, mul(x, b))
             mul(Suc(x), b) = mul(b, Suc(x))
             f(Suc(x))
         }
