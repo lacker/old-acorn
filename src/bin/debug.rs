@@ -176,7 +176,6 @@ fn main() {
                     }
                 }
                 prover.verbose = false;
-                todo!();
             }
 
             "" => {
