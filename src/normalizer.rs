@@ -131,17 +131,15 @@ impl Normalizer {
         let mut clauses = vec![];
         for literals in literal_lists {
             assert!(literals.len() > 0);
-            clauses.push(Clause::new(literals));
+            let clause = Clause::new(literals);
+            // println!("clause: {}", clause);
+            clauses.push(clause);
         }
         clauses
     }
 
-    pub fn check(&mut self, env: &Environment, name: &str, expected: &[&str]) {
-        let val = match env.get_theorem_claim(name) {
-            Some(val) => val,
-            None => panic!("no value named {}", name),
-        };
-        let actual = self.normalize(env, val);
+    fn check_value(&mut self, env: &Environment, value: AcornValue, expected: &[&str]) {
+        let actual = self.normalize(env, value);
         if actual.len() != expected.len() {
             panic!(
                 "expected {} clauses, got {}:\n{}",
@@ -155,8 +153,22 @@ impl Normalizer {
             );
         }
         for i in 0..actual.len() {
-            assert_eq!(format!("{}", actual[i]), expected[i]);
+            if actual[i].to_string() != expected[i] {
+                panic!(
+                    "expected clause {} to be:\n{}\ngot:\n{}",
+                    i, expected[i], actual[i]
+                );
+            }
         }
+    }
+
+    // Checks a theorem
+    pub fn check(&mut self, env: &Environment, name: &str, expected: &[&str]) {
+        let val = match env.get_theorem_claim(name) {
+            Some(val) => val,
+            None => panic!("no value named {}", name),
+        };
+        self.check_value(env, val, expected);
     }
 }
 

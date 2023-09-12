@@ -62,9 +62,6 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
 define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
 
-// define adder: Nat -> (Nat -> Nat) = axiom
-// axiom adder_def(a: Nat, b: Nat): add(a, b) = adder(a)(b)
-
 define mul(a: Nat, b: Nat) -> Nat = recursion(adder(a), 0, b)
 
 theorem mul_zero_right(a: Nat): mul(a, 0) = 0

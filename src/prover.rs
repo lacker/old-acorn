@@ -99,7 +99,8 @@ impl Prover<'_> {
             );
         }
         assert_eq!(proposition.get_type(), AcornType::Bool);
-        self.normalizer.normalize(self.env, proposition)
+        let answer = self.normalizer.normalize(self.env, proposition);
+        answer
     }
 
     pub fn add_fact(&mut self, proposition: AcornValue) {

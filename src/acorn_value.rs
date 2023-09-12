@@ -489,7 +489,7 @@ impl AcornValue {
                     .enumerate()
                     .map(|(i, t)| {
                         AcornValue::Atom(TypedAtom {
-                            atom: Atom::Variable(i as AtomId),
+                            atom: Atom::Variable(stack_size + i as AtomId),
                             acorn_type: t.clone(),
                         })
                     })
@@ -532,11 +532,12 @@ impl AcornValue {
                     .apply_to_free_variables(stack_size);
                 assert_eq!(left_quants, right_quants);
                 let equality = AcornValue::Equals(Box::new(left), Box::new(right));
-                if left_quants.is_empty() {
+                let answer = if left_quants.is_empty() {
                     equality
                 } else {
                     AcornValue::ForAll(left_quants, Box::new(equality))
-                }
+                };
+                answer
             }
             AcornValue::NotEquals(left, right) => {
                 let (left_quants, left) = left
