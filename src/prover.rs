@@ -738,6 +738,20 @@ mod tests {
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
+    #[test]
+    fn test_closure_proof() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define add: (Nat, Nat) -> Nat = axiom
+            define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
+            theorem goal(a: Nat, b: Nat): add(a, b) = adder(a)(b)
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
     // An environment with theorems that we should be able to prove in testing.
     // Ideally when there's a problem with one of these theorems we can simplify it
     // to a test that doesn't use the snap environment.
