@@ -146,3 +146,8 @@ theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c))
         }
     }
 }
+
+define lte(a: Nat, b: Nat) -> bool = exists(c: Nat) { add(a, c) = b }
+
+define lt(a: Nat, b: Nat) -> bool = lte(a, b) & a != b
+
