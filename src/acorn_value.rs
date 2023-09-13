@@ -228,10 +228,10 @@ impl AcornValue {
     // We want as close to CNF as possible.
     // So the order outside-in goes: and, or, negates.
     fn boolean_comparison(left: AcornValue, right: AcornValue, negate: bool) -> AcornValue {
-        let negative_left = left.clone().maybe_negate(true);
-        let negative_right = right.clone().maybe_negate(true);
-        let positive_left = left.maybe_negate(false);
-        let positive_right = right.maybe_negate(false);
+        let negative_left = left.clone().move_negation_inwards(true);
+        let negative_right = right.clone().move_negation_inwards(true);
+        let positive_left = left.move_negation_inwards(false);
+        let positive_right = right.move_negation_inwards(false);
         if negate {
             // left != right is equivalent to:
             //   (left | right) & (!left | !right)

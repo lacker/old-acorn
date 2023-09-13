@@ -107,23 +107,20 @@ impl Normalizer {
     }
 
     pub fn normalize(&mut self, env: &Environment, value: AcornValue) -> Vec<Clause> {
-        // println!("\nnormalizing: {}", env.value_str(&value));
-        let replaced = value.replace_function_equality(0);
-        // println!("\nreplaced: {}", env.value_str(&replaced));
-        let expanded = replaced.expand_lambdas(0);
-        // println!("\nexpanded: {}\n", env.value_str(&expanded));
-        let neg_in = expanded.move_negation_inwards(false);
-        // println!("negin: {}", neg_in);
-        let skolemized = self.skolemize(&vec![], neg_in);
-        // println!("skolemized: {}", skolemized);
+        println!("\nXXX normalizing: {}", env.value_str(&value));
+        let value = value.replace_function_equality(0);
+        let value = value.expand_lambdas(0);
+        let value = value.move_negation_inwards(false);
+        println!("XXX negin'd: {}", env.value_str(&value));
+        let value = self.skolemize(&vec![], value);
+        println!("XXX skolemized: {}", env.value_str(&value));
         let mut universal = vec![];
-        let dequantified = skolemized.remove_forall(&mut universal);
-        // println!("universal: {}", AcornType::vec_to_str(&universal));
+        let value = value.remove_forall(&mut universal);
         let mut literal_lists = vec![];
-        if let Err(e) = self.typespace.into_cnf(&dequantified, &mut literal_lists) {
+        if let Err(e) = self.typespace.into_cnf(&value, &mut literal_lists) {
             panic!(
                 "\nerror converting {} to CNF:\n{}",
-                env.value_str(&dequantified),
+                env.value_str(&value),
                 e
             );
         }
