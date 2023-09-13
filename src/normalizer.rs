@@ -107,7 +107,7 @@ impl Normalizer {
     }
 
     pub fn normalize(&mut self, env: &Environment, value: AcornValue) -> Vec<Clause> {
-        // println!("\nvalue: {}", env.value_str(&value));
+        // println!("\nnormalizing: {}", env.value_str(&value));
         let replaced = value.replace_function_equality(0);
         // println!("\nreplaced: {}", env.value_str(&replaced));
         let expanded = replaced.expand_lambdas(0);

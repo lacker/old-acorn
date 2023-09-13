@@ -477,13 +477,13 @@ mod tests {
         let mut env = Environment::new();
         env.add(
             r#"
-        type Thing: axiom
-        define t: Thing = axiom
-        define t2: Thing = axiom
-        define f: Thing -> bool = axiom
-        define g: (Thing, Thing) -> Thing = axiom
-        define h: Thing -> Thing = axiom
-        "#,
+            type Thing: axiom
+            define t: Thing = axiom
+            define t2: Thing = axiom
+            define f: Thing -> bool = axiom
+            define g: (Thing, Thing) -> Thing = axiom
+            define h: Thing -> Thing = axiom
+            "#,
         );
         env.add(s);
         env
@@ -493,9 +493,9 @@ mod tests {
     fn test_specialization() {
         let env = thing_env(
             r#"
-        axiom f_all(x: Thing): f(x)
-        theorem goal: f(t)
-        "#,
+            axiom f_all(x: Thing): f(x)
+            theorem goal: f(t)
+            "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
     }
@@ -504,9 +504,9 @@ mod tests {
     fn test_backward_specialization_fails() {
         let env = thing_env(
             r#"
-        axiom f_one: f(t)
-        theorem goal(x: Thing): f(x)
-        "#,
+            axiom f_one: f(t)
+            theorem goal(x: Thing): f(x)
+            "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
     }
@@ -515,9 +515,9 @@ mod tests {
     fn test_finds_example() {
         let env = thing_env(
             r#"
-        axiom f_one: f(t)
-        theorem goal: exists(x: Thing) { f(x) }
-        "#,
+            axiom f_one: f(t)
+            theorem goal: exists(x: Thing) { f(x) }
+            "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
     }
@@ -526,9 +526,9 @@ mod tests {
     fn test_finds_negative_example() {
         let env = thing_env(
             r#"
-        axiom not_f(x: Thing): !f(x)
-        theorem goal: !f(t)
-        "#,
+            axiom not_f(x: Thing): !f(x)
+            theorem goal: !f(t)
+            "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
     }
@@ -539,7 +539,7 @@ mod tests {
             r#"
             axiom t_eq_t2: t = t2
             theorem goal: f(t) = f(t2) 
-        "#,
+            "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
     }
@@ -548,10 +548,10 @@ mod tests {
     fn test_composition() {
         let env = thing_env(
             r#"
-        axiom f_t: f(t)
-        axiom g_id(x: Thing): g(x, x) = x
-        theorem goal: f(g(t, t))
-        "#,
+            axiom g_id(x: Thing): g(x, x) = x
+            axiom f_t: f(t)
+            theorem goal: f(g(t, t))
+            "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
     }
@@ -560,10 +560,10 @@ mod tests {
     fn test_composition_can_fail() {
         let env = thing_env(
             r#"
-        axiom f_t: f(t)
-        axiom g_id(x: Thing): g(x, x) = x
-        theorem goal: f(g(t, t2))
-        "#,
+            axiom f_t: f(t)
+            axiom g_id(x: Thing): g(x, x) = x
+            theorem goal: f(g(t, t2))
+            "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
     }
@@ -575,7 +575,7 @@ mod tests {
             axiom not_f_t: !f(t)
             axiom g_id(x: Thing): g(x, x) = x
             theorem goal: !f(g(t, t))
-        "#,
+            "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
     }
@@ -584,9 +584,9 @@ mod tests {
     fn test_extends_ne() {
         let env = thing_env(
             r#"
-        axiom f_t_ne_f_t2: f(t) != f(t2)
-        theorem goal: t != t2
-        "#,
+            axiom f_t_ne_f_t2: f(t) != f(t2)
+            theorem goal: t != t2
+            "#,
         );
         assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
     }
@@ -748,6 +748,21 @@ mod tests {
             define add: (Nat, Nat) -> Nat = axiom
             define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
             theorem goal(a: Nat, b: Nat): add(a, b) = adder(a)(b)
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_boolean_equality() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define add: (Nat, Nat) -> Nat = axiom
+            define lte(a: Nat, b: Nat) -> bool = exists(c: Nat) { add(a, c) = b }
+            define lt(a: Nat, b: Nat) -> bool = lte(a, b) & a != b
+            theorem goal(a: Nat): !lt(a, a)
         "#,
         );
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
