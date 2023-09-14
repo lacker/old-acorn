@@ -98,9 +98,8 @@ pub struct ClauseInfo {
     // Cached for simplicity
     pub atom_count: u32,
 
-    // When the clause was inserted into the passive set.
-    // This will never be equal for any two clauses, so we can use it as a tiebreaker.
-    pub passive_order: usize,
+    // When the clause was generated.
+    pub generation_order: usize,
 }
 
 impl Ord for ClauseInfo {
@@ -122,7 +121,7 @@ impl Ord for ClauseInfo {
         }
 
         // Prefer clauses that were added earlier
-        other.passive_order.cmp(&self.passive_order)
+        other.generation_order.cmp(&self.generation_order)
     }
 }
 

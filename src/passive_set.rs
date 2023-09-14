@@ -28,7 +28,7 @@ impl PassiveSet {
             clause_type,
             proof_step,
             atom_count,
-            passive_order: self.num_adds,
+            generation_order: self.num_adds,
         });
         self.num_adds += 1;
     }
