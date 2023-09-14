@@ -81,10 +81,10 @@ pub enum ProofRule {
 pub struct ProofStep {
     pub rule: ProofRule,
 
-    // The clause index that was activated to generate this clause.
+    // The clause index in the active set that was activated to generate this clause.
     pub activated: Option<usize>,
 
-    // The index of the already-activated clause we used in this step, if there was any.
+    // The index of the already-activated clause in the active set we used, if there was any.
     pub existing: Option<usize>,
 }
 
