@@ -1,9 +1,8 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
-use crate::active_set::ProofStep;
 use crate::clause::Clause;
-use crate::proof::ClauseType;
+use crate::proof::{ClauseType, ProofStep};
 
 // The PassiveSet stores a bunch of clauses.
 // It does not assist in generating new clauses.

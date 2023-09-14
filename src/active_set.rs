@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
-use crate::proof::ClauseType;
+use crate::proof::{ClauseType, ProofRule, ProofStep};
 use crate::specializer::Specializer;
 use crate::term::{Literal, Term};
 use crate::unifier::{Scope, Unifier};
@@ -64,58 +64,6 @@ struct ParamodulationTarget {
     // "forwards" paramodulation is when we use s = t to rewrite s to t.
     // "backwards" paramodulation is when we use s = t to rewrite t to s.
     forwards: bool,
-}
-
-// The rules that can generate new clauses.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ProofRule {
-    Assumption,
-    Definition,
-    ActivatingParamodulator,
-    ActivatingResolver,
-    EqualityFactoring,
-    EqualityResolution,
-}
-
-// The ProofStep records how one clause was generated from other clauses.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ProofStep {
-    pub rule: ProofRule,
-
-    // The clause index in the active set that was activated to generate this clause.
-    pub activated: Option<usize>,
-
-    // The index of the already-activated clause in the active set we used, if there was any.
-    pub existing: Option<usize>,
-}
-
-impl ProofStep {
-    pub fn assumption() -> ProofStep {
-        ProofStep {
-            rule: ProofRule::Assumption,
-            activated: None,
-            existing: None,
-        }
-    }
-
-    pub fn definition() -> ProofStep {
-        ProofStep {
-            rule: ProofRule::Definition,
-            activated: None,
-            existing: None,
-        }
-    }
-
-    pub fn indices(&self) -> impl Iterator<Item = &usize> {
-        self.activated.iter().chain(self.existing.iter())
-    }
-
-    pub fn is_assumption(&self) -> bool {
-        match self.rule {
-            ProofRule::Assumption => true,
-            _ => false,
-        }
-    }
 }
 
 impl ActiveSet {
