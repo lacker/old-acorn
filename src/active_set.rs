@@ -1,9 +1,10 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-use crate::clause::{Clause, ClauseType};
+use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
+use crate::proof::ClauseType;
 use crate::specializer::Specializer;
 use crate::term::{Literal, Term};
 use crate::unifier::{Scope, Unifier};

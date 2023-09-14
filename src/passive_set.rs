@@ -2,7 +2,8 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
 use crate::active_set::ProofStep;
-use crate::clause::{Clause, ClauseType};
+use crate::clause::Clause;
+use crate::proof::ClauseType;
 
 // The PassiveSet stores a bunch of clauses.
 // It does not assist in generating new clauses.
@@ -24,7 +25,7 @@ struct ClauseInfo {
 
     // When the clause was inserted into the passive set.
     // This will never be equal for any two clauses, so we can use it as a tiebreaker.
-    insertion_order: usize,
+    passive_order: usize,
 }
 
 impl Ord for ClauseInfo {
@@ -44,7 +45,7 @@ impl Ord for ClauseInfo {
         }
 
         // Prefer clauses that were added earlier
-        other.insertion_order.cmp(&self.insertion_order)
+        other.passive_order.cmp(&self.passive_order)
     }
 }
 
@@ -74,7 +75,7 @@ impl PassiveSet {
             clause_type,
             proof_step,
             atom_count: weight,
-            insertion_order: self.num_adds,
+            passive_order: self.num_adds,
         });
         self.num_adds += 1;
     }
