@@ -42,10 +42,8 @@ impl PassiveSet {
         self.add(clause, ClauseType::NegatedGoal, ProofStep::assumption());
     }
 
-    pub fn pop(&mut self) -> Option<(Clause, ClauseType, ProofStep)> {
-        self.clauses
-            .pop()
-            .map(|pc| (pc.clause, pc.clause_type, pc.proof_step))
+    pub fn pop(&mut self) -> Option<ClauseInfo> {
+        self.clauses.pop()
     }
 
     pub fn len(&self) -> usize {

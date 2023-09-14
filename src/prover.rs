@@ -280,24 +280,25 @@ impl Prover<'_> {
 
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
-        let (clause, clause_type, proof_step) = match self.passive.pop() {
-            Some(tuple) => tuple,
+        let info = match self.passive.pop() {
+            Some(info) => info,
             None => {
                 // We're out of clauses to process, so we can't make any more progress.
                 return Outcome::Failure;
             }
         };
 
-        let tracing = self.is_tracing(&clause);
+        let tracing = self.is_tracing(&info.clause);
         let verbose = self.verbose || tracing;
 
         let mut original_clause_string = "".to_string();
         let mut simplified_clause_string = "".to_string();
         if verbose {
-            original_clause_string = self.display(&clause).to_string();
+            original_clause_string = self.display(&info.clause).to_string();
         }
 
-        let clause = if let Some(clause) = self.active_set.simplify(&clause, clause_type) {
+        let clause = if let Some(clause) = self.active_set.simplify(&info.clause, info.clause_type)
+        {
             clause
         } else {
             // The clause is redundant, so skip it.
@@ -317,13 +318,13 @@ impl Prover<'_> {
         }
 
         if clause.is_impossible() {
-            self.final_step = Some(proof_step);
+            self.final_step = Some(info.proof_step);
             return Outcome::Success;
         }
         self.synthesizer.observe_types(&clause);
 
         // Synthesize predicates if this is the negated goal.
-        if clause_type == ClauseType::NegatedGoal {
+        if info.clause_type == ClauseType::NegatedGoal {
             let synth_clauses = self.synthesizer.synthesize(&clause);
             if !synth_clauses.is_empty() {
                 for clause in synth_clauses {
@@ -345,14 +346,14 @@ impl Prover<'_> {
         }
 
         if verbose {
-            let prefix = match clause_type {
+            let prefix = match info.clause_type {
                 ClauseType::Fact => " fact",
                 ClauseType::NegatedGoal => " negated goal",
                 ClauseType::Other => "",
             };
             println!("activating{}: {}", prefix, simplified_clause_string);
         }
-        self.activate(clause, clause_type, proof_step, verbose, tracing)
+        self.activate(clause, info.clause_type, info.proof_step, verbose, tracing)
     }
 
     // Generates other clauses from this one.
