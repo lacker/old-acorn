@@ -113,10 +113,12 @@ impl Ord for ClauseInfo {
             return by_type;
         }
 
-        // Prefer clauses with fewer atoms
-        let by_atom_count = other.atom_count.cmp(&self.atom_count);
-        if by_atom_count != Ordering::Equal {
-            return by_atom_count;
+        if self.clause_type == ClauseType::Other {
+            // Prefer clauses with fewer atoms
+            let by_atom_count = other.atom_count.cmp(&self.atom_count);
+            if by_atom_count != Ordering::Equal {
+                return by_atom_count;
+            }
         }
 
         // Prefer clauses that were added earlier
