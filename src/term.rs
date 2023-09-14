@@ -3,7 +3,6 @@ use std::fmt;
 
 use crate::atom::{Atom, AtomId};
 use crate::type_space::{TypeId, ANY, BOOL};
-use crate::unifier::Unifier;
 
 // A term with no args is a plain atom.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -372,7 +371,7 @@ impl Term {
     }
 
     // "true" counts as 0.
-    fn atom_count(&self) -> u32 {
+    pub fn atom_count(&self) -> u32 {
         let mut answer = if self.head == Atom::True { 0 } else { 1 };
         for arg in &self.args {
             answer += arg.atom_count();
@@ -696,7 +695,7 @@ impl Literal {
         self.map(&mut |term| term.replace_atom(atom, replacement))
     }
 
-    fn atom_count(&self) -> u32 {
+    pub fn atom_count(&self) -> u32 {
         self.left.atom_count() + self.right.atom_count()
     }
 }
@@ -727,108 +726,6 @@ impl Ord for Literal {
     }
 }
 
-// A clause is a disjunction (an "or") of literals, universally quantified over some variables.
-// We include the types of the universal variables it is quantified over.
-// It cannot contain existential quantifiers.
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub struct Clause {
-    pub literals: Vec<Literal>,
-}
-
-impl fmt::Display for Clause {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.literals.is_empty() {
-            return write!(f, "<empty>");
-        }
-        for (i, literal) in self.literals.iter().enumerate() {
-            if i > 0 {
-                write!(f, " | ")?;
-            }
-            write!(f, "{}", literal)?;
-        }
-        Ok(())
-    }
-}
-
-impl Clause {
-    // Sorts literals.
-    // Removes any duplicate or impossible literals.
-    // An empty clause indicates an impossible clause.
-    pub fn new(literals: Vec<Literal>) -> Clause {
-        let mut literals = literals
-            .into_iter()
-            .filter(|x| !x.is_impossible())
-            .collect::<Vec<_>>();
-        literals.sort();
-        literals.dedup();
-
-        Clause {
-            literals: Unifier::normalize_var_ids(&literals),
-        }
-    }
-
-    pub fn impossible() -> Clause {
-        Clause::new(vec![])
-    }
-
-    pub fn parse(s: &str) -> Clause {
-        Clause::new(
-            s.split(" | ")
-                .map(|x| Literal::parse(x))
-                .collect::<Vec<_>>(),
-        )
-    }
-
-    pub fn num_quantifiers(&self) -> AtomId {
-        let mut answer = 0;
-        for literal in &self.literals {
-            answer = answer.max(literal.num_quantifiers());
-        }
-        answer
-    }
-
-    pub fn is_tautology(&self) -> bool {
-        // Find the index of the first positive literal
-        if let Some(first_pos) = self.literals.iter().position(|x| x.positive) {
-            // Check for (!p, p) pairs which cause a tautology
-            for neg_literal in &self.literals[0..first_pos] {
-                for pos_literal in &self.literals[first_pos..] {
-                    if neg_literal.left == pos_literal.left
-                        && neg_literal.right == pos_literal.right
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        self.literals.iter().any(|x| x.is_tautology())
-    }
-
-    pub fn is_impossible(&self) -> bool {
-        self.literals.is_empty()
-    }
-
-    pub fn atom_count(&self) -> u32 {
-        self.literals.iter().map(|x| x.atom_count()).sum()
-    }
-
-    pub fn is_rewrite_rule(&self) -> bool {
-        if self.literals.len() != 1 {
-            return false;
-        }
-        let literal = &self.literals[0];
-        if !literal.positive {
-            return false;
-        }
-        return literal.left.kbo(&literal.right) == Ordering::Greater;
-    }
-
-    pub fn len(&self) -> usize {
-        self.literals.len()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -838,14 +735,6 @@ mod tests {
         assert!(Term::parse("c0") < Term::parse("c1"));
         assert!(Term::parse("c2") < Term::parse("c0(c1)"));
         assert!(Term::parse("x0(x1)") < Term::parse("x0(s0(x0))"));
-    }
-
-    #[test]
-    fn test_clause_is_rewrite_rule() {
-        assert!(Clause::parse("c0(x0) = x0").is_rewrite_rule());
-        assert!(Clause::parse("c0(x0, x0) = x0").is_rewrite_rule());
-        assert!(!Clause::parse("c0(x0, x0) != x0").is_rewrite_rule());
-        assert!(!Clause::parse("c0(x0, x1) = c0(x1, x0)").is_rewrite_rule());
     }
 
     #[test]

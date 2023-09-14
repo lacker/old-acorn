@@ -4,12 +4,12 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::{ActiveSet, ProofStep};
 use crate::atom::Atom;
+use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::environment::{Environment, GoalContext};
 use crate::normalizer::Normalizer;
 use crate::passive_set::{ClauseType, PassiveSet};
 use crate::synthesizer::Synthesizer;
-use crate::term::Clause;
 
 pub struct Prover<'a> {
     // The environment in which all the AcornValues we are passed live.

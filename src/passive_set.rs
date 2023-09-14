@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
 use crate::active_set::ProofStep;
-use crate::term::Clause;
+use crate::clause::Clause;
 
 // The PassiveSet stores a bunch of clauses.
 // It does not assist in generating new clauses.

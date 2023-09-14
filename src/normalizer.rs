@@ -1,8 +1,8 @@
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::atom::{Atom, AtomId, TypedAtom};
+use crate::clause::Clause;
 use crate::environment::Environment;
-use crate::term::Clause;
 use crate::type_space::TypeSpace;
 
 pub struct Normalizer {

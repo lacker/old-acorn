@@ -1,8 +1,9 @@
 use std::fmt;
 
 use crate::atom::Atom;
+use crate::clause::Clause;
 use crate::environment::Environment;
-use crate::term::{Clause, Literal, Term};
+use crate::term::{Literal, Term};
 
 pub struct DisplayAtom<'a> {
     atom: Atom,

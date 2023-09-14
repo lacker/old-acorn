@@ -3,7 +3,8 @@ use std::fmt;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
-use crate::term::{Clause, Literal, Term};
+use crate::clause::Clause;
+use crate::term::{Literal, Term};
 
 pub type TypeId = u16;
 
