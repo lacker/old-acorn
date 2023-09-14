@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
 use crate::active_set::ProofStep;
-use crate::clause::Clause;
+use crate::clause::{Clause, ClauseType};
 
 // The PassiveSet stores a bunch of clauses.
 // It does not assist in generating new clauses.
@@ -12,36 +12,6 @@ use crate::clause::Clause;
 pub struct PassiveSet {
     clauses: BinaryHeap<PrioritizedClause>,
     num_adds: usize,
-}
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum ClauseType {
-    Fact,
-    NegatedGoal,
-    Other,
-}
-
-impl ClauseType {
-    // Highest priority should be processed first
-    fn priority(&self) -> u8 {
-        match self {
-            ClauseType::Fact => 2,
-            ClauseType::NegatedGoal => 1,
-            ClauseType::Other => 0,
-        }
-    }
-}
-
-impl Ord for ClauseType {
-    fn cmp(&self, other: &ClauseType) -> Ordering {
-        self.priority().cmp(&other.priority())
-    }
-}
-
-impl PartialOrd for ClauseType {
-    fn partial_cmp(&self, other: &ClauseType) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 #[derive(Debug, Eq, PartialEq)]

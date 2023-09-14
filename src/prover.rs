@@ -4,11 +4,11 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::{ActiveSet, ProofStep};
 use crate::atom::Atom;
-use crate::clause::Clause;
+use crate::clause::{Clause, ClauseType};
 use crate::display::DisplayClause;
 use crate::environment::{Environment, GoalContext};
 use crate::normalizer::Normalizer;
-use crate::passive_set::{ClauseType, PassiveSet};
+use crate::passive_set::PassiveSet;
 use crate::synthesizer::Synthesizer;
 
 pub struct Prover<'a> {
