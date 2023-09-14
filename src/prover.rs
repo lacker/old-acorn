@@ -358,14 +358,8 @@ impl Prover<'_> {
                     }
 
                     // Treat the definition of synthesized predicates like extra facts.
-                    // TODO: are these facts or "other"?
-                    self.activate(
-                        clause,
-                        ClauseType::Fact,
-                        ProofStep::definition(),
-                        verbose,
-                        tracing,
-                    );
+                    let info = self.clause_info(clause, ClauseType::Fact, ProofStep::definition());
+                    self.activate(info, verbose, tracing);
                 }
             }
         }
@@ -378,11 +372,21 @@ impl Prover<'_> {
             };
             println!("activating{}: {}", prefix, simplified_clause_string);
         }
-        self.activate(clause, info.clause_type, info.proof_step, verbose, tracing)
+        self.old_activate(clause, info.clause_type, info.proof_step, verbose, tracing)
+    }
+
+    fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
+        self.old_activate(
+            info.clause,
+            info.clause_type,
+            info.proof_step,
+            verbose,
+            tracing,
+        )
     }
 
     // Generates other clauses from this one.
-    fn activate(
+    fn old_activate(
         &mut self,
         clause: Clause,
         clause_type: ClauseType,
