@@ -407,19 +407,17 @@ impl Prover<'_> {
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
         self.history.push(info.proof_step);
 
-        let gen_clauses = self.active_set.generate(&info);
+        let clause_type = info.clause_type;
+        let gen_clauses = self.active_set.generate(info);
 
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
-            if let Some(simp_clause) = self
-                .active_set
-                .simplify(&generated_clause, info.clause_type)
-            {
+            if let Some(simp_clause) = self.active_set.simplify(&generated_clause, clause_type) {
                 simp_clauses.push((simp_clause, step));
             }
         }
 
-        let generated_type = if info.clause_type == ClauseType::Fact {
+        let generated_type = if clause_type == ClauseType::Fact {
             ClauseType::Fact
         } else {
             ClauseType::Other

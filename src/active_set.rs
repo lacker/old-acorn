@@ -15,7 +15,7 @@ use crate::unifier::{Scope, Unifier};
 // "Efficient" is relative - this still may take time roughly linear to the size of the active set.
 pub struct ActiveSet {
     // A vector for indexed reference
-    clauses: Vec<Clause>,
+    clause_info: Vec<ClauseInfo>,
 
     // A HashSet for checking what complete clauses we already know
     clause_set: HashSet<Clause>,
@@ -69,7 +69,7 @@ struct ParamodulationTarget {
 impl ActiveSet {
     pub fn new() -> ActiveSet {
         ActiveSet {
-            clauses: vec![],
+            clause_info: vec![],
             clause_set: HashSet::new(),
             literal_set: LiteralSet::new(),
             resolution_targets: FingerprintTree::new(),
@@ -79,11 +79,11 @@ impl ActiveSet {
     }
 
     pub fn len(&self) -> usize {
-        self.clauses.len()
+        self.clause_info.len()
     }
 
     fn get_resolution_term(&self, target: &ResolutionTarget) -> &Term {
-        let clause = &self.clauses[target.clause_index];
+        let clause = self.get_clause(target.clause_index);
         let mut term = &clause.literals[target.literal_index].left;
         for i in &target.path {
             term = &term.args[*i];
@@ -220,7 +220,7 @@ impl ActiveSet {
                     0,
                     u_subterm,
                     &target.path,
-                    &self.clauses[target.clause_index],
+                    self.get_clause(target.clause_index),
                     target.literal_index,
                     clause_type == ClauseType::Fact,
                 ) {
@@ -266,7 +266,7 @@ impl ActiveSet {
             // Look for paramodulation targets that match u_subterm
             let targets = self.paramodulation_targets.get_unifying(u_subterm);
             for target in targets {
-                let pm_clause = &self.clauses[target.clause_index];
+                let pm_clause = self.get_clause(target.clause_index);
                 let pm_literal = &pm_clause.literals[target.literal_index];
                 let (s, t) = if target.forwards {
                     (&pm_literal.left, &pm_literal.right)
@@ -379,7 +379,7 @@ impl ActiveSet {
     }
 
     pub fn get_clause(&self, index: usize) -> &Clause {
-        &self.clauses[index]
+        &self.clause_info[index].clause
     }
 
     pub fn contains(&self, clause: &Clause) -> bool {
@@ -407,7 +407,7 @@ impl ActiveSet {
         // Check if we can rewrite this term at the root
         let clause_indexes = self.rewrite_rules.get_generalizing(&term);
         for i in clause_indexes {
-            let clause = &self.clauses[*i];
+            let clause = self.get_clause(*i);
             let rule = &clause.literals[0];
             let mut s = Specializer::new();
 
@@ -507,19 +507,20 @@ impl ActiveSet {
     // Adds a clause so that it becomes available for resolution and paramodulation.
     // If select_all is set, then every literal can be used as a target for paramodulation.
     // Otherwise, only the first one can be.
-    fn insert(&mut self, clause: Clause, clause_type: ClauseType) {
-        let clause_index = self.clauses.len();
+    fn insert(&mut self, info: ClauseInfo) {
+        let clause = &info.clause;
+        let clause_index = self.clause_info.len();
         let leftmost_literal = &clause.literals[0];
 
         // Add resolution targets for the new clause.
-        if clause_type == ClauseType::Fact {
+        if info.clause_type == ClauseType::Fact {
             // Use any literal for resolution
             for (i, literal) in clause.literals.iter().enumerate() {
                 for (path, subterm) in literal.left.non_variable_subterms() {
                     self.resolution_targets.insert(
                         subterm,
                         ResolutionTarget {
-                            clause_index: self.clauses.len(),
+                            clause_index: self.clause_info.len(),
                             literal_index: i,
                             path: path.clone(),
                         },
@@ -542,7 +543,7 @@ impl ActiveSet {
         }
 
         // Add paramodulation targets for the new clause.
-        if clause_type == ClauseType::Fact {
+        if info.clause_type == ClauseType::Fact {
             // Use any literal for paramodulation
             for (i, literal) in clause.literals.iter().enumerate() {
                 for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
@@ -582,16 +583,16 @@ impl ActiveSet {
             self.literal_set.insert(clause.literals[0].clone());
         }
 
-        self.clauses.push(clause);
+        self.clause_info.push(info);
     }
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
     // This does not simplify.
     // After generation, adds this clause to the active set.
     // Returns pairs describing how this clause was proved.
-    pub fn generate(&mut self, info: &ClauseInfo) -> Vec<(Clause, ProofStep)> {
+    pub fn generate(&mut self, info: ClauseInfo) -> Vec<(Clause, ProofStep)> {
         let mut generated_clauses = vec![];
-        let activated = Some(self.clauses.len());
+        let activated = Some(self.clause_info.len());
 
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
@@ -637,12 +638,12 @@ impl ActiveSet {
             ))
         }
 
-        self.insert(info.clause.clone(), info.clause_type);
+        self.insert(info);
         generated_clauses
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
-        self.clauses.iter()
+        self.clause_info.iter().map(|info| &info.clause)
     }
 }
 
@@ -658,10 +659,15 @@ mod tests {
         let res_left = Term::parse("c0(c3)");
         let res_right = Term::parse("c2");
         let mut set = ActiveSet::new();
-        set.insert(
-            Clause::new(vec![Literal::equals(res_left, res_right)]),
-            ClauseType::Other,
-        );
+        let info = ClauseInfo {
+            clause: Clause::new(vec![Literal::equals(res_left.clone(), res_right.clone())]),
+            clause_type: ClauseType::Other,
+            atom_count: 3,
+            proof_step: ProofStep::assumption(),
+            generation_order: 0,
+        };
+
+        set.insert(info);
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
         let pm_left = Term::parse("c1");
@@ -683,10 +689,14 @@ mod tests {
         let pm_left = Term::parse("c1");
         let pm_right = Term::parse("c3");
         let mut set = ActiveSet::new();
-        set.insert(
-            Clause::new(vec![Literal::equals(pm_left, pm_right)]),
-            ClauseType::Other,
-        );
+        let info = ClauseInfo {
+            clause: Clause::new(vec![Literal::equals(pm_left.clone(), pm_right.clone())]),
+            clause_type: ClauseType::Other,
+            atom_count: 3,
+            proof_step: ProofStep::assumption(),
+            generation_order: 0,
+        };
+        set.insert(info);
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
         let res_left = Term::parse("c0(c3)");
@@ -723,7 +733,14 @@ mod tests {
     #[test]
     fn test_select_all_literals_for_paramodulation() {
         let mut set = ActiveSet::new();
-        set.insert(Clause::parse("c1 != c0(x0) | c2 = c3"), ClauseType::Fact);
+        let info = ClauseInfo {
+            clause: Clause::parse("c1 != c0(x0) | c2 = c3"),
+            clause_type: ClauseType::Fact,
+            atom_count: 5,
+            proof_step: ProofStep::assumption(),
+            generation_order: 0,
+        };
+        set.insert(info);
         let resolver = Clause::parse("c2 != c3");
         let result = set.activate_resolver(&resolver, ClauseType::Other);
         assert_eq!(result.len(), 1);
@@ -748,10 +765,14 @@ mod tests {
     #[test]
     fn test_matching_entire_literal() {
         let mut set = ActiveSet::new();
-        set.insert(
-            Clause::parse("!c2(c0(c0(x0))) | c1(x0) != x0"),
-            ClauseType::Fact,
-        );
+        let info = ClauseInfo {
+            clause: Clause::parse("!c2(c0(c0(x0))) | c1(x0) != x0"),
+            clause_type: ClauseType::Fact,
+            atom_count: 7,
+            proof_step: ProofStep::assumption(),
+            generation_order: 0,
+        };
+        set.insert(info);
         let negagoal = Clause::parse("c1(s1) = s1");
         let info = ClauseInfo {
             clause: negagoal.clone(),
@@ -761,7 +782,7 @@ mod tests {
             generation_order: 0,
         };
 
-        let new_clauses = set.generate(&info);
+        let new_clauses = set.generate(info);
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(new_clauses[0].0.to_string(), "!c2(c0(c0(s1)))".to_string());
     }
