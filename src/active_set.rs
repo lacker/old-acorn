@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
-use crate::proof::{ClauseType, ProofRule, ProofStep};
+use crate::proof::{ClauseInfo, ClauseType, ProofRule, ProofStep};
 use crate::specializer::Specializer;
 use crate::term::{Literal, Term};
 use crate::unifier::{Scope, Unifier};
@@ -589,17 +589,13 @@ impl ActiveSet {
     // This does not simplify.
     // After generation, adds this clause to the active set.
     // Returns pairs describing how this clause was proved.
-    pub fn generate(
-        &mut self,
-        clause: &Clause,
-        clause_type: ClauseType,
-    ) -> Vec<(Clause, ProofStep)> {
+    pub fn generate(&mut self, info: &ClauseInfo) -> Vec<(Clause, ProofStep)> {
         let mut generated_clauses = vec![];
         let activated = Some(self.clauses.len());
 
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
-        if let Some(new_clause) = ActiveSet::equality_resolution(&clause) {
+        if let Some(new_clause) = ActiveSet::equality_resolution(&info.clause) {
             generated_clauses.push((
                 new_clause,
                 ProofStep {
@@ -609,7 +605,7 @@ impl ActiveSet {
                 },
             ));
         }
-        for clause in ActiveSet::equality_factoring(&clause) {
+        for clause in ActiveSet::equality_factoring(&info.clause) {
             generated_clauses.push((
                 clause,
                 ProofStep {
@@ -620,7 +616,7 @@ impl ActiveSet {
             ));
         }
 
-        for (new_clause, i) in self.activate_paramodulator(&clause, clause_type) {
+        for (new_clause, i) in self.activate_paramodulator(&info.clause, info.clause_type) {
             generated_clauses.push((
                 new_clause,
                 ProofStep {
@@ -630,7 +626,7 @@ impl ActiveSet {
                 },
             ))
         }
-        for (new_clause, i) in self.activate_resolver(&clause, clause_type) {
+        for (new_clause, i) in self.activate_resolver(&info.clause, info.clause_type) {
             generated_clauses.push((
                 new_clause,
                 ProofStep {
@@ -641,7 +637,7 @@ impl ActiveSet {
             ))
         }
 
-        self.insert(clause.clone(), clause_type);
+        self.insert(info.clause.clone(), info.clause_type);
         generated_clauses
     }
 
@@ -757,7 +753,15 @@ mod tests {
             ClauseType::Fact,
         );
         let negagoal = Clause::parse("c1(s1) = s1");
-        let new_clauses = set.generate(&negagoal, ClauseType::NegatedGoal);
+        let info = ClauseInfo {
+            clause: negagoal.clone(),
+            clause_type: ClauseType::NegatedGoal,
+            atom_count: 3,
+            proof_step: ProofStep::assumption(),
+            generation_order: 0,
+        };
+
+        let new_clauses = set.generate(&info);
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(new_clauses[0].0.to_string(), "!c2(c0(c0(s1)))".to_string());
     }

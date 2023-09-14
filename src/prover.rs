@@ -407,7 +407,7 @@ impl Prover<'_> {
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
         self.history.push(info.proof_step);
 
-        let gen_clauses = self.active_set.generate(&info.clause, info.clause_type);
+        let gen_clauses = self.active_set.generate(&info);
 
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
