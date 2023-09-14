@@ -10,34 +10,46 @@ use crate::clause::{Clause, ClauseType};
 // The main operations of the passive set are adding new clauses, and
 // picking the "most promising" clause to add to the active set.
 pub struct PassiveSet {
-    clauses: BinaryHeap<PrioritizedClause>,
+    clauses: BinaryHeap<ClauseInfo>,
     num_adds: usize,
 }
 
+// The ClauseInfo contains a bunch of heuristic information about the clause.
 #[derive(Debug, Eq, PartialEq)]
-struct PrioritizedClause {
+struct ClauseInfo {
     clause: Clause,
     clause_type: ClauseType,
     proof_step: ProofStep,
-    weight: u32,
-    index: usize,
+    atom_count: u32,
+
+    // When the clause was inserted into the passive set.
+    // This will never be equal for any two clauses, so we can use it as a tiebreaker.
+    insertion_order: usize,
 }
 
-impl Ord for PrioritizedClause {
-    // This is a "max heap", so we want the most important clause to compare as the largest.
-    fn cmp(&self, other: &PrioritizedClause) -> Ordering {
-        // First type, then weight, then index (fifo)
-        self.clause_type.cmp(&other.clause_type).then_with(|| {
-            other
-                .weight
-                .cmp(&self.weight)
-                .then_with(|| other.index.cmp(&self.index))
-        })
+impl Ord for ClauseInfo {
+    // The heuristic used to decide which clause is the most promising.
+    // The passive set is a "max heap", so we want the best clause to compare as the largest.
+    fn cmp(&self, other: &ClauseInfo) -> Ordering {
+        // Do facts, then negated goal, then others
+        let by_type = self.clause_type.cmp(&other.clause_type);
+        if by_type != Ordering::Equal {
+            return by_type;
+        }
+
+        // Prefer clauses with fewer atoms
+        let by_atom_count = other.atom_count.cmp(&self.atom_count);
+        if by_atom_count != Ordering::Equal {
+            return by_atom_count;
+        }
+
+        // Prefer clauses that were added earlier
+        other.insertion_order.cmp(&self.insertion_order)
     }
 }
 
-impl PartialOrd for PrioritizedClause {
-    fn partial_cmp(&self, other: &PrioritizedClause) -> Option<Ordering> {
+impl PartialOrd for ClauseInfo {
+    fn partial_cmp(&self, other: &ClauseInfo) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -57,12 +69,12 @@ impl PassiveSet {
         proof_step: ProofStep,
         weight: u32,
     ) {
-        self.clauses.push(PrioritizedClause {
+        self.clauses.push(ClauseInfo {
             clause,
             clause_type,
             proof_step,
-            weight,
-            index: self.num_adds,
+            atom_count: weight,
+            insertion_order: self.num_adds,
         });
         self.num_adds += 1;
     }
