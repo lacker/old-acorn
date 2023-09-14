@@ -405,36 +405,21 @@ impl Prover<'_> {
     }
 
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
-        self.old_activate(
-            info.clause,
-            info.clause_type,
-            info.proof_step,
-            verbose,
-            tracing,
-        )
-    }
+        self.history.push(info.proof_step);
 
-    // Generates other clauses from this one.
-    fn old_activate(
-        &mut self,
-        clause: Clause,
-        clause_type: ClauseType,
-        proof_step: ProofStep,
-        verbose: bool,
-        tracing: bool,
-    ) -> Outcome {
-        self.history.push(proof_step);
-
-        let gen_clauses = self.active_set.generate(&clause, clause_type);
+        let gen_clauses = self.active_set.generate(&info.clause, info.clause_type);
 
         let mut simp_clauses = vec![];
         for (generated_clause, step) in gen_clauses {
-            if let Some(simp_clause) = self.active_set.simplify(&generated_clause, clause_type) {
+            if let Some(simp_clause) = self
+                .active_set
+                .simplify(&generated_clause, info.clause_type)
+            {
                 simp_clauses.push((simp_clause, step));
             }
         }
 
-        let generated_type = if clause_type == ClauseType::Fact {
+        let generated_type = if info.clause_type == ClauseType::Fact {
             ClauseType::Fact
         } else {
             ClauseType::Other
