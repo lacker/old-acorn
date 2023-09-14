@@ -114,23 +114,30 @@ impl Prover<'_> {
         clause: Clause,
         clause_type: ClauseType,
         proof_step: ProofStep,
+        generation_order: Option<usize>,
     ) -> ClauseInfo {
         let atom_count = clause.atom_count();
-        let answer = ClauseInfo {
+        let generation_order = match generation_order {
+            Some(i) => i,
+            None => {
+                let answer = self.num_generated;
+                self.num_generated += 1;
+                answer
+            }
+        };
+        ClauseInfo {
             clause,
             clause_type,
             proof_step,
             atom_count,
-            generation_order: self.num_generated,
-        };
-        self.num_generated += 1;
-        answer
+            generation_order,
+        }
     }
 
     pub fn add_fact(&mut self, proposition: AcornValue) {
         self.facts.push(proposition.clone());
         for clause in self.normalize_proposition(proposition) {
-            let info = self.clause_info(clause, ClauseType::Fact, ProofStep::assumption());
+            let info = self.clause_info(clause, ClauseType::Fact, ProofStep::assumption(), None);
             self.passive.push(info);
         }
     }
@@ -139,7 +146,12 @@ impl Prover<'_> {
         assert!(self.goal.is_none());
         self.goal = Some(proposition.clone());
         for clause in self.normalize_proposition(proposition.negate()) {
-            let info = self.clause_info(clause, ClauseType::NegatedGoal, ProofStep::assumption());
+            let info = self.clause_info(
+                clause,
+                ClauseType::NegatedGoal,
+                ProofStep::assumption(),
+                None,
+            );
             self.passive.push(info);
         }
     }
@@ -303,6 +315,17 @@ impl Prover<'_> {
         self.print_proof_step(&Clause::impossible(), final_step);
     }
 
+    // Returns None if the clause is redundant.
+    fn simplify(&mut self, info: &ClauseInfo) -> Option<ClauseInfo> {
+        let new_clause = self.active_set.simplify(&info.clause, info.clause_type)?;
+        Some(self.clause_info(
+            new_clause,
+            info.clause_type,
+            info.proof_step,
+            Some(info.generation_order),
+        ))
+    }
+
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
         let info = match self.passive.pop() {
@@ -358,7 +381,8 @@ impl Prover<'_> {
                     }
 
                     // Treat the definition of synthesized predicates like extra facts.
-                    let info = self.clause_info(clause, ClauseType::Fact, ProofStep::definition());
+                    let info =
+                        self.clause_info(clause, ClauseType::Fact, ProofStep::definition(), None);
                     self.activate(info, verbose, tracing);
                 }
             }
@@ -433,7 +457,7 @@ impl Prover<'_> {
                 } else if self.is_tracing(&c) {
                     self.print_proof_step(&c, ps);
                 }
-                let info = self.clause_info(c, generated_type, ps);
+                let info = self.clause_info(c, generated_type, ps, None);
                 self.passive.push(info);
             }
         }
