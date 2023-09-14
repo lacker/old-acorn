@@ -345,18 +345,19 @@ impl Prover<'_> {
             original_clause_string = self.display(&info.clause).to_string();
         }
 
-        let clause = if let Some(clause) = self.active_set.simplify(&info.clause, info.clause_type)
-        {
-            clause
-        } else {
-            // The clause is redundant, so skip it.
-            if verbose {
-                println!("redundant: {}", original_clause_string);
+        let new_info = match self.simplify(&info) {
+            Some(i) => i,
+            None => {
+                // The clause is redundant, so skip it.
+                if verbose {
+                    println!("redundant: {}", original_clause_string);
+                }
+                return Outcome::Unknown;
             }
-            return Outcome::Unknown;
         };
+        let clause = &new_info.clause;
         if verbose {
-            simplified_clause_string = self.display(&clause).to_string();
+            simplified_clause_string = self.display(clause).to_string();
             if simplified_clause_string != original_clause_string {
                 println!(
                     "simplified: {} => {}",
@@ -369,21 +370,25 @@ impl Prover<'_> {
             self.final_step = Some(info.proof_step);
             return Outcome::Success;
         }
-        self.synthesizer.observe_types(&clause);
+        self.synthesizer.observe_types(clause);
 
         // Synthesize predicates if this is the negated goal.
         if info.clause_type == ClauseType::NegatedGoal {
-            let synth_clauses = self.synthesizer.synthesize(&clause);
+            let synth_clauses = self.synthesizer.synthesize(clause);
             if !synth_clauses.is_empty() {
-                for clause in synth_clauses {
+                for synth_clause in synth_clauses {
                     if verbose {
-                        println!("synthesizing: {}", self.display(&clause));
+                        println!("synthesizing: {}", self.display(&synth_clause));
                     }
 
                     // Treat the definition of synthesized predicates like extra facts.
-                    let info =
-                        self.clause_info(clause, ClauseType::Fact, ProofStep::definition(), None);
-                    self.activate(info, verbose, tracing);
+                    let synth_info = self.clause_info(
+                        synth_clause,
+                        ClauseType::Fact,
+                        ProofStep::definition(),
+                        None,
+                    );
+                    self.activate(synth_info, verbose, tracing);
                 }
             }
         }
@@ -396,7 +401,7 @@ impl Prover<'_> {
             };
             println!("activating{}: {}", prefix, simplified_clause_string);
         }
-        self.old_activate(clause, info.clause_type, info.proof_step, verbose, tracing)
+        self.activate(new_info, verbose, tracing)
     }
 
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
