@@ -21,7 +21,12 @@ impl PassiveSet {
         }
     }
 
-    pub fn add(&mut self, clause: Clause, clause_type: ClauseType, proof_step: ProofStep) {
+    pub fn add(&mut self, info: ClauseInfo) {
+        self.clauses.push(info);
+        self.num_adds += 1;
+    }
+
+    pub fn old_add(&mut self, clause: Clause, clause_type: ClauseType, proof_step: ProofStep) {
         let atom_count = clause.atom_count();
         self.clauses.push(ClauseInfo {
             clause,
@@ -34,12 +39,8 @@ impl PassiveSet {
     }
 
     pub fn add_fact(&mut self, clause: Clause) {
-        self.add(clause, ClauseType::Fact, ProofStep::assumption());
+        self.old_add(clause, ClauseType::Fact, ProofStep::assumption());
         self.num_adds += 1;
-    }
-
-    pub fn add_negated_goal(&mut self, clause: Clause) {
-        self.add(clause, ClauseType::NegatedGoal, ProofStep::assumption());
     }
 
     pub fn pop(&mut self) -> Option<ClauseInfo> {
