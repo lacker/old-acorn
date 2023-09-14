@@ -130,7 +130,8 @@ impl Prover<'_> {
     pub fn add_fact(&mut self, proposition: AcornValue) {
         self.facts.push(proposition.clone());
         for clause in self.normalize_proposition(proposition) {
-            self.passive.add_fact(clause);
+            let info = self.clause_info(clause, ClauseType::Fact, ProofStep::assumption());
+            self.passive.push(info);
         }
     }
 
@@ -139,7 +140,7 @@ impl Prover<'_> {
         self.goal = Some(proposition.clone());
         for clause in self.normalize_proposition(proposition.negate()) {
             let info = self.clause_info(clause, ClauseType::NegatedGoal, ProofStep::assumption());
-            self.passive.add(info);
+            self.passive.push(info);
         }
     }
 
@@ -429,7 +430,7 @@ impl Prover<'_> {
                     self.print_proof_step(&c, ps);
                 }
                 let info = self.clause_info(c, generated_type, ps);
-                self.passive.add(info);
+                self.passive.push(info);
             }
         }
         Outcome::Unknown

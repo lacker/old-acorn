@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 
 use crate::clause::Clause;
-use crate::proof::{ClauseInfo, ClauseType, ProofStep};
+use crate::proof::{ClauseInfo, ClauseType};
 
 // The PassiveSet stores a bunch of clauses.
 // It does not assist in generating new clauses.
@@ -10,37 +10,17 @@ use crate::proof::{ClauseInfo, ClauseType, ProofStep};
 // picking the "most promising" clause to add to the active set.
 pub struct PassiveSet {
     clauses: BinaryHeap<ClauseInfo>,
-    num_adds: usize,
 }
 
 impl PassiveSet {
     pub fn new() -> PassiveSet {
         PassiveSet {
             clauses: BinaryHeap::new(),
-            num_adds: 0,
         }
     }
 
-    pub fn add(&mut self, info: ClauseInfo) {
+    pub fn push(&mut self, info: ClauseInfo) {
         self.clauses.push(info);
-        self.num_adds += 1;
-    }
-
-    pub fn old_add(&mut self, clause: Clause, clause_type: ClauseType, proof_step: ProofStep) {
-        let atom_count = clause.atom_count();
-        self.clauses.push(ClauseInfo {
-            clause,
-            clause_type,
-            proof_step,
-            atom_count,
-            generation_order: self.num_adds,
-        });
-        self.num_adds += 1;
-    }
-
-    pub fn add_fact(&mut self, clause: Clause) {
-        self.old_add(clause, ClauseType::Fact, ProofStep::assumption());
-        self.num_adds += 1;
     }
 
     pub fn pop(&mut self) -> Option<ClauseInfo> {
