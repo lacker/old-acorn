@@ -48,9 +48,6 @@ pub struct Prover<'a> {
     // Whether we have hit the trace
     pub hit_trace: bool,
 
-    // Where each clause in the active set came from.
-    history: Vec<ProofStep>,
-
     // The final step that proves a contradiction, if we have one.
     final_step: Option<ProofStep>,
 
@@ -82,7 +79,6 @@ impl Prover<'_> {
             verbose: false,
             trace: None,
             hit_trace: false,
-            history: Vec::new(),
             final_step: None,
             num_generated: 0,
         }
@@ -294,7 +290,7 @@ impl Prover<'_> {
                 continue;
             }
             done.insert(i);
-            let step = self.history[i];
+            let step = self.active_set.get_proof_step(i);
             for j in step.indices() {
                 todo.push(*j);
             }
@@ -303,13 +299,16 @@ impl Prover<'_> {
         // Print out the clauses in order.
         let mut indices = done.into_iter().collect::<Vec<_>>();
         indices.sort();
-        println!("in total, we activated {} proof steps.", self.history.len());
+        println!(
+            "in total, we activated {} proof steps.",
+            self.active_set.len()
+        );
         println!("the proof uses {} steps:", indices.len());
         for i in indices {
-            let step = self.history[i];
+            let step = self.active_set.get_proof_step(i);
             let clause = self.active_set.get_clause(i);
             print!("clause {}: ", i);
-            self.print_proof_step(clause, step);
+            self.print_proof_step(clause, *step);
         }
         print!("final step: ");
         self.print_proof_step(&Clause::impossible(), final_step);
@@ -405,8 +404,6 @@ impl Prover<'_> {
     }
 
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
-        self.history.push(info.proof_step);
-
         let clause_type = info.clause_type;
         let gen_clauses = self.active_set.generate(info);
 

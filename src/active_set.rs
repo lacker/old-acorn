@@ -382,6 +382,10 @@ impl ActiveSet {
         &self.clause_info[index].clause
     }
 
+    pub fn get_proof_step(&self, index: usize) -> &ProofStep {
+        &self.clause_info[index].proof_step
+    }
+
     pub fn contains(&self, clause: &Clause) -> bool {
         self.clause_set.contains(clause)
     }
