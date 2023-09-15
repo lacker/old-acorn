@@ -171,7 +171,7 @@ impl ActiveSet {
         }
 
         if fact_fact && eliminated_clauses == 1 {
-            // We don't want fact-fact inference to go on forever, so... add some hacky limit.
+            // Heuristic limit for fact-fact inference.
             if new_clause.atom_count() > 12 {
                 return None;
             }
