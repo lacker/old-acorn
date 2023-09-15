@@ -105,7 +105,7 @@ impl Prover<'_> {
     }
 
     // Create a new ClauseInfo object.
-    fn clause_info(
+    fn new_clause_info(
         &mut self,
         clause: Clause,
         clause_type: ClauseType,
@@ -133,7 +133,8 @@ impl Prover<'_> {
     pub fn add_fact(&mut self, proposition: AcornValue) {
         self.facts.push(proposition.clone());
         for clause in self.normalize_proposition(proposition) {
-            let info = self.clause_info(clause, ClauseType::Fact, ProofStep::assumption(), None);
+            let info =
+                self.new_clause_info(clause, ClauseType::Fact, ProofStep::assumption(), None);
             self.passive.push(info);
         }
     }
@@ -142,7 +143,7 @@ impl Prover<'_> {
         assert!(self.goal.is_none());
         self.goal = Some(proposition.clone());
         for clause in self.normalize_proposition(proposition.negate()) {
-            let info = self.clause_info(
+            let info = self.new_clause_info(
                 clause,
                 ClauseType::NegatedGoal,
                 ProofStep::assumption(),
@@ -317,7 +318,7 @@ impl Prover<'_> {
     // Returns None if the clause is redundant.
     fn simplify(&mut self, info: &ClauseInfo) -> Option<ClauseInfo> {
         let new_clause = self.active_set.simplify(&info.clause, info.clause_type)?;
-        Some(self.clause_info(
+        Some(self.new_clause_info(
             new_clause,
             info.clause_type,
             info.proof_step,
@@ -381,7 +382,7 @@ impl Prover<'_> {
                     }
 
                     // Treat the definition of synthesized predicates like extra facts.
-                    let synth_info = self.clause_info(
+                    let synth_info = self.new_clause_info(
                         synth_clause,
                         ClauseType::Fact,
                         ProofStep::definition(),
@@ -442,7 +443,7 @@ impl Prover<'_> {
                 } else if self.is_tracing(&c) {
                     self.print_proof_step(&c, ps);
                 }
-                let info = self.clause_info(c, generated_type, ps, None);
+                let info = self.new_clause_info(c, generated_type, ps, None);
                 self.passive.push(info);
             }
         }
