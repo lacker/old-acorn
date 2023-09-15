@@ -130,3 +130,18 @@ impl PartialOrd for ClauseInfo {
         Some(self.cmp(other))
     }
 }
+
+impl ClauseInfo {
+    // Construct a ClauseInfo with fake heuristic data for testing
+    pub fn mock(s: &str) -> ClauseInfo {
+        let clause = Clause::parse(s);
+        let atom_count = clause.atom_count();
+        ClauseInfo {
+            clause,
+            clause_type: ClauseType::Other,
+            proof_step: ProofStep::assumption(),
+            atom_count,
+            generation_order: 0,
+        }
+    }
+}

@@ -660,17 +660,8 @@ mod tests {
     #[test]
     fn test_activate_paramodulator() {
         // Create an active set that knows c0(c3) = c2
-        let res_left = Term::parse("c0(c3)");
-        let res_right = Term::parse("c2");
         let mut set = ActiveSet::new();
-        let info = ClauseInfo {
-            clause: Clause::new(vec![Literal::equals(res_left.clone(), res_right.clone())]),
-            clause_type: ClauseType::Other,
-            atom_count: 3,
-            proof_step: ProofStep::assumption(),
-            generation_order: 0,
-        };
-
+        let info = ClauseInfo::mock("c0(c3) = c2");
         set.insert(info);
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
