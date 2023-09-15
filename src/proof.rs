@@ -55,6 +55,12 @@ pub struct ProofStep {
 
     // The index of the already-activated clause in the active set we used, if there was any.
     pub existing: Option<usize>,
+
+    // The number of proof steps that this proof step depends on.
+    // The size includes this proof step itself, but does not count assumptions and definitions.
+    // So the size for any assumption or definition is zero.
+    // This does not deduplicate among different branches, so it may be an overestimate.
+    pub proof_size: u32,
 }
 
 impl ProofStep {
@@ -63,6 +69,7 @@ impl ProofStep {
             rule: ProofRule::Assumption,
             activated: None,
             existing: None,
+            proof_size: 0,
         }
     }
 
@@ -71,6 +78,7 @@ impl ProofStep {
             rule: ProofRule::Definition,
             activated: None,
             existing: None,
+            proof_size: 0,
         }
     }
 

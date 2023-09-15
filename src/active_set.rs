@@ -598,6 +598,9 @@ impl ActiveSet {
         let mut generated_clauses = vec![];
         let activated = Some(self.clause_info.len());
 
+        // First calculate proof size for clauses dependent only on this one
+        let activated_size = info.proof_step.proof_size;
+
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
         if let Some(new_clause) = ActiveSet::equality_resolution(&info.clause) {
@@ -607,6 +610,7 @@ impl ActiveSet {
                     rule: ProofRule::EqualityResolution,
                     activated,
                     existing: None,
+                    proof_size: activated_size + 1,
                 },
             ));
         }
@@ -617,27 +621,32 @@ impl ActiveSet {
                     rule: ProofRule::EqualityFactoring,
                     activated,
                     existing: None,
+                    proof_size: activated_size + 1,
                 },
             ));
         }
 
         for (new_clause, i) in self.activate_paramodulator(&info.clause, info.clause_type) {
+            let existing_size = self.get_proof_step(i).proof_size;
             generated_clauses.push((
                 new_clause,
                 ProofStep {
                     rule: ProofRule::ActivatingParamodulator,
                     activated,
                     existing: Some(i),
+                    proof_size: activated_size + existing_size + 1,
                 },
             ))
         }
         for (new_clause, i) in self.activate_resolver(&info.clause, info.clause_type) {
+            let existing_size = self.get_proof_step(i).proof_size;
             generated_clauses.push((
                 new_clause,
                 ProofStep {
                     rule: ProofRule::ActivatingResolver,
                     activated,
                     existing: Some(i),
+                    proof_size: activated_size + existing_size + 1,
                 },
             ))
         }
