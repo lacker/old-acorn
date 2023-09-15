@@ -747,23 +747,11 @@ mod tests {
     #[test]
     fn test_matching_entire_literal() {
         let mut set = ActiveSet::new();
-        let info = ClauseInfo {
-            clause: Clause::parse("!c2(c0(c0(x0))) | c1(x0) != x0"),
-            clause_type: ClauseType::Fact,
-            atom_count: 7,
-            proof_step: ProofStep::assumption(),
-            generation_order: 0,
-        };
+        let mut info = ClauseInfo::mock("!c2(c0(c0(x0))) | c1(x0) != x0");
+        info.clause_type = ClauseType::Fact;
         set.insert(info);
-        let negagoal = Clause::parse("c1(s1) = s1");
-        let info = ClauseInfo {
-            clause: negagoal.clone(),
-            clause_type: ClauseType::NegatedGoal,
-            atom_count: 3,
-            proof_step: ProofStep::assumption(),
-            generation_order: 0,
-        };
-
+        let mut info = ClauseInfo::mock("c1(s1) = s1");
+        info.clause_type = ClauseType::NegatedGoal;
         let new_clauses = set.generate(info);
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(new_clauses[0].0.to_string(), "!c2(c0(c0(s1)))".to_string());
