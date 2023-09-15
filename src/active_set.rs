@@ -681,16 +681,8 @@ mod tests {
     #[test]
     fn test_activate_resolver() {
         // Create an active set that knows c1 = c3
-        let pm_left = Term::parse("c1");
-        let pm_right = Term::parse("c3");
         let mut set = ActiveSet::new();
-        let info = ClauseInfo {
-            clause: Clause::new(vec![Literal::equals(pm_left.clone(), pm_right.clone())]),
-            clause_type: ClauseType::Other,
-            atom_count: 3,
-            proof_step: ProofStep::assumption(),
-            generation_order: 0,
-        };
+        let info = ClauseInfo::mock("c1 = c3");
         set.insert(info);
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
@@ -728,13 +720,8 @@ mod tests {
     #[test]
     fn test_select_all_literals_for_paramodulation() {
         let mut set = ActiveSet::new();
-        let info = ClauseInfo {
-            clause: Clause::parse("c1 != c0(x0) | c2 = c3"),
-            clause_type: ClauseType::Fact,
-            atom_count: 5,
-            proof_step: ProofStep::assumption(),
-            generation_order: 0,
-        };
+        let mut info = ClauseInfo::mock("c1 != c0(x0) | c2 = c3");
+        info.clause_type = ClauseType::Fact;
         set.insert(info);
         let resolver = Clause::parse("c2 != c3");
         let result = set.activate_resolver(&resolver, ClauseType::Other);
