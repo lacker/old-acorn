@@ -406,14 +406,7 @@ impl Prover<'_> {
 
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
         let clause_type = info.clause_type;
-        let gen_clauses = self.active_set.generate(info);
-
-        let mut simp_clauses = vec![];
-        for (generated_clause, step) in gen_clauses {
-            if let Some(simp_clause) = self.active_set.simplify(&generated_clause, clause_type) {
-                simp_clauses.push((simp_clause, step));
-            }
-        }
+        let new_clauses = self.active_set.generate(info);
 
         let generated_type = if clause_type == ClauseType::Fact {
             ClauseType::Fact
@@ -422,8 +415,8 @@ impl Prover<'_> {
         };
 
         let print_limit = 30;
-        if !simp_clauses.is_empty() {
-            let len = simp_clauses.len();
+        if !new_clauses.is_empty() {
+            let len = new_clauses.len();
             if verbose {
                 println!(
                     "generated {} new clauses{}:",
@@ -431,7 +424,7 @@ impl Prover<'_> {
                     if len > print_limit { ", eg" } else { "" }
                 );
             }
-            for (i, (c, ps)) in simp_clauses.into_iter().enumerate() {
+            for (i, (c, ps)) in new_clauses.into_iter().enumerate() {
                 if c.is_impossible() {
                     self.final_step = Some(ps);
                     return Outcome::Success;

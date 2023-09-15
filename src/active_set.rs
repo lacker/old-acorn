@@ -591,9 +591,9 @@ impl ActiveSet {
     }
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
-    // This does not simplify.
+    // The generated clauses are simplified, but we will simplify them again at activation time.
     // After generation, adds this clause to the active set.
-    // Returns pairs describing how this clause was proved.
+    // Returns pairs describing how the generated clauses were proved.
     pub fn generate(&mut self, info: ClauseInfo) -> Vec<(Clause, ProofStep)> {
         let mut generated_clauses = vec![];
         let activated = Some(self.clause_info.len());
@@ -651,8 +651,16 @@ impl ActiveSet {
             ))
         }
 
+        // Simplify the generated clauses
+        let mut simp_clauses = vec![];
+        for (clause, step) in generated_clauses {
+            if let Some(clause) = self.simplify(&clause, info.clause_type) {
+                simp_clauses.push((clause, step));
+            }
+        }
         self.insert(info);
-        generated_clauses
+
+        simp_clauses
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
