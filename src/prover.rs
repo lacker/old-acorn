@@ -803,6 +803,23 @@ mod tests {
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
+    #[test]
+    fn test_conditional_existence_theorem() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define 0: Nat = axiom
+            define 1: Nat = axiom
+            define Suc: Nat -> Nat = axiom
+            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
+            axiom one_neq_zero: 1 != 0
+            theorem goal: exists(x: Nat) { 1 = Suc(x) }
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
     // An environment with theorems that we should be able to prove in testing.
     // Ideally when there's a problem with one of these theorems we can simplify it
     // to a test that doesn't use the snap environment.
