@@ -114,8 +114,8 @@ theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
 theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
     add(add(a, b), add(c, d)) = add(add(a, c), add(b, d))
 
-theorem distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
-    let f(x: Nat) -> bool = distrib(x, b, c)
+theorem left_distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
+    let f(x: Nat) -> bool = left_distrib(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -131,6 +131,8 @@ theorem distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b), mul(
     }
 }
 
+theorem right_distrib(a: Nat, b: Nat, c: Nat): mul(add(a, b), c) = add(mul(a, c), mul(b, c))
+
 theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c)) by {
     let f(x: Nat) -> bool = mul_assoc(x, b, c)
     induction(f)
@@ -139,6 +141,7 @@ theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c))
         if f(x) {
             mul(mul(x, b), c) = mul(x, mul(b, c))
             mul(mul(Suc(x), b), c) = mul(add(b, mul(x, b)), c)
+            mul(add(b, mul(x, b)), c) = add(mul(b, c), mul(mul(x, b), c))
             mul(mul(Suc(x), b), c) = add(mul(b, c), mul(mul(x, b), c))
             mul(mul(Suc(x), b), c) = add(mul(b, c), mul(x, mul(b, c)))
             mul(mul(Suc(x), b), c) = mul(Suc(x), mul(b, c))
