@@ -114,8 +114,6 @@ theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
 theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
     add(add(a, b), add(c, d)) = add(add(a, c), add(b, d))
 
-theorem adding_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0
-
 theorem distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
     let f(x: Nat) -> bool = distrib(x, b, c)
     induction(f)
@@ -160,6 +158,8 @@ theorem lt_not_ref(a: Nat): !lt(a, a) by {
     }
 }
 
+theorem adding_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0
+
 theorem only_zero_lte_zero(a: Nat): lte(a, 0) -> a = 0
 
 theorem not_lt_zero(a: Nat): !lt(a, 0)
@@ -170,7 +170,17 @@ theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
     f(0)
     forall(x: Nat) {
         if f(x) {
-            f(Suc(x))
+            forall(y: Nat) {
+                if lt(Suc(x), y) {
+                    if exists(z: Nat) { Suc(z) = y } {
+                        lt(Suc(x), Suc(z))
+                        lt(x, z)
+                        !lt(z, x)
+                        !lt(Suc(z), Suc(x))
+                        !lt(y, Suc(x))
+                    }
+                }
+            }
         }
     }
 }
