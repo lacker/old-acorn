@@ -975,6 +975,7 @@ impl Environment {
                 };
                 Ok(())
             }
+
             Statement::Definition(ds) => match ds.declaration.token().token_type {
                 TokenType::Colon => {
                     let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
@@ -1013,6 +1014,7 @@ impl Environment {
                     "unexpected top-level token in declaration",
                 )),
             },
+
             Statement::Theorem(ts) => {
                 // A theorem has two parts. It's a list of arguments that are being universally
                 // quantified, and a boolean expression representing a claim of things that are true.
@@ -1063,6 +1065,7 @@ impl Environment {
 
                 ret_val
             }
+
             Statement::Prop(ps) => {
                 let claim = self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
                 let prop = Proposition {
@@ -1074,6 +1077,7 @@ impl Environment {
                 self.propositions.push(prop);
                 Ok(())
             }
+
             Statement::ForAll(fas) => {
                 let (quant_names, quant_types) =
                     self.bind_args(fas.quantifiers.iter().collect())?;
@@ -1109,6 +1113,7 @@ impl Environment {
                 self.unbind_args(quant_names);
                 Ok(())
             }
+
             Statement::If(is) => {
                 let condition = self.evaluate_value_expression(&is.condition, None)?;
                 let block = self
@@ -1129,6 +1134,11 @@ impl Environment {
                 };
                 self.propositions.push(prop);
                 Ok(())
+            }
+
+            Statement::Exists(es) => {
+                let (quant_names, quant_types) = self.bind_args(es.quantifiers.iter().collect())?;
+                todo!();
             }
         }
     }

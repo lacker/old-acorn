@@ -75,6 +75,15 @@ pub struct IfStatement<'a> {
     pub token: Token<'a>,
 }
 
+// Exists statements introduce new variables to the outside block.
+pub struct ExistsStatement<'a> {
+    pub quantifiers: Vec<Expression<'a>>,
+    pub body: Expression<'a>,
+
+    // Just for error reporting
+    pub token: Token<'a>,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Each type has its own struct.
 pub enum Statement<'a> {
@@ -84,6 +93,7 @@ pub enum Statement<'a> {
     Type(TypeStatement<'a>),
     ForAll(ForAllStatement<'a>),
     If(IfStatement<'a>),
+    Exists(ExistsStatement<'a>),
 }
 
 const INDENT_WIDTH: u8 = 4;
@@ -320,6 +330,12 @@ impl Statement<'_> {
             Statement::If(is) => {
                 write!(f, "if {}", is.condition)?;
                 write_block(f, &is.body, indent)
+            }
+
+            Statement::Exists(es) => {
+                write!(f, "exists")?;
+                write_args(f, &es.quantifiers)?;
+                write!(f, " {{ {} }}", es.body)
             }
         }
     }
