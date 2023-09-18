@@ -157,3 +157,18 @@ theorem lt_not_ref(a: Nat): !lt(a, a) by {
         a != a
     }
 }
+
+theorem only_zero_lte_zero(a: Nat): lte(a, 0) -> a = 0
+
+theorem not_lt_zero(a: Nat): !lt(a, 0)
+
+theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
+    let f(x: Nat) -> bool = forall(y: Nat) { lt_not_symm(x, y) }
+    induction(f)
+    f(0)
+    forall(x: Nat) {
+        if f(x) {
+            f(Suc(x))
+        }
+    }
+}
