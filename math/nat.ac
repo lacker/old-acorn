@@ -114,6 +114,8 @@ theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
 theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
     add(add(a, b), add(c, d)) = add(add(a, c), add(b, d))
 
+theorem adding_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0
+
 theorem distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
     let f(x: Nat) -> bool = distrib(x, b, c)
     induction(f)
