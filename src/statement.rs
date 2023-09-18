@@ -76,12 +76,7 @@ pub struct IfStatement<'a> {
 }
 
 // Acorn is a statement-based language. There are several types.
-// Some have their own struct. For the others:
-//
-// Def statements are the keyword "def" followed by an expression with an equals.
-// For example, in:
-//   def (p | q) = !p -> q
-// the equality is the whole "(p | q) = !p -> q".
+// Each type has its own struct.
 pub enum Statement<'a> {
     Definition(DefinitionStatement<'a>),
     Theorem(TheoremStatement<'a>),

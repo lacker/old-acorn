@@ -1653,4 +1653,17 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             "#,
         )
     }
+
+    #[test]
+    fn test_exists_exports_names() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define foo(x: Nat) -> bool = axiom
+            exists(z: Nat) { foo(z) }
+            foo(z)
+        "#,
+        );
+    }
 }
