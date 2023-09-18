@@ -164,6 +164,21 @@ theorem only_zero_lte_zero(a: Nat): lte(a, 0) -> a = 0
 
 theorem not_lt_zero(a: Nat): !lt(a, 0)
 
+theorem zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) } by {
+    let f(x: Nat) -> bool = (a = 0 | exists(b: Nat) { a = Suc(b) })
+    induction(f)
+}
+
+theorem lte_cancel_suc(a: Nat, b: Nat): lte(Suc(a), Suc(b)) -> lte(a, b) by {
+    if lte(Suc(a), Suc(b)) {
+        exists(c: Nat) { add(Suc(a), c) = Suc(b) }
+        add(Suc(a), c) = Suc(b)
+        Suc(add(a, c)) = Suc(b)
+        add(a, c) = b
+        lte(a, b)
+    }
+}
+
 theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
     let f(x: Nat) -> bool = forall(y: Nat) { lt_not_symm(x, y) }
     induction(f)
@@ -173,7 +188,9 @@ theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
             forall(y: Nat) {
                 if lt(Suc(x), y) {
                     y != 0
-                    exists(z: Nat) { Suc(z) = y }
+                    zero_or_suc(y)
+                    y = 0 | exists(z: Nat) { y = Suc(z) }
+                    exists(z: Nat) { y = Suc(z) }
                     lt(Suc(x), Suc(z))
                     lt(x, z)
                     !lt(z, x)
