@@ -78,7 +78,7 @@ pub struct IfStatement<'a> {
 // Exists statements introduce new variables to the outside block.
 pub struct ExistsStatement<'a> {
     pub quantifiers: Vec<Expression<'a>>,
-    pub body: Expression<'a>,
+    pub condition: Expression<'a>,
 
     // Just for error reporting
     pub token: Token<'a>,
@@ -273,6 +273,21 @@ where
     })
 }
 
+// Parses an exists statement where the "exists" keyword has already been consumed.
+fn parse_exists_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<ExistsStatement<'a>>
+where
+    I: Iterator<Item = Token<'a>>,
+{
+    let token = *tokens.peek().unwrap();
+    let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
+    let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
+    Ok(ExistsStatement {
+        quantifiers,
+        condition,
+        token,
+    })
+}
+
 fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {
     if args.len() == 0 {
         return Ok(());
@@ -335,7 +350,7 @@ impl Statement<'_> {
             Statement::Exists(es) => {
                 write!(f, "exists")?;
                 write_args(f, &es.quantifiers)?;
-                write!(f, " {{ {} }}", es.body)
+                write!(f, " {{ {} }}", es.condition)
             }
         }
     }
@@ -401,6 +416,11 @@ impl Statement<'_> {
                     TokenType::If => {
                         tokens.next();
                         let s = Statement::If(parse_if_statement(tokens)?);
+                        return Ok((Some(s), false));
+                    }
+                    TokenType::Exists => {
+                        tokens.next();
+                        let s = Statement::Exists(parse_exists_statement(tokens)?);
                         return Ok((Some(s), false));
                     }
                     _ => {
