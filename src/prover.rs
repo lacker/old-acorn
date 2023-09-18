@@ -495,6 +495,7 @@ impl Prover<'_> {
 
     fn prove_goal(goal_context: &GoalContext) -> Outcome {
         let mut prover = Prover::load_goal(&goal_context);
+        prover.verbose = true;
         prover.search_for_contradiction(2000, 2.0)
     }
 

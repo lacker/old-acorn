@@ -165,8 +165,8 @@ impl ActiveSet {
         let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
         assert!(eliminated_clauses > 0);
 
-        if pm_clause.len() > 1 && eliminated_clauses == 1 {
-            // Single elimination is only allowed for rewrites.
+        // Restrict single elimination.
+        if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_clauses == 1 {
             return None;
         }
 
