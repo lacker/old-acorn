@@ -78,7 +78,7 @@ pub struct IfStatement<'a> {
 // Exists statements introduce new variables to the outside block.
 pub struct ExistsStatement<'a> {
     pub quantifiers: Vec<Expression<'a>>,
-    pub condition: Expression<'a>,
+    pub claim: Expression<'a>,
 
     // Just for error reporting
     pub token: Token<'a>,
@@ -283,7 +283,7 @@ where
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
     Ok(ExistsStatement {
         quantifiers,
-        condition,
+        claim: condition,
         token,
     })
 }
@@ -350,7 +350,7 @@ impl Statement<'_> {
             Statement::Exists(es) => {
                 write!(f, "exists")?;
                 write_args(f, &es.quantifiers)?;
-                write!(f, " {{ {} }}", es.condition)
+                write!(f, " {{ {} }}", es.claim)
             }
         }
     }

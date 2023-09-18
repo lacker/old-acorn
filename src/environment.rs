@@ -1137,8 +1137,38 @@ impl Environment {
             }
 
             Statement::Exists(es) => {
+                // We need to prove the general existence claim
                 let (quant_names, quant_types) = self.bind_args(es.quantifiers.iter().collect())?;
-                todo!();
+                let general_claim_value =
+                    self.evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
+                let general_claim =
+                    AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
+                self.unbind_args(quant_names.clone());
+                let general_prop = Proposition {
+                    display_name: None,
+                    proven: false,
+                    claim: general_claim,
+                    block: None,
+                };
+                self.propositions.push(general_prop);
+
+                // Define the quantifiers as constants
+                for (quant_name, quant_type) in quant_names.iter().zip(quant_types.iter()) {
+                    self.add_constant(quant_name, quant_type.clone(), None);
+                }
+
+                // We can then assume the specific existence claim with the named constants
+                let specific_claim =
+                    self.evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
+                let specific_prop = Proposition {
+                    display_name: None,
+                    proven: true,
+                    claim: specific_claim,
+                    block: None,
+                };
+                self.propositions.push(specific_prop);
+
+                Ok(())
             }
         }
     }
