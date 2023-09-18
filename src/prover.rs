@@ -805,7 +805,7 @@ mod tests {
     }
 
     #[test]
-    fn test_conditional_existence_theorem() {
+    fn test_using_conditional_existence_theorem() {
         let mut env = Environment::new();
         env.add(
             r#"
@@ -816,6 +816,22 @@ mod tests {
             axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
             axiom one_neq_zero: 1 != 0
             theorem goal: exists(x: Nat) { 1 = Suc(x) }
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_instance_of_conditional_existence_theorem() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define 0: Nat = axiom
+            define Suc: Nat -> Nat = axiom
+            define y: Nat = axiom
+            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
+            theorem goal: zero_or_suc(y)
         "#,
         );
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
