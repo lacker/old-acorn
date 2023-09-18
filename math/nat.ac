@@ -172,13 +172,13 @@ theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
         if f(x) {
             forall(y: Nat) {
                 if lt(Suc(x), y) {
-                    if exists(z: Nat) { Suc(z) = y } {
-                        lt(Suc(x), Suc(z))
-                        lt(x, z)
-                        !lt(z, x)
-                        !lt(Suc(z), Suc(x))
-                        !lt(y, Suc(x))
-                    }
+                    y != 0
+                    exists(z: Nat) { Suc(z) = y }
+                    lt(Suc(x), Suc(z))
+                    lt(x, z)
+                    !lt(z, x)
+                    !lt(Suc(z), Suc(x))
+                    !lt(y, Suc(x))
                 }
             }
         }
