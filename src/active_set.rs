@@ -46,10 +46,13 @@ struct ResolutionTarget {
     // We assume the resolution target is the first term in the literal. (Is that okay?)
     literal_index: usize,
 
-    // Whether the resolution target is the left of the literal.
-    left: bool,
+    // "forwards" resolution is when we rewrite u in a literal u ?= v.
+    // "backwards" resolution is when we rewrite u in a literal v ?= u.
+    // You could call this "left" but it's nice to be parallel to the paramodulation target.
+    forwards: bool,
 
-    // We resolve against subterms. This is the path from the root term to the subterm to resolve against.
+    // We resolve against subterms. This is the path from the root term to the subterm to
+    // resolve against.
     // An empty path means resolve against the root.
     path: Vec<usize>,
 }
@@ -149,10 +152,12 @@ impl ActiveSet {
         u_subterm_path: &[usize],
         res_clause: &Clause,
         res_literal_index: usize,
+        res_forwards: bool,
         fact_fact: bool,
     ) -> Option<Clause> {
         let mut unifier = Unifier::new();
-        // s/t must be in "left" scope and u/v must be in "right" scope
+        // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
+        // the actual left or right of their normalized literals.
         if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
             return None;
         }
@@ -163,6 +168,7 @@ impl ActiveSet {
             u_subterm_path,
             res_clause,
             res_literal_index,
+            res_forwards,
         );
 
         let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
@@ -204,7 +210,6 @@ impl ActiveSet {
         pm_clause: &Clause,
         clause_type: ClauseType,
     ) -> Vec<(Clause, usize)> {
-        println!("XXX activating pm: {}", pm_clause);
         let mut result = vec![];
         let pm_literal = &pm_clause.literals[0];
         for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
@@ -212,18 +217,10 @@ impl ActiveSet {
                 continue;
             }
 
-            println!("XXX s = {}, t = {}", s, t);
-
             // Look for resolution targets that match pm_left
             let targets = self.resolution_targets.get_unifying(s);
             for target in targets {
                 let u_subterm = self.get_resolution_term(target);
-
-                println!(
-                    "XXX target = {}, u_subterm = {}",
-                    self.get_clause(target.clause_index),
-                    u_subterm
-                );
 
                 if let Some(new_clause) = self.maybe_superpose(
                     s,
@@ -234,9 +231,9 @@ impl ActiveSet {
                     &target.path,
                     self.get_clause(target.clause_index),
                     target.literal_index,
+                    target.forwards,
                     clause_type == ClauseType::Fact,
                 ) {
-                    println!("XXX new clause: {}", new_clause);
                     result.push((new_clause, target.clause_index));
                 }
             }
@@ -299,6 +296,7 @@ impl ActiveSet {
                     &path,
                     res_clause,
                     0,
+                    true,
                     clause_type == ClauseType::Fact,
                 ) {
                     result.push((new_clause, target.clause_index));
@@ -521,6 +519,7 @@ impl ActiveSet {
         Some(clause)
     }
 
+    // Add all the resolution targets for a given literal.
     fn add_resolution_targets(
         &mut self,
         clause_index: usize,
@@ -533,7 +532,7 @@ impl ActiveSet {
                 ResolutionTarget {
                     clause_index,
                     literal_index,
-                    left: true,
+                    forwards: true,
                     path,
                 },
             );

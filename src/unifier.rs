@@ -355,6 +355,8 @@ impl Unifier {
     // s = t | S   (pm_clause, the paramodulator's clause)
     // u ?= v | R  (res_clause, the resolver's clause)
     //
+    // If 'res_forward' is false, the u ?= v literal is swapped to be v ?= u.
+    //
     // If s matches a subterm of u, superposition lets you replace the s with t to infer that:
     //
     // u[s -> t] ?= v | S | R
@@ -380,10 +382,14 @@ impl Unifier {
         path: &[usize],
         res_clause: &Clause,
         res_literal_index: usize,
+        res_forwards: bool,
     ) -> Clause {
         let resolution_literal = &res_clause.literals[res_literal_index];
-        let u = &resolution_literal.left;
-        let v = &resolution_literal.right;
+        let (u, v) = if res_forwards {
+            (&resolution_literal.left, &resolution_literal.right)
+        } else {
+            (&resolution_literal.right, &resolution_literal.left)
+        };
         let unified_u = self.apply_replace(
             Scope::Right,
             u,
@@ -512,7 +518,7 @@ mod tests {
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &s, Scope::Right, &u_subterm);
         u.print();
-        let new_clause = u.superpose(&t, &pm_clause, 0, target_path, &resolution_clause, 0);
+        let new_clause = u.superpose(&t, &pm_clause, 0, target_path, &resolution_clause, 0, true);
         assert!(
             new_clause.to_string()
                 == "c1(c2(c1, x0, c1(c1(c0)))) != c1(x1(x2)) | c1(c1(x0)) = x1(x2)"
