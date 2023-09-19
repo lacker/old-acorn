@@ -232,3 +232,30 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by
         }
     }
 }
+
+theorem lt_add_suc(a: Nat, b: Nat): lt(a, add(a, Suc(b)))
+
+theorem add_cancels_left(a: Nat, b: Nat, c: Nat): add(a, b) = add(a, c) -> b = c by {
+    let f(x: Nat) -> bool = add_cancels_left(x, b, c)
+    induction(f)
+    f(0)
+    forall(x: Nat) {
+        if f(x) {
+            if add(Suc(x), b) = add(Suc(x), c) {
+                Suc(add(x, b)) = Suc(add(x, c))
+                add(x, b) = add(x, c)
+                b = c
+            }
+            add(Suc(x), b) = add(Suc(x), c) -> b = c
+            f(Suc(x))
+        }
+    }
+    f(a)
+}
+
+theorem add_cancels_right(a: Nat, b: Nat, c: Nat): add(b, a) = add(c, a) -> b = c by {
+    if add(b, a) = add(c, a) {
+        add(a, b) = add(a, c)
+        b = c
+    }
+}
