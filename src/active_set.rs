@@ -90,7 +90,12 @@ impl ActiveSet {
 
     fn get_resolution_term(&self, target: &ResolutionTarget) -> &Term {
         let clause = self.get_clause(target.clause_index);
-        let mut term = &clause.literals[target.literal_index].left;
+        let literal = &clause.literals[target.literal_index];
+        let mut term = if target.forwards {
+            &literal.left
+        } else {
+            &literal.right
+        };
         for i in &target.path {
             term = &term.args[*i];
         }
@@ -533,6 +538,17 @@ impl ActiveSet {
                     clause_index,
                     literal_index,
                     forwards: true,
+                    path,
+                },
+            );
+        }
+        for (path, subterm) in literal.right.non_variable_subterms() {
+            self.resolution_targets.insert(
+                subterm,
+                ResolutionTarget {
+                    clause_index,
+                    literal_index,
+                    forwards: false,
                     path,
                 },
             );
