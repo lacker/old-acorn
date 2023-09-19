@@ -205,3 +205,29 @@ theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
         }
     }
 }
+
+theorem lt_diff(a: Nat, b: Nat): lt(a, b) -> exists(c: Nat) { add(a, c) = b & c != 0 } by {
+    if lt(a, b) {
+        lte(a, b)
+        exists(c: Nat) { add(a, c) = b }
+        add(a, c) = b
+        c != 0
+    }
+}
+
+theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by {
+    let f(z: Nat) -> bool = forall(x: Nat, y: Nat) { lte_trans(x, y, z) }
+    induction(f)
+    f(0)
+    forall(z: Nat) {
+        if f(z) {
+            forall(x: Nat, y: Nat) {
+                if lte(x, y) & lte(y, Suc(z)) {
+                    lte(x, Suc(z))
+                }
+                lte_trans(x, y, Suc(z))
+            }
+            f(Suc(z))
+        }
+    }
+}
