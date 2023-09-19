@@ -46,6 +46,9 @@ struct ResolutionTarget {
     // We assume the resolution target is the first term in the literal. (Is that okay?)
     literal_index: usize,
 
+    // Whether the resolution target is the left of the literal.
+    left: bool,
+
     // We resolve against subterms. This is the path from the root term to the subterm to resolve against.
     // An empty path means resolve against the root.
     path: Vec<usize>,
@@ -201,6 +204,7 @@ impl ActiveSet {
         pm_clause: &Clause,
         clause_type: ClauseType,
     ) -> Vec<(Clause, usize)> {
+        println!("XXX activating pm: {}", pm_clause);
         let mut result = vec![];
         let pm_literal = &pm_clause.literals[0];
         for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
@@ -208,10 +212,18 @@ impl ActiveSet {
                 continue;
             }
 
+            println!("XXX s = {}, t = {}", s, t);
+
             // Look for resolution targets that match pm_left
             let targets = self.resolution_targets.get_unifying(s);
             for target in targets {
                 let u_subterm = self.get_resolution_term(target);
+
+                println!(
+                    "XXX target = {}, u_subterm = {}",
+                    self.get_clause(target.clause_index),
+                    u_subterm
+                );
 
                 if let Some(new_clause) = self.maybe_superpose(
                     s,
@@ -224,6 +236,7 @@ impl ActiveSet {
                     target.literal_index,
                     clause_type == ClauseType::Fact,
                 ) {
+                    println!("XXX new clause: {}", new_clause);
                     result.push((new_clause, target.clause_index));
                 }
             }
@@ -508,6 +521,25 @@ impl ActiveSet {
         Some(clause)
     }
 
+    fn add_resolution_targets(
+        &mut self,
+        clause_index: usize,
+        literal_index: usize,
+        literal: &Literal,
+    ) {
+        for (path, subterm) in literal.left.non_variable_subterms() {
+            self.resolution_targets.insert(
+                subterm,
+                ResolutionTarget {
+                    clause_index,
+                    literal_index,
+                    left: true,
+                    path,
+                },
+            );
+        }
+    }
+
     // Adds a clause so that it becomes available for resolution and paramodulation.
     // If select_all is set, then every literal can be used as a target for paramodulation.
     // Otherwise, only the first one can be.
@@ -520,30 +552,11 @@ impl ActiveSet {
         if info.clause_type == ClauseType::Fact {
             // Use any literal for resolution
             for (i, literal) in clause.literals.iter().enumerate() {
-                for (path, subterm) in literal.left.non_variable_subterms() {
-                    self.resolution_targets.insert(
-                        subterm,
-                        ResolutionTarget {
-                            clause_index: self.clause_info.len(),
-                            literal_index: i,
-                            path: path.clone(),
-                        },
-                    );
-                }
+                self.add_resolution_targets(clause_index, i, literal);
             }
         } else {
             // Use only the leftmost literal for resolution.
-            let leftmost_term = &leftmost_literal.left;
-            for (path, subterm) in leftmost_term.non_variable_subterms() {
-                self.resolution_targets.insert(
-                    subterm,
-                    ResolutionTarget {
-                        clause_index,
-                        literal_index: 0,
-                        path: path.clone(),
-                    },
-                );
-            }
+            self.add_resolution_targets(clause_index, 0, leftmost_literal);
         }
 
         // Add paramodulation targets for the new clause.
