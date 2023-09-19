@@ -201,6 +201,7 @@ theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
                     !lt(y, Suc(x))
                 }
             }
+            f(Suc(x))
         }
     }
 }
