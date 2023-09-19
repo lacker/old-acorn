@@ -212,6 +212,7 @@ theorem lt_diff(a: Nat, b: Nat): lt(a, b) -> exists(c: Nat) { add(a, c) = b & c 
         exists(c: Nat) { add(a, c) = b }
         add(a, c) = b
         c != 0
+        lt_diff(a, b)
     }
 }
 
