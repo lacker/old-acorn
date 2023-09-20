@@ -4,6 +4,9 @@
         {
             "type": "npm",
             "script": "compile",
+            "options": {
+                "cwd": "${workspaceFolder}/extension"
+            },
             "group": "build",
             "presentation": {
                 "panel": "dedicated",
@@ -16,6 +19,9 @@
         {
             "type": "npm",
             "script": "watch",
+            "options": {
+                "cwd": "${workspaceFolder}/extension"
+            },
             "isBackground": true,
             "group": {
                 "kind": "build",
