@@ -37,8 +37,8 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(disposable);
 
-    const traceOutputChannel = window.createOutputChannel("Nrs Language Server trace");
-    const command = process.env.SERVER_PATH || "nrs-language-server";
+    const traceOutputChannel = window.createOutputChannel("Acorn Language Server trace");
+    const command = process.env.SERVER_PATH || "acorn-language-server";
     const run: Executable = {
         command,
         options: {
@@ -58,7 +58,7 @@ export async function activate(context: ExtensionContext) {
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
         // Register the server for plain text documents
-        documentSelector: [{ scheme: "file", language: "nrs" }],
+        documentSelector: [{ scheme: "file", language: "acorn" }],
         synchronize: {
             // Notify the server about file changes to '.clientrc files contained in the workspace
             fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
@@ -67,8 +67,8 @@ export async function activate(context: ExtensionContext) {
     };
 
     // Create the language client and start the client.
-    client = new LanguageClient("acorn-language-server", "acorn language server", serverOptions, clientOptions);
-    // activateInlayHints(context);
+    client = new LanguageClient(
+        "acorn-language-server", "acorn language server", serverOptions, clientOptions);
     client.start();
 }
 
