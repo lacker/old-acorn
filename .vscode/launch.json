@@ -2,17 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Extension",
+            "name": "Launch Client",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/extension"
+                "--extensionDevelopmentPath=${workspaceFolder}"
             ],
             "outFiles": [
-                "${workspaceFolder}/extension/client/out/**/*.js"
+                "${workspaceFolder}/extension/out/**/*.js"
             ],
-            "preLaunchTask": "npm: compile"
+            "preLaunchTask": {
+                "type": "npm",
+                "script": "watch"
+            },
         }
     ]
 }
