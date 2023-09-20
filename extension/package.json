@@ -1,0 +1,28 @@
+{
+    "name": "acorn-extension",
+    "version": "0.0.1",
+    "description": "A VSCode extension for the Acorn language.",
+    "engines": {
+        "vscode": "^1.74.0"
+    },
+    "activationEvents": [],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "extension.helloWorld",
+                "title": "Hello World"
+            }
+        ]
+    },
+    "scripts": {
+        "watch": "tsc -watch -p ./",
+        "compile": "tsc -p ./"
+    },
+    "author": "Kevin Lacker",
+    "license": "MIT",
+    "devDependencies": {
+        "@types/node": "^20.6.3",
+        "typescript": "^5.2.2"
+    }
+}
