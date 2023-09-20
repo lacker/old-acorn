@@ -1,19 +1,11 @@
 import {
-    languages,
     workspace,
     EventEmitter,
     ExtensionContext,
     window,
-    InlayHintsProvider,
-    TextDocument,
-    CancellationToken,
     Range,
-    InlayHint,
     TextDocumentChangeEvent,
-    ProviderResult,
     commands,
-    WorkspaceEdit,
-    TextEdit,
     Selection,
     Uri,
 } from "vscode";
@@ -27,7 +19,6 @@ import {
 } from "vscode-languageclient/node";
 
 let client: LanguageClient;
-// type a = Parameters<>;
 
 export async function activate(context: ExtensionContext) {
     let disposable = commands.registerCommand("helloworld.helloWorld", async uri => {
@@ -76,7 +67,7 @@ export async function activate(context: ExtensionContext) {
     };
 
     // Create the language client and start the client.
-    client = new LanguageClient("nrs-language-server", "nrs language server", serverOptions, clientOptions);
+    client = new LanguageClient("acorn-language-server", "acorn language server", serverOptions, clientOptions);
     // activateInlayHints(context);
     client.start();
 }
@@ -101,8 +92,6 @@ export function activateInlayHints(ctx: ExtensionContext) {
         },
 
         onDidChangeTextDocument({ contentChanges, document }: TextDocumentChangeEvent) {
-            // debugger
-            // this.updateHintsEventEmitter.fire();
         },
 
         dispose() {
