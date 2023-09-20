@@ -1,10 +1,9 @@
-import * as path from "path";
-import { workspace, ExtensionContext } from "vscode";
+import { commands, window, workspace, ExtensionContext } from "vscode";
 import {
+  Executable,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
-  TransportKind,
 } from "vscode-languageclient/node";
 
 let client: LanguageClient;
@@ -12,38 +11,51 @@ let client: LanguageClient;
 export function activate(context: ExtensionContext) {
   console.log("activating acorn language extension.");
 
-  // The server is implemented in node
-  const serverModule = context.asAbsolutePath(
-    path.join("server", "out", "server.js")
+  // The command has been defined in the package.json file
+  // Now provide the implementation of the command with registerCommand
+  // The commandId parameter must match the command field in package.json
+  let disposable = commands.registerCommand("acorn.helloAcornWorld", () => {
+    // The code you place here will be executed every time your command is executed
+
+    // Display a message box to the user
+    window.showInformationMessage("Hello Acorn World!");
+  });
+  context.subscriptions.push(disposable);
+
+  let traceOutputChannel = window.createOutputChannel(
+    "Acorn Language Server trace"
   );
 
-  // If the extension is launched in debug mode then the debug server options are used
-  // Otherwise the run options are used
-  const serverOptions: ServerOptions = {
-    run: {
-      module: serverModule,
-      transport: TransportKind.ipc,
-    },
-    debug: {
-      module: serverModule,
-      transport: TransportKind.ipc,
+  let exec: Executable = {
+    command: "TODO: real command here",
+    options: {
+      env: {
+        ...process.env,
+      },
     },
   };
 
-  // Options to control the language client
-  const clientOptions: LanguageClientOptions = {
+  // If the extension is launched in debug mode then the debug server options are used
+  // Otherwise the run options are used
+  let serverOptions: ServerOptions = {
+    run: exec,
+    debug: exec,
+  };
+
+  let clientOptions: LanguageClientOptions = {
     // Register the server for plain text documents
-    documentSelector: [{ scheme: "file", language: "plaintext" }],
+    documentSelector: [{ scheme: "file", language: "acorn" }],
     synchronize: {
       // Notify the server about file changes to '.clientrc files contained in the workspace
       fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
     },
+    traceOutputChannel,
   };
 
   // Create the language client and start the client.
   client = new LanguageClient(
-    "languageServerExample",
-    "Language Server Example",
+    "acornLanguageClient",
+    "Acorn Language Client",
     serverOptions,
     clientOptions
   );

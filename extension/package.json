@@ -10,8 +10,8 @@
     "contributes": {
         "commands": [
             {
-                "command": "extension.helloWorld",
-                "title": "Hello World"
+                "command": "acorn.helloAcornWorld",
+                "title": "Hello Acorn World"
             }
         ]
     },
