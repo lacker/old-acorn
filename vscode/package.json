@@ -1,5 +1,5 @@
 {
-    "name": "acorn-extension",
+    "name": "acorn-language-extension",
     "description": "vscode extension for acorn",
     "license": "MIT",
     "version": "0.0.1",
