@@ -26,8 +26,16 @@ export function activate(context: ExtensionContext) {
     "Acorn Language Server trace"
   );
 
+  let command = process.env.SERVER_PATH;
+  if (!command) {
+    window.showErrorMessage(
+      "The SERVER_PATH environment variable is not defined."
+    );
+    return;
+  }
+
   let exec: Executable = {
-    command: "TODO: real command here",
+    command,
     options: {
       env: {
         ...process.env,

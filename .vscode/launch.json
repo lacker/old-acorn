@@ -16,6 +16,9 @@
                 "type": "npm",
                 "script": "watch"
             },
+            "env": {
+                "SERVER_PATH": "${workspaceFolder}/target/debug/language_server"
+              }
         }
     ]
 }
