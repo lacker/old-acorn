@@ -1,24 +1,17 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Launch Client",
-            "type": "extensionHost",
-            "request": "launch",
-            "runtimeExecutable": "${execPath}",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/extension"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/extension/out/**/*.js"
-            ],
-            "preLaunchTask": {
-                "type": "npm",
-                "script": "watch"
-            },
-            "env": {
-                "SERVER_PATH": "${workspaceFolder}/target/debug/language_server"
-              }
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Client",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/extension"],
+      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "preLaunchTask": "Build Extension",
+      "env": {
+        "SERVER_PATH": "${workspaceFolder}/target/debug/language_server"
+      }
+    }
+  ]
 }
