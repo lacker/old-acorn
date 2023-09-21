@@ -22,9 +22,7 @@ export function activate(context: ExtensionContext) {
   });
   context.subscriptions.push(disposable);
 
-  let traceOutputChannel = window.createOutputChannel(
-    "Acorn Language Server trace"
-  );
+  let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
 
   let command = process.env.SERVER_PATH;
   if (!command) {
@@ -62,8 +60,8 @@ export function activate(context: ExtensionContext) {
 
   // Create the language client and start the client.
   client = new LanguageClient(
-    "acornLanguageClient",
-    "Acorn Language Client",
+    "acornClient",
+    "Acorn Client",
     serverOptions,
     clientOptions
   );
