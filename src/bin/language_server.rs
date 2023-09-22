@@ -12,6 +12,17 @@ impl Backend {
     async fn log_info(&self, message: &str) {
         self.client.log_message(MessageType::INFO, message).await;
     }
+
+    async fn on_change(&self, params: TextDocumentItem) {
+        self.log_info(&format!("als: file changed at {}", params.uri))
+            .await;
+    }
+}
+
+struct TextDocumentItem {
+    uri: Url,
+    text: String,
+    version: i32,
 }
 
 #[tower_lsp::async_trait]
@@ -31,6 +42,15 @@ impl LanguageServer for Backend {
 
     async fn did_save(&self, _: DidSaveTextDocumentParams) {
         self.log_info("als: file saved.").await;
+    }
+
+    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
+        self.on_change(TextDocumentItem {
+            uri: params.text_document.uri,
+            text: std::mem::take(&mut params.content_changes[0].text),
+            version: params.text_document.version,
+        })
+        .await
     }
 
     async fn shutdown(&self) -> Result<()> {
