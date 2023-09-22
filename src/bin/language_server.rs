@@ -14,8 +14,11 @@ impl Backend {
     }
 
     async fn on_change(&self, params: TextDocumentItem) {
-        self.log_info(&format!("als: file changed at {}", params.uri))
-            .await;
+        self.log_info(&format!(
+            "als: file changed. version = {}, text = {}",
+            params.version, params.text
+        ))
+        .await;
     }
 }
 
