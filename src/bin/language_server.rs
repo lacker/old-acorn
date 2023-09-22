@@ -1,7 +1,5 @@
 use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::{
-    DidSaveTextDocumentParams, InitializeParams, InitializeResult, MessageType, ServerCapabilities,
-};
+use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 #[derive(Debug)]
@@ -22,7 +20,12 @@ impl LanguageServer for Backend {
         self.log_info("als: initializing...").await;
         Ok(InitializeResult {
             server_info: None,
-            capabilities: ServerCapabilities::default(),
+            capabilities: ServerCapabilities {
+                text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                    TextDocumentSyncKind::FULL,
+                )),
+                ..ServerCapabilities::default()
+            },
         })
     }
 
