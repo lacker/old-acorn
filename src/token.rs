@@ -181,15 +181,16 @@ pub enum Error {
 
 #[derive(Debug)]
 pub struct TokenError {
-    message: String,
-    text: String,
-    line: String,
+    pub message: String,
+    pub text: String,
+    pub line: String,
 
     // The index of the line within the document.
-    line_index: usize,
+    // TODO: this numbers the lines in each "add" call differently.
+    pub line_index: usize,
 
     // The index of this token within the line.
-    char_index: usize,
+    pub char_index: usize,
 }
 
 impl fmt::Display for Error {

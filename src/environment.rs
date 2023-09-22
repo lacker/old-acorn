@@ -1175,24 +1175,27 @@ impl Environment {
 
     // Adds a possibly multi-line statement to the environment
     pub fn add(&mut self, input: &str) {
-        let tokens = match Token::scan(input) {
-            Ok(tokens) => tokens,
-            Err(e) => {
-                panic!("error scanning tokens: {}", e);
-            }
-        };
+        if let Err(e) = self.safe_add(input) {
+            panic!("error in env.add: {}", e);
+        }
+    }
+
+    // Like add but doesn't panic.
+    pub fn safe_add(&mut self, input: &str) -> Result<()> {
+        let tokens = Token::scan(input)?;
         let mut tokens = tokens.into_iter().peekable();
         loop {
             match Statement::parse(&mut tokens, false) {
                 Ok((Some(statement), _)) => {
                     if let Err(e) = self.add_statement(&statement) {
-                        panic!("\nerror adding statement:\n{}\n{}", statement, e);
+                        return Err(e);
                     }
                 }
                 Ok((None, _)) => break,
-                Err(e) => panic!("error parsing statement: {}", e),
+                Err(e) => return Err(e),
             }
         }
+        Ok(())
     }
 
     // Will return a context for a subenvironment if this theorem has a block
