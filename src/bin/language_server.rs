@@ -1,3 +1,4 @@
+use acorn::environment::Environment;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -13,21 +14,21 @@ impl Backend {
         self.client.log_message(MessageType::INFO, message).await;
     }
 
-    async fn on_change(&self, params: TextDocumentItem) {
+    async fn process_document(&self, doc: TextDocument) {
         // Get the basename of the uri
-        let basename = params.uri.path_segments().unwrap().last().unwrap();
-        self.log_info(&format!(
-            "{} changed. version = {}, text:\n{}",
-            basename, params.version, params.text
-        ))
-        .await;
+        let basename = doc.uri.path_segments().unwrap().last().unwrap();
+        self.log_info(&format!("{} changed. text:\n{}", basename, doc.text))
+            .await;
+
+        let mut env = Environment::new();
+        env.add(&doc.text);
+        self.log_info("env.add OK").await;
     }
 }
 
-struct TextDocumentItem {
+struct TextDocument {
     uri: Url,
     text: String,
-    version: i32,
 }
 
 #[tower_lsp::async_trait]
@@ -37,25 +38,39 @@ impl LanguageServer for Backend {
         Ok(InitializeResult {
             server_info: None,
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                    TextDocumentSyncKind::FULL,
+                text_document_sync: Some(TextDocumentSyncCapability::Options(
+                    TextDocumentSyncOptions {
+                        change: Some(TextDocumentSyncKind::FULL),
+                        save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+                            include_text: Some(true),
+                        })),
+                        ..TextDocumentSyncOptions::default()
+                    },
                 )),
                 ..ServerCapabilities::default()
             },
         })
     }
 
-    async fn did_save(&self, _: DidSaveTextDocumentParams) {
-        self.log_info("file saved.").await;
+    async fn did_save(&self, params: DidSaveTextDocumentParams) {
+        self.log_info(&format!("did_save. text = [{:?}]", &params.text))
+            .await;
+        let text = match params.text {
+            Some(text) => text,
+            None => {
+                self.log_info("oops no text").await;
+                return;
+            }
+        };
+        let doc = TextDocument {
+            uri: params.text_document.uri,
+            text,
+        };
+        self.process_document(doc).await
     }
 
-    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
-        self.on_change(TextDocumentItem {
-            uri: params.text_document.uri,
-            text: std::mem::take(&mut params.content_changes[0].text),
-            version: params.text_document.version,
-        })
-        .await
+    async fn did_change(&self, _: DidChangeTextDocumentParams) {
+        self.log_info("did_change").await;
     }
 
     async fn shutdown(&self) -> Result<()> {
