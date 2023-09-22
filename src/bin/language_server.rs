@@ -14,9 +14,11 @@ impl Backend {
     }
 
     async fn on_change(&self, params: TextDocumentItem) {
+        // Get the basename of the uri
+        let basename = params.uri.path_segments().unwrap().last().unwrap();
         self.log_info(&format!(
-            "als: file changed. version = {}, text = {}",
-            params.version, params.text
+            "{} changed. version = {}, text:\n{}",
+            basename, params.version, params.text
         ))
         .await;
     }
@@ -31,7 +33,7 @@ struct TextDocumentItem {
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-        self.log_info("als: initializing...").await;
+        self.log_info("initializing...").await;
         Ok(InitializeResult {
             server_info: None,
             capabilities: ServerCapabilities {
@@ -44,7 +46,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, _: DidSaveTextDocumentParams) {
-        self.log_info("als: file saved.").await;
+        self.log_info("file saved.").await;
     }
 
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
