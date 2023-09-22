@@ -1,33 +1,47 @@
 {
-    "name": "acorn-extension",
-    "version": "0.0.1",
-    "description": "A VSCode extension for the Acorn language.",
-    "engines": {
-        "vscode": "^1.74.0"
-    },
-    "activationEvents": [],
-    "main": "./out/extension.js",
-    "contributes": {
-        "commands": [
-            {
-                "command": "acorn.helloAcornWorld",
-                "title": "Hello Acorn World"
-            }
+  "name": "acorn-extension",
+  "version": "0.0.1",
+  "description": "A VSCode extension for the Acorn language.",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "activationEvents": [
+    "onLanguage:acorn"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "acorn",
+        "extensions": [
+          ".ac"
+        ],
+        "aliases": [
+          "Acorn",
+          "acorn"
         ]
-    },
-    "scripts": {
-        "watch": "tsc -watch -p ./",
-        "compile": "tsc -p ./"
-    },
-    "author": "Kevin Lacker",
-    "license": "MIT",
-    "devDependencies": {
-        "@types/node": "^20.6.3",
-        "@types/vscode": "^1.82.0",
-        "prettier": "^3.0.3",
-        "typescript": "^5.2.2"
-    },
-    "dependencies": {
-        "vscode-languageclient": "^9.0.0"
-    }
+      }
+    ],
+    "commands": [
+      {
+        "command": "acorn.helloAcornWorld",
+        "title": "Hello Acorn World"
+      }
+    ]
+  },
+  "scripts": {
+    "watch": "tsc -watch -p ./",
+    "compile": "tsc -p ./"
+  },
+  "author": "Kevin Lacker",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.6.3",
+    "@types/vscode": "^1.82.0",
+    "prettier": "^3.0.3",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  }
 }

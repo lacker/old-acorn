@@ -9,12 +9,17 @@ struct Backend {
     client: Client,
 }
 
+impl Backend {
+    // Allow formatting messages
+    async fn log_info(&self, message: &str) {
+        self.client.log_message(MessageType::INFO, message).await;
+    }
+}
+
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-        self.client
-            .log_message(MessageType::INFO, "als: initializing...")
-            .await;
+        self.log_info("als: initializing...").await;
         Ok(InitializeResult {
             server_info: None,
             capabilities: ServerCapabilities::default(),
@@ -22,9 +27,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, _: DidSaveTextDocumentParams) {
-        self.client
-            .log_message(MessageType::INFO, "als: file saved.")
-            .await;
+        self.log_info("als: file saved.").await;
     }
 
     async fn shutdown(&self) -> Result<()> {
