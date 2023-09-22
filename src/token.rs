@@ -140,9 +140,12 @@ pub struct Token<'a> {
     // The entire line containing this token.
     pub line: &'a str,
 
+    // The index of this line within the document.
+    pub line_index: usize,
+
     // The index of this token within the line.
     // Can be equal to line.len() if it's the final newline.
-    pub index: usize,
+    pub char_index: usize,
 }
 
 fn fmt_line_part(f: &mut fmt::Formatter<'_>, text: &str, line: &str, index: usize) -> fmt::Result {
@@ -209,7 +212,7 @@ impl Error {
             text: token.text.to_string(),
             line: token.line.to_string(),
             line_index: 0,
-            char_index: token.index,
+            char_index: token.char_index,
         })
     }
 
@@ -264,10 +267,9 @@ impl Token<'_> {
     // scanning always puts a NewLine token at the end of the input.
     pub fn scan(input: &str) -> Result<Vec<Token>> {
         let mut tokens = Vec::new();
-
-        for line in input.lines() {
+        for (line_index, line) in input.lines().enumerate() {
             let mut char_indices = line.char_indices().peekable();
-            while let Some((index, ch)) = char_indices.next() {
+            while let Some((char_index, ch)) = char_indices.next() {
                 let token_type = match ch {
                     ' ' => continue,
                     '\t' => continue,
@@ -278,7 +280,7 @@ impl Token<'_> {
                     '\n' => TokenType::NewLine,
                     ',' => TokenType::Comma,
                     ':' => TokenType::Colon,
-                    '!' => match char_indices.next_if_eq(&(index + 1, '=')) {
+                    '!' => match char_indices.next_if_eq(&(char_index + 1, '=')) {
                         Some(_) => TokenType::NotEquals,
                         None => TokenType::Exclam,
                     },
@@ -286,25 +288,25 @@ impl Token<'_> {
                     '&' => TokenType::Ampersand,
                     '=' => TokenType::Equals,
                     '+' => TokenType::Plus,
-                    '-' => match char_indices.next_if_eq(&(index + 1, '>')) {
+                    '-' => match char_indices.next_if_eq(&(char_index + 1, '>')) {
                         Some(_) => TokenType::RightArrow,
                         None => TokenType::Minus,
                     },
-                    '<' => match char_indices.next_if_eq(&(index + 1, '-')) {
-                        Some(_) => match char_indices.next_if_eq(&(index + 2, '>')) {
+                    '<' => match char_indices.next_if_eq(&(char_index + 1, '-')) {
+                        Some(_) => match char_indices.next_if_eq(&(char_index + 2, '>')) {
                             Some(_) => TokenType::LeftRightArrow,
                             None => TokenType::Invalid,
                         },
-                        None => match char_indices.next_if_eq(&(index + 1, '=')) {
+                        None => match char_indices.next_if_eq(&(char_index + 1, '=')) {
                             Some(_) => TokenType::LessThanOrEquals,
                             None => TokenType::LessThan,
                         },
                     },
-                    '>' => match char_indices.next_if_eq(&(index + 1, '=')) {
+                    '>' => match char_indices.next_if_eq(&(char_index + 1, '=')) {
                         Some(_) => TokenType::GreaterThanOrEquals,
                         None => TokenType::GreaterThan,
                     },
-                    '/' => match char_indices.next_if_eq(&(index + 1, '/')) {
+                    '/' => match char_indices.next_if_eq(&(char_index + 1, '/')) {
                         Some(_) => {
                             // Advance to the end of the line
                             while let Some((_, ch)) = char_indices.next() {
@@ -326,7 +328,7 @@ impl Token<'_> {
                                 None => break line.len(),
                             }
                         };
-                        let identifier = &line[index..end];
+                        let identifier = &line[char_index..end];
                         match identifier {
                             "let" => TokenType::Let,
                             "axiom" => TokenType::Axiom,
@@ -348,12 +350,13 @@ impl Token<'_> {
                 } else {
                     line.len()
                 };
-                let text = &line[index..end];
+                let text = &line[char_index..end];
                 let token = Token {
                     token_type,
                     text,
                     line,
-                    index,
+                    line_index,
+                    char_index,
                 };
                 if token.token_type == TokenType::Invalid {
                     return Err(Error::new(&token, &format!("invalid token: {}", text)));
@@ -366,7 +369,8 @@ impl Token<'_> {
                 token_type: TokenType::NewLine,
                 text: "\n",
                 line,
-                index: input.len(),
+                line_index,
+                char_index: input.len(),
             });
         }
 
