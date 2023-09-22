@@ -181,7 +181,12 @@ pub struct TokenError {
     message: String,
     text: String,
     line: String,
-    index: usize,
+
+    // The index of the line within the document.
+    line_index: usize,
+
+    // The index of this token within the line.
+    char_index: usize,
 }
 
 impl fmt::Display for Error {
@@ -189,7 +194,7 @@ impl fmt::Display for Error {
         match self {
             Error::Token(e) => {
                 write!(f, "{}:\n", e.message)?;
-                fmt_line_part(f, &e.text, &e.line, e.index)
+                fmt_line_part(f, &e.text, &e.line, e.char_index)
             }
             Error::EOF => write!(f, "unexpected end of file"),
             Error::Misc(s) => write!(f, "{}", s),
@@ -203,7 +208,8 @@ impl Error {
             message: message.to_string(),
             text: token.text.to_string(),
             line: token.line.to_string(),
-            index: token.index,
+            line_index: 0,
+            char_index: token.index,
         })
     }
 
