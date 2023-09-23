@@ -21,8 +21,16 @@ impl Backend {
             .await;
 
         let mut env = Environment::new();
-        env.add(&doc.text);
-        self.log_info("env.add OK").await;
+        match env.safe_add(&doc.text) {
+            Ok(()) => {
+                self.log_info("env.add OK").await;
+            }
+            Err(e) => {
+                self.log_info(&format!("env.add failed: {:?}", e)).await;
+                // TODO: send diagnostic
+                self.log_info("diagnostic sent").await;
+            }
+        }
     }
 }
 

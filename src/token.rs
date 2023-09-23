@@ -182,7 +182,11 @@ pub enum Error {
 #[derive(Debug)]
 pub struct TokenError {
     pub message: String,
+
+    // The text of the token itself
     pub text: String,
+
+    // The whole line containing the error token
     pub line: String,
 
     // The index of the line within the document.
