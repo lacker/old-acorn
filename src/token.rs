@@ -235,6 +235,8 @@ impl Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+pub type TokenIter<'a> = std::iter::Peekable<std::vec::IntoIter<Token<'a>>>;
+
 impl Token<'_> {
     pub fn value_precedence(&self) -> i8 {
         self.token_type.value_precedence()
@@ -383,18 +385,12 @@ impl Token<'_> {
     }
 
     // Pops off one token, expecting it to be there.
-    pub fn expect_token<'a, I>(tokens: &mut Peekable<I>) -> Result<Token<'a>>
-    where
-        I: Iterator<Item = Token<'a>>,
-    {
+    pub fn expect_token<'a>(tokens: &mut TokenIter<'a>) -> Result<Token<'a>> {
         tokens.next().ok_or(Error::EOF)
     }
 
     // Pops off one token, expecting it to be of a known type.
-    pub fn expect_type<'a, I>(tokens: &mut Peekable<I>, expected: TokenType) -> Result<Token<'a>>
-    where
-        I: Iterator<Item = Token<'a>>,
-    {
+    pub fn expect_type<'a>(tokens: &mut TokenIter<'a>, expected: TokenType) -> Result<Token<'a>> {
         let token = match tokens.next() {
             Some(t) => t,
             None => return Err(Error::EOF),

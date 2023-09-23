@@ -1,5 +1,5 @@
 use crate::expression::Expression;
-use crate::token::{Error, Result, Token, TokenType};
+use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 use std::fmt;
 use std::iter::Peekable;
@@ -119,10 +119,7 @@ impl fmt::Display for Statement<'_> {
 
 // Parses a block (a list of statements) where the left brace has already been consumed.
 // Consumes the final right brace.
-fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> Result<Vec<Statement<'a>>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
+fn parse_block<'a>(tokens: &mut TokenIter<'a>) -> Result<Vec<Statement<'a>>> {
     let mut body = Vec::new();
     loop {
         match Statement::parse(tokens, true)? {
@@ -144,10 +141,10 @@ where
 }
 
 // Parse a parenthesized list of arguments, after which we expect the given terminator token.
-fn parse_args<'a, I>(tokens: &mut Peekable<I>, terminator: TokenType) -> Result<Vec<Expression<'a>>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
+fn parse_args<'a>(
+    tokens: &mut TokenIter<'a>,
+    terminator: TokenType,
+) -> Result<Vec<Expression<'a>>> {
     let mut args = Vec::new();
     let token = Token::expect_token(tokens)?;
     if token.token_type == terminator {
@@ -172,13 +169,10 @@ where
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been consumed.
 // "axiomatic" is whether this is an axiom.
-fn parse_theorem_statement<'a, I>(
-    tokens: &mut Peekable<I>,
+fn parse_theorem_statement<'a>(
+    tokens: &mut TokenIter<'a>,
     axiomatic: bool,
-) -> Result<TheoremStatement<'a>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
+) -> Result<TheoremStatement<'a>> {
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text;
     let args = parse_args(tokens, TokenType::Colon)?;
@@ -232,10 +226,7 @@ where
 }
 
 // Parses a type statement where the "type" keyword has already been consumed.
-fn parse_type_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<TypeStatement<'a>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
+fn parse_type_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<TypeStatement<'a>> {
     let name = Token::expect_type(tokens, TokenType::Identifier)?.text;
     Token::expect_type(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
@@ -244,10 +235,7 @@ where
 }
 
 // Parses a forall statement where the "forall" keyword has already been consumed.
-fn parse_forall_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<ForAllStatement<'a>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
+fn parse_forall_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<ForAllStatement<'a>> {
     let token = *tokens.peek().unwrap();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
@@ -259,10 +247,7 @@ where
 }
 
 // Parses an if statement where the "if" keyword has already been consumed.
-fn parse_if_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<IfStatement<'a>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
+fn parse_if_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<IfStatement<'a>> {
     let token = *tokens.peek().unwrap();
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
@@ -274,10 +259,7 @@ where
 }
 
 // Parses an exists statement where the "exists" keyword has already been consumed.
-fn parse_exists_statement<'a, I>(tokens: &mut Peekable<I>) -> Result<ExistsStatement<'a>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
+fn parse_exists_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<ExistsStatement<'a>> {
     let token = *tokens.peek().unwrap();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
@@ -360,13 +342,10 @@ impl Statement<'_> {
     // If in_block is true, a prop statement can also end with a right brace.
     // The iterator may also end, in which case this returns None.
     // Returns statement as well as a flag for whether the current block or file ended.
-    pub fn parse<'a, I>(
-        tokens: &mut Peekable<I>,
+    pub fn parse<'a>(
+        tokens: &mut TokenIter<'a>,
         in_block: bool,
-    ) -> Result<(Option<Statement<'a>>, bool)>
-    where
-        I: Iterator<Item = Token<'a>>,
-    {
+    ) -> Result<(Option<Statement<'a>>, bool)> {
         loop {
             if let Some(token) = tokens.peek() {
                 match token.token_type {
