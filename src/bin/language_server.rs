@@ -1,5 +1,5 @@
 use acorn::environment::Environment;
-use acorn::token::Error;
+use acorn::token::{Error, Token};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -45,7 +45,8 @@ impl Backend {
             .await;
 
         let mut env = Environment::new();
-        match env.safe_add(&doc.text) {
+        let tokens = Token::scan(&doc.text);
+        match env.add_tokens(tokens) {
             Ok(()) => {
                 self.client.publish_diagnostics(doc.uri, vec![], None).await;
                 self.log_info("env.add OK").await;
