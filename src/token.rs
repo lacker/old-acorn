@@ -212,7 +212,7 @@ impl Error {
             message: message.to_string(),
             text: token.text.to_string(),
             line: token.line.to_string(),
-            line_index: 0,
+            line_index: token.line_index,
             char_index: token.char_index,
         })
     }

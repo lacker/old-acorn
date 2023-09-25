@@ -9,6 +9,29 @@ struct Backend {
     client: Client,
 }
 
+fn get_range(doc: &TextDocument, error: &Error) -> Range {
+    match error {
+        Error::Token(token_error) => {
+            let line = token_error.line_index as u32;
+            let character = token_error.char_index as u32;
+            let end_character = character + token_error.text.len() as u32;
+            let start = Position { line, character };
+            let end = Position {
+                line,
+                character: end_character,
+            };
+            Range { start, end }
+        }
+        Error::EOF => {
+            let line = doc.text.lines().count() as u32;
+            let character = doc.text.lines().last().unwrap().len() as u32;
+            let start = Position { line, character };
+            let end = Position { line, character };
+            Range { start, end }
+        }
+    }
+}
+
 impl Backend {
     // Allow formatting messages
     async fn log_info(&self, message: &str) {
@@ -29,28 +52,7 @@ impl Backend {
             }
             Err(e) => {
                 self.log_info(&format!("env.add failed: {:?}", e)).await;
-
-                let range = match &e {
-                    Error::Token(token_error) => {
-                        let line = token_error.line_index as u32;
-                        let character = token_error.char_index as u32;
-                        let end_character = character + token_error.text.len() as u32;
-                        let start = Position { line, character };
-                        let end = Position {
-                            line,
-                            character: end_character,
-                        };
-                        Range { start, end }
-                    }
-                    Error::EOF => {
-                        let line = doc.text.lines().count() as u32;
-                        let character = doc.text.lines().last().unwrap().len() as u32;
-                        let start = Position { line, character };
-                        let end = Position { line, character };
-                        Range { start, end }
-                    }
-                };
-
+                let range = get_range(&doc, &e);
                 let diagnostic = Diagnostic {
                     range,
                     severity: Some(DiagnosticSeverity::ERROR),
