@@ -24,6 +24,7 @@ impl Backend {
         let mut env = Environment::new();
         match env.safe_add(&doc.text) {
             Ok(()) => {
+                self.client.publish_diagnostics(doc.uri, vec![], None).await;
                 self.log_info("env.add OK").await;
             }
             Err(e) => {
