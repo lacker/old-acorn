@@ -221,10 +221,7 @@ impl Error {
         })
     }
 
-    pub fn from_iter<'a, I>(tokens: &mut Peekable<I>, message: &str) -> Self
-    where
-        I: Iterator<Item = Token<'a>>,
-    {
+    pub fn from_iter<'a>(tokens: &mut TokenIter<'a>, message: &str) -> Self {
         if let Some(token) = tokens.peek() {
             Error::new(token, message)
         } else {
