@@ -307,7 +307,7 @@ mod tests {
     use super::*;
 
     fn expect_optimal(input: &str, is_value: bool) {
-        let tokens = Token::scan(input).unwrap();
+        let tokens = Token::scan(input);
         let mut tokens = Token::into_iter(tokens);
         let exp = match Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine) {
             Ok((e, _)) => e,
@@ -327,7 +327,7 @@ mod tests {
 
     // Expects a parse error, or not-an-expression, but not a lex error
     fn expect_error(input: &str, is_value: bool) {
-        let tokens = Token::scan(input).unwrap();
+        let tokens = Token::scan(input);
         let mut tokens = Token::into_iter(tokens);
         let res = Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine);
         match res {

@@ -261,8 +261,9 @@ impl Token<'_> {
         ch.is_alphanumeric() || ch == '_'
     }
 
+    // If there is an error in scanning, there will be one or more InvalidToken in the result.
     // scanning always puts a NewLine token at the end of the input.
-    pub fn scan(input: &str) -> Result<Vec<Token>> {
+    pub fn scan(input: &str) -> Vec<Token> {
         let mut tokens = Vec::new();
         for (line_index, line) in input.lines().enumerate() {
             let mut char_indices = line.char_indices().peekable();
@@ -355,9 +356,6 @@ impl Token<'_> {
                     line_index,
                     char_index,
                 };
-                if token.token_type == TokenType::Invalid {
-                    return Err(Error::new(&token, &format!("invalid token: {}", text)));
-                }
                 tokens.push(token);
             }
 
@@ -371,7 +369,16 @@ impl Token<'_> {
             });
         }
 
-        Ok(tokens)
+        tokens
+    }
+
+    pub fn has_invalid_token(tokens: &[Token]) -> bool {
+        for token in tokens {
+            if token.token_type == TokenType::Invalid {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn into_iter(tokens: Vec<Token>) -> TokenIter {
@@ -402,18 +409,19 @@ mod tests {
 
     #[test]
     fn test_scanning_ok() {
-        assert_eq!(Token::scan("theorem t:A->B").unwrap().len(), 7);
-        assert_eq!(Token::scan("theorem _t:A->B").unwrap().len(), 7);
+        assert_eq!(Token::scan("theorem t:A->B").len(), 7);
+        assert_eq!(Token::scan("theorem _t:A->B").len(), 7);
     }
 
     #[test]
     fn test_scanning_errors() {
-        assert!(Token::scan("#$@%(#@)(#").is_err());
+        let tokens = Token::scan("#$@%(#@)(#");
+        assert!(Token::has_invalid_token(&tokens));
     }
 
     #[test]
     fn test_token_types() {
-        let tokens = Token::scan("type Nat: axiom\ndefine 0: Nat = axiom").unwrap();
+        let tokens = Token::scan("type Nat: axiom\ndefine 0: Nat = axiom");
         assert_eq!(tokens.len(), 12);
         assert_eq!(tokens[3].token_type, TokenType::Axiom);
         assert_eq!(tokens[4].token_type, TokenType::NewLine);

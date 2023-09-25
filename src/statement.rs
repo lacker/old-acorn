@@ -421,7 +421,7 @@ impl Statement<'_> {
 
     // Helper for tests; don't use in production code
     pub fn parse_str(input: &str) -> Result<Statement> {
-        let tokens = Token::scan(input)?;
+        let tokens = Token::scan(input);
         let mut tokens = Token::into_iter(tokens);
         match Statement::parse(&mut tokens, false)? {
             (Some(statement), _) => Ok(statement),
