@@ -94,7 +94,7 @@ impl Expression<'_> {
         let (partial_expressions, terminator) =
             parse_partial_expressions(tokens, is_value, termination)?;
         Ok((
-            combine_partial_expressions(partial_expressions, is_value)?,
+            combine_partial_expressions(partial_expressions, is_value, tokens)?,
             terminator,
         ))
     }
@@ -189,9 +189,10 @@ fn parse_partial_expressions<'a>(
 fn combine_partial_expressions<'a>(
     mut partials: VecDeque<PartialExpression<'a>>,
     is_value: bool,
+    iter: &mut TokenIter<'a>,
 ) -> Result<Expression<'a>> {
     if partials.len() == 0 {
-        return Err(Error::Misc("no partial expressions to combine".to_string()));
+        return Err(Error::from_iter(iter, "no partial expressions to combine"));
     }
     if partials.len() == 1 {
         let partial = partials.pop_back().unwrap();
@@ -275,7 +276,7 @@ fn combine_partial_expressions<'a>(
         if let PartialExpression::Unary(token) = partial {
             return Ok(Expression::Unary(
                 token,
-                Box::new(combine_partial_expressions(partials, is_value)?),
+                Box::new(combine_partial_expressions(partials, is_value, iter)?),
             ));
         }
         return Err(Error::new(partial.token(), "expected unary operator"));
@@ -290,8 +291,12 @@ fn combine_partial_expressions<'a>(
     if let PartialExpression::Binary(token) = partial {
         return Ok(Expression::Binary(
             token,
-            Box::new(combine_partial_expressions(partials, is_value)?),
-            Box::new(combine_partial_expressions(right_partials, right_is_value)?),
+            Box::new(combine_partial_expressions(partials, is_value, iter)?),
+            Box::new(combine_partial_expressions(
+                right_partials,
+                right_is_value,
+                iter,
+            )?),
         ));
     }
     return Err(Error::new(partial.token(), "expected binary operator"));

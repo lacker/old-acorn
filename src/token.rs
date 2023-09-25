@@ -174,9 +174,6 @@ impl fmt::Display for Token<'_> {
 pub enum Error {
     Token(TokenError),
     EOF,
-
-    // Errors that we can't figure out how to categorize well
-    Misc(String),
 }
 
 #[derive(Debug)]
@@ -205,7 +202,6 @@ impl fmt::Display for Error {
                 fmt_line_part(f, &e.text, &e.line, e.char_index)
             }
             Error::EOF => write!(f, "unexpected end of file"),
-            Error::Misc(s) => write!(f, "{}", s),
         }
     }
 }
