@@ -1,4 +1,4 @@
-use std::{fmt, iter::Peekable};
+use std::fmt;
 
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum TokenType {
@@ -251,10 +251,7 @@ impl Token<'_> {
         }
     }
 
-    pub fn skip_newlines<'a, I>(tokens: &mut Peekable<I>)
-    where
-        I: Iterator<Item = Token<'a>>,
-    {
+    pub fn skip_newlines<'a>(tokens: &mut TokenIter<'a>) {
         while let Some(token) = tokens.peek() {
             if token.token_type == TokenType::NewLine {
                 tokens.next();
