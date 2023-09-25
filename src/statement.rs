@@ -2,7 +2,6 @@ use crate::expression::Expression;
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 use std::fmt;
-use std::iter::Peekable;
 
 // For example, in:
 //   let a: int = x + 2
@@ -196,13 +195,10 @@ fn parse_theorem_statement<'a>(
 }
 
 // Parses a let statement where the "let" or "define" keyword has already been consumed.
-fn parse_definition_statement<'a, I>(
-    tokens: &mut Peekable<I>,
+fn parse_definition_statement<'a>(
+    tokens: &mut TokenIter<'a>,
     public: bool,
-) -> Result<DefinitionStatement<'a>>
-where
-    I: Iterator<Item = Token<'a>>,
-{
+) -> Result<DefinitionStatement<'a>> {
     let (declaration, terminator) = Expression::parse(tokens, false, |t| {
         t == TokenType::NewLine || t == TokenType::Equals
     })?;
@@ -426,7 +422,7 @@ impl Statement<'_> {
     // Helper for tests; don't use in production code
     pub fn parse_str(input: &str) -> Result<Statement> {
         let tokens = Token::scan(input)?;
-        let mut tokens = tokens.into_iter().peekable();
+        let mut tokens = Token::into_iter(tokens);
         match Statement::parse(&mut tokens, false)? {
             (Some(statement), _) => Ok(statement),
             _ => panic!("expected statement, got EOF"),

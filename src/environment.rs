@@ -1183,7 +1183,7 @@ impl Environment {
     // Like add but doesn't panic.
     pub fn safe_add(&mut self, input: &str) -> Result<()> {
         let tokens = Token::scan(input)?;
-        let mut tokens = tokens.into_iter().peekable();
+        let mut tokens = Token::into_iter(tokens);
         loop {
             match Statement::parse(&mut tokens, false) {
                 Ok((Some(statement), _)) => {
@@ -1308,7 +1308,7 @@ impl Environment {
     #[cfg(test)]
     fn assert_type_ok(&mut self, input: &str) {
         let tokens = Token::scan(input).unwrap();
-        let mut tokens = tokens.into_iter();
+        let mut tokens = Token::into_iter(tokens);
         let (expression, _) =
             Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
         match self.evaluate_type_expression(&expression) {
@@ -1320,7 +1320,7 @@ impl Environment {
     #[cfg(test)]
     fn assert_type_bad(&mut self, input: &str) {
         let tokens = Token::scan(input).unwrap();
-        let mut tokens = tokens.into_iter();
+        let mut tokens = Token::into_iter(tokens);
         let expression = match Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine) {
             Ok((expression, _)) => expression,
             Err(_) => {

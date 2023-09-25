@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fmt};
 
-use crate::token::{Error, Result, Token, TokenType};
+use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 // An Expression represents the basic structuring of tokens into a syntax tree.
 // There are three sorts of expressions.
@@ -87,7 +87,7 @@ impl Expression<'_> {
     // termination determines what tokens are allowed to be the terminator.
     // The terminating token is returned.
     pub fn parse<'a>(
-        tokens: &mut impl Iterator<Item = Token<'a>>,
+        tokens: &mut TokenIter<'a>,
         is_value: bool,
         termination: fn(TokenType) -> bool,
     ) -> Result<(Expression<'a>, Token<'a>)> {
@@ -137,7 +137,7 @@ impl PartialExpression<'_> {
 // termination determines what tokens are allowed to be the terminator.
 // The terminating token is returned.
 fn parse_partial_expressions<'a>(
-    tokens: &mut impl Iterator<Item = Token<'a>>,
+    tokens: &mut TokenIter<'a>,
     is_value: bool,
     termination: fn(TokenType) -> bool,
 ) -> Result<(VecDeque<PartialExpression<'a>>, Token<'a>)> {
@@ -303,7 +303,7 @@ mod tests {
 
     fn expect_optimal(input: &str, is_value: bool) {
         let tokens = Token::scan(input).unwrap();
-        let mut tokens = tokens.into_iter();
+        let mut tokens = Token::into_iter(tokens);
         let exp = match Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine) {
             Ok((e, _)) => e,
             Err(e) => panic!("unexpected error parsing: {}", e),
@@ -323,7 +323,7 @@ mod tests {
     // Expects a parse error, or not-an-expression, but not a lex error
     fn expect_error(input: &str, is_value: bool) {
         let tokens = Token::scan(input).unwrap();
-        let mut tokens = tokens.into_iter();
+        let mut tokens = Token::into_iter(tokens);
         let res = Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine);
         match res {
             Err(_) => {}

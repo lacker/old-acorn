@@ -384,6 +384,10 @@ impl Token<'_> {
         Ok(tokens)
     }
 
+    pub fn into_iter(tokens: Vec<Token>) -> TokenIter {
+        tokens.into_iter().peekable()
+    }
+
     // Pops off one token, expecting it to be there.
     pub fn expect_token<'a>(tokens: &mut TokenIter<'a>) -> Result<Token<'a>> {
         tokens.next().ok_or(Error::EOF)
