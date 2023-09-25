@@ -1,5 +1,5 @@
 use acorn::environment::Environment;
-use acorn::token::{Error, Token};
+use acorn::token::{Error, Token, LSP_TOKEN_TYPES};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -92,6 +92,31 @@ impl LanguageServer for Backend {
                         ..TextDocumentSyncOptions::default()
                     },
                 )),
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
+                        SemanticTokensRegistrationOptions {
+                            text_document_registration_options: {
+                                TextDocumentRegistrationOptions {
+                                    document_selector: Some(vec![DocumentFilter {
+                                        language: Some("acorn".to_string()),
+                                        scheme: Some("file".to_string()),
+                                        pattern: None,
+                                    }]),
+                                }
+                            },
+                            semantic_tokens_options: SemanticTokensOptions {
+                                work_done_progress_options: WorkDoneProgressOptions::default(),
+                                legend: SemanticTokensLegend {
+                                    token_types: LSP_TOKEN_TYPES.into(),
+                                    token_modifiers: vec![],
+                                },
+                                range: Some(false),
+                                full: Some(SemanticTokensFullOptions::Bool(true)),
+                            },
+                            static_registration_options: StaticRegistrationOptions::default(),
+                        },
+                    ),
+                ),
                 ..ServerCapabilities::default()
             },
         })
@@ -120,6 +145,14 @@ impl LanguageServer for Backend {
 
     async fn shutdown(&self) -> Result<()> {
         Ok(())
+    }
+
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        self.log_info("semantic_tokens_full").await;
+        Ok(None)
     }
 }
 
