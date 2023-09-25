@@ -6,6 +6,7 @@ version = 3
 name = "acorn"
 version = "0.1.0"
 dependencies = [
+ "dashmap",
  "env_logger",
  "fxhash",
  "indoc",

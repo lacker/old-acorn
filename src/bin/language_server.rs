@@ -1,5 +1,6 @@
 use acorn::environment::Environment;
 use acorn::token::{Error, Token, LSP_TOKEN_TYPES};
+use dashmap::DashMap;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -7,6 +8,9 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 #[derive(Debug)]
 struct Backend {
     client: Client,
+
+    // Maps uri to full document text
+    cache: DashMap<String, String>,
 }
 
 fn get_range(doc: &TextDocument, error: &Error) -> Range {
@@ -33,6 +37,13 @@ fn get_range(doc: &TextDocument, error: &Error) -> Range {
 }
 
 impl Backend {
+    fn new(client: Client) -> Backend {
+        Backend {
+            client,
+            cache: DashMap::new(),
+        }
+    }
+
     // Allow formatting messages
     async fn log_info(&self, message: &str) {
         self.client.log_message(MessageType::INFO, message).await;
@@ -43,6 +54,7 @@ impl Backend {
         let basename = doc.uri.path_segments().unwrap().last().unwrap();
         self.log_info(&format!("{} changed. text:\n{}", basename, doc.text))
             .await;
+        self.cache.insert(doc.uri.to_string(), doc.text.clone());
 
         let mut env = Environment::new();
         let tokens = Token::scan(&doc.text);
@@ -152,6 +164,15 @@ impl LanguageServer for Backend {
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
         self.log_info("semantic_tokens_full").await;
+        let uri = params.text_document.uri;
+        let text = match self.cache.get(&uri.to_string()) {
+            Some(text) => text,
+            None => {
+                self.log_info("oops no text").await;
+                return Ok(None);
+            }
+        };
+        let tokens = Token::scan(&text);
         Ok(None)
     }
 }
@@ -163,7 +184,7 @@ async fn main() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::build(|client| Backend { client }).finish();
+    let (service, socket) = LspService::build(Backend::new).finish();
 
     Server::new(stdin, stdout, socket).serve(service).await;
 }
