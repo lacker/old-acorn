@@ -81,6 +81,7 @@ pub struct ExistsStatement {
 // Each type has its own struct.
 pub struct Statement {
     pub first_token: Token,
+    pub last_token: Option<Token>,
     pub statement: StatementEnum,
 }
 
@@ -191,6 +192,7 @@ fn parse_theorem_statement(
     };
     let statement = Statement {
         first_token: keyword,
+        last_token: None,
         statement: StatementEnum::Theorem(ts),
     };
     Ok(statement)
@@ -224,6 +226,7 @@ fn parse_definition_statement(
     };
     let statement = Statement {
         first_token: keyword,
+        last_token: None,
         statement: StatementEnum::Definition(ds),
     };
     Ok(statement)
@@ -240,6 +243,7 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
     let ts = TypeStatement { name, type_expr };
     let statement = Statement {
         first_token: keyword,
+        last_token: None,
         statement: StatementEnum::Type(ts),
     };
     Ok(statement)
@@ -252,6 +256,7 @@ fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     let fas = ForAllStatement { quantifiers, body };
     let statement = Statement {
         first_token: keyword,
+        last_token: None,
         statement: StatementEnum::ForAll(fas),
     };
     Ok(statement)
@@ -269,6 +274,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
     };
     let statement = Statement {
         first_token: keyword,
+        last_token: None,
         statement: StatementEnum::If(is),
     };
     Ok(statement)
@@ -284,6 +290,7 @@ fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     };
     let statement = Statement {
         first_token: keyword,
+        last_token: None,
         statement: StatementEnum::Exists(es),
     };
     Ok(statement)
@@ -432,6 +439,7 @@ impl Statement {
                         let se = StatementEnum::Prop(PropStatement { claim });
                         let s = Statement {
                             first_token: token,
+                            last_token: None,
                             statement: se,
                         };
                         return Ok((Some(s), block_ended));
