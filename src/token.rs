@@ -301,6 +301,15 @@ impl Token<'_> {
         }
     }
 
+    // Convert the lsp type to a u32 for the language server protocol.
+    pub fn lsp_type_u32(&self) -> Option<u32> {
+        let lsp_type = self.lsp_type()?;
+        LSP_TOKEN_TYPES
+            .iter()
+            .position(|t| t == &lsp_type)
+            .map(|i| i as u32)
+    }
+
     // If there is an error in scanning, there will be one or more InvalidToken in the result.
     // scanning always puts a NewLine token at the end of the input.
     pub fn scan(input: &str) -> Vec<Token> {

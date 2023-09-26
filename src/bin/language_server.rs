@@ -173,7 +173,47 @@ impl LanguageServer for Backend {
             }
         };
         let tokens = Token::scan(&text);
-        Ok(None)
+
+        // Convert tokens to LSP semantic tokens
+        let mut semantic_tokens: Vec<SemanticToken> = vec![];
+        let mut prev_line = 0;
+        let mut prev_start = 0;
+        for token in tokens {
+            let line = token.line_index as u32;
+            let start = token.char_index as u32;
+            let length = token.text.len() as u32;
+            let token_type = match token.lsp_type_u32() {
+                Some(t) => t,
+                None => continue,
+            };
+            let token_modifiers_bitset = 0;
+            let delta_line = line - prev_line;
+            let delta_start = if delta_line == 0 {
+                start - prev_start
+            } else {
+                start
+            };
+            self.log_info(&format!(
+                "token: {}, token type: {:?}, delta_line: {}, delta_start: {}",
+                token.text, token.token_type, delta_line, delta_start
+            ))
+            .await;
+            semantic_tokens.push(SemanticToken {
+                delta_line,
+                delta_start,
+                length,
+                token_type,
+                token_modifiers_bitset,
+            });
+            prev_line = line;
+            prev_start = start;
+        }
+
+        let result = SemanticTokensResult::Tokens(SemanticTokens {
+            result_id: None,
+            data: semantic_tokens,
+        });
+        Ok(Some(result))
     }
 }
 
