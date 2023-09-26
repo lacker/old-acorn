@@ -1091,7 +1091,10 @@ impl Environment {
                 let bound_claim: &AcornValue = match block.env.propositions.last() {
                     Some(p) => &p.claim,
                     None => {
-                        return Err(Error::new(&fas.token, "expected a claim in this block"));
+                        return Err(Error::new(
+                            &statement.first_token,
+                            "expected a claim in this block",
+                        ));
                     }
                 };
                 let mut constants: Vec<AtomId> = Vec::new();

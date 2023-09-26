@@ -60,9 +60,6 @@ pub struct TypeStatement {
 pub struct ForAllStatement {
     pub quantifiers: Vec<Expression>,
     pub body: Vec<Statement>,
-
-    // Just for error reporting
-    pub token: Token,
 }
 
 // If statements create a new block that introduces no variables but has an implicit condition.
@@ -78,9 +75,6 @@ pub struct IfStatement {
 pub struct ExistsStatement {
     pub quantifiers: Vec<Expression>,
     pub claim: Expression,
-
-    // Just for error reporting
-    pub token: Token,
 }
 
 // Acorn is a statement-based language. There are several types.
@@ -253,14 +247,9 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
 
 // Parses a forall statement where the "forall" keyword has already been found.
 fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let token = tokens.peek().unwrap().clone();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
-    let fas = ForAllStatement {
-        quantifiers,
-        body,
-        token,
-    };
+    let fas = ForAllStatement { quantifiers, body };
     let statement = Statement {
         first_token: keyword,
         statement: StatementEnum::ForAll(fas),
@@ -287,13 +276,11 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
 
 // Parses an exists statement where the "exists" keyword has already been found.
 fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let token = tokens.peek().unwrap().clone();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
     let es = ExistsStatement {
         quantifiers,
         claim: condition,
-        token,
     };
     let statement = Statement {
         first_token: keyword,
