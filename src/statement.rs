@@ -444,7 +444,7 @@ impl Statement {
                         }
                         let se = StatementEnum::Prop(PropStatement { claim });
                         let s = Statement {
-                            first_token: None,
+                            first_token: Some(token),
                             statement: se,
                         };
                         return Ok((Some(s), block_ended));
