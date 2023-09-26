@@ -202,8 +202,12 @@ fn parse_theorem_statement(
     Ok(statement)
 }
 
-// Parses a let statement where the "let" or "define" keyword has already been consumed.
-fn parse_definition_statement(tokens: &mut TokenIter, public: bool) -> Result<Statement> {
+// Parses a let statement where the "let" or "define" keyword has already been found.
+fn parse_definition_statement(
+    keyword: Token,
+    tokens: &mut TokenIter,
+    public: bool,
+) -> Result<Statement> {
     let (declaration, terminator) = Expression::parse(tokens, false, |t| {
         t == TokenType::NewLine || t == TokenType::Equals
     })?;
@@ -225,7 +229,7 @@ fn parse_definition_statement(tokens: &mut TokenIter, public: bool) -> Result<St
         }
     };
     let statement = Statement {
-        first_token: None,
+        first_token: Some(keyword),
         statement: StatementEnum::Definition(ds),
     };
     Ok(statement)
@@ -379,8 +383,8 @@ impl Statement {
                         continue;
                     }
                     TokenType::Let => {
-                        tokens.next();
-                        let s = parse_definition_statement(tokens, false)?;
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_definition_statement(keyword, tokens, false)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Axiom => {
@@ -394,8 +398,8 @@ impl Statement {
                         return Ok((Some(s), false));
                     }
                     TokenType::Define => {
-                        tokens.next();
-                        let s = parse_definition_statement(tokens, true)?;
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_definition_statement(keyword, tokens, true)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Type => {
