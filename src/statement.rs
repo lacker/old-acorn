@@ -86,7 +86,7 @@ pub struct ExistsStatement {
 // Acorn is a statement-based language. There are several types.
 // Each type has its own struct.
 pub struct Statement {
-    pub first_token: Option<Token>,
+    pub first_token: Token,
     pub statement: StatementEnum,
 }
 
@@ -196,7 +196,7 @@ fn parse_theorem_statement(
         body,
     };
     let statement = Statement {
-        first_token: Some(keyword),
+        first_token: keyword,
         statement: StatementEnum::Theorem(ts),
     };
     Ok(statement)
@@ -229,7 +229,7 @@ fn parse_definition_statement(
         }
     };
     let statement = Statement {
-        first_token: Some(keyword),
+        first_token: keyword,
         statement: StatementEnum::Definition(ds),
     };
     Ok(statement)
@@ -245,7 +245,7 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
     let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::NewLine)?;
     let ts = TypeStatement { name, type_expr };
     let statement = Statement {
-        first_token: Some(keyword),
+        first_token: keyword,
         statement: StatementEnum::Type(ts),
     };
     Ok(statement)
@@ -262,7 +262,7 @@ fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
         token,
     };
     let statement = Statement {
-        first_token: Some(keyword),
+        first_token: keyword,
         statement: StatementEnum::ForAll(fas),
     };
     Ok(statement)
@@ -279,7 +279,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
         token,
     };
     let statement = Statement {
-        first_token: Some(keyword),
+        first_token: keyword,
         statement: StatementEnum::If(is),
     };
     Ok(statement)
@@ -296,7 +296,7 @@ fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
         token,
     };
     let statement = Statement {
-        first_token: Some(keyword),
+        first_token: keyword,
         statement: StatementEnum::Exists(es),
     };
     Ok(statement)
@@ -444,7 +444,7 @@ impl Statement {
                         }
                         let se = StatementEnum::Prop(PropStatement { claim });
                         let s = Statement {
-                            first_token: Some(token),
+                            first_token: token,
                             statement: se,
                         };
                         return Ok((Some(s), block_ended));
