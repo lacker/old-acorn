@@ -235,8 +235,8 @@ fn parse_definition_statement(
     Ok(statement)
 }
 
-// Parses a type statement where the "type" keyword has already been consumed.
-fn parse_type_statement(tokens: &mut TokenIter) -> Result<Statement> {
+// Parses a type statement where the "type" keyword has already been found.
+fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let name = Token::expect_type(tokens, TokenType::Identifier)?
         .text()
         .to_string();
@@ -245,14 +245,14 @@ fn parse_type_statement(tokens: &mut TokenIter) -> Result<Statement> {
     let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::NewLine)?;
     let ts = TypeStatement { name, type_expr };
     let statement = Statement {
-        first_token: None,
+        first_token: Some(keyword),
         statement: StatementEnum::Type(ts),
     };
     Ok(statement)
 }
 
-// Parses a forall statement where the "forall" keyword has already been consumed.
-fn parse_forall_statement(tokens: &mut TokenIter) -> Result<Statement> {
+// Parses a forall statement where the "forall" keyword has already been found.
+fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
@@ -262,14 +262,14 @@ fn parse_forall_statement(tokens: &mut TokenIter) -> Result<Statement> {
         token,
     };
     let statement = Statement {
-        first_token: None,
+        first_token: Some(keyword),
         statement: StatementEnum::ForAll(fas),
     };
     Ok(statement)
 }
 
-// Parses an if statement where the "if" keyword has already been consumed.
-fn parse_if_statement(tokens: &mut TokenIter) -> Result<Statement> {
+// Parses an if statement where the "if" keyword has already been found.
+fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
@@ -279,14 +279,14 @@ fn parse_if_statement(tokens: &mut TokenIter) -> Result<Statement> {
         token,
     };
     let statement = Statement {
-        first_token: None,
+        first_token: Some(keyword),
         statement: StatementEnum::If(is),
     };
     Ok(statement)
 }
 
-// Parses an exists statement where the "exists" keyword has already been consumed.
-fn parse_exists_statement(tokens: &mut TokenIter) -> Result<Statement> {
+// Parses an exists statement where the "exists" keyword has already been found.
+fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
@@ -296,7 +296,7 @@ fn parse_exists_statement(tokens: &mut TokenIter) -> Result<Statement> {
         token,
     };
     let statement = Statement {
-        first_token: None,
+        first_token: Some(keyword),
         statement: StatementEnum::Exists(es),
     };
     Ok(statement)
@@ -403,8 +403,8 @@ impl Statement {
                         return Ok((Some(s), false));
                     }
                     TokenType::Type => {
-                        tokens.next();
-                        let s = parse_type_statement(tokens)?;
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_type_statement(keyword, tokens)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::RightBrace => {
@@ -417,18 +417,18 @@ impl Statement {
                         return Ok((None, true));
                     }
                     TokenType::ForAll => {
-                        tokens.next();
-                        let s = parse_forall_statement(tokens)?;
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_forall_statement(keyword, tokens)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::If => {
-                        tokens.next();
-                        let s = parse_if_statement(tokens)?;
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_if_statement(keyword, tokens)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Exists => {
-                        tokens.next();
-                        let s = parse_exists_statement(tokens)?;
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_exists_statement(keyword, tokens)?;
                         return Ok((Some(s), false));
                     }
                     _ => {
