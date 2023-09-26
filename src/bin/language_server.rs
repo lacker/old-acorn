@@ -15,17 +15,7 @@ struct Backend {
 
 fn get_range(text: &str, error: &Error) -> Range {
     match error {
-        Error::Token(token_error) => {
-            let line = token_error.line_index as u32;
-            let character = token_error.char_index as u32;
-            let end_character = character + token_error.text.len() as u32;
-            let start = Position { line, character };
-            let end = Position {
-                line,
-                character: end_character,
-            };
-            Range { start, end }
-        }
+        Error::Token(token_error) => token_error.token.range(),
         Error::EOF => {
             let line = text.lines().count() as u32;
             let character = text.lines().last().unwrap().len() as u32;

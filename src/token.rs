@@ -1,7 +1,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-use tower_lsp::lsp_types::SemanticTokenType;
+use tower_lsp::lsp_types::{Position, Range, SemanticTokenType};
 
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum TokenType {
@@ -184,6 +184,27 @@ impl Token {
     pub fn text(&self) -> &str {
         &self.line[self.start..self.start + self.len]
     }
+
+    pub fn start_pos(&self) -> Position {
+        Position {
+            line: self.line_number as u32,
+            character: self.start as u32,
+        }
+    }
+
+    pub fn end_pos(&self) -> Position {
+        Position {
+            line: self.line_number as u32,
+            character: (self.start + self.len) as u32,
+        }
+    }
+
+    pub fn range(&self) -> Range {
+        Range {
+            start: self.start_pos(),
+            end: self.end_pos(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -195,19 +216,7 @@ pub enum Error {
 #[derive(Debug)]
 pub struct TokenError {
     pub message: String,
-
-    // The text of the token itself
-    pub text: String,
-
-    // The whole line containing the error token
-    pub line: String,
-
-    // The index of the line within the document.
-    // TODO: this numbers the lines in each "add" call differently.
-    pub line_index: usize,
-
-    // The index of this token within the line.
-    pub char_index: usize,
+    pub token: Token,
 }
 
 impl fmt::Display for Error {
@@ -215,7 +224,7 @@ impl fmt::Display for Error {
         match self {
             Error::Token(e) => {
                 write!(f, "{}:\n", e.message)?;
-                fmt_line_part(f, &e.text, &e.line, e.char_index)
+                fmt_line_part(f, &e.token.text(), &e.token.line, e.token.start)
             }
             Error::EOF => write!(f, "unexpected end of file"),
         }
@@ -226,10 +235,7 @@ impl Error {
     pub fn new(token: &Token, message: &str) -> Self {
         Error::Token(TokenError {
             message: message.to_string(),
-            text: token.text().to_string(),
-            line: token.line.to_string(),
-            line_index: token.line_number,
-            char_index: token.start,
+            token: token.clone(),
         })
     }
 
