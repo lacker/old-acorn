@@ -1,5 +1,7 @@
 use std::fmt;
+use std::iter::Peekable;
 use std::sync::Arc;
+use std::vec::IntoIter;
 
 use tower_lsp::lsp_types::{Position, Range, SemanticTokenType};
 
@@ -250,7 +252,7 @@ impl Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub type TokenIter = std::iter::Peekable<std::vec::IntoIter<Token>>;
+pub type TokenIter = Peekable<IntoIter<Token>>;
 
 impl Token {
     pub fn value_precedence(&self) -> i8 {
