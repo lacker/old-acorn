@@ -1,3 +1,5 @@
+use tower_lsp::lsp_types::Range;
+
 use crate::expression::Expression;
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
@@ -471,6 +473,13 @@ impl Statement {
         match Statement::parse(&mut tokens, false)? {
             (Some(statement), _) => Ok(statement),
             _ => panic!("expected statement, got EOF"),
+        }
+    }
+
+    pub fn range(&self) -> Range {
+        Range {
+            start: self.first_token.start_pos(),
+            end: self.last_token.end_pos(),
         }
     }
 }
