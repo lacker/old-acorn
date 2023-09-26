@@ -180,7 +180,7 @@ fn parse_partial_expressions(
             }
         }
     }
-    Err(Error::EOF)
+    Err(tokens.error("expected expression but got EOF"))
 }
 
 // Combines partial expressions into a single expression.

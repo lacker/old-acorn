@@ -13,16 +13,9 @@ struct Backend {
     cache: DashMap<Url, String>,
 }
 
-fn get_range(text: &str, error: &Error) -> Range {
+fn get_range(error: &Error) -> Range {
     match error {
         Error::Token(token_error) => token_error.token.range(),
-        Error::EOF => {
-            let line = text.lines().count() as u32;
-            let character = text.lines().last().unwrap().len() as u32;
-            let start = Position { line, character };
-            let end = Position { line, character };
-            Range { start, end }
-        }
     }
 }
 
@@ -58,7 +51,7 @@ impl Backend {
             }
             Err(e) => {
                 self.log_info(&format!("env.add failed: {:?}", e)).await;
-                let range = get_range(&text, &e);
+                let range = get_range(&e);
                 let diagnostic = Diagnostic {
                     range,
                     severity: Some(DiagnosticSeverity::ERROR),

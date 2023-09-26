@@ -437,7 +437,6 @@ impl Token {
 #[derive(Debug)]
 pub enum Error {
     Token(TokenError),
-    EOF,
 }
 
 #[derive(Debug)]
@@ -453,7 +452,6 @@ impl fmt::Display for Error {
                 write!(f, "{}:\n", e.message)?;
                 fmt_line_part(f, &e.token.text(), &e.token.line, e.token.start)
             }
-            Error::EOF => write!(f, "unexpected end of file"),
         }
     }
 }

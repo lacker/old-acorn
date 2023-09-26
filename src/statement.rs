@@ -132,7 +132,7 @@ fn parse_block(tokens: &mut TokenIter) -> Result<Vec<Statement>> {
                 if end_block {
                     break;
                 }
-                return Err(Error::EOF);
+                return Err(tokens.error("expected statement but got EOF"));
             }
         }
     }
