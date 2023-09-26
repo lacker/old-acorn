@@ -6,7 +6,7 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::expression::Expression;
-use crate::statement::Statement;
+use crate::statement::{Statement, StatementEnum};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 // The Environment takes in a bunch of statements that make sense on their own,
@@ -959,8 +959,8 @@ impl Environment {
     // If the statement has a body, this call creates a sub-environment and adds the body
     // to that sub-environment.
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
-        match statement {
-            Statement::Type(ts) => {
+        match &statement.statement {
+            StatementEnum::Type(ts) => {
                 if self.typenames.contains_key(&ts.name.to_string()) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
@@ -976,7 +976,7 @@ impl Environment {
                 Ok(())
             }
 
-            Statement::Definition(ds) => match ds.declaration.token().token_type {
+            StatementEnum::Definition(ds) => match ds.declaration.token().token_type {
                 TokenType::Colon => {
                     let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
                     if self.types.contains_key(&name) {
@@ -1015,7 +1015,7 @@ impl Environment {
                 )),
             },
 
-            Statement::Theorem(ts) => {
+            StatementEnum::Theorem(ts) => {
                 // A theorem has two parts. It's a list of arguments that are being universally
                 // quantified, and a boolean expression representing a claim of things that are true.
                 // The value of the theorem is a ForAll expression representing its claim.
@@ -1067,7 +1067,7 @@ impl Environment {
                 ret_val
             }
 
-            Statement::Prop(ps) => {
+            StatementEnum::Prop(ps) => {
                 let claim = self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
                 let prop = Proposition {
                     display_name: None,
@@ -1079,7 +1079,7 @@ impl Environment {
                 Ok(())
             }
 
-            Statement::ForAll(fas) => {
+            StatementEnum::ForAll(fas) => {
                 let (quant_names, quant_types) =
                     self.bind_args(fas.quantifiers.iter().collect())?;
 
@@ -1115,7 +1115,7 @@ impl Environment {
                 Ok(())
             }
 
-            Statement::If(is) => {
+            StatementEnum::If(is) => {
                 let condition = self.evaluate_value_expression(&is.condition, None)?;
                 let block = self
                     .new_block(None, &is.body, None, Some(&condition))?
@@ -1137,7 +1137,7 @@ impl Environment {
                 Ok(())
             }
 
-            Statement::Exists(es) => {
+            StatementEnum::Exists(es) => {
                 // We need to prove the general existence claim
                 let (quant_names, quant_types) = self.bind_args(es.quantifiers.iter().collect())?;
                 let general_claim_value =

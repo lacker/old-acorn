@@ -85,7 +85,12 @@ pub struct ExistsStatement {
 
 // Acorn is a statement-based language. There are several types.
 // Each type has its own struct.
-pub enum Statement {
+pub struct Statement {
+    pub first_token: Option<Token>,
+    pub statement: StatementEnum,
+}
+
+pub enum StatementEnum {
     Definition(DefinitionStatement),
     Theorem(TheoremStatement),
     Prop(PropStatement),
@@ -165,7 +170,7 @@ fn parse_args(tokens: &mut TokenIter, terminator: TokenType) -> Result<Vec<Expre
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been consumed.
 // "axiomatic" is whether this is an axiom.
-fn parse_theorem_statement(tokens: &mut TokenIter, axiomatic: bool) -> Result<TheoremStatement> {
+fn parse_theorem_statement(tokens: &mut TokenIter, axiomatic: bool) -> Result<Statement> {
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text().to_string();
     let args = parse_args(tokens, TokenType::Colon)?;
@@ -179,84 +184,114 @@ fn parse_theorem_statement(tokens: &mut TokenIter, axiomatic: bool) -> Result<Th
     } else {
         Vec::new()
     };
-    Ok(TheoremStatement {
+    let ts = TheoremStatement {
         axiomatic,
         name,
         args,
         claim,
         body,
-    })
+    };
+    let statement = Statement {
+        first_token: None,
+        statement: StatementEnum::Theorem(ts),
+    };
+    Ok(statement)
 }
 
 // Parses a let statement where the "let" or "define" keyword has already been consumed.
-fn parse_definition_statement(tokens: &mut TokenIter, public: bool) -> Result<DefinitionStatement> {
+fn parse_definition_statement(tokens: &mut TokenIter, public: bool) -> Result<Statement> {
     let (declaration, terminator) = Expression::parse(tokens, false, |t| {
         t == TokenType::NewLine || t == TokenType::Equals
     })?;
 
-    if terminator.token_type == TokenType::NewLine {
+    let ds = if terminator.token_type == TokenType::NewLine {
         // This is a declaration, with no value
-        Ok(DefinitionStatement {
+        DefinitionStatement {
             public,
             declaration,
             value: None,
-        })
+        }
     } else {
         // This is a definition, with both a declaration and a value
         let (value, _) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
-        Ok(DefinitionStatement {
+        DefinitionStatement {
             public,
             declaration,
             value: Some(value),
-        })
-    }
+        }
+    };
+    let statement = Statement {
+        first_token: None,
+        statement: StatementEnum::Definition(ds),
+    };
+    Ok(statement)
 }
 
 // Parses a type statement where the "type" keyword has already been consumed.
-fn parse_type_statement(tokens: &mut TokenIter) -> Result<TypeStatement> {
+fn parse_type_statement(tokens: &mut TokenIter) -> Result<Statement> {
     let name = Token::expect_type(tokens, TokenType::Identifier)?
         .text()
         .to_string();
     Token::expect_type(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
     let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::NewLine)?;
-    Ok(TypeStatement { name, type_expr })
+    let ts = TypeStatement { name, type_expr };
+    let statement = Statement {
+        first_token: None,
+        statement: StatementEnum::Type(ts),
+    };
+    Ok(statement)
 }
 
 // Parses a forall statement where the "forall" keyword has already been consumed.
-fn parse_forall_statement(tokens: &mut TokenIter) -> Result<ForAllStatement> {
+fn parse_forall_statement(tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
-    Ok(ForAllStatement {
+    let fas = ForAllStatement {
         quantifiers,
         body,
         token,
-    })
+    };
+    let statement = Statement {
+        first_token: None,
+        statement: StatementEnum::ForAll(fas),
+    };
+    Ok(statement)
 }
 
 // Parses an if statement where the "if" keyword has already been consumed.
-fn parse_if_statement(tokens: &mut TokenIter) -> Result<IfStatement> {
+fn parse_if_statement(tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
-    Ok(IfStatement {
+    let is = IfStatement {
         condition,
         body,
         token,
-    })
+    };
+    let statement = Statement {
+        first_token: None,
+        statement: StatementEnum::If(is),
+    };
+    Ok(statement)
 }
 
 // Parses an exists statement where the "exists" keyword has already been consumed.
-fn parse_exists_statement(tokens: &mut TokenIter) -> Result<ExistsStatement> {
+fn parse_exists_statement(tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
-    Ok(ExistsStatement {
+    let es = ExistsStatement {
         quantifiers,
         claim: condition,
         token,
-    })
+    };
+    let statement = Statement {
+        first_token: None,
+        statement: StatementEnum::Exists(es),
+    };
+    Ok(statement)
 }
 
 fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {
@@ -279,10 +314,10 @@ impl Statement {
         for _ in 0..indent {
             write!(f, " ")?;
         }
-        match self {
-            Statement::Definition(ds) => write!(f, "{}", ds),
+        match &self.statement {
+            StatementEnum::Definition(ds) => write!(f, "{}", ds),
 
-            Statement::Theorem(ts) => {
+            StatementEnum::Theorem(ts) => {
                 if ts.axiomatic {
                     write!(f, "axiom")?;
                 } else {
@@ -298,27 +333,27 @@ impl Statement {
                 Ok(())
             }
 
-            Statement::Prop(ps) => {
+            StatementEnum::Prop(ps) => {
                 write!(f, "{}", ps.claim)?;
                 Ok(())
             }
 
-            Statement::Type(ts) => {
+            StatementEnum::Type(ts) => {
                 write!(f, "type {}: {}", ts.name, ts.type_expr)
             }
 
-            Statement::ForAll(fas) => {
+            StatementEnum::ForAll(fas) => {
                 write!(f, "forall")?;
                 write_args(f, &fas.quantifiers)?;
                 write_block(f, &fas.body, indent)
             }
 
-            Statement::If(is) => {
+            StatementEnum::If(is) => {
                 write!(f, "if {}", is.condition)?;
                 write_block(f, &is.body, indent)
             }
 
-            Statement::Exists(es) => {
+            StatementEnum::Exists(es) => {
                 write!(f, "exists")?;
                 write_args(f, &es.quantifiers)?;
                 write!(f, " {{ {} }}", es.claim)
@@ -341,27 +376,27 @@ impl Statement {
                     }
                     TokenType::Let => {
                         tokens.next();
-                        let s = Statement::Definition(parse_definition_statement(tokens, false)?);
+                        let s = parse_definition_statement(tokens, false)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Axiom => {
                         tokens.next();
-                        let s = Statement::Theorem(parse_theorem_statement(tokens, true)?);
+                        let s = parse_theorem_statement(tokens, true)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Theorem => {
                         tokens.next();
-                        let s = Statement::Theorem(parse_theorem_statement(tokens, false)?);
+                        let s = parse_theorem_statement(tokens, false)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Define => {
                         tokens.next();
-                        let s = Statement::Definition(parse_definition_statement(tokens, true)?);
+                        let s = parse_definition_statement(tokens, true)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Type => {
                         tokens.next();
-                        let s = Statement::Type(parse_type_statement(tokens)?);
+                        let s = parse_type_statement(tokens)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::RightBrace => {
@@ -375,17 +410,17 @@ impl Statement {
                     }
                     TokenType::ForAll => {
                         tokens.next();
-                        let s = Statement::ForAll(parse_forall_statement(tokens)?);
+                        let s = parse_forall_statement(tokens)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::If => {
                         tokens.next();
-                        let s = Statement::If(parse_if_statement(tokens)?);
+                        let s = parse_if_statement(tokens)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Exists => {
                         tokens.next();
-                        let s = Statement::Exists(parse_exists_statement(tokens)?);
+                        let s = parse_exists_statement(tokens)?;
                         return Ok((Some(s), false));
                     }
                     _ => {
@@ -399,7 +434,11 @@ impl Statement {
                                 "unmatched right brace after expression",
                             ));
                         }
-                        let s = Statement::Prop(PropStatement { claim });
+                        let se = StatementEnum::Prop(PropStatement { claim });
+                        let s = Statement {
+                            first_token: None,
+                            statement: se,
+                        };
                         return Ok((Some(s), block_ended));
                     }
                 }
