@@ -207,54 +207,7 @@ impl Token {
             end: self.end_pos(),
         }
     }
-}
 
-#[derive(Debug)]
-pub enum Error {
-    Token(TokenError),
-    EOF,
-}
-
-#[derive(Debug)]
-pub struct TokenError {
-    pub message: String,
-    pub token: Token,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::Token(e) => {
-                write!(f, "{}:\n", e.message)?;
-                fmt_line_part(f, &e.token.text(), &e.token.line, e.token.start)
-            }
-            Error::EOF => write!(f, "unexpected end of file"),
-        }
-    }
-}
-
-impl Error {
-    pub fn new(token: &Token, message: &str) -> Self {
-        Error::Token(TokenError {
-            message: message.to_string(),
-            token: token.clone(),
-        })
-    }
-
-    pub fn from_iter<'a>(tokens: &mut TokenIter, message: &str) -> Self {
-        if let Some(token) = tokens.peek() {
-            Error::new(token, message)
-        } else {
-            Error::EOF
-        }
-    }
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
-
-pub type TokenIter = Peekable<IntoIter<Token>>;
-
-impl Token {
     pub fn value_precedence(&self) -> i8 {
         self.token_type.value_precedence()
     }
@@ -473,6 +426,51 @@ impl Token {
         Ok(token)
     }
 }
+
+#[derive(Debug)]
+pub enum Error {
+    Token(TokenError),
+    EOF,
+}
+
+#[derive(Debug)]
+pub struct TokenError {
+    pub message: String,
+    pub token: Token,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Token(e) => {
+                write!(f, "{}:\n", e.message)?;
+                fmt_line_part(f, &e.token.text(), &e.token.line, e.token.start)
+            }
+            Error::EOF => write!(f, "unexpected end of file"),
+        }
+    }
+}
+
+impl Error {
+    pub fn new(token: &Token, message: &str) -> Self {
+        Error::Token(TokenError {
+            message: message.to_string(),
+            token: token.clone(),
+        })
+    }
+
+    pub fn from_iter<'a>(tokens: &mut TokenIter, message: &str) -> Self {
+        if let Some(token) = tokens.peek() {
+            Error::new(token, message)
+        } else {
+            Error::EOF
+        }
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+pub type TokenIter = Peekable<IntoIter<Token>>;
 
 #[cfg(test)]
 mod tests {
