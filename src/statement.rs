@@ -81,7 +81,7 @@ pub struct ExistsStatement {
 // Each type has its own struct.
 pub struct Statement {
     pub first_token: Token,
-    pub last_token: Option<Token>,
+    pub last_token: Token,
     pub statement: StatementEnum,
 }
 
@@ -191,7 +191,7 @@ fn parse_theorem_statement(
     };
     let statement = Statement {
         first_token: keyword,
-        last_token: Some(last_token),
+        last_token: last_token,
         statement: StatementEnum::Theorem(ts),
     };
     Ok(statement)
@@ -207,25 +207,33 @@ fn parse_definition_statement(
         t == TokenType::NewLine || t == TokenType::Equals
     })?;
 
-    let ds = if terminator.token_type == TokenType::NewLine {
+    let (ds, last_token) = if terminator.token_type == TokenType::NewLine {
         // This is a declaration, with no value
-        DefinitionStatement {
-            public,
-            declaration,
-            value: None,
-        }
+        let last_token = declaration.last_token().clone();
+        (
+            DefinitionStatement {
+                public,
+                declaration,
+                value: None,
+            },
+            last_token,
+        )
     } else {
         // This is a definition, with both a declaration and a value
         let (value, _) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
-        DefinitionStatement {
-            public,
-            declaration,
-            value: Some(value),
-        }
+        let last_token = value.last_token().clone();
+        (
+            DefinitionStatement {
+                public,
+                declaration,
+                value: Some(value),
+            },
+            last_token,
+        )
     };
     let statement = Statement {
         first_token: keyword,
-        last_token: None,
+        last_token,
         statement: StatementEnum::Definition(ds),
     };
     Ok(statement)
@@ -239,10 +247,11 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
     Token::expect_type(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
     let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::NewLine)?;
+    let last_token = type_expr.last_token().clone();
     let ts = TypeStatement { name, type_expr };
     let statement = Statement {
         first_token: keyword,
-        last_token: None,
+        last_token,
         statement: StatementEnum::Type(ts),
     };
     Ok(statement)
@@ -255,7 +264,7 @@ fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     let fas = ForAllStatement { quantifiers, body };
     let statement = Statement {
         first_token: keyword,
-        last_token: Some(last_token),
+        last_token: last_token,
         statement: StatementEnum::ForAll(fas),
     };
     Ok(statement)
@@ -273,7 +282,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
     };
     let statement = Statement {
         first_token: keyword,
-        last_token: Some(last_token),
+        last_token: last_token,
         statement: StatementEnum::If(is),
     };
     Ok(statement)
@@ -282,14 +291,14 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
 // Parses an exists statement where the "exists" keyword has already been found.
 fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
-    let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
+    let (condition, last_token) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
     let es = ExistsStatement {
         quantifiers,
         claim: condition,
     };
     let statement = Statement {
         first_token: keyword,
-        last_token: None,
+        last_token,
         statement: StatementEnum::Exists(es),
     };
     Ok(statement)
@@ -439,7 +448,7 @@ impl Statement {
                             ));
                         }
                         let brace = if block_ended { Some(token) } else { None };
-                        let last_token = Some(claim.last_token().clone());
+                        let last_token = claim.last_token().clone();
                         let se = StatementEnum::Prop(PropStatement { claim });
                         let s = Statement {
                             first_token,
