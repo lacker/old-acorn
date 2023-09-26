@@ -117,26 +117,25 @@ impl fmt::Display for Statement {
 }
 
 // Parses a block (a list of statements) where the left brace has already been consumed.
-// Consumes the final right brace.
-fn parse_block(tokens: &mut TokenIter) -> Result<Vec<Statement>> {
+// Returns the statements along with the token for the final right brace.
+fn parse_block(tokens: &mut TokenIter) -> Result<(Vec<Statement>, Token)> {
     let mut body = Vec::new();
     loop {
         match Statement::parse(tokens, true)? {
-            (Some(s), end_block) => {
+            (Some(s), maybe_right_brace) => {
                 body.push(s);
-                if end_block {
-                    break;
+                if let Some(brace) = maybe_right_brace {
+                    return Ok((body, brace));
                 }
             }
-            (None, end_block) => {
-                if end_block {
-                    break;
-                }
+            (None, Some(brace)) => {
+                return Ok((body, brace));
+            }
+            (None, None) => {
                 return Err(tokens.error("expected statement but got EOF"));
             }
         }
     }
-    Ok(body)
 }
 
 // Parse a parenthesized list of arguments, after which we expect the given terminator token.
@@ -177,11 +176,11 @@ fn parse_theorem_statement(
     let (claim, terminator) = Expression::parse(tokens, true, |t| {
         t == TokenType::NewLine || t == TokenType::By
     })?;
-    let body = if terminator.token_type == TokenType::By {
+    let (body, last_token) = if terminator.token_type == TokenType::By {
         Token::expect_type(tokens, TokenType::LeftBrace)?;
         parse_block(tokens)?
     } else {
-        Vec::new()
+        (Vec::new(), terminator)
     };
     let ts = TheoremStatement {
         axiomatic,
@@ -192,7 +191,7 @@ fn parse_theorem_statement(
     };
     let statement = Statement {
         first_token: keyword,
-        last_token: None,
+        last_token: Some(last_token),
         statement: StatementEnum::Theorem(ts),
     };
     Ok(statement)
@@ -252,11 +251,11 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
 // Parses a forall statement where the "forall" keyword has already been found.
 fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
-    let body = parse_block(tokens)?;
+    let (body, last_token) = parse_block(tokens)?;
     let fas = ForAllStatement { quantifiers, body };
     let statement = Statement {
         first_token: keyword,
-        last_token: None,
+        last_token: Some(last_token),
         statement: StatementEnum::ForAll(fas),
     };
     Ok(statement)
@@ -266,7 +265,7 @@ fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
-    let body = parse_block(tokens)?;
+    let (body, last_token) = parse_block(tokens)?;
     let is = IfStatement {
         condition,
         body,
@@ -274,7 +273,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
     };
     let statement = Statement {
         first_token: keyword,
-        last_token: None,
+        last_token: Some(last_token),
         statement: StatementEnum::If(is),
     };
     Ok(statement)
@@ -366,9 +365,11 @@ impl Statement {
     // Tries to parse a single statement from the provided tokens.
     // A statement can always end with a newline, which is consumed.
     // If in_block is true, a prop statement can also end with a right brace.
-    // The iterator may also end, in which case this returns None.
-    // Returns statement as well as a flag for whether the current block or file ended.
-    pub fn parse(tokens: &mut TokenIter, in_block: bool) -> Result<(Option<Statement>, bool)> {
+    // Returns statement, as well as the right brace token, if the current block ended.
+    pub fn parse(
+        tokens: &mut TokenIter,
+        in_block: bool,
+    ) -> Result<(Option<Statement>, Option<Token>)> {
         loop {
             if let Some(token) = tokens.peek() {
                 match token.token_type {
@@ -379,53 +380,54 @@ impl Statement {
                     TokenType::Let => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_definition_statement(keyword, tokens, false)?;
-                        return Ok((Some(s), false));
+                        return Ok((Some(s), None));
                     }
                     TokenType::Axiom => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_theorem_statement(keyword, tokens, true)?;
-                        return Ok((Some(s), false));
+                        return Ok((Some(s), None));
                     }
                     TokenType::Theorem => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_theorem_statement(keyword, tokens, false)?;
-                        return Ok((Some(s), false));
+                        return Ok((Some(s), None));
                     }
                     TokenType::Define => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_definition_statement(keyword, tokens, true)?;
-                        return Ok((Some(s), false));
+                        return Ok((Some(s), None));
                     }
                     TokenType::Type => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_type_statement(keyword, tokens)?;
-                        return Ok((Some(s), false));
+                        return Ok((Some(s), None));
                     }
                     TokenType::RightBrace => {
                         if !in_block {
                             return Err(Error::new(token, "unmatched right brace at top level"));
                         }
-                        tokens.next();
+                        let brace = tokens.next().unwrap();
                         Token::expect_type(tokens, TokenType::NewLine)?;
 
-                        return Ok((None, true));
+                        return Ok((None, Some(brace)));
                     }
                     TokenType::ForAll => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_forall_statement(keyword, tokens)?;
-                        return Ok((Some(s), false));
+                        return Ok((Some(s), None));
                     }
                     TokenType::If => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_if_statement(keyword, tokens)?;
-                        return Ok((Some(s), false));
+                        return Ok((Some(s), None));
                     }
                     TokenType::Exists => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_exists_statement(keyword, tokens)?;
-                        return Ok((Some(s), false));
+                        return Ok((Some(s), None));
                     }
                     _ => {
+                        let first_token = tokens.peek().unwrap().clone();
                         let (claim, token) = Expression::parse(tokens, true, |t| {
                             t == TokenType::NewLine || t == TokenType::RightBrace
                         })?;
@@ -436,17 +438,18 @@ impl Statement {
                                 "unmatched right brace after expression",
                             ));
                         }
+                        let brace = if block_ended { Some(token) } else { None };
                         let se = StatementEnum::Prop(PropStatement { claim });
                         let s = Statement {
-                            first_token: token,
+                            first_token,
                             last_token: None,
                             statement: se,
                         };
-                        return Ok((Some(s), block_ended));
+                        return Ok((Some(s), brace));
                     }
                 }
             } else {
-                return Ok((None, true));
+                return Ok((None, None));
             }
         }
     }
