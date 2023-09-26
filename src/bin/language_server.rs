@@ -1,5 +1,5 @@
 use acorn::environment::Environment;
-use acorn::token::{Error, Token, LSP_TOKEN_TYPES};
+use acorn::token::{Token, LSP_TOKEN_TYPES};
 use dashmap::DashMap;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
@@ -11,12 +11,6 @@ struct Backend {
 
     // Maps uri to full document text
     cache: DashMap<Url, String>,
-}
-
-fn get_range(error: &Error) -> Range {
-    match error {
-        Error::Token(token_error) => token_error.token.range(),
-    }
 }
 
 impl Backend {
@@ -51,9 +45,8 @@ impl Backend {
             }
             Err(e) => {
                 self.log_info(&format!("env.add failed: {:?}", e)).await;
-                let range = get_range(&e);
                 let diagnostic = Diagnostic {
-                    range,
+                    range: e.token.range(),
                     severity: Some(DiagnosticSeverity::ERROR),
                     message: e.to_string(),
                     ..Diagnostic::default()

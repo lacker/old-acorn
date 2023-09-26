@@ -435,33 +435,24 @@ impl Token {
 }
 
 #[derive(Debug)]
-pub enum Error {
-    Token(TokenError),
-}
-
-#[derive(Debug)]
-pub struct TokenError {
+pub struct Error {
     pub message: String,
     pub token: Token,
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::Token(e) => {
-                write!(f, "{}:\n", e.message)?;
-                fmt_line_part(f, &e.token.text(), &e.token.line, e.token.start)
-            }
-        }
+        write!(f, "{}:\n", self.message)?;
+        fmt_line_part(f, &self.token.text(), &self.token.line, self.token.start)
     }
 }
 
 impl Error {
     pub fn new(token: &Token, message: &str) -> Self {
-        Error::Token(TokenError {
+        Error {
             message: message.to_string(),
             token: token.clone(),
-        })
+        }
     }
 }
 
