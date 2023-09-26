@@ -16,17 +16,17 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // "Block" is another expression enclosed in braces. Just one for now.
 // "Macro" is the application of a macro. The second expression must be an arg list.
 #[derive(Debug)]
-pub enum Expression<'a> {
-    Identifier(Token<'a>),
-    Unary(Token<'a>, Box<Expression<'a>>),
-    Binary(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
-    Apply(Box<Expression<'a>>, Box<Expression<'a>>),
-    Grouping(Box<Expression<'a>>),
-    Macro(Token<'a>, Box<Expression<'a>>, Box<Expression<'a>>),
+pub enum Expression {
+    Identifier(Token),
+    Unary(Token, Box<Expression>),
+    Binary(Token, Box<Expression>, Box<Expression>),
+    Apply(Box<Expression>, Box<Expression>),
+    Grouping(Box<Expression>),
+    Macro(Token, Box<Expression>, Box<Expression>),
 }
 
-impl fmt::Display for Expression<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expression::Identifier(token) => write!(f, "{}", token),
             Expression::Unary(token, subexpression) => {
@@ -53,8 +53,8 @@ impl fmt::Display for Expression<'_> {
     }
 }
 
-impl Expression<'_> {
-    pub fn token(&self) -> &Token<'_> {
+impl Expression {
+    pub fn token(&self) -> &Token {
         match self {
             Expression::Identifier(token) => token,
             Expression::Unary(token, _) => token,
@@ -67,7 +67,7 @@ impl Expression<'_> {
 
     // Expects the expression to be a list of comma-separated expressions
     // Gets rid of commas and groupings
-    pub fn flatten_arg_list(&self) -> Vec<&Expression<'_>> {
+    pub fn flatten_arg_list(&self) -> Vec<&Expression> {
         match self {
             Expression::Binary(token, left, right) => {
                 if token.token_type == TokenType::Comma {
@@ -86,11 +86,11 @@ impl Expression<'_> {
     // Parses a single expression from the provided tokens.
     // termination determines what tokens are allowed to be the terminator.
     // The terminating token is returned.
-    pub fn parse<'a>(
-        tokens: &mut TokenIter<'a>,
+    pub fn parse(
+        tokens: &mut TokenIter,
         is_value: bool,
         termination: fn(TokenType) -> bool,
-    ) -> Result<(Expression<'a>, Token<'a>)> {
+    ) -> Result<(Expression, Token)> {
         let (partial_expressions, terminator) =
             parse_partial_expressions(tokens, is_value, termination)?;
         Ok((
@@ -104,15 +104,15 @@ impl Expression<'_> {
 // either subexpressions or operators, and we haven't prioritized operators yet.
 // A list of partial expressions can be turned into an expression, according to operator precedence.
 #[derive(Debug)]
-enum PartialExpression<'a> {
-    Expression(Expression<'a>),
-    Unary(Token<'a>),
-    Binary(Token<'a>),
-    Block(Token<'a>, Expression<'a>),
+enum PartialExpression {
+    Expression(Expression),
+    Unary(Token),
+    Binary(Token),
+    Block(Token, Expression),
 }
 
-impl fmt::Display for PartialExpression<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for PartialExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             PartialExpression::Expression(e) => write!(f, "{}", e),
             PartialExpression::Unary(token) => write!(f, "{}", token),
@@ -122,8 +122,8 @@ impl fmt::Display for PartialExpression<'_> {
     }
 }
 
-impl PartialExpression<'_> {
-    fn token(&self) -> &Token<'_> {
+impl PartialExpression {
+    fn token(&self) -> &Token {
         match self {
             PartialExpression::Expression(e) => e.token(),
             PartialExpression::Unary(token) => token,
@@ -136,12 +136,12 @@ impl PartialExpression<'_> {
 // Create partial expressions from tokens.
 // termination determines what tokens are allowed to be the terminator.
 // The terminating token is returned.
-fn parse_partial_expressions<'a>(
-    tokens: &mut TokenIter<'a>,
+fn parse_partial_expressions(
+    tokens: &mut TokenIter,
     is_value: bool,
     termination: fn(TokenType) -> bool,
-) -> Result<(VecDeque<PartialExpression<'a>>, Token<'a>)> {
-    let mut partial_expressions = VecDeque::<PartialExpression<'a>>::new();
+) -> Result<(VecDeque<PartialExpression>, Token)> {
+    let mut partial_expressions = VecDeque::<PartialExpression>::new();
     while let Some(token) = tokens.next() {
         match token.token_type {
             token_type if termination(token_type) => {
@@ -186,11 +186,11 @@ fn parse_partial_expressions<'a>(
 // Combines partial expressions into a single expression.
 // Operators work in precedence order, and left-to-right within a single precedence.
 // This algorithm is quadratic, so perhaps we should improve it at some point.
-fn combine_partial_expressions<'a>(
-    mut partials: VecDeque<PartialExpression<'a>>,
+fn combine_partial_expressions(
+    mut partials: VecDeque<PartialExpression>,
     is_value: bool,
-    iter: &mut TokenIter<'a>,
-) -> Result<Expression<'a>> {
+    iter: &mut TokenIter,
+) -> Result<Expression> {
     if partials.len() == 0 {
         return Err(Error::from_iter(iter, "no partial expressions to combine"));
     }
@@ -225,7 +225,7 @@ fn combine_partial_expressions<'a>(
             let first_partial = partials.pop_front().unwrap();
 
             // Check if this is a macro.
-            if let PartialExpression::Expression(Expression::Identifier(token)) = first_partial {
+            if let PartialExpression::Expression(Expression::Identifier(token)) = &first_partial {
                 if token.token_type.is_macro() {
                     if partials.len() != 2 {
                         return Err(Error::new(&token, "macro must have arguments and a block"));
@@ -234,7 +234,11 @@ fn combine_partial_expressions<'a>(
                     if let PartialExpression::Expression(args) = expect_args {
                         let expect_block = partials.pop_back().unwrap();
                         if let PartialExpression::Block(_, block) = expect_block {
-                            return Ok(Expression::Macro(token, Box::new(args), Box::new(block)));
+                            return Ok(Expression::Macro(
+                                token.clone(),
+                                Box::new(args),
+                                Box::new(block),
+                            ));
                         } else {
                             return Err(Error::new(expect_block.token(), "expected a macro block"));
                         }

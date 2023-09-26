@@ -540,7 +540,7 @@ impl Environment {
 
     fn check_type<'a>(
         &self,
-        token: &Token<'a>,
+        token: &Token,
         expected_type: Option<&AcornType>,
         actual_type: &AcornType,
     ) -> Result<()> {
@@ -610,7 +610,7 @@ impl Environment {
                         "axiomatic types can only be created at the top level",
                     ));
                 }
-                if let Some(acorn_type) = self.typenames.get(token.text) {
+                if let Some(acorn_type) = self.typenames.get(token.text()) {
                     Ok(acorn_type.clone())
                 } else {
                     Err(Error::new(token, "expected type name"))
@@ -695,7 +695,7 @@ impl Environment {
                 }
 
                 // Check the type for this identifier
-                let return_type = match self.types.get(token.text) {
+                let return_type = match self.types.get(token.text()) {
                     Some(t) => {
                         self.check_type(token, expected_type, t)?;
                         t.clone()
@@ -706,9 +706,9 @@ impl Environment {
                 };
 
                 // Figure out the value for this identifier
-                if let Some(acorn_value) = self.get_constant_atom(token.text) {
+                if let Some(acorn_value) = self.get_constant_atom(token.text()) {
                     Ok(acorn_value)
-                } else if let Some(stack_index) = self.stack.get(token.text) {
+                } else if let Some(stack_index) = self.stack.get(token.text()) {
                     let atom = Atom::Variable(*stack_index);
                     let typed_atom = TypedAtom {
                         atom,
@@ -867,7 +867,7 @@ impl Environment {
                             "expected an identifier in this declaration",
                         ));
                     }
-                    let name = left.token().text.to_string();
+                    let name = left.token().text().to_string();
                     let acorn_type = self.evaluate_type_expression(right)?;
                     Ok((name, acorn_type))
                 }
@@ -914,7 +914,7 @@ impl Environment {
                         "expected an identifier in this function declaration",
                     ));
                 }
-                let name = ident.token().text.to_string();
+                let name = ident.token().text().to_string();
                 if self.types.contains_key(&name) {
                     return Err(Error::new(
                         ident.token(),
@@ -968,7 +968,7 @@ impl Environment {
                     ));
                 }
                 if ts.type_expr.token().token_type == TokenType::Axiom {
-                    self.add_primitive_type(ts.name);
+                    self.add_primitive_type(&ts.name);
                 } else {
                     let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
                     self.typenames.insert(ts.name.to_string(), acorn_type);
@@ -1022,44 +1022,45 @@ impl Environment {
                 let (arg_names, arg_types) = self.bind_args(ts.args.iter().collect())?;
 
                 // Handle the claim
-                let ret_val =
-                    match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
-                        Ok(claim_value) => {
-                            // The claim of the theorem is what we need to prove
-                            let claim = if arg_types.is_empty() {
-                                claim_value.clone()
-                            } else {
-                                AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
-                            };
+                let ret_val = match self
+                    .evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))
+                {
+                    Ok(claim_value) => {
+                        // The claim of the theorem is what we need to prove
+                        let claim = if arg_types.is_empty() {
+                            claim_value.clone()
+                        } else {
+                            AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
+                        };
 
-                            // The functional value of the theorem is the lambda that
-                            // is constantly "true" if the theorem is true
-                            let functional_value = if arg_types.is_empty() {
-                                claim_value
-                            } else {
-                                AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
-                            };
+                        // The functional value of the theorem is the lambda that
+                        // is constantly "true" if the theorem is true
+                        let functional_value = if arg_types.is_empty() {
+                            claim_value
+                        } else {
+                            AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
+                        };
 
-                            self.add_constant(
-                                &ts.name,
-                                functional_value.get_type(),
-                                Some(functional_value.clone()),
-                            );
-                            let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
-                            let block =
-                                self.new_block(Some(unbound_claim), &ts.body, Some(ts.name), None)?;
-                            let prop = Proposition {
-                                display_name: Some(ts.name.to_string()),
-                                proven: ts.axiomatic,
-                                claim,
-                                block,
-                            };
-                            self.propositions.push(prop);
-                            self.theorem_names.insert(ts.name.to_string());
-                            Ok(())
-                        }
-                        Err(e) => Err(e),
-                    };
+                        self.add_constant(
+                            &ts.name,
+                            functional_value.get_type(),
+                            Some(functional_value.clone()),
+                        );
+                        let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
+                        let block =
+                            self.new_block(Some(unbound_claim), &ts.body, Some(&ts.name), None)?;
+                        let prop = Proposition {
+                            display_name: Some(ts.name.to_string()),
+                            proven: ts.axiomatic,
+                            claim,
+                            block,
+                        };
+                        self.propositions.push(prop);
+                        self.theorem_names.insert(ts.name.to_string());
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                };
 
                 self.unbind_args(arg_names);
 

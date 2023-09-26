@@ -12,14 +12,14 @@ use std::fmt;
 // where the declaration is "foo(a: int, b: int) -> int".
 //
 // "let" indicates a private definition, and "define" indicates a public definition.
-pub struct DefinitionStatement<'a> {
-    pub declaration: Expression<'a>,
-    pub value: Option<Expression<'a>>,
+pub struct DefinitionStatement {
+    pub declaration: Expression,
+    pub value: Option<Expression>,
     pub public: bool,
 }
 
-impl fmt::Display for DefinitionStatement<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for DefinitionStatement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let keyword = if self.public { "define" } else { "let" };
         write!(f, "{} {}", keyword, self.declaration)?;
         if let Some(value) = &self.value {
@@ -35,64 +35,64 @@ impl fmt::Display for DefinitionStatement<'_> {
 // For example, in:
 //   axiom foo(p, q): p -> (q -> p)
 // axiomatic would be "true", the name is "foo", the args are p, q, and the claim is "p -> (q -> p)".
-pub struct TheoremStatement<'a> {
+pub struct TheoremStatement {
     pub axiomatic: bool,
-    pub name: &'a str,
-    pub args: Vec<Expression<'a>>,
-    pub claim: Expression<'a>,
-    pub body: Vec<Statement<'a>>,
+    pub name: String,
+    pub args: Vec<Expression>,
+    pub claim: Expression,
+    pub body: Vec<Statement>,
 }
 
 // Prop statements are a boolean expression.
 // We're implicitly asserting that it is true and provable.
 // It's like an anonymous theorem.
-pub struct PropStatement<'a> {
-    pub claim: Expression<'a>,
+pub struct PropStatement {
+    pub claim: Expression,
 }
 
 // Type statements associate a name with a type expression
-pub struct TypeStatement<'a> {
-    pub name: &'a str,
-    pub type_expr: Expression<'a>,
+pub struct TypeStatement {
+    pub name: String,
+    pub type_expr: Expression,
 }
 
 // ForAll statements create a new block in which new variables are introduced.
-pub struct ForAllStatement<'a> {
-    pub quantifiers: Vec<Expression<'a>>,
-    pub body: Vec<Statement<'a>>,
+pub struct ForAllStatement {
+    pub quantifiers: Vec<Expression>,
+    pub body: Vec<Statement>,
 
     // Just for error reporting
-    pub token: Token<'a>,
+    pub token: Token,
 }
 
 // If statements create a new block that introduces no variables but has an implicit condition.
-pub struct IfStatement<'a> {
-    pub condition: Expression<'a>,
-    pub body: Vec<Statement<'a>>,
+pub struct IfStatement {
+    pub condition: Expression,
+    pub body: Vec<Statement>,
 
     // Just for error reporting
-    pub token: Token<'a>,
+    pub token: Token,
 }
 
 // Exists statements introduce new variables to the outside block.
-pub struct ExistsStatement<'a> {
-    pub quantifiers: Vec<Expression<'a>>,
-    pub claim: Expression<'a>,
+pub struct ExistsStatement {
+    pub quantifiers: Vec<Expression>,
+    pub claim: Expression,
 
     // Just for error reporting
-    pub token: Token<'a>,
+    pub token: Token,
 }
 
 // Acorn is a statement-based language. There are several types.
 // Each type has its own struct.
-pub enum Statement<'a> {
-    Definition(DefinitionStatement<'a>),
-    Theorem(TheoremStatement<'a>),
-    Prop(PropStatement<'a>),
-    Type(TypeStatement<'a>),
-    ForAll(ForAllStatement<'a>),
-    If(IfStatement<'a>),
-    Exists(ExistsStatement<'a>),
+pub enum Statement {
+    Definition(DefinitionStatement),
+    Theorem(TheoremStatement),
+    Prop(PropStatement),
+    Type(TypeStatement),
+    ForAll(ForAllStatement),
+    If(IfStatement),
+    Exists(ExistsStatement),
 }
 
 const INDENT_WIDTH: u8 = 4;
@@ -110,15 +110,15 @@ fn write_block(f: &mut fmt::Formatter, statements: &[Statement], indent: u8) -> 
     write!(f, "}}")
 }
 
-impl fmt::Display for Statement<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.fmt_helper(f, 0)
     }
 }
 
 // Parses a block (a list of statements) where the left brace has already been consumed.
 // Consumes the final right brace.
-fn parse_block<'a>(tokens: &mut TokenIter<'a>) -> Result<Vec<Statement<'a>>> {
+fn parse_block(tokens: &mut TokenIter) -> Result<Vec<Statement>> {
     let mut body = Vec::new();
     loop {
         match Statement::parse(tokens, true)? {
@@ -140,10 +140,7 @@ fn parse_block<'a>(tokens: &mut TokenIter<'a>) -> Result<Vec<Statement<'a>>> {
 }
 
 // Parse a parenthesized list of arguments, after which we expect the given terminator token.
-fn parse_args<'a>(
-    tokens: &mut TokenIter<'a>,
-    terminator: TokenType,
-) -> Result<Vec<Expression<'a>>> {
+fn parse_args(tokens: &mut TokenIter, terminator: TokenType) -> Result<Vec<Expression>> {
     let mut args = Vec::new();
     let token = Token::expect_token(tokens)?;
     if token.token_type == terminator {
@@ -168,12 +165,9 @@ fn parse_args<'a>(
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been consumed.
 // "axiomatic" is whether this is an axiom.
-fn parse_theorem_statement<'a>(
-    tokens: &mut TokenIter<'a>,
-    axiomatic: bool,
-) -> Result<TheoremStatement<'a>> {
+fn parse_theorem_statement(tokens: &mut TokenIter, axiomatic: bool) -> Result<TheoremStatement> {
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
-    let name = token.text;
+    let name = token.text().to_string();
     let args = parse_args(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
     let (claim, terminator) = Expression::parse(tokens, true, |t| {
@@ -195,10 +189,7 @@ fn parse_theorem_statement<'a>(
 }
 
 // Parses a let statement where the "let" or "define" keyword has already been consumed.
-fn parse_definition_statement<'a>(
-    tokens: &mut TokenIter<'a>,
-    public: bool,
-) -> Result<DefinitionStatement<'a>> {
+fn parse_definition_statement(tokens: &mut TokenIter, public: bool) -> Result<DefinitionStatement> {
     let (declaration, terminator) = Expression::parse(tokens, false, |t| {
         t == TokenType::NewLine || t == TokenType::Equals
     })?;
@@ -222,8 +213,10 @@ fn parse_definition_statement<'a>(
 }
 
 // Parses a type statement where the "type" keyword has already been consumed.
-fn parse_type_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<TypeStatement<'a>> {
-    let name = Token::expect_type(tokens, TokenType::Identifier)?.text;
+fn parse_type_statement(tokens: &mut TokenIter) -> Result<TypeStatement> {
+    let name = Token::expect_type(tokens, TokenType::Identifier)?
+        .text()
+        .to_string();
     Token::expect_type(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
     let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::NewLine)?;
@@ -231,8 +224,8 @@ fn parse_type_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<TypeStatement<
 }
 
 // Parses a forall statement where the "forall" keyword has already been consumed.
-fn parse_forall_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<ForAllStatement<'a>> {
-    let token = *tokens.peek().unwrap();
+fn parse_forall_statement(tokens: &mut TokenIter) -> Result<ForAllStatement> {
+    let token = tokens.peek().unwrap().clone();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
     Ok(ForAllStatement {
@@ -243,8 +236,8 @@ fn parse_forall_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<ForAllStatem
 }
 
 // Parses an if statement where the "if" keyword has already been consumed.
-fn parse_if_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<IfStatement<'a>> {
-    let token = *tokens.peek().unwrap();
+fn parse_if_statement(tokens: &mut TokenIter) -> Result<IfStatement> {
+    let token = tokens.peek().unwrap().clone();
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
     let body = parse_block(tokens)?;
     Ok(IfStatement {
@@ -255,8 +248,8 @@ fn parse_if_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<IfStatement<'a>>
 }
 
 // Parses an exists statement where the "exists" keyword has already been consumed.
-fn parse_exists_statement<'a>(tokens: &mut TokenIter<'a>) -> Result<ExistsStatement<'a>> {
-    let token = *tokens.peek().unwrap();
+fn parse_exists_statement(tokens: &mut TokenIter) -> Result<ExistsStatement> {
+    let token = tokens.peek().unwrap().clone();
     let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
     Ok(ExistsStatement {
@@ -281,8 +274,8 @@ fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {
     Ok(())
 }
 
-impl Statement<'_> {
-    fn fmt_helper(&self, f: &mut fmt::Formatter<'_>, indent: u8) -> fmt::Result {
+impl Statement {
+    fn fmt_helper(&self, f: &mut fmt::Formatter, indent: u8) -> fmt::Result {
         for _ in 0..indent {
             write!(f, " ")?;
         }
@@ -338,10 +331,7 @@ impl Statement<'_> {
     // If in_block is true, a prop statement can also end with a right brace.
     // The iterator may also end, in which case this returns None.
     // Returns statement as well as a flag for whether the current block or file ended.
-    pub fn parse<'a>(
-        tokens: &mut TokenIter<'a>,
-        in_block: bool,
-    ) -> Result<(Option<Statement<'a>>, bool)> {
+    pub fn parse(tokens: &mut TokenIter, in_block: bool) -> Result<(Option<Statement>, bool)> {
         loop {
             if let Some(token) = tokens.peek() {
                 match token.token_type {

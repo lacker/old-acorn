@@ -148,7 +148,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.log_info("did_open").await;
+        // self.log_info("did_open").await;
         let uri = params.text_document.uri;
         self.cache.insert(uri.clone(), params.text_document.text);
         self.make_diagnostics(uri).await;
@@ -186,9 +186,9 @@ impl LanguageServer for Backend {
         let mut prev_line = 0;
         let mut prev_start = 0;
         for token in tokens {
-            let line = token.line_index as u32;
-            let start = token.char_index as u32;
-            let length = token.text.len() as u32;
+            let line = token.line_number as u32;
+            let start = token.start as u32;
+            let length = token.len as u32;
             let token_type = match token.lsp_type_u32() {
                 Some(t) => t,
                 None => continue,

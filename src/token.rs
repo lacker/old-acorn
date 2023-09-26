@@ -1,4 +1,5 @@
 use std::fmt;
+use std::sync::Arc;
 
 use tower_lsp::lsp_types::SemanticTokenType;
 
@@ -140,25 +141,24 @@ impl TokenType {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Token<'a> {
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Token {
     pub token_type: TokenType,
 
-    // The text of the token.
-    pub text: &'a str,
-
     // The entire line containing this token.
-    pub line: &'a str,
+    pub line: Arc<String>,
 
     // The index of this line within the document.
-    pub line_index: usize,
+    pub line_number: usize,
 
-    // The index of this token within the line.
-    // Can be equal to line.len() if it's the final newline.
-    pub char_index: usize,
+    // The index where this token starts, within the line.
+    pub start: usize,
+
+    // The length of this token.
+    pub len: usize,
 }
 
-fn fmt_line_part(f: &mut fmt::Formatter<'_>, text: &str, line: &str, index: usize) -> fmt::Result {
+fn fmt_line_part(f: &mut fmt::Formatter, text: &str, line: &str, index: usize) -> fmt::Result {
     write!(f, "{}\n", line)?;
     for (i, _) in line.char_indices() {
         if i < index {
@@ -174,9 +174,15 @@ fn fmt_line_part(f: &mut fmt::Formatter<'_>, text: &str, line: &str, index: usiz
     write!(f, "\n")
 }
 
-impl fmt::Display for Token<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.text)
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.text())
+    }
+}
+
+impl Token {
+    pub fn text(&self) -> &str {
+        &self.line[self.start..self.start + self.len]
     }
 }
 
@@ -205,7 +211,7 @@ pub struct TokenError {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Token(e) => {
                 write!(f, "{}:\n", e.message)?;
@@ -220,14 +226,14 @@ impl Error {
     pub fn new(token: &Token, message: &str) -> Self {
         Error::Token(TokenError {
             message: message.to_string(),
-            text: token.text.to_string(),
+            text: token.text().to_string(),
             line: token.line.to_string(),
-            line_index: token.line_index,
-            char_index: token.char_index,
+            line_index: token.line_number,
+            char_index: token.start,
         })
     }
 
-    pub fn from_iter<'a>(tokens: &mut TokenIter<'a>, message: &str) -> Self {
+    pub fn from_iter<'a>(tokens: &mut TokenIter, message: &str) -> Self {
         if let Some(token) = tokens.peek() {
             Error::new(token, message)
         } else {
@@ -238,9 +244,9 @@ impl Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub type TokenIter<'a> = std::iter::Peekable<std::vec::IntoIter<Token<'a>>>;
+pub type TokenIter = std::iter::Peekable<std::vec::IntoIter<Token>>;
 
-impl Token<'_> {
+impl Token {
     pub fn value_precedence(&self) -> i8 {
         self.token_type.value_precedence()
     }
@@ -257,7 +263,7 @@ impl Token<'_> {
         }
     }
 
-    pub fn skip_newlines<'a>(tokens: &mut TokenIter<'a>) {
+    pub fn skip_newlines<'a>(tokens: &mut TokenIter) {
         while let Some(token) = tokens.peek() {
             if token.token_type == TokenType::NewLine {
                 tokens.next();
@@ -299,7 +305,7 @@ impl Token<'_> {
             TokenType::Function => Some(SemanticTokenType::KEYWORD),
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
-                if self.text.len() > 1 {
+                if self.len > 1 {
                     Some(SemanticTokenType::COMMENT)
                 } else {
                     None
@@ -322,7 +328,8 @@ impl Token<'_> {
     // scanning always puts a NewLine token at the end of the input.
     pub fn scan(input: &str) -> Vec<Token> {
         let mut tokens = Vec::new();
-        for (line_index, line) in input.lines().enumerate() {
+        for (line_number, line) in input.lines().enumerate() {
+            let rc_line = Arc::new(line.to_string());
             let mut char_indices = line.char_indices().peekable();
             while let Some((char_index, ch)) = char_indices.next() {
                 let token_type = match ch {
@@ -405,13 +412,12 @@ impl Token<'_> {
                 } else {
                     line.len()
                 };
-                let text = &line[char_index..end];
                 let token = Token {
                     token_type,
-                    text,
-                    line,
-                    line_index,
-                    char_index,
+                    line: rc_line.clone(),
+                    line_number,
+                    start: char_index,
+                    len: end - char_index,
                 };
                 tokens.push(token);
             }
@@ -419,10 +425,10 @@ impl Token<'_> {
             // Add a newline
             tokens.push(Token {
                 token_type: TokenType::NewLine,
-                text: "\n",
-                line,
-                line_index,
-                char_index: input.len(),
+                line: rc_line,
+                line_number,
+                start: line.len(),
+                len: 0,
             });
         }
 
@@ -443,12 +449,12 @@ impl Token<'_> {
     }
 
     // Pops off one token, expecting it to be there.
-    pub fn expect_token<'a>(tokens: &mut TokenIter<'a>) -> Result<Token<'a>> {
+    pub fn expect_token<'a>(tokens: &mut TokenIter) -> Result<Token> {
         tokens.next().ok_or(Error::EOF)
     }
 
     // Pops off one token, expecting it to be of a known type.
-    pub fn expect_type<'a>(tokens: &mut TokenIter<'a>, expected: TokenType) -> Result<Token<'a>> {
+    pub fn expect_type<'a>(tokens: &mut TokenIter, expected: TokenType) -> Result<Token> {
         let token = match tokens.next() {
             Some(t) => t,
             None => return Err(Error::EOF),
