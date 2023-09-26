@@ -439,10 +439,11 @@ impl Statement {
                             ));
                         }
                         let brace = if block_ended { Some(token) } else { None };
+                        let last_token = Some(claim.last_token().clone());
                         let se = StatementEnum::Prop(PropStatement { claim });
                         let s = Statement {
                             first_token,
-                            last_token: None,
+                            last_token,
                             statement: se,
                         };
                         return Ok((Some(s), brace));
