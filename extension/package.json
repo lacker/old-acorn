@@ -19,7 +19,8 @@
         "aliases": [
           "Acorn",
           "acorn"
-        ]
+        ],
+        "configuration": "./language-configuration.json"
       }
     ],
     "commands": [
