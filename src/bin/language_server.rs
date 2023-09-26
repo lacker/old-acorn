@@ -10,10 +10,10 @@ struct Backend {
     client: Client,
 
     // Maps uri to full document text
-    cache: DashMap<String, String>,
+    cache: DashMap<Url, String>,
 }
 
-fn get_range(doc: &TextDocument, error: &Error) -> Range {
+fn get_range(text: &str, error: &Error) -> Range {
     match error {
         Error::Token(token_error) => {
             let line = token_error.line_index as u32;
@@ -27,8 +27,8 @@ fn get_range(doc: &TextDocument, error: &Error) -> Range {
             Range { start, end }
         }
         Error::EOF => {
-            let line = doc.text.lines().count() as u32;
-            let character = doc.text.lines().last().unwrap().len() as u32;
+            let line = text.lines().count() as u32;
+            let character = text.lines().last().unwrap().len() as u32;
             let start = Position { line, character };
             let end = Position { line, character };
             Range { start, end }
@@ -54,18 +54,31 @@ impl Backend {
         let basename = doc.uri.path_segments().unwrap().last().unwrap();
         self.log_info(&format!("{} changed. text:\n{}", basename, doc.text))
             .await;
-        self.cache.insert(doc.uri.to_string(), doc.text.clone());
+        self.cache.insert(doc.uri.clone(), doc.text.clone());
+
+        self.make_diagnostics(doc.uri).await;
+    }
+
+    // Create diagnostics based on the cached data for the given url
+    async fn make_diagnostics(&self, uri: Url) {
+        let text = match self.cache.get(&uri) {
+            Some(text) => text,
+            None => {
+                self.log_info("no text available for diagnostics").await;
+                return;
+            }
+        };
 
         let mut env = Environment::new();
-        let tokens = Token::scan(&doc.text);
+        let tokens = Token::scan(&text);
         match env.add_tokens(tokens) {
             Ok(()) => {
-                self.client.publish_diagnostics(doc.uri, vec![], None).await;
+                self.client.publish_diagnostics(uri, vec![], None).await;
                 self.log_info("env.add OK").await;
             }
             Err(e) => {
                 self.log_info(&format!("env.add failed: {:?}", e)).await;
-                let range = get_range(&doc, &e);
+                let range = get_range(&text, &e);
                 let diagnostic = Diagnostic {
                     range,
                     severity: Some(DiagnosticSeverity::ERROR),
@@ -74,7 +87,7 @@ impl Backend {
                 };
 
                 self.client
-                    .publish_diagnostics(doc.uri, vec![diagnostic], None)
+                    .publish_diagnostics(uri, vec![diagnostic], None)
                     .await;
 
                 self.log_info("diagnostic sent").await;
@@ -135,12 +148,11 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        self.log_info(&format!("did_save. text = [{:?}]", &params.text))
-            .await;
+        self.log_info("did_save").await;
         let text = match params.text {
             Some(text) => text,
             None => {
-                self.log_info("oops no text").await;
+                self.log_info("no text available at save time").await;
                 return;
             }
         };
@@ -165,10 +177,10 @@ impl LanguageServer for Backend {
     ) -> Result<Option<SemanticTokensResult>> {
         self.log_info("semantic_tokens_full").await;
         let uri = params.text_document.uri;
-        let text = match self.cache.get(&uri.to_string()) {
+        let text = match self.cache.get(&uri) {
             Some(text) => text,
             None => {
-                self.log_info("oops no text").await;
+                self.log_info("no text available for semantic tokens").await;
                 return Ok(None);
             }
         };
@@ -193,11 +205,6 @@ impl LanguageServer for Backend {
             } else {
                 start
             };
-            self.log_info(&format!(
-                "token: {}, token type: {:?}, delta_line: {}, delta_start: {}",
-                token.text, token.token_type, delta_line, delta_start
-            ))
-            .await;
             semantic_tokens.push(SemanticToken {
                 delta_line,
                 delta_start,
