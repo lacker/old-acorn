@@ -14,7 +14,9 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // "Apply" is the application of a function. The second expression must be an arg list.
 // "Grouping" is another expression enclosed in parentheses.
 // "Block" is another expression enclosed in braces. Just one for now.
-// "Macro" is the application of a macro. The second expression must be an arg list.
+// "Macro" is the application of a macro.
+//   The second expression must be an arg list.
+//   Macros include the terminating brace as a token.
 #[derive(Debug)]
 pub enum Expression {
     Identifier(Token),
@@ -22,7 +24,7 @@ pub enum Expression {
     Binary(Token, Box<Expression>, Box<Expression>),
     Apply(Box<Expression>, Box<Expression>),
     Grouping(Token, Box<Expression>, Token),
-    Macro(Token, Box<Expression>, Box<Expression>),
+    Macro(Token, Box<Expression>, Box<Expression>, Token),
 }
 
 impl fmt::Display for Expression {
@@ -46,7 +48,7 @@ impl fmt::Display for Expression {
             Expression::Grouping(_, e, _) => {
                 write!(f, "({})", e)
             }
-            Expression::Macro(token, args, sub) => {
+            Expression::Macro(token, args, sub, _) => {
                 write!(f, "{}{} {{ {} }}", token, args, sub)
             }
         }
@@ -54,14 +56,26 @@ impl fmt::Display for Expression {
 }
 
 impl Expression {
-    pub fn first_token(&self) -> &Token {
+    // This is not the first token or the last token, but the "conceptually top level" token.
+    pub fn token(&self) -> &Token {
         match self {
             Expression::Identifier(token) => token,
             Expression::Unary(token, _) => token,
             Expression::Binary(token, _, _) => token,
-            Expression::Apply(left, _) => left.first_token(),
+            Expression::Apply(left, _) => left.token(),
             Expression::Grouping(left_paren, _, _) => left_paren,
-            Expression::Macro(token, _, _) => token,
+            Expression::Macro(token, _, _, _) => token,
+        }
+    }
+
+    pub fn last_token(&self) -> &Token {
+        match self {
+            Expression::Identifier(token) => token,
+            Expression::Unary(_, subexpression) => subexpression.last_token(),
+            Expression::Binary(_, _, right) => right.last_token(),
+            Expression::Apply(_, right) => right.last_token(),
+            Expression::Grouping(_, _, right_paren) => right_paren,
+            Expression::Macro(_, _, _, right_brace) => right_brace,
         }
     }
 
@@ -108,7 +122,7 @@ enum PartialExpression {
     Expression(Expression),
     Unary(Token),
     Binary(Token),
-    Block(Token, Expression),
+    Block(Token, Expression, Token),
 }
 
 impl fmt::Display for PartialExpression {
@@ -117,7 +131,7 @@ impl fmt::Display for PartialExpression {
             PartialExpression::Expression(e) => write!(f, "{}", e),
             PartialExpression::Unary(token) => write!(f, "{}", token),
             PartialExpression::Binary(token) => write!(f, "{}", token),
-            PartialExpression::Block(_, e) => write!(f, "{{ {} }}", e),
+            PartialExpression::Block(_, e, _) => write!(f, "{{ {} }}", e),
         }
     }
 }
@@ -125,10 +139,10 @@ impl fmt::Display for PartialExpression {
 impl PartialExpression {
     fn token(&self) -> &Token {
         match self {
-            PartialExpression::Expression(e) => e.first_token(),
+            PartialExpression::Expression(e) => e.token(),
             PartialExpression::Unary(token) => token,
             PartialExpression::Binary(token) => token,
-            PartialExpression::Block(token, _) => token,
+            PartialExpression::Block(token, _, _) => token,
         }
     }
 }
@@ -162,9 +176,9 @@ fn parse_partial_expressions(
                     .push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
             TokenType::LeftBrace => {
-                let (subexp, _) =
+                let (subexp, right_brace) =
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
-                partial_expressions.push_back(PartialExpression::Block(token, subexp));
+                partial_expressions.push_back(PartialExpression::Block(token, subexp, right_brace));
             }
             token_type if token_type.is_binary() => {
                 partial_expressions.push_back(PartialExpression::Binary(token));
@@ -207,7 +221,7 @@ fn combine_partial_expressions(
         .iter()
         .enumerate()
         .filter_map(|(i, partial)| match partial {
-            PartialExpression::Expression(_) | PartialExpression::Block(_, _) => None,
+            PartialExpression::Expression(_) | PartialExpression::Block(_, _, _) => None,
             PartialExpression::Unary(token) => {
                 // Only a unary operator at the beginning of the expression can operate last
                 if i == 0 {
@@ -233,11 +247,12 @@ fn combine_partial_expressions(
                     let expect_args = partials.pop_front().unwrap();
                     if let PartialExpression::Expression(args) = expect_args {
                         let expect_block = partials.pop_back().unwrap();
-                        if let PartialExpression::Block(_, block) = expect_block {
+                        if let PartialExpression::Block(_, block, right_brace) = expect_block {
                             return Ok(Expression::Macro(
                                 token.clone(),
                                 Box::new(args),
                                 Box::new(block),
+                                right_brace,
                             ));
                         } else {
                             return Err(Error::new(expect_block.token(), "expected a macro block"));
@@ -258,7 +273,7 @@ fn combine_partial_expressions(
                         Expression::Grouping(_, _, _) => {
                             answer = Expression::Apply(Box::new(answer), Box::new(expr))
                         }
-                        _ => return Err(Error::new(expr.first_token(), "expected a grouping")),
+                        _ => return Err(Error::new(expr.token(), "expected a grouping")),
                     }
                 } else {
                     return Err(Error::new(partial.token(), "unexpected operator"));
