@@ -49,16 +49,6 @@ impl Backend {
         self.client.log_message(MessageType::INFO, message).await;
     }
 
-    async fn process_document(&self, doc: TextDocument) {
-        // Get the basename of the uri
-        let basename = doc.uri.path_segments().unwrap().last().unwrap();
-        self.log_info(&format!("{} changed. text:\n{}", basename, doc.text))
-            .await;
-        self.cache.insert(doc.uri.clone(), doc.text.clone());
-
-        self.make_diagnostics(doc.uri).await;
-    }
-
     // Create diagnostics based on the cached data for the given url
     async fn make_diagnostics(&self, uri: Url) {
         let text = match self.cache.get(&uri) {
@@ -96,11 +86,6 @@ impl Backend {
     }
 }
 
-struct TextDocument {
-    uri: Url,
-    text: String,
-}
-
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
@@ -110,6 +95,7 @@ impl LanguageServer for Backend {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Options(
                     TextDocumentSyncOptions {
+                        open_close: Some(true),
                         change: Some(TextDocumentSyncKind::FULL),
                         save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
                             include_text: Some(true),
@@ -156,15 +142,24 @@ impl LanguageServer for Backend {
                 return;
             }
         };
-        let doc = TextDocument {
-            uri: params.text_document.uri,
-            text,
-        };
-        self.process_document(doc).await
+        let uri = params.text_document.uri;
+        self.cache.insert(uri.clone(), text);
+        self.make_diagnostics(uri).await;
     }
 
-    async fn did_change(&self, _: DidChangeTextDocumentParams) {
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        self.log_info("did_open").await;
+        let uri = params.text_document.uri;
+        self.cache.insert(uri.clone(), params.text_document.text);
+        self.make_diagnostics(uri).await;
+    }
+
+    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
         self.log_info("did_change").await;
+        self.cache.insert(
+            params.text_document.uri,
+            std::mem::take(&mut params.content_changes[0].text),
+        );
     }
 
     async fn shutdown(&self) -> Result<()> {
