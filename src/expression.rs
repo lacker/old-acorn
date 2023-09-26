@@ -21,7 +21,7 @@ pub enum Expression {
     Unary(Token, Box<Expression>),
     Binary(Token, Box<Expression>, Box<Expression>),
     Apply(Box<Expression>, Box<Expression>),
-    Grouping(Box<Expression>),
+    Grouping(Token, Box<Expression>, Token),
     Macro(Token, Box<Expression>, Box<Expression>),
 }
 
@@ -43,7 +43,7 @@ impl fmt::Display for Expression {
             Expression::Apply(left, right) => {
                 write!(f, "{}{}", left, right)
             }
-            Expression::Grouping(e) => {
+            Expression::Grouping(_, e, _) => {
                 write!(f, "({})", e)
             }
             Expression::Macro(token, args, sub) => {
@@ -54,13 +54,13 @@ impl fmt::Display for Expression {
 }
 
 impl Expression {
-    pub fn token(&self) -> &Token {
+    pub fn first_token(&self) -> &Token {
         match self {
             Expression::Identifier(token) => token,
             Expression::Unary(token, _) => token,
             Expression::Binary(token, _, _) => token,
-            Expression::Apply(left, _) => left.token(),
-            Expression::Grouping(e) => e.token(),
+            Expression::Apply(left, _) => left.first_token(),
+            Expression::Grouping(left_paren, _, _) => left_paren,
             Expression::Macro(token, _, _) => token,
         }
     }
@@ -78,7 +78,7 @@ impl Expression {
                     vec![&self]
                 }
             }
-            Expression::Grouping(e) => e.flatten_arg_list(),
+            Expression::Grouping(_, e, _) => e.flatten_arg_list(),
             _ => vec![&self],
         }
     }
@@ -125,7 +125,7 @@ impl fmt::Display for PartialExpression {
 impl PartialExpression {
     fn token(&self) -> &Token {
         match self {
-            PartialExpression::Expression(e) => e.token(),
+            PartialExpression::Expression(e) => e.first_token(),
             PartialExpression::Unary(token) => token,
             PartialExpression::Binary(token) => token,
             PartialExpression::Block(token, _) => token,
@@ -148,9 +148,9 @@ fn parse_partial_expressions(
                 return Ok((partial_expressions, token));
             }
             TokenType::LeftParen => {
-                let (subexpression, _) =
+                let (subexpression, last_token) =
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightParen)?;
-                let group = Expression::Grouping(Box::new(subexpression));
+                let group = Expression::Grouping(token, Box::new(subexpression), last_token);
                 partial_expressions.push_back(PartialExpression::Expression(group));
             }
             TokenType::Identifier
@@ -255,10 +255,10 @@ fn combine_partial_expressions(
             for partial in partials.into_iter() {
                 if let PartialExpression::Expression(expr) = partial {
                     match expr {
-                        Expression::Grouping(_) => {
+                        Expression::Grouping(_, _, _) => {
                             answer = Expression::Apply(Box::new(answer), Box::new(expr))
                         }
-                        _ => return Err(Error::new(expr.token(), "expected a grouping")),
+                        _ => return Err(Error::new(expr.first_token(), "expected a grouping")),
                     }
                 } else {
                     return Err(Error::new(partial.token(), "unexpected operator"));

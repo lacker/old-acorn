@@ -574,13 +574,13 @@ impl Environment {
             let (name, acorn_type) = self.parse_declaration(declaration)?;
             if self.types.contains_key(&name) {
                 return Err(Error::new(
-                    declaration.token(),
+                    declaration.first_token(),
                     "cannot redeclare a name in an argument list",
                 ));
             }
             if names.contains(&name) {
                 return Err(Error::new(
-                    declaration.token(),
+                    declaration.first_token(),
                     "cannot declare a name twice in one argument list",
                 ));
             }
@@ -642,10 +642,10 @@ impl Environment {
                 )),
             },
             Expression::Apply(left, _) => Err(Error::new(
-                left.token(),
+                left.first_token(),
                 "unexpected function application in type expression",
             )),
-            Expression::Grouping(e) => self.evaluate_partial_type_expression(e),
+            Expression::Grouping(_, e, _) => self.evaluate_partial_type_expression(e),
             Expression::Macro(token, _, _) => {
                 Err(Error::new(token, "unexpected macro in type expression"))
             }
@@ -657,7 +657,7 @@ impl Environment {
         let acorn_type = self.evaluate_partial_type_expression(expression)?;
         if let AcornType::ArgList(_) = acorn_type {
             Err(Error::new(
-                expression.token(),
+                expression.first_token(),
                 "expected a complete type, not arg list",
             ))
         } else {
@@ -803,11 +803,14 @@ impl Environment {
                 let function_type = match function_type {
                     AcornType::Function(f) => f,
                     _ => {
-                        return Err(Error::new(function_expr.token(), "expected a function"));
+                        return Err(Error::new(
+                            function_expr.first_token(),
+                            "expected a function",
+                        ));
                     }
                 };
                 self.check_type(
-                    function_expr.token(),
+                    function_expr.first_token(),
                     expected_type,
                     &*function_type.return_type,
                 )?;
@@ -816,7 +819,7 @@ impl Environment {
                 let args_type = args.get_type();
 
                 self.check_type(
-                    args_expr.token(),
+                    args_expr.first_token(),
                     Some(&AcornType::ArgList(function_type.arg_types)),
                     &args_type.into_arg_list(),
                 )?;
@@ -826,12 +829,12 @@ impl Environment {
                     args: args.into_vec(),
                 }))
             }
-            Expression::Grouping(e) => self.evaluate_value_expression(e, expected_type),
+            Expression::Grouping(_, e, _) => self.evaluate_value_expression(e, expected_type),
             Expression::Macro(token, args_expr, body) => {
                 let macro_args = args_expr.flatten_arg_list();
                 if macro_args.len() < 1 {
                     return Err(Error::new(
-                        args_expr.token(),
+                        args_expr.first_token(),
                         "macros must have at least one argument",
                     ));
                 }
@@ -861,19 +864,22 @@ impl Environment {
         match declaration {
             Expression::Binary(token, left, right) => match token.token_type {
                 TokenType::Colon => {
-                    if left.token().token_type != TokenType::Identifier {
+                    if left.first_token().token_type != TokenType::Identifier {
                         return Err(Error::new(
-                            left.token(),
+                            left.first_token(),
                             "expected an identifier in this declaration",
                         ));
                     }
-                    let name = left.token().text().to_string();
+                    let name = left.first_token().text().to_string();
                     let acorn_type = self.evaluate_type_expression(right)?;
                     Ok((name, acorn_type))
                 }
                 _ => Err(Error::new(token, "expected a colon in this declaration")),
             },
-            _ => Err(Error::new(declaration.token(), "expected a declaration")),
+            _ => Err(Error::new(
+                declaration.first_token(),
+                "expected a declaration",
+            )),
         }
     }
 
@@ -900,7 +906,7 @@ impl Environment {
             },
             _ => {
                 return Err(Error::new(
-                    declaration.token(),
+                    declaration.first_token(),
                     "expected a function declaration",
                 ))
             }
@@ -908,16 +914,16 @@ impl Environment {
 
         let (fn_name, arg_list) = match fn_appl {
             Expression::Apply(ident, arg_list) => {
-                if ident.token().token_type != TokenType::Identifier {
+                if ident.first_token().token_type != TokenType::Identifier {
                     return Err(Error::new(
-                        ident.token(),
+                        ident.first_token(),
                         "expected an identifier in this function declaration",
                     ));
                 }
-                let name = ident.token().text().to_string();
+                let name = ident.first_token().text().to_string();
                 if self.types.contains_key(&name) {
                     return Err(Error::new(
-                        ident.token(),
+                        ident.first_token(),
                         "function name already defined in this scope",
                     ));
                 }
@@ -925,7 +931,7 @@ impl Environment {
             }
             _ => {
                 return Err(Error::new(
-                    fn_appl.token(),
+                    fn_appl.first_token(),
                     "expected a function declaration",
                 ))
             }
@@ -933,7 +939,7 @@ impl Environment {
 
         let (arg_names, arg_types) = self.bind_args(arg_list.flatten_arg_list())?;
 
-        let ret_val = if body.token().token_type == TokenType::Axiom {
+        let ret_val = if body.first_token().token_type == TokenType::Axiom {
             let new_axiom_type = AcornType::Function(FunctionType {
                 arg_types: arg_types.clone(),
                 return_type: Box::new(ret_type.clone()),
@@ -963,11 +969,11 @@ impl Environment {
             StatementEnum::Type(ts) => {
                 if self.typenames.contains_key(&ts.name.to_string()) {
                     return Err(Error::new(
-                        &ts.type_expr.token(),
+                        &ts.type_expr.first_token(),
                         "type name already defined in this scope",
                     ));
                 }
-                if ts.type_expr.token().token_type == TokenType::Axiom {
+                if ts.type_expr.first_token().token_type == TokenType::Axiom {
                     self.add_primitive_type(&ts.name);
                 } else {
                     let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
@@ -976,12 +982,12 @@ impl Environment {
                 Ok(())
             }
 
-            StatementEnum::Definition(ds) => match ds.declaration.token().token_type {
+            StatementEnum::Definition(ds) => match ds.declaration.first_token().token_type {
                 TokenType::Colon => {
                     let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
                     if self.types.contains_key(&name) {
                         return Err(Error::new(
-                            ds.declaration.token(),
+                            ds.declaration.first_token(),
                             "variable name already defined in this scope",
                         ));
                     }
@@ -999,7 +1005,7 @@ impl Environment {
                         Some(v) => v,
                         None => {
                             return Err(Error::new(
-                                ds.declaration.token(),
+                                ds.declaration.first_token(),
                                 "expected a value in this definition",
                             ));
                         }
@@ -1010,7 +1016,7 @@ impl Environment {
                     Ok(())
                 }
                 _ => Err(Error::new(
-                    ds.declaration.token(),
+                    ds.declaration.first_token(),
                     "unexpected top-level token in declaration",
                 )),
             },
