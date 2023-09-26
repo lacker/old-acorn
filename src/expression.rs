@@ -21,7 +21,7 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 pub enum Expression {
     Identifier(Token),
     Unary(Token, Box<Expression>),
-    Binary(Token, Box<Expression>, Box<Expression>),
+    Binary(Box<Expression>, Token, Box<Expression>),
     Apply(Box<Expression>, Box<Expression>),
     Grouping(Token, Box<Expression>, Token),
     Macro(Token, Box<Expression>, Box<Expression>, Token),
@@ -34,7 +34,7 @@ impl fmt::Display for Expression {
             Expression::Unary(token, subexpression) => {
                 write!(f, "{}{}", token, subexpression)
             }
-            Expression::Binary(token, left, right) => {
+            Expression::Binary(left, token, right) => {
                 let spacer = if token.token_type.left_space() {
                     " "
                 } else {
@@ -61,7 +61,7 @@ impl Expression {
         match self {
             Expression::Identifier(token) => token,
             Expression::Unary(token, _) => token,
-            Expression::Binary(token, _, _) => token,
+            Expression::Binary(_, token, _) => token,
             Expression::Apply(left, _) => left.token(),
             Expression::Grouping(left_paren, _, _) => left_paren,
             Expression::Macro(token, _, _, _) => token,
@@ -83,7 +83,7 @@ impl Expression {
     // Gets rid of commas and groupings
     pub fn flatten_arg_list(&self) -> Vec<&Expression> {
         match self {
-            Expression::Binary(token, left, right) => {
+            Expression::Binary(left, token, right) => {
                 if token.token_type == TokenType::Comma {
                     let mut args = left.flatten_arg_list();
                     args.append(&mut right.flatten_arg_list());
@@ -309,8 +309,8 @@ fn combine_partial_expressions(
 
     if let PartialExpression::Binary(token) = partial {
         return Ok(Expression::Binary(
-            token,
             Box::new(combine_partial_expressions(partials, is_value, iter)?),
+            token,
             Box::new(combine_partial_expressions(
                 right_partials,
                 right_is_value,

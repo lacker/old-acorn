@@ -620,7 +620,7 @@ impl Environment {
                 token,
                 "unexpected unary operator in type expression",
             )),
-            Expression::Binary(token, left, right) => match token.token_type {
+            Expression::Binary(left, token, right) => match token.token_type {
                 TokenType::RightArrow => {
                     let left_type = self.evaluate_partial_type_expression(left)?;
                     let right_type = self.evaluate_partial_type_expression(right)?;
@@ -733,7 +733,7 @@ impl Environment {
                     "unexpected unary operator in value expression",
                 )),
             },
-            Expression::Binary(token, left, right) => {
+            Expression::Binary(left, token, right) => {
                 match token.token_type {
                     TokenType::Comma => {
                         // Flatten the values on either side, assumed to be arg lists
@@ -859,7 +859,7 @@ impl Environment {
     // Parses the "x: Nat" sort of declaration.
     fn parse_declaration(&self, declaration: &Expression) -> Result<(String, AcornType)> {
         match declaration {
-            Expression::Binary(token, left, right) => match token.token_type {
+            Expression::Binary(left, token, right) => match token.token_type {
                 TokenType::Colon => {
                     if left.token().token_type != TokenType::Identifier {
                         return Err(Error::new(
@@ -891,7 +891,7 @@ impl Environment {
         body: &Expression,
     ) -> Result<(String, AcornValue)> {
         let (fn_appl, ret_type) = match declaration {
-            Expression::Binary(token, left, right) => match token.token_type {
+            Expression::Binary(left, token, right) => match token.token_type {
                 TokenType::RightArrow => {
                     let ret_type = self.evaluate_type_expression(right)?;
                     (&**left, ret_type)
