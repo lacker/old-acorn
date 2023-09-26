@@ -418,14 +418,14 @@ impl Token {
 
     // Pops off one token, expecting it to be there.
     pub fn expect_token<'a>(tokens: &mut TokenIter) -> Result<Token> {
-        tokens.next().ok_or(Error::EOF)
+        tokens.next().ok_or(tokens.error("unexpected end of file"))
     }
 
     // Pops off one token, expecting it to be of a known type.
     pub fn expect_type<'a>(tokens: &mut TokenIter, expected: TokenType) -> Result<Token> {
         let token = match tokens.next() {
             Some(t) => t,
-            None => return Err(Error::EOF),
+            None => return Err(tokens.error("unexpected end of file")),
         };
         if token.token_type != expected {
             return Err(Error::new(&token, &format!("expected {:?}", expected)));
@@ -465,14 +465,6 @@ impl Error {
             token: token.clone(),
         })
     }
-
-    pub fn from_iter<'a>(tokens: &mut TokenIter, message: &str) -> Self {
-        if let Some(token) = tokens.peek() {
-            Error::new(token, message)
-        } else {
-            Error::EOF
-        }
-    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -500,10 +492,10 @@ impl TokenIter {
         self.inner.next()
     }
 
-    pub fn error(&mut self, message: String) -> Error {
+    pub fn error(&mut self, message: &str) -> Error {
         match self.peek() {
-            Some(token) => Error::new(token, &message),
-            None => Error::new(&self.last, &message),
+            Some(token) => Error::new(token, message),
+            None => Error::new(&self.last, message),
         }
     }
 }

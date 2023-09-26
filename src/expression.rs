@@ -192,7 +192,7 @@ fn combine_partial_expressions(
     iter: &mut TokenIter,
 ) -> Result<Expression> {
     if partials.len() == 0 {
-        return Err(Error::from_iter(iter, "no partial expressions to combine"));
+        return Err(iter.error("no partial expressions to combine"));
     }
     if partials.len() == 1 {
         let partial = partials.pop_back().unwrap();
