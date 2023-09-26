@@ -406,7 +406,9 @@ impl Token {
     }
 
     pub fn into_iter(tokens: Vec<Token>) -> TokenIter {
-        tokens.into_iter().peekable()
+        TokenIter {
+            inner: tokens.into_iter().peekable(),
+        }
     }
 
     // Pops off one token, expecting it to be there.
@@ -470,7 +472,19 @@ impl Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub type TokenIter = Peekable<IntoIter<Token>>;
+pub struct TokenIter {
+    inner: Peekable<IntoIter<Token>>,
+}
+
+impl TokenIter {
+    pub fn peek(&mut self) -> Option<&Token> {
+        self.inner.peek()
+    }
+
+    pub fn next(&mut self) -> Option<Token> {
+        self.inner.next()
+    }
+}
 
 #[cfg(test)]
 mod tests {
