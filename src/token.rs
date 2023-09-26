@@ -297,6 +297,14 @@ impl Token<'_> {
             TokenType::If => Some(SemanticTokenType::KEYWORD),
             TokenType::By => Some(SemanticTokenType::KEYWORD),
             TokenType::Function => Some(SemanticTokenType::KEYWORD),
+            TokenType::NewLine => {
+                // Comments are encoded as newlines because syntactically they act like newlines.
+                if self.text.len() > 1 {
+                    Some(SemanticTokenType::COMMENT)
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
