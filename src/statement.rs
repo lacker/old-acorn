@@ -168,9 +168,13 @@ fn parse_args(tokens: &mut TokenIter, terminator: TokenType) -> Result<Vec<Expre
     Ok(args)
 }
 
-// Parses a theorem where the keyword identifier (axiom or theorem) has already been consumed.
+// Parses a theorem where the keyword identifier (axiom or theorem) has already been found.
 // "axiomatic" is whether this is an axiom.
-fn parse_theorem_statement(tokens: &mut TokenIter, axiomatic: bool) -> Result<Statement> {
+fn parse_theorem_statement(
+    keyword: Token,
+    tokens: &mut TokenIter,
+    axiomatic: bool,
+) -> Result<Statement> {
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text().to_string();
     let args = parse_args(tokens, TokenType::Colon)?;
@@ -192,7 +196,7 @@ fn parse_theorem_statement(tokens: &mut TokenIter, axiomatic: bool) -> Result<St
         body,
     };
     let statement = Statement {
-        first_token: None,
+        first_token: Some(keyword),
         statement: StatementEnum::Theorem(ts),
     };
     Ok(statement)
@@ -380,13 +384,13 @@ impl Statement {
                         return Ok((Some(s), false));
                     }
                     TokenType::Axiom => {
-                        tokens.next();
-                        let s = parse_theorem_statement(tokens, true)?;
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_theorem_statement(keyword, tokens, true)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Theorem => {
-                        tokens.next();
-                        let s = parse_theorem_statement(tokens, false)?;
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_theorem_statement(keyword, tokens, false)?;
                         return Ok((Some(s), false));
                     }
                     TokenType::Define => {
