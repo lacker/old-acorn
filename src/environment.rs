@@ -7,7 +7,7 @@ use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::expression::Expression;
 use crate::statement::Statement;
-use crate::token::{Error, Result, Token, TokenType};
+use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 // The Environment takes in a bunch of statements that make sense on their own,
 // and combines them while doing typechecking and name resolution.
@@ -1184,7 +1184,7 @@ impl Environment {
     }
 
     pub fn add_tokens(&mut self, tokens: Vec<Token>) -> Result<()> {
-        let mut tokens = Token::into_iter(tokens);
+        let mut tokens = TokenIter::new(tokens);
         loop {
             match Statement::parse(&mut tokens, false) {
                 Ok((Some(statement), _)) => {
@@ -1308,7 +1308,7 @@ impl Environment {
     #[cfg(test)]
     fn assert_type_ok(&mut self, input: &str) {
         let tokens = Token::scan(input);
-        let mut tokens = Token::into_iter(tokens);
+        let mut tokens = TokenIter::new(tokens);
         let (expression, _) =
             Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
         match self.evaluate_type_expression(&expression) {
@@ -1320,7 +1320,7 @@ impl Environment {
     #[cfg(test)]
     fn assert_type_bad(&mut self, input: &str) {
         let tokens = Token::scan(input);
-        let mut tokens = Token::into_iter(tokens);
+        let mut tokens = TokenIter::new(tokens);
         let expression = match Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine) {
             Ok((expression, _)) => expression,
             Err(_) => {

@@ -183,6 +183,17 @@ impl fmt::Display for Token {
 }
 
 impl Token {
+    // A token to represent an empty file.
+    fn empty() -> Self {
+        Token {
+            token_type: TokenType::NewLine,
+            line: Arc::new("".to_string()),
+            line_number: 0,
+            start: 0,
+            len: 0,
+        }
+    }
+
     pub fn text(&self) -> &str {
         &self.line[self.start..self.start + self.len]
     }
@@ -405,12 +416,6 @@ impl Token {
         false
     }
 
-    pub fn into_iter(tokens: Vec<Token>) -> TokenIter {
-        TokenIter {
-            inner: tokens.into_iter().peekable(),
-        }
-    }
-
     // Pops off one token, expecting it to be there.
     pub fn expect_token<'a>(tokens: &mut TokenIter) -> Result<Token> {
         tokens.next().ok_or(Error::EOF)
@@ -474,15 +479,32 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 pub struct TokenIter {
     inner: Peekable<IntoIter<Token>>,
+
+    last: Token,
 }
 
 impl TokenIter {
+    pub fn new(tokens: Vec<Token>) -> TokenIter {
+        let last = tokens.last().cloned().unwrap_or_else(Token::empty);
+        TokenIter {
+            inner: tokens.into_iter().peekable(),
+            last,
+        }
+    }
+
     pub fn peek(&mut self) -> Option<&Token> {
         self.inner.peek()
     }
 
     pub fn next(&mut self) -> Option<Token> {
         self.inner.next()
+    }
+
+    pub fn error(&mut self, message: String) -> Error {
+        match self.peek() {
+            Some(token) => Error::new(token, &message),
+            None => Error::new(&self.last, &message),
+        }
     }
 }
 

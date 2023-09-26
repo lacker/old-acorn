@@ -412,7 +412,7 @@ impl Statement {
     // Helper for tests; don't use in production code
     pub fn parse_str(input: &str) -> Result<Statement> {
         let tokens = Token::scan(input);
-        let mut tokens = Token::into_iter(tokens);
+        let mut tokens = TokenIter::new(tokens);
         match Statement::parse(&mut tokens, false)? {
             (Some(statement), _) => Ok(statement),
             _ => panic!("expected statement, got EOF"),
