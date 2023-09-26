@@ -3,11 +3,8 @@
   "version": "0.0.1",
   "description": "A VSCode extension for the Acorn language.",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.75.0"
   },
-  "activationEvents": [
-    "onLanguage:acorn"
-  ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
