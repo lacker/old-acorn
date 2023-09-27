@@ -8,11 +8,23 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 #[derive(Debug)]
+struct Document {
+    text: String,
+    version: i32,
+}
+
+impl Document {
+    fn new(text: String, version: i32) -> Document {
+        Document { text, version }
+    }
+}
+
+#[derive(Debug)]
 struct Backend {
     client: Client,
 
-    // Maps uri to full document text
-    cache: DashMap<Url, String>,
+    // Maps uri to the document content, and a version id
+    cache: DashMap<Url, Document>,
 }
 
 impl Backend {
@@ -32,8 +44,8 @@ impl Backend {
 
     // Create diagnostics based on the cached data for the given url
     async fn make_diagnostics(&self, uri: Url) {
-        let text = match self.cache.get(&uri) {
-            Some(text) => text,
+        let doc = match self.cache.get(&uri) {
+            Some(doc) => doc,
             None => {
                 self.log_info("no text available for diagnostics").await;
                 return;
@@ -42,7 +54,7 @@ impl Backend {
 
         let mut diagnostics = vec![];
         let mut env = Environment::new();
-        let tokens = Token::scan(&text);
+        let tokens = Token::scan(&doc.text);
         if let Err(e) = env.add_tokens(tokens) {
             self.log_info(&format!("env.add failed: {:?}", e)).await;
             diagnostics.push(Diagnostic {
@@ -98,7 +110,7 @@ impl LanguageServer for Backend {
                         open_close: Some(true),
                         change: Some(TextDocumentSyncKind::FULL),
                         save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
-                            include_text: Some(true),
+                            include_text: Some(false),
                         })),
                         ..TextDocumentSyncOptions::default()
                     },
@@ -135,31 +147,25 @@ impl LanguageServer for Backend {
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         self.log_info("did_save").await;
-        let text = match params.text {
-            Some(text) => text,
-            None => {
-                self.log_info("no text available at save time").await;
-                return;
-            }
-        };
         let uri = params.text_document.uri;
-        self.cache.insert(uri.clone(), text);
         self.make_diagnostics(uri).await;
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         self.log_info("did_open").await;
         let uri = params.text_document.uri;
-        self.cache.insert(uri.clone(), params.text_document.text);
+        let text = params.text_document.text;
+        let version = params.text_document.version;
+        self.cache.insert(uri.clone(), Document::new(text, version));
         self.make_diagnostics(uri).await;
     }
 
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
         self.log_info("did_change").await;
-        self.cache.insert(
-            params.text_document.uri,
-            std::mem::take(&mut params.content_changes[0].text),
-        );
+        let uri = params.text_document.uri;
+        let text = std::mem::take(&mut params.content_changes[0].text);
+        let version = params.text_document.version;
+        self.cache.insert(uri, Document::new(text, version));
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -172,14 +178,14 @@ impl LanguageServer for Backend {
     ) -> Result<Option<SemanticTokensResult>> {
         self.log_info("semantic_tokens_full").await;
         let uri = params.text_document.uri;
-        let text = match self.cache.get(&uri) {
-            Some(text) => text,
+        let doc = match self.cache.get(&uri) {
+            Some(doc) => doc,
             None => {
                 self.log_info("no text available for semantic tokens").await;
                 return Ok(None);
             }
         };
-        let tokens = Token::scan(&text);
+        let tokens = Token::scan(&doc.text);
 
         // Convert tokens to LSP semantic tokens
         let mut semantic_tokens: Vec<SemanticToken> = vec![];
