@@ -1,4 +1,5 @@
 use acorn::environment::Environment;
+use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use dashmap::DashMap;
 use tower_lsp::jsonrpc::Result;
@@ -36,28 +37,45 @@ impl Backend {
             }
         };
 
+        let mut diagnostics = vec![];
         let mut env = Environment::new();
         let tokens = Token::scan(&text);
-        match env.add_tokens(tokens) {
-            Ok(()) => {
-                self.client.publish_diagnostics(uri, vec![], None).await;
-                self.log_info("env.add OK").await;
-            }
-            Err(e) => {
-                self.log_info(&format!("env.add failed: {:?}", e)).await;
-                let diagnostic = Diagnostic {
-                    range: e.token.range(),
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    message: e.to_string(),
-                    ..Diagnostic::default()
-                };
+        if let Err(e) = env.add_tokens(tokens) {
+            self.log_info(&format!("env.add failed: {:?}", e)).await;
+            diagnostics.push(Diagnostic {
+                range: e.token.range(),
+                severity: Some(DiagnosticSeverity::ERROR),
+                message: e.to_string(),
+                ..Diagnostic::default()
+            });
+            self.client
+                .publish_diagnostics(uri, diagnostics, None)
+                .await;
+            return;
+        }
 
-                self.client
-                    .publish_diagnostics(uri, vec![diagnostic], None)
-                    .await;
-
-                self.log_info("diagnostic sent").await;
+        let paths = env.goal_paths();
+        for path in paths {
+            let goal_context = env.get_goal_context(&path);
+            let mut prover = Prover::load_goal(&goal_context);
+            let outcome = prover.search_for_contradiction(1000, 1.0);
+            if outcome == Outcome::Success {
+                continue;
             }
+            let message = if outcome == Outcome::Failure {
+                format!("{} is unprovable", goal_context.name)
+            } else {
+                format!("{} could not be proved", goal_context.name)
+            };
+            diagnostics.push(Diagnostic {
+                range: goal_context.range,
+                severity: Some(DiagnosticSeverity::WARNING),
+                message,
+                ..Diagnostic::default()
+            });
+            self.client
+                .publish_diagnostics(uri.clone(), diagnostics.clone(), None)
+                .await;
         }
     }
 }
