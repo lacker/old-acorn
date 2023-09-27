@@ -76,9 +76,10 @@ impl Backend {
             self.client
                 .publish_diagnostics(uri.clone(), diagnostics.clone(), None)
                 .await;
+            self.log_info(&format!("{} diagnostics published", diagnostics.len()))
+                .await;
         }
-        self.log_info(&format!("{} diagnostics published", diagnostics.len()))
-            .await;
+        self.log_info("done making diagnostics").await;
     }
 }
 
@@ -144,7 +145,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        // self.log_info("did_open").await;
+        self.log_info("did_open").await;
         let uri = params.text_document.uri;
         self.cache.insert(uri.clone(), params.text_document.text);
         self.make_diagnostics(uri).await;
