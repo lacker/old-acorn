@@ -1,6 +1,7 @@
 use acorn::environment::Environment;
 use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
+use chrono;
 use dashmap::DashMap;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
@@ -24,7 +25,9 @@ impl Backend {
 
     // Allow formatting messages
     async fn log_info(&self, message: &str) {
-        self.client.log_message(MessageType::INFO, message).await;
+        let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
+        let stamped = format!("[{}] {}", timestamp, message);
+        self.client.log_message(MessageType::INFO, stamped).await;
     }
 
     // Create diagnostics based on the cached data for the given url

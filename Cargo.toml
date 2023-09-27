@@ -7,6 +7,7 @@ default-run = "debug"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+chrono = "0.4.31"
 dashmap = "5.5.3"
 env_logger = "0.10.0"
 fxhash = "0.2.1"
