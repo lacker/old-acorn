@@ -62,7 +62,7 @@ impl Backend {
             if outcome == Outcome::Success {
                 continue;
             }
-            let message = if outcome == Outcome::Failure {
+            let message = if outcome == Outcome::Exhausted {
                 format!("{} is unprovable", goal_context.name)
             } else {
                 format!("{} could not be proved", goal_context.name)

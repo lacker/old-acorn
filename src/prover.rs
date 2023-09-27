@@ -56,13 +56,15 @@ pub struct Prover<'a> {
 }
 
 // The outcome of a prover operation.
-// "Success" or "Failure" generally terminate the proof process.
-// "Unknown" can mean either that we should continue working, or that we just
-// couldn't figure out the answer.
+// "Success" means we proved it.
+// "Exhausted" means we tried every possibility and couldn't prove it.
+// "Interrupted" means that the prover was explicitly stopped.
+// "Unknown" means that we could keep working longer at it.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     Success,
-    Failure,
+    Exhausted,
+    Interrupted,
     Unknown,
 }
 
@@ -332,7 +334,7 @@ impl Prover<'_> {
             Some(info) => info,
             None => {
                 // We're out of clauses to process, so we can't make any more progress.
-                return Outcome::Failure;
+                return Outcome::Exhausted;
             }
         };
 
@@ -544,7 +546,7 @@ mod tests {
             theorem goal(x: Thing): f(x)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
+        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
     }
 
     #[test]
@@ -601,7 +603,7 @@ mod tests {
             theorem goal: f(g(t, t2))
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
+        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
     }
 
     #[test]
@@ -658,7 +660,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
+        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
     }
 
     #[test]
@@ -669,7 +671,7 @@ mod tests {
             theorem goal: f(t2)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Failure);
+        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
     }
 
     #[test]

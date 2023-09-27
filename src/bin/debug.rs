@@ -140,7 +140,7 @@ fn main() {
                             prover.print_proof();
                             break;
                         }
-                        Outcome::Failure => {
+                        Outcome::Exhausted => {
                             println!("Failure!");
                             break;
                         }
@@ -149,6 +149,9 @@ fn main() {
                                 println!("trace found!");
                                 break;
                             }
+                        }
+                        Outcome::Interrupted => {
+                            panic!("interrupted");
                         }
                     }
                     if start_time.elapsed().as_secs_f32() > 10.0 {
@@ -168,11 +171,14 @@ fn main() {
                             println!("Success!");
                             break;
                         }
-                        Outcome::Failure => {
+                        Outcome::Exhausted => {
                             println!("Failure!");
                             break;
                         }
                         Outcome::Unknown => (),
+                        Outcome::Interrupted => {
+                            panic!("interrupted");
+                        }
                     }
                 }
                 prover.verbose = false;
@@ -187,11 +193,14 @@ fn main() {
                         println!("Success!");
                         break;
                     }
-                    Outcome::Failure => {
+                    Outcome::Exhausted => {
                         println!("Failure!");
                         break;
                     }
                     Outcome::Unknown => (),
+                    Outcome::Interrupted => {
+                        panic!("interrupted");
+                    }
                 }
                 prover.verbose = false;
             }
