@@ -86,7 +86,7 @@ pub struct Proposition {
     pub block: Option<Block>,
 
     // The range in the source document corresponding to this proposition.
-    pub range: Option<Range>,
+    pub range: Range,
 }
 
 pub struct Block {
@@ -180,7 +180,7 @@ impl Environment {
                 proven: true,
                 claim: fact.clone(),
                 block: None,
-                range: Some(range),
+                range,
             });
         }
         if let Some(theorem_name) = theorem_name {
@@ -301,7 +301,7 @@ impl Environment {
             proven: true,
             claim,
             block: None,
-            range: Some(range),
+            range,
         });
     }
 
@@ -1083,7 +1083,7 @@ impl Environment {
                             proven: ts.axiomatic,
                             claim,
                             block,
-                            range: Some(statement.range()),
+                            range: statement.range(),
                         };
                         self.propositions.push(prop);
                         self.theorem_names.insert(ts.name.to_string());
@@ -1104,7 +1104,7 @@ impl Environment {
                     proven: false,
                     claim,
                     block: None,
-                    range: Some(statement.range()),
+                    range: statement.range(),
                 };
                 self.propositions.push(prop);
                 Ok(())
@@ -1143,7 +1143,7 @@ impl Environment {
                     proven: false,
                     claim,
                     block: Some(block),
-                    range: Some(statement.range()),
+                    range: statement.range(),
                 };
                 self.propositions.push(prop);
                 self.unbind_args(quant_names);
@@ -1168,7 +1168,7 @@ impl Environment {
                     proven: false,
                     claim,
                     block: Some(block),
-                    range: Some(statement.range()),
+                    range: statement.range(),
                 };
                 self.propositions.push(prop);
                 Ok(())
@@ -1187,7 +1187,7 @@ impl Environment {
                     proven: false,
                     claim: general_claim,
                     block: None,
-                    range: Some(statement.range()),
+                    range: statement.range(),
                 };
                 self.propositions.push(general_prop);
 
@@ -1204,7 +1204,7 @@ impl Environment {
                     proven: true,
                     claim: specific_claim,
                     block: None,
-                    range: Some(statement.range()),
+                    range: statement.range(),
                 };
                 self.propositions.push(specific_prop);
 
