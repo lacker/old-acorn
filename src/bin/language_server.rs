@@ -23,7 +23,7 @@ impl Document {
 struct Backend {
     client: Client,
 
-    // Maps uri to the document content, and a version id
+    // Maps uri to the most recent version of a document
     cache: DashMap<Url, Document>,
 }
 
@@ -32,6 +32,13 @@ impl Backend {
         Backend {
             client,
             cache: DashMap::new(),
+        }
+    }
+
+    fn is_current_version(&self, uri: &Url, version: i32) -> bool {
+        match self.cache.get(uri) {
+            Some(doc) => doc.version == version,
+            None => false,
         }
     }
 
@@ -74,6 +81,11 @@ impl Backend {
             let goal_context = env.get_goal_context(&path);
             let mut prover = Prover::load_goal(&goal_context);
             let outcome = prover.search_for_contradiction(1000, 1.0);
+
+            if !self.is_current_version(&uri, doc.version) {
+                self.log_info("diagnostics stopped").await;
+                return;
+            }
             if outcome == Outcome::Success {
                 continue;
             }
@@ -82,6 +94,7 @@ impl Backend {
             } else {
                 format!("{} could not be proved", goal_context.name)
             };
+
             diagnostics.push(Diagnostic {
                 range: goal_context.range,
                 severity: Some(DiagnosticSeverity::WARNING),
