@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::{fmt, io};
 
+use tower_lsp::lsp_types::Range;
+
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
@@ -79,6 +81,9 @@ pub struct Proposition {
 
     // The body of the proposition, when it has an associated block.
     pub block: Option<Block>,
+
+    // The range in the source document corresponding to this proposition.
+    pub range: Option<Range>,
 }
 
 pub struct Block {
@@ -168,6 +173,7 @@ impl Environment {
                 proven: true,
                 claim: fact.clone(),
                 block: None,
+                range: None,
             });
         }
         if let Some(theorem_name) = theorem_name {
@@ -287,6 +293,7 @@ impl Environment {
             proven: true,
             claim,
             block: None,
+            range: None,
         });
     }
 
@@ -1054,6 +1061,7 @@ impl Environment {
                             proven: ts.axiomatic,
                             claim,
                             block,
+                            range: Some(statement.range()),
                         };
                         self.propositions.push(prop);
                         self.theorem_names.insert(ts.name.to_string());
@@ -1074,6 +1082,7 @@ impl Environment {
                     proven: false,
                     claim,
                     block: None,
+                    range: Some(statement.range()),
                 };
                 self.propositions.push(prop);
                 Ok(())
@@ -1112,6 +1121,7 @@ impl Environment {
                     proven: false,
                     claim,
                     block: Some(block),
+                    range: Some(statement.range()),
                 };
                 self.propositions.push(prop);
                 self.unbind_args(quant_names);
@@ -1135,6 +1145,7 @@ impl Environment {
                     proven: false,
                     claim,
                     block: Some(block),
+                    range: Some(statement.range()),
                 };
                 self.propositions.push(prop);
                 Ok(())
@@ -1153,6 +1164,7 @@ impl Environment {
                     proven: false,
                     claim: general_claim,
                     block: None,
+                    range: Some(statement.range()),
                 };
                 self.propositions.push(general_prop);
 
@@ -1169,6 +1181,7 @@ impl Environment {
                     proven: true,
                     claim: specific_claim,
                     block: None,
+                    range: Some(statement.range()),
                 };
                 self.propositions.push(specific_prop);
 
