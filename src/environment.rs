@@ -110,6 +110,9 @@ pub struct GoalContext<'a> {
 
     // The goal itself.
     pub goal: AcornValue,
+
+    // The range in the source document corresponding to this goal.
+    pub range: Range,
 }
 
 impl fmt::Display for Environment {
@@ -1312,6 +1315,7 @@ impl Environment {
                         facts,
                         name: env.get_proposition_name(&prop),
                         goal: block.env.expand_theorems(claim),
+                        range: prop.range,
                     };
                 }
                 env = &block.env;
@@ -1324,6 +1328,7 @@ impl Environment {
                     facts,
                     name: env.get_proposition_name(&prop),
                     goal: env.expand_theorems(&prop.claim),
+                    range: prop.range,
                 };
             }
         }
