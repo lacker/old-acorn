@@ -77,6 +77,8 @@ impl Backend {
                 .publish_diagnostics(uri.clone(), diagnostics.clone(), None)
                 .await;
         }
+        self.log_info(&format!("{} diagnostics published", diagnostics.len()))
+            .await;
     }
 }
 
