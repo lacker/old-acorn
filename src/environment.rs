@@ -54,6 +54,9 @@ pub struct Environment {
     // The names of theorems in this environment.
     // Does not include the "goal" theorem that this environment is trying to prove.
     theorem_names: HashSet<String>,
+
+    // The region in the source document where a name was defined
+    definition_ranges: HashMap<String, Range>,
 }
 
 #[derive(Clone)]
@@ -133,6 +136,7 @@ impl Environment {
             stack: HashMap::new(),
             propositions: Vec::new(),
             theorem_names: HashSet::new(),
+            definition_ranges: HashMap::new(),
         }
     }
 
@@ -166,6 +170,7 @@ impl Environment {
             stack: self.stack.clone(),
             propositions: Vec::new(),
             theorem_names: self.theorem_names.clone(),
+            definition_ranges: self.definition_ranges.clone(),
         };
         if let Some(fact) = extra_fact {
             subenv.propositions.push(Proposition {
@@ -287,13 +292,14 @@ impl Environment {
         } else {
             AcornValue::Equals(atom, Box::new(definition))
         };
+        let range = self.definition_ranges.get(name).unwrap().clone();
 
         self.propositions.push(Proposition {
             display_name: None,
             proven: true,
             claim,
             block: None,
-            range: None,
+            range: Some(range),
         });
     }
 
@@ -998,6 +1004,8 @@ impl Environment {
                         panic!("TODO: handle definitions without values");
                     };
                     self.add_constant(&name, acorn_type, Some(acorn_value));
+                    self.definition_ranges
+                        .insert(name.clone(), statement.range());
                     self.add_identity_props(&name);
                     Ok(())
                 }
@@ -1013,6 +1021,8 @@ impl Environment {
                     };
                     let (name, acorn_value) = self.define_function(&ds.declaration, value)?;
                     self.add_constant(&name, acorn_value.get_type(), Some(acorn_value));
+                    self.definition_ranges
+                        .insert(name.clone(), statement.range());
                     self.add_identity_props(&name);
                     Ok(())
                 }
@@ -1053,6 +1063,16 @@ impl Environment {
                             functional_value.get_type(),
                             Some(functional_value.clone()),
                         );
+
+                        // Figure out the range for this theorem definition.
+                        // It's smaller than the whole theorem statement because it doesn't
+                        // include the proof block.
+                        let range = Range {
+                            start: statement.first_token.start_pos(),
+                            end: ts.claim.last_token().end_pos(),
+                        };
+                        self.definition_ranges.insert(ts.name.to_string(), range);
+
                         let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
                         let block =
                             self.new_block(Some(unbound_claim), &ts.body, Some(&ts.name), None)?;
