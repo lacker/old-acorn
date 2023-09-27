@@ -151,12 +151,14 @@ impl Environment {
     //
     // Performance is quadratic and therefore bad; using different data structures
     // should improve this when we need to.
+    //
+    // If this block is an "if" block, we add the if_condition as an available fact.
     fn new_block(
         &self,
         unbound_claim: Option<AcornValue>,
         body: &Vec<Statement>,
         theorem_name: Option<&str>,
-        extra_fact: Option<&AcornValue>,
+        if_condition: Option<(&AcornValue, Range)>,
     ) -> Result<Option<Block>> {
         if body.is_empty() {
             return Ok(None);
@@ -172,13 +174,13 @@ impl Environment {
             theorem_names: self.theorem_names.clone(),
             definition_ranges: self.definition_ranges.clone(),
         };
-        if let Some(fact) = extra_fact {
+        if let Some((fact, range)) = if_condition {
             subenv.propositions.push(Proposition {
                 display_name: None,
                 proven: true,
                 claim: fact.clone(),
                 block: None,
-                range: None,
+                range: Some(range),
             });
         }
         if let Some(theorem_name) = theorem_name {
@@ -1150,8 +1152,9 @@ impl Environment {
 
             StatementEnum::If(is) => {
                 let condition = self.evaluate_value_expression(&is.condition, None)?;
+                let range = is.condition.range();
                 let block = self
-                    .new_block(None, &is.body, None, Some(&condition))?
+                    .new_block(None, &is.body, None, Some((&condition, range)))?
                     .unwrap();
                 let last_claim: &AcornValue = match block.env.propositions.last() {
                     Some(p) => &p.claim,

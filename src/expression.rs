@@ -1,5 +1,7 @@
 use std::{collections::VecDeque, fmt};
 
+use tower_lsp::lsp_types::Range;
+
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 // An Expression represents the basic structuring of tokens into a syntax tree.
@@ -68,6 +70,17 @@ impl Expression {
         }
     }
 
+    pub fn first_token(&self) -> &Token {
+        match self {
+            Expression::Identifier(token) => token,
+            Expression::Unary(token, _) => token,
+            Expression::Binary(left, _, _) => left.first_token(),
+            Expression::Apply(left, _) => left.first_token(),
+            Expression::Grouping(left_paren, _, _) => left_paren,
+            Expression::Macro(token, _, _, _) => token,
+        }
+    }
+
     pub fn last_token(&self) -> &Token {
         match self {
             Expression::Identifier(token) => token,
@@ -76,6 +89,13 @@ impl Expression {
             Expression::Apply(_, right) => right.last_token(),
             Expression::Grouping(_, _, right_paren) => right_paren,
             Expression::Macro(_, _, _, right_brace) => right_brace,
+        }
+    }
+
+    pub fn range(&self) -> Range {
+        Range {
+            start: self.first_token().start_pos(),
+            end: self.last_token().end_pos(),
         }
     }
 
