@@ -9,7 +9,6 @@ default-run = "debug"
 [dependencies]
 chrono = "0.4.31"
 dashmap = "5.5.3"
-env_logger = "0.10.0"
 fxhash = "0.2.1"
 indoc = "1.0.8"
 nohash-hasher = "0.2.0"

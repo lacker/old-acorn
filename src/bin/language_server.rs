@@ -46,7 +46,7 @@ impl Backend {
     async fn log_info(&self, message: &str) {
         let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
         let stamped = format!("[{}] {}", timestamp, message);
-        self.client.log_message(MessageType::INFO, stamped).await;
+        eprintln!("{}", stamped);
     }
 
     // Create diagnostics based on the cached data for the given url
@@ -240,8 +240,6 @@ impl LanguageServer for Backend {
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
-
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
