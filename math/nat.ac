@@ -259,3 +259,6 @@ theorem add_cancels_right(a: Nat, b: Nat, c: Nat): add(b, a) = add(c, a) -> b = 
         b = c
     }
 }
+//
+//
+//

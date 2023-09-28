@@ -126,6 +126,15 @@ impl Backend {
             clone.make_diagnostics(uri).await;
         });
     }
+
+    fn update_document(&self, uri: Url, text: String, version: i32) {
+        let new_doc = Document::new(text, version);
+        if let Some(old_doc) = self.cache.insert(uri.clone(), new_doc) {
+            old_doc
+                .superseded_flag
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
 }
 
 #[tower_lsp::async_trait]
@@ -185,7 +194,7 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let text = params.text_document.text;
         let version = params.text_document.version;
-        self.cache.insert(uri.clone(), Document::new(text, version));
+        self.update_document(uri.clone(), text, version);
         self.background_diagnostics(uri);
     }
 
@@ -194,7 +203,7 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let text = std::mem::take(&mut params.content_changes[0].text);
         let version = params.text_document.version;
-        self.cache.insert(uri, Document::new(text, version));
+        self.update_document(uri, text, version);
     }
 
     async fn shutdown(&self) -> Result<()> {
