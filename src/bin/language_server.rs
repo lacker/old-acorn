@@ -73,6 +73,7 @@ impl Backend {
                 return;
             }
         };
+        doc.log("making diagnostics");
 
         let mut diagnostics = vec![];
         let mut env = Environment::new();
@@ -95,14 +96,12 @@ impl Backend {
         for path in paths {
             let goal_context = env.get_goal_context(&path);
             let mut prover = Prover::load_goal(&goal_context);
+            prover.stop_flag = doc.superseded_flag.clone();
             let outcome = prover.search_for_contradiction(1000, 1.0);
 
             if !self.is_current_version(&uri, doc.version) {
                 doc.log("diagnostics stopped");
                 return;
-            }
-            if outcome == Outcome::Success {
-                continue;
             }
             let description = match outcome {
                 Outcome::Success => continue,
@@ -112,6 +111,9 @@ impl Backend {
             };
             let message = format!("{} {}", goal_context.name, description);
             doc.log(&message);
+            if outcome == Outcome::Interrupted {
+                return;
+            }
 
             diagnostics.push(Diagnostic {
                 range: goal_context.range,
@@ -129,6 +131,7 @@ impl Backend {
 
     // Spawn a background task to create diagnostics for the given url
     fn background_diagnostics(&self, uri: Url) {
+        log("spawning background diagnostics");
         let clone = self.clone();
         tokio::spawn(async move {
             clone.make_diagnostics(uri).await;
@@ -137,13 +140,14 @@ impl Backend {
 
     fn update_document(&self, uri: Url, text: String, version: i32, tag: &str) {
         let new_doc = Document::new(text, version);
-        new_doc.log(&format!("did_{}", tag));
-        if let Some(old_doc) = self.cache.insert(uri.clone(), new_doc) {
-            old_doc.log("superseded");
+        new_doc.log(&format!("did_{}; updating document", tag));
+        if let Some(old_doc) = self.cache.get(&uri) {
+            old_doc.log(&format!("superseded by v{}", version));
             old_doc
                 .superseded_flag
                 .store(true, std::sync::atomic::Ordering::Relaxed);
         }
+        self.cache.insert(uri.clone(), new_doc);
     }
 }
 
