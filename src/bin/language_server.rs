@@ -19,6 +19,12 @@ struct Document {
     superseded_flag: Arc<AtomicBool>,
 }
 
+fn log(message: &str) {
+    let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
+    let stamped = format!("[{}] {}", timestamp, message);
+    eprintln!("{}", stamped);
+}
+
 impl Document {
     fn new(text: String, version: i32) -> Document {
         Document {
@@ -26,6 +32,11 @@ impl Document {
             version,
             superseded_flag: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    fn log(&self, message: &str) {
+        let versioned = format!("v{}: {}", self.version, message);
+        log(&versioned);
     }
 }
 
@@ -52,19 +63,13 @@ impl Backend {
         }
     }
 
-    fn log(&self, message: &str) {
-        let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
-        let stamped = format!("[{}] {}", timestamp, message);
-        eprintln!("{}", stamped);
-    }
-
     // Create diagnostics based on the cached data for the given url.
     // The task completes when all diagnostics are created.
     async fn make_diagnostics(&self, uri: Url) {
         let doc = match self.cache.get(&uri) {
             Some(doc) => doc,
             None => {
-                self.log("no text available for diagnostics");
+                log("no text available for diagnostics");
                 return;
             }
         };
@@ -73,7 +78,7 @@ impl Backend {
         let mut env = Environment::new();
         let tokens = Token::scan(&doc.text);
         if let Err(e) = env.add_tokens(tokens) {
-            self.log(&format!("env.add failed: {:?}", e));
+            doc.log(&format!("env.add failed: {:?}", e));
             diagnostics.push(Diagnostic {
                 range: e.token.range(),
                 severity: Some(DiagnosticSeverity::ERROR),
@@ -93,17 +98,20 @@ impl Backend {
             let outcome = prover.search_for_contradiction(1000, 1.0);
 
             if !self.is_current_version(&uri, doc.version) {
-                self.log("diagnostics stopped");
+                doc.log("diagnostics stopped");
                 return;
             }
             if outcome == Outcome::Success {
                 continue;
             }
-            let message = if outcome == Outcome::Exhausted {
-                format!("{} is unprovable", goal_context.name)
-            } else {
-                format!("{} could not be proved", goal_context.name)
+            let description = match outcome {
+                Outcome::Success => continue,
+                Outcome::Exhausted => "is unprovable",
+                Outcome::Unknown => "timed out",
+                Outcome::Interrupted => "was interrupted",
             };
+            let message = format!("{} {}", goal_context.name, description);
+            doc.log(&message);
 
             diagnostics.push(Diagnostic {
                 range: goal_context.range,
@@ -114,9 +122,9 @@ impl Backend {
             self.client
                 .publish_diagnostics(uri.clone(), diagnostics.clone(), None)
                 .await;
-            self.log(&format!("{} diagnostics published", diagnostics.len()));
+            doc.log(&format!("{} diagnostics published", diagnostics.len()));
         }
-        self.log("done making diagnostics");
+        doc.log("done making diagnostics");
     }
 
     // Spawn a background task to create diagnostics for the given url
@@ -127,9 +135,11 @@ impl Backend {
         });
     }
 
-    fn update_document(&self, uri: Url, text: String, version: i32) {
+    fn update_document(&self, uri: Url, text: String, version: i32, tag: &str) {
         let new_doc = Document::new(text, version);
+        new_doc.log(&format!("did_{}", tag));
         if let Some(old_doc) = self.cache.insert(uri.clone(), new_doc) {
+            old_doc.log("superseded");
             old_doc
                 .superseded_flag
                 .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -140,7 +150,7 @@ impl Backend {
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-        self.log("initializing...");
+        log("initializing...");
         Ok(InitializeResult {
             server_info: None,
             capabilities: ServerCapabilities {
@@ -185,29 +195,27 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        self.log("did_save");
+        log("did_save");
         self.background_diagnostics(params.text_document.uri);
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.log("did_open");
         let uri = params.text_document.uri;
         let text = params.text_document.text;
         let version = params.text_document.version;
-        self.update_document(uri.clone(), text, version);
+        self.update_document(uri.clone(), text, version, "open");
         self.background_diagnostics(uri);
     }
 
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
-        self.log("did_change");
         let uri = params.text_document.uri;
         let text = std::mem::take(&mut params.content_changes[0].text);
         let version = params.text_document.version;
-        self.update_document(uri, text, version);
+        self.update_document(uri, text, version, "change");
     }
 
     async fn shutdown(&self) -> Result<()> {
-        self.log("shutdown");
+        log("shutdown");
         Ok(())
     }
 
@@ -215,15 +223,15 @@ impl LanguageServer for Backend {
         &self,
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        self.log("semantic_tokens_full");
         let uri = params.text_document.uri;
         let doc = match self.cache.get(&uri) {
             Some(doc) => doc,
             None => {
-                self.log("no text available for semantic tokens");
+                log("no text available for semantic_tokens_full");
                 return Ok(None);
             }
         };
+        doc.log("semantic_tokens_full");
         let tokens = Token::scan(&doc.text);
 
         // Convert tokens to LSP semantic tokens
