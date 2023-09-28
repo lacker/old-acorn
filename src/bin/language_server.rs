@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use acorn::environment::Environment;
 use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
@@ -19,19 +21,19 @@ impl Document {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Backend {
     client: Client,
 
     // Maps uri to the most recent version of a document
-    cache: DashMap<Url, Document>,
+    cache: Arc<DashMap<Url, Document>>,
 }
 
 impl Backend {
     fn new(client: Client) -> Backend {
         Backend {
             client,
-            cache: DashMap::new(),
+            cache: Arc::new(DashMap::new()),
         }
     }
 
@@ -48,7 +50,8 @@ impl Backend {
         eprintln!("{}", stamped);
     }
 
-    // Create diagnostics based on the cached data for the given url
+    // Create diagnostics based on the cached data for the given url.
+    // The task completes when all diagnostics are created.
     async fn make_diagnostics(&self, uri: Url) {
         let doc = match self.cache.get(&uri) {
             Some(doc) => doc,
@@ -107,6 +110,14 @@ impl Backend {
         }
         self.log("done making diagnostics");
     }
+
+    // Spawn a background task to create diagnostics for the given url
+    fn background_diagnostics(&self, uri: Url) {
+        let clone = self.clone();
+        tokio::spawn(async move {
+            clone.make_diagnostics(uri).await;
+        });
+    }
 }
 
 #[tower_lsp::async_trait]
@@ -158,8 +169,7 @@ impl LanguageServer for Backend {
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         self.log("did_save");
-        let uri = params.text_document.uri;
-        self.make_diagnostics(uri).await;
+        self.background_diagnostics(params.text_document.uri);
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
@@ -168,7 +178,7 @@ impl LanguageServer for Backend {
         let text = params.text_document.text;
         let version = params.text_document.version;
         self.cache.insert(uri.clone(), Document::new(text, version));
-        self.make_diagnostics(uri).await;
+        self.background_diagnostics(uri);
     }
 
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
