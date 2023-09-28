@@ -42,8 +42,7 @@ impl Backend {
         }
     }
 
-    // Allow formatting messages
-    async fn log_info(&self, message: &str) {
+    fn log(&self, message: &str) {
         let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
         let stamped = format!("[{}] {}", timestamp, message);
         eprintln!("{}", stamped);
@@ -54,7 +53,7 @@ impl Backend {
         let doc = match self.cache.get(&uri) {
             Some(doc) => doc,
             None => {
-                self.log_info("no text available for diagnostics").await;
+                self.log("no text available for diagnostics");
                 return;
             }
         };
@@ -63,7 +62,7 @@ impl Backend {
         let mut env = Environment::new();
         let tokens = Token::scan(&doc.text);
         if let Err(e) = env.add_tokens(tokens) {
-            self.log_info(&format!("env.add failed: {:?}", e)).await;
+            self.log(&format!("env.add failed: {:?}", e));
             diagnostics.push(Diagnostic {
                 range: e.token.range(),
                 severity: Some(DiagnosticSeverity::ERROR),
@@ -83,7 +82,7 @@ impl Backend {
             let outcome = prover.search_for_contradiction(1000, 1.0);
 
             if !self.is_current_version(&uri, doc.version) {
-                self.log_info("diagnostics stopped").await;
+                self.log("diagnostics stopped");
                 return;
             }
             if outcome == Outcome::Success {
@@ -104,17 +103,16 @@ impl Backend {
             self.client
                 .publish_diagnostics(uri.clone(), diagnostics.clone(), None)
                 .await;
-            self.log_info(&format!("{} diagnostics published", diagnostics.len()))
-                .await;
+            self.log(&format!("{} diagnostics published", diagnostics.len()));
         }
-        self.log_info("done making diagnostics").await;
+        self.log("done making diagnostics");
     }
 }
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-        self.log_info("initializing...").await;
+        self.log("initializing...");
         Ok(InitializeResult {
             server_info: None,
             capabilities: ServerCapabilities {
@@ -159,13 +157,13 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        self.log_info("did_save").await;
+        self.log("did_save");
         let uri = params.text_document.uri;
         self.make_diagnostics(uri).await;
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.log_info("did_open").await;
+        self.log("did_open");
         let uri = params.text_document.uri;
         let text = params.text_document.text;
         let version = params.text_document.version;
@@ -174,7 +172,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
-        self.log_info("did_change").await;
+        self.log("did_change");
         let uri = params.text_document.uri;
         let text = std::mem::take(&mut params.content_changes[0].text);
         let version = params.text_document.version;
@@ -182,6 +180,7 @@ impl LanguageServer for Backend {
     }
 
     async fn shutdown(&self) -> Result<()> {
+        self.log("shutdown");
         Ok(())
     }
 
@@ -189,12 +188,12 @@ impl LanguageServer for Backend {
         &self,
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        self.log_info("semantic_tokens_full").await;
+        self.log("semantic_tokens_full");
         let uri = params.text_document.uri;
         let doc = match self.cache.get(&uri) {
             Some(doc) => doc,
             None => {
-                self.log_info("no text available for semantic tokens").await;
+                self.log("no text available for semantic tokens");
                 return Ok(None);
             }
         };
