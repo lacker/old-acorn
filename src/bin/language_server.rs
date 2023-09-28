@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use acorn::environment::Environment;
@@ -9,15 +10,22 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+// A structure representing a particular version of a document.
+// superseded_flag should be set to true when there is a newer version of the document.
 #[derive(Debug)]
 struct Document {
     text: String,
     version: i32,
+    superseded_flag: Arc<AtomicBool>,
 }
 
 impl Document {
     fn new(text: String, version: i32) -> Document {
-        Document { text, version }
+        Document {
+            text,
+            version,
+            superseded_flag: Arc::new(AtomicBool::new(false)),
+        }
     }
 }
 
