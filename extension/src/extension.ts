@@ -5,22 +5,36 @@ import {
   LanguageClientOptions,
   ServerOptions,
 } from "vscode-languageclient/node";
+import * as vscode from "vscode";
 
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
   console.log("activating acorn language extension.");
 
-  // The command has been defined in the package.json file
-  // Now provide the implementation of the command with registerCommand
-  // The commandId parameter must match the command field in package.json
-  let disposable = commands.registerCommand("acorn.helloAcornWorld", () => {
-    // The code you place here will be executed every time your command is executed
+  context.subscriptions.push(
+    commands.registerTextEditorCommand("acorn.toggleInfoview", (editor) => {
+      let column =
+        editor && editor.viewColumn
+          ? editor.viewColumn + 1
+          : vscode.ViewColumn.Two;
+      if (column === 4) {
+        column = vscode.ViewColumn.Three;
+      }
+      let panel = vscode.window.createWebviewPanel(
+        "acornInfoview",
+        "Acorn Infoview",
+        { viewColumn: column, preserveFocus: true },
+        {
+          enableFindWidget: true,
+          retainContextWhenHidden: true,
+        }
+      );
 
-    // Display a message box to the user
-    window.showInformationMessage("Hello Acorn World!");
-  });
-  context.subscriptions.push(disposable);
+      // Set the webview's initial content
+      panel.webview.html = makeHTML();
+    })
+  );
 
   let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
 
@@ -75,4 +89,18 @@ export function deactivate(): Thenable<void> | undefined {
     return undefined;
   }
   return client.stop();
+}
+
+function makeHTML() {
+  return `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Hello Acorn World</title>
+        </head>
+        <body>
+            <h1>Hello, Acorn World!</h1>
+        </body>
+        </html>`;
 }

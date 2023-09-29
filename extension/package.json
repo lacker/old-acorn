@@ -22,8 +22,10 @@
     ],
     "commands": [
       {
-        "command": "acorn.helloAcornWorld",
-        "title": "Hello Acorn World"
+        "category": "Acorn",
+        "command": "acorn.toggleInfoview",
+        "title": "Infoview: Toggle",
+        "description": "Toggle whether the infoview is displayed."
       }
     ]
   },
