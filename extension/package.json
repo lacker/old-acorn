@@ -23,6 +23,12 @@
     "commands": [
       {
         "category": "Acorn",
+        "command": "acorn.displayInfoview",
+        "title": "Infoview: Display",
+        "description": "Show the infoview."
+      },
+      {
+        "category": "Acorn",
         "command": "acorn.toggleInfoview",
         "title": "Infoview: Toggle",
         "description": "Toggle whether the infoview is displayed."

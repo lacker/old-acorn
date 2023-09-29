@@ -24,17 +24,15 @@ function makeHTML() {
         </html>`;
 }
 
-function toggle(editor: vscode.TextEditor) {
-  if (infopanel) {
-    infopanel.dispose();
-    infopanel = null;
-    return;
-  }
-
+function displayInfoview(editor: vscode.TextEditor) {
   let column =
     editor && editor.viewColumn ? editor.viewColumn + 1 : vscode.ViewColumn.Two;
   if (column === 4) {
     column = vscode.ViewColumn.Three;
+  }
+  if (infopanel) {
+    infopanel.reveal(column);
+    return;
   }
   infopanel = vscode.window.createWebviewPanel(
     "acornInfoview",
@@ -50,11 +48,27 @@ function toggle(editor: vscode.TextEditor) {
   infopanel.webview.html = makeHTML();
 }
 
+function toggleInfoview(editor: vscode.TextEditor) {
+  if (infopanel) {
+    infopanel.dispose();
+    infopanel = null;
+    return;
+  }
+
+  displayInfoview(editor);
+
+  // Set the webview's initial content
+  infopanel.webview.html = makeHTML();
+}
+
 export function activate(context: ExtensionContext) {
   console.log("activating acorn language extension.");
 
   context.subscriptions.push(
-    commands.registerTextEditorCommand("acorn.toggleInfoview", toggle)
+    commands.registerTextEditorCommand("acorn.displayInfoview", displayInfoview)
+  );
+  context.subscriptions.push(
+    commands.registerTextEditorCommand("acorn.toggleInfoview", toggleInfoview)
   );
 
   let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
