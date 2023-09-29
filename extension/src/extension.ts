@@ -8,32 +8,53 @@ import {
 import * as vscode from "vscode";
 
 let client: LanguageClient;
+let infopanel: vscode.WebviewPanel;
+
+function makeHTML() {
+  return `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Hello Acorn World</title>
+        </head>
+        <body>
+            <h1>Hello, Acorn World!</h1>
+        </body>
+        </html>`;
+}
+
+function toggle(editor: vscode.TextEditor) {
+  if (infopanel) {
+    infopanel.dispose();
+    infopanel = null;
+    return;
+  }
+
+  let column =
+    editor && editor.viewColumn ? editor.viewColumn + 1 : vscode.ViewColumn.Two;
+  if (column === 4) {
+    column = vscode.ViewColumn.Three;
+  }
+  infopanel = vscode.window.createWebviewPanel(
+    "acornInfoview",
+    "Acorn Infoview",
+    { viewColumn: column, preserveFocus: true },
+    {
+      enableFindWidget: true,
+      retainContextWhenHidden: true,
+    }
+  );
+
+  // Set the webview's initial content
+  infopanel.webview.html = makeHTML();
+}
 
 export function activate(context: ExtensionContext) {
   console.log("activating acorn language extension.");
 
   context.subscriptions.push(
-    commands.registerTextEditorCommand("acorn.toggleInfoview", (editor) => {
-      let column =
-        editor && editor.viewColumn
-          ? editor.viewColumn + 1
-          : vscode.ViewColumn.Two;
-      if (column === 4) {
-        column = vscode.ViewColumn.Three;
-      }
-      let panel = vscode.window.createWebviewPanel(
-        "acornInfoview",
-        "Acorn Infoview",
-        { viewColumn: column, preserveFocus: true },
-        {
-          enableFindWidget: true,
-          retainContextWhenHidden: true,
-        }
-      );
-
-      // Set the webview's initial content
-      panel.webview.html = makeHTML();
-    })
+    commands.registerTextEditorCommand("acorn.toggleInfoview", toggle)
   );
 
   let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
@@ -89,18 +110,4 @@ export function deactivate(): Thenable<void> | undefined {
     return undefined;
   }
   return client.stop();
-}
-
-function makeHTML() {
-  return `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Hello Acorn World</title>
-        </head>
-        <body>
-            <h1>Hello, Acorn World!</h1>
-        </body>
-        </html>`;
 }
