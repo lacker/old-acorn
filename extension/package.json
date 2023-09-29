@@ -25,7 +25,8 @@
         "category": "Acorn",
         "command": "acorn.displayInfoview",
         "title": "Infoview: Display",
-        "description": "Show the infoview."
+        "description": "Show the infoview.",
+        "icon": "$(squirrel)"
       },
       {
         "category": "Acorn",
