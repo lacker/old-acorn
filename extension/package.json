@@ -27,6 +27,14 @@
         "title": "Infoview: Toggle",
         "description": "Toggle whether the infoview is displayed."
       }
+    ],
+    "keybindings": [
+      {
+        "command": "acorn.toggleInfoview",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
+        "when": "editorTextFocus && editorLangId == acorn"
+      }
     ]
   },
   "scripts": {
