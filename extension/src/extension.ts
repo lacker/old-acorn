@@ -33,14 +33,15 @@ function makeHTML() {
 
 class Infoview implements Disposable {
   panel: WebviewPanel;
+  subscriptions: Disposable[] = [];
 
-  constructor(context: ExtensionContext) {
-    context.subscriptions.push(
+  constructor() {
+    this.subscriptions.push(
       commands.registerTextEditorCommand("acorn.displayInfoview", (editor) =>
         this.display(editor)
       )
     );
-    context.subscriptions.push(
+    this.subscriptions.push(
       commands.registerTextEditorCommand("acorn.toggleInfoview", (editor) =>
         this.toggle(editor)
       )
@@ -86,6 +87,9 @@ class Infoview implements Disposable {
   }
 
   dispose() {
+    for (let subscription of this.subscriptions) {
+      subscription.dispose();
+    }
     this.panel.dispose();
   }
 }
@@ -93,7 +97,7 @@ class Infoview implements Disposable {
 export function activate(context: ExtensionContext) {
   console.log("activating acorn language extension.");
 
-  context.subscriptions.push(new Infoview(context));
+  context.subscriptions.push(new Infoview());
 
   let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
 
