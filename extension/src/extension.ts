@@ -44,6 +44,10 @@ function displayInfoview(editor: vscode.TextEditor) {
     }
   );
 
+  infopanel.onDidDispose(() => {
+    infopanel = null;
+  });
+
   // Set the webview's initial content
   infopanel.webview.html = makeHTML();
 }

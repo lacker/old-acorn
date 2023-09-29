@@ -41,7 +41,16 @@
         "mac": "cmd+shift+enter",
         "when": "editorTextFocus && editorLangId == acorn"
       }
-    ]
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "acorn.displayInfoview",
+          "group": "navigation",
+          "when": "editorLangId == acorn"
+        }
+      ]
+    }
   },
   "scripts": {
     "watch": "tsc -watch -p ./",
