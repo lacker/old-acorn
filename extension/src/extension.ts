@@ -33,19 +33,37 @@ function makeHTML() {
 
 class Infoview implements Disposable {
   panel: WebviewPanel;
-  subscriptions: Disposable[] = [];
+  disposables: Disposable[];
 
   constructor() {
-    this.subscriptions.push(
+    this.disposables = [
       commands.registerTextEditorCommand("acorn.displayInfoview", (editor) =>
         this.display(editor)
-      )
-    );
-    this.subscriptions.push(
+      ),
+
       commands.registerTextEditorCommand("acorn.toggleInfoview", (editor) =>
         this.toggle(editor)
-      )
-    );
+      ),
+      window.onDidChangeActiveTextEditor(() => this.updateLocation()),
+      window.onDidChangeTextEditorSelection(() => this.updateLocation()),
+      workspace.onDidChangeTextDocument(() => {
+        this.updateLocation();
+      }),
+    ];
+  }
+
+  // Updates the current location in the document
+  updateLocation() {
+    let editor = window.activeTextEditor;
+    if (!editor) {
+      return;
+    }
+    let uri = editor.document.uri;
+    let { start, end } = editor.selection;
+
+    console.log("updateLocation", uri, start, end);
+
+    // TODO: Check editor.document to see if this is an acorn doc
   }
 
   display(editor: TextEditor) {
@@ -87,7 +105,7 @@ class Infoview implements Disposable {
   }
 
   dispose() {
-    for (let subscription of this.subscriptions) {
+    for (let subscription of this.disposables) {
       subscription.dispose();
     }
     this.panel.dispose();
