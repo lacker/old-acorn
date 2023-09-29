@@ -1,14 +1,21 @@
-import { commands, window, workspace, ExtensionContext } from "vscode";
+import {
+  commands,
+  Disposable,
+  ExtensionContext,
+  TextEditor,
+  ViewColumn,
+  WebviewPanel,
+  window,
+  workspace,
+} from "vscode";
 import {
   Executable,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
 } from "vscode-languageclient/node";
-import * as vscode from "vscode";
 
 let client: LanguageClient;
-let infopanel: vscode.WebviewPanel;
 
 function makeHTML() {
   return `<!DOCTYPE html>
@@ -24,56 +31,69 @@ function makeHTML() {
         </html>`;
 }
 
-function displayInfoview(editor: vscode.TextEditor) {
-  let column =
-    editor && editor.viewColumn ? editor.viewColumn + 1 : vscode.ViewColumn.Two;
-  if (column === 4) {
-    column = vscode.ViewColumn.Three;
+class Infoview implements Disposable {
+  panel: WebviewPanel;
+
+  constructor(context: ExtensionContext) {
+    context.subscriptions.push(
+      commands.registerTextEditorCommand("acorn.displayInfoview", (editor) =>
+        this.display(editor)
+      )
+    );
+    context.subscriptions.push(
+      commands.registerTextEditorCommand("acorn.toggleInfoview", (editor) =>
+        this.toggle(editor)
+      )
+    );
   }
-  if (infopanel) {
-    infopanel.reveal(column);
-    return;
-  }
-  infopanel = vscode.window.createWebviewPanel(
-    "acornInfoview",
-    "Acorn Infoview",
-    { viewColumn: column, preserveFocus: true },
-    {
-      enableFindWidget: true,
-      retainContextWhenHidden: true,
+
+  display(editor: TextEditor) {
+    let column =
+      editor && editor.viewColumn ? editor.viewColumn + 1 : ViewColumn.Two;
+    if (column === 4) {
+      column = ViewColumn.Three;
     }
-  );
+    if (this.panel) {
+      this.panel.reveal(column);
+      return;
+    }
+    this.panel = window.createWebviewPanel(
+      "acornInfoview",
+      "Acorn Infoview",
+      { viewColumn: column, preserveFocus: true },
+      {
+        enableFindWidget: true,
+        retainContextWhenHidden: true,
+      }
+    );
 
-  infopanel.onDidDispose(() => {
-    infopanel = null;
-  });
+    this.panel.onDidDispose(() => {
+      this.panel = null;
+    });
 
-  // Set the webview's initial content
-  infopanel.webview.html = makeHTML();
-}
-
-function toggleInfoview(editor: vscode.TextEditor) {
-  if (infopanel) {
-    infopanel.dispose();
-    infopanel = null;
-    return;
+    // Set the webview's initial content
+    this.panel.webview.html = makeHTML();
   }
 
-  displayInfoview(editor);
+  toggle(editor: TextEditor) {
+    if (this.panel) {
+      this.panel.dispose();
+      this.panel = null;
+      return;
+    }
 
-  // Set the webview's initial content
-  infopanel.webview.html = makeHTML();
+    this.display(editor);
+  }
+
+  dispose() {
+    this.panel.dispose();
+  }
 }
 
 export function activate(context: ExtensionContext) {
   console.log("activating acorn language extension.");
 
-  context.subscriptions.push(
-    commands.registerTextEditorCommand("acorn.displayInfoview", displayInfoview)
-  );
-  context.subscriptions.push(
-    commands.registerTextEditorCommand("acorn.toggleInfoview", toggleInfoview)
-  );
+  context.subscriptions.push(new Infoview(context));
 
   let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
 
