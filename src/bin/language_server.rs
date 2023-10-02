@@ -7,18 +7,24 @@ use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 // A structure representing a particular version of a document.
-// superseded_flag should be set to true when there is a newer version of the document.
-#[derive(Debug)]
+// #[derive(Debug)]
 struct Document {
     url: Url,
     text: String,
     version: i32,
+
+    // superseded_flag should be set to true when there is a newer version of the document.
     superseded_flag: Arc<AtomicBool>,
+
+    // env is set by the background diagnostics task.
+    // It is None before that completes.
+    env: RwLock<Option<Environment>>,
 }
 
 fn log(message: &str) {
@@ -34,6 +40,7 @@ impl Document {
             text,
             version,
             superseded_flag: Arc::new(AtomicBool::new(false)),
+            env: RwLock::new(None),
         }
     }
 
@@ -53,7 +60,7 @@ pub struct DebugParams {
     pub end: Position,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct Backend {
     client: Client,
 
@@ -104,6 +111,12 @@ impl Backend {
                 .await;
             return;
         }
+
+        // Save the environment for use by other tasks.
+        // We can't mutate it after this point.
+        *doc.env.write().await = Some(env);
+        let shared_env = doc.env.read().await;
+        let env = shared_env.as_ref().unwrap().clone();
 
         let paths = env.goal_paths();
         for path in paths {
