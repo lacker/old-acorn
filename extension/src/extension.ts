@@ -71,15 +71,15 @@ class Infoview implements Disposable {
       return;
     }
 
-    let uri = editor.document.uri;
-    let selection = editor.selection;
+    let uri = editor.document.uri.toString();
+    let { start, end } = editor.selection;
 
-    let params = { uri, selection };
+    let params = { uri, start, end };
     client.sendRequest("acorn/debug", params).then((result) => {
       console.log("debug result:", result);
     });
 
-    console.log("updateLocation", uri, selection.start, selection.end);
+    console.log("updateLocation", uri, start, end);
     let timestamp = "the time is " + Date.now().toString();
     this.setHTML(makeHTML(timestamp));
   }

@@ -6,6 +6,7 @@ use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -42,6 +43,14 @@ impl Document {
         let versioned = format!("{} v{}: {}", filename, self.version, message);
         log(&versioned);
     }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DebugParams {
+    pub uri: Url,
+    pub start: Position,
+    pub end: Position,
 }
 
 #[derive(Clone, Debug)]
@@ -152,6 +161,10 @@ impl Backend {
                 .store(true, std::sync::atomic::Ordering::Relaxed);
         }
         self.cache.insert(url.clone(), new_doc);
+    }
+
+    async fn handle_debug_request(&self, _: DebugParams) -> Result<i32> {
+        Ok(1234)
     }
 }
 
@@ -285,7 +298,9 @@ async fn main() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::build(Backend::new).finish();
+    let (service, socket) = LspService::build(Backend::new)
+        .custom_method("acorn/debug", Backend::handle_debug_request)
+        .finish();
 
     Server::new(stdin, stdout, socket).serve(service).await;
 }
