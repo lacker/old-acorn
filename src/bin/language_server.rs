@@ -56,6 +56,7 @@ impl Document {
 #[serde(rename_all = "camelCase")]
 pub struct DebugParams {
     pub uri: Url,
+    pub version: i32,
     pub start: Position,
     pub end: Position,
 }

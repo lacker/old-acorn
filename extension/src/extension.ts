@@ -73,8 +73,9 @@ class Infoview implements Disposable {
 
     let uri = editor.document.uri.toString();
     let { start, end } = editor.selection;
+    let version = editor.document.version;
 
-    let params = { uri, start, end };
+    let params = { uri, start, end, version };
     client.sendRequest("acorn/debug", params).then((result) => {
       console.log("debug result:", result);
     });
