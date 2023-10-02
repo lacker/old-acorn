@@ -23,7 +23,7 @@ function makeHTML(message: string = "Hello, Acorn World!") {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Hello Acorn World</title>
+            <title>Acorn Infoview</title>
         </head>
         <body>
             <h1>${message}</h1>
@@ -76,13 +76,10 @@ class Infoview implements Disposable {
     let version = editor.document.version;
 
     let params = { uri, start, end, version };
-    client.sendRequest("acorn/debug", params).then((result) => {
+    client.sendRequest("acorn/debug", params).then((result: string) => {
       console.log("debug result:", result);
+      this.setHTML(makeHTML(result));
     });
-
-    console.log("updateLocation", uri, start, end);
-    let timestamp = "the time is " + Date.now().toString();
-    this.setHTML(makeHTML(timestamp));
   }
 
   display(editor: TextEditor) {
