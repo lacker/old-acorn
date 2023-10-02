@@ -177,8 +177,32 @@ impl Backend {
         self.cache.insert(url.clone(), new_doc);
     }
 
-    async fn handle_debug_request(&self, _: DebugParams) -> Result<i32> {
-        Ok(1234)
+    async fn handle_debug_request(&self, params: DebugParams) -> Result<String> {
+        let doc = match self.cache.get(&params.uri) {
+            Some(doc) => doc,
+            None => {
+                log("no text available for debug request");
+                return Ok("no text available".to_string());
+            }
+        };
+        let shared_env = doc.env.read().await;
+        let env = match shared_env.as_ref() {
+            Some(env) => env,
+            None => {
+                log("no env available for debug request");
+                return Ok("no env available".to_string());
+            }
+        };
+        let paths = env.goal_paths();
+        for path in paths {
+            let goal_context = env.get_goal_context(&path);
+            if goal_context.range.start <= params.start && goal_context.range.end >= params.end {
+                // This is the goal that contains the cursor.
+                return Ok(goal_context.name.clone());
+            }
+        }
+
+        Ok("no goal found".to_string())
     }
 }
 
