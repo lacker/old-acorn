@@ -14,6 +14,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 // superseded_flag should be set to true when there is a newer version of the document.
 #[derive(Debug)]
 struct Document {
+    url: Url,
     text: String,
     version: i32,
     superseded_flag: Arc<AtomicBool>,
@@ -26,8 +27,9 @@ fn log(message: &str) {
 }
 
 impl Document {
-    fn new(text: String, version: i32) -> Document {
+    fn new(url: Url, text: String, version: i32) -> Document {
         Document {
+            url,
             text,
             version,
             superseded_flag: Arc::new(AtomicBool::new(false)),
@@ -35,7 +37,9 @@ impl Document {
     }
 
     fn log(&self, message: &str) {
-        let versioned = format!("v{}: {}", self.version, message);
+        // Extract the last component of the url
+        let filename = self.url.path_segments().unwrap().last().unwrap();
+        let versioned = format!("{} v{}: {}", filename, self.version, message);
         log(&versioned);
     }
 }
@@ -138,16 +142,16 @@ impl Backend {
         });
     }
 
-    fn update_document(&self, uri: Url, text: String, version: i32, tag: &str) {
-        let new_doc = Document::new(text, version);
+    fn update_document(&self, url: Url, text: String, version: i32, tag: &str) {
+        let new_doc = Document::new(url.clone(), text, version);
         new_doc.log(&format!("did_{}; updating document", tag));
-        if let Some(old_doc) = self.cache.get(&uri) {
+        if let Some(old_doc) = self.cache.get(&url) {
             old_doc.log(&format!("superseded by v{}", version));
             old_doc
                 .superseded_flag
                 .store(true, std::sync::atomic::Ordering::Relaxed);
         }
-        self.cache.insert(uri.clone(), new_doc);
+        self.cache.insert(url.clone(), new_doc);
     }
 }
 
