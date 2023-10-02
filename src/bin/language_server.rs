@@ -123,7 +123,7 @@ impl Backend {
         for path in paths {
             let goal_context = env.get_goal_context(&path);
             let mut prover = Prover::load_goal(&goal_context);
-            prover.stop_flag = doc.superseded_flag.clone();
+            prover.stop_flags.push(doc.superseded_flag.clone());
             let outcome = prover.search_for_contradiction(1000, 1.0);
 
             if !self.is_current_version(&uri, doc.version) {
