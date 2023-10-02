@@ -1086,7 +1086,7 @@ impl Environment {
                             proven: ts.axiomatic,
                             claim,
                             block,
-                            range: statement.range(),
+                            range,
                         };
                         self.propositions.push(prop);
                         self.theorem_names.insert(ts.name.to_string());
