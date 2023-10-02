@@ -17,7 +17,7 @@ import {
 
 let client: LanguageClient;
 
-function makeHTML() {
+function makeHTML(message: string = "Hello, Acorn World!") {
   return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -26,7 +26,7 @@ function makeHTML() {
             <title>Hello Acorn World</title>
         </head>
         <body>
-            <h1>Hello, Acorn World!</h1>
+            <h1>${message}</h1>
         </body>
         </html>`;
 }
@@ -52,18 +52,28 @@ class Infoview implements Disposable {
     ];
   }
 
+  setHTML(html: string) {
+    if (this.panel) {
+      this.panel.webview.html = html;
+    }
+  }
+
   // Updates the current location in the document
   updateLocation() {
     let editor = window.activeTextEditor;
     if (!editor) {
       return;
     }
+    if (editor.document.languageId != "acorn") {
+      return;
+    }
+
     let uri = editor.document.uri;
     let { start, end } = editor.selection;
 
     console.log("updateLocation", uri, start, end);
-
-    // TODO: Check editor.document to see if this is an acorn doc
+    let timestamp = "the time is " + Date.now().toString();
+    this.setHTML(makeHTML(timestamp));
   }
 
   display(editor: TextEditor) {
@@ -91,7 +101,7 @@ class Infoview implements Disposable {
     });
 
     // Set the webview's initial content
-    this.panel.webview.html = makeHTML();
+    this.setHTML(makeHTML());
   }
 
   toggle(editor: TextEditor) {
