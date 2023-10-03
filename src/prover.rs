@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use crossbeam::queue::SegQueue;
+
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
@@ -43,6 +45,9 @@ pub struct Prover<'a> {
     // A verbose prover prints out a lot of stuff.
     pub verbose: bool,
 
+    // When print queue is set, we send print statements here, instead of to stdout.
+    pub print_queue: Option<SegQueue<String>>,
+
     // If a trace string is set, we print out what happens with the clause matching it, regardless
     // of verbosity.
     trace: Option<String>,
@@ -62,7 +67,14 @@ pub struct Prover<'a> {
 
 macro_rules! cprintln {
     ($obj:expr, $($arg:tt)*) => {
-        println!($($arg)*);
+        match &$obj.print_queue {
+            Some(queue) => {
+                queue.push(format!($($arg)*));
+            }
+            None => {
+                println!($($arg)*);
+            }
+        }
     };
 }
 
@@ -90,6 +102,7 @@ impl Prover<'_> {
             passive: PassiveSet::new(),
             env,
             verbose: false,
+            print_queue: None,
             trace: None,
             hit_trace: false,
             final_step: None,
@@ -261,10 +274,11 @@ impl Prover<'_> {
         );
     }
 
-    pub fn print_proof_step(&self, clause: &Clause, ps: ProofStep) {
+    pub fn print_proof_step(&self, preface: &str, clause: &Clause, ps: ProofStep) {
         cprintln!(
             self,
-            "{:?} generated:\n    {}",
+            "{}{:?} generated:\n    {}",
+            preface,
             ps.rule,
             self.display(clause)
         );
@@ -329,11 +343,10 @@ impl Prover<'_> {
         for i in indices {
             let step = self.active_set.get_proof_step(i);
             let clause = self.active_set.get_clause(i);
-            print!("clause {}: ", i);
-            self.print_proof_step(clause, *step);
+            let preface = format!("clause {}: ", i);
+            self.print_proof_step(&preface, clause, *step);
         }
-        print!("final step: ");
-        self.print_proof_step(&Clause::impossible(), final_step);
+        self.print_proof_step("final step: ", &Clause::impossible(), final_step);
     }
 
     // Returns None if the clause is redundant.
@@ -454,11 +467,11 @@ impl Prover<'_> {
                     return Outcome::Success;
                 }
                 if tracing {
-                    self.print_proof_step(&c, ps);
+                    self.print_proof_step("", &c, ps);
                 } else if verbose && (i < print_limit) {
                     cprintln!(self, "  {}", self.display(&c));
                 } else if self.is_tracing(&c) {
-                    self.print_proof_step(&c, ps);
+                    self.print_proof_step("", &c, ps);
                 }
                 let info = self.new_clause_info(c, generated_type, ps, None);
                 self.passive.push(info);
