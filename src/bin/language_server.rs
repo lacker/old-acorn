@@ -5,6 +5,7 @@ use acorn::environment::Environment;
 use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
+use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -133,7 +134,10 @@ struct DebugTask {
     // The range in the document corresponding to the goal we're debugging
     range: Range,
 
-    // The output of the debug task, just in "lines printed" format
+    // The queue of lines printed by the debug task
+    queue: Arc<SegQueue<String>>,
+
+    // The last return value of the debug task, just in "lines printed" format
     output: Arc<RwLock<Vec<String>>>,
 
     // Set this flag to true when a subsequent task has been created
@@ -211,8 +215,15 @@ impl Backend {
                 && old_task.overlaps_selection(params.start, params.end)
             {
                 // This request matches the current task.
-                // Return the current output.
-                return Ok(old_task.output.read().await.clone());
+                // Respond based on the current task.
+                let response = {
+                    let mut locked_output = old_task.output.write().await;
+                    while let Some(line) = old_task.queue.pop() {
+                        locked_output.push(line);
+                    }
+                    locked_output.clone()
+                };
+                return Ok(response);
             }
         }
 
@@ -230,6 +241,7 @@ impl Backend {
             let new_task = DebugTask {
                 document: doc.clone(),
                 range: goal_context.range,
+                queue: Arc::new(SegQueue::new()),
                 output: Arc::new(RwLock::new(vec![])),
                 superseded_flag: Arc::new(AtomicBool::new(false)),
             };

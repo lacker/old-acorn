@@ -46,7 +46,7 @@ pub struct Prover<'a> {
     pub verbose: bool,
 
     // When print queue is set, we send print statements here, instead of to stdout.
-    pub print_queue: Option<SegQueue<String>>,
+    pub print_queue: Option<Arc<SegQueue<String>>>,
 
     // If a trace string is set, we print out what happens with the clause matching it, regardless
     // of verbosity.
