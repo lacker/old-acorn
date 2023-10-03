@@ -49,6 +49,69 @@ impl Document {
         let versioned = format!("{} v{}: {}", filename, self.version, message);
         log(&versioned);
     }
+
+    // Create diagnostics based on the cached data for the given url.
+    // Publishes them incrementally as each new diagnostic is found.
+    // The task completes when all diagnostics are created.
+    async fn run_diagnostics(&self, client: Client) {
+        self.log("making diagnostics");
+
+        let mut diagnostics = vec![];
+        let mut env = Environment::new();
+        let tokens = Token::scan(&self.text);
+        if let Err(e) = env.add_tokens(tokens) {
+            self.log(&format!("env.add failed: {:?}", e));
+            diagnostics.push(Diagnostic {
+                range: e.token.range(),
+                severity: Some(DiagnosticSeverity::ERROR),
+                message: e.to_string(),
+                ..Diagnostic::default()
+            });
+            client
+                .publish_diagnostics(self.url.clone(), diagnostics, None)
+                .await;
+            return;
+        }
+
+        // Save the environment for use by other tasks.
+        // We can't mutate it after this point.
+        *self.env.write().await = Some(env);
+        let shared_env = self.env.read().await;
+        let env = shared_env.as_ref().unwrap().clone();
+
+        let paths = env.goal_paths();
+        for path in paths {
+            let goal_context = env.get_goal_context(&path);
+            let mut prover = Prover::load_goal(&goal_context);
+            prover.stop_flags.push(self.superseded_flag.clone());
+            let outcome = prover.search_for_contradiction(1000, 1.0);
+
+            let description = match outcome {
+                Outcome::Success => continue,
+                Outcome::Exhausted => "is unprovable",
+                Outcome::Unknown => "timed out",
+                Outcome::Interrupted => "was interrupted",
+            };
+            let message = format!("{} {}", goal_context.name, description);
+            self.log(&message);
+            if outcome == Outcome::Interrupted {
+                return;
+            }
+
+            diagnostics.push(Diagnostic {
+                range: goal_context.range,
+                severity: Some(DiagnosticSeverity::WARNING),
+                message,
+                ..Diagnostic::default()
+            });
+            client
+                .publish_diagnostics(self.url.clone(), diagnostics.clone(), None)
+                .await;
+            self.log(&format!("{} diagnostics published", diagnostics.len()));
+        }
+
+        self.log("done making diagnostics");
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
@@ -82,12 +145,11 @@ impl DebugTask {
     }
 }
 
-#[derive(Clone)]
 struct Backend {
     client: Client,
 
     // Maps uri to the most recent version of a document
-    cache: Arc<DashMap<Url, Document>>,
+    documents: DashMap<Url, Arc<Document>>,
 
     // The current debug task, if any
     debug_task: Arc<RwLock<Option<DebugTask>>>,
@@ -97,113 +159,40 @@ impl Backend {
     fn new(client: Client) -> Backend {
         Backend {
             client,
-            cache: Arc::new(DashMap::new()),
+            documents: DashMap::new(),
             debug_task: Arc::new(RwLock::new(None)),
         }
     }
 
-    fn is_current_version(&self, uri: &Url, version: i32) -> bool {
-        match self.cache.get(uri) {
-            Some(doc) => doc.version == version,
-            None => false,
-        }
-    }
-
-    // Create diagnostics based on the cached data for the given url.
-    // The task completes when all diagnostics are created.
-    async fn make_diagnostics(&self, uri: Url) {
-        let doc = match self.cache.get(&uri) {
-            Some(doc) => doc,
+    // Spawn a background task to create diagnostics for the given url
+    fn spawn_diagnostics(&self, uri: Url) {
+        let doc: Arc<Document> = match self.documents.get(&uri) {
+            Some(doc) => doc.clone(),
             None => {
                 log("no text available for diagnostics");
                 return;
             }
         };
-        doc.log("making diagnostics");
-
-        let mut diagnostics = vec![];
-        let mut env = Environment::new();
-        let tokens = Token::scan(&doc.text);
-        if let Err(e) = env.add_tokens(tokens) {
-            doc.log(&format!("env.add failed: {:?}", e));
-            diagnostics.push(Diagnostic {
-                range: e.token.range(),
-                severity: Some(DiagnosticSeverity::ERROR),
-                message: e.to_string(),
-                ..Diagnostic::default()
-            });
-            self.client
-                .publish_diagnostics(uri, diagnostics, None)
-                .await;
-            return;
-        }
-
-        // Save the environment for use by other tasks.
-        // We can't mutate it after this point.
-        *doc.env.write().await = Some(env);
-        let shared_env = doc.env.read().await;
-        let env = shared_env.as_ref().unwrap().clone();
-
-        let paths = env.goal_paths();
-        for path in paths {
-            let goal_context = env.get_goal_context(&path);
-            let mut prover = Prover::load_goal(&goal_context);
-            prover.stop_flags.push(doc.superseded_flag.clone());
-            let outcome = prover.search_for_contradiction(1000, 1.0);
-
-            if !self.is_current_version(&uri, doc.version) {
-                doc.log("diagnostics stopped");
-                return;
-            }
-            let description = match outcome {
-                Outcome::Success => continue,
-                Outcome::Exhausted => "is unprovable",
-                Outcome::Unknown => "timed out",
-                Outcome::Interrupted => "was interrupted",
-            };
-            let message = format!("{} {}", goal_context.name, description);
-            doc.log(&message);
-            if outcome == Outcome::Interrupted {
-                return;
-            }
-
-            diagnostics.push(Diagnostic {
-                range: goal_context.range,
-                severity: Some(DiagnosticSeverity::WARNING),
-                message,
-                ..Diagnostic::default()
-            });
-            self.client
-                .publish_diagnostics(uri.clone(), diagnostics.clone(), None)
-                .await;
-            doc.log(&format!("{} diagnostics published", diagnostics.len()));
-        }
-        doc.log("done making diagnostics");
-    }
-
-    // Spawn a background task to create diagnostics for the given url
-    fn background_diagnostics(&self, uri: Url) {
-        log("spawning background diagnostics");
-        let clone = self.clone();
+        let client = self.client.clone();
         tokio::spawn(async move {
-            clone.make_diagnostics(uri).await;
+            doc.run_diagnostics(client).await;
         });
     }
 
     fn update_document(&self, url: Url, text: String, version: i32, tag: &str) {
         let new_doc = Document::new(url.clone(), text, version);
         new_doc.log(&format!("did_{}; updating document", tag));
-        if let Some(old_doc) = self.cache.get(&url) {
+        if let Some(old_doc) = self.documents.get(&url) {
             old_doc.log(&format!("superseded by v{}", version));
             old_doc
                 .superseded_flag
                 .store(true, std::sync::atomic::Ordering::Relaxed);
         }
-        self.cache.insert(url.clone(), new_doc);
+        self.documents.insert(url.clone(), Arc::new(new_doc));
     }
 
     async fn handle_debug_request(&self, params: DebugParams) -> Result<Vec<String>> {
-        let doc = match self.cache.get(&params.uri) {
+        let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
             None => {
                 log("no text available for debug request");
@@ -237,7 +226,18 @@ impl Backend {
                     .store(true, std::sync::atomic::Ordering::Relaxed);
             }
 
-            // TODO: create a new debug task
+            // Create a new debug task
+            let new_task = DebugTask {
+                url: params.uri.clone(),
+                version: params.version,
+                range: goal_context.range,
+                output: vec![],
+                stop_flag: Arc::new(AtomicBool::new(false)),
+            };
+            let mut write_lock = self.debug_task.write().await;
+            *write_lock = Some(new_task);
+
+            // TODO: run the debug task
 
             return Ok(vec![goal_context.name.clone()]);
         }
@@ -295,7 +295,7 @@ impl LanguageServer for Backend {
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         log("did_save");
-        self.background_diagnostics(params.text_document.uri);
+        self.spawn_diagnostics(params.text_document.uri);
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
@@ -303,7 +303,7 @@ impl LanguageServer for Backend {
         let text = params.text_document.text;
         let version = params.text_document.version;
         self.update_document(uri.clone(), text, version, "open");
-        self.background_diagnostics(uri);
+        self.spawn_diagnostics(uri);
     }
 
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
@@ -323,7 +323,7 @@ impl LanguageServer for Backend {
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
         let uri = params.text_document.uri;
-        let doc = match self.cache.get(&uri) {
+        let doc = match self.documents.get(&uri) {
             Some(doc) => doc,
             None => {
                 log("no text available for semantic_tokens_full");
