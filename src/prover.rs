@@ -60,6 +60,12 @@ pub struct Prover<'a> {
     pub stop_flags: Vec<Arc<AtomicBool>>,
 }
 
+macro_rules! cprintln {
+    ($obj:expr, $($arg:tt)*) => {
+        println!($($arg)*);
+    };
+}
+
 // The outcome of a prover operation.
 // "Success" means we proved it.
 // "Exhausted" means we tried every possibility and couldn't prove it.
@@ -174,8 +180,8 @@ impl Prover<'_> {
     }
 
     pub fn print_stats(&self) {
-        println!("{} clauses in the active set", self.active_set.len());
-        println!("{} clauses in the passive set", self.passive.len());
+        cprintln!(self, "{} clauses in the active set", self.active_set.len());
+        cprintln!(self, "{} clauses in the passive set", self.passive.len());
     }
 
     // Prints out the entire active set
@@ -189,12 +195,12 @@ impl Prover<'_> {
                 }
             }
             count += 1;
-            println!("{}", clause);
+            cprintln!(self, "{}", clause);
         }
         if let Some(substr) = substr {
-            println!("{} active clauses matched {}", count, substr);
+            cprintln!(self, "{} active clauses matched {}", count, substr);
         } else {
-            println!("{} clauses total in the active set", count);
+            cprintln!(self, "{} clauses total in the active set", count);
         }
     }
 
@@ -208,12 +214,12 @@ impl Prover<'_> {
                 }
             }
             count += 1;
-            println!("{}", clause);
+            cprintln!(self, "{}", clause);
         }
         if let Some(substr) = substr {
-            println!("{} passive clauses matched {}", count, substr);
+            cprintln!(self, "{} passive clauses matched {}", count, substr);
         } else {
-            println!("{} clauses total in the passive set", count);
+            cprintln!(self, "{} clauses total in the passive set", count);
         }
     }
 
@@ -223,17 +229,17 @@ impl Prover<'_> {
             match atom {
                 Atom::Synthetic(i) => {
                     if let Some(lit) = self.synthesizer.get_definition(i) {
-                        println!("{} := {}", atom, lit);
+                        cprintln!(self, "{} := {}", atom, lit);
                     } else {
-                        println!("no definition for {}", atom);
+                        cprintln!(self, "no definition for {}", atom);
                     }
                 }
                 _ => {
-                    println!("we have no way to print info for {}", atom);
+                    cprintln!(self, "we have no way to print info for {}", atom);
                 }
             }
         } else {
-            println!("not an atom: {}", s);
+            cprintln!(self, "not an atom: {}", s);
         }
     }
 
@@ -243,11 +249,12 @@ impl Prover<'_> {
         for clause in self.active_set.iter_clauses() {
             let clause_str = self.display(clause).to_string();
             if clause_str.contains(s) {
-                println!("{}", clause_str);
+                cprintln!(self, "{}", clause_str);
                 count += 1;
             }
         }
-        println!(
+        cprintln!(
+            self,
             "{} clause{} matched",
             count,
             if count == 1 { "" } else { "s" }
@@ -255,27 +262,32 @@ impl Prover<'_> {
     }
 
     pub fn print_proof_step(&self, clause: &Clause, ps: ProofStep) {
-        println!("{:?} generated:\n    {}", ps.rule, self.display(clause));
+        cprintln!(
+            self,
+            "{:?} generated:\n    {}",
+            ps.rule,
+            self.display(clause)
+        );
         if let Some(i) = ps.activated {
             let c = self.display(self.active_set.get_clause(i));
-            println!("  using clause {}:\n    {}", i, c);
+            cprintln!(self, "  using clause {}:\n    {}", i, c);
         }
         if let Some(i) = ps.existing {
             let c = self.display(self.active_set.get_clause(i));
-            println!("  with clause {}:\n    {}", i, c);
+            cprintln!(self, "  with clause {}:\n    {}", i, c);
         }
     }
 
     pub fn print_env(&self) {
-        println!("facts:");
+        cprintln!(self, "facts:");
         for fact in &self.facts {
-            println!("  {}", self.env.value_str(fact));
+            cprintln!(self, "  {}", self.env.value_str(fact));
         }
-        println!("goal:");
+        cprintln!(self, "goal:");
         if let Some(goal) = &self.goal {
-            println!("  {}", self.env.value_str(goal));
+            cprintln!(self, "  {}", self.env.value_str(goal));
         } else {
-            println!("  none");
+            cprintln!(self, "  none");
         }
     }
 
@@ -283,7 +295,7 @@ impl Prover<'_> {
         let final_step = if let Some(final_step) = self.final_step {
             final_step
         } else {
-            println!("we do not have a proof");
+            cprintln!(self, "we do not have a proof");
             return;
         };
 
@@ -308,11 +320,12 @@ impl Prover<'_> {
         // Print out the clauses in order.
         let mut indices = done.into_iter().collect::<Vec<_>>();
         indices.sort();
-        println!(
+        cprintln!(
+            self,
             "in total, we activated {} proof steps.",
             self.active_set.len()
         );
-        println!("the proof uses {} steps:", indices.len());
+        cprintln!(self, "the proof uses {} steps:", indices.len());
         for i in indices {
             let step = self.active_set.get_proof_step(i);
             let clause = self.active_set.get_clause(i);
@@ -358,7 +371,7 @@ impl Prover<'_> {
             None => {
                 // The clause is redundant, so skip it.
                 if verbose {
-                    println!("redundant: {}", original_clause_string);
+                    cprintln!(self, "redundant: {}", original_clause_string);
                 }
                 return Outcome::Unknown;
             }
@@ -367,9 +380,11 @@ impl Prover<'_> {
         if verbose {
             simplified_clause_string = self.display(clause).to_string();
             if simplified_clause_string != original_clause_string {
-                println!(
+                cprintln!(
+                    self,
                     "simplified: {} => {}",
-                    original_clause_string, simplified_clause_string
+                    original_clause_string,
+                    simplified_clause_string
                 );
             }
         }
@@ -386,7 +401,7 @@ impl Prover<'_> {
             if !synth_clauses.is_empty() {
                 for synth_clause in synth_clauses {
                     if verbose {
-                        println!("synthesizing: {}", self.display(&synth_clause));
+                        cprintln!(self, "synthesizing: {}", self.display(&synth_clause));
                     }
 
                     // Treat the definition of synthesized predicates like extra facts.
@@ -407,7 +422,7 @@ impl Prover<'_> {
                 ClauseType::NegatedGoal => " negated goal",
                 ClauseType::Other => "",
             };
-            println!("activating{}: {}", prefix, simplified_clause_string);
+            cprintln!(self, "activating{}: {}", prefix, simplified_clause_string);
         }
         self.activate(new_info, verbose, tracing)
     }
@@ -426,7 +441,8 @@ impl Prover<'_> {
         if !new_clauses.is_empty() {
             let len = new_clauses.len();
             if verbose {
-                println!(
+                cprintln!(
+                    self,
                     "generated {} new clauses{}:",
                     len,
                     if len > print_limit { ", eg" } else { "" }
@@ -440,7 +456,7 @@ impl Prover<'_> {
                 if tracing {
                     self.print_proof_step(&c, ps);
                 } else if verbose && (i < print_limit) {
-                    println!("  {}", self.display(&c));
+                    cprintln!(self, "  {}", self.display(&c));
                 } else if self.is_tracing(&c) {
                     self.print_proof_step(&c, ps);
                 }
@@ -465,15 +481,19 @@ impl Prover<'_> {
             }
             if self.active_set.len() >= size as usize {
                 if self.verbose {
-                    println!("active set size hit the limit: {}", self.active_set.len());
+                    cprintln!(
+                        self,
+                        "active set size hit the limit: {}",
+                        self.active_set.len()
+                    );
                 }
                 break;
             }
             let elapsed = start_time.elapsed().as_secs_f32();
             if elapsed >= seconds {
                 if self.verbose {
-                    println!("active set size: {}", self.active_set.len());
-                    println!("prover hit time limit after {} seconds", elapsed);
+                    cprintln!(self, "active set size: {}", self.active_set.len());
+                    cprintln!(self, "prover hit time limit after {} seconds", elapsed);
                 }
                 break;
             }
