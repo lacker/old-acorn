@@ -9,7 +9,7 @@ use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use tower_lsp::jsonrpc::Result;
+use tower_lsp::jsonrpc::{Error, ErrorCode, Result};
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
@@ -125,6 +125,14 @@ pub struct DebugParams {
     pub end: Position,
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DebugResponse {
+    pub goal_name: String,
+    pub output: Vec<String>,
+    pub completed: bool,
+}
+
 // The language server can work on one expensive "debug" task at a time.
 // The DebugTask tracks information around that request.
 #[derive(Clone)]
@@ -133,6 +141,9 @@ struct DebugTask {
 
     // The range in the document corresponding to the goal we're debugging
     range: Range,
+
+    // The name of the goal we're debugging
+    goal_name: String,
 
     // The queue of lines printed by the debug task
     queue: Arc<SegQueue<String>>,
@@ -150,6 +161,23 @@ struct DebugTask {
 impl DebugTask {
     fn overlaps_selection(&self, start: Position, end: Position) -> bool {
         return start <= self.range.end && end >= self.range.start;
+    }
+
+    // Makes a response based on the current state of the task
+    async fn response(&self) -> DebugResponse {
+        let completed = self.completed.load(std::sync::atomic::Ordering::Relaxed);
+        let lines = {
+            let mut locked_output = self.output.write().await;
+            while let Some(line) = self.queue.pop() {
+                locked_output.push(line);
+            }
+            locked_output.clone()
+        };
+        DebugResponse {
+            goal_name: self.goal_name.clone(),
+            output: lines,
+            completed,
+        }
     }
 
     // Runs the debug task.
@@ -206,29 +234,30 @@ impl Backend {
         self.documents.insert(url.clone(), Arc::new(new_doc));
     }
 
-    async fn handle_debug_request(&self, params: DebugParams) -> Result<Vec<String>> {
+    fn error(&self, message: &str) -> Error {
+        log(&format!("error: {}", message));
+        Error {
+            code: ErrorCode::InternalError,
+            message: message.to_string().into(),
+            data: None,
+        }
+    }
+
+    async fn handle_debug_request(&self, params: DebugParams) -> Result<DebugResponse> {
         let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
             None => {
-                log("no text available for debug request");
-                return Ok(vec!["no text available".to_string()]);
+                return Err(self.error("no text available for debug request"));
             }
         };
-        if let Some(old_task) = self.debug_task.read().await.as_ref() {
-            if old_task.document.url == params.uri
-                && old_task.document.version == params.version
-                && old_task.overlaps_selection(params.start, params.end)
+        if let Some(current_task) = self.debug_task.read().await.as_ref() {
+            if current_task.document.url == params.uri
+                && current_task.document.version == params.version
+                && current_task.overlaps_selection(params.start, params.end)
             {
                 // This request matches the current task.
                 // Respond based on the current task.
-                let response = {
-                    let mut locked_output = old_task.output.write().await;
-                    while let Some(line) = old_task.queue.pop() {
-                        locked_output.push(line);
-                    }
-                    locked_output.clone()
-                };
-                return Ok(response);
+                return Ok(current_task.response().await);
             }
         }
 
@@ -237,41 +266,48 @@ impl Backend {
             Some(env) => env,
             None => {
                 log("no env available for debug request");
-                return Ok(vec!["no env available".to_string()]);
+                return Err(self.error("no env available"));
             }
         };
 
-        if let Some(goal_context) = env.get_goal_context_at(params.start, params.end) {
-            // Create a new debug task
-            let new_task = DebugTask {
-                document: doc.clone(),
-                range: goal_context.range,
-                queue: Arc::new(SegQueue::new()),
-                output: Arc::new(RwLock::new(vec![])),
-                completed: Arc::new(AtomicBool::new(false)),
-                superseded: Arc::new(AtomicBool::new(false)),
-            };
-
-            // Replace the locked singleton task
-            {
-                let mut locked_task = self.debug_task.write().await;
-                if let Some(old_task) = locked_task.as_ref() {
-                    // Cancel the old task
-                    old_task
-                        .superseded
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-                *locked_task = Some(new_task.clone());
+        let goal_context = match env.get_goal_context_at(params.start, params.end) {
+            Some(goal_context) => goal_context,
+            None => {
+                return Err(self.error("no goal found"));
             }
+        };
 
-            tokio::spawn(async move {
-                new_task.run().await;
-            });
+        // Create a new debug task
+        let new_task = DebugTask {
+            document: doc.clone(),
+            range: goal_context.range,
+            goal_name: goal_context.name.clone(),
+            queue: Arc::new(SegQueue::new()),
+            output: Arc::new(RwLock::new(vec![])),
+            completed: Arc::new(AtomicBool::new(false)),
+            superseded: Arc::new(AtomicBool::new(false)),
+        };
 
-            return Ok(vec![goal_context.name.clone()]);
+        // Replace the locked singleton task
+        {
+            let mut locked_task = self.debug_task.write().await;
+            if let Some(old_task) = locked_task.as_ref() {
+                // Cancel the old task
+                old_task
+                    .superseded
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            *locked_task = Some(new_task.clone());
         }
 
-        Ok(vec!["no goal found".to_string()])
+        // A minimal response before any data has been collected
+        let response = new_task.response().await;
+
+        tokio::spawn(async move {
+            new_task.run().await;
+        });
+
+        Ok(response)
     }
 }
 
