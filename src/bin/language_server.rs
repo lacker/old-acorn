@@ -9,7 +9,7 @@ use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use tower_lsp::jsonrpc::{Error, ErrorCode, Result};
+use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
@@ -128,9 +128,24 @@ pub struct DebugParams {
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DebugResponse {
-    pub goal_name: String,
+    // This message is designed to be displayed in the client.
+    pub message: Option<String>,
+
+    pub goal_name: Option<String>,
+
     pub output: Vec<String>,
     pub completed: bool,
+}
+
+impl DebugResponse {
+    fn message(message: &str) -> DebugResponse {
+        DebugResponse {
+            message: Some(message.to_string()),
+            goal_name: None,
+            output: vec![],
+            completed: false,
+        }
+    }
 }
 
 // The language server can work on one expensive "debug" task at a time.
@@ -174,7 +189,8 @@ impl DebugTask {
             locked_output.clone()
         };
         DebugResponse {
-            goal_name: self.goal_name.clone(),
+            message: None,
+            goal_name: Some(self.goal_name.clone()),
             output: lines,
             completed,
         }
@@ -234,20 +250,12 @@ impl Backend {
         self.documents.insert(url.clone(), Arc::new(new_doc));
     }
 
-    fn error(&self, message: &str) -> Error {
-        log(&format!("error: {}", message));
-        Error {
-            code: ErrorCode::InternalError,
-            message: message.to_string().into(),
-            data: None,
-        }
-    }
-
     async fn handle_debug_request(&self, params: DebugParams) -> Result<DebugResponse> {
         let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
             None => {
-                return Err(self.error("no text available for debug request"));
+                log("no text available for debug request");
+                return Ok(DebugResponse::message("loading..."));
             }
         };
         if let Some(current_task) = self.debug_task.read().await.as_ref() {
@@ -266,14 +274,16 @@ impl Backend {
             Some(env) => env,
             None => {
                 log("no env available for debug request");
-                return Err(self.error("no env available"));
+                return Ok(DebugResponse::message("loading..."));
             }
         };
 
         let goal_context = match env.get_goal_context_at(params.start, params.end) {
             Some(goal_context) => goal_context,
             None => {
-                return Err(self.error("no goal found"));
+                return Ok(DebugResponse::message(
+                    "click a proposition to see its proof.",
+                ));
             }
         };
 

@@ -1,8 +1,8 @@
 {
-    "files.exclude": {
-        "extension/node_modules/": true,
-        "extension/out/": true,
-        "**/package-lock.json": true,
-        "**/Cargo.lock": true
-    }
+  "files.exclude": {
+    "vscode/extension/node_modules/": true,
+    "vscode/extension/out/": true,
+    "**/package-lock.json": true,
+    "**/Cargo.lock": true
+  }
 }

@@ -6,8 +6,10 @@
       "type": "extensionHost",
       "request": "launch",
       "runtimeExecutable": "${execPath}",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}/extension"],
-      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/vscode/extension"
+      ],
+      "outFiles": ["${workspaceFolder}/vscode/extension/out/**/*.js"],
       "preLaunchTask": "Build Extension",
       "env": {
         "SERVER_PATH": "${workspaceFolder}/target/debug/language_server"
