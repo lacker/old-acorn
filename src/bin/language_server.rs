@@ -13,7 +13,6 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 // A structure representing a particular version of a document.
-// #[derive(Debug)]
 struct Document {
     url: Url,
     text: String,
@@ -61,12 +60,37 @@ pub struct DebugParams {
     pub end: Position,
 }
 
+// The language server can work on one expensive "debug" task at a time.
+// The DebugTask tracks information around that request.
+struct DebugTask {
+    url: Url,
+    version: i32,
+
+    // The range in the document corresponding to the goal we're debugging
+    range: Range,
+
+    // The output of the debug task, just in "lines printed" format
+    output: Vec<String>,
+
+    // Set this flag to true to stop the debug task
+    stop_flag: Arc<AtomicBool>,
+}
+
+impl DebugTask {
+    fn overlaps_selection(&self, start: Position, end: Position) -> bool {
+        return start <= self.range.end && end >= self.range.start;
+    }
+}
+
 #[derive(Clone)]
 struct Backend {
     client: Client,
 
     // Maps uri to the most recent version of a document
     cache: Arc<DashMap<Url, Document>>,
+
+    // The current debug task, if any
+    debug_task: Arc<RwLock<Option<DebugTask>>>,
 }
 
 impl Backend {
@@ -74,6 +98,7 @@ impl Backend {
         Backend {
             client,
             cache: Arc::new(DashMap::new()),
+            debug_task: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -177,32 +202,47 @@ impl Backend {
         self.cache.insert(url.clone(), new_doc);
     }
 
-    async fn handle_debug_request(&self, params: DebugParams) -> Result<String> {
+    async fn handle_debug_request(&self, params: DebugParams) -> Result<Vec<String>> {
         let doc = match self.cache.get(&params.uri) {
             Some(doc) => doc,
             None => {
                 log("no text available for debug request");
-                return Ok("no text available".to_string());
+                return Ok(vec!["no text available".to_string()]);
             }
         };
+        let current_task = self.debug_task.read().await;
+        if let Some(current_task) = current_task.as_ref() {
+            if current_task.url == params.uri
+                && current_task.version == params.version
+                && current_task.overlaps_selection(params.start, params.end)
+            {
+                // This request matches the current task.
+                return Ok(current_task.output.clone());
+            }
+        }
+
         let shared_env = doc.env.read().await;
         let env = match shared_env.as_ref() {
             Some(env) => env,
             None => {
                 log("no env available for debug request");
-                return Ok("no env available".to_string());
+                return Ok(vec!["no env available".to_string()]);
             }
         };
-        let paths = env.goal_paths();
-        for path in paths {
-            let goal_context = env.get_goal_context(&path);
-            if goal_context.range.start <= params.start && goal_context.range.end >= params.end {
-                // This is the goal that contains the cursor.
-                return Ok(goal_context.name.clone());
+        if let Some(goal_context) = env.get_goal_context_at(params.start, params.end) {
+            // We have a new goal to debug, so we can cancel an old debug task.
+            if let Some(current_task) = current_task.as_ref() {
+                current_task
+                    .stop_flag
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
             }
+
+            // TODO: create a new debug task
+
+            return Ok(vec![goal_context.name.clone()]);
         }
 
-        Ok("no goal found".to_string())
+        Ok(vec!["no goal found".to_string()])
     }
 }
 

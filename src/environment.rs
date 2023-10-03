@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::{fmt, io};
 
-use tower_lsp::lsp_types::Range;
+use tower_lsp::lsp_types::{Position, Range};
 
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
@@ -1347,6 +1347,18 @@ impl Environment {
         }
 
         panic!("no context found for {} in:\n{}\n", name, names.join("\n"));
+    }
+
+    pub fn get_goal_context_at(&self, start: Position, end: Position) -> Option<GoalContext> {
+        let paths = self.goal_paths();
+        for path in paths {
+            let goal_context = self.get_goal_context(&path);
+            if goal_context.range.start <= start && goal_context.range.end >= end {
+                // This is the goal that contains the cursor.
+                return Some(goal_context);
+            }
+        }
+        None
     }
 
     #[cfg(test)]
