@@ -12,6 +12,12 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+fn log(message: &str) {
+    let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
+    let stamped = format!("[{}] {}", timestamp, message);
+    eprintln!("{}", stamped);
+}
+
 // A structure representing a particular version of a document.
 struct Document {
     url: Url,
@@ -24,12 +30,6 @@ struct Document {
     // env is set by the background diagnostics task.
     // It is None before that completes.
     env: RwLock<Option<Environment>>,
-}
-
-fn log(message: &str) {
-    let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
-    let stamped = format!("[{}] {}", timestamp, message);
-    eprintln!("{}", stamped);
 }
 
 impl Document {
@@ -143,6 +143,11 @@ impl DebugTask {
     fn overlaps_selection(&self, start: Position, end: Position) -> bool {
         return start <= self.range.end && end >= self.range.start;
     }
+
+    // Runs the debug task.
+    async fn run(&mut self) {
+        log("TODO: actually run the debug task");
+    }
 }
 
 struct Backend {
@@ -199,8 +204,7 @@ impl Backend {
                 return Ok(vec!["no text available".to_string()]);
             }
         };
-        let current_task = self.debug_task.read().await;
-        if let Some(current_task) = current_task.as_ref() {
+        if let Some(current_task) = self.debug_task.read().await.as_ref() {
             if current_task.url == params.uri
                 && current_task.version == params.version
                 && current_task.overlaps_selection(params.start, params.end)
@@ -219,13 +223,6 @@ impl Backend {
             }
         };
         if let Some(goal_context) = env.get_goal_context_at(params.start, params.end) {
-            // We have a new goal to debug, so we can cancel an old debug task.
-            if let Some(current_task) = current_task.as_ref() {
-                current_task
-                    .stop_flag
-                    .store(true, std::sync::atomic::Ordering::Relaxed);
-            }
-
             // Create a new debug task
             let new_task = DebugTask {
                 url: params.uri.clone(),
@@ -234,10 +231,31 @@ impl Backend {
                 output: vec![],
                 stop_flag: Arc::new(AtomicBool::new(false)),
             };
-            let mut write_lock = self.debug_task.write().await;
-            *write_lock = Some(new_task);
+            let stop_flag = new_task.stop_flag.clone();
 
-            // TODO: run the debug task
+            {
+                let mut locked_task = self.debug_task.write().await;
+                if let Some(current_task) = locked_task.as_ref() {
+                    // Cancel the old task
+                    current_task
+                        .stop_flag
+                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                *locked_task = Some(new_task);
+            }
+
+            let debug_task = self.debug_task.clone();
+            tokio::spawn(async move {
+                let mut guard = debug_task.write().await;
+                let debug_task = guard.as_mut().unwrap();
+
+                // If the stop flags don't match, we must have had a task replacement while this
+                // one was getting spawned.
+                if !Arc::ptr_eq(&debug_task.stop_flag, &stop_flag) {
+                    return;
+                }
+                debug_task.run().await;
+            });
 
             return Ok(vec![goal_context.name.clone()]);
         }
