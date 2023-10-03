@@ -19,6 +19,7 @@ fn log(message: &str) {
 }
 
 // A structure representing a particular version of a document.
+#[derive(Clone)]
 struct Document {
     url: Url,
     text: String,
@@ -29,7 +30,7 @@ struct Document {
 
     // env is set by the background diagnostics task.
     // It is None before that completes.
-    env: RwLock<Option<Environment>>,
+    env: Arc<RwLock<Option<Environment>>>,
 }
 
 impl Document {
@@ -39,7 +40,7 @@ impl Document {
             text,
             version,
             superseded_flag: Arc::new(AtomicBool::new(false)),
-            env: RwLock::new(None),
+            env: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -125,18 +126,18 @@ pub struct DebugParams {
 
 // The language server can work on one expensive "debug" task at a time.
 // The DebugTask tracks information around that request.
+#[derive(Clone)]
 struct DebugTask {
-    url: Url,
-    version: i32,
+    document: Arc<Document>,
 
     // The range in the document corresponding to the goal we're debugging
     range: Range,
 
     // The output of the debug task, just in "lines printed" format
-    output: Vec<String>,
+    output: Arc<RwLock<Vec<String>>>,
 
-    // Set this flag to true to stop the debug task
-    stop_flag: Arc<AtomicBool>,
+    // Set this flag to true when a subsequent task has been created
+    superseded_flag: Arc<AtomicBool>,
 }
 
 impl DebugTask {
@@ -145,7 +146,7 @@ impl DebugTask {
     }
 
     // Runs the debug task.
-    async fn run(&mut self) {
+    async fn run(&self) {
         log("TODO: actually run the debug task");
     }
 }
@@ -204,13 +205,14 @@ impl Backend {
                 return Ok(vec!["no text available".to_string()]);
             }
         };
-        if let Some(current_task) = self.debug_task.read().await.as_ref() {
-            if current_task.url == params.uri
-                && current_task.version == params.version
-                && current_task.overlaps_selection(params.start, params.end)
+        if let Some(old_task) = self.debug_task.read().await.as_ref() {
+            if old_task.document.url == params.uri
+                && old_task.document.version == params.version
+                && old_task.overlaps_selection(params.start, params.end)
             {
                 // This request matches the current task.
-                return Ok(current_task.output.clone());
+                // Return the current output.
+                return Ok(old_task.output.read().await.clone());
             }
         }
 
@@ -222,39 +224,30 @@ impl Backend {
                 return Ok(vec!["no env available".to_string()]);
             }
         };
+
         if let Some(goal_context) = env.get_goal_context_at(params.start, params.end) {
             // Create a new debug task
             let new_task = DebugTask {
-                url: params.uri.clone(),
-                version: params.version,
+                document: doc.clone(),
                 range: goal_context.range,
-                output: vec![],
-                stop_flag: Arc::new(AtomicBool::new(false)),
+                output: Arc::new(RwLock::new(vec![])),
+                superseded_flag: Arc::new(AtomicBool::new(false)),
             };
-            let stop_flag = new_task.stop_flag.clone();
 
+            // Replace the locked singleton task
             {
                 let mut locked_task = self.debug_task.write().await;
-                if let Some(current_task) = locked_task.as_ref() {
+                if let Some(old_task) = locked_task.as_ref() {
                     // Cancel the old task
-                    current_task
-                        .stop_flag
+                    old_task
+                        .superseded_flag
                         .store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                *locked_task = Some(new_task);
+                *locked_task = Some(new_task.clone());
             }
 
-            let debug_task = self.debug_task.clone();
             tokio::spawn(async move {
-                let mut guard = debug_task.write().await;
-                let debug_task = guard.as_mut().unwrap();
-
-                // If the stop flags don't match, we must have had a task replacement while this
-                // one was getting spawned.
-                if !Arc::ptr_eq(&debug_task.stop_flag, &stop_flag) {
-                    return;
-                }
-                debug_task.run().await;
+                new_task.run().await;
             });
 
             return Ok(vec![goal_context.name.clone()]);
