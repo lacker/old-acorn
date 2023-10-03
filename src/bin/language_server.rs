@@ -26,8 +26,8 @@ struct Document {
     text: String,
     version: i32,
 
-    // superseded_flag should be set to true when there is a newer version of the document.
-    superseded_flag: Arc<AtomicBool>,
+    // superseded is set to true when there is a newer version of the document.
+    superseded: Arc<AtomicBool>,
 
     // env is set by the background diagnostics task.
     // It is None before that completes.
@@ -40,7 +40,7 @@ impl Document {
             url,
             text,
             version,
-            superseded_flag: Arc::new(AtomicBool::new(false)),
+            superseded: Arc::new(AtomicBool::new(false)),
             env: Arc::new(RwLock::new(None)),
         }
     }
@@ -85,7 +85,7 @@ impl Document {
         for path in paths {
             let goal_context = env.get_goal_context(&path);
             let mut prover = Prover::load_goal(&goal_context);
-            prover.stop_flags.push(self.superseded_flag.clone());
+            prover.stop_flags.push(self.superseded.clone());
             let outcome = prover.search_for_contradiction(1000, 1.0);
 
             let description = match outcome {
@@ -140,8 +140,11 @@ struct DebugTask {
     // The last return value of the debug task, just in "lines printed" format
     output: Arc<RwLock<Vec<String>>>,
 
+    // Set this flag to true when the task is completed successfully
+    completed: Arc<AtomicBool>,
+
     // Set this flag to true when a subsequent task has been created
-    superseded_flag: Arc<AtomicBool>,
+    superseded: Arc<AtomicBool>,
 }
 
 impl DebugTask {
@@ -152,6 +155,8 @@ impl DebugTask {
     // Runs the debug task.
     async fn run(&self) {
         log("TODO: actually run the debug task");
+        self.completed
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -195,7 +200,7 @@ impl Backend {
         if let Some(old_doc) = self.documents.get(&url) {
             old_doc.log(&format!("superseded by v{}", version));
             old_doc
-                .superseded_flag
+                .superseded
                 .store(true, std::sync::atomic::Ordering::Relaxed);
         }
         self.documents.insert(url.clone(), Arc::new(new_doc));
@@ -243,7 +248,8 @@ impl Backend {
                 range: goal_context.range,
                 queue: Arc::new(SegQueue::new()),
                 output: Arc::new(RwLock::new(vec![])),
-                superseded_flag: Arc::new(AtomicBool::new(false)),
+                completed: Arc::new(AtomicBool::new(false)),
+                superseded: Arc::new(AtomicBool::new(false)),
             };
 
             // Replace the locked singleton task
@@ -252,7 +258,7 @@ impl Backend {
                 if let Some(old_task) = locked_task.as_ref() {
                     // Cancel the old task
                     old_task
-                        .superseded_flag
+                        .superseded
                         .store(true, std::sync::atomic::Ordering::Relaxed);
                 }
                 *locked_task = Some(new_task.clone());
