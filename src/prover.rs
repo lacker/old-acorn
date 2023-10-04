@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::ptr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -526,9 +527,6 @@ impl Prover<'_> {
     }
 
     pub fn load_goal<'a>(&mut self, goal_context: &GoalContext<'a>) {
-        // Compare pointer equality
-        assert!(self.env as *const Environment == goal_context.env as *const Environment);
-
         for fact in &goal_context.facts {
             self.add_fact(fact.clone());
         }

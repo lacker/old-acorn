@@ -210,6 +210,7 @@ impl DebugTask {
                 return;
             }
         };
+        log(&format!("running debug task for {}", self.goal_name));
         let goal_context = env.get_goal_context(&self.path);
         let mut prover = Prover::new(env);
         prover.print_queue = Some(self.queue.clone());
@@ -218,7 +219,8 @@ impl DebugTask {
         // Stop the prover if either this task or this document version is superseded
         prover.stop_flags.push(self.superseded.clone());
         prover.stop_flags.push(self.document.superseded.clone());
-        prover.search_for_contradiction(10000, 10.0);
+        prover.search_for_contradiction(3000, 3.0);
+        log(&format!("debug task for {} completed", self.goal_name));
 
         self.completed
             .store(true, std::sync::atomic::Ordering::Relaxed);
