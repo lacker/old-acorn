@@ -116,6 +116,7 @@ class Infoview implements Disposable {
         enableFindWidget: true,
         retainContextWhenHidden: true,
         enableScripts: true,
+        localResourceRoots: [Uri.file(this.distPath)],
       }
     );
 
@@ -124,8 +125,9 @@ class Infoview implements Disposable {
     });
 
     // Set the webview's initial content
-    let distPathOnDisk = Uri.file(this.distPath);
-    let distPathInWebview = this.panel.webview.asWebviewUri(distPathOnDisk);
+    let distPathInWebview = this.panel.webview.asWebviewUri(
+      Uri.file(this.distPath)
+    );
     let indexPath = Uri.file(path.join(this.distPath, "index.html"));
     let html = fs.readFileSync(indexPath.fsPath, "utf8");
     // Inject a new base href tag
