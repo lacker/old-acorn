@@ -203,6 +203,7 @@ export function activate(context: ExtensionContext) {
     command,
     options: {
       env: {
+        RUST_BACKTRACE: "1",
         ...process.env,
       },
     },

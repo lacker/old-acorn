@@ -204,18 +204,22 @@ impl DebugTask {
 
     // Runs the debug task.
     async fn run(&self) {
-        let read_env = self.document.env.read().await;
-        let env = match read_env.as_ref() {
-            Some(env) => env,
+        // Get the environment for the full document
+        let read_doc_env = self.document.env.read().await;
+        let doc_env = match read_doc_env.as_ref() {
+            Some(doc_env) => doc_env,
             None => {
                 // There should be an env available, because we don't run this task without one.
                 log("no env available in DebugTask::run");
                 return;
             }
         };
+
         log(&format!("running debug task for {}", self.goal_name));
-        let goal_context = env.get_goal_context(&self.path);
-        let mut prover = Prover::new(env);
+
+        // Get the environment for this specific goal
+        let goal_context = doc_env.get_goal_context(&self.path);
+        let mut prover = Prover::new(&goal_context.env);
         prover.verbose = true;
         prover.print_queue = Some(self.queue.clone());
         prover.load_goal(&goal_context);

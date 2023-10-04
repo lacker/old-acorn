@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::ptr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -526,6 +527,7 @@ impl Prover<'_> {
     }
 
     pub fn load_goal<'a>(&mut self, goal_context: &GoalContext<'a>) {
+        assert!(ptr::eq(self.env, goal_context.env));
         for fact in &goal_context.facts {
             self.add_fact(fact.clone());
         }
