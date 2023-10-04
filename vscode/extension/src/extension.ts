@@ -4,11 +4,14 @@ import {
   ExtensionContext,
   Position,
   TextEditor,
+  Uri,
   ViewColumn,
   WebviewPanel,
   window,
   workspace,
 } from "vscode";
+import * as path from "path";
+import * as fs from "fs";
 import {
   Executable,
   LanguageClient,
@@ -17,20 +20,6 @@ import {
 } from "vscode-languageclient/node";
 
 let client: LanguageClient;
-
-function makeHTML(message: string = "Hello, Acorn World!") {
-  return `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Acorn Infoview</title>
-        </head>
-        <body>
-            <h1>${message}</h1>
-        </body>
-        </html>`;
-}
 
 interface DebugParams {
   uri: string;
@@ -52,8 +41,10 @@ class Infoview implements Disposable {
   panel: WebviewPanel;
   disposables: Disposable[];
   lastParams: DebugParams;
+  path: string;
 
-  constructor() {
+  constructor(infoviewPath: string) {
+    this.path = infoviewPath;
     this.disposables = [
       commands.registerTextEditorCommand("acorn.displayInfoview", (editor) =>
         this.display(editor)
@@ -72,12 +63,6 @@ class Infoview implements Disposable {
         this.updateLocation("3");
       }),
     ];
-  }
-
-  setHTML(html: string) {
-    if (this.panel) {
-      this.panel.webview.html = html;
-    }
   }
 
   // Updates the current location in the document
@@ -110,7 +95,6 @@ class Infoview implements Disposable {
         return;
       }
       console.log("debug result:", result);
-      this.setHTML(makeHTML(result));
     });
   }
 
@@ -139,7 +123,10 @@ class Infoview implements Disposable {
     });
 
     // Set the webview's initial content
-    this.setHTML(makeHTML());
+    let indexPath = Uri.file(path.join(this.path, "dist/index.html"));
+    let html = fs.readFileSync(indexPath.fsPath, "utf8");
+    console.log("infoview html:\n", html);
+    this.panel.webview.html = html;
   }
 
   toggle(editor: TextEditor) {
@@ -161,9 +148,10 @@ class Infoview implements Disposable {
 }
 
 export function activate(context: ExtensionContext) {
-  console.log("activating acorn language extension.");
-
-  context.subscriptions.push(new Infoview());
+  let timestamp = new Date().toLocaleTimeString();
+  console.log("activating acorn language extension at", timestamp);
+  let infoviewPath = context.asAbsolutePath("../infoview");
+  context.subscriptions.push(new Infoview(infoviewPath));
 
   let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
 
