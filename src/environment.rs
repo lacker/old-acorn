@@ -1349,13 +1349,18 @@ impl Environment {
         panic!("no context found for {} in:\n{}\n", name, names.join("\n"));
     }
 
-    pub fn get_goal_context_at(&self, start: Position, end: Position) -> Option<GoalContext> {
+    // Returns the path and goal context for the given location.
+    pub fn find_location(
+        &self,
+        start: Position,
+        end: Position,
+    ) -> Option<(Vec<usize>, GoalContext)> {
         let paths = self.goal_paths();
         for path in paths {
             let goal_context = self.get_goal_context(&path);
             if goal_context.range.start <= start && goal_context.range.end >= end {
                 // This is the goal that contains the cursor.
-                return Some(goal_context);
+                return Some((path, goal_context));
             }
         }
         None

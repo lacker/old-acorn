@@ -15,7 +15,7 @@
     lines = response.output;
     if (response.completed) {
       lines.push("");
-      lines.push("done.");
+      lines.push("(end of output)");
     }
   }
 

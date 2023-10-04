@@ -84,7 +84,7 @@ impl Document {
         let paths = env.goal_paths();
         for path in paths {
             let goal_context = env.get_goal_context(&path);
-            let mut prover = Prover::load_goal(&goal_context);
+            let mut prover = Prover::new_with_goal(&goal_context);
             prover.stop_flags.push(self.superseded.clone());
             let outcome = prover.search_for_contradiction(1000, 1.0);
 
@@ -157,7 +157,10 @@ struct DebugTask {
     // The range in the document corresponding to the goal we're debugging
     range: Range,
 
-    // The name of the goal we're debugging
+    // The path to the goal
+    path: Vec<usize>,
+
+    // The name of the goal
     goal_name: String,
 
     // The queue of lines printed by the debug task
@@ -198,7 +201,25 @@ impl DebugTask {
 
     // Runs the debug task.
     async fn run(&self) {
-        log("TODO: actually run the debug task");
+        let read_env = self.document.env.read().await;
+        let env = match read_env.as_ref() {
+            Some(env) => env,
+            None => {
+                // There should be an env available, because we don't run this task without one.
+                log("no env available in DebugTask::run");
+                return;
+            }
+        };
+        let goal_context = env.get_goal_context(&self.path);
+        let mut prover = Prover::new(env);
+        prover.print_queue = Some(self.queue.clone());
+        prover.load_goal(&goal_context);
+
+        // Stop the prover if either this task or this document version is superseded
+        prover.stop_flags.push(self.superseded.clone());
+        prover.stop_flags.push(self.document.superseded.clone());
+        prover.search_for_contradiction(10000, 10.0);
+
         self.completed
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
@@ -250,12 +271,16 @@ impl Backend {
         self.documents.insert(url.clone(), Arc::new(new_doc));
     }
 
+    fn fail(&self, message: &str) -> Result<DebugResponse> {
+        log(message);
+        Ok(DebugResponse::message(message))
+    }
+
     async fn handle_debug_request(&self, params: DebugParams) -> Result<DebugResponse> {
         let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
             None => {
-                log("no text available for debug request");
-                return Ok(DebugResponse::message("loading..."));
+                return self.fail("no text available");
             }
         };
         if let Some(current_task) = self.debug_task.read().await.as_ref() {
@@ -269,21 +294,18 @@ impl Backend {
             }
         }
 
-        let shared_env = doc.env.read().await;
-        let env = match shared_env.as_ref() {
+        let read_env = doc.env.read().await;
+        let env = match read_env.as_ref() {
             Some(env) => env,
             None => {
-                log("no env available for debug request");
-                return Ok(DebugResponse::message("loading..."));
+                return self.fail("no env available");
             }
         };
 
-        let goal_context = match env.get_goal_context_at(params.start, params.end) {
-            Some(goal_context) => goal_context,
+        let (path, goal_context) = match env.find_location(params.start, params.end) {
+            Some(tuple) => tuple,
             None => {
-                return Ok(DebugResponse::message(
-                    "click a proposition to see its proof.",
-                ));
+                return self.fail("no goal at this location");
             }
         };
 
@@ -291,6 +313,7 @@ impl Backend {
         let new_task = DebugTask {
             document: doc.clone(),
             range: goal_context.range,
+            path,
             goal_name: goal_context.name.clone(),
             queue: Arc::new(SegQueue::new()),
             output: Arc::new(RwLock::new(vec![])),

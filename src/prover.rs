@@ -525,12 +525,19 @@ impl Prover<'_> {
         self.passive.next_clause_type() != Some(ClauseType::Fact)
     }
 
-    pub fn load_goal<'a>(goal_context: &GoalContext<'a>) -> Prover<'a> {
-        let mut prover = Prover::new(&goal_context.env);
+    pub fn load_goal<'a>(&mut self, goal_context: &GoalContext<'a>) {
+        // Compare pointer equality
+        assert!(self.env as *const Environment == goal_context.env as *const Environment);
+
         for fact in &goal_context.facts {
-            prover.add_fact(fact.clone());
+            self.add_fact(fact.clone());
         }
-        prover.add_goal(goal_context.goal.clone());
+        self.add_goal(goal_context.goal.clone());
+    }
+
+    pub fn new_with_goal<'a>(goal_context: &GoalContext<'a>) -> Prover<'a> {
+        let mut prover = Prover::new(&goal_context.env);
+        prover.load_goal(goal_context);
         prover
     }
 
@@ -540,7 +547,7 @@ impl Prover<'_> {
     }
 
     fn prove_goal(goal_context: &GoalContext) -> Outcome {
-        let mut prover = Prover::load_goal(&goal_context);
+        let mut prover = Prover::new_with_goal(&goal_context);
         prover.verbose = true;
         prover.search_for_contradiction(2000, 2.0)
     }
