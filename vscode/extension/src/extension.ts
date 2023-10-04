@@ -41,10 +41,10 @@ class Infoview implements Disposable {
   panel: WebviewPanel;
   disposables: Disposable[];
   lastParams: DebugParams;
-  path: string;
+  distPath: string;
 
-  constructor(infoviewPath: string) {
-    this.path = infoviewPath;
+  constructor(distPath: string) {
+    this.distPath = distPath;
     this.disposables = [
       commands.registerTextEditorCommand("acorn.displayInfoview", (editor) =>
         this.display(editor)
@@ -115,6 +115,7 @@ class Infoview implements Disposable {
       {
         enableFindWidget: true,
         retainContextWhenHidden: true,
+        enableScripts: true,
       }
     );
 
@@ -123,10 +124,17 @@ class Infoview implements Disposable {
     });
 
     // Set the webview's initial content
-    let indexPath = Uri.file(path.join(this.path, "dist/index.html"));
+    let distPathOnDisk = Uri.file(this.distPath);
+    let distPathInWebview = this.panel.webview.asWebviewUri(distPathOnDisk);
+    let indexPath = Uri.file(path.join(this.distPath, "index.html"));
     let html = fs.readFileSync(indexPath.fsPath, "utf8");
-    console.log("infoview html:\n", html);
-    this.panel.webview.html = html;
+    // Inject a new base href tag
+    let injected = html.replace(
+      "<head>",
+      `<head>\n<base href="${distPathInWebview}/">`
+    );
+    console.log("post-injection html:\n", injected);
+    this.panel.webview.html = injected;
   }
 
   toggle(editor: TextEditor) {
@@ -150,7 +158,7 @@ class Infoview implements Disposable {
 export function activate(context: ExtensionContext) {
   let timestamp = new Date().toLocaleTimeString();
   console.log("activating acorn language extension at", timestamp);
-  let infoviewPath = context.asAbsolutePath("../infoview");
+  let infoviewPath = context.asAbsolutePath("../infoview/dist");
   context.subscriptions.push(new Infoview(infoviewPath));
 
   let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
