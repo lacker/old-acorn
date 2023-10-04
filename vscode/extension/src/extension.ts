@@ -90,11 +90,15 @@ class Infoview implements Disposable {
     this.lastParams = params;
 
     client.sendRequest("acorn/debug", params).then((result: any) => {
+      if (!this.panel) {
+        return;
+      }
       if (!debugParamsEqual(this.lastParams, params)) {
         // This request must have been superseded by a newer one.
         return;
       }
       console.log("debug result:", result);
+      this.panel.webview.postMessage(result);
     });
   }
 
