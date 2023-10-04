@@ -2,6 +2,7 @@ import {
   commands,
   Disposable,
   ExtensionContext,
+  Position,
   TextEditor,
   ViewColumn,
   WebviewPanel,
@@ -31,9 +32,26 @@ function makeHTML(message: string = "Hello, Acorn World!") {
         </html>`;
 }
 
+interface DebugParams {
+  uri: string;
+  start: Position;
+  end: Position;
+  version: number;
+}
+
+function debugParamsEqual(a: DebugParams, b: DebugParams) {
+  return (
+    a.uri == b.uri &&
+    a.start.isEqual(b.start) &&
+    a.end.isEqual(b.end) &&
+    a.version == b.version
+  );
+}
+
 class Infoview implements Disposable {
   panel: WebviewPanel;
   disposables: Disposable[];
+  lastParams: DebugParams;
 
   constructor() {
     this.disposables = [
@@ -45,13 +63,13 @@ class Infoview implements Disposable {
         this.toggle(editor)
       ),
       window.onDidChangeActiveTextEditor(() => {
-        this.updateLocation();
+        this.updateLocation("1");
       }),
       window.onDidChangeTextEditorSelection(() => {
-        this.updateLocation();
+        this.updateLocation("2");
       }),
       workspace.onDidChangeTextDocument(() => {
-        this.updateLocation();
+        this.updateLocation("3");
       }),
     ];
   }
@@ -63,7 +81,7 @@ class Infoview implements Disposable {
   }
 
   // Updates the current location in the document
-  updateLocation() {
+  updateLocation(source?: string) {
     let editor = window.activeTextEditor;
     if (!editor) {
       return;
@@ -79,10 +97,19 @@ class Infoview implements Disposable {
     let { start, end } = editor.selection;
     let version = editor.document.version;
 
-    let params = { uri, start, end, version };
-    let random_id = Math.floor(Math.random() * 1000000);
+    // No need to send the request if nothing has changed.
+    let params: DebugParams = { uri, start, end, version };
+    if (this.lastParams && debugParamsEqual(this.lastParams, params)) {
+      return;
+    }
+    this.lastParams = params;
+
     client.sendRequest("acorn/debug", params).then((result: any) => {
-      console.log("debug blarp result:", random_id, result);
+      if (!debugParamsEqual(this.lastParams, params)) {
+        // This request must have been superseded by a newer one.
+        return;
+      }
+      console.log("debug result:", result);
       this.setHTML(makeHTML(result));
     });
   }
