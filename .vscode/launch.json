@@ -10,7 +10,7 @@
         "--extensionDevelopmentPath=${workspaceFolder}/vscode/extension"
       ],
       "outFiles": ["${workspaceFolder}/vscode/extension/out/**/*.js"],
-      "preLaunchTask": "Build Extension",
+      "preLaunchTask": "build all",
       "env": {
         "SERVER_PATH": "${workspaceFolder}/target/debug/language_server"
       }

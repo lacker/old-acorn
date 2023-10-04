@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "npm compile extension",
+      "label": "extension: npm compile",
       "type": "npm",
       "script": "compile",
       "options": {
@@ -14,12 +14,12 @@
       },
       "presentation": {
         "panel": "dedicated",
-        "reveal": "always"
+        "reveal": "silent"
       },
       "problemMatcher": ["$tsc"]
     },
     {
-      "label": "npm watch extension",
+      "label": "extension: npm watch",
       "type": "npm",
       "script": "watch",
       "options": {
@@ -37,6 +37,23 @@
       "problemMatcher": ["$tsc-watch"]
     },
     {
+      "label": "infoview: npm build",
+      "type": "npm",
+      "script": "build",
+      "options": {
+        "cwd": "${workspaceFolder}/vscode/infoview"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "silent"
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
       "label": "cargo build",
       "type": "shell",
       "command": "cargo",
@@ -46,13 +63,18 @@
         "isDefault": true
       },
       "presentation": {
-        "reveal": "always"
+        "panel": "dedicated",
+        "reveal": "silent"
       },
       "problemMatcher": []
     },
     {
-      "label": "Build Extension",
-      "dependsOn": ["npm compile extension", "cargo build"],
+      "label": "build all",
+      "dependsOn": [
+        "extension: npm compile",
+        "infoview: npm build",
+        "cargo build"
+      ],
       "dependsOrder": "parallel"
     }
   ]
