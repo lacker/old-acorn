@@ -119,8 +119,11 @@ impl Document {
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DebugParams {
+    // Which document
     pub uri: Url,
     pub version: i32,
+
+    // The selected location in the document
     pub start: Position,
     pub end: Position,
 }
@@ -213,6 +216,7 @@ impl DebugTask {
         log(&format!("running debug task for {}", self.goal_name));
         let goal_context = env.get_goal_context(&self.path);
         let mut prover = Prover::new(env);
+        prover.verbose = true;
         prover.print_queue = Some(self.queue.clone());
         prover.load_goal(&goal_context);
 

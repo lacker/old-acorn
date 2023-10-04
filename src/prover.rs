@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::ptr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 

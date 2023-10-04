@@ -40,11 +40,13 @@ function debugParamsEqual(a: DebugParams, b: DebugParams) {
 class Infoview implements Disposable {
   panel: WebviewPanel;
   disposables: Disposable[];
-  lastParams: DebugParams;
+  currentParams: DebugParams;
   distPath: string;
+  currentRequestId: number;
 
   constructor(distPath: string) {
     this.distPath = distPath;
+    this.currentRequestId = 0;
     this.disposables = [
       commands.registerTextEditorCommand("acorn.displayInfoview", (editor) =>
         this.display(editor)
@@ -54,19 +56,19 @@ class Infoview implements Disposable {
         this.toggle(editor)
       ),
       window.onDidChangeActiveTextEditor(() => {
-        this.updateLocation("1");
+        this.updateLocation();
       }),
       window.onDidChangeTextEditorSelection(() => {
-        this.updateLocation("2");
+        this.updateLocation();
       }),
       workspace.onDidChangeTextDocument(() => {
-        this.updateLocation("3");
+        this.updateLocation();
       }),
     ];
   }
 
   // Updates the current location in the document
-  updateLocation(source?: string) {
+  updateLocation() {
     let editor = window.activeTextEditor;
     if (!editor) {
       return;
@@ -84,17 +86,28 @@ class Infoview implements Disposable {
 
     // No need to send the request if nothing has changed.
     let params: DebugParams = { uri, start, end, version };
-    if (this.lastParams && debugParamsEqual(this.lastParams, params)) {
+    if (this.currentParams && debugParamsEqual(this.currentParams, params)) {
       return;
     }
-    this.lastParams = params;
+
+    this.sendDebugRequest(params);
+  }
+
+  // Sends a debug request to the language server
+  sendDebugRequest(params: DebugParams) {
+    console.log("sending debug request:", params);
+    this.currentRequestId += 1;
+    let id = this.currentRequestId;
+
+    this.currentParams = params;
 
     client.sendRequest("acorn/debug", params).then((result: any) => {
       if (!this.panel) {
+        // The user closed the debug panel since we sent the request.
         return;
       }
-      if (!debugParamsEqual(this.lastParams, params)) {
-        // This request must have been superseded by a newer one.
+      if (id != this.currentRequestId) {
+        // This request has been superseded by a newer one.
         return;
       }
       if (result.message) {
@@ -103,6 +116,11 @@ class Infoview implements Disposable {
       }
       console.log("posting message:", result);
       this.panel.webview.postMessage(result);
+      if (!result.completed) {
+        // The debug response is not complete. Send another request after waiting a bit.
+        let ms = 100;
+        setTimeout(() => this.sendDebugRequest(params), ms);
+      }
     });
   }
 
