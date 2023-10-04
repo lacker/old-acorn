@@ -97,7 +97,11 @@ class Infoview implements Disposable {
         // This request must have been superseded by a newer one.
         return;
       }
-      console.log("debug result:", result);
+      if (result.message) {
+        console.log("language server responded:", result.message);
+        return;
+      }
+      console.log("posting message:", result);
       this.panel.webview.postMessage(result);
     });
   }
