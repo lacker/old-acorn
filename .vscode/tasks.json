@@ -2,6 +2,23 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "npm compile extension",
+      "type": "npm",
+      "script": "compile",
+      "options": {
+        "cwd": "${workspaceFolder}/vscode/extension"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
       "label": "npm watch extension",
       "type": "npm",
       "script": "watch",
@@ -35,7 +52,7 @@
     },
     {
       "label": "Build Extension",
-      "dependsOn": ["npm watch extension", "cargo build"],
+      "dependsOn": ["npm compile extension", "cargo build"],
       "dependsOrder": "parallel"
     }
   ]

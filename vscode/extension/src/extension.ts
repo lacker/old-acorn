@@ -44,8 +44,12 @@ class Infoview implements Disposable {
       commands.registerTextEditorCommand("acorn.toggleInfoview", (editor) =>
         this.toggle(editor)
       ),
-      window.onDidChangeActiveTextEditor(() => this.updateLocation()),
-      window.onDidChangeTextEditorSelection(() => this.updateLocation()),
+      window.onDidChangeActiveTextEditor(() => {
+        this.updateLocation();
+      }),
+      window.onDidChangeTextEditorSelection(() => {
+        this.updateLocation();
+      }),
       workspace.onDidChangeTextDocument(() => {
         this.updateLocation();
       }),
@@ -76,8 +80,9 @@ class Infoview implements Disposable {
     let version = editor.document.version;
 
     let params = { uri, start, end, version };
-    client.sendRequest("acorn/debug", params).then((result: string) => {
-      console.log("debug result:", result);
+    let random_id = Math.floor(Math.random() * 1000000);
+    client.sendRequest("acorn/debug", params).then((result: any) => {
+      console.log("debug blarp result:", random_id, result);
       this.setHTML(makeHTML(result));
     });
   }
