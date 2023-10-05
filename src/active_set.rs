@@ -470,13 +470,17 @@ impl ActiveSet {
         self.rewrite_term_limited(term, 10)
     }
 
+    fn rewrite_term_or_clone(&self, term: &Term) -> Term {
+        if let Some(term) = self.rewrite_term(term) {
+            term
+        } else {
+            term.clone()
+        }
+    }
+
     pub fn rewrite_literal(&self, literal: &Literal) -> Literal {
-        let left = self
-            .rewrite_term(&literal.left)
-            .unwrap_or(literal.left.clone());
-        let right = self
-            .rewrite_term(&literal.right)
-            .unwrap_or(literal.right.clone());
+        let left = self.rewrite_term_or_clone(&literal.left);
+        let right = self.rewrite_term_or_clone(&literal.right);
         Literal::new(literal.positive, left, right)
     }
 
