@@ -102,8 +102,10 @@ impl ActiveSet {
         term
     }
 
-    // Get an iterator of (forward?, s, t) for all s -> t paramodulations allowed for this literal.
-    fn paramodulation_terms(literal: &Literal) -> impl Iterator<Item = (bool, &Term, &Term)> {
+    // Get an iterator of (forward?, s, t) for all (s, t) pairs where there could be a s > t rewrite.
+    // Basically, if our literal is s = t, and s > t in the KBO ordering, only allow (s, t).
+    // Otherwise, also allow (t, s).
+    fn quasiordered_term_pairs(literal: &Literal) -> impl Iterator<Item = (bool, &Term, &Term)> {
         if !literal.positive {
             return vec![].into_iter();
         }
@@ -217,7 +219,7 @@ impl ActiveSet {
     ) -> Vec<(Clause, usize)> {
         let mut result = vec![];
         let pm_literal = &pm_clause.literals[0];
-        for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
+        for (_, s, t) in ActiveSet::quasiordered_term_pairs(pm_literal) {
             if clause_type == ClauseType::Fact && !self.allow_fact_combining(pm_clause, s, t) {
                 continue;
             }
@@ -358,7 +360,7 @@ impl ActiveSet {
     pub fn equality_factoring(clause: &Clause) -> Vec<Clause> {
         let mut answer = vec![];
         let pm_literal = &clause.literals[0];
-        for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
+        for (_, s, t) in ActiveSet::quasiordered_term_pairs(pm_literal) {
             for i in 1..clause.literals.len() {
                 // Try paramodulating into the literal at index i
                 let literal = &clause.literals[i];
@@ -578,7 +580,7 @@ impl ActiveSet {
         if info.clause_type == ClauseType::Fact {
             // Use any literal for paramodulation
             for (i, literal) in clause.literals.iter().enumerate() {
-                for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
+                for (forwards, from, _) in ActiveSet::quasiordered_term_pairs(literal) {
                     self.paramodulation_targets.insert(
                         from,
                         ParamodulationTarget {
@@ -591,7 +593,7 @@ impl ActiveSet {
             }
         } else {
             // Use only the leftmost literal for paramodulation.
-            for (forwards, from, _) in ActiveSet::paramodulation_terms(leftmost_literal) {
+            for (forwards, from, _) in ActiveSet::quasiordered_term_pairs(leftmost_literal) {
                 self.paramodulation_targets.insert(
                     from,
                     ParamodulationTarget {
