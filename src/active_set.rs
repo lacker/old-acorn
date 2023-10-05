@@ -278,42 +278,46 @@ impl ActiveSet {
     ) -> Vec<(Clause, usize)> {
         let mut result = vec![];
         let res_literal = &res_clause.literals[0];
-        let u = &res_literal.left;
-        let u_subterms = u.non_variable_subterms();
 
-        for (path, u_subterm) in u_subterms {
-            if res_literal.positive && path.is_empty() {
-                // We already handle the u = s case in activate_paramodulator.
-                continue;
-            }
+        for (res_forwards, u, _) in ActiveSet::quasiordered_term_pairs(res_literal) {
+            let u_subterms = u.non_variable_subterms();
 
-            // Look for paramodulation targets that match u_subterm
-            let targets = self.paramodulation_targets.get_unifying(u_subterm);
-            for target in targets {
-                let pm_clause = self.get_clause(target.clause_index);
-                let pm_literal = &pm_clause.literals[target.literal_index];
-                let (s, t) = if target.forwards {
-                    (&pm_literal.left, &pm_literal.right)
-                } else {
-                    (&pm_literal.right, &pm_literal.left)
-                };
-                if clause_type == ClauseType::Fact && !self.allow_fact_combining(pm_clause, s, t) {
+            for (path, u_subterm) in u_subterms {
+                if res_literal.positive && path.is_empty() {
+                    // We already handle the u = s case in activate_paramodulator.
                     continue;
                 }
 
-                if let Some(new_clause) = self.maybe_superpose(
-                    s,
-                    t,
-                    pm_clause,
-                    target.literal_index,
-                    u_subterm,
-                    &path,
-                    res_clause,
-                    0,
-                    true,
-                    clause_type == ClauseType::Fact,
-                ) {
-                    result.push((new_clause, target.clause_index));
+                // Look for paramodulation targets that match u_subterm
+                let targets = self.paramodulation_targets.get_unifying(u_subterm);
+                for target in targets {
+                    let pm_clause = self.get_clause(target.clause_index);
+                    let pm_literal = &pm_clause.literals[target.literal_index];
+                    let (s, t) = if target.forwards {
+                        (&pm_literal.left, &pm_literal.right)
+                    } else {
+                        (&pm_literal.right, &pm_literal.left)
+                    };
+                    if clause_type == ClauseType::Fact
+                        && !self.allow_fact_combining(pm_clause, s, t)
+                    {
+                        continue;
+                    }
+
+                    if let Some(new_clause) = self.maybe_superpose(
+                        s,
+                        t,
+                        pm_clause,
+                        target.literal_index,
+                        u_subterm,
+                        &path,
+                        res_clause,
+                        0,
+                        res_forwards,
+                        clause_type == ClauseType::Fact,
+                    ) {
+                        result.push((new_clause, target.clause_index));
+                    }
                 }
             }
         }
