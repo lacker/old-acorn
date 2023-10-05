@@ -227,7 +227,14 @@ impl DebugTask {
         // Stop the prover if either this task or this document version is superseded
         prover.stop_flags.push(self.superseded.clone());
         prover.stop_flags.push(self.document.superseded.clone());
-        prover.search_for_contradiction(3000, 3.0);
+        let outcome = prover.search_for_contradiction(3000, 3.0);
+
+        if outcome == Outcome::Unknown {
+            // We failed. Let's add more information about the final state of the prover.
+            self.queue.push("".to_string());
+            self.queue.push("final passive set:".to_string());
+            prover.print_passive(None);
+        }
         log(&format!("debug task for {} completed", self.goal_name));
 
         self.completed
