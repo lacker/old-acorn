@@ -1,4 +1,5 @@
-// ClauseInfo contains information about a Clause that we use for heuristically guiding proof search.
+// ClauseInfo contains information about a Clause that we use for both heuristically guiding proof
+// search and satisfying human curiosity.
 
 use std::{cmp::Ordering, fmt};
 
@@ -121,10 +122,10 @@ impl Ord for ClauseInfo {
         }
 
         if self.clause_type == ClauseType::Other {
-            // Prefer clauses with fewer atoms
-            let by_atom_count = other.atom_count.cmp(&self.atom_count);
-            if by_atom_count != Ordering::Equal {
-                return by_atom_count;
+            // Use the simplicity heuristic
+            let by_simplicity = other.simplicity().cmp(&self.simplicity());
+            if by_simplicity != Ordering::Equal {
+                return by_simplicity;
             }
         }
 
@@ -161,5 +162,11 @@ impl ClauseInfo {
             atom_count,
             generation_order: 0,
         }
+    }
+
+    // A heuristic for how simple this clause is.
+    // The lower the simplicity, the more likely we are to select it.
+    pub fn simplicity(&self) -> u32 {
+        self.atom_count + self.proof_step.proof_size
     }
 }
