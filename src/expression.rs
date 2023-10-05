@@ -437,6 +437,13 @@ mod tests {
     }
 
     #[test]
+    fn test_empty_blocks() {
+        // Empty blocks in expressions should fail to parse, but not crash
+        check_not_value("forall(x: Nat) { }");
+        check_not_value("exists(x: Nat) { }");
+    }
+
+    #[test]
     fn test_block_inside_binary() {
         check_value("p -> forall(x: Nat) { x = x }");
         check_value("f(forall(x: Nat) { x = x }, forall(y: Nat) { y = y })");

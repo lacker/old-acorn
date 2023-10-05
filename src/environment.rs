@@ -1114,6 +1114,11 @@ impl Environment {
             }
 
             StatementEnum::ForAll(fas) => {
+                if fas.body.is_empty() {
+                    // ForAll statements with an empty body can just be ignored
+                    return Ok(());
+                }
+
                 let (quant_names, quant_types) =
                     self.bind_args(fas.quantifiers.iter().collect())?;
 
@@ -1591,6 +1596,13 @@ mod tests {
         let mut env = Environment::new();
         env.add("define b: bool = axiom");
         env.add("if b {}");
+    }
+
+    #[test]
+    fn test_empty_forall_statement() {
+        // Allowed as statement but not as an expression.
+        let mut env = Environment::new();
+        env.add("forall(b: bool) {}");
     }
 
     #[test]
