@@ -105,15 +105,12 @@ impl ActiveSet {
     // Get an iterator of (forward?, s, t) for all (s, t) pairs where there could be a s > t rewrite.
     // Basically, if our literal is s = t, and s > t in the KBO ordering, only allow (s, t).
     // Otherwise, also allow (t, s).
-    fn quasiordered_term_pairs(literal: &Literal) -> impl Iterator<Item = (bool, &Term, &Term)> {
-        if !literal.positive {
-            return vec![].into_iter();
-        }
+    fn quasiordered_term_pairs(literal: &Literal) -> Vec<(bool, &Term, &Term)> {
         let order = literal.left.kbo(&literal.right);
         match order {
             Ordering::Greater => {
                 // s > t, so we only do forwards
-                vec![(true, &literal.left, &literal.right)].into_iter()
+                vec![(true, &literal.left, &literal.right)]
             }
             Ordering::Equal => {
                 // s = t, so we do both directions
@@ -121,12 +118,19 @@ impl ActiveSet {
                     (true, &literal.left, &literal.right),
                     (false, &literal.right, &literal.left),
                 ]
-                .into_iter()
             }
             Ordering::Less => {
                 panic!("Backwards literal: {:?}", literal);
             }
         }
+    }
+
+    // Get an iterator of (forward?, s, t) for all s -> t paramodulations allowed for this literal.
+    fn paramodulation_terms(literal: &Literal) -> Vec<(bool, &Term, &Term)> {
+        if !literal.positive {
+            return vec![];
+        }
+        ActiveSet::quasiordered_term_pairs(literal)
     }
 
     // Considers an inference that rewrites s -> t, based on pm_clause, in a known fact.
@@ -222,7 +226,7 @@ impl ActiveSet {
             return vec![];
         }
         let mut result = vec![];
-        for (_, s, t) in ActiveSet::quasiordered_term_pairs(pm_literal) {
+        for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
             if clause_type == ClauseType::Fact && !self.allow_fact_combining(pm_clause, s, t) {
                 continue;
             }
@@ -363,7 +367,7 @@ impl ActiveSet {
     pub fn equality_factoring(clause: &Clause) -> Vec<Clause> {
         let mut answer = vec![];
         let pm_literal = &clause.literals[0];
-        for (_, s, t) in ActiveSet::quasiordered_term_pairs(pm_literal) {
+        for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
             for i in 1..clause.literals.len() {
                 // Try paramodulating into the literal at index i
                 let literal = &clause.literals[i];
@@ -583,7 +587,7 @@ impl ActiveSet {
         if info.clause_type == ClauseType::Fact {
             // Use any literal for paramodulation
             for (i, literal) in clause.literals.iter().enumerate() {
-                for (forwards, from, _) in ActiveSet::quasiordered_term_pairs(literal) {
+                for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
                     self.paramodulation_targets.insert(
                         from,
                         ParamodulationTarget {
@@ -596,7 +600,7 @@ impl ActiveSet {
             }
         } else {
             // Use only the leftmost literal for paramodulation.
-            for (forwards, from, _) in ActiveSet::quasiordered_term_pairs(leftmost_literal) {
+            for (forwards, from, _) in ActiveSet::paramodulation_terms(leftmost_literal) {
                 self.paramodulation_targets.insert(
                     from,
                     ParamodulationTarget {
