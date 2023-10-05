@@ -3,6 +3,8 @@ import {
   Disposable,
   ExtensionContext,
   Position,
+  ProgressLocation,
+  TextDocument,
   TextEditor,
   Uri,
   ViewColumn,
@@ -236,6 +238,34 @@ export function activate(context: ExtensionContext) {
 
   // Start the client. This will also launch the server
   client.start();
+
+  context.subscriptions.push(
+    workspace.onDidSaveTextDocument((document: TextDocument) => {
+      if (document.languageId !== "acorn") {
+        return;
+      }
+      window.withProgress(
+        {
+          location: ProgressLocation.Notification,
+          title: "Acorn Validation",
+          cancellable: true,
+        },
+        async (progress, token) => {
+          token.onCancellationRequested(() => {
+            console.log("acorn validation progress bar canceled");
+          });
+
+          // TODO: make this not fake progress
+          for (let i = 0; i < 100; i++) {
+            progress.report({ increment: 1 });
+
+            // Simulating a time-consuming process.
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+        }
+      );
+    })
+  );
 }
 
 export function deactivate(): Thenable<void> | undefined {

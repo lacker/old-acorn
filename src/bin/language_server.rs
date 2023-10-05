@@ -8,7 +8,7 @@ use chrono;
 use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -19,12 +19,27 @@ fn log(message: &str) {
     eprintln!("{}", stamped);
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProgressResponse {
+    done: i32,
+    total: i32,
+}
+
+impl ProgressResponse {
+    fn default() -> ProgressResponse {
+        ProgressResponse { done: 0, total: 0 }
+    }
+}
+
 // A structure representing a particular version of a document.
 #[derive(Clone)]
 struct Document {
     url: Url,
     text: String,
     version: i32,
+
+    progress: Arc<Mutex<ProgressResponse>>,
 
     // superseded is set to true when there is a newer version of the document.
     superseded: Arc<AtomicBool>,
@@ -40,6 +55,7 @@ impl Document {
             url,
             text,
             version,
+            progress: Arc::new(Mutex::new(ProgressResponse::default())),
             superseded: Arc::new(AtomicBool::new(false)),
             env: Arc::new(RwLock::new(None)),
         }
@@ -82,6 +98,8 @@ impl Document {
         let env = shared_env.as_ref().unwrap().clone();
 
         let paths = env.goal_paths();
+        let mut done = 0;
+        let total = paths.len() as i32;
         for path in paths {
             let goal_context = env.get_goal_context(&path);
             let mut prover = Prover::new_with_goal(&goal_context);
@@ -109,6 +127,14 @@ impl Document {
             client
                 .publish_diagnostics(self.url.clone(), diagnostics.clone(), None)
                 .await;
+
+            // Update progress
+            done += 1;
+            let new_progress = ProgressResponse { done, total };
+            {
+                let mut locked_progress = self.progress.lock().await;
+                *locked_progress = new_progress;
+            }
         }
 
         if diagnostics.is_empty() {
@@ -122,6 +148,13 @@ impl Document {
             if diagnostics.len() == 1 { "" } else { "s" }
         ));
     }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressParams {
+    // Which document
+    pub uri: Url,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
@@ -313,6 +346,17 @@ impl Backend {
     fn fail(&self, message: &str) -> Result<DebugResponse> {
         log(message);
         Ok(DebugResponse::message(message))
+    }
+
+    async fn handle_progress_request(&self, params: ProgressParams) -> Result<ProgressResponse> {
+        let doc = match self.documents.get(&params.uri) {
+            Some(doc) => doc,
+            None => {
+                return Ok(ProgressResponse::default());
+            }
+        };
+        let locked_progress = doc.progress.lock().await;
+        Ok(locked_progress.clone())
     }
 
     async fn handle_debug_request(&self, params: DebugParams) -> Result<DebugResponse> {
@@ -515,6 +559,7 @@ async fn main() {
 
     let (service, socket) = LspService::build(Backend::new)
         .custom_method("acorn/debug", Backend::handle_debug_request)
+        .custom_method("acorn/progress", Backend::handle_progress_request)
         .finish();
 
     Server::new(stdin, stdout, socket).serve(service).await;
