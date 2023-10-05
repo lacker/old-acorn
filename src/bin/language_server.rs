@@ -56,7 +56,7 @@ impl Document {
     // Publishes them incrementally as each new diagnostic is found.
     // The task completes when all diagnostics are created.
     async fn run_diagnostics(&self, client: Client) {
-        self.log("making diagnostics");
+        self.log("running diagnostics");
 
         let mut diagnostics = vec![];
         let mut env = Environment::new();
@@ -109,10 +109,18 @@ impl Document {
             client
                 .publish_diagnostics(self.url.clone(), diagnostics.clone(), None)
                 .await;
-            self.log(&format!("{} diagnostics published", diagnostics.len()));
         }
 
-        self.log("done making diagnostics");
+        if diagnostics.is_empty() {
+            client
+                .publish_diagnostics(self.url.clone(), diagnostics.clone(), None)
+                .await;
+        }
+        self.log(&format!(
+            "diagnostics complete. {} issue{} found",
+            diagnostics.len(),
+            if diagnostics.len() == 1 { "" } else { "s" }
+        ));
     }
 }
 
