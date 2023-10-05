@@ -217,8 +217,11 @@ impl ActiveSet {
         pm_clause: &Clause,
         clause_type: ClauseType,
     ) -> Vec<(Clause, usize)> {
-        let mut result = vec![];
         let pm_literal = &pm_clause.literals[0];
+        if !pm_literal.positive {
+            return vec![];
+        }
+        let mut result = vec![];
         for (_, s, t) in ActiveSet::quasiordered_term_pairs(pm_literal) {
             if clause_type == ClauseType::Fact && !self.allow_fact_combining(pm_clause, s, t) {
                 continue;
