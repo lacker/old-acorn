@@ -1,4 +1,4 @@
-// This file contains the data structures that make up a proof, along with heuristics of how it is found.
+// ClauseInfo contains information about a Clause that we use for heuristically guiding proof search.
 
 use std::{cmp::Ordering, fmt};
 

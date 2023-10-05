@@ -2,9 +2,9 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use crate::clause::Clause;
+use crate::clause_info::{ClauseInfo, ClauseType, ProofRule, ProofStep};
 use crate::fingerprint::FingerprintTree;
 use crate::literal_set::LiteralSet;
-use crate::proof::{ClauseInfo, ClauseType, ProofRule, ProofStep};
 use crate::specializer::Specializer;
 use crate::term::{Literal, Term};
 use crate::unifier::{Scope, Unifier};
