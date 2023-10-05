@@ -244,6 +244,10 @@ export function activate(context: ExtensionContext) {
       if (document.languageId !== "acorn") {
         return;
       }
+
+      // Wait a bit before showing progress
+      await new Promise((resolve) => setTimeout(resolve, 250));
+
       let params = { uri: document.uri.toString() };
       let previousPercent = 0;
       window.withProgress(
