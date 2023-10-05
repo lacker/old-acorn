@@ -240,10 +240,12 @@ export function activate(context: ExtensionContext) {
   client.start();
 
   context.subscriptions.push(
-    workspace.onDidSaveTextDocument((document: TextDocument) => {
+    workspace.onDidSaveTextDocument(async (document: TextDocument) => {
       if (document.languageId !== "acorn") {
         return;
       }
+      let params = { uri: document.uri.toString() };
+      let previousPercent = 0;
       window.withProgress(
         {
           location: ProgressLocation.Notification,
@@ -255,12 +257,19 @@ export function activate(context: ExtensionContext) {
             console.log("acorn validation progress bar canceled");
           });
 
-          // TODO: make this not fake progress
-          for (let i = 0; i < 100; i++) {
-            progress.report({ increment: 1 });
+          while (true) {
+            let response: any = await client.sendRequest(
+              "acorn/progress",
+              params
+            );
+            if (response.total === response.done) {
+              return;
+            }
 
-            // Simulating a time-consuming process.
-            await new Promise((resolve) => setTimeout(resolve, 50));
+            let percent = Math.floor((100 * response.done) / response.total);
+            let increment = percent - previousPercent;
+            progress.report({ increment });
+            previousPercent = percent;
           }
         }
       );

@@ -106,6 +106,14 @@ impl Document {
             prover.stop_flags.push(self.superseded.clone());
             let outcome = prover.search_for_contradiction(1000, 1.0);
 
+            // Update progress
+            done += 1;
+            let new_progress = ProgressResponse { done, total };
+            {
+                let mut locked_progress = self.progress.lock().await;
+                *locked_progress = new_progress;
+            }
+
             let description = match outcome {
                 Outcome::Success => continue,
                 Outcome::Exhausted => "is unprovable",
@@ -127,14 +135,6 @@ impl Document {
             client
                 .publish_diagnostics(self.url.clone(), diagnostics.clone(), None)
                 .await;
-
-            // Update progress
-            done += 1;
-            let new_progress = ProgressResponse { done, total };
-            {
-                let mut locked_progress = self.progress.lock().await;
-                *locked_progress = new_progress;
-            }
         }
 
         if diagnostics.is_empty() {
