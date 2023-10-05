@@ -35,6 +35,14 @@ impl PassiveSet {
         self.clauses.iter().map(|pc| &pc.clause)
     }
 
+    // Sort "highest" to "lowest" which is best to worst
+    pub fn all_clause_info(&self) -> Vec<ClauseInfo> {
+        let mut infos: Vec<ClauseInfo> = self.clauses.iter().cloned().collect();
+        infos.sort();
+        infos.reverse();
+        infos
+    }
+
     pub fn next_clause_type(&self) -> Option<ClauseType> {
         self.clauses.peek().map(|pc| pc.clause_type)
     }

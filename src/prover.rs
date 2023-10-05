@@ -220,8 +220,9 @@ impl Prover<'_> {
 
     pub fn print_passive(&self, substr: Option<&str>) {
         let mut count = 0;
-        for clause in self.passive.iter_clauses() {
-            let clause = self.display(clause);
+        let clause_infos = self.passive.all_clause_info();
+        for clause_info in clause_infos {
+            let clause = self.display(&clause_info.clause);
             if let Some(substr) = substr {
                 if !clause.to_string().contains(substr) {
                     continue;
@@ -229,6 +230,7 @@ impl Prover<'_> {
             }
             count += 1;
             cprintln!(self, "{}", clause);
+            cprintln!(self, "  {}", clause_info);
         }
         if let Some(substr) = substr {
             cprintln!(self, "{} passive clauses matched {}", count, substr);

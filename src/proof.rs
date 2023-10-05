@@ -1,6 +1,6 @@
 // This file contains the data structures that make up a proof, along with heuristics of how it is found.
 
-use std::cmp::Ordering;
+use std::{cmp::Ordering, fmt};
 
 use crate::clause::Clause;
 
@@ -95,7 +95,7 @@ impl ProofStep {
 }
 
 // The ClauseInfo contains a bunch of heuristic information about the clause.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ClauseInfo {
     pub clause: Clause,
     pub clause_type: ClauseType,
@@ -136,6 +136,16 @@ impl Ord for ClauseInfo {
 impl PartialOrd for ClauseInfo {
     fn partial_cmp(&self, other: &ClauseInfo) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl fmt::Display for ClauseInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} atoms, {} proof size",
+            self.atom_count, self.proof_step.proof_size
+        )
     }
 }
 
