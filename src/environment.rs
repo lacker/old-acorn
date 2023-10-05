@@ -1154,6 +1154,10 @@ impl Environment {
             }
 
             StatementEnum::If(is) => {
+                if is.body.is_empty() {
+                    // If statements with an empty body can just be ignored
+                    return Ok(());
+                }
                 let condition = self.evaluate_value_expression(&is.condition, None)?;
                 let range = is.condition.range();
                 let block = self
@@ -1580,6 +1584,13 @@ mod tests {
             "ander",
             "lambda(x0: bool) { lambda(x1: bool) { (x0 & x1) } }",
         );
+    }
+
+    #[test]
+    fn test_empty_if_block() {
+        let mut env = Environment::new();
+        env.add("define b: bool = axiom");
+        env.add("if b {}");
     }
 
     #[test]
