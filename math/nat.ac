@@ -182,6 +182,8 @@ theorem lte_cancel_suc(a: Nat, b: Nat): lte(Suc(a), Suc(b)) -> lte(a, b) by {
     }
 }
 
+theorem lt_cancel_suc(a: Nat, b: Nat): lt(Suc(a), Suc(b)) -> lt(a, b)
+
 theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
     let f(x: Nat) -> bool = forall(y: Nat) { lt_not_symm(x, y) }
     induction(f)
