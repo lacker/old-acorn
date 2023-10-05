@@ -236,12 +236,26 @@ impl DebugTask {
         prover.stop_flags.push(self.superseded.clone());
         prover.stop_flags.push(self.document.superseded.clone());
         let outcome = prover.search_for_contradiction(3000, 3.0);
+        self.queue.push("".to_string());
 
-        if outcome == Outcome::Unknown {
-            // We failed. Let's add more information about the final state of the prover.
-            self.queue.push("".to_string());
-            self.queue.push("final passive set:".to_string());
-            prover.print_passive(None);
+        match outcome {
+            Outcome::Success => {
+                self.queue.push("Success!".to_string());
+                prover.print_proof();
+            }
+            Outcome::Exhausted => {
+                self.queue
+                    .push("All possibilities have been exhausted.".to_string());
+            }
+            Outcome::Unknown => {
+                // We failed. Let's add more information about the final state of the prover.
+                self.queue
+                    .push("Timeout. The final passive set:".to_string());
+                prover.print_passive(None);
+            }
+            Outcome::Interrupted => {
+                return;
+            }
         }
         log(&format!("debug task for {} completed", self.goal_name));
 
