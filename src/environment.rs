@@ -1131,7 +1131,7 @@ impl Environment {
                     return Ok(());
                 }
 
-                let (quant_names, quant_types) =
+                let (forall_names, forall_types) =
                     self.bind_args(fas.quantifiers.iter().collect())?;
 
                 let block = self.new_block(None, &fas.body, None, None)?.unwrap();
@@ -1148,16 +1148,49 @@ impl Environment {
                         ));
                     }
                 };
-                let mut constants: Vec<AtomId> = Vec::new();
-                for name in &quant_names {
+
+                // Find the constants that were part of the "forall" that opened the block
+                let mut forall_constants: Vec<AtomId> = vec![];
+                for name in &forall_names {
                     if let Some(info) = block.env.constants.get(name) {
-                        constants.push(info.id);
+                        forall_constants.push(info.id);
                     } else {
                         panic!("name {} not found in block constants", name);
                     }
                 }
-                let unbound_claim_value = bound_claim.replace_constants_with_variables(&constants);
-                let claim = AcornValue::ForAll(quant_types, Box::new(unbound_claim_value));
+
+                // Find any other constants that were defined in the block
+                let mut all_constants: Vec<(AtomId, AcornType)> = vec![];
+                bound_claim.find_constants_gte(self.constants.len() as AtomId, &mut all_constants);
+
+                // Separate the constants into two groups
+                let mut exists_constants = vec![];
+                let mut exists_types = vec![];
+                for (constant, constant_type) in all_constants {
+                    if forall_constants.contains(&constant) {
+                        continue;
+                    }
+                    exists_constants.push(constant);
+                    exists_types.push(constant_type);
+                }
+
+                let ordered_constants = forall_constants
+                    .iter()
+                    .chain(exists_constants.iter())
+                    .cloned()
+                    .collect();
+
+                // Replace all of the constants that only exist in the inside environment
+                let unbound_claim_value =
+                    bound_claim.replace_constants_with_variables(&ordered_constants);
+
+                let inner_claim = if exists_types.is_empty() {
+                    unbound_claim_value
+                } else {
+                    AcornValue::Exists(exists_types, Box::new(unbound_claim_value))
+                };
+                let claim = AcornValue::ForAll(forall_types, Box::new(inner_claim));
+
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
@@ -1166,7 +1199,7 @@ impl Environment {
                     range: statement.range(),
                 };
                 self.add_proposition(prop);
-                self.unbind_args(quant_names);
+                self.unbind_args(forall_names);
                 Ok(())
             }
 

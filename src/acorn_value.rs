@@ -765,7 +765,7 @@ impl AcornValue {
 
     // Replace the constant(constants[i]) with a variable(i).
     // Shift all other variable indexes up to account for the new variables.
-    pub fn replace_constants_with_variables<'a>(&self, constants: &Vec<AtomId>) -> AcornValue {
+    pub fn replace_constants_with_variables(&self, constants: &Vec<AtomId>) -> AcornValue {
         match self {
             AcornValue::Atom(typed_atom) => match typed_atom.atom {
                 Atom::Constant(c) => {
@@ -831,6 +831,56 @@ impl AcornValue {
                 let new_value = value.replace_constants_with_variables(constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
+            _ => panic!("unexpected match"),
+        }
+    }
+
+    // Find all constants c_i with i >= index.
+    // Report tuples of (i, type).
+    pub fn find_constants_gte(&self, index: AtomId, answer: &mut Vec<(AtomId, AcornType)>) {
+        match self {
+            AcornValue::Atom(typed_atom) => match typed_atom.atom {
+                Atom::Constant(c) => {
+                    if c >= index {
+                        // Insert tuple into answer, sorted by index
+                        let tuple = (c, typed_atom.acorn_type.clone());
+                        if let Err(pos) = answer.binary_search(&tuple) {
+                            answer.insert(pos, tuple);
+                        };
+                    }
+                }
+                _ => {}
+            },
+            AcornValue::Application(fa) => {
+                fa.function.find_constants_gte(index, answer);
+                for arg in &fa.args {
+                    arg.find_constants_gte(index, answer);
+                }
+            }
+            AcornValue::Lambda(_, value) => value.find_constants_gte(index, answer),
+            AcornValue::Implies(left, right) => {
+                left.find_constants_gte(index, answer);
+                right.find_constants_gte(index, answer);
+            }
+            AcornValue::Equals(left, right) => {
+                left.find_constants_gte(index, answer);
+                right.find_constants_gte(index, answer);
+            }
+            AcornValue::NotEquals(left, right) => {
+                left.find_constants_gte(index, answer);
+                right.find_constants_gte(index, answer);
+            }
+            AcornValue::And(left, right) => {
+                left.find_constants_gte(index, answer);
+                right.find_constants_gte(index, answer);
+            }
+            AcornValue::Or(left, right) => {
+                left.find_constants_gte(index, answer);
+                right.find_constants_gte(index, answer);
+            }
+            AcornValue::Not(x) => x.find_constants_gte(index, answer),
+            AcornValue::ForAll(_, value) => value.find_constants_gte(index, answer),
+            AcornValue::Exists(_, value) => value.find_constants_gte(index, answer),
             _ => panic!("unexpected match"),
         }
     }
