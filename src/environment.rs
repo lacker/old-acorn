@@ -79,7 +79,9 @@ pub struct Proposition {
     pub proven: bool,
 
     // A boolean expressing the claim of the proposition.
-    // This value is relative to the external environment, not the subenvironment.
+    // If we have a block and a subenvironment, this represents the "external claim".
+    // It is the value we can assume is true, in the outer environment, when everything
+    // in the inner environment has been proven.
     pub claim: AcornValue,
 
     // The body of the proposition, when it has an associated block.
@@ -90,8 +92,9 @@ pub struct Proposition {
 }
 
 pub struct Block {
-    // The externally-defined claim of this block, relative to the block's environment.
-    // Some blocks do not have a claim.
+    // The "internal claim" of this block.
+    // This claim is defined relative to the block's environment.
+    // This claim must be proved inside the block's environment in order for the block to be valid.
     pub claim: Option<AcornValue>,
 
     // The environment created inside the block.
@@ -1795,7 +1798,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     }
 
     #[test]
-    fn test_if_exists() {
+    fn test_if_block_ending_with_exists() {
         let mut env = Environment::new();
         env.add(
             r#"
@@ -1803,6 +1806,42 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             theorem goal: a by {
                 if a {
                     exists(b: bool) { b = b }
+                }
+            }
+            "#,
+        );
+        for path in env.goal_paths() {
+            env.get_goal_context(&path);
+        }
+    }
+
+    #[test]
+    fn test_forall_block_ending_with_exists() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            define a: bool = axiom
+            theorem goal: a by {
+                forall(b: bool) {
+                    exists(c: bool) { c = c }
+                }
+            }
+            "#,
+        );
+        for path in env.goal_paths() {
+            env.get_goal_context(&path);
+        }
+    }
+
+    #[test]
+    fn test_exists_block_ending_with_exists() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            define a: bool = axiom
+            theorem goal: a by {
+                exists(b: bool) {
+                    exists(c: bool) { c = c }
                 }
             }
             "#,
