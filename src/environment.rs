@@ -1793,4 +1793,26 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         "#,
         );
     }
+
+    #[test]
+    fn test_if_exists() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define 0: Nat = axiom
+            define Suc(x: Nat) -> Nat = axiom
+            define add(a: Nat, b: Nat) -> Nat = axiom
+            define lt(x: Nat, y: Nat) -> bool = axiom
+            theorem lt_suc(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
+                if lt(a, b) {
+                    exists(c: Nat) { add(a, c) = b & c != 0 }
+                }
+            }
+            "#,
+        );
+        for path in env.goal_paths() {
+            env.get_goal_context(&path);
+        }
+    }
 }
