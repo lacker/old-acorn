@@ -1239,13 +1239,15 @@ impl Environment {
                 let block = self
                     .new_block(None, &is.body, None, Some((&condition, range)))?
                     .unwrap();
-                let last_claim: &AcornValue = match block.env.propositions.last() {
+                let inner_claim: &AcornValue = match block.env.propositions.last() {
                     Some(p) => &p.claim,
                     None => {
                         return Err(Error::new(&is.token, "expected a claim in this block"));
                     }
                 };
-                let claim = AcornValue::Implies(Box::new(condition), Box::new(last_claim.clone()));
+                let outer_claim = block.env.export_claim(&vec![], vec![], inner_claim);
+                let claim = AcornValue::Implies(Box::new(condition), Box::new(outer_claim.clone()));
+
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
