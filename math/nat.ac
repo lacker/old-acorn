@@ -12,12 +12,14 @@ axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
 
 axiom suc_neq_zero(x: Nat): Suc(x) != 0
 
-axiom induction(f: Nat -> bool): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
+axiom induction(f: Nat -> bool):
+    f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
 
 // Ideally a and f would be templated rather than just Nat.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom
 axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
-axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))
+axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):
+    recursion(f, a, Suc(n)) = f(recursion(f, a, n))
 
 define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)
 
@@ -161,7 +163,7 @@ theorem lt_not_ref(a: Nat): !lt(a, a) by {
     }
 }
 
-theorem adding_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0
+theorem add_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0
 
 theorem only_zero_lte_zero(a: Nat): lte(a, 0) -> a = 0
 
@@ -304,4 +306,39 @@ theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
         }
         division_theorem(m, n)
     }
+}
+
+define is_composite(a: Nat) -> bool = exists(b: Nat, c: Nat) {
+    lt(1, b) & lt(1, c) & a = mul(b, c)
+}
+
+theorem mul_to_zero(a: Nat, b: Nat): mul(a, b) = 0 -> a = 0 | b = 0
+
+theorem divisor_lt(a: Nat, b: Nat, c: Nat):
+    a != 0 & lt(1, b) & mul(a, b) = c -> lt(a, c) by {
+    if a != 0 & lt(1, b) & mul(a, b) = c {
+        exists(d: Nat) { add(1, d) = b & d != 0 }
+        mul(a, add(1, d)) = c
+        add(a, mul(a, d)) = c
+        mul(a, d) != 0
+        a != c
+        lt(a, c)
+    }
+}
+
+define is_prime(a: Nat) -> bool = lt(1, a) & !is_composite(a)
+
+define any(f: Nat -> bool) -> bool = exists(n: Nat) { f(n) }
+
+define divides(a: Nat, b: Nat) -> bool = exists(c: Nat) { mul(a, c) = b }
+
+theorem strong_induction(f: Nat -> bool):
+    forall(k: Nat) {
+        forall(m: Nat) { lt(m, k) -> f(m) } -> f(k)
+    } -> forall(n: Nat) { f(n) }
+
+theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
+    lte(n, p) & is_prime(p)
+} by {
+    // TODO
 }
