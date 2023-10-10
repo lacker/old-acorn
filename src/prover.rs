@@ -909,6 +909,22 @@ mod tests {
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
+    #[test]
+    fn test_forall_scopes() {
+        let mut env = Environment::new();
+        // Unprovable, since we know nothing about lt, but it shouldn't crash.
+        env.add(
+            r#"
+            type Nat: axiom
+            define lt: (Nat, Nat) -> bool = axiom
+            theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
+                forall(m: Nat) { lt(m, k) -> f(m) } -> f(k)
+            } -> forall(n: Nat) { f(n) }
+            "#,
+        );
+        assert_eq!(Prover::prove(&env, "strong_induction"), Outcome::Exhausted);
+    }
+
     // An environment with theorems that we should be able to prove in testing.
     // Ideally when there's a problem with one of these theorems we can simplify it
     // to a test that doesn't use the snap environment.
