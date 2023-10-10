@@ -121,9 +121,10 @@ impl Prover<'_> {
     }
 
     fn normalize_proposition(&mut self, proposition: AcornValue) -> Vec<Clause> {
-        if !proposition.validate() {
+        if let Err(e) = proposition.validate() {
             panic!(
-                "attempted to add invalid proposition to prover: {}",
+                "error: {} while adding proposition to prover: {}",
+                e,
                 self.env.value_str(&proposition)
             );
         }

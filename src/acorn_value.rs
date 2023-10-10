@@ -885,25 +885,37 @@ impl AcornValue {
         }
     }
 
-    // Returns whether this is a valid top-level value.
+    // Returns an error string if this is not a valid top-level value.
     // The types of variables should match the type of the quantifier they correspond to.
-    pub fn validate(&self) -> bool {
+    pub fn validate(&self) -> Result<(), String> {
         let mut stack: Vec<AcornType> = vec![];
         self.validate_against_stack(&mut stack)
     }
 
-    fn validate_against_stack(&self, stack: &mut Vec<AcornType>) -> bool {
+    fn validate_against_stack(&self, stack: &mut Vec<AcornType>) -> Result<(), String> {
         match self {
             AcornValue::Atom(ta) => match ta.atom {
                 Atom::Variable(i) => match stack.get(i as usize) {
-                    Some(t) => ta.acorn_type == *t,
-                    None => false,
+                    Some(t) => {
+                        if ta.acorn_type == *t {
+                            Ok(())
+                        } else {
+                            Err(format!(
+                                "variable {} has type {:?} but is used as type {:?}",
+                                i, t, ta.acorn_type
+                            ))
+                        }
+                    }
+                    None => Err(format!("variable {} is not in scope", i)),
                 },
-                _ => true,
+                _ => Ok(()),
             },
             AcornValue::Application(app) => {
-                app.function.validate_against_stack(stack)
-                    && app.args.iter().all(|x| x.validate_against_stack(stack))
+                app.function.validate_against_stack(stack)?;
+                for arg in &app.args {
+                    arg.validate_against_stack(stack)?;
+                }
+                Ok(())
             }
             AcornValue::Lambda(args, value)
             | AcornValue::ForAll(args, value)
@@ -919,7 +931,8 @@ impl AcornValue {
             | AcornValue::NotEquals(left, right)
             | AcornValue::And(left, right)
             | AcornValue::Or(left, right) => {
-                left.validate_against_stack(stack) && right.validate_against_stack(stack)
+                left.validate_against_stack(stack)?;
+                right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
             _ => panic!("unexpected match"),
