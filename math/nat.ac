@@ -376,12 +376,38 @@ theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
     }
 }
 
+theorem divides_trans(a: Nat, b: Nat, c: Nat):
+    divides(a, b) & divides(b, c) -> divides(a, c) by {
+    if divides(a, b) & divides(b, c) {
+        exists(d: Nat) { mul(a, d) = b }
+        exists(e: Nat) { mul(b, e) = c }
+        mul(a, mul(d, e)) = c
+        divides(a, c)
+    }
+}
+
 theorem has_prime_divisor(n: Nat): lt(1, n) -> exists(p: Nat) {
     is_prime(p) & divides(p, n)
 } by {
     strong_induction(has_prime_divisor)
     forall(k: Nat) {
         if true_below(has_prime_divisor, k) {
+            if is_prime(k) {
+                divides(k, k)
+                has_prime_divisor(k)
+            }
+            if is_composite(k) {
+                exists(b: Nat, c: Nat) {
+                    lt(1, b) & lt(1, c) & k = mul(b, c)
+                }
+                lt(b, k)
+                has_prime_divisor(b)
+                exists(p: Nat) {
+                    is_prime(p) & divides(p, b)
+                }
+                divides(p, k)
+                has_prime_divisor(k)
+            }
             has_prime_divisor(k)
         }
     }

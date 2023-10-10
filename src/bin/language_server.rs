@@ -72,6 +72,7 @@ impl Document {
     // Publishes them incrementally as each new diagnostic is found.
     // The task completes when all diagnostics are created.
     async fn run_diagnostics(&self, client: Client) {
+        let start_time = chrono::Local::now();
         self.log("running diagnostics");
 
         let mut diagnostics = vec![];
@@ -142,8 +143,11 @@ impl Document {
                 .publish_diagnostics(self.url.clone(), diagnostics.clone(), None)
                 .await;
         }
+        let duration = chrono::Local::now() - start_time;
+        let seconds = duration.num_milliseconds() as f64 / 1000.0;
         self.log(&format!(
-            "diagnostics complete. {} issue{} found",
+            "diagnostics complete after {:.2}s. {} issue{} found",
+            seconds,
             diagnostics.len(),
             if diagnostics.len() == 1 { "" } else { "s" }
         ));
