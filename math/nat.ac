@@ -413,6 +413,39 @@ theorem has_prime_divisor(n: Nat): lt(1, n) -> exists(p: Nat) {
     }
 }
 
+exists(factorial: Nat -> Nat) {
+    factorial(0) = 1 &
+    forall(n: Nat) { factorial(Suc(n)) = mul(Suc(n), factorial(n)) }
+}
+
+theorem divides_factorial(k: Nat, n: Nat):
+    k != 0 & lte(k, n) -> divides(k, factorial(n)) by {
+    if k != 0 {
+        let f(x: Nat) -> bool = divides_factorial(k, x)
+        induction(f)
+        f(0)
+        forall(x: Nat) {
+            if f(x) {
+                lte(k, x) -> divides(k, factorial(x))
+                if lte(k, Suc(x)) {
+                    if k = Suc(x) {
+                        divides(k, factorial(Suc(x)))
+                    }
+                    if k != Suc(x) {
+                        lte(k, x)
+                        divides(k, factorial(x))
+                        divides(factorial(x), factorial(Suc(x)))
+                        divides(k, factorial(Suc(x)))
+                    }
+                    divides_factorial(k, Suc(x))
+                }
+                f(Suc(x))
+            }
+        }
+        divides_factorial(k, n)
+    }
+}
+
 theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     lte(n, p) & is_prime(p)
 } by {
