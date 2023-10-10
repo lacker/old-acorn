@@ -277,3 +277,31 @@ theorem lt_suc(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
         lt_suc(a, b)
     }
 }
+
+theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
+    lt(r, n) & m = add(mul(q, n), r)
+} by {
+    if lt(0, n) {
+        let f(x: Nat) -> bool = division_theorem(x, n)
+        induction(f)
+        f(0)
+        forall(x: Nat) {
+            if f(x) {
+                exists(q: Nat, r: Nat) {
+                    lt(r, n) & x = add(mul(q, n), r)
+                }
+                if Suc(r) = n {
+                    Suc(x) = add(mul(Suc(q), n), 0)
+                    f(Suc(x))
+                }
+                if Suc(r) != n {
+                    lt(Suc(r), n)
+                    Suc(x) = add(mul(q, n), Suc(r))
+                    f(Suc(x))
+                }
+                f(Suc(x))
+            }
+        }
+        division_theorem(m, n)
+    }
+}
