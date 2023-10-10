@@ -245,9 +245,8 @@ impl Environment {
 
     // Adds a proposition.
     fn add_proposition(&mut self, prop: Proposition) {
-        // A slow way of validating.
-        // TODO: remove this once not useful
-        println!("adding claim: {}", self.value_str(&prop.claim));
+        // Check if we're adding invalid claims.
+        // println!("adding claim: {}", self.value_str(&prop.claim));
 
         self.propositions.push(prop);
     }
