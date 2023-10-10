@@ -274,5 +274,6 @@ theorem lt_suc(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
             add(Suc(a), d) = b
             lt(Suc(a), b)
         }
+        lt_suc(a, b)
     }
 }

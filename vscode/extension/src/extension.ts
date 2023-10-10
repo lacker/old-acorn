@@ -39,7 +39,7 @@ function debugParamsEqual(a: DebugParams, b: DebugParams) {
   );
 }
 
-class Infoview implements Disposable {
+class Debugger implements Disposable {
   panel: WebviewPanel;
   disposables: Disposable[];
   currentParams: DebugParams;
@@ -50,11 +50,11 @@ class Infoview implements Disposable {
     this.distPath = distPath;
     this.currentRequestId = 0;
     this.disposables = [
-      commands.registerTextEditorCommand("acorn.displayInfoview", (editor) =>
+      commands.registerTextEditorCommand("acorn.displayDebugger", (editor) =>
         this.display(editor)
       ),
 
-      commands.registerTextEditorCommand("acorn.toggleInfoview", (editor) =>
+      commands.registerTextEditorCommand("acorn.toggleDebugger", (editor) =>
         this.toggle(editor)
       ),
       window.onDidChangeActiveTextEditor(() => {
@@ -137,8 +137,8 @@ class Infoview implements Disposable {
       return;
     }
     this.panel = window.createWebviewPanel(
-      "acornInfoview",
-      "Acorn Infoview",
+      "acornDebugger",
+      "Acorn Debugger",
       { viewColumn: column, preserveFocus: true },
       {
         enableFindWidget: true,
@@ -188,8 +188,8 @@ class Infoview implements Disposable {
 export function activate(context: ExtensionContext) {
   let timestamp = new Date().toLocaleTimeString();
   console.log("activating acorn language extension at", timestamp);
-  let infoviewPath = context.asAbsolutePath("../infoview/dist");
-  context.subscriptions.push(new Infoview(infoviewPath));
+  let debuggerPath = context.asAbsolutePath("../debugger/dist");
+  context.subscriptions.push(new Debugger(debuggerPath));
 
   let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
 

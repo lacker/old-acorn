@@ -23,21 +23,21 @@
     "commands": [
       {
         "category": "Acorn",
-        "command": "acorn.displayInfoview",
-        "title": "Infoview: Display",
-        "description": "Show the infoview.",
+        "command": "acorn.displayDebugger",
+        "title": "Debugger: Display",
+        "description": "Show the debugger.",
         "icon": "$(squirrel)"
       },
       {
         "category": "Acorn",
-        "command": "acorn.toggleInfoview",
-        "title": "Infoview: Toggle",
-        "description": "Toggle whether the infoview is displayed."
+        "command": "acorn.toggleDebugger",
+        "title": "Debugger: Toggle",
+        "description": "Toggle whether the debugger is displayed."
       }
     ],
     "keybindings": [
       {
-        "command": "acorn.toggleInfoview",
+        "command": "acorn.toggleDebugger",
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
         "when": "editorTextFocus && editorLangId == acorn"
@@ -46,7 +46,7 @@
     "menus": {
       "editor/title": [
         {
-          "command": "acorn.displayInfoview",
+          "command": "acorn.displayDebugger",
           "group": "navigation",
           "when": "editorLangId == acorn"
         }
