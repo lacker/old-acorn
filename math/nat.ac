@@ -264,7 +264,9 @@ theorem add_cancels_right(a: Nat, b: Nat, c: Nat): add(b, a) = add(c, a) -> b = 
     }
 }
 
-theorem lt_suc(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
+theorem add_identity_right(a: Nat, b: Nat): add(a, b) = a -> b = 0
+
+theorem lt_suc_left(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
     if lt(a, b) {
         exists(c: Nat) { add(a, c) = b & c != 0 }
         exists(d: Nat) { Suc(d) = c }
@@ -276,9 +278,11 @@ theorem lt_suc(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
             add(Suc(a), d) = b
             lt(Suc(a), b)
         }
-        lt_suc(a, b)
+        lt_suc_left(a, b)
     }
 }
+
+theorem lt_suc_right(a: Nat, b: Nat): lt(a, Suc(b)) -> a = b | lt(a, b)
 
 theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
     lt(r, n) & m = add(mul(q, n), r)
@@ -321,6 +325,10 @@ theorem divisor_lt(a: Nat, b: Nat, c: Nat):
         mul(a, add(1, d)) = c
         add(a, mul(a, d)) = c
         mul(a, d) != 0
+        if a = c {
+            add(a, mul(a, d)) = a
+            mul(a, d) = 0
+        }
         a != c
         lt(a, c)
     }
@@ -332,7 +340,52 @@ define any(f: Nat -> bool) -> bool = exists(n: Nat) { f(n) }
 
 define divides(a: Nat, b: Nat) -> bool = exists(c: Nat) { mul(a, c) = b }
 
-theorem strong_induction(f: Nat -> bool): forall(k: Nat) { forall(m: Nat) { lt(m, k) -> f(m) } -> f(k) } -> forall(n: Nat) { f(n) }
+define true_below(f: Nat -> bool, n: Nat) -> bool = forall(x: Nat) { lt(x, n) -> f(x) }
+
+theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
+    true_below(f, k) -> f(k)
+} -> forall(n: Nat) { f(n) } by {
+    if (forall(k: Nat) { true_below(f, k) -> f(k) }) {
+        let g(x: Nat) -> bool = true_below(f, x)
+        induction(g)
+        forall(x: Nat) {
+            if g(x) {
+                true_below(f, x)
+                f(x)
+                forall(y: Nat) {
+                    if lt(y, Suc(x)) {
+                        if lt(y, x) {
+                            f(y)
+                        }
+                        if !lt(y, x) {
+                            y = x
+                            f(y)
+                        }
+                        f(y)
+                    }
+                }
+                true_below(f, Suc(x))
+                g(Suc(x))
+            }
+        }
+        forall(n: Nat) {
+            g(Suc(n))
+            true_below(f, Suc(n))
+            f(n)
+        }
+    }
+}
+
+theorem has_prime_divisor(n: Nat): lt(1, n) -> exists(p: Nat) {
+    is_prime(p) & divides(p, n)
+} by {
+    strong_induction(has_prime_divisor)
+    forall(k: Nat) {
+        if true_below(has_prime_divisor, k) {
+            has_prime_divisor(k)
+        }
+    }
+}
 
 theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     lte(n, p) & is_prime(p)
