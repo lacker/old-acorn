@@ -920,7 +920,7 @@ impl AcornValue {
             AcornValue::Lambda(args, value)
             | AcornValue::ForAll(args, value)
             | AcornValue::Exists(args, value) => {
-                let original_len = args.len();
+                let original_len = stack.len();
                 stack.extend(args.iter().cloned());
                 let answer = value.validate_against_stack(stack);
                 stack.truncate(original_len);
