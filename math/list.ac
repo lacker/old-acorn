@@ -1,0 +1,22 @@
+
+
+// This feels awkward.
+// There are just a lot of axioms.
+
+type List<T>: axiom
+
+define is_empty<T>: List<T> -> bool = axiom
+define cons<T>: (T, List<T>) -> List<T> = axiom
+
+axiom head_unique<T>(x: T, xs: List<T>, y: T, ys: List<T>):
+    cons(x, xs) = cons(y, ys) -> x = y
+
+axiom tail_unique<T>(x: T, xs: List<T>, y: T, ys: List<T>):
+    cons(x, xs) = cons(y, ys) -> xs = ys
+
+axiom cons_not_empty<T>(x: T, xs: List<T>):
+    !is_empty(cons(x, xs))
+
+axiom cons_or_empty<T>(list: List<T>): is_empty(list) | exists(x: T, xs: List<T>) {
+    list = cons(x, xs)
+}
