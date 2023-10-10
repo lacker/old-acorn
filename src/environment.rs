@@ -1902,22 +1902,4 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             env.get_goal_context(&path);
         }
     }
-
-    // #[test]
-    // fn test_exists_block_ending_with_exists() {
-    //     let mut env = Environment::new();
-    //     env.add(
-    //         r#"
-    //         define a: bool = axiom
-    //         theorem goal: a by {
-    //             exists(b: bool) {
-    //                 exists(c: bool) { c = c }
-    //             }
-    //         }
-    //         "#,
-    //     );
-    //     for path in env.goal_paths() {
-    //         env.get_goal_context(&path);
-    //     }
-    // }
 }

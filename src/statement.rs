@@ -608,4 +608,17 @@ mod tests {
     fn test_single_line_forall() {
         should_parse("forall(x: Nat) { f(x) -> f(Suc(x)) }");
     }
+
+    #[test]
+    fn test_exists_statement() {
+        ok("exists(x: Nat) { x > 0 }");
+    }
+
+    #[test]
+    fn test_multiline_exists_statement() {
+        should_parse(indoc! {"
+        exists(x: Nat) {
+            x > 0
+        }"});
+    }
 }

@@ -177,10 +177,18 @@ fn parse_partial_expressions(
 ) -> Result<(VecDeque<PartialExpression>, Token)> {
     let mut partial_expressions = VecDeque::<PartialExpression>::new();
     while let Some(token) = tokens.next() {
+        if termination(token.token_type) {
+            return Ok((partial_expressions, token));
+        }
+        if token.token_type.is_binary() {
+            partial_expressions.push_back(PartialExpression::Binary(token));
+            continue;
+        }
+        if token.token_type.is_unary() {
+            partial_expressions.push_back(PartialExpression::Unary(token));
+            continue;
+        }
         match token.token_type {
-            token_type if termination(token_type) => {
-                return Ok((partial_expressions, token));
-            }
             TokenType::LeftParen => {
                 let (subexpression, last_token) =
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightParen)?;
@@ -200,11 +208,8 @@ fn parse_partial_expressions(
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
                 partial_expressions.push_back(PartialExpression::Block(token, subexp, right_brace));
             }
-            token_type if token_type.is_binary() => {
-                partial_expressions.push_back(PartialExpression::Binary(token));
-            }
-            token_type if token_type.is_unary() => {
-                partial_expressions.push_back(PartialExpression::Unary(token));
+            TokenType::NewLine => {
+                // Ignore newlines. The case where the newline is a terminator, we already caught.
             }
             _ => {
                 return Err(Error::new(
@@ -345,19 +350,27 @@ fn combine_partial_expressions(
 mod tests {
     use super::*;
 
-    fn expect_optimal(input: &str, is_value: bool) {
+    fn expect_parse(input: &str, is_value: bool) -> String {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
         let exp = match Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine) {
             Ok((e, _)) => e,
             Err(e) => panic!("unexpected error parsing: {}", e),
         };
-        let output = exp.to_string();
+        exp.to_string()
+    }
+
+    fn expect_optimal(input: &str, is_value: bool) {
+        let output = expect_parse(input, is_value);
         assert_eq!(input, output);
     }
 
     fn check_value(input: &str) {
         expect_optimal(input, true);
+    }
+
+    fn expect_value(input: &str) {
+        expect_parse(input, true);
     }
 
     fn check_type(input: &str) {
@@ -469,5 +482,13 @@ mod tests {
     fn test_bad_types() {
         check_not_type("bool, bool -> bool ->");
         check_not_type("(!p -> !q) -> (q -> p)");
+    }
+
+    #[test]
+    fn test_extra_newline() {
+        expect_value(
+            "(1 +
+            2)",
+        );
     }
 }
