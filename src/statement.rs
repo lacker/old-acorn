@@ -79,15 +79,24 @@ pub struct ExistsStatement {
     pub claim: Expression,
 }
 
+// Struct statements define a new type
+pub struct StructStatement {
+    pub name: String,
+
+    // Each field contains a field name and a type expression
+    pub fields: Vec<(String, Expression)>,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Each type has its own struct.
 pub struct Statement {
     pub first_token: Token,
     pub last_token: Token,
-    pub statement: StatementEnum,
+    pub statement: StatementInfo,
 }
 
-pub enum StatementEnum {
+// Information about a statement that is specific to the type of statement it is
+pub enum StatementInfo {
     Definition(DefinitionStatement),
     Theorem(TheoremStatement),
     Prop(PropStatement),
@@ -95,6 +104,7 @@ pub enum StatementEnum {
     ForAll(ForAllStatement),
     If(IfStatement),
     Exists(ExistsStatement),
+    Struct(StructStatement),
 }
 
 const INDENT_WIDTH: u8 = 4;
@@ -194,7 +204,7 @@ fn parse_theorem_statement(
     let statement = Statement {
         first_token: keyword,
         last_token: last_token,
-        statement: StatementEnum::Theorem(ts),
+        statement: StatementInfo::Theorem(ts),
     };
     Ok(statement)
 }
@@ -236,7 +246,7 @@ fn parse_definition_statement(
     let statement = Statement {
         first_token: keyword,
         last_token,
-        statement: StatementEnum::Definition(ds),
+        statement: StatementInfo::Definition(ds),
     };
     Ok(statement)
 }
@@ -254,7 +264,7 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
     let statement = Statement {
         first_token: keyword,
         last_token,
-        statement: StatementEnum::Type(ts),
+        statement: StatementInfo::Type(ts),
     };
     Ok(statement)
 }
@@ -267,7 +277,7 @@ fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     let statement = Statement {
         first_token: keyword,
         last_token: last_token,
-        statement: StatementEnum::ForAll(fas),
+        statement: StatementInfo::ForAll(fas),
     };
     Ok(statement)
 }
@@ -285,7 +295,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
     let statement = Statement {
         first_token: keyword,
         last_token: last_token,
-        statement: StatementEnum::If(is),
+        statement: StatementInfo::If(is),
     };
     Ok(statement)
 }
@@ -301,9 +311,44 @@ fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     let statement = Statement {
         first_token: keyword,
         last_token,
-        statement: StatementEnum::Exists(es),
+        statement: StatementInfo::Exists(es),
     };
     Ok(statement)
+}
+
+// Parses a struct statement where the "struct" keyword has already been found.
+fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    let name = Token::expect_type(tokens, TokenType::Identifier)?
+        .text()
+        .to_string();
+    Token::expect_type(tokens, TokenType::LeftBrace)?;
+    let mut fields = Vec::new();
+    loop {
+        let token = Token::expect_token(tokens)?;
+        match token.token_type {
+            TokenType::NewLine => {
+                continue;
+            }
+            TokenType::RightBrace => {
+                return Ok(Statement {
+                    first_token: keyword,
+                    last_token: token,
+                    statement: StatementInfo::Struct(StructStatement { name, fields }),
+                })
+            }
+            TokenType::Identifier => {
+                let name = token.text().to_string();
+                Token::expect_type(tokens, TokenType::Colon)?;
+                let (type_expr, _) = Expression::parse(tokens, false, |t| {
+                    t == TokenType::NewLine || t == TokenType::RightBrace
+                })?;
+                fields.push((name, type_expr));
+            }
+            _ => {
+                return Err(Error::new(&token, "expected field name"));
+            }
+        }
+    }
 }
 
 fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {
@@ -327,9 +372,9 @@ impl Statement {
             write!(f, " ")?;
         }
         match &self.statement {
-            StatementEnum::Definition(ds) => write!(f, "{}", ds),
+            StatementInfo::Definition(ds) => write!(f, "{}", ds),
 
-            StatementEnum::Theorem(ts) => {
+            StatementInfo::Theorem(ts) => {
                 if ts.axiomatic {
                     write!(f, "axiom")?;
                 } else {
@@ -345,30 +390,41 @@ impl Statement {
                 Ok(())
             }
 
-            StatementEnum::Prop(ps) => {
+            StatementInfo::Prop(ps) => {
                 write!(f, "{}", ps.claim)?;
                 Ok(())
             }
 
-            StatementEnum::Type(ts) => {
+            StatementInfo::Type(ts) => {
                 write!(f, "type {}: {}", ts.name, ts.type_expr)
             }
 
-            StatementEnum::ForAll(fas) => {
+            StatementInfo::ForAll(fas) => {
                 write!(f, "forall")?;
                 write_args(f, &fas.quantifiers)?;
                 write_block(f, &fas.body, indent)
             }
 
-            StatementEnum::If(is) => {
+            StatementInfo::If(is) => {
                 write!(f, "if {}", is.condition)?;
                 write_block(f, &is.body, indent)
             }
 
-            StatementEnum::Exists(es) => {
+            StatementInfo::Exists(es) => {
                 write!(f, "exists")?;
                 write_args(f, &es.quantifiers)?;
                 write!(f, " {{ {} }}", es.claim)
+            }
+
+            StatementInfo::Struct(ss) => {
+                write!(f, "struct {} {{", ss.name)?;
+                for (i, (name, type_expr)) in ss.fields.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}: {}", name, type_expr)?;
+                }
+                write!(f, "}}")
             }
         }
     }
@@ -437,6 +493,11 @@ impl Statement {
                         let s = parse_exists_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
+                    TokenType::Struct => {
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_struct_statement(keyword, tokens)?;
+                        return Ok((Some(s), None));
+                    }
                     _ => {
                         let first_token = tokens.peek().unwrap().clone();
                         let (claim, token) = Expression::parse(tokens, true, |t| {
@@ -451,7 +512,7 @@ impl Statement {
                         }
                         let brace = if block_ended { Some(token) } else { None };
                         let last_token = claim.last_token().clone();
-                        let se = StatementEnum::Prop(PropStatement { claim });
+                        let se = StatementInfo::Prop(PropStatement { claim });
                         let s = Statement {
                             first_token,
                             last_token,
