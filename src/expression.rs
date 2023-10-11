@@ -243,6 +243,41 @@ fn parse_partial_expressions(
             TokenType::NewLine => {
                 // Ignore newlines. The case where the newline is a terminator, we already caught.
             }
+            TokenType::Dot => {
+                // The dot has to be preceded by an expression, and followed by an identifier.
+                // Handle it now, because it has the highest priority.
+                let left = match partial_expressions.pop_back() {
+                    Some(PartialExpression::Expression(e)) => e,
+                    _ => {
+                        return Err(Error::new(
+                            &token,
+                            &format!("expected expression before dot: {:?}", token),
+                        ));
+                    }
+                };
+                let right = match tokens.next() {
+                    Some(token) => {
+                        if token.token_type != TokenType::Identifier {
+                            return Err(Error::new(
+                                &token,
+                                &format!("expected identifier after dot: {:?}", token),
+                            ));
+                        }
+                        Expression::Identifier(token)
+                    }
+                    None => {
+                        return Err(Error::new(
+                            &token,
+                            &format!("expected identifier after dot: {:?}", token),
+                        ));
+                    }
+                };
+                partial_expressions.push_back(PartialExpression::Expression(Expression::Binary(
+                    Box::new(left),
+                    token,
+                    Box::new(right),
+                )));
+            }
             _ => {
                 return Err(Error::new(
                     &token,
@@ -382,18 +417,17 @@ fn combine_partial_expressions(
 mod tests {
     use super::*;
 
-    fn expect_parse(input: &str, is_value: bool) -> String {
+    fn expect_parse(input: &str, is_value: bool) -> Expression {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        let exp = match Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine) {
+        match Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine) {
             Ok((e, _)) => e,
             Err(e) => panic!("unexpected error parsing: {}", e),
-        };
-        exp.to_string()
+        }
     }
 
     fn expect_optimal(input: &str, is_value: bool) {
-        let output = expect_parse(input, is_value);
+        let output = expect_parse(input, is_value).to_string();
         assert_eq!(input, output);
     }
 
@@ -527,5 +561,15 @@ mod tests {
     #[test]
     fn test_dot_expressions() {
         check_value("NatPair.first(NatPair.new(a, b)) = a");
+    }
+
+    #[test]
+    fn test_dot_parsing_priority() {
+        let exp = expect_parse("foo.bar(baz)", true);
+        if let Expression::Apply(_, _) = exp {
+            // That's what we expect
+            return;
+        }
+        panic!("unexpected expression: {:?}", exp);
     }
 }
