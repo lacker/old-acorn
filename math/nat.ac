@@ -446,11 +446,64 @@ theorem divides_factorial(k: Nat, n: Nat):
     }
 }
 
-theorem lte_one_factorial(a: Nat): lte(1, factorial(a))
+theorem factorial_nondecreasing(n: Nat): lte(factorial(n), factorial(Suc(n)))
 
-theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, Suc(b)) -> a = 1
+theorem lte_one_factorial(a: Nat): lte(1, factorial(a)) by {
+    induction(lte_one_factorial)
+    lte_one_factorial(0)
+    forall(x: Nat) {
+        if lte_one_factorial(x) {
+            lte(1, factorial(x))
+            lte(factorial(x), factorial(Suc(x)))
+            lte_one_factorial(Suc(x))
+        }
+    }
+}
 
-theorem lt_or_lt_or_equal(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b
+theorem lt_imp_lt_suc(a: Nat, b: Nat): lt(a, b) -> lt(a, Suc(b)) by {
+    if lt(a, b) {
+        exists(c: Nat) { add(a, c) = b & c != 0 }
+        add(a, Suc(c)) = Suc(b)
+        Suc(c) != 0
+        lt(a, Suc(b))
+    }
+}
+
+theorem lt_compares(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b by {
+    let f(x: Nat) -> bool = lt_compares(x, b)
+    induction(f)
+    f(0)
+    forall(x: Nat) {
+        if f(x) {
+            lt(x, b) | lt(b, x) | x = b
+            if lt(x, b) {
+                lt(Suc(x), b) | Suc(x) = b
+            }
+            if lt(b, x) {
+                lt(b, Suc(x))
+            }
+            if x = b {
+                lt(b, Suc(x))
+            }
+            f(Suc(x))
+        }
+    }
+}
+
+theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, Suc(b)) -> a = 1 by {
+    if divides(a, b) & divides(a, Suc(b)) {
+        exists(c: Nat) { mul(a, c) = b }
+        exists(d: Nat) { mul(a, d) = Suc(b) }
+        lt(mul(a, c), mul(a, d))
+        lte(c, d)
+        exists(e: Nat) { add(c, e) = d }
+        mul(a, add(c, e)) = Suc(b)
+        add(mul(a, c), mul(a, e)) = Suc(b)
+        add(b, mul(a, e)) = Suc(b)
+        mul(a, e) = 1
+        a = 1
+    }
+}
 
 theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     lte(n, p) & is_prime(p)
