@@ -738,7 +738,10 @@ impl Environment {
                         t.clone()
                     }
                     None => {
-                        return Err(Error::new(token, "name appears to be unbound"));
+                        return Err(Error::new(
+                            token,
+                            &format!("the name {} is unbound", token.text()),
+                        ));
                     }
                 };
 
@@ -826,6 +829,17 @@ impl Environment {
                         let right_value =
                             self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
                         Ok(AcornValue::Or(Box::new(left_value), Box::new(right_value)))
+                    }
+                    TokenType::Dot => {
+                        let name = expression.concatenate_dots()?;
+                        if let Some(acorn_value) = self.get_constant_atom(&name) {
+                            Ok(acorn_value)
+                        } else {
+                            return Err(Error::new(
+                                token,
+                                &format!("the name {} is unbound", name),
+                            ));
+                        }
                     }
                     _ => Err(Error::new(
                         token,

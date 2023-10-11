@@ -141,6 +141,29 @@ impl Expression {
             terminator,
         ))
     }
+
+    pub fn concatenate_dots(&self) -> Result<String> {
+        match self {
+            Expression::Identifier(token) => Ok(token.text().to_string()),
+            Expression::Binary(left, token, right) => {
+                if token.token_type != TokenType::Dot {
+                    return Err(Error::new(
+                        token,
+                        &format!("expected dot operator but found: {}", token),
+                    ));
+                }
+                Ok(format!(
+                    "{}.{}",
+                    left.concatenate_dots()?,
+                    right.concatenate_dots()?
+                ))
+            }
+            _ => Err(Error::new(
+                self.token(),
+                &format!("expected namespaced identifier but found: {}", self),
+            )),
+        }
+    }
 }
 
 // A PartialExpression represents a state in the middle of parsing, where we can have
