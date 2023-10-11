@@ -1984,17 +1984,17 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         }
     }
 
-    // #[test]
-    // fn test_struct_new_definition() {
-    //     let mut env = Environment::new();
-    //     env.add(
-    //         r#"
-    //     struct BoolPair {
-    //         first: bool
-    //         second: bool
-    //     }
-    //     theorem goal(p: BoolPair): p = BoolPair.new(BoolPair.first(p), BoolPair.second(p))
-    //     "#,
-    //     );
-    // }
+    #[test]
+    fn test_struct_new_definition() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+        struct BoolPair {
+            first: bool
+            second: bool
+        }
+        theorem goal(p: BoolPair): p = BoolPair.new(BoolPair.first(p), BoolPair.second(p))
+        "#,
+        );
+    }
 }
