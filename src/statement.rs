@@ -621,4 +621,13 @@ mod tests {
             x > 0
         }"});
     }
+
+    #[test]
+    fn test_struct_statement() {
+        ok(indoc! {"
+        struct NatPair {
+            first: Nat
+            second: Nat
+        }"});
+    }
 }
