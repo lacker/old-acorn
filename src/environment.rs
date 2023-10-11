@@ -1350,7 +1350,7 @@ impl Environment {
                 // This is the "new equation" for a struct type.
                 let new_eq_var = AcornValue::Atom(TypedAtom {
                     atom: Atom::Variable(0),
-                    acorn_type: struct_type,
+                    acorn_type: struct_type.clone(),
                 });
                 let new_eq_args = member_fns
                     .iter()
@@ -1366,10 +1366,11 @@ impl Environment {
                     args: new_eq_args,
                 });
                 let new_eq = AcornValue::Equals(Box::new(recreated), Box::new(new_eq_var));
+                let new_claim = AcornValue::ForAll(vec![struct_type], Box::new(new_eq));
                 self.add_proposition(Proposition {
                     display_name: None,
                     proven: true,
-                    claim: new_eq,
+                    claim: new_claim,
                     block: None,
                     range: Range {
                         start: statement.first_token.start_pos(),
@@ -1405,10 +1406,11 @@ impl Environment {
                             acorn_type: field_types[i].clone(),
                         })),
                     );
+                    let member_claim = AcornValue::ForAll(field_types.clone(), Box::new(member_eq));
                     self.add_proposition(Proposition {
                         display_name: None,
                         proven: true,
-                        claim: member_eq,
+                        claim: member_claim,
                         block: None,
                         range: Range {
                             start: field_name_token.start_pos(),
