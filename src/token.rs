@@ -16,6 +16,7 @@ pub enum TokenType {
     NewLine,
     Comma,
     Colon,
+    Dot,
     RightArrow,
     Exclam,
     Pipe,
@@ -39,6 +40,7 @@ pub enum TokenType {
     If,
     By,
     Function,
+    Struct,
 }
 
 pub const MAX_PRECEDENCE: i8 = 100;
@@ -75,6 +77,7 @@ impl TokenType {
             TokenType::LessThanOrEquals => true,
             TokenType::Comma => true,
             TokenType::Colon => true,
+            TokenType::Dot => true,
             _ => false,
         }
     }
@@ -96,6 +99,7 @@ impl TokenType {
     // "Value" expressions also include "declarations" which is why colons are allowed.
     pub fn value_precedence(&self) -> i8 {
         match self {
+            TokenType::Dot => 9,
             TokenType::Plus => 8,
             TokenType::Minus => 8,
             TokenType::Equals => 7,
@@ -127,8 +131,17 @@ impl TokenType {
     // Whether we put a space to the left of this operator in the canonical style.
     pub fn left_space(&self) -> bool {
         match self {
+            TokenType::Dot => false,
             TokenType::Comma => false,
             TokenType::Colon => false,
+            _ => true,
+        }
+    }
+
+    // Whether we put a space to the right of this operator in the canonical style.
+    pub fn right_space(&self) -> bool {
+        match self {
+            TokenType::Dot => false,
             _ => true,
         }
     }
@@ -314,6 +327,7 @@ impl Token {
                     '\n' => TokenType::NewLine,
                     ',' => TokenType::Comma,
                     ':' => TokenType::Colon,
+                    '.' => TokenType::Dot,
                     '!' => match char_indices.next_if_eq(&(char_index + 1, '=')) {
                         Some(_) => TokenType::NotEquals,
                         None => TokenType::Exclam,
@@ -374,6 +388,7 @@ impl Token {
                             "if" => TokenType::If,
                             "by" => TokenType::By,
                             "function" => TokenType::Function,
+                            "struct" => TokenType::Struct,
                             _ => TokenType::Identifier,
                         }
                     }

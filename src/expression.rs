@@ -37,12 +37,21 @@ impl fmt::Display for Expression {
                 write!(f, "{}{}", token, subexpression)
             }
             Expression::Binary(left, token, right) => {
-                let spacer = if token.token_type.left_space() {
+                let left_spacer = if token.token_type.left_space() {
                     " "
                 } else {
                     ""
                 };
-                write!(f, "{}{}{} {}", left, spacer, token, right)
+                let right_spacer = if token.token_type.right_space() {
+                    " "
+                } else {
+                    ""
+                };
+                write!(
+                    f,
+                    "{}{}{}{}{}",
+                    left, left_spacer, token, right_spacer, right
+                )
             }
             Expression::Apply(left, right) => {
                 write!(f, "{}{}", left, right)
@@ -490,5 +499,10 @@ mod tests {
             "(1 +
             2)",
         );
+    }
+
+    #[test]
+    fn test_dot_expressions() {
+        check_value("NatPair.first(NatPair.new(a, b)) = a");
     }
 }
