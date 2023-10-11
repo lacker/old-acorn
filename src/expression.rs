@@ -212,6 +212,33 @@ fn parse_partial_expressions(
         if termination(token.token_type) {
             return Ok((partial_expressions, token));
         }
+        if token.token_type == TokenType::Dot {
+            // The dot has to be preceded by an expression, and followed by an identifier.
+            // Handle it now, because it has the highest priority.
+            let left = match partial_expressions.pop_back() {
+                Some(PartialExpression::Expression(e)) => e,
+                _ => {
+                    return Err(Error::new(&token, "expected expression before dot"));
+                }
+            };
+            let right = match tokens.next() {
+                Some(token) => {
+                    if token.token_type != TokenType::Identifier {
+                        return Err(Error::new(&token, "expected identifier after dot"));
+                    }
+                    Expression::Identifier(token)
+                }
+                None => {
+                    return Err(Error::new(&token, "expected identifier after dot"));
+                }
+            };
+            partial_expressions.push_back(PartialExpression::Expression(Expression::Binary(
+                Box::new(left),
+                token,
+                Box::new(right),
+            )));
+            continue;
+        }
         if token.token_type.is_binary() {
             partial_expressions.push_back(PartialExpression::Binary(token));
             continue;
@@ -243,45 +270,11 @@ fn parse_partial_expressions(
             TokenType::NewLine => {
                 // Ignore newlines. The case where the newline is a terminator, we already caught.
             }
-            TokenType::Dot => {
-                // The dot has to be preceded by an expression, and followed by an identifier.
-                // Handle it now, because it has the highest priority.
-                let left = match partial_expressions.pop_back() {
-                    Some(PartialExpression::Expression(e)) => e,
-                    _ => {
-                        return Err(Error::new(
-                            &token,
-                            &format!("expected expression before dot: {:?}", token),
-                        ));
-                    }
-                };
-                let right = match tokens.next() {
-                    Some(token) => {
-                        if token.token_type != TokenType::Identifier {
-                            return Err(Error::new(
-                                &token,
-                                &format!("expected identifier after dot: {:?}", token),
-                            ));
-                        }
-                        Expression::Identifier(token)
-                    }
-                    None => {
-                        return Err(Error::new(
-                            &token,
-                            &format!("expected identifier after dot: {:?}", token),
-                        ));
-                    }
-                };
-                partial_expressions.push_back(PartialExpression::Expression(Expression::Binary(
-                    Box::new(left),
-                    token,
-                    Box::new(right),
-                )));
-            }
+
             _ => {
                 return Err(Error::new(
                     &token,
-                    &format!("expected partial expression or terminator: {:?}", token),
+                    "expected partial expression or terminator",
                 ));
             }
         }
