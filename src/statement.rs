@@ -107,24 +107,26 @@ pub enum StatementInfo {
     Struct(StructStatement),
 }
 
-const INDENT_WIDTH: u8 = 4;
+const ONE_INDENT: &str = "    ";
+
+fn add_indent(indentation: &str) -> String {
+    format!("{}{}", indentation, ONE_INDENT)
+}
 
 // Writes out a block, starting with the space before the open-brace, indenting the rest.
-fn write_block(f: &mut fmt::Formatter, statements: &[Statement], indent: u8) -> fmt::Result {
+fn write_block(f: &mut fmt::Formatter, statements: &[Statement], indentation: &str) -> fmt::Result {
     write!(f, " {{\n")?;
+    let new_indentation = add_indent(indentation);
     for s in statements {
-        s.fmt_helper(f, indent + INDENT_WIDTH)?;
+        s.fmt_helper(f, &new_indentation)?;
         write!(f, "\n")?;
     }
-    for _ in 0..indent {
-        write!(f, " ")?;
-    }
-    write!(f, "}}")
+    write!(f, "{}}}", indentation)
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.fmt_helper(f, 0)
+        self.fmt_helper(f, "")
     }
 }
 
@@ -367,10 +369,8 @@ fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {
 }
 
 impl Statement {
-    fn fmt_helper(&self, f: &mut fmt::Formatter, indent: u8) -> fmt::Result {
-        for _ in 0..indent {
-            write!(f, " ")?;
-        }
+    fn fmt_helper(&self, f: &mut fmt::Formatter, indentation: &str) -> fmt::Result {
+        write!(f, "{}", indentation)?;
         match &self.statement {
             StatementInfo::Definition(ds) => write!(f, "{}", ds),
 
@@ -385,7 +385,7 @@ impl Statement {
                 write!(f, ": {}", ts.claim)?;
                 if ts.body.len() > 0 {
                     write!(f, " by")?;
-                    write_block(f, &ts.body, indent)?;
+                    write_block(f, &ts.body, indentation)?;
                 }
                 Ok(())
             }
@@ -402,29 +402,32 @@ impl Statement {
             StatementInfo::ForAll(fas) => {
                 write!(f, "forall")?;
                 write_args(f, &fas.quantifiers)?;
-                write_block(f, &fas.body, indent)
+                write_block(f, &fas.body, indentation)
             }
 
             StatementInfo::If(is) => {
                 write!(f, "if {}", is.condition)?;
-                write_block(f, &is.body, indent)
+                write_block(f, &is.body, indentation)
             }
 
             StatementInfo::Exists(es) => {
+                let new_indentation = add_indent(indentation);
                 write!(f, "exists")?;
                 write_args(f, &es.quantifiers)?;
-                write!(f, " {{ {} }}", es.claim)
+                write!(
+                    f,
+                    " {{\n{}{}\n{}}}",
+                    &new_indentation, es.claim, indentation
+                )
             }
 
             StatementInfo::Struct(ss) => {
-                write!(f, "struct {} {{", ss.name)?;
-                for (i, (name, type_expr)) in ss.fields.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}: {}", name, type_expr)?;
+                let new_indentation = add_indent(indentation);
+                write!(f, "struct {} {{\n", ss.name)?;
+                for (name, type_expr) in &ss.fields {
+                    write!(f, "{}{}: {}\n", new_indentation, name, type_expr)?;
                 }
-                write!(f, "}}")
+                write!(f, "{}}}", indentation)
             }
         }
     }
@@ -672,13 +675,21 @@ mod tests {
 
     #[test]
     fn test_exists_statement() {
-        ok("exists(x: Nat) { x > 0 }");
+        ok(indoc! {"
+        exists(x: Nat) {
+            x > 0
+        }"});
     }
 
     #[test]
-    fn test_multiline_exists_statement() {
-        should_parse(indoc! {"
-        exists(x: Nat) {
+    fn test_single_line_exists_statement() {
+        should_parse("exists(x: Nat) { x > 0 }");
+    }
+
+    #[test]
+    fn test_if_statement() {
+        ok(indoc! {"
+        if x > 1 {
             x > 0
         }"});
     }
