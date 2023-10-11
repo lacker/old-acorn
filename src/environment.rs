@@ -19,10 +19,10 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // It does keep track of names, with the goal of being able to show nice debug information
 // for its values and types.
 pub struct Environment {
-    // The names of the primitive types that have been defined in this scope.
-    // A primitive type is one that cannot be represented as a functional type.
-    // These primitive types can be stored as ids that are indices into this vector.
-    primitive_types: Vec<String>,
+    // The names of the data types that have been defined in this scope.
+    // A data type is one that cannot be represented as a functional type.
+    // These data types can be stored as ids that are indices into this vector.
+    data_types: Vec<String>,
 
     // Maps the name of a type to the type object.
     typenames: HashMap<String, AcornType>,
@@ -139,7 +139,7 @@ impl fmt::Display for Environment {
 impl Environment {
     pub fn new() -> Self {
         Environment {
-            primitive_types: Vec::new(),
+            data_types: Vec::new(),
             constant_names: Vec::new(),
             typenames: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             types: HashMap::new(),
@@ -176,7 +176,7 @@ impl Environment {
             return Ok(None);
         }
         let mut subenv = Environment {
-            primitive_types: self.primitive_types.clone(),
+            data_types: self.data_types.clone(),
             constant_names: self.constant_names.clone(),
             typenames: self.typenames.clone(),
             types: self.types.clone(),
@@ -251,10 +251,10 @@ impl Environment {
         self.propositions.push(prop);
     }
 
-    fn add_primitive_type(&mut self, name: &str) {
-        let primitive_type = AcornType::Primitive(self.primitive_types.len());
-        self.primitive_types.push(name.to_string());
-        self.typenames.insert(name.to_string(), primitive_type);
+    fn add_data_type(&mut self, name: &str) {
+        let data_type = AcornType::Data(self.data_types.len());
+        self.data_types.push(name.to_string());
+        self.typenames.insert(name.to_string(), data_type);
     }
 
     // This creates an atomic value for the next constant, but does not bind it to any name.
@@ -470,7 +470,7 @@ impl Environment {
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
         match acorn_type {
             AcornType::Bool => "bool".to_string(),
-            AcornType::Primitive(i) => self.primitive_types[*i].to_string(),
+            AcornType::Data(i) => self.data_types[*i].to_string(),
             AcornType::Function(function_type) => {
                 let s = if function_type.arg_types.len() > 1 {
                     self.type_list_str(&function_type.arg_types)
@@ -1055,14 +1055,14 @@ impl Environment {
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
         match &statement.statement {
             StatementInfo::Type(ts) => {
-                if self.typenames.contains_key(&ts.name.to_string()) {
+                if self.typenames.contains_key(&ts.name) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
                         "type name already defined in this scope",
                     ));
                 }
                 if ts.type_expr.token().token_type == TokenType::Axiom {
-                    self.add_primitive_type(&ts.name);
+                    self.add_data_type(&ts.name);
                 } else {
                     let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
                     self.typenames.insert(ts.name.to_string(), acorn_type);
@@ -1295,7 +1295,14 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::Struct(_ss) => {
+            StatementInfo::Struct(ss) => {
+                if self.typenames.contains_key(&ss.name) {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        "type name already defined in this scope",
+                    ));
+                }
+
                 todo!();
             }
         }
@@ -1904,5 +1911,19 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         for path in env.goal_paths() {
             env.get_goal_context(&path);
         }
+    }
+
+    #[test]
+    fn test_struct_new_definition() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+        struct BoolPair {
+            first: bool
+            second: bool
+        }
+        theorem goal(p: BoolPair): p = BoolPair.new(BoolPair.first(p), BoolPair.second(p))
+        "#,
+        );
     }
 }
