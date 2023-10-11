@@ -251,10 +251,11 @@ impl Environment {
         self.propositions.push(prop);
     }
 
-    fn add_data_type(&mut self, name: &str) {
+    fn add_data_type(&mut self, name: &str) -> AcornType {
         let data_type = AcornType::Data(self.data_types.len());
         self.data_types.push(name.to_string());
-        self.typenames.insert(name.to_string(), data_type);
+        self.typenames.insert(name.to_string(), data_type.clone());
+        data_type
     }
 
     // This creates an atomic value for the next constant, but does not bind it to any name.
@@ -1302,8 +1303,64 @@ impl Environment {
                         "type name already defined in this scope",
                     ));
                 }
+                let struct_type = self.add_data_type(&ss.name);
 
-                todo!();
+                // The member functions take the type itself to a particular member.
+                let mut member_fn_names = vec![];
+                let mut field_types = vec![];
+                for (field_name, field_type_expr) in &ss.fields {
+                    let field_type = self.evaluate_type_expression(&field_type_expr)?;
+                    field_types.push(field_type.clone());
+                    let member_fn_name = format!("{}.{}", ss.name, field_name);
+                    let member_fn_type = AcornType::Function(FunctionType {
+                        arg_types: vec![struct_type.clone()],
+                        return_type: Box::new(field_type.clone()),
+                    });
+                    self.add_constant(&member_fn_name, member_fn_type, None);
+                    member_fn_names.push(member_fn_name);
+                }
+
+                // A "new" function to create one of these struct types.
+                let new_fn_name = format!("{}.new", ss.name);
+                let new_fn_type = AcornType::Function(FunctionType {
+                    arg_types: field_types,
+                    return_type: Box::new(struct_type.clone()),
+                });
+                self.add_constant(&new_fn_name, new_fn_type, None);
+
+                // A struct can be recreated by new'ing from its members.
+                // This is the fundamental equation that defines a struct type.
+                let var = AcornValue::Atom(TypedAtom {
+                    atom: Atom::Variable(0),
+                    acorn_type: struct_type,
+                });
+                let members: Vec<_> = member_fn_names
+                    .iter()
+                    .map(|name| {
+                        let fn_value = self.get_constant_atom(name).unwrap();
+                        AcornValue::Application(FunctionApplication {
+                            function: Box::new(fn_value),
+                            args: vec![var.clone()],
+                        })
+                    })
+                    .collect();
+                let new_fn_value = self.get_constant_atom(&new_fn_name).unwrap();
+                let recreated = AcornValue::Application(FunctionApplication {
+                    function: Box::new(new_fn_value),
+                    args: members,
+                });
+                let equation = AcornValue::Equals(Box::new(recreated), Box::new(var));
+
+                // Add the fundamental equation as a proposition
+                self.add_proposition(Proposition {
+                    display_name: None,
+                    proven: true,
+                    claim: equation,
+                    block: None,
+                    range: statement.range(),
+                });
+
+                Ok(())
             }
         }
     }
