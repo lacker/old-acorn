@@ -446,8 +446,28 @@ theorem divides_factorial(k: Nat, n: Nat):
     }
 }
 
+theorem lte_one_factorial(a: Nat): lte(1, factorial(a))
+
+theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, Suc(b)) -> a = 1
+
+theorem lt_or_lt_or_equal(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b
+
 theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     lte(n, p) & is_prime(p)
 } by {
-    // TODO
+    let m: Nat = Suc(factorial(n))
+    lt(1, m)
+    exists(p: Nat) {
+        is_prime(p) & divides(p, m)
+    }
+    p != 1
+    if lte(p, n) {
+        divides_factorial(p, n)
+        divides(p, factorial(n))
+        divides(p, Suc(factorial(n)))
+        p = 1
+        // I want to express "contradiction" here. Like, "false".
+    }
+    !lte(p, n)
+    lte(n, p)
 }
