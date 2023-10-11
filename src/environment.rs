@@ -1321,58 +1321,101 @@ impl Environment {
 
                 // The member functions take the type itself to a particular member.
                 let mut member_fn_names = vec![];
+                let mut member_fns = vec![];
                 let mut field_types = vec![];
-                for (field_name, field_type_expr) in &ss.fields {
+                for (field_name_token, field_type_expr) in &ss.fields {
                     let field_type = self.evaluate_type_expression(&field_type_expr)?;
                     field_types.push(field_type.clone());
-                    let member_fn_name = format!("{}.{}", ss.name, field_name);
+                    let member_fn_name = format!("{}.{}", ss.name, field_name_token.text());
                     let member_fn_type = AcornType::Function(FunctionType {
                         arg_types: vec![struct_type.clone()],
-                        return_type: Box::new(field_type.clone()),
+                        return_type: Box::new(field_type),
                     });
                     self.add_constant(&member_fn_name, member_fn_type, None);
-                    member_fn_names.push(member_fn_name);
+                    member_fn_names.push(member_fn_name.clone());
+                    member_fns.push(self.get_constant_atom(&member_fn_name).unwrap());
                 }
 
                 // A "new" function to create one of these struct types.
                 let new_fn_name = format!("{}.new", ss.name);
                 let new_fn_type = AcornType::Function(FunctionType {
-                    arg_types: field_types,
+                    arg_types: field_types.clone(),
                     return_type: Box::new(struct_type.clone()),
                 });
                 self.add_constant(&new_fn_name, new_fn_type, None);
+                let new_fn = self.get_constant_atom(&new_fn_name).unwrap();
 
-                // A struct can be recreated by new'ing from its members.
-                // This is the fundamental equation that defines a struct type.
-                let var = AcornValue::Atom(TypedAtom {
+                // A struct can be recreated by new'ing from its members. Ie:
+                // Pair.new(Pair.first(p), Pair.second(p)) = p.
+                // This is the "new equation" for a struct type.
+                let new_eq_var = AcornValue::Atom(TypedAtom {
                     atom: Atom::Variable(0),
                     acorn_type: struct_type,
                 });
-                let members: Vec<_> = member_fn_names
+                let new_eq_args = member_fns
                     .iter()
-                    .map(|name| {
-                        let fn_value = self.get_constant_atom(name).unwrap();
+                    .map(|f| {
                         AcornValue::Application(FunctionApplication {
-                            function: Box::new(fn_value),
-                            args: vec![var.clone()],
+                            function: Box::new(f.clone()),
+                            args: vec![new_eq_var.clone()],
                         })
                     })
-                    .collect();
-                let new_fn_value = self.get_constant_atom(&new_fn_name).unwrap();
+                    .collect::<Vec<_>>();
                 let recreated = AcornValue::Application(FunctionApplication {
-                    function: Box::new(new_fn_value),
-                    args: members,
+                    function: Box::new(new_fn.clone()),
+                    args: new_eq_args,
                 });
-                let equation = AcornValue::Equals(Box::new(recreated), Box::new(var));
-
-                // Add the fundamental equation as a proposition
+                let new_eq = AcornValue::Equals(Box::new(recreated), Box::new(new_eq_var));
                 self.add_proposition(Proposition {
                     display_name: None,
                     proven: true,
-                    claim: equation,
+                    claim: new_eq,
                     block: None,
-                    range: statement.range(),
+                    range: Range {
+                        start: statement.first_token.start_pos(),
+                        end: ss.name_token.end_pos(),
+                    },
                 });
+
+                // There are also formulas for new followed by member functions. Ie:
+                // Pair.first(Pair.new(a, b)) = a.
+                // These are the "member equations".
+                let var_args = (0..ss.fields.len())
+                    .map(|i| {
+                        AcornValue::Atom(TypedAtom {
+                            atom: Atom::Variable(i as AtomId),
+                            acorn_type: field_types[i].clone(),
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                let new_application = AcornValue::Application(FunctionApplication {
+                    function: Box::new(new_fn),
+                    args: var_args,
+                });
+                for i in 0..ss.fields.len() {
+                    let (field_name_token, field_type_expr) = &ss.fields[i];
+                    let member_fn = &member_fns[i];
+                    let member_eq = AcornValue::Equals(
+                        Box::new(AcornValue::Application(FunctionApplication {
+                            function: Box::new(member_fn.clone()),
+                            args: vec![new_application.clone()],
+                        })),
+                        Box::new(AcornValue::Atom(TypedAtom {
+                            atom: Atom::Variable(i as AtomId),
+                            acorn_type: field_types[i].clone(),
+                        })),
+                    );
+                    self.add_proposition(Proposition {
+                        display_name: None,
+                        proven: true,
+                        claim: member_eq,
+                        block: None,
+                        range: Range {
+                            start: field_name_token.start_pos(),
+                            end: field_type_expr.last_token().end_pos(),
+                        },
+                    });
+                }
 
                 Ok(())
             }

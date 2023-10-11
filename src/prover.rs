@@ -925,6 +925,21 @@ mod tests {
         assert_eq!(Prover::prove(&env, "strong_induction"), Outcome::Exhausted);
     }
 
+    #[test]
+    fn test_struct_new_equation() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            struct Pair {
+                first: bool
+                second: bool
+            }
+            theorem goal(p: Pair): p = Pair.new(Pair.first(p), Pair.second(p))
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
     // An environment with theorems that we should be able to prove in testing.
     // Ideally when there's a problem with one of these theorems we can simplify it
     // to a test that doesn't use the snap environment.

@@ -83,8 +83,10 @@ pub struct ExistsStatement {
 pub struct StructStatement {
     pub name: String,
 
-    // Each field contains a field name and a type expression
-    pub fields: Vec<(String, Expression)>,
+    pub name_token: Token,
+
+    // Each field contains a field name-token and a type expression
+    pub fields: Vec<(Token, Expression)>,
 }
 
 // Acorn is a statement-based language. There are several types.
@@ -320,9 +322,8 @@ fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 
 // Parses a struct statement where the "struct" keyword has already been found.
 fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name = Token::expect_type(tokens, TokenType::Identifier)?
-        .text()
-        .to_string();
+    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name = name_token.text().to_string();
     Token::expect_type(tokens, TokenType::LeftBrace)?;
     let mut fields = Vec::new();
     loop {
@@ -335,16 +336,19 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
                 return Ok(Statement {
                     first_token: keyword,
                     last_token: token,
-                    statement: StatementInfo::Struct(StructStatement { name, fields }),
+                    statement: StatementInfo::Struct(StructStatement {
+                        name,
+                        name_token,
+                        fields,
+                    }),
                 })
             }
             TokenType::Identifier => {
-                let name = token.text().to_string();
                 Token::expect_type(tokens, TokenType::Colon)?;
                 let (type_expr, _) = Expression::parse(tokens, false, |t| {
                     t == TokenType::NewLine || t == TokenType::RightBrace
                 })?;
-                fields.push((name, type_expr));
+                fields.push((token, type_expr));
             }
             _ => {
                 return Err(Error::new(&token, "expected field name"));
