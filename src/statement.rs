@@ -333,6 +333,29 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
     })
 }
 
+// Parses a define statement where the "define" keyword has already been found.
+fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    let name = Token::expect_type(tokens, TokenType::Identifier)?
+        .text()
+        .to_string();
+    let (generic_types, args) = parse_args(tokens, TokenType::RightArrow)?;
+    let (return_type, _) = Expression::parse(tokens, false, |t| t == TokenType::Equals)?;
+    let (return_value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
+    let ds = DefineStatement {
+        name,
+        generic_types,
+        args,
+        return_type,
+        return_value,
+    };
+    let statement = Statement {
+        first_token: keyword,
+        last_token,
+        statement: StatementInfo::Define(ds),
+    };
+    Ok(statement)
+}
+
 // Parses a type statement where the "type" keyword has already been found.
 fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let name = Token::expect_type(tokens, TokenType::Identifier)?
