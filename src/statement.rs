@@ -40,6 +40,7 @@ impl fmt::Display for DefinitionStatement {
 pub struct TheoremStatement {
     pub axiomatic: bool,
     pub name: String,
+    pub generic_types: Vec<Token>,
     pub args: Vec<Expression>,
     pub claim: Expression,
     pub body: Vec<Statement>,
@@ -201,6 +202,7 @@ fn parse_theorem_statement(
     let ts = TheoremStatement {
         axiomatic,
         name,
+        generic_types: vec![],
         args,
         claim,
         body,
