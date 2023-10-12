@@ -688,7 +688,7 @@ impl Environment {
     // externally generic.
     // genericize does the internal-to-external conversion, replacing any types in
     // this list with AcornType::Generic values.
-    fn genericize(&self, value: AcornValue) -> AcornValue {
+    pub fn genericize(&self, value: AcornValue) -> AcornValue {
         let mut value = value;
         for (i, name) in self.generic_types.iter().enumerate() {
             let in_type = self.type_names.get(name).unwrap();
@@ -1146,7 +1146,7 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::Definition(ds) => match ds.declaration.token().token_type {
+            StatementInfo::OldDefinition(ds) => match ds.declaration.token().token_type {
                 TokenType::Colon => {
                     let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
                     if self.identifier_types.contains_key(&name) {
@@ -1188,6 +1188,14 @@ impl Environment {
                     "unexpected top-level token in declaration",
                 )),
             },
+
+            StatementInfo::Let(_ls) => {
+                todo!();
+            }
+
+            StatementInfo::Define(_ds) => {
+                todo!();
+            }
 
             StatementInfo::Theorem(ts) => {
                 // A theorem has three parts:

@@ -13,14 +13,14 @@ use std::fmt;
 //   define foo(a: int, b: int) -> int = a + a + b
 // where the declaration is "foo(a: int, b: int) -> int".
 //
-// "let" indicates a private definition, and "define" indicates a public definition.
-pub struct DefinitionStatement {
+// "let" indicates a constant definition, and "define" indicates a function definition.
+pub struct OldDefinitionStatement {
     pub declaration: Expression,
     pub value: Option<Expression>,
     pub public: bool,
 }
 
-impl fmt::Display for DefinitionStatement {
+impl fmt::Display for OldDefinitionStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let keyword = if self.public { "define" } else { "let" };
         write!(f, "{} {}", keyword, self.declaration)?;
@@ -29,6 +29,30 @@ impl fmt::Display for DefinitionStatement {
         }
         Ok(())
     }
+}
+
+// Let statements introduce new named constants. For example:
+//   let a: int = x + 2
+pub struct LetStatement {
+    pub name: String,
+    pub type_expr: Expression,
+    pub value: Option<Expression>,
+}
+
+// Define statements introduce new named functions. For example:
+//   define foo(a: int, b: int) -> int = a + a + b
+pub struct DefineStatement {
+    pub name: String,
+    pub generic_types: Vec<Token>,
+
+    // A list of the named arg types, like "a: int" and "b: int".
+    pub args: Vec<Expression>,
+
+    // The specified return type of the function, like "int"
+    pub return_type: Expression,
+
+    // The body of the function, like "a + a + b"
+    pub return_value: Expression,
 }
 
 // There are two keywords for theorems.
@@ -100,7 +124,9 @@ pub struct Statement {
 
 // Information about a statement that is specific to the type of statement it is
 pub enum StatementInfo {
-    Definition(DefinitionStatement),
+    OldDefinition(OldDefinitionStatement),
+    Let(LetStatement),
+    Define(DefineStatement),
     Theorem(TheoremStatement),
     Prop(PropStatement),
     Type(TypeStatement),
@@ -259,7 +285,7 @@ fn parse_definition_statement(
         // This is a declaration, with no value
         let last_token = declaration.last_token().clone();
         (
-            DefinitionStatement {
+            OldDefinitionStatement {
                 public,
                 declaration,
                 value: None,
@@ -271,7 +297,7 @@ fn parse_definition_statement(
         let (value, _) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
         let last_token = value.last_token().clone();
         (
-            DefinitionStatement {
+            OldDefinitionStatement {
                 public,
                 declaration,
                 value: Some(value),
@@ -282,7 +308,7 @@ fn parse_definition_statement(
     let statement = Statement {
         first_token: keyword,
         last_token,
-        statement: StatementInfo::Definition(ds),
+        statement: StatementInfo::OldDefinition(ds),
     };
     Ok(statement)
 }
@@ -426,7 +452,22 @@ impl Statement {
     fn fmt_helper(&self, f: &mut fmt::Formatter, indentation: &str) -> fmt::Result {
         write!(f, "{}", indentation)?;
         match &self.statement {
-            StatementInfo::Definition(ds) => write!(f, "{}", ds),
+            StatementInfo::OldDefinition(ds) => write!(f, "{}", ds),
+
+            StatementInfo::Let(ls) => {
+                write!(f, "let {}: {}", ls.name, ls.type_expr)?;
+                if let Some(value) = &ls.value {
+                    write!(f, " = {}", value)?;
+                }
+                Ok(())
+            }
+
+            StatementInfo::Define(ds) => {
+                write!(f, "define {}", ds.name)?;
+                write_generic_types(f, &ds.generic_types)?;
+                write_args(f, &ds.args)?;
+                write!(f, " -> {} = {}", ds.return_type, ds.return_value)
+            }
 
             StatementInfo::Theorem(ts) => {
                 if ts.axiomatic {
