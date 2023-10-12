@@ -278,7 +278,7 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define borf: (Nat, Nat, Nat) -> bool = axiom
+            let borf: (Nat, Nat, Nat) -> bool = axiom
             define also_borf(a: Nat, b: Nat, c: Nat) -> bool = borf(a, b, c)
             let bb: Nat = axiom
             let cc: Nat = axiom

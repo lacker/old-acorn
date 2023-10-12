@@ -522,7 +522,7 @@ mod tests {
 
     #[test]
     fn test_token_types() {
-        let tokens = Token::scan("type Nat: axiom\ndefine 0: Nat = axiom");
+        let tokens = Token::scan("type Nat: axiom\nlet 0: Nat = axiom");
         assert_eq!(tokens.len(), 12);
         assert_eq!(tokens[3].token_type, TokenType::Axiom);
         assert_eq!(tokens[4].token_type, TokenType::NewLine);

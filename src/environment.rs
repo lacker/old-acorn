@@ -1690,12 +1690,13 @@ impl Environment {
     // Expects the given line to be bad
     #[cfg(test)]
     fn bad(&mut self, input: &str) {
-        let statement = Statement::parse_str(input).unwrap();
-        assert!(
-            self.add_statement(&statement).is_err(),
-            "expected error in: {}",
-            input
-        );
+        if let Ok(statement) = Statement::parse_str(input) {
+            assert!(
+                self.add_statement(&statement).is_err(),
+                "expected error in: {}",
+                input
+            );
+        }
     }
 
     // Check that the given name actually does have this type in the environment.
@@ -1839,7 +1840,7 @@ mod tests {
     #[test]
     fn test_argless_theorem() {
         let mut env = Environment::new();
-        env.add("define b: bool = axiom");
+        env.add("let b: bool = axiom");
         env.add("theorem foo: b | !b");
         env.valuecheck("foo", "(b | !b)");
     }
@@ -1847,23 +1848,23 @@ mod tests {
     #[test]
     fn test_nested_binding() {
         let mut env = Environment::new();
-        env.add("define p: bool = forall(b: bool) { b | !b }");
-        env.add("define q: bool = forall(b: bool) { p }");
+        env.add("let p: bool = forall(b: bool) { b | !b }");
+        env.add("let q: bool = forall(b: bool) { p }");
         env.valuecheck("q", "forall(x0: bool) { forall(x1: bool) { (x1 | !x1) } }");
     }
 
     #[test]
     fn test_axiomatic_values_distinct() {
         let mut env = Environment::new();
-        env.add("define x: bool = axiom");
-        env.add("define y: bool = axiom");
+        env.add("let x: bool = axiom");
+        env.add("let y: bool = axiom");
         assert_ne!(env.get_expanded_value("x"), env.get_expanded_value("y"));
     }
 
     #[test]
     fn test_forall_value() {
         let mut env = Environment::new();
-        env.add("define p: bool = forall(x: bool) { x | !x }");
+        env.add("let p: bool = forall(x: bool) { x | !x }");
         env.valuecheck("p", "forall(x0: bool) { (x0 | !x0) }");
     }
 
@@ -1880,7 +1881,7 @@ mod tests {
     #[test]
     fn test_empty_if_block() {
         let mut env = Environment::new();
-        env.add("define b: bool = axiom");
+        env.add("let b: bool = axiom");
         env.add("if b {}");
     }
 
@@ -1899,21 +1900,21 @@ mod tests {
         env.bad("type Borf: Gorf");
         env.bad("type Nat: axiom");
 
-        env.add("define 0: Nat = axiom");
+        env.add("let 0: Nat = axiom");
         env.valuecheck("0", "0");
 
-        env.bad("define Nat: 0 = axiom");
-        env.bad("define axiom: Nat = 0");
-        env.bad("define foo: bool = (axiom = axiom)");
-        env.bad("define foo: bool = 0");
+        env.bad("let Nat: 0 = axiom");
+        env.bad("let axiom: Nat = 0");
+        env.bad("let foo: bool = (axiom = axiom)");
+        env.bad("let foo: bool = 0");
 
-        env.add("define Suc: Nat -> Nat = axiom");
+        env.add("let Suc: Nat -> Nat = axiom");
         env.valuecheck("Suc", "Suc");
-        env.add("define 1: Nat = Suc(0)");
+        env.add("let 1: Nat = Suc(0)");
         env.valuecheck("1", "Suc(0)");
 
-        env.bad("define 1: Nat = Suc(1)");
-        env.bad("define 1: Nat = Borf");
+        env.bad("let 1: Nat = Suc(1)");
+        env.bad("let 1: Nat = Borf");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         env.typecheck("suc_injective", "(Nat, Nat) -> bool");
@@ -1927,9 +1928,9 @@ mod tests {
         // We don't want failed typechecks to leave the environment in a bad state
         assert!(!env.identifier_types.contains_key("x"));
 
-        env.bad("define foo: bool = Suc(0)");
-        env.bad("define foo: Nat = Suc(0 = 0)");
-        env.bad("define foo: Nat = Suc(0, 0)");
+        env.bad("let foo: bool = Suc(0)");
+        env.bad("let foo: Nat = Suc(0 = 0)");
+        env.bad("let foo: Nat = Suc(0, 0)");
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         env.valuecheck("suc_neq_zero", "lambda(x0: Nat) { (Suc(x0) != 0) }");
