@@ -689,10 +689,6 @@ impl Environment {
             Expression::Macro(token, _, _, _) => {
                 Err(Error::new(token, "unexpected macro in type expression"))
             }
-            Expression::Template(_, _, _, _) => Err(Error::new(
-                expression.token(),
-                "unexpected template in type expression",
-            )),
         }
     }
 
@@ -911,10 +907,6 @@ impl Environment {
                 self.unbind_args(arg_names);
                 ret_val
             }
-            Expression::Template(_, _, _, _) => Err(Error::new(
-                expression.token(),
-                "unexpected template in value expression",
-            )),
         }
     }
 

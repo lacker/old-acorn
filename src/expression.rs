@@ -19,7 +19,6 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // "Macro" is the application of a macro.
 //   The second expression must be an arg list.
 //   Macros include the terminating brace as a token.
-// "Template" is a type-templated identifier, like foo<T>.
 #[derive(Debug)]
 pub enum Expression {
     Identifier(Token),
@@ -28,7 +27,6 @@ pub enum Expression {
     Apply(Box<Expression>, Box<Expression>),
     Grouping(Token, Box<Expression>, Token),
     Macro(Token, Box<Expression>, Box<Expression>, Token),
-    Template(Box<Expression>, Token, Vec<Token>, Token),
 }
 
 impl fmt::Display for Expression {
@@ -64,17 +62,6 @@ impl fmt::Display for Expression {
             Expression::Macro(token, args, sub, _) => {
                 write!(f, "{}{} {{ {} }}", token, args, sub)
             }
-            Expression::Template(e, _, types, _) => {
-                // Join the tokens with ", "
-                let mut types_str = String::new();
-                for (i, token) in types.iter().enumerate() {
-                    if i > 0 {
-                        types_str.push_str(", ");
-                    }
-                    types_str.push_str(&format!("{}", token));
-                }
-                write!(f, "{}<{}>", e, types_str)
-            }
         }
     }
 }
@@ -89,7 +76,6 @@ impl Expression {
             Expression::Apply(left, _) => left.token(),
             Expression::Grouping(left_paren, _, _) => left_paren,
             Expression::Macro(token, _, _, _) => token,
-            Expression::Template(_, first_angle_bracket, _, _) => first_angle_bracket,
         }
     }
 
@@ -101,7 +87,6 @@ impl Expression {
             Expression::Apply(left, _) => left.first_token(),
             Expression::Grouping(left_paren, _, _) => left_paren,
             Expression::Macro(token, _, _, _) => token,
-            Expression::Template(left, _, _, _) => left.first_token(),
         }
     }
 
@@ -113,7 +98,6 @@ impl Expression {
             Expression::Apply(_, right) => right.last_token(),
             Expression::Grouping(_, _, right_paren) => right_paren,
             Expression::Macro(_, _, _, right_brace) => right_brace,
-            Expression::Template(_, _, _, right_angle_bracket) => right_angle_bracket,
         }
     }
 
