@@ -46,7 +46,7 @@ theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a
 theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
 
 theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c)) by {
-    let f(x: Nat) -> bool = add_assoc(x, b, c) 
+    define f(x: Nat) -> bool = add_assoc(x, b, c) 
     induction(f)
     forall(x: Nat) {
         if f(x) {
@@ -73,7 +73,7 @@ theorem mul_zero_left(a: Nat): mul(0, a) = 0
 theorem mul_suc_right(a: Nat, b: Nat): mul(a, Suc(b)) = add(a, mul(a, b))
 
 theorem mul_suc_left(a: Nat, b: Nat): mul(Suc(a), b) = add(b, mul(a, b)) by {
-    let f(x: Nat) -> bool = mul_suc_left(a, x)
+    define f(x: Nat) -> bool = mul_suc_left(a, x)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -98,7 +98,7 @@ theorem mul_suc_left(a: Nat, b: Nat): mul(Suc(a), b) = add(b, mul(a, b)) by {
 }
 
 theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
-    let f(x: Nat) -> bool = mul_comm(x, b)
+    define f(x: Nat) -> bool = mul_comm(x, b)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -117,7 +117,7 @@ theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
     add(add(a, b), add(c, d)) = add(add(a, c), add(b, d))
 
 theorem left_distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
-    let f(x: Nat) -> bool = left_distrib(x, b, c)
+    define f(x: Nat) -> bool = left_distrib(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -136,7 +136,7 @@ theorem left_distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b),
 theorem right_distrib(a: Nat, b: Nat, c: Nat): mul(add(a, b), c) = add(mul(a, c), mul(b, c))
 
 theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c)) by {
-    let f(x: Nat) -> bool = mul_assoc(x, b, c)
+    define f(x: Nat) -> bool = mul_assoc(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -170,7 +170,7 @@ theorem only_zero_lte_zero(a: Nat): lte(a, 0) -> a = 0
 theorem not_lt_zero(a: Nat): !lt(a, 0)
 
 theorem zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) } by {
-    let f(x: Nat) -> bool = (a = 0 | exists(b: Nat) { a = Suc(b) })
+    define f(x: Nat) -> bool = (a = 0 | exists(b: Nat) { a = Suc(b) })
     induction(f)
 }
 
@@ -187,7 +187,7 @@ theorem lte_cancel_suc(a: Nat, b: Nat): lte(Suc(a), Suc(b)) -> lte(a, b) by {
 theorem lt_cancel_suc(a: Nat, b: Nat): lt(Suc(a), Suc(b)) -> lt(a, b)
 
 theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
-    let f(x: Nat) -> bool = forall(y: Nat) { lt_not_symm(x, y) }
+    define f(x: Nat) -> bool = forall(y: Nat) { lt_not_symm(x, y) }
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -221,7 +221,7 @@ theorem lt_diff(a: Nat, b: Nat): lt(a, b) -> exists(c: Nat) { add(a, c) = b & c 
 }
 
 theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by {
-    let f(z: Nat) -> bool = forall(x: Nat, y: Nat) { lte_trans(x, y, z) }
+    define f(z: Nat) -> bool = forall(x: Nat, y: Nat) { lte_trans(x, y, z) }
     induction(f)
     f(0)
     forall(z: Nat) {
@@ -240,7 +240,7 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by
 theorem lt_add_suc(a: Nat, b: Nat): lt(a, add(a, Suc(b)))
 
 theorem add_cancels_left(a: Nat, b: Nat, c: Nat): add(a, b) = add(a, c) -> b = c by {
-    let f(x: Nat) -> bool = add_cancels_left(x, b, c)
+    define f(x: Nat) -> bool = add_cancels_left(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -288,7 +288,7 @@ theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
     lt(r, n) & m = add(mul(q, n), r)
 } by {
     if lt(0, n) {
-        let f(x: Nat) -> bool = division_theorem(x, n)
+        define f(x: Nat) -> bool = division_theorem(x, n)
         induction(f)
         f(0)
         forall(x: Nat) {
@@ -346,7 +346,7 @@ theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
     true_below(f, k) -> f(k)
 } -> forall(n: Nat) { f(n) } by {
     if (forall(k: Nat) { true_below(f, k) -> f(k) }) {
-        let g(x: Nat) -> bool = true_below(f, x)
+        define g(x: Nat) -> bool = true_below(f, x)
         induction(g)
         forall(x: Nat) {
             if g(x) {
@@ -421,7 +421,7 @@ exists(factorial: Nat -> Nat) {
 theorem divides_factorial(k: Nat, n: Nat):
     k != 0 & lte(k, n) -> divides(k, factorial(n)) by {
     if k != 0 {
-        let f(x: Nat) -> bool = divides_factorial(k, x)
+        define f(x: Nat) -> bool = divides_factorial(k, x)
         induction(f)
         f(0)
         forall(x: Nat) {
@@ -470,7 +470,7 @@ theorem lt_imp_lt_suc(a: Nat, b: Nat): lt(a, b) -> lt(a, Suc(b)) by {
 }
 
 theorem lt_compares(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b by {
-    let f(x: Nat) -> bool = lt_compares(x, b)
+    define f(x: Nat) -> bool = lt_compares(x, b)
     induction(f)
     f(0)
     forall(x: Nat) {

@@ -2031,7 +2031,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             type Nat: axiom
             theorem foo(a: Nat, b: Nat): a = b by {
                 let c: Nat = a
-                let d(e: Nat) -> bool = foo(e, b)
+                define d(e: Nat) -> bool = foo(e, b)
             }
             "#,
         );

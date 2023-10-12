@@ -272,7 +272,7 @@ fn parse_theorem_statement(
 }
 
 // Parses a let statement where the "let" or "define" keyword has already been found.
-fn parse_definition_statement(
+fn parse_old_definition_statement(
     keyword: Token,
     tokens: &mut TokenIter,
     public: bool,
@@ -311,6 +311,26 @@ fn parse_definition_statement(
         statement: StatementInfo::OldDefinition(ds),
     };
     Ok(statement)
+}
+
+// Parses a let statement where the "let" keyword has already been found.
+fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    let name = Token::expect_type(tokens, TokenType::Identifier)?
+        .text()
+        .to_string();
+    Token::expect_type(tokens, TokenType::Colon)?;
+    let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::Equals)?;
+    let (value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
+    let ls = LetStatement {
+        name,
+        type_expr,
+        value,
+    };
+    Ok(Statement {
+        first_token: keyword,
+        last_token,
+        statement: StatementInfo::Let(ls),
+    })
 }
 
 // Parses a type statement where the "type" keyword has already been found.
@@ -541,7 +561,7 @@ impl Statement {
                     }
                     TokenType::Let => {
                         let keyword = tokens.next().unwrap();
-                        let s = parse_definition_statement(keyword, tokens, false)?;
+                        let s = parse_let_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
                     TokenType::Axiom => {
@@ -556,7 +576,7 @@ impl Statement {
                     }
                     TokenType::Define => {
                         let keyword = tokens.next().unwrap();
-                        let s = parse_definition_statement(keyword, tokens, true)?;
+                        let s = parse_old_definition_statement(keyword, tokens, true)?;
                         return Ok((Some(s), None));
                     }
                     TokenType::Type => {
@@ -664,13 +684,10 @@ mod tests {
 
     #[test]
     fn test_definition_statements() {
-        ok("let p: bool");
         ok("let a: int = x + 2");
-        ok("let a = x + 2");
-        ok("let f: int -> bool");
+        ok("let f: int -> bool = compose(g, h)");
         ok("let f: int -> int = x -> x + 1");
-        ok("let g: (int, int) -> int");
-        ok("let g: (int, int, int) -> bool");
+        ok("let g: (int, int, int) -> bool = swap(h)");
         ok("define or(p: bool, q: bool) -> bool = (!p -> q)");
         ok("define and(p: bool, q: bool) -> bool = !(p -> !q)");
         ok("define iff(p: bool, q: bool) -> bool = (p -> q) & (q -> p)");
