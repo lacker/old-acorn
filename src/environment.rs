@@ -976,84 +976,6 @@ impl Environment {
         }
     }
 
-    // Handle function definitions with named arguments.
-    // "declaration" is something like:
-    //   add(a: Nat, b:Nat) -> Nat
-    // "body" is something like:
-    //   a + b
-    // This doesn't bind the function name into the environment, but it does mutate the environment
-    // to use the stack.
-    // Returns the name of the function and the value of the function.
-    fn define_function(
-        &mut self,
-        declaration: &Expression,
-        body: &Expression,
-    ) -> Result<(String, AcornValue)> {
-        let (fn_appl, ret_type) = match declaration {
-            Expression::Binary(left, token, right) => match token.token_type {
-                TokenType::RightArrow => {
-                    let ret_type = self.evaluate_type_expression(right)?;
-                    (&**left, ret_type)
-                }
-                _ => return Err(Error::new(token, "expected a right arrow here")),
-            },
-            _ => {
-                return Err(Error::new(
-                    declaration.token(),
-                    "expected a function declaration",
-                ))
-            }
-        };
-
-        let (fn_name, arg_list) = match fn_appl {
-            Expression::Apply(ident, arg_list) => {
-                if ident.token().token_type != TokenType::Identifier {
-                    return Err(Error::new(
-                        ident.token(),
-                        "expected an identifier in this function declaration",
-                    ));
-                }
-                let name = ident.token().text().to_string();
-                if self.identifier_types.contains_key(&name) {
-                    return Err(Error::new(
-                        ident.token(),
-                        "function name already defined in this scope",
-                    ));
-                }
-                (name, &**arg_list)
-            }
-            _ => {
-                return Err(Error::new(
-                    fn_appl.token(),
-                    "expected a function declaration",
-                ))
-            }
-        };
-
-        let (arg_names, arg_types) = self.bind_args(arg_list.flatten_arg_list())?;
-
-        let ret_val = if body.token().token_type == TokenType::Axiom {
-            let new_axiom_type = AcornType::Function(FunctionType {
-                arg_types: arg_types.clone(),
-                return_type: Box::new(ret_type.clone()),
-            });
-            let fn_value = self.next_constant_atom(&new_axiom_type);
-            Ok((fn_name, fn_value))
-        } else {
-            match self.evaluate_value_expression(body, Some(&ret_type)) {
-                Ok(value) => {
-                    let fn_value = AcornValue::Lambda(arg_types, Box::new(value));
-                    Ok((fn_name, fn_value))
-                }
-                Err(e) => Err(e),
-            }
-        };
-
-        self.unbind_args(arg_names);
-
-        ret_val
-    }
-
     // Takes a claim that is relative to this environment, and expresses it relative to
     // the parent environment.
     // The caller needs to provide the names of any "forall" variables used in the creation of
@@ -1132,30 +1054,6 @@ impl Environment {
                 };
                 Ok(())
             }
-
-            StatementInfo::OldDefinition(ds) => match ds.declaration.token().token_type {
-                TokenType::RightArrow => {
-                    let value = match &ds.value {
-                        Some(v) => v,
-                        None => {
-                            return Err(Error::new(
-                                ds.declaration.token(),
-                                "expected a value in this definition",
-                            ));
-                        }
-                    };
-                    let (name, acorn_value) = self.define_function(&ds.declaration, value)?;
-                    self.add_constant(&name, acorn_value.get_type(), Some(acorn_value));
-                    self.definition_ranges
-                        .insert(name.clone(), statement.range());
-                    self.add_identity_props(&name);
-                    Ok(())
-                }
-                _ => Err(Error::new(
-                    ds.declaration.token(),
-                    "unexpected top-level token in declaration",
-                )),
-            },
 
             StatementInfo::Let(ls) => {
                 if self.identifier_types.contains_key(&ls.name) {

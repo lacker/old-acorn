@@ -5,32 +5,6 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 use std::fmt;
 
-// For example, in:
-//   let a: int = x + 2
-// The declaration is "a: int" and the expression is the "x + 2".
-//
-// The declaration can also be a function form, like in
-//   define foo(a: int, b: int) -> int = a + a + b
-// where the declaration is "foo(a: int, b: int) -> int".
-//
-// "let" indicates a constant definition, and "define" indicates a function definition.
-pub struct OldDefinitionStatement {
-    pub declaration: Expression,
-    pub value: Option<Expression>,
-    pub public: bool,
-}
-
-impl fmt::Display for OldDefinitionStatement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let keyword = if self.public { "define" } else { "let" };
-        write!(f, "{} {}", keyword, self.declaration)?;
-        if let Some(value) = &self.value {
-            write!(f, " = {}", value)?;
-        }
-        Ok(())
-    }
-}
-
 // Let statements introduce new named constants. For example:
 //   let a: int = x + 2
 pub struct LetStatement {
@@ -124,7 +98,6 @@ pub struct Statement {
 
 // Information about a statement that is specific to the type of statement it is
 pub enum StatementInfo {
-    OldDefinition(OldDefinitionStatement),
     Let(LetStatement),
     Define(DefineStatement),
     Theorem(TheoremStatement),
@@ -267,48 +240,6 @@ fn parse_theorem_statement(
         first_token: keyword,
         last_token: last_token,
         statement: StatementInfo::Theorem(ts),
-    };
-    Ok(statement)
-}
-
-// Parses a let statement where the "let" or "define" keyword has already been found.
-fn parse_old_definition_statement(
-    keyword: Token,
-    tokens: &mut TokenIter,
-    public: bool,
-) -> Result<Statement> {
-    let (declaration, terminator) = Expression::parse(tokens, false, |t| {
-        t == TokenType::NewLine || t == TokenType::Equals
-    })?;
-
-    let (ds, last_token) = if terminator.token_type == TokenType::NewLine {
-        // This is a declaration, with no value
-        let last_token = declaration.last_token().clone();
-        (
-            OldDefinitionStatement {
-                public,
-                declaration,
-                value: None,
-            },
-            last_token,
-        )
-    } else {
-        // This is a definition, with both a declaration and a value
-        let (value, _) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
-        let last_token = value.last_token().clone();
-        (
-            OldDefinitionStatement {
-                public,
-                declaration,
-                value: Some(value),
-            },
-            last_token,
-        )
-    };
-    let statement = Statement {
-        first_token: keyword,
-        last_token,
-        statement: StatementInfo::OldDefinition(ds),
     };
     Ok(statement)
 }
@@ -495,8 +426,6 @@ impl Statement {
     fn fmt_helper(&self, f: &mut fmt::Formatter, indentation: &str) -> fmt::Result {
         write!(f, "{}", indentation)?;
         match &self.statement {
-            StatementInfo::OldDefinition(ds) => write!(f, "{}", ds),
-
             StatementInfo::Let(ls) => {
                 write!(f, "let {}: {} = {}", ls.name, ls.type_expr, ls.value)
             }
@@ -599,11 +528,7 @@ impl Statement {
                     }
                     TokenType::Define => {
                         let keyword = tokens.next().unwrap();
-                        let s = if true {
-                            parse_define_statement(keyword, tokens)?
-                        } else {
-                            parse_old_definition_statement(keyword, tokens, true)?
-                        };
+                        let s = parse_define_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
                     TokenType::Type => {
