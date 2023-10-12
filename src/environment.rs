@@ -1148,6 +1148,9 @@ impl Environment {
 
             StatementInfo::OldDefinition(ds) => match ds.declaration.token().token_type {
                 TokenType::Colon => {
+                    if false {
+                        return Err(Error::new(&statement.first_token, "XXX deprecated"));
+                    }
                     let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
                     if self.identifier_types.contains_key(&name) {
                         return Err(Error::new(
@@ -1988,10 +1991,10 @@ mod tests {
         
 type Nat: axiom
 
-define 0: Nat = axiom
+let 0: Nat = axiom
 
-define Suc: Nat -> Nat = axiom
-define 1: Nat = Suc(0)
+let Suc: Nat -> Nat = axiom
+let 1: Nat = Suc(0)
 
 axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
 

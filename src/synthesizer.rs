@@ -151,7 +151,7 @@ mod tests {
         let mut synth = Synthesizer::new();
 
         env.add("type Thing: axiom");
-        env.add("define t: Thing = axiom");
+        env.add("let t: Thing = axiom");
         env.add("axiom t_implies_all(q: Thing -> bool): q(t) -> forall(x: Thing) { q(x) }");
         env.add("theorem goal(x: Thing): x = t");
 
