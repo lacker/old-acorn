@@ -25,7 +25,7 @@ pub struct Environment {
     data_types: Vec<String>,
 
     // Maps the name of a type to the type object.
-    typenames: HashMap<String, AcornType>,
+    type_names: HashMap<String, AcornType>,
 
     // Maps an identifier name to its type.
     types: HashMap<String, AcornType>,
@@ -126,7 +126,7 @@ pub struct GoalContext<'a> {
 impl fmt::Display for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Environment {{\n")?;
-        for (name, acorn_type) in &self.typenames {
+        for (name, acorn_type) in &self.type_names {
             write!(f, "  type {}: {}\n", name, self.type_str(acorn_type))?;
         }
         for (name, acorn_type) in &self.types {
@@ -141,7 +141,7 @@ impl Environment {
         Environment {
             data_types: Vec::new(),
             constant_names: Vec::new(),
-            typenames: HashMap::from([("bool".to_string(), AcornType::Bool)]),
+            type_names: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             types: HashMap::new(),
             constants: HashMap::new(),
             num_imported_constants: 0,
@@ -178,7 +178,7 @@ impl Environment {
         let mut subenv = Environment {
             data_types: self.data_types.clone(),
             constant_names: self.constant_names.clone(),
-            typenames: self.typenames.clone(),
+            type_names: self.type_names.clone(),
             types: self.types.clone(),
             constants: self.constants.clone(),
             num_imported_constants: self.constants.len() as AtomId,
@@ -254,7 +254,7 @@ impl Environment {
     fn add_data_type(&mut self, name: &str) -> AcornType {
         let data_type = AcornType::Data(self.data_types.len());
         self.data_types.push(name.to_string());
-        self.typenames.insert(name.to_string(), data_type.clone());
+        self.type_names.insert(name.to_string(), data_type.clone());
         data_type
     }
 
@@ -650,7 +650,7 @@ impl Environment {
                         "axiomatic types can only be created at the top level",
                     ));
                 }
-                if let Some(acorn_type) = self.typenames.get(token.text()) {
+                if let Some(acorn_type) = self.type_names.get(token.text()) {
                     Ok(acorn_type.clone())
                 } else {
                     Err(Error::new(token, "expected type name"))
@@ -1073,7 +1073,7 @@ impl Environment {
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
         match &statement.statement {
             StatementInfo::Type(ts) => {
-                if self.typenames.contains_key(&ts.name) {
+                if self.type_names.contains_key(&ts.name) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
                         "type name already defined in this scope",
@@ -1083,7 +1083,7 @@ impl Environment {
                     self.add_data_type(&ts.name);
                 } else {
                     let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
-                    self.typenames.insert(ts.name.to_string(), acorn_type);
+                    self.type_names.insert(ts.name.to_string(), acorn_type);
                 };
                 Ok(())
             }
@@ -1314,7 +1314,7 @@ impl Environment {
             }
 
             StatementInfo::Struct(ss) => {
-                if self.typenames.contains_key(&ss.name) {
+                if self.type_names.contains_key(&ss.name) {
                     return Err(Error::new(
                         &statement.first_token,
                         "type name already defined in this scope",
@@ -1850,19 +1850,19 @@ mod tests {
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         env.valuecheck("suc_neq_zero", "lambda(x0: Nat) { (Suc(x0) != 0) }");
 
-        assert!(env.typenames.contains_key("Nat"));
+        assert!(env.type_names.contains_key("Nat"));
         assert!(!env.types.contains_key("Nat"));
 
-        assert!(!env.typenames.contains_key("0"));
+        assert!(!env.type_names.contains_key("0"));
         assert!(env.types.contains_key("0"));
 
-        assert!(!env.typenames.contains_key("1"));
+        assert!(!env.type_names.contains_key("1"));
         assert!(env.types.contains_key("1"));
 
-        assert!(!env.typenames.contains_key("Suc"));
+        assert!(!env.type_names.contains_key("Suc"));
         assert!(env.types.contains_key("Suc"));
 
-        assert!(!env.typenames.contains_key("foo"));
+        assert!(!env.type_names.contains_key("foo"));
         assert!(!env.types.contains_key("foo"));
 
         env.add(
