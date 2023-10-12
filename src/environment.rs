@@ -477,8 +477,9 @@ impl Environment {
         match acorn_type {
             AcornType::Bool => "bool".to_string(),
             AcornType::Data(i) => self.data_types[*i].to_string(),
-            AcornType::Generic(_i) => {
-                todo!();
+            AcornType::Generic(i) => {
+                // This return value doesn't mean anything, but it's useful for debugging.
+                format!("T{}", i)
             }
             AcornType::Function(function_type) => {
                 let s = if function_type.arg_types.len() > 1 {
@@ -2026,5 +2027,17 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         theorem goal(p: BoolPair): p = BoolPair.new(BoolPair.first(p), BoolPair.second(p))
         "#,
         );
+    }
+
+    #[test]
+    fn test_templated_types_required_in_function_args() {
+        let mut env = Environment::new();
+        env.bad("define foo<T>(a: bool) -> bool = a");
+    }
+
+    #[test]
+    fn test_templated_types_required_in_theorem_args() {
+        let mut env = Environment::new();
+        env.bad("theorem foo<T>(a: bool): a | !a");
     }
 }
