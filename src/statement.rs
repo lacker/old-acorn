@@ -36,7 +36,7 @@ impl fmt::Display for OldDefinitionStatement {
 pub struct LetStatement {
     pub name: String,
     pub type_expr: Expression,
-    pub value: Option<Expression>,
+    pub value: Expression,
 }
 
 // Define statements introduce new named functions. For example:
@@ -455,11 +455,7 @@ impl Statement {
             StatementInfo::OldDefinition(ds) => write!(f, "{}", ds),
 
             StatementInfo::Let(ls) => {
-                write!(f, "let {}: {}", ls.name, ls.type_expr)?;
-                if let Some(value) = &ls.value {
-                    write!(f, " = {}", value)?;
-                }
-                Ok(())
+                write!(f, "let {}: {} = {}", ls.name, ls.type_expr, ls.value)
             }
 
             StatementInfo::Define(ds) => {

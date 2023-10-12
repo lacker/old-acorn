@@ -1189,8 +1189,20 @@ impl Environment {
                 )),
             },
 
-            StatementInfo::Let(_ls) => {
-                todo!();
+            StatementInfo::Let(ls) => {
+                if self.identifier_types.contains_key(&ls.name) {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        &format!("variable name '{}' already defined in this scope", ls.name),
+                    ));
+                }
+                let acorn_type = self.evaluate_type_expression(&ls.type_expr)?;
+                let acorn_value = self.evaluate_value_expression(&ls.value, Some(&acorn_type))?;
+                self.add_constant(&ls.name, acorn_type, Some(acorn_value));
+                self.definition_ranges
+                    .insert(ls.name.clone(), statement.range());
+                self.add_identity_props(&ls.name);
+                Ok(())
             }
 
             StatementInfo::Define(_ds) => {
