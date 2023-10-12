@@ -940,6 +940,36 @@ mod tests {
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
+    #[test]
+    fn test_struct_first_member_equation() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            struct Pair {
+                first: bool
+                second: bool
+            }
+            theorem goal(a: bool, b: bool): Pair.first(Pair.new(a, b)) = a
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_struct_second_member_equation() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            struct Pair {
+                first: bool
+                second: bool
+            }
+            theorem goal(a: bool, b: bool): Pair.second(Pair.new(a, b)) = b
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
     // An environment with theorems that we should be able to prove in testing.
     // Ideally when there's a problem with one of these theorems we can simplify it
     // to a test that doesn't use the snap environment.
