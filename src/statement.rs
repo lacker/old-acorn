@@ -392,6 +392,21 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     }
 }
 
+fn write_generic_types(f: &mut fmt::Formatter, generic_types: &[Token]) -> fmt::Result {
+    if generic_types.len() == 0 {
+        return Ok(());
+    }
+    write!(f, "<")?;
+    for (i, generic_type) in generic_types.iter().enumerate() {
+        if i > 0 {
+            write!(f, ", ")?;
+        }
+        write!(f, "{}", generic_type)?;
+    }
+    write!(f, ">")?;
+    Ok(())
+}
+
 fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {
     if args.len() == 0 {
         return Ok(());
@@ -420,6 +435,7 @@ impl Statement {
                     write!(f, "theorem")?;
                 }
                 write!(f, " {}", ts.name)?;
+                write_generic_types(f, &ts.generic_types)?;
                 write_args(f, &ts.args)?;
                 write!(f, ": {}", ts.claim)?;
                 if ts.body.len() > 0 {
