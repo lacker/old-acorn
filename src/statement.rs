@@ -706,4 +706,9 @@ mod tests {
             second: Nat
         }"});
     }
+
+    #[test]
+    fn test_no_empty_structs() {
+        fail("struct Foo {}");
+    }
 }
