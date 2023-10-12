@@ -30,9 +30,6 @@ pub struct Environment {
     // Maps an identifier name to its type.
     identifier_types: HashMap<String, AcornType>,
 
-    // The generic types that apply to this environment, if there are any.
-    generic_types: Vec<String>,
-
     // Maps the name of a constant to information about it.
     // Doesn't handle variables defined on the stack, only ones that will be in scope for the
     // entirety of this environment.
@@ -146,7 +143,6 @@ impl Environment {
             constant_names: Vec::new(),
             type_names: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             identifier_types: HashMap::new(),
-            generic_types: Vec::new(),
             constants: HashMap::new(),
             num_imported_constants: 0,
             stack: HashMap::new(),
@@ -184,7 +180,6 @@ impl Environment {
             constant_names: self.constant_names.clone(),
             type_names: self.type_names.clone(),
             identifier_types: self.identifier_types.clone(),
-            generic_types: self.generic_types.clone(),
             constants: self.constants.clone(),
             num_imported_constants: self.constants.len() as AtomId,
             stack: self.stack.clone(),
@@ -653,17 +648,9 @@ impl Environment {
     // Create new type names that look like primitive types but can be genericized.
     // Internally to this scope, the types work like any other type.
     // Externally, these types are marked as generic.
-    fn bind_generic_types(&mut self, generic_types: &[Token]) -> Result<()> {
-        if generic_types.is_empty() {
-            return Ok(());
-        }
-        if !self.generic_types.is_empty() {
-            return Err(Error::new(
-                &generic_types[0],
-                "cannot declare generic types twice for one block",
-            ));
-        }
-        self.generic_types.clear();
+    // Returns a list of the strings bound to generic types.
+    fn bind_generic_types(&mut self, generic_types: &[Token]) -> Result<Vec<String>> {
+        let mut answer = vec![];
         for token in generic_types {
             if self.type_names.contains_key(token.text()) {
                 return Err(Error::new(
@@ -672,14 +659,14 @@ impl Environment {
                 ));
             }
             self.add_data_type(token.text());
-            self.generic_types.push(token.text().to_string());
+            answer.push(token.text().to_string());
         }
-        Ok(())
+        Ok(answer)
     }
 
     // Remove the generic types that were added by bind_generic_types.
-    fn unbind_generic_types(&mut self) {
-        for name in std::mem::take(&mut self.generic_types) {
+    fn unbind_generic_types(&mut self, generic_types: Vec<String>) {
+        for name in generic_types {
             self.remove_data_type(&name);
         }
     }
@@ -688,9 +675,9 @@ impl Environment {
     // externally generic.
     // genericize does the internal-to-external conversion, replacing any types in
     // this list with AcornType::Generic values.
-    pub fn genericize(&self, value: AcornValue) -> AcornValue {
+    pub fn genericize(&self, generic_types: &[String], value: AcornValue) -> AcornValue {
         let mut value = value;
-        for (i, name) in self.generic_types.iter().enumerate() {
+        for (i, name) in generic_types.iter().enumerate() {
             let in_type = self.type_names.get(name).unwrap();
             let out_type = AcornType::Generic(i);
             value = value.replace_type(in_type, &out_type);
@@ -1193,8 +1180,36 @@ impl Environment {
                         &format!("variable name '{}' already defined in this scope", ds.name),
                     ));
                 }
-                let (_arg_names, _arg_types) = self.bind_args(&ds.args)?;
-                todo!();
+
+                // Calculate the function value
+                let generic_types = self.bind_generic_types(&ds.generic_types)?;
+                let (arg_names, arg_types) = self.bind_args(&ds.args)?;
+                let return_type = self.evaluate_type_expression(&ds.return_type)?;
+                let mut fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
+                    let new_axiom_type = AcornType::Function(FunctionType {
+                        arg_types,
+                        return_type: Box::new(return_type),
+                    });
+                    self.next_constant_atom(&new_axiom_type)
+                } else {
+                    let return_value =
+                        self.evaluate_value_expression(&ds.return_value, Some(&return_type))?;
+                    AcornValue::Lambda(arg_types, Box::new(return_value))
+                };
+                self.unbind_args(arg_names);
+                for (i, generic_type_name) in generic_types.iter().enumerate() {
+                    let in_type = self.type_names.get(generic_type_name).unwrap();
+                    let generic_type = AcornType::Generic(i);
+                    fn_value = fn_value.replace_type(in_type, &generic_type);
+                }
+                self.unbind_generic_types(generic_types);
+
+                // Add the function value to the environment
+                self.add_constant(&ds.name, fn_value.get_type(), Some(fn_value));
+                self.definition_ranges
+                    .insert(ds.name.clone(), statement.range());
+                self.add_identity_props(&ds.name);
+                Ok(())
             }
 
             StatementInfo::Theorem(ts) => {
@@ -1202,7 +1217,7 @@ impl Environment {
                 //   * A list of generic types
                 //   * A list of arguments that are being universally quantified
                 //   * A boolean expression representing a claim of things that are true.
-                self.bind_generic_types(&ts.generic_types)?;
+                let generic_types = self.bind_generic_types(&ts.generic_types)?;
                 let (arg_names, arg_types) = self.bind_args(&ts.args)?;
 
                 // Handle the claim
@@ -1258,7 +1273,7 @@ impl Environment {
                 };
 
                 self.unbind_args(arg_names);
-                self.unbind_generic_types();
+                self.unbind_generic_types(generic_types);
 
                 ret_val
             }
