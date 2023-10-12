@@ -774,8 +774,8 @@ mod tests {
         ok("axiom recursion_base<T>(f: T -> T, a: T): recursion(f, a, 0) = a");
     }
 
-    // #[test]
-    // fn test_templated_definition() {
-    //     ok("define recursion<T>(f: T -> T, a: T, n: Nat) -> Nat = axiom");
-    // }
+    #[test]
+    fn test_templated_definition() {
+        ok("define recursion<T>(f: T -> T, a: T, n: Nat) -> Nat = axiom");
+    }
 }
