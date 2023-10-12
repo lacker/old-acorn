@@ -472,6 +472,9 @@ impl Environment {
         match acorn_type {
             AcornType::Bool => "bool".to_string(),
             AcornType::Data(i) => self.data_types[*i].to_string(),
+            AcornType::Generic(_i) => {
+                todo!();
+            }
             AcornType::Function(function_type) => {
                 let s = if function_type.arg_types.len() > 1 {
                     self.type_list_str(&function_type.arg_types)

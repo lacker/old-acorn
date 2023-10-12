@@ -8,12 +8,14 @@ pub struct FunctionType {
 
 // Functional types can be applied.
 // Data types include both axiomatic types and struct types.
+// Generics are types that are not yet known.
 // An argument list isn't really a type, but it's part of a type.
 // It's used when we have more than one argument to a function.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
     Bool,
     Data(usize),
+    Generic(usize),
     Function(FunctionType),
     ArgList(Vec<AcornType>),
     Any,
@@ -142,7 +144,8 @@ impl fmt::Display for AcornType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             AcornType::Bool => write!(f, "bool"),
-            AcornType::Data(index) => write!(f, "T{}", index),
+            AcornType::Data(index) => write!(f, "D{}", index),
+            AcornType::Generic(index) => write!(f, "T{}", index),
             AcornType::Function(function_type) => {
                 write!(
                     f,
