@@ -46,7 +46,7 @@ impl TypeSpace {
                 return i as TypeId;
             }
         }
-        assert!(acorn_type.is_normal());
+        assert!(acorn_type.is_normalized());
         self.types.push(acorn_type);
         (self.types.len() - 1).try_into().unwrap()
     }

@@ -86,8 +86,8 @@ impl AcornType {
         }
     }
 
-    // A normal type is something we'd expect the theorem prover to be able to use
-    pub fn is_normal(&self) -> bool {
+    // A normalized type is something the theorem prover can use.
+    pub fn is_normalized(&self) -> bool {
         match self {
             AcornType::Function(function_type) => {
                 if function_type.arg_types.len() == 0 {
@@ -95,17 +95,17 @@ impl AcornType {
                     return false;
                 }
                 for arg_type in &function_type.arg_types {
-                    if !arg_type.is_normal() {
+                    if !arg_type.is_normalized() {
                         return false;
                     }
                 }
-                function_type.return_type.is_normal()
+                function_type.return_type.is_normalized()
             }
             AcornType::Bool => true,
             AcornType::Data(_) => true,
             AcornType::Generic(_) => {
-                // Just treat it as an opaque type, that's fine
-                true
+                // Generic types should be instantiated before passing it to the prover
+                false
             }
             AcornType::ArgList(_) => false,
             AcornType::Any => false,
