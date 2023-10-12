@@ -333,6 +333,9 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
                 continue;
             }
             TokenType::RightBrace => {
+                if fields.len() == 0 {
+                    return Err(Error::new(&token, "structs must have at least one field"));
+                }
                 return Ok(Statement {
                     first_token: keyword,
                     last_token: token,
@@ -341,7 +344,7 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
                         name_token,
                         fields,
                     }),
-                })
+                });
             }
             TokenType::Identifier => {
                 Token::expect_type(tokens, TokenType::Colon)?;
