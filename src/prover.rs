@@ -569,11 +569,11 @@ mod tests {
         env.add(
             r#"
             type Thing: axiom
-            define t: Thing = axiom
-            define t2: Thing = axiom
-            define f: Thing -> bool = axiom
-            define g: (Thing, Thing) -> Thing = axiom
-            define h: Thing -> Thing = axiom
+            let t: Thing = axiom
+            let t2: Thing = axiom
+            let f: Thing -> bool = axiom
+            let g: (Thing, Thing) -> Thing = axiom
+            let h: Thing -> Thing = axiom
             "#,
         );
         env.add(s);
@@ -744,7 +744,7 @@ mod tests {
         env.add(
             r#"
             type Thing: axiom
-            define t: Thing = axiom
+            let t: Thing = axiom
             theorem reflexivity(x: Thing): x = x by {
                 reflexivity(t)
             }
@@ -759,8 +759,8 @@ mod tests {
         env.add(
             r#"
             type Thing: axiom
-            define t: Thing = axiom
-            define foo: Thing -> bool = axiom
+            let t: Thing = axiom
+            let foo: Thing -> bool = axiom
             axiom foo_t: foo(t)
             forall(x: Thing) {
                 x = t -> foo(x)
@@ -792,8 +792,8 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define 0: Nat = axiom
-            define Suc: Nat -> Nat = axiom
+            let 0: Nat = axiom
+            let Suc: Nat -> Nat = axiom
             define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom
             axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
             define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)
@@ -821,9 +821,9 @@ mod tests {
         env.add(
             r#"
         type Nat: axiom
-        define 0: Nat = axiom
+        let 0: Nat = axiom
         axiom everything(x0: Nat -> bool, x1: Nat): x0(x1)
-        define add: (Nat, Nat) -> Nat = axiom
+        let add: (Nat, Nat) -> Nat = axiom
         theorem goal(a: Nat): add(a, 0) = a
         "#,
         );
@@ -836,7 +836,7 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define add: (Nat, Nat) -> Nat = axiom
+            let add: (Nat, Nat) -> Nat = axiom
             define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
             theorem goal(a: Nat, b: Nat): add(a, b) = adder(a)(b)
         "#,
@@ -850,7 +850,7 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define add: (Nat, Nat) -> Nat = axiom
+            let add: (Nat, Nat) -> Nat = axiom
             define lte(a: Nat, b: Nat) -> bool = exists(c: Nat) { add(a, c) = b }
             define lt(a: Nat, b: Nat) -> bool = lte(a, b) & a != b
             theorem goal(a: Nat): !lt(a, a)
@@ -865,9 +865,9 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define 0: Nat = axiom
-            define 1: Nat = axiom
-            define Suc: Nat -> Nat = axiom
+            let 0: Nat = axiom
+            let 1: Nat = axiom
+            let Suc: Nat -> Nat = axiom
             axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
             axiom one_neq_zero: 1 != 0
             theorem goal: exists(x: Nat) { 1 = Suc(x) }
@@ -882,9 +882,9 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define 0: Nat = axiom
-            define Suc: Nat -> Nat = axiom
-            define y: Nat = axiom
+            let 0: Nat = axiom
+            let Suc: Nat -> Nat = axiom
+            let y: Nat = axiom
             axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
             theorem goal: zero_or_suc(y)
         "#,
@@ -898,9 +898,9 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define 0: Nat = axiom
-            define Suc: Nat -> Nat = axiom
-            define y: Nat = axiom
+            let 0: Nat = axiom
+            let Suc: Nat -> Nat = axiom
+            let y: Nat = axiom
             axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
             axiom y_not_zero: y != 0
             theorem goal: zero_or_suc(y)
@@ -916,7 +916,7 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define lt: (Nat, Nat) -> bool = axiom
+            let lt: (Nat, Nat) -> bool = axiom
             theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
                 forall(m: Nat) { lt(m, k) -> f(m) } -> f(k)
             } -> forall(n: Nat) { f(n) }
@@ -986,10 +986,10 @@ mod tests {
     //     let mut env = Environment::new();
     //     env.add(
     //         r#"
-    //         define foo<T>(a: T) -> bool = axiom
+    //         let foo<T>(a: T) -> bool = axiom
     //         axiom foo_true<T>(a: T): foo(a)
     //         type Nat: axiom
-    //         define 0: Nat = axiom
+    //         let 0: Nat = axiom
     //         theorem goal: foo(0)
     //         "#,
     //     );
