@@ -970,6 +970,22 @@ mod tests {
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
+    // #[test]
+    #[allow(dead_code)]
+    fn test_templated_theorem() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            define foo<T>(a: T) -> bool = axiom
+            axiom foo_true<T>(a: T): foo(a)
+            type Nat: axiom
+            define 0: Nat = axiom
+            theorem goal: foo(0)
+            "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
     // An environment with theorems that we should be able to prove in testing.
     // Ideally when there's a problem with one of these theorems we can simplify it
     // to a test that doesn't use the snap environment.
