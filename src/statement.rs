@@ -155,17 +155,47 @@ fn parse_block(tokens: &mut TokenIter) -> Result<(Vec<Statement>, Token)> {
     }
 }
 
-// Parse a parenthesized list of arguments, after which we expect the given terminator token.
-fn parse_args(tokens: &mut TokenIter, terminator: TokenType) -> Result<Vec<Expression>> {
-    let mut args = Vec::new();
-    let token = Token::expect_token(tokens)?;
+// Parse some arguments.
+// The first element is an optional template. For example, the <T> in:
+// <T>(a: T, f: T -> T)
+// The second element is an optional parenthesized list of arguments.
+// Finally we have the terminator token.
+fn parse_args(
+    tokens: &mut TokenIter,
+    terminator: TokenType,
+) -> Result<(Vec<Token>, Vec<Expression>)> {
+    let mut token = Token::expect_token(tokens)?;
     if token.token_type == terminator {
-        return Ok(args);
+        return Ok((vec![], vec![]));
+    }
+    let mut generic_types = vec![];
+    if token.token_type == TokenType::LessThan {
+        loop {
+            let token = Token::expect_type(tokens, TokenType::Identifier)?;
+            generic_types.push(token);
+            let token = Token::expect_token(tokens)?;
+            match token.token_type {
+                TokenType::GreaterThan => {
+                    break;
+                }
+                TokenType::Comma => {
+                    continue;
+                }
+                _ => {
+                    return Err(Error::new(
+                        &token,
+                        "expected '>' or ',' in template type list",
+                    ));
+                }
+            }
+        }
+        token = Token::expect_token(tokens)?;
     }
     if token.token_type != TokenType::LeftParen {
         return Err(Error::new(&token, "expected an argument list"));
     }
-    // Parse an arguments list
+    // Parse the arguments list
+    let mut args = Vec::new();
     loop {
         let (exp, t) = Expression::parse(tokens, false, |t| {
             t == TokenType::Comma || t == TokenType::RightParen
@@ -176,7 +206,7 @@ fn parse_args(tokens: &mut TokenIter, terminator: TokenType) -> Result<Vec<Expre
             break;
         }
     }
-    Ok(args)
+    Ok((generic_types, args))
 }
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been found.
@@ -188,7 +218,7 @@ fn parse_theorem_statement(
 ) -> Result<Statement> {
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text().to_string();
-    let args = parse_args(tokens, TokenType::Colon)?;
+    let (generic_types, args) = parse_args(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
     let (claim, terminator) = Expression::parse(tokens, true, |t| {
         t == TokenType::NewLine || t == TokenType::By
@@ -202,7 +232,7 @@ fn parse_theorem_statement(
     let ts = TheoremStatement {
         axiomatic,
         name,
-        generic_types: vec![],
+        generic_types,
         args,
         claim,
         body,
@@ -277,7 +307,7 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
 
 // Parses a forall statement where the "forall" keyword has already been found.
 fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
+    let (_, quantifiers) = parse_args(tokens, TokenType::LeftBrace)?;
     let (body, last_token) = parse_block(tokens)?;
     let fas = ForAllStatement { quantifiers, body };
     let statement = Statement {
@@ -308,7 +338,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
 
 // Parses an exists statement where the "exists" keyword has already been found.
 fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let quantifiers = parse_args(tokens, TokenType::LeftBrace)?;
+    let (_, quantifiers) = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, last_token) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
     let es = ExistsStatement {
         quantifiers,
@@ -716,4 +746,14 @@ mod tests {
     fn test_no_empty_structs() {
         fail("struct Foo {}");
     }
+
+    #[test]
+    fn test_templated_theorem() {
+        ok("axiom recursion_base<T>(f: T -> T, a: T): recursion(f, a, 0) = a");
+    }
+
+    // #[test]
+    // fn test_templated_definition() {
+    //     ok("define recursion<T>(f: T -> T, a: T, n: Nat) -> Nat = axiom");
+    // }
 }
