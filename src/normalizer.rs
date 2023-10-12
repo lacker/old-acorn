@@ -178,11 +178,11 @@ mod tests {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
-        env.add("define 0: Nat = axiom");
+        env.add("let 0: Nat = axiom");
         env.constantcheck(0, "0");
-        env.add("define Suc: Nat -> Nat = axiom");
+        env.add("let Suc: Nat -> Nat = axiom");
         env.constantcheck(1, "Suc");
-        env.add("define 1: Nat = Suc(0)");
+        env.add("let 1: Nat = Suc(0)");
         env.constantcheck(2, "1");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
@@ -267,7 +267,7 @@ mod tests {
         let mut env = Environment::new();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
-        env.add("define 0: Nat = axiom");
+        env.add("let 0: Nat = axiom");
         env.add("theorem exists_zero: exists(x: Nat) { x = 0 }");
         norm.check(&env, "exists_zero", &["s0 = c0"]);
     }
@@ -280,8 +280,8 @@ mod tests {
             type Nat: axiom
             define borf: (Nat, Nat, Nat) -> bool = axiom
             define also_borf(a: Nat, b: Nat, c: Nat) -> bool = borf(a, b, c)
-            define bb: Nat = axiom
-            define cc: Nat = axiom
+            let bb: Nat = axiom
+            let cc: Nat = axiom
             define specific_borf(x: Nat) -> bool = also_borf(x, bb, cc)
             define always_true(f: Nat -> bool) -> bool = forall(n: Nat) { f(n) }
             theorem goal: !always_true(specific_borf)
@@ -297,10 +297,10 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define n0: Nat = axiom
-            define n1: Nat = axiom
-            define n2: Nat = axiom
-            define n3: Nat = axiom
+            let n0: Nat = axiom
+            let n1: Nat = axiom
+            let n2: Nat = axiom
+            let n3: Nat = axiom
             theorem goal: (n0 = n1) = (n2 = n3)
             "#,
         );
@@ -314,10 +314,10 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define n0: Nat = axiom
-            define n1: Nat = axiom
-            define n2: Nat = axiom
-            define n3: Nat = axiom
+            let n0: Nat = axiom
+            let n1: Nat = axiom
+            let n2: Nat = axiom
+            let n3: Nat = axiom
             theorem goal: (n0 = n1) != (n2 = n3)
             "#,
         );
@@ -331,7 +331,7 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define add: (Nat, Nat) -> Nat = axiom
+            let add: (Nat, Nat) -> Nat = axiom
             define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
             theorem goal(a: Nat, b: Nat): adder(a)(b) = adder(b)(a)
             "#,
@@ -346,7 +346,7 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            define 0: Nat = axiom
+            let 0: Nat = axiom
             define zerof(a: Nat) -> (Nat -> Nat) = function(b: Nat) { 0 }
             theorem goal(a: Nat, b: Nat): zerof(a) = zerof(b)
             "#,
