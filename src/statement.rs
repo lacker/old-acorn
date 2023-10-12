@@ -599,7 +599,11 @@ impl Statement {
                     }
                     TokenType::Define => {
                         let keyword = tokens.next().unwrap();
-                        let s = parse_old_definition_statement(keyword, tokens, true)?;
+                        let s = if false {
+                            parse_define_statement(keyword, tokens)?
+                        } else {
+                            parse_old_definition_statement(keyword, tokens, true)?
+                        };
                         return Ok((Some(s), None));
                     }
                     TokenType::Type => {

@@ -614,10 +614,10 @@ impl Environment {
     }
 
     // Parses a list of named argument declarations and adds them to the stack.
-    fn bind_args(
-        &mut self,
-        declarations: Vec<&Expression>,
-    ) -> Result<(Vec<String>, Vec<AcornType>)> {
+    fn bind_args<'a, I>(&mut self, declarations: I) -> Result<(Vec<String>, Vec<AcornType>)>
+    where
+        I: IntoIterator<Item = &'a Expression>,
+    {
         let mut names = Vec::new();
         let mut types = Vec::new();
         for declaration in declarations {
@@ -1186,7 +1186,14 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::Define(_ds) => {
+            StatementInfo::Define(ds) => {
+                if self.identifier_types.contains_key(&ds.name) {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        &format!("variable name '{}' already defined in this scope", ds.name),
+                    ));
+                }
+                let (_arg_names, _arg_types) = self.bind_args(&ds.args)?;
                 todo!();
             }
 
@@ -1196,7 +1203,7 @@ impl Environment {
                 //   * A list of arguments that are being universally quantified
                 //   * A boolean expression representing a claim of things that are true.
                 self.bind_generic_types(&ts.generic_types)?;
-                let (arg_names, arg_types) = self.bind_args(ts.args.iter().collect())?;
+                let (arg_names, arg_types) = self.bind_args(&ts.args)?;
 
                 // Handle the claim
                 let ret_val = match self
@@ -1275,8 +1282,7 @@ impl Environment {
                     return Ok(());
                 }
 
-                let (forall_names, forall_types) =
-                    self.bind_args(fas.quantifiers.iter().collect())?;
+                let (forall_names, forall_types) = self.bind_args(&fas.quantifiers)?;
 
                 let block = self.new_block(None, &fas.body, None, None)?.unwrap();
 
@@ -1340,7 +1346,7 @@ impl Environment {
 
             StatementInfo::Exists(es) => {
                 // We need to prove the general existence claim
-                let (quant_names, quant_types) = self.bind_args(es.quantifiers.iter().collect())?;
+                let (quant_names, quant_types) = self.bind_args(&es.quantifiers)?;
                 let general_claim_value =
                     self.evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
                 let general_claim =
