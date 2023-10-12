@@ -1147,28 +1147,6 @@ impl Environment {
             }
 
             StatementInfo::OldDefinition(ds) => match ds.declaration.token().token_type {
-                TokenType::Colon => {
-                    if false {
-                        return Err(Error::new(&statement.first_token, "XXX deprecated"));
-                    }
-                    let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
-                    if self.identifier_types.contains_key(&name) {
-                        return Err(Error::new(
-                            ds.declaration.token(),
-                            "variable name already defined in this scope",
-                        ));
-                    }
-                    let acorn_value = if let Some(value_expr) = &ds.value {
-                        self.evaluate_value_expression(value_expr, Some(&acorn_type))?
-                    } else {
-                        panic!("TODO: handle definitions without values");
-                    };
-                    self.add_constant(&name, acorn_type, Some(acorn_value));
-                    self.definition_ranges
-                        .insert(name.clone(), statement.range());
-                    self.add_identity_props(&name);
-                    Ok(())
-                }
                 TokenType::RightArrow => {
                     let value = match &ds.value {
                         Some(v) => v,
@@ -1779,9 +1757,9 @@ mod tests {
     #[test]
     fn test_forall_equality() {
         let mut env = Environment::new();
-        env.add("define bsym1: bool = forall(x: bool) { x = x }");
+        env.add("let bsym1: bool = forall(x: bool) { x = x }");
         env.typecheck("bsym1", "bool");
-        env.add("define bsym2: bool = forall(y: bool) { y = y }");
+        env.add("let bsym2: bool = forall(y: bool) { y = y }");
         env.typecheck("bsym2", "bool");
         assert_eq!(
             env.get_expanded_value("bsym1"),
@@ -1789,7 +1767,7 @@ mod tests {
         );
 
         env.add("type Nat: axiom");
-        env.add("define nsym1: bool = forall(x: Nat) { x = x }");
+        env.add("let nsym1: bool = forall(x: Nat) { x = x }");
         env.typecheck("nsym1", "bool");
         assert_ne!(
             env.get_expanded_value("bsym1"),
@@ -1800,15 +1778,15 @@ mod tests {
     #[test]
     fn test_exists_equality() {
         let mut env = Environment::new();
-        env.add("define bex1: bool = exists(x: bool) { x = x }");
-        env.add("define bex2: bool = exists(y: bool) { y = y }");
+        env.add("let bex1: bool = exists(x: bool) { x = x }");
+        env.add("let bex2: bool = exists(y: bool) { y = y }");
         assert_eq!(
             env.get_expanded_value("bex1"),
             env.get_expanded_value("bex2")
         );
 
         env.add("type Nat: axiom");
-        env.add("define nex1: bool = exists(x: Nat) { x = x }");
+        env.add("let nex1: bool = exists(x: Nat) { x = x }");
         assert_ne!(
             env.get_expanded_value("bex1"),
             env.get_expanded_value("nex1")
@@ -1828,13 +1806,13 @@ mod tests {
         env.add("theorem foo(x: bool, y: bool): x");
         env.typecheck("foo", "(bool, bool) -> bool");
 
-        env.bad("define bar: bool = forall(x: bool, x: bool) { x = x }");
+        env.bad("let bar: bool = forall(x: bool, x: bool) { x = x }");
         assert!(env.identifier_types.get("x").is_none());
-        env.add("define bar: bool = forall(x: bool, y: bool) { x = x }");
+        env.add("let bar: bool = forall(x: bool, y: bool) { x = x }");
 
-        env.bad("define baz: bool = exists(x: bool, x: bool) { x = x }");
+        env.bad("let baz: bool = exists(x: bool, x: bool) { x = x }");
         assert!(env.identifier_types.get("x").is_none());
-        env.add("define baz: bool = exists(x: bool, y: bool) { x = x }");
+        env.add("let baz: bool = exists(x: bool, y: bool) { x = x }");
     }
 
     #[test]
@@ -2060,7 +2038,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add(
             r#"
             type Nat: axiom
-            define 0: Nat = axiom
+            let 0: Nat = axiom
             if 0 = 0 {
                 0 = 0
             }
@@ -2086,7 +2064,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new();
         env.add(
             r#"
-            define a: bool = axiom
+            let a: bool = axiom
             theorem goal: a by {
                 if a {
                     exists(b: bool) { b = b }
@@ -2104,7 +2082,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new();
         env.add(
             r#"
-            define a: bool = axiom
+            let a: bool = axiom
             theorem goal: a by {
                 forall(b: bool) {
                     exists(c: bool) { c = c }

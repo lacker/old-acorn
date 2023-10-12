@@ -3,10 +3,10 @@
 
 type Nat: axiom
 
-define 0: Nat = axiom
+let 0: Nat = axiom
 
-define Suc: Nat -> Nat = axiom
-define 1: Nat = Suc(0)
+let Suc: Nat -> Nat = axiom
+let 1: Nat = Suc(0)
 
 axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
 
@@ -25,7 +25,7 @@ define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)
 
 theorem add_zero_right(a: Nat): add(a, 0) = a
 
-define 2: Nat = Suc(1)
+let 2: Nat = Suc(1)
 
 theorem one_plus_one: add(1, 1) = 2
 
