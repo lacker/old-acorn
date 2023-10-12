@@ -91,6 +91,7 @@ impl AcornType {
         match self {
             AcornType::Function(function_type) => {
                 if function_type.arg_types.len() == 0 {
+                    // A function type with no arguments, not normal
                     return false;
                 }
                 for arg_type in &function_type.arg_types {
@@ -102,7 +103,12 @@ impl AcornType {
             }
             AcornType::Bool => true,
             AcornType::Data(_) => true,
-            _ => false,
+            AcornType::Generic(_) => {
+                // Just treat it as an opaque type, that's fine
+                true
+            }
+            AcornType::ArgList(_) => false,
+            AcornType::Any => false,
         }
     }
 

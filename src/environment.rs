@@ -28,7 +28,10 @@ pub struct Environment {
     type_names: HashMap<String, AcornType>,
 
     // Maps an identifier name to its type.
-    types: HashMap<String, AcornType>,
+    identifier_types: HashMap<String, AcornType>,
+
+    // The generic types that apply to this environment, if there are any.
+    generic_types: Vec<String>,
 
     // Maps the name of a constant to information about it.
     // Doesn't handle variables defined on the stack, only ones that will be in scope for the
@@ -129,7 +132,7 @@ impl fmt::Display for Environment {
         for (name, acorn_type) in &self.type_names {
             write!(f, "  type {}: {}\n", name, self.type_str(acorn_type))?;
         }
-        for (name, acorn_type) in &self.types {
+        for (name, acorn_type) in &self.identifier_types {
             write!(f, "  let {}: {}\n", name, self.type_str(acorn_type))?;
         }
         write!(f, "}}")
@@ -142,7 +145,8 @@ impl Environment {
             data_types: Vec::new(),
             constant_names: Vec::new(),
             type_names: HashMap::from([("bool".to_string(), AcornType::Bool)]),
-            types: HashMap::new(),
+            identifier_types: HashMap::new(),
+            generic_types: Vec::new(),
             constants: HashMap::new(),
             num_imported_constants: 0,
             stack: HashMap::new(),
@@ -179,7 +183,8 @@ impl Environment {
             data_types: self.data_types.clone(),
             constant_names: self.constant_names.clone(),
             type_names: self.type_names.clone(),
-            types: self.types.clone(),
+            identifier_types: self.identifier_types.clone(),
+            generic_types: self.generic_types.clone(),
             constants: self.constants.clone(),
             num_imported_constants: self.constants.len() as AtomId,
             stack: self.stack.clone(),
@@ -270,12 +275,12 @@ impl Environment {
     fn push_stack_variable(&mut self, name: &str, acorn_type: AcornType) {
         self.stack
             .insert(name.to_string(), self.stack.len() as AtomId);
-        self.types.insert(name.to_string(), acorn_type);
+        self.identifier_types.insert(name.to_string(), acorn_type);
     }
 
     fn pop_stack_variable(&mut self, name: &str) {
         self.stack.remove(name);
-        self.types.remove(name);
+        self.identifier_types.remove(name);
     }
 
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
@@ -286,7 +291,7 @@ impl Environment {
         assert_eq!(pos + 1, self.constant_names.len());
         let id = pos as AtomId;
         let definition: AcornValue = self.constants[name].value.clone();
-        let constant_type_clone = self.types[name].clone();
+        let constant_type_clone = self.identifier_types[name].clone();
         // let definition: AcornValue = definition_clone.unwrap();
         // assert_eq!(definition, v);
         let atom = Box::new(AcornValue::Atom(TypedAtom {
@@ -336,7 +341,7 @@ impl Environment {
         constant_type: AcornType,
         definition: Option<AcornValue>,
     ) {
-        if self.types.contains_key(name) {
+        if self.identifier_types.contains_key(name) {
             panic!("name {} already bound to a type", name);
         }
         if self.constants.contains_key(name) {
@@ -353,14 +358,15 @@ impl Environment {
             },
         };
 
-        self.types.insert(name.to_string(), constant_type);
+        self.identifier_types
+            .insert(name.to_string(), constant_type);
         self.constants.insert(name.to_string(), info);
         self.constant_names.push(name.to_string());
     }
 
     fn move_stack_variable_to_constant(&mut self, name: &str) {
         self.stack.remove(name).unwrap();
-        let acorn_type = self.types.remove(name).unwrap();
+        let acorn_type = self.identifier_types.remove(name).unwrap();
         self.add_constant(name, acorn_type, None);
     }
 
@@ -369,7 +375,7 @@ impl Environment {
         let info = self.constants.get(name)?;
         Some(AcornValue::Atom(TypedAtom {
             atom: Atom::Constant(info.id),
-            acorn_type: self.types[name].clone(),
+            acorn_type: self.identifier_types[name].clone(),
         }))
     }
 
@@ -612,7 +618,7 @@ impl Environment {
         let mut types = Vec::new();
         for declaration in declarations {
             let (name, acorn_type) = self.parse_declaration(declaration)?;
-            if self.types.contains_key(&name) {
+            if self.identifier_types.contains_key(&name) {
                 return Err(Error::new(
                     declaration.token(),
                     "cannot redeclare a name in an argument list",
@@ -638,6 +644,31 @@ impl Environment {
         for name in names {
             self.pop_stack_variable(&name);
         }
+    }
+
+    fn bind_generic_types(&mut self, generic_types: &[Token]) -> Result<()> {
+        if generic_types.is_empty() {
+            return Ok(());
+        }
+        if !self.generic_types.is_empty() {
+            return Err(Error::new(
+                &generic_types[0],
+                "cannot declare generic types twice for one block",
+            ));
+        }
+        self.generic_types = generic_types.iter().map(|t| t.text().to_string()).collect();
+        for (i, name) in self.generic_types.iter().enumerate() {
+            let acorn_type = AcornType::Generic(i);
+            self.type_names.insert(name.clone(), acorn_type);
+        }
+        Ok(())
+    }
+
+    fn unbind_generic_types(&mut self) {
+        for name in &self.generic_types {
+            self.type_names.remove(name);
+        }
+        self.generic_types.clear();
     }
 
     // Evaluates an expression that we expect to be indicating either a type or an arg list
@@ -735,7 +766,7 @@ impl Environment {
                 }
 
                 // Check the type for this identifier
-                let return_type = match self.types.get(token.text()) {
+                let return_type = match self.identifier_types.get(token.text()) {
                     Some(t) => {
                         self.check_type(token, expected_type, t)?;
                         t.clone()
@@ -969,7 +1000,7 @@ impl Environment {
                     ));
                 }
                 let name = ident.token().text().to_string();
-                if self.types.contains_key(&name) {
+                if self.identifier_types.contains_key(&name) {
                     return Err(Error::new(
                         ident.token(),
                         "function name already defined in this scope",
@@ -1091,7 +1122,7 @@ impl Environment {
             StatementInfo::Definition(ds) => match ds.declaration.token().token_type {
                 TokenType::Colon => {
                     let (name, acorn_type) = self.parse_declaration(&ds.declaration)?;
-                    if self.types.contains_key(&name) {
+                    if self.identifier_types.contains_key(&name) {
                         return Err(Error::new(
                             ds.declaration.token(),
                             "variable name already defined in this scope",
@@ -1132,9 +1163,11 @@ impl Environment {
             },
 
             StatementInfo::Theorem(ts) => {
-                // A theorem has two parts. It's a list of arguments that are being universally
-                // quantified, and a boolean expression representing a claim of things that are true.
-                // The value of the theorem is a ForAll expression representing its claim.
+                // A theorem has three parts:
+                //   * A list of generic types
+                //   * A list of arguments that are being universally quantified
+                //   * A boolean expression representing a claim of things that are true.
+                self.bind_generic_types(&ts.generic_types)?;
                 let (arg_names, arg_types) = self.bind_args(ts.args.iter().collect())?;
 
                 // Handle the claim
@@ -1190,6 +1223,7 @@ impl Environment {
                 };
 
                 self.unbind_args(arg_names);
+                self.unbind_generic_types();
 
                 ret_val
             }
@@ -1617,7 +1651,7 @@ impl Environment {
     // Check that the given name actually does have this type in the environment.
     #[cfg(test)]
     fn typecheck(&mut self, name: &str, type_string: &str) {
-        let env_type = match self.types.get(name) {
+        let env_type = match self.identifier_types.get(name) {
             Some(t) => t,
             None => panic!("{} not found in environment", name),
         };
@@ -1734,21 +1768,21 @@ mod tests {
     fn test_arg_binding() {
         let mut env = Environment::new();
         env.bad("define qux(x: bool, x: bool) -> bool = x");
-        assert!(env.types.get("x").is_none());
+        assert!(env.identifier_types.get("x").is_none());
         env.add("define qux(x: bool, y: bool) -> bool = x");
         env.typecheck("qux", "(bool, bool) -> bool");
 
         env.bad("theorem foo(x: bool, x: bool): x");
-        assert!(env.types.get("x").is_none());
+        assert!(env.identifier_types.get("x").is_none());
         env.add("theorem foo(x: bool, y: bool): x");
         env.typecheck("foo", "(bool, bool) -> bool");
 
         env.bad("define bar: bool = forall(x: bool, x: bool) { x = x }");
-        assert!(env.types.get("x").is_none());
+        assert!(env.identifier_types.get("x").is_none());
         env.add("define bar: bool = forall(x: bool, y: bool) { x = x }");
 
         env.bad("define baz: bool = exists(x: bool, x: bool) { x = x }");
-        assert!(env.types.get("x").is_none());
+        assert!(env.identifier_types.get("x").is_none());
         env.add("define baz: bool = exists(x: bool, y: bool) { x = x }");
     }
 
@@ -1841,7 +1875,7 @@ mod tests {
         env.bad("axiom bad_types(x: Nat, y: Nat): x -> y");
 
         // We don't want failed typechecks to leave the environment in a bad state
-        assert!(!env.types.contains_key("x"));
+        assert!(!env.identifier_types.contains_key("x"));
 
         env.bad("define foo: bool = Suc(0)");
         env.bad("define foo: Nat = Suc(0 = 0)");
@@ -1851,19 +1885,19 @@ mod tests {
         env.valuecheck("suc_neq_zero", "lambda(x0: Nat) { (Suc(x0) != 0) }");
 
         assert!(env.type_names.contains_key("Nat"));
-        assert!(!env.types.contains_key("Nat"));
+        assert!(!env.identifier_types.contains_key("Nat"));
 
         assert!(!env.type_names.contains_key("0"));
-        assert!(env.types.contains_key("0"));
+        assert!(env.identifier_types.contains_key("0"));
 
         assert!(!env.type_names.contains_key("1"));
-        assert!(env.types.contains_key("1"));
+        assert!(env.identifier_types.contains_key("1"));
 
         assert!(!env.type_names.contains_key("Suc"));
-        assert!(env.types.contains_key("Suc"));
+        assert!(env.identifier_types.contains_key("Suc"));
 
         assert!(!env.type_names.contains_key("foo"));
-        assert!(!env.types.contains_key("foo"));
+        assert!(!env.identifier_types.contains_key("foo"));
 
         env.add(
             "axiom induction(f: Nat -> bool, n: Nat):
