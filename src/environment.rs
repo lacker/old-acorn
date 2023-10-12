@@ -263,6 +263,10 @@ impl Environment {
         data_type
     }
 
+    fn remove_data_type(&mut self, name: &str) {
+        self.type_names.remove(name);
+    }
+
     // This creates an atomic value for the next constant, but does not bind it to any name.
     fn next_constant_atom(&self, acorn_type: &AcornType) -> AcornValue {
         let atom = Atom::Constant(self.constant_names.len() as AtomId);
@@ -646,6 +650,9 @@ impl Environment {
         }
     }
 
+    // Create new type names that look like primitive types but can be genericized.
+    // Internally to this scope, the types work like any other type.
+    // Externally, these types are marked as generic.
     fn bind_generic_types(&mut self, generic_types: &[Token]) -> Result<()> {
         if generic_types.is_empty() {
             return Ok(());
@@ -656,19 +663,39 @@ impl Environment {
                 "cannot declare generic types twice for one block",
             ));
         }
-        self.generic_types = generic_types.iter().map(|t| t.text().to_string()).collect();
-        for (i, name) in self.generic_types.iter().enumerate() {
-            let acorn_type = AcornType::Generic(i);
-            self.type_names.insert(name.clone(), acorn_type);
+        self.generic_types.clear();
+        for token in generic_types {
+            if self.type_names.contains_key(token.text()) {
+                return Err(Error::new(
+                    token,
+                    "cannot redeclare a type in a generic type list",
+                ));
+            }
+            self.add_data_type(token.text());
+            self.generic_types.push(token.text().to_string());
         }
         Ok(())
     }
 
+    // Remove the generic types that were added by bind_generic_types.
     fn unbind_generic_types(&mut self) {
-        for name in &self.generic_types {
-            self.type_names.remove(name);
+        for name in std::mem::take(&mut self.generic_types) {
+            self.remove_data_type(&name);
         }
-        self.generic_types.clear();
+    }
+
+    // self.generic_types contains a list of types that are internally primitive but
+    // externally generic.
+    // genericize does the internal-to-external conversion, replacing any types in
+    // this list with AcornType::Generic values.
+    fn genericize(&self, value: AcornValue) -> AcornValue {
+        let mut value = value;
+        for (i, name) in self.generic_types.iter().enumerate() {
+            let in_type = self.type_names.get(name).unwrap();
+            let out_type = AcornType::Generic(i);
+            value = value.replace_type(in_type, &out_type);
+        }
+        value
     }
 
     // Evaluates an expression that we expect to be indicating either a type or an arg list

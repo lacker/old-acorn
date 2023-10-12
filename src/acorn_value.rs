@@ -148,6 +148,22 @@ impl fmt::Display for AcornValue {
     }
 }
 
+fn replace_type_in_vec(
+    input_type: &AcornType,
+    output_type: &AcornType,
+    vec: &Vec<AcornType>,
+) -> Vec<AcornType> {
+    vec.iter()
+        .map(|x| {
+            if x == input_type {
+                output_type.clone()
+            } else {
+                x.clone()
+            }
+        })
+        .collect()
+}
+
 impl AcornValue {
     // Creates a value of type matching AcornType::functional.
     pub fn apply(function: AcornValue, args: Vec<AcornValue>) -> AcornValue {
@@ -935,7 +951,64 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            _ => panic!("unexpected match"),
+            AcornValue::ArgList(_) => panic!("cannot validate arglist"),
+        }
+    }
+
+    pub fn replace_type(&self, in_type: &AcornType, out_type: &AcornType) -> AcornValue {
+        match self {
+            AcornValue::Atom(ta) => {
+                if &ta.acorn_type == in_type {
+                    AcornValue::Atom(TypedAtom {
+                        atom: ta.atom.clone(),
+                        acorn_type: out_type.clone(),
+                    })
+                } else {
+                    self.clone()
+                }
+            }
+            AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
+                function: Box::new(app.function.replace_type(in_type, out_type)),
+                args: app
+                    .args
+                    .iter()
+                    .map(|x| x.replace_type(in_type, out_type))
+                    .collect(),
+            }),
+            AcornValue::Lambda(args, value) => AcornValue::Lambda(
+                replace_type_in_vec(in_type, out_type, args),
+                Box::new(value.replace_type(in_type, out_type)),
+            ),
+            AcornValue::ForAll(args, value) => AcornValue::ForAll(
+                replace_type_in_vec(in_type, out_type, args),
+                Box::new(value.replace_type(in_type, out_type)),
+            ),
+            AcornValue::Exists(args, value) => AcornValue::Exists(
+                replace_type_in_vec(in_type, out_type, args),
+                Box::new(value.replace_type(in_type, out_type)),
+            ),
+            AcornValue::Implies(left, right) => AcornValue::Implies(
+                Box::new(left.replace_type(in_type, out_type)),
+                Box::new(right.replace_type(in_type, out_type)),
+            ),
+            AcornValue::Equals(left, right) => AcornValue::Equals(
+                Box::new(left.replace_type(in_type, out_type)),
+                Box::new(right.replace_type(in_type, out_type)),
+            ),
+            AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
+                Box::new(left.replace_type(in_type, out_type)),
+                Box::new(right.replace_type(in_type, out_type)),
+            ),
+            AcornValue::And(left, right) => AcornValue::And(
+                Box::new(left.replace_type(in_type, out_type)),
+                Box::new(right.replace_type(in_type, out_type)),
+            ),
+            AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.replace_type(in_type, out_type)),
+                Box::new(right.replace_type(in_type, out_type)),
+            ),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.replace_type(in_type, out_type))),
+            AcornValue::ArgList(_) => panic!("cannot replace type in arglist"),
         }
     }
 }
