@@ -9,8 +9,12 @@ pub struct FunctionType {
 // Functional types can be applied.
 // Data types include both axiomatic types and struct types.
 // Generics are types that are not yet known.
+//
 // An argument list isn't really a type, but it's part of a type.
-// It's used when we have more than one argument to a function.
+// It's used while parsing types.
+// For example, the left hand side of (Nat, Nat) -> Nat is an arg list.
+//
+// "Any" is a hack used for testing.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
     Bool,
