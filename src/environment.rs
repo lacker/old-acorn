@@ -716,6 +716,11 @@ impl Environment {
         let mut value = value;
         for (i, name) in generic_types.iter().enumerate() {
             let in_type = self.type_names.get(name).unwrap();
+            if let AcornType::Data(_) = in_type {
+                // Expected
+            } else {
+                panic!("we should only be genericizing data types");
+            }
             let out_type = AcornType::Generic(i);
             value = value.replace_type(in_type, &out_type);
         }
