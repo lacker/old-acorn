@@ -125,13 +125,21 @@ impl Expression {
     }
 
     // Flattens an expression like "(1, 2, 3)"
-    pub fn flatten_grouped_list(&self) -> Result<Vec<&Expression>> {
+    // If allow_singleton is true, then something like "1" also counts as a list.
+    // If allow_singleton is false, a list of length 1 must be parenthesized like "(1)".
+    pub fn flatten_list(&self, allow_singleton: bool) -> Result<Vec<&Expression>> {
         match self {
             Expression::Grouping(_, e, _) => Ok(e.flatten_comma_separated_list()),
-            _ => Err(Error::new(
-                self.token(),
-                &format!("expected a grouped list but found: {}", self),
-            )),
+            e => {
+                if !allow_singleton {
+                    Err(Error::new(
+                        self.token(),
+                        &format!("expected a grouped list but found: {}", self),
+                    ))
+                } else {
+                    Ok(vec![e])
+                }
+            }
         }
     }
 

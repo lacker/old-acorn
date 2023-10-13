@@ -737,11 +737,15 @@ impl Environment {
             )),
             Expression::Binary(left, token, right) => match token.token_type {
                 TokenType::RightArrow => {
-                    let left_type = self.evaluate_partial_type_expression(left)?;
-                    let right_type = self.evaluate_partial_type_expression(right)?;
+                    let arg_exprs = left.flatten_list(true)?;
+                    let mut arg_types = vec![];
+                    for arg_expr in arg_exprs {
+                        arg_types.push(self.evaluate_partial_type_expression(arg_expr)?);
+                    }
+                    let return_type = self.evaluate_partial_type_expression(right)?;
                     let function_type = FunctionType {
-                        arg_types: left_type.into_vec(),
-                        return_type: Box::new(right_type),
+                        arg_types,
+                        return_type: Box::new(return_type),
                     };
                     Ok(AcornType::Function(function_type))
                 }
@@ -928,7 +932,7 @@ impl Environment {
                     &*function_type.return_type,
                 )?;
 
-                let arg_exprs = args_expr.flatten_grouped_list()?;
+                let arg_exprs = args_expr.flatten_list(false)?;
 
                 if function_type.arg_types.len() != arg_exprs.len() {
                     return Err(Error::new(
@@ -957,7 +961,7 @@ impl Environment {
             }
             Expression::Grouping(_, e, _) => self.evaluate_value_expression(e, expected_type),
             Expression::Macro(token, args_expr, body, _) => {
-                let macro_args = args_expr.flatten_grouped_list()?;
+                let macro_args = args_expr.flatten_list(false)?;
                 if macro_args.len() < 1 {
                     return Err(Error::new(
                         args_expr.token(),
