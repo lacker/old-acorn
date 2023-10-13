@@ -49,6 +49,10 @@ pub enum AcornValue {
     // Quantifiers that introduce variables onto the stack.
     ForAll(Vec<AcornType>, Box<AcornValue>),
     Exists(Vec<AcornType>, Box<AcornValue>),
+
+    // The instantiation of a function with generic types.
+    // Instantiations cannot be nested.
+    Instantiation(Vec<AcornType>, Box<AcornValue>),
 }
 
 // An AcornValue has an implicit stack size that determines what index new stack variables
@@ -76,6 +80,14 @@ impl fmt::Display for Subvalue<'_> {
             }
             AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
+            AcornValue::Instantiation(types, a) => {
+                write!(
+                    f,
+                    "{}<{}>",
+                    Subvalue::new(a, self.stack_size),
+                    AcornType::vec_to_str(types)
+                )
+            }
         }
     }
 }
@@ -202,6 +214,7 @@ impl AcornValue {
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
+            AcornValue::Instantiation(_types, _value) => todo!(),
         }
     }
 
@@ -416,6 +429,10 @@ impl AcornValue {
                     Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
+            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
+                types,
+                Box::new(value.bind_values(first_binding_index, stack_size, values)),
+            ),
         }
     }
 
@@ -467,6 +484,9 @@ impl AcornValue {
             }
             AcornValue::Exists(quants, value) => {
                 AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
+            }
+            AcornValue::Instantiation(types, value) => {
+                AcornValue::Instantiation(types, Box::new(value.insert_stack(index, increment)))
             }
         }
     }
@@ -583,6 +603,10 @@ impl AcornValue {
                     Box::new(value.replace_function_equality(new_stack_size)),
                 )
             }
+            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
+                types.clone(),
+                Box::new(value.replace_function_equality(stack_size)),
+            ),
         }
     }
 
@@ -646,6 +670,9 @@ impl AcornValue {
             AcornValue::Lambda(args, value) => {
                 let new_stack_size = stack_size + args.len() as AtomId;
                 AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
+            }
+            AcornValue::Instantiation(types, value) => {
+                AcornValue::Instantiation(types.clone(), Box::new(value.expand_lambdas(stack_size)))
             }
         }
     }
@@ -754,6 +781,10 @@ impl AcornValue {
                     .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
+            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
+                types.clone(),
+                Box::new(value.replace_constants_with_values(stack_size, replacer)),
+            ),
         }
     }
 
@@ -825,6 +856,10 @@ impl AcornValue {
                 let new_value = value.replace_constants_with_variables(constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
+            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
+                types.clone(),
+                Box::new(value.replace_constants_with_variables(constants)),
+            ),
         }
     }
 
@@ -874,6 +909,7 @@ impl AcornValue {
             AcornValue::Not(x) => x.find_constants_gte(index, answer),
             AcornValue::ForAll(_, value) => value.find_constants_gte(index, answer),
             AcornValue::Exists(_, value) => value.find_constants_gte(index, answer),
+            AcornValue::Instantiation(_, value) => value.find_constants_gte(index, answer),
         }
     }
 
@@ -927,6 +963,7 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
+            AcornValue::Instantiation(_, value) => value.validate_against_stack(stack),
         }
     }
 
@@ -983,6 +1020,10 @@ impl AcornValue {
                 Box::new(right.replace_type(in_type, out_type)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.replace_type(in_type, out_type))),
+            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
+                replace_type_in_vec(in_type, out_type, types),
+                Box::new(value.replace_type(in_type, out_type)),
+            ),
         }
     }
 }

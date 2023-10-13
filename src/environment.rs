@@ -576,6 +576,13 @@ impl Environment {
             AcornValue::Lambda(types, values) => {
                 self.macro_str_stacked("lambda", types, values, stack_size)
             }
+            AcornValue::Instantiation(types, value) => {
+                format!(
+                    "{}<{}>",
+                    self.value_str_stacked(value, stack_size),
+                    self.type_list_str(types)
+                )
+            }
         }
     }
 
