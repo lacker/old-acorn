@@ -845,80 +845,67 @@ impl Environment {
                     "unexpected unary operator in value expression",
                 )),
             },
-            Expression::Binary(left, token, right) => {
-                match token.token_type {
-                    TokenType::Comma => {
-                        // Flatten the values on either side, assumed to be arg lists
-                        let left_args = self.evaluate_value_expression(left, None)?;
-                        let right_args = self.evaluate_value_expression(right, None)?;
-                        let mut args = left_args.into_vec();
-                        args.extend(right_args.into_vec());
-                        Ok(AcornValue::ArgList(args))
-                    }
-                    TokenType::RightArrow => {
-                        self.check_type(token, expected_type, &AcornType::Bool)?;
-                        let left_value =
-                            self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                        let right_value =
-                            self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
-                        Ok(AcornValue::Implies(
-                            Box::new(left_value),
-                            Box::new(right_value),
-                        ))
-                    }
-                    TokenType::Equals => {
-                        self.check_type(token, expected_type, &AcornType::Bool)?;
-                        let left_value = self.evaluate_value_expression(left, None)?;
-                        let right_value =
-                            self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
-                        Ok(AcornValue::Equals(
-                            Box::new(left_value),
-                            Box::new(right_value),
-                        ))
-                    }
-                    TokenType::NotEquals => {
-                        self.check_type(token, expected_type, &AcornType::Bool)?;
-                        let left_value = self.evaluate_value_expression(left, None)?;
-                        let right_value =
-                            self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
-                        Ok(AcornValue::NotEquals(
-                            Box::new(left_value),
-                            Box::new(right_value),
-                        ))
-                    }
-                    TokenType::Ampersand => {
-                        self.check_type(token, expected_type, &AcornType::Bool)?;
-                        let left_value =
-                            self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                        let right_value =
-                            self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
-                        Ok(AcornValue::And(Box::new(left_value), Box::new(right_value)))
-                    }
-                    TokenType::Pipe => {
-                        self.check_type(token, expected_type, &AcornType::Bool)?;
-                        let left_value =
-                            self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                        let right_value =
-                            self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
-                        Ok(AcornValue::Or(Box::new(left_value), Box::new(right_value)))
-                    }
-                    TokenType::Dot => {
-                        let name = expression.concatenate_dots()?;
-                        if let Some(acorn_value) = self.get_constant_atom(&name) {
-                            Ok(acorn_value)
-                        } else {
-                            return Err(Error::new(
-                                token,
-                                &format!("the name {} is unbound", name),
-                            ));
-                        }
-                    }
-                    _ => Err(Error::new(
-                        token,
-                        "unhandled binary operator in value expression",
-                    )),
+            Expression::Binary(left, token, right) => match token.token_type {
+                TokenType::RightArrow => {
+                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    let left_value =
+                        self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
+                    let right_value =
+                        self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
+                    Ok(AcornValue::Implies(
+                        Box::new(left_value),
+                        Box::new(right_value),
+                    ))
                 }
-            }
+                TokenType::Equals => {
+                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    let left_value = self.evaluate_value_expression(left, None)?;
+                    let right_value =
+                        self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
+                    Ok(AcornValue::Equals(
+                        Box::new(left_value),
+                        Box::new(right_value),
+                    ))
+                }
+                TokenType::NotEquals => {
+                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    let left_value = self.evaluate_value_expression(left, None)?;
+                    let right_value =
+                        self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
+                    Ok(AcornValue::NotEquals(
+                        Box::new(left_value),
+                        Box::new(right_value),
+                    ))
+                }
+                TokenType::Ampersand => {
+                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    let left_value =
+                        self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
+                    let right_value =
+                        self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
+                    Ok(AcornValue::And(Box::new(left_value), Box::new(right_value)))
+                }
+                TokenType::Pipe => {
+                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    let left_value =
+                        self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
+                    let right_value =
+                        self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
+                    Ok(AcornValue::Or(Box::new(left_value), Box::new(right_value)))
+                }
+                TokenType::Dot => {
+                    let name = expression.concatenate_dots()?;
+                    if let Some(acorn_value) = self.get_constant_atom(&name) {
+                        Ok(acorn_value)
+                    } else {
+                        return Err(Error::new(token, &format!("the name {} is unbound", name)));
+                    }
+                }
+                _ => Err(Error::new(
+                    token,
+                    "unhandled binary operator in value expression",
+                )),
+            },
             Expression::Apply(function_expr, args_expr) => {
                 let function = self.evaluate_value_expression(function_expr, None)?;
                 let function_type = function.get_type();
