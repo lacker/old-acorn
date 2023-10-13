@@ -244,6 +244,25 @@ impl AcornType {
         }
         result
     }
+
+    // Replace the generic types with a type from the list
+    pub fn instantiate(&self, types: &[AcornType]) -> AcornType {
+        match self {
+            AcornType::Generic(index) => types[*index].clone(),
+            AcornType::Function(function_type) => AcornType::Function(FunctionType {
+                arg_types: function_type
+                    .arg_types
+                    .iter()
+                    .map(|t| t.instantiate(types))
+                    .collect(),
+                return_type: Box::new(function_type.return_type.instantiate(types)),
+            }),
+            AcornType::ArgList(arg_types) => {
+                AcornType::ArgList(arg_types.iter().map(|t| t.instantiate(types)).collect())
+            }
+            _ => self.clone(),
+        }
+    }
 }
 
 impl fmt::Display for AcornType {
