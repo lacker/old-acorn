@@ -200,6 +200,32 @@ impl TypedAtom {
     pub fn is_constant(&self) -> bool {
         self.atom.is_constant()
     }
+
+    pub fn find_constants_gte(&self, index: AtomId, answer: &mut Vec<(AtomId, AcornType)>) {
+        match self.atom {
+            Atom::Constant(c) => {
+                if c >= index {
+                    // Insert tuple into answer, sorted by index
+                    let tuple = (c, self.acorn_type.clone());
+                    if let Err(pos) = answer.binary_search(&tuple) {
+                        answer.insert(pos, tuple);
+                    };
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn replace_type(&self, in_type: &AcornType, out_type: &AcornType) -> TypedAtom {
+        if self.acorn_type == *in_type {
+            TypedAtom {
+                atom: self.atom.clone(),
+                acorn_type: out_type.clone(),
+            }
+        } else {
+            self.clone()
+        }
+    }
 }
 
 #[cfg(test)]

@@ -50,9 +50,9 @@ pub enum AcornValue {
     ForAll(Vec<AcornType>, Box<AcornValue>),
     Exists(Vec<AcornType>, Box<AcornValue>),
 
-    // The instantiation of a function with generic types.
+    // The instantiation of a named function with generic types.
     // Instantiations cannot be nested.
-    Instantiation(Vec<AcornType>, Box<AcornValue>),
+    Instantiation(TypedAtom, Vec<AcornType>),
 }
 
 // An AcornValue has an implicit stack size that determines what index new stack variables
@@ -80,13 +80,8 @@ impl fmt::Display for Subvalue<'_> {
             }
             AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
-            AcornValue::Instantiation(types, a) => {
-                write!(
-                    f,
-                    "{}<{}>",
-                    Subvalue::new(a, self.stack_size),
-                    AcornType::vec_to_str(types)
-                )
+            AcornValue::Instantiation(atom, types) => {
+                write!(f, "{}<{}>", atom, AcornType::vec_to_str(types))
             }
         }
     }
@@ -214,7 +209,7 @@ impl AcornValue {
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
-            AcornValue::Instantiation(types, value) => value.get_type().instantiate(types),
+            AcornValue::Instantiation(atom, types) => atom.acorn_type.instantiate(types),
         }
     }
 
@@ -429,10 +424,7 @@ impl AcornValue {
                     Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
-            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
-                types,
-                Box::new(value.bind_values(first_binding_index, stack_size, values)),
-            ),
+            AcornValue::Instantiation(_, _) => self,
         }
     }
 
@@ -485,9 +477,7 @@ impl AcornValue {
             AcornValue::Exists(quants, value) => {
                 AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
             }
-            AcornValue::Instantiation(types, value) => {
-                AcornValue::Instantiation(types, Box::new(value.insert_stack(index, increment)))
-            }
+            AcornValue::Instantiation(_, _) => self,
         }
     }
 
@@ -603,10 +593,7 @@ impl AcornValue {
                     Box::new(value.replace_function_equality(new_stack_size)),
                 )
             }
-            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
-                types.clone(),
-                Box::new(value.replace_function_equality(stack_size)),
-            ),
+            AcornValue::Instantiation(_, _) => self.clone(),
         }
     }
 
@@ -671,9 +658,7 @@ impl AcornValue {
                 let new_stack_size = stack_size + args.len() as AtomId;
                 AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
             }
-            AcornValue::Instantiation(types, value) => {
-                AcornValue::Instantiation(types.clone(), Box::new(value.expand_lambdas(stack_size)))
-            }
+            AcornValue::Instantiation(_, _) => self,
         }
     }
 
@@ -781,10 +766,7 @@ impl AcornValue {
                     .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
-                types.clone(),
-                Box::new(value.replace_constants_with_values(stack_size, replacer)),
-            ),
+            AcornValue::Instantiation(_, _) => panic!("can this happen?"),
         }
     }
 
@@ -856,10 +838,7 @@ impl AcornValue {
                 let new_value = value.replace_constants_with_variables(constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
-                types.clone(),
-                Box::new(value.replace_constants_with_variables(constants)),
-            ),
+            AcornValue::Instantiation(_, _) => panic!("can this happen?"),
         }
     }
 
@@ -867,18 +846,7 @@ impl AcornValue {
     // Report tuples of (i, type).
     pub fn find_constants_gte(&self, index: AtomId, answer: &mut Vec<(AtomId, AcornType)>) {
         match self {
-            AcornValue::Atom(typed_atom) => match typed_atom.atom {
-                Atom::Constant(c) => {
-                    if c >= index {
-                        // Insert tuple into answer, sorted by index
-                        let tuple = (c, typed_atom.acorn_type.clone());
-                        if let Err(pos) = answer.binary_search(&tuple) {
-                            answer.insert(pos, tuple);
-                        };
-                    }
-                }
-                _ => {}
-            },
+            AcornValue::Atom(ta) => ta.find_constants_gte(index, answer),
             AcornValue::Application(fa) => {
                 fa.function.find_constants_gte(index, answer);
                 for arg in &fa.args {
@@ -909,7 +877,7 @@ impl AcornValue {
             AcornValue::Not(x) => x.find_constants_gte(index, answer),
             AcornValue::ForAll(_, value) => value.find_constants_gte(index, answer),
             AcornValue::Exists(_, value) => value.find_constants_gte(index, answer),
-            AcornValue::Instantiation(_, value) => value.find_constants_gte(index, answer),
+            AcornValue::Instantiation(ta, _) => ta.find_constants_gte(index, answer),
         }
     }
 
@@ -963,22 +931,13 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            AcornValue::Instantiation(_, value) => value.validate_against_stack(stack),
+            AcornValue::Instantiation(_, _) => Ok(()),
         }
     }
 
     pub fn replace_type(&self, in_type: &AcornType, out_type: &AcornType) -> AcornValue {
         match self {
-            AcornValue::Atom(ta) => {
-                if &ta.acorn_type == in_type {
-                    AcornValue::Atom(TypedAtom {
-                        atom: ta.atom.clone(),
-                        acorn_type: out_type.clone(),
-                    })
-                } else {
-                    self.clone()
-                }
-            }
+            AcornValue::Atom(ta) => AcornValue::Atom(ta.replace_type(in_type, out_type)),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.replace_type(in_type, out_type)),
                 args: app
@@ -1020,9 +979,9 @@ impl AcornValue {
                 Box::new(right.replace_type(in_type, out_type)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.replace_type(in_type, out_type))),
-            AcornValue::Instantiation(types, value) => AcornValue::Instantiation(
+            AcornValue::Instantiation(atom, types) => AcornValue::Instantiation(
+                atom.replace_type(in_type, out_type),
                 replace_type_in_vec(in_type, out_type, types),
-                Box::new(value.replace_type(in_type, out_type)),
             ),
         }
     }

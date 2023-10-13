@@ -578,10 +578,10 @@ impl Environment {
             AcornValue::Lambda(types, values) => {
                 self.macro_str_stacked("lambda", types, values, stack_size)
             }
-            AcornValue::Instantiation(types, value) => {
+            AcornValue::Instantiation(atom, types) => {
                 format!(
                     "{}<{}>",
-                    self.value_str_stacked(value, stack_size),
+                    self.atom_str(&atom.atom),
                     self.type_list_str(types)
                 )
             }
@@ -949,6 +949,16 @@ impl Environment {
                     }));
                 }
 
+                // Templated functions have to just be atoms
+                let fn_atom = if let AcornValue::Atom(a) = function {
+                    a
+                } else {
+                    return Err(Error::new(
+                        function_expr.token(),
+                        "a non-atomic function cannot be a template",
+                    ));
+                };
+
                 // Check to make sure all of the template types were inferred
                 let mut inst_types = vec![];
                 for t in template_types {
@@ -969,7 +979,7 @@ impl Environment {
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let instantiation = AcornValue::Instantiation(inst_types, Box::new(function));
+                let instantiation = AcornValue::Instantiation(fn_atom, inst_types);
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(instantiation),
                     args,
