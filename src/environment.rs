@@ -654,47 +654,39 @@ impl Environment {
     // Call both unbind_args and unbind_generic_types when done.
     fn bind_templated_args(
         &mut self,
-        generic_types: &[Token],
+        generic_type_tokens: &[Token],
         args: &[Expression],
         location: &Token,
     ) -> Result<(Vec<String>, Vec<String>, Vec<AcornType>)> {
-        let generic_types = self.bind_generic_types(generic_types)?;
-        let (arg_names, arg_types) = self.bind_args(args)?;
-
-        // Each type has to be used by some argument so that we know how to
-        // instantiate the template
-        for generic_type in &generic_types {
-            let t = self.type_names.get(generic_type).unwrap();
-            if !arg_types.iter().any(|a| a.refers_to(t)) {
-                return Err(Error::new(
-                    location,
-                    &format!(
-                        "generic type {} is not used in the function arguments",
-                        generic_type
-                    ),
-                ));
-            }
-        }
-        Ok((generic_types, arg_names, arg_types))
-    }
-
-    // Create new type names that look like primitive types but can be genericized.
-    // Internally to this scope, the types work like any other type.
-    // Externally, these types are marked as generic.
-    // Returns a list of the strings bound to generic types.
-    fn bind_generic_types(&mut self, generic_types: &[Token]) -> Result<Vec<String>> {
-        let mut answer = vec![];
-        for token in generic_types {
+        let mut generic_type_names: Vec<String> = vec![];
+        let mut generic_types: Vec<AcornType> = vec![];
+        for token in generic_type_tokens {
             if self.type_names.contains_key(token.text()) {
                 return Err(Error::new(
                     token,
                     "cannot redeclare a type in a generic type list",
                 ));
             }
-            self.add_data_type(token.text());
-            answer.push(token.text().to_string());
+            generic_types.push(self.add_data_type(token.text()));
+            generic_type_names.push(token.text().to_string());
         }
-        Ok(answer)
+
+        let (arg_names, arg_types) = self.bind_args(args)?;
+
+        // Each type has to be used by some argument so that we know how to
+        // instantiate the template
+        for (i, generic_type) in generic_types.iter().enumerate() {
+            if !arg_types.iter().any(|a| a.refers_to(generic_type)) {
+                return Err(Error::new(
+                    location,
+                    &format!(
+                        "generic type {} is not used in the function arguments",
+                        generic_type_names[i]
+                    ),
+                ));
+            }
+        }
+        Ok((generic_type_names, arg_names, arg_types))
     }
 
     // Remove the generic types that were added by bind_generic_types.
