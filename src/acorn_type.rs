@@ -65,6 +65,36 @@ impl AcornType {
         }
     }
 
+    // Whether this type refers to the other type.
+    // For example, (Nat, Int) -> Rat refers to all of Nat, Int, and Rat.
+    pub fn refers_to(&self, other_type: &AcornType) -> bool {
+        if self == other_type {
+            return true;
+        }
+        match self {
+            AcornType::Function(function_type) => {
+                for arg_type in &function_type.arg_types {
+                    if arg_type.refers_to(other_type) {
+                        return true;
+                    }
+                }
+                function_type.return_type.refers_to(other_type)
+            }
+            AcornType::Data(_) => false,
+            AcornType::Generic(_) => false,
+            AcornType::ArgList(arg_types) => {
+                for arg_type in arg_types {
+                    if arg_type.refers_to(other_type) {
+                        return true;
+                    }
+                }
+                false
+            }
+            AcornType::Bool => false,
+            AcornType::Any => false,
+        }
+    }
+
     // Create the type you get when you apply this type to the given type.
     // Panics if the application is invalid.
     // Does partial application.

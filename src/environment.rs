@@ -646,6 +646,38 @@ impl Environment {
         }
     }
 
+    // Binds a possibly-empty list of generic types, along with function arguments.
+    // This adds names for both types and arguments to the environment.
+    // Internally to this scope, the types work like any other type.
+    // Externally, these types are marked as generic.
+    // Returns (generic type names, arg names, arg types).
+    // Call both unbind_args and unbind_generic_types when done.
+    fn bind_templated_args(
+        &mut self,
+        generic_types: &[Token],
+        args: &[Expression],
+        location: &Token,
+    ) -> Result<(Vec<String>, Vec<String>, Vec<AcornType>)> {
+        let generic_types = self.bind_generic_types(generic_types)?;
+        let (arg_names, arg_types) = self.bind_args(args)?;
+
+        // Each type has to be used by some argument so that we know how to
+        // instantiate the template
+        for generic_type in &generic_types {
+            let t = self.type_names.get(generic_type).unwrap();
+            if !arg_types.iter().any(|a| a.refers_to(t)) {
+                return Err(Error::new(
+                    location,
+                    &format!(
+                        "generic type {} is not used in the function arguments",
+                        generic_type
+                    ),
+                ));
+            }
+        }
+        Ok((generic_types, arg_names, arg_types))
+    }
+
     // Create new type names that look like primitive types but can be genericized.
     // Internally to this scope, the types work like any other type.
     // Externally, these types are marked as generic.
@@ -1081,8 +1113,9 @@ impl Environment {
                 }
 
                 // Calculate the function value
-                let generic_types = self.bind_generic_types(&ds.generic_types)?;
-                let (arg_names, arg_types) = self.bind_args(&ds.args)?;
+                let (generic_types, arg_names, arg_types) =
+                    self.bind_templated_args(&ds.generic_types, &ds.args, &statement.first_token)?;
+
                 let return_type = self.evaluate_type_expression(&ds.return_type)?;
                 let mut fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
                     let new_axiom_type = AcornType::Function(FunctionType {
@@ -1116,8 +1149,8 @@ impl Environment {
                 //   * A list of generic types
                 //   * A list of arguments that are being universally quantified
                 //   * A boolean expression representing a claim of things that are true.
-                let generic_types = self.bind_generic_types(&ts.generic_types)?;
-                let (arg_names, arg_types) = self.bind_args(&ts.args)?;
+                let (generic_types, arg_names, arg_types) =
+                    self.bind_templated_args(&ts.generic_types, &ts.args, &statement.first_token)?;
 
                 // Handle the claim
                 let ret_val = match self
