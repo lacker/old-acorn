@@ -774,6 +774,22 @@ impl Environment {
         }
     }
 
+    // Evalutes a comma-separated list of values
+    fn evaluate_value_list(&mut self, expression: &Expression) -> Result<Vec<AcornValue>> {
+        if let Expression::Grouping(_, e, _) = expression {
+            return self.evaluate_value_list(e);
+        }
+        if let Expression::Binary(left, token, right) = expression {
+            if token.token_type == TokenType::Comma {
+                let mut args = self.evaluate_value_list(left)?;
+                args.push(self.evaluate_value_expression(right, None)?);
+                return Ok(args);
+            }
+        }
+        let single_arg = self.evaluate_value_expression(expression, None)?;
+        Ok(vec![single_arg])
+    }
+
     // A value expression could be either a value or an argument list.
     // We mutate the environment to account for the stack, so self has to be mut.
     // It might be better to use some fancier data structure.
@@ -850,13 +866,9 @@ impl Environment {
                     TokenType::Comma => {
                         // Flatten the values on either side, assumed to be arg lists
                         let left_args = self.evaluate_value_expression(left, None)?;
-                        let left_type = left_args.get_type();
                         let right_args = self.evaluate_value_expression(right, None)?;
-                        let right_type = right_args.get_type();
                         let mut args = left_args.into_vec();
                         args.extend(right_args.into_vec());
-                        let mut types = left_type.into_vec();
-                        types.extend(right_type.into_vec());
                         Ok(AcornValue::ArgList(args))
                     }
                     TokenType::RightArrow => {
@@ -935,7 +947,8 @@ impl Environment {
                     &*function_type.return_type,
                 )?;
 
-                let args = self.evaluate_value_expression(args_expr, None)?;
+                let args = self.evaluate_value_list(args_expr)?;
+                let args = AcornValue::ArgList(args);
                 let args_type = args.get_type();
 
                 self.check_type(
