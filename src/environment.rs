@@ -902,11 +902,6 @@ impl Environment {
                         return Err(Error::new(function_expr.token(), "expected a function"));
                     }
                 };
-                self.check_type(
-                    function_expr.token(),
-                    expected_type,
-                    &*function_type.return_type,
-                )?;
 
                 let arg_exprs = args_expr.flatten_list(false)?;
 
@@ -922,16 +917,52 @@ impl Environment {
                 }
 
                 let mut args = vec![];
+                let mut template_types = vec![];
                 for (i, arg_expr) in arg_exprs.iter().enumerate() {
                     let arg_type = &function_type.arg_types[i];
-                    let arg_value = self.evaluate_value_expression(arg_expr, Some(arg_type))?;
+                    let arg_value = self.evaluate_value_expression(arg_expr, None)?;
+                    if !arg_type.match_instantiated(&arg_value.get_type(), &mut template_types) {
+                        return Err(Error::new(
+                            arg_expr.token(),
+                            &format!(
+                                "expected type {}, but got {}",
+                                self.type_str(arg_type),
+                                self.type_str(&arg_value.get_type())
+                            ),
+                        ));
+                    }
                     args.push(arg_value);
                 }
 
-                // TODO: maybe create an instantiation here.
+                if template_types.is_empty() {
+                    self.check_type(
+                        function_expr.token(),
+                        expected_type,
+                        &*function_type.return_type,
+                    )?;
+                    return Ok(AcornValue::Application(FunctionApplication {
+                        function: Box::new(function),
+                        args,
+                    }));
+                }
 
+                // Check to make sure all of the template types were inferred
+                let mut inst_types = vec![];
+                for t in template_types {
+                    match t {
+                        Some(t) => inst_types.push(t),
+                        None => {
+                            return Err(Error::new(
+                                function_expr.token(),
+                                "cannot infer types for this generic function application",
+                            ));
+                        }
+                    }
+                }
+
+                let instantiation = AcornValue::Instantiation(inst_types, Box::new(function));
                 Ok(AcornValue::Application(FunctionApplication {
-                    function: Box::new(function),
+                    function: Box::new(instantiation),
                     args,
                 }))
             }
@@ -2061,6 +2092,6 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("eq(0, 0)");
         env.add("eq(0 = 0, 0 = 0)");
         env.add("eq(0 = 0, eq(0, 0))");
-        // env.bad("eq(0, 0 = 0)");
+        env.bad("eq(0, 0 = 0)");
     }
 }

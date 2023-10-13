@@ -231,7 +231,7 @@ impl AcornType {
 
         match (self, instantiated) {
             (AcornType::Generic(i), _) => {
-                if types.len() < *i {
+                if types.len() <= *i {
                     types.resize(i + 1, None);
                 }
                 if let Some(t) = &types[*i] {
