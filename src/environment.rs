@@ -246,7 +246,7 @@ impl Environment {
     // Adds a proposition.
     fn add_proposition(&mut self, prop: Proposition) {
         // Check if we're adding invalid claims.
-        // println!("adding claim: {}", self.value_str(&prop.claim));
+        println!("adding claim: {}", self.value_str(&prop.claim));
 
         self.propositions.push(prop);
     }
@@ -462,14 +462,13 @@ impl Environment {
     }
 
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
-        let mut s = "(".to_string();
+        let mut s = "".to_string();
         for (i, acorn_type) in types.iter().enumerate() {
             if i > 0 {
                 s.push_str(", ");
             }
             s.push_str(&self.type_str(acorn_type));
         }
-        s.push_str(")");
         s
     }
 
@@ -482,12 +481,16 @@ impl Environment {
                 format!("T{}", i)
             }
             AcornType::Function(function_type) => {
-                let s = if function_type.arg_types.len() > 1 {
-                    self.type_list_str(&function_type.arg_types)
+                let ret = self.type_str(&function_type.return_type);
+                if function_type.arg_types.len() > 1 {
+                    format!(
+                        "({}) -> {}",
+                        self.type_list_str(&function_type.arg_types),
+                        ret
+                    )
                 } else {
-                    self.type_str(&function_type.arg_types[0])
-                };
-                format!("{} -> {}", s, self.type_str(&function_type.return_type))
+                    format!("{} -> {}", self.type_str(&function_type.arg_types[0]), ret)
+                }
             }
             AcornType::Any => "any".to_string(),
         }

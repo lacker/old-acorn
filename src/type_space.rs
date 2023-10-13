@@ -46,9 +46,11 @@ impl TypeSpace {
                 return i as TypeId;
             }
         }
-        assert!(acorn_type.is_normalized());
+        if !acorn_type.is_normalized() {
+            panic!("Type {} is not normalized", acorn_type);
+        }
         self.types.push(acorn_type);
-        (self.types.len() - 1).try_into().unwrap()
+        (self.types.len() - 1) as TypeId
     }
 
     pub fn get_type(&self, type_id: TypeId) -> &AcornType {
