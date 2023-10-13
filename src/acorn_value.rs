@@ -214,7 +214,7 @@ impl AcornValue {
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
-            AcornValue::Instantiation(_types, _value) => todo!(),
+            AcornValue::Instantiation(types, value) => value.get_type().instantiate(types),
         }
     }
 
