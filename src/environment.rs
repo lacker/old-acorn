@@ -960,6 +960,12 @@ impl Environment {
                     }
                 }
 
+                if expected_type.is_some() {
+                    // Check the return type
+                    let return_type = function_type.return_type.instantiate(&inst_types);
+                    self.check_type(function_expr.token(), expected_type, &return_type)?;
+                }
+
                 let instantiation = AcornValue::Instantiation(inst_types, Box::new(function));
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(instantiation),
