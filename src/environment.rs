@@ -716,7 +716,7 @@ impl Environment {
     }
 
     // Evaluates an expression that we expect to be indicating either a type or an arg list
-    pub fn evaluate_partial_type_expression(&self, expression: &Expression) -> Result<AcornType> {
+    pub fn evaluate_type_expression(&self, expression: &Expression) -> Result<AcornType> {
         match expression {
             Expression::Identifier(token) => {
                 if token.token_type == TokenType::Axiom {
@@ -740,20 +740,14 @@ impl Environment {
                     let arg_exprs = left.flatten_list(true)?;
                     let mut arg_types = vec![];
                     for arg_expr in arg_exprs {
-                        arg_types.push(self.evaluate_partial_type_expression(arg_expr)?);
+                        arg_types.push(self.evaluate_type_expression(arg_expr)?);
                     }
-                    let return_type = self.evaluate_partial_type_expression(right)?;
+                    let return_type = self.evaluate_type_expression(right)?;
                     let function_type = FunctionType {
                         arg_types,
                         return_type: Box::new(return_type),
                     };
                     Ok(AcornType::Function(function_type))
-                }
-                TokenType::Comma => {
-                    // Flatten the types on either side, assumed to be arg lists
-                    let mut args = self.evaluate_partial_type_expression(left)?.into_vec();
-                    args.extend(self.evaluate_partial_type_expression(right)?.into_vec());
-                    Ok(AcornType::ArgList(args))
                 }
                 _ => Err(Error::new(
                     token,
@@ -764,23 +758,10 @@ impl Environment {
                 left.token(),
                 "unexpected function application in type expression",
             )),
-            Expression::Grouping(_, e, _) => self.evaluate_partial_type_expression(e),
+            Expression::Grouping(_, e, _) => self.evaluate_type_expression(e),
             Expression::Macro(token, _, _, _) => {
                 Err(Error::new(token, "unexpected macro in type expression"))
             }
-        }
-    }
-
-    // Evaluates an expression that indicates a complete type, not an arg list
-    pub fn evaluate_type_expression(&self, expression: &Expression) -> Result<AcornType> {
-        let acorn_type = self.evaluate_partial_type_expression(expression)?;
-        if let AcornType::ArgList(_) = acorn_type {
-            Err(Error::new(
-                expression.token(),
-                "expected a complete type, not arg list",
-            ))
-        } else {
-            Ok(acorn_type)
         }
     }
 
