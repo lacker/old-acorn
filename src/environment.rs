@@ -774,22 +774,6 @@ impl Environment {
         }
     }
 
-    // Evalutes a comma-separated list of values
-    fn evaluate_value_list(&mut self, expression: &Expression) -> Result<Vec<AcornValue>> {
-        if let Expression::Grouping(_, e, _) = expression {
-            return self.evaluate_value_list(e);
-        }
-        if let Expression::Binary(left, token, right) = expression {
-            if token.token_type == TokenType::Comma {
-                let mut args = self.evaluate_value_list(left)?;
-                args.push(self.evaluate_value_expression(right, None)?);
-                return Ok(args);
-            }
-        }
-        let single_arg = self.evaluate_value_expression(expression, None)?;
-        Ok(vec![single_arg])
-    }
-
     // A value expression could be either a value or an argument list.
     // We mutate the environment to account for the stack, so self has to be mut.
     // It might be better to use some fancier data structure.
@@ -872,6 +856,7 @@ impl Environment {
                         Ok(AcornValue::ArgList(args))
                     }
                     TokenType::RightArrow => {
+                        self.check_type(token, expected_type, &AcornType::Bool)?;
                         let left_value =
                             self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
                         let right_value =
@@ -882,6 +867,7 @@ impl Environment {
                         ))
                     }
                     TokenType::Equals => {
+                        self.check_type(token, expected_type, &AcornType::Bool)?;
                         let left_value = self.evaluate_value_expression(left, None)?;
                         let right_value =
                             self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
@@ -891,8 +877,8 @@ impl Environment {
                         ))
                     }
                     TokenType::NotEquals => {
+                        self.check_type(token, expected_type, &AcornType::Bool)?;
                         let left_value = self.evaluate_value_expression(left, None)?;
-
                         let right_value =
                             self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
                         Ok(AcornValue::NotEquals(
@@ -901,6 +887,7 @@ impl Environment {
                         ))
                     }
                     TokenType::Ampersand => {
+                        self.check_type(token, expected_type, &AcornType::Bool)?;
                         let left_value =
                             self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
                         let right_value =
@@ -908,6 +895,7 @@ impl Environment {
                         Ok(AcornValue::And(Box::new(left_value), Box::new(right_value)))
                     }
                     TokenType::Pipe => {
+                        self.check_type(token, expected_type, &AcornType::Bool)?;
                         let left_value =
                             self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
                         let right_value =
@@ -947,24 +935,24 @@ impl Environment {
                     &*function_type.return_type,
                 )?;
 
-                let args = self.evaluate_value_list(args_expr)?;
-                if function_type.arg_types.len() != args.len() {
+                let arg_exprs = args_expr.flatten_grouped_list()?;
+
+                if function_type.arg_types.len() != arg_exprs.len() {
                     return Err(Error::new(
                         args_expr.token(),
                         &format!(
                             "expected {} arguments, but got {}",
                             function_type.arg_types.len(),
-                            args.len()
+                            arg_exprs.len()
                         ),
                     ));
                 }
 
-                for (i, arg) in args.iter().enumerate() {
-                    self.check_type(
-                        args_expr.token(),
-                        Some(&function_type.arg_types[i]),
-                        &arg.get_type(),
-                    )?;
+                let mut args = vec![];
+                for (i, arg_expr) in arg_exprs.iter().enumerate() {
+                    let arg_type = &function_type.arg_types[i];
+                    let arg_value = self.evaluate_value_expression(arg_expr, Some(arg_type))?;
+                    args.push(arg_value);
                 }
 
                 Ok(AcornValue::Application(FunctionApplication {
@@ -974,7 +962,7 @@ impl Environment {
             }
             Expression::Grouping(_, e, _) => self.evaluate_value_expression(e, expected_type),
             Expression::Macro(token, args_expr, body, _) => {
-                let macro_args = args_expr.flatten_grouped_list();
+                let macro_args = args_expr.flatten_grouped_list()?;
                 if macro_args.len() < 1 {
                     return Err(Error::new(
                         args_expr.token(),

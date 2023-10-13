@@ -125,10 +125,13 @@ impl Expression {
     }
 
     // Flattens an expression like "(1, 2, 3)"
-    pub fn flatten_grouped_list(&self) -> Vec<&Expression> {
+    pub fn flatten_grouped_list(&self) -> Result<Vec<&Expression>> {
         match self {
-            Expression::Grouping(_, e, _) => e.flatten_comma_separated_list(),
-            _ => vec![&self],
+            Expression::Grouping(_, e, _) => Ok(e.flatten_comma_separated_list()),
+            _ => Err(Error::new(
+                self.token(),
+                &format!("expected a grouped list but found: {}", self),
+            )),
         }
     }
 
