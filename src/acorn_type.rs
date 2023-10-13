@@ -9,11 +9,6 @@ pub struct FunctionType {
 // Functional types can be applied.
 // Data types include both axiomatic types and struct types.
 // Generics are types that are not yet known.
-//
-// An argument list isn't really a type, but it's part of a type.
-// It's used while parsing types.
-// For example, the left hand side of (Nat, Nat) -> Nat is an arg list.
-//
 // "Any" is a hack used for testing.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornType {
@@ -21,7 +16,6 @@ pub enum AcornType {
     Data(usize),
     Generic(usize),
     Function(FunctionType),
-    ArgList(Vec<AcornType>),
     Any,
 }
 
@@ -86,14 +80,6 @@ impl AcornType {
             }
             AcornType::Data(_) => false,
             AcornType::Generic(_) => false,
-            AcornType::ArgList(arg_types) => {
-                for arg_type in arg_types {
-                    if arg_type.refers_to(other_type) {
-                        return true;
-                    }
-                }
-                false
-            }
             AcornType::Bool => false,
             AcornType::Any => false,
         }
@@ -112,14 +98,6 @@ impl AcornType {
             }
             AcornType::Data(_) => false,
             AcornType::Generic(_) => true,
-            AcornType::ArgList(arg_types) => {
-                for arg_type in arg_types {
-                    if arg_type.has_generic() {
-                        return true;
-                    }
-                }
-                false
-            }
             AcornType::Bool => false,
             AcornType::Any => false,
         }
@@ -149,17 +127,6 @@ impl AcornType {
                 function_type
                     .return_type
                     .instantiates_from(&template_function_type.return_type)
-            }
-            (AcornType::ArgList(left_types), AcornType::ArgList(right_types)) => {
-                if left_types.len() != right_types.len() {
-                    return false;
-                }
-                for (left_type, right_type) in left_types.iter().zip(right_types) {
-                    if !left_type.instantiates_from(right_type) {
-                        return false;
-                    }
-                }
-                true
             }
             _ => false,
         }
@@ -207,20 +174,8 @@ impl AcornType {
                 // Generic types should be instantiated before passing it to the prover
                 false
             }
-            AcornType::ArgList(_) => false,
             AcornType::Any => false,
         }
-    }
-
-    pub fn into_vec(self) -> Vec<AcornType> {
-        match self {
-            AcornType::ArgList(t) => t,
-            _ => vec![self],
-        }
-    }
-
-    pub fn into_arg_list(self) -> AcornType {
-        AcornType::ArgList(self.into_vec())
     }
 
     pub fn vec_to_str(types: &Vec<AcornType>) -> String {
@@ -257,9 +212,6 @@ impl AcornType {
                     .collect(),
                 return_type: Box::new(function_type.return_type.instantiate(types)),
             }),
-            AcornType::ArgList(arg_types) => {
-                AcornType::ArgList(arg_types.iter().map(|t| t.instantiate(types)).collect())
-            }
             _ => self.clone(),
         }
     }
@@ -321,9 +273,6 @@ impl fmt::Display for AcornType {
                     AcornType::vec_to_str(&function_type.arg_types),
                     function_type.return_type
                 )
-            }
-            AcornType::ArgList(arg_types) => {
-                write!(f, "({})", AcornType::vec_to_str(arg_types))
             }
             AcornType::Any => write!(f, "any"),
         }

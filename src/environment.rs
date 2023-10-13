@@ -489,7 +489,6 @@ impl Environment {
                 };
                 format!("{} -> {}", s, self.type_str(&function_type.return_type))
             }
-            AcornType::ArgList(types) => self.type_list_str(types),
             AcornType::Any => "any".to_string(),
         }
     }
@@ -778,10 +777,6 @@ impl Environment {
             Expression::Identifier(token) => {
                 if token.token_type == TokenType::Axiom {
                     return match expected_type {
-                        Some(AcornType::ArgList(_)) => Err(Error::new(
-                            token,
-                            "axiomatic objects cannot be argument lists",
-                        )),
                         Some(t) => Ok(self.next_constant_atom(&t)),
                         None => Err(Error::new(
                             token,
