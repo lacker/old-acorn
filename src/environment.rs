@@ -56,6 +56,9 @@ pub struct Environment {
     // but not on later ones.
     propositions: Vec<Proposition>,
 
+    // For each generic identifier, we track all its instantiations.
+    instantiations: HashMap<String, Vec<Vec<AcornType>>>,
+
     // The names of theorems in this environment.
     // Does not include the "goal" theorem that this environment is trying to prove.
     theorem_names: HashSet<String>,
@@ -147,6 +150,7 @@ impl Environment {
             num_imported_constants: 0,
             stack: HashMap::new(),
             propositions: Vec::new(),
+            instantiations: HashMap::new(),
             theorem_names: HashSet::new(),
             definition_ranges: HashMap::new(),
         }
@@ -184,6 +188,7 @@ impl Environment {
             num_imported_constants: self.constants.len() as AtomId,
             stack: self.stack.clone(),
             propositions: Vec::new(),
+            instantiations: self.instantiations.clone(),
             theorem_names: self.theorem_names.clone(),
             definition_ranges: self.definition_ranges.clone(),
         };
@@ -578,10 +583,10 @@ impl Environment {
             AcornValue::Lambda(types, values) => {
                 self.macro_str_stacked("lambda", types, values, stack_size)
             }
-            AcornValue::Instantiation(atom, types) => {
+            AcornValue::Instantiation(c, _, types) => {
                 format!(
                     "{}<{}>",
-                    self.atom_str(&atom.atom),
+                    self.constant_names[*c as usize],
                     self.type_list_str(types)
                 )
             }
@@ -958,6 +963,14 @@ impl Environment {
                         "a non-atomic function cannot be a template",
                     ));
                 };
+                let constant_id = if let Atom::Constant(c) = fn_atom.atom {
+                    c
+                } else {
+                    return Err(Error::new(
+                        function_expr.token(),
+                        "a non-constant function cannot be a template",
+                    ));
+                };
 
                 // Check to make sure all of the template types were inferred
                 let mut inst_types = vec![];
@@ -979,7 +992,8 @@ impl Environment {
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let instantiation = AcornValue::Instantiation(fn_atom, inst_types);
+                let instantiation =
+                    AcornValue::Instantiation(constant_id, fn_atom.acorn_type, inst_types);
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(instantiation),
                     args,

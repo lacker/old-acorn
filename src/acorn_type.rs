@@ -153,6 +153,24 @@ impl AcornType {
         result
     }
 
+    // Recursively replace all instances of one type with another
+    pub fn replace_type(&self, in_type: &AcornType, out_type: &AcornType) -> AcornType {
+        if self == in_type {
+            return out_type.clone();
+        }
+        match self {
+            AcornType::Function(function_type) => AcornType::Function(FunctionType {
+                arg_types: function_type
+                    .arg_types
+                    .iter()
+                    .map(|t| t.replace_type(in_type, out_type))
+                    .collect(),
+                return_type: Box::new(function_type.return_type.replace_type(in_type, out_type)),
+            }),
+            _ => self.clone(),
+        }
+    }
+
     // Replace the generic types with a type from the list
     pub fn instantiate(&self, types: &[AcornType]) -> AcornType {
         match self {
