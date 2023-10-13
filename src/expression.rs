@@ -108,20 +108,26 @@ impl Expression {
         }
     }
 
-    // Expects the expression to be a list of comma-separated expressions
-    // Gets rid of commas and groupings
-    pub fn flatten_arg_list(&self) -> Vec<&Expression> {
+    // Flattens an expression like "1, 2, 3"
+    pub fn flatten_comma_separated_list(&self) -> Vec<&Expression> {
         match self {
             Expression::Binary(left, token, right) => {
                 if token.token_type == TokenType::Comma {
-                    let mut args = left.flatten_arg_list();
-                    args.append(&mut right.flatten_arg_list());
+                    let mut args = left.flatten_comma_separated_list();
+                    args.append(&mut right.flatten_comma_separated_list());
                     args
                 } else {
                     vec![&self]
                 }
             }
-            Expression::Grouping(_, e, _) => e.flatten_arg_list(),
+            _ => vec![&self],
+        }
+    }
+
+    // Flattens an expression like "(1, 2, 3)"
+    pub fn flatten_grouped_list(&self) -> Vec<&Expression> {
+        match self {
+            Expression::Grouping(_, e, _) => e.flatten_comma_separated_list(),
             _ => vec![&self],
         }
     }

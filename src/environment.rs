@@ -588,14 +588,14 @@ impl Environment {
     // expected_type can be generic.
     fn check_type<'a>(
         &self,
-        token: &Token,
+        error_token: &Token,
         expected_type: Option<&AcornType>,
         actual_type: &AcornType,
     ) -> Result<()> {
         if let Some(e) = expected_type {
             if !actual_type.instantiates_from(e) {
                 return Err(Error::new(
-                    token,
+                    error_token,
                     &format!(
                         "expected type {}, but got {}",
                         self.type_str(e),
@@ -948,23 +948,33 @@ impl Environment {
                 )?;
 
                 let args = self.evaluate_value_list(args_expr)?;
-                let args = AcornValue::ArgList(args);
-                let args_type = args.get_type();
+                if function_type.arg_types.len() != args.len() {
+                    return Err(Error::new(
+                        args_expr.token(),
+                        &format!(
+                            "expected {} arguments, but got {}",
+                            function_type.arg_types.len(),
+                            args.len()
+                        ),
+                    ));
+                }
 
-                self.check_type(
-                    args_expr.token(),
-                    Some(&AcornType::ArgList(function_type.arg_types)),
-                    &args_type.into_arg_list(),
-                )?;
+                for (i, arg) in args.iter().enumerate() {
+                    self.check_type(
+                        args_expr.token(),
+                        Some(&function_type.arg_types[i]),
+                        &arg.get_type(),
+                    )?;
+                }
 
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(function),
-                    args: args.into_vec(),
+                    args,
                 }))
             }
             Expression::Grouping(_, e, _) => self.evaluate_value_expression(e, expected_type),
             Expression::Macro(token, args_expr, body, _) => {
-                let macro_args = args_expr.flatten_arg_list();
+                let macro_args = args_expr.flatten_grouped_list();
                 if macro_args.len() < 1 {
                     return Err(Error::new(
                         args_expr.token(),
