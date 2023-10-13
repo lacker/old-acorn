@@ -1750,6 +1750,14 @@ mod tests {
     }
 
     #[test]
+    fn test_no_double_grouped_arg_list() {
+        let mut env = Environment::new();
+        env.add("define foo(x: bool, y: bool) -> bool = x");
+        env.add("let b: bool = axiom");
+        env.bad("foo((b, b))");
+    }
+
+    #[test]
     fn test_argless_theorem() {
         let mut env = Environment::new();
         env.add("let b: bool = axiom");
