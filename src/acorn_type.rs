@@ -263,6 +263,49 @@ impl AcornType {
             _ => self.clone(),
         }
     }
+
+    // Tries to instantiate self to get instantiated.
+    // Fills in any types that need to be filled in, in order to make it match.
+    // Returns whether it was successful.
+    pub fn match_instantiated(
+        &self,
+        instantiated: &AcornType,
+        types: &mut Vec<Option<AcornType>>,
+    ) -> bool {
+        if self == instantiated {
+            // No need to do any actual instantiation
+            return true;
+        }
+
+        match (self, instantiated) {
+            (AcornType::Generic(i), _) => {
+                if types.len() < *i {
+                    types.resize(i + 1, None);
+                }
+                if let Some(t) = &types[*i] {
+                    // This generic type is already mapped
+                    return t == instantiated;
+                }
+                types[*i] = Some(instantiated.clone());
+                true
+            }
+            (AcornType::Function(f), AcornType::Function(g)) => {
+                if f.arg_types.len() != g.arg_types.len() {
+                    return false;
+                }
+                if !f.return_type.match_instantiated(&g.return_type, types) {
+                    return false;
+                }
+                for (f_arg_type, g_arg_type) in f.arg_types.iter().zip(&g.arg_types) {
+                    if !f_arg_type.match_instantiated(g_arg_type, types) {
+                        return false;
+                    }
+                }
+                true
+            }
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for AcornType {
