@@ -700,7 +700,8 @@ impl Environment {
     // externally generic.
     // genericize does the internal-to-external conversion, replacing any types in
     // this list with AcornType::Generic values.
-    pub fn genericize(&self, generic_types: &[String], value: AcornValue) -> AcornValue {
+    // Do this before unbind_generic_types.
+    fn genericize(&self, generic_types: &[String], value: AcornValue) -> AcornValue {
         let mut value = value;
         for (i, name) in generic_types.iter().enumerate() {
             let in_type = self.type_names.get(name).unwrap();
@@ -1004,7 +1005,7 @@ impl Environment {
     // Takes a claim that is relative to this environment, and expresses it relative to
     // the parent environment.
     // The caller needs to provide the names of any "forall" variables used in the creation of
-    // this block. In theory the environment should probably just know about that.
+    // this block. (Perhaps the environment could just know about that?)
     fn export_claim(
         &self,
         forall_names: &Vec<String>,
@@ -1109,7 +1110,7 @@ impl Environment {
                     self.bind_templated_args(&ds.generic_types, &ds.args, &statement.first_token)?;
 
                 let return_type = self.evaluate_type_expression(&ds.return_type)?;
-                let mut fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
+                let fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
                     let new_axiom_type = AcornType::Function(FunctionType {
                         arg_types,
                         return_type: Box::new(return_type),
@@ -1120,12 +1121,8 @@ impl Environment {
                         self.evaluate_value_expression(&ds.return_value, Some(&return_type))?;
                     AcornValue::Lambda(arg_types, Box::new(return_value))
                 };
+                let fn_value = self.genericize(&generic_types, fn_value);
                 self.unbind_args(arg_names);
-                for (i, generic_type_name) in generic_types.iter().enumerate() {
-                    let in_type = self.type_names.get(generic_type_name).unwrap();
-                    let generic_type = AcornType::Generic(i);
-                    fn_value = fn_value.replace_type(in_type, &generic_type);
-                }
                 self.unbind_generic_types(generic_types);
 
                 // Add the function value to the environment
@@ -1158,17 +1155,14 @@ impl Environment {
 
                         // The functional value of the theorem is the lambda that
                         // is constantly "true" if the theorem is true
-                        let functional_value = if arg_types.is_empty() {
+                        let fn_value = if arg_types.is_empty() {
                             claim_value
                         } else {
                             AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
                         };
+                        let fn_value = self.genericize(&generic_types, fn_value);
 
-                        self.add_constant(
-                            &ts.name,
-                            functional_value.get_type(),
-                            Some(functional_value.clone()),
-                        );
+                        self.add_constant(&ts.name, fn_value.get_type(), Some(fn_value.clone()));
 
                         // Figure out the range for this theorem definition.
                         // It's smaller than the whole theorem statement because it doesn't
