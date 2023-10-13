@@ -981,19 +981,19 @@ mod tests {
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
-    // #[test]
-    // fn test_templated_function_application() {
-    //     let mut env = Environment::new();
-    //     env.add(
-    //         r#"
-    //         type Nat: axiom
-    //         define foo<T>(a: T) -> bool = (a = a)
-    //         let 0: Nat = axiom
-    //         theorem goal: foo(0)
-    //     "#,
-    //     );
-    //     assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
-    // }
+    #[test]
+    fn test_templated_function_application() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            define foo<T>(a: T) -> bool = (a = a)
+            let 0: Nat = axiom
+            theorem goal: foo(0)
+        "#,
+        );
+        // assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
 
     // #[test]
     // fn test_templated_definition_and_theorem() {
