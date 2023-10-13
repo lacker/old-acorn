@@ -576,7 +576,6 @@ impl Environment {
             AcornValue::Lambda(types, values) => {
                 self.macro_str_stacked("lambda", types, values, stack_size)
             }
-            _ => format!("unhandled({:?})", value),
         }
     }
 

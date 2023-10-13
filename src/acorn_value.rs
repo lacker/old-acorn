@@ -33,9 +33,7 @@ pub enum AcornValue {
     // It could be a function produced by skolemization.
     // Basically anything that isn't composed of smaller parts.
     Atom(TypedAtom),
-
     Application(FunctionApplication),
-    ArgList(Vec<AcornValue>),
 
     // A function definition that introduces variables onto the stack.
     Lambda(Vec<AcornType>, Box<AcornValue>),
@@ -67,11 +65,6 @@ impl fmt::Display for Subvalue<'_> {
         match self.value {
             AcornValue::Atom(a) => write!(f, "{}", a),
             AcornValue::Application(a) => a.fmt_helper(f, self.stack_size),
-            AcornValue::ArgList(args) => {
-                write!(f, "(")?;
-                fmt_values(args, f, self.stack_size)?;
-                write!(f, ")")
-            }
             AcornValue::Lambda(args, body) => fmt_macro(f, "lambda", args, body, self.stack_size),
             AcornValue::Implies(a, b) => fmt_binary(f, "=>", a, b, self.stack_size),
             AcornValue::Equals(a, b) => fmt_binary(f, "=", a, b, self.stack_size),
@@ -176,13 +169,6 @@ impl AcornValue {
         })
     }
 
-    pub fn into_vec(self) -> Vec<AcornValue> {
-        match self {
-            AcornValue::ArgList(t) => t,
-            _ => vec![self],
-        }
-    }
-
     pub fn is_constant(&self) -> bool {
         match self {
             AcornValue::Atom(t) => t.is_constant(),
@@ -204,9 +190,6 @@ impl AcornValue {
         match self {
             AcornValue::Atom(t) => t.acorn_type.clone(),
             AcornValue::Application(t) => t.return_type(),
-            AcornValue::ArgList(t) => {
-                AcornType::ArgList(t.into_iter().map(|x| x.get_type()).collect())
-            }
             AcornValue::Lambda(args, return_value) => AcornType::Function(FunctionType {
                 arg_types: args.clone(),
                 return_type: Box::new(return_value.get_type()),
@@ -433,7 +416,6 @@ impl AcornValue {
                     Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
-            _ => panic!("unhandled case in bind_values: {:?}", self),
         }
     }
 
@@ -486,7 +468,6 @@ impl AcornValue {
             AcornValue::Exists(quants, value) => {
                 AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
             }
-            _ => panic!("unhandled case in insert_stack: {:?}", self),
         }
     }
 
@@ -602,7 +583,6 @@ impl AcornValue {
                     Box::new(value.replace_function_equality(new_stack_size)),
                 )
             }
-            AcornValue::ArgList(_) => panic!("cannot replace function equality in arg list"),
         }
     }
 
@@ -667,7 +647,6 @@ impl AcornValue {
                 let new_stack_size = stack_size + args.len() as AtomId;
                 AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
             }
-            AcornValue::ArgList(_) => panic!("cannot expand lambdas in arg list"),
         }
     }
 
@@ -775,7 +754,6 @@ impl AcornValue {
                     .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            _ => panic!("unexpected match"),
         }
     }
 
@@ -847,7 +825,6 @@ impl AcornValue {
                 let new_value = value.replace_constants_with_variables(constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            _ => panic!("unexpected match"),
         }
     }
 
@@ -897,7 +874,6 @@ impl AcornValue {
             AcornValue::Not(x) => x.find_constants_gte(index, answer),
             AcornValue::ForAll(_, value) => value.find_constants_gte(index, answer),
             AcornValue::Exists(_, value) => value.find_constants_gte(index, answer),
-            _ => panic!("unexpected match"),
         }
     }
 
@@ -951,7 +927,6 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            AcornValue::ArgList(_) => panic!("cannot validate arglist"),
         }
     }
 
@@ -1008,7 +983,6 @@ impl AcornValue {
                 Box::new(right.replace_type(in_type, out_type)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.replace_type(in_type, out_type))),
-            AcornValue::ArgList(_) => panic!("cannot replace type in arglist"),
         }
     }
 }
