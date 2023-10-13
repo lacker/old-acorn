@@ -584,29 +584,27 @@ impl Environment {
         self.value_str_stacked(value, 0)
     }
 
+    // actual_type should be non-generic here.
+    // expected_type can be generic.
     fn check_type<'a>(
         &self,
         token: &Token,
         expected_type: Option<&AcornType>,
         actual_type: &AcornType,
     ) -> Result<()> {
-        match expected_type {
-            Some(e) => {
-                if e != actual_type {
-                    Err(Error::new(
-                        token,
-                        &format!(
-                            "Expected type {}, but got {}",
-                            self.type_str(e),
-                            self.type_str(actual_type)
-                        ),
-                    ))
-                } else {
-                    Ok(())
-                }
+        if let Some(e) = expected_type {
+            if !actual_type.instantiates_from(e) {
+                return Err(Error::new(
+                    token,
+                    &format!(
+                        "expected type {}, but got {}",
+                        self.type_str(e),
+                        self.type_str(actual_type)
+                    ),
+                ));
             }
-            None => Ok(()),
         }
+        Ok(())
     }
 
     // Parses a list of named argument declarations and adds them to the stack.

@@ -146,6 +146,17 @@ impl AcornType {
                     .return_type
                     .instantiates_from(&template_function_type.return_type)
             }
+            (AcornType::ArgList(left_types), AcornType::ArgList(right_types)) => {
+                if left_types.len() != right_types.len() {
+                    return false;
+                }
+                for (left_type, right_type) in left_types.iter().zip(right_types) {
+                    if !left_type.instantiates_from(right_type) {
+                        return false;
+                    }
+                }
+                true
+            }
             _ => false,
         }
     }
