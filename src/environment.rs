@@ -2062,4 +2062,15 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new();
         env.bad("theorem foo<T>(a: bool): a | !a");
     }
+
+    #[test]
+    fn test_template_typechecking() {
+        let mut env = Environment::new();
+        env.add("type Nat: axiom");
+        env.add("let 0: Nat = axiom");
+        env.add("define eq<T>(a: T, b: T) -> bool = a = b");
+        env.add("eq(0, 0)");
+        env.add("eq(0 = 0, 0 = 0)");
+        env.bad("eq(0, 0 = 0)");
+    }
 }
