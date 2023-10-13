@@ -598,7 +598,7 @@ impl Environment {
         actual_type: &AcornType,
     ) -> Result<()> {
         if let Some(e) = expected_type {
-            if !actual_type.instantiates_from(e) {
+            if e != actual_type {
                 return Err(Error::new(
                     error_token,
                     &format!(

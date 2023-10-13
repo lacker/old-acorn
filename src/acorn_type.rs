@@ -85,53 +85,6 @@ impl AcornType {
         }
     }
 
-    // Whether this type has any generic parts.
-    pub fn has_generic(&self) -> bool {
-        match self {
-            AcornType::Function(function_type) => {
-                for arg_type in &function_type.arg_types {
-                    if arg_type.has_generic() {
-                        return true;
-                    }
-                }
-                function_type.return_type.has_generic()
-            }
-            AcornType::Data(_) => false,
-            AcornType::Generic(_) => true,
-            AcornType::Bool => false,
-            AcornType::Any => false,
-        }
-    }
-
-    // Whether this type is a template-instantation of the other type.
-    // Includes the null instantiation where they are both a non-templated type.
-    pub fn instantiates_from(&self, template_type: &AcornType) -> bool {
-        if self == template_type {
-            return true;
-        }
-        match (self, template_type) {
-            (_, AcornType::Generic(_)) => true,
-            (AcornType::Function(function_type), AcornType::Function(template_function_type)) => {
-                if function_type.arg_types.len() != template_function_type.arg_types.len() {
-                    return false;
-                }
-                for (arg_type, template_arg_type) in function_type
-                    .arg_types
-                    .iter()
-                    .zip(&template_function_type.arg_types)
-                {
-                    if !arg_type.instantiates_from(template_arg_type) {
-                        return false;
-                    }
-                }
-                function_type
-                    .return_type
-                    .instantiates_from(&template_function_type.return_type)
-            }
-            _ => false,
-        }
-    }
-
     // Create the type you get when you apply this type to the given type.
     // Panics if the application is invalid.
     // Does partial application.
