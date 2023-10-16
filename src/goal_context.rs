@@ -49,7 +49,8 @@ struct DependencyGraph {
 }
 
 impl DependencyGraph {
-    // Populates facts_for_constant but not the other fields.
+    // Populates facts_for_constant, and puts None vs Some([]) in the right place for
+    // instantiations_for_fact.
     fn new(facts: &Vec<AcornValue>) -> DependencyGraph {
         let mut instantiations_for_fact: Vec<Option<Vec<AcornType>>> = vec![];
         let mut facts_for_constant = HashMap::new();
