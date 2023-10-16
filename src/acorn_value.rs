@@ -926,70 +926,67 @@ impl AcornValue {
 
     // Replaces a data type with a generic type.
     pub fn genericize(&self, data_type: usize, generic_type: usize) -> AcornValue {
-        self.replace_type(
-            &AcornType::Data(data_type),
-            &AcornType::Generic(generic_type),
-        )
-    }
-
-    fn replace_type(&self, in_type: &AcornType, out_type: &AcornType) -> AcornValue {
         match self {
-            AcornValue::Atom(ta) => AcornValue::Atom(ta.replace_type(in_type, out_type)),
+            AcornValue::Atom(ta) => AcornValue::Atom(ta.genericize(data_type, generic_type)),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
-                function: Box::new(app.function.replace_type(in_type, out_type)),
+                function: Box::new(app.function.genericize(data_type, generic_type)),
                 args: app
                     .args
                     .iter()
-                    .map(|x| x.replace_type(in_type, out_type))
+                    .map(|x| x.genericize(data_type, generic_type))
                     .collect(),
             }),
             AcornValue::Lambda(args, value) => AcornValue::Lambda(
                 args.iter()
-                    .map(|x| x.replace_type(in_type, out_type))
+                    .map(|x| x.genericize(data_type, generic_type))
                     .collect(),
-                Box::new(value.replace_type(in_type, out_type)),
+                Box::new(value.genericize(data_type, generic_type)),
             ),
             AcornValue::ForAll(args, value) => AcornValue::ForAll(
                 args.iter()
-                    .map(|x| x.replace_type(in_type, out_type))
+                    .map(|x| x.genericize(data_type, generic_type))
                     .collect(),
-                Box::new(value.replace_type(in_type, out_type)),
+                Box::new(value.genericize(data_type, generic_type)),
             ),
             AcornValue::Exists(args, value) => AcornValue::Exists(
                 args.iter()
-                    .map(|x| x.replace_type(in_type, out_type))
+                    .map(|x| x.genericize(data_type, generic_type))
                     .collect(),
-                Box::new(value.replace_type(in_type, out_type)),
+                Box::new(value.genericize(data_type, generic_type)),
             ),
             AcornValue::Implies(left, right) => AcornValue::Implies(
-                Box::new(left.replace_type(in_type, out_type)),
-                Box::new(right.replace_type(in_type, out_type)),
+                Box::new(left.genericize(data_type, generic_type)),
+                Box::new(right.genericize(data_type, generic_type)),
             ),
             AcornValue::Equals(left, right) => AcornValue::Equals(
-                Box::new(left.replace_type(in_type, out_type)),
-                Box::new(right.replace_type(in_type, out_type)),
+                Box::new(left.genericize(data_type, generic_type)),
+                Box::new(right.genericize(data_type, generic_type)),
             ),
             AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
-                Box::new(left.replace_type(in_type, out_type)),
-                Box::new(right.replace_type(in_type, out_type)),
+                Box::new(left.genericize(data_type, generic_type)),
+                Box::new(right.genericize(data_type, generic_type)),
             ),
             AcornValue::And(left, right) => AcornValue::And(
-                Box::new(left.replace_type(in_type, out_type)),
-                Box::new(right.replace_type(in_type, out_type)),
+                Box::new(left.genericize(data_type, generic_type)),
+                Box::new(right.genericize(data_type, generic_type)),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
-                Box::new(left.replace_type(in_type, out_type)),
-                Box::new(right.replace_type(in_type, out_type)),
+                Box::new(left.genericize(data_type, generic_type)),
+                Box::new(right.genericize(data_type, generic_type)),
             ),
-            AcornValue::Not(x) => AcornValue::Not(Box::new(x.replace_type(in_type, out_type))),
-            AcornValue::Instantiation(c, generic_type, types) => AcornValue::Instantiation(
-                *c,
-                generic_type.replace_type(in_type, out_type),
-                types
-                    .iter()
-                    .map(|x| x.replace_type(in_type, out_type))
-                    .collect(),
-            ),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.genericize(data_type, generic_type))),
+            AcornValue::Instantiation(c, c_type, types) => {
+                // We don't alter c_type, because it's just the type of c, not a type in
+                // the space that is being genericized.
+                AcornValue::Instantiation(
+                    *c,
+                    c_type.clone(),
+                    types
+                        .iter()
+                        .map(|x| x.genericize(data_type, generic_type))
+                        .collect(),
+                )
+            }
         }
     }
 }

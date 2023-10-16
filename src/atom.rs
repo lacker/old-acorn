@@ -216,14 +216,10 @@ impl TypedAtom {
         }
     }
 
-    pub fn replace_type(&self, in_type: &AcornType, out_type: &AcornType) -> TypedAtom {
-        if self.acorn_type == *in_type {
-            TypedAtom {
-                atom: self.atom.clone(),
-                acorn_type: out_type.clone(),
-            }
-        } else {
-            self.clone()
+    pub fn genericize(&self, data_type: usize, generic_type: usize) -> TypedAtom {
+        TypedAtom {
+            atom: self.atom.clone(),
+            acorn_type: self.acorn_type.genericize(data_type, generic_type),
         }
     }
 }
