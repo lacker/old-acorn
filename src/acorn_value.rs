@@ -1054,4 +1054,9 @@ impl AcornValue {
             }
         }
     }
+
+    // Finds all generic constants used in this value.
+    pub fn find_generic_constants(&self, output: &mut Vec<usize>) {
+        todo!();
+    }
 }
