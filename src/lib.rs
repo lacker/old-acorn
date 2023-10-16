@@ -8,6 +8,7 @@ pub mod display;
 pub mod environment;
 pub mod expression;
 pub mod fingerprint;
+pub mod goal_context;
 pub mod literal_set;
 pub mod normalizer;
 pub mod passive_set;

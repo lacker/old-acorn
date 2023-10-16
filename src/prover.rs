@@ -12,7 +12,8 @@ use crate::atom::Atom;
 use crate::clause::Clause;
 use crate::clause_info::{ClauseInfo, ClauseType, ProofStep};
 use crate::display::DisplayClause;
-use crate::environment::{Environment, GoalContext};
+use crate::environment::Environment;
+use crate::goal_context::GoalContext;
 use crate::normalizer::Normalizer;
 use crate::passive_set::PassiveSet;
 use crate::synthesizer::Synthesizer;
@@ -531,8 +532,8 @@ impl Prover<'_> {
 
     pub fn load_goal<'a>(&mut self, goal_context: &GoalContext<'a>) {
         assert!(ptr::eq(self.env, goal_context.env));
-        for fact in &goal_context.facts {
-            self.add_fact(fact.clone());
+        for fact in goal_context.instantiate_facts() {
+            self.add_fact(fact);
         }
         self.add_goal(goal_context.goal.clone());
     }

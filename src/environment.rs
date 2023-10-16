@@ -8,6 +8,7 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::expression::Expression;
+use crate::goal_context::GoalContext;
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
@@ -104,23 +105,6 @@ pub struct Block {
 
     // The environment created inside the block.
     pub env: Environment,
-}
-
-// A goal and the information used to prove it.
-pub struct GoalContext<'a> {
-    pub env: &'a Environment,
-
-    // The facts that can be used to prove the goal.
-    pub facts: Vec<AcornValue>,
-
-    // A printable name for this goal.
-    pub name: String,
-
-    // The goal itself.
-    pub goal: AcornValue,
-
-    // The range in the source document corresponding to this goal.
-    pub range: Range,
 }
 
 impl fmt::Display for Environment {
