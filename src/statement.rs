@@ -218,6 +218,12 @@ fn parse_theorem_statement(
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text().to_string();
     let (generic_types, args) = parse_args(tokens, TokenType::Colon)?;
+    if generic_types.len() > 1 {
+        return Err(Error::new(
+            &generic_types[1],
+            "only one generic type is supported",
+        ));
+    }
     Token::skip_newlines(tokens);
     let (claim, terminator) = Expression::parse(tokens, true, |t| {
         t == TokenType::NewLine || t == TokenType::By
@@ -270,6 +276,12 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
         .text()
         .to_string();
     let (generic_types, args) = parse_args(tokens, TokenType::RightArrow)?;
+    if generic_types.len() > 1 {
+        return Err(Error::new(
+            &generic_types[1],
+            "only one generic type is supported",
+        ));
+    }
     let (return_type, _) = Expression::parse(tokens, false, |t| t == TokenType::Equals)?;
     let (return_value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
     let ds = DefineStatement {
