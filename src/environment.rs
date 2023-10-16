@@ -56,9 +56,6 @@ pub struct Environment {
     // but not on later ones.
     propositions: Vec<Proposition>,
 
-    // For each generic identifier, we track all its instantiations.
-    instantiations: HashMap<String, Vec<Vec<AcornType>>>,
-
     // The names of theorems in this environment.
     // Does not include the "goal" theorem that this environment is trying to prove.
     theorem_names: HashSet<String>,
@@ -150,7 +147,6 @@ impl Environment {
             num_imported_constants: 0,
             stack: HashMap::new(),
             propositions: Vec::new(),
-            instantiations: HashMap::new(),
             theorem_names: HashSet::new(),
             definition_ranges: HashMap::new(),
         }
@@ -188,7 +184,6 @@ impl Environment {
             num_imported_constants: self.constants.len() as AtomId,
             stack: self.stack.clone(),
             propositions: Vec::new(),
-            instantiations: self.instantiations.clone(),
             theorem_names: self.theorem_names.clone(),
             definition_ranges: self.definition_ranges.clone(),
         };
