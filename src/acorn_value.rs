@@ -924,7 +924,15 @@ impl AcornValue {
         }
     }
 
-    pub fn replace_type(&self, in_type: &AcornType, out_type: &AcornType) -> AcornValue {
+    // Replaces a data type with a generic type.
+    pub fn genericize(&self, data_type: usize, generic_type: usize) -> AcornValue {
+        self.replace_type(
+            &AcornType::Data(data_type),
+            &AcornType::Generic(generic_type),
+        )
+    }
+
+    fn replace_type(&self, in_type: &AcornType, out_type: &AcornType) -> AcornValue {
         match self {
             AcornValue::Atom(ta) => AcornValue::Atom(ta.replace_type(in_type, out_type)),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {

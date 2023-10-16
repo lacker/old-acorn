@@ -709,15 +709,13 @@ impl Environment {
     // Do this before unbind_generic_types.
     fn genericize(&self, generic_types: &[String], value: AcornValue) -> AcornValue {
         let mut value = value;
-        for (i, name) in generic_types.iter().enumerate() {
-            let in_type = self.type_names.get(name).unwrap();
-            if let AcornType::Data(_) = in_type {
-                // Expected
+        for (generic_type, name) in generic_types.iter().enumerate() {
+            let data_type = if let AcornType::Data(i) = self.type_names.get(name).unwrap() {
+                i
             } else {
                 panic!("we should only be genericizing data types");
-            }
-            let out_type = AcornType::Generic(i);
-            value = value.replace_type(in_type, &out_type);
+            };
+            value = value.genericize(*data_type, generic_type);
         }
         value
     }
