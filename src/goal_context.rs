@@ -28,6 +28,7 @@ impl GoalContext<'_> {
     // Find all instantiations of the facts that are needed to prove the goal.
     pub fn instantiate_facts(&self) -> Vec<AcornValue> {
         let mut graph = DependencyGraph::new(&self.facts);
+
         for fact in &self.facts {
             graph.handle_instantiations(&self.facts, fact);
         }
@@ -36,16 +37,10 @@ impl GoalContext<'_> {
         let mut answer = vec![];
         for (fact, instantiation_types) in self.facts.iter().zip(graph.instantiations_for_fact) {
             if instantiation_types.is_none() {
-                println!("XXX fact is not generic: {}", self.env.value_str(fact));
                 answer.push(fact.clone());
                 continue;
             }
-            println!("XXX fact is generic: {}", self.env.value_str(fact));
             for instantiation_type in instantiation_types.unwrap() {
-                println!(
-                    "XXX instantiating -> {}",
-                    self.env.type_str(&instantiation_type)
-                );
                 let instantiated = fact.instantiate(&[instantiation_type]);
                 answer.push(instantiated);
             }
@@ -75,7 +70,7 @@ impl DependencyGraph {
     // Populates facts_for_constant, and puts None vs Some([]) in the right place for
     // instantiations_for_fact.
     fn new(facts: &Vec<AcornValue>) -> DependencyGraph {
-        let mut instantiations_for_fact: Vec<Option<Vec<AcornType>>> = vec![];
+        let mut instantiations_for_fact = vec![];
         let mut facts_for_constant = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
             let mut generic_constants = vec![];
@@ -118,6 +113,16 @@ impl DependencyGraph {
         // Handle all the facts that mention this constant without instantiating it.
         if let Some(fact_ids) = self.facts_for_constant.get(&constant_id) {
             for fact_id in fact_ids.clone() {
+                // Check if we already know we need this instantiation for the fact
+                // If not, insert it
+                let instantiations_for_fact = self.instantiations_for_fact[fact_id]
+                    .as_mut()
+                    .expect("Should have been Some");
+                if instantiations_for_fact.contains(acorn_type) {
+                    continue;
+                }
+                instantiations_for_fact.push(acorn_type.clone());
+
                 let fact_instance = facts[fact_id].instantiate(&instantiation_arg);
                 self.handle_instantiations(facts, &fact_instance);
             }

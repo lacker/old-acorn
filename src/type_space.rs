@@ -125,6 +125,16 @@ impl TypeSpace {
         match value {
             AcornValue::Atom(atom) => Ok(self.term_from_atom(atom)),
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
+            AcornValue::Instantiation(c, _, _) => {
+                // Just use c but give it the right type.
+                let type_id = self.add_type(value.get_type());
+                Ok(Term {
+                    term_type: type_id,
+                    head_type: type_id,
+                    head: Atom::Constant(*c),
+                    args: vec![],
+                })
+            }
             _ => Err(Error::Normalization(format!(
                 "Cannot convert {} to term",
                 value

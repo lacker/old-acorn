@@ -935,7 +935,20 @@ impl AcornValue {
     // Replaces all the generic types with specific types
     pub fn instantiate(&self, types: &[AcornType]) -> AcornValue {
         match self {
-            AcornValue::Atom(ta) => AcornValue::Atom(ta.instantiate(types)),
+            AcornValue::Atom(ta) => {
+                if let Atom::Constant(c) = ta.atom {
+                    if ta.acorn_type.has_generic() {
+                        // We need to create an instantiation
+                        AcornValue::Instantiation(c, ta.acorn_type.clone(), types.to_vec())
+                    } else {
+                        // Otherwise, this constant is unchanged
+                        self.clone()
+                    }
+                } else {
+                    // Change the type appropriately
+                    AcornValue::Atom(ta.instantiate(types))
+                }
+            }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.instantiate(types)),
                 args: app.args.iter().map(|x| x.instantiate(types)).collect(),
@@ -1060,7 +1073,7 @@ impl AcornValue {
         match self {
             AcornValue::Atom(ta) => {
                 if let Atom::Constant(c) = ta.atom {
-                    if let AcornType::Generic(_) = ta.acorn_type {
+                    if ta.acorn_type.has_generic() {
                         output.push(c);
                     }
                 }

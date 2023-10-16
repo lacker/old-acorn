@@ -230,7 +230,7 @@ impl Environment {
     // Adds a proposition.
     fn add_proposition(&mut self, prop: Proposition) {
         // Check if we're adding invalid claims.
-        println!("adding claim: {}", self.value_str(&prop.claim));
+        // println!("adding claim: {}", self.value_str(&prop.claim));
 
         self.propositions.push(prop);
     }
@@ -408,7 +408,6 @@ impl Environment {
 
     // Replaces each theorem with its definition.
     fn expand_theorems(&self, value: &AcornValue) -> AcornValue {
-        println!("XXX expanding theorems: {}", self.value_str(value));
         value.replace_constants_with_values(0, &|i| self.get_theorem_value_for_id(i))
     }
 

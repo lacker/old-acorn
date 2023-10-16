@@ -239,6 +239,22 @@ impl AcornType {
             _ => false,
         }
     }
+
+    // If this is a generic type or is dependent on a generic type, return true.
+    pub fn has_generic(&self) -> bool {
+        match self {
+            AcornType::Bool | AcornType::Data(_) | AcornType::Any => false,
+            AcornType::Generic(_) => true,
+            AcornType::Function(ftype) => {
+                for arg_type in &ftype.arg_types {
+                    if arg_type.has_generic() {
+                        return true;
+                    }
+                }
+                ftype.return_type.has_generic()
+            }
+        }
+    }
 }
 
 impl fmt::Display for AcornType {
