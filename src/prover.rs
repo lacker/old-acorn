@@ -971,7 +971,7 @@ mod tests {
     }
 
     #[test]
-    fn test_templated_theorem() {
+    fn test_proving_templated_theorem() {
         let mut env = Environment::new();
         env.add(
             r#"
@@ -982,7 +982,21 @@ mod tests {
     }
 
     #[test]
-    fn test_templated_function_application() {
+    fn test_application_of_templated_theorem() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            theorem foo<T>(a: T): a = a
+            theorem goal: foo(0)
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_application_of_templated_function() {
         let mut env = Environment::new();
         env.add(
             r#"
