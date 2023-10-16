@@ -127,7 +127,10 @@ impl AcornType {
                 // Generic types should be instantiated before passing it to the prover
                 false
             }
-            AcornType::Any => false,
+            AcornType::Any => {
+                // The "any" type is not normalizable. You just shouldn't use it for prover stuff.
+                false
+            }
         }
     }
 
