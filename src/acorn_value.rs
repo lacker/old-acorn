@@ -1055,8 +1055,63 @@ impl AcornValue {
         }
     }
 
-    // Finds all generic constants used in this value.
-    pub fn find_generic_constants(&self, output: &mut Vec<usize>) {
-        todo!();
+    // Finds all templated constants used in this value that are *not* instantiated.
+    pub fn find_templated(&self, output: &mut Vec<AtomId>) {
+        match self {
+            AcornValue::Atom(ta) => {
+                if let Atom::Constant(c) = ta.atom {
+                    output.push(c);
+                }
+            }
+            AcornValue::Application(app) => {
+                app.function.find_templated(output);
+                for arg in &app.args {
+                    arg.find_templated(output);
+                }
+            }
+            AcornValue::Lambda(_, value)
+            | AcornValue::ForAll(_, value)
+            | AcornValue::Exists(_, value) => value.find_templated(output),
+            AcornValue::Implies(left, right)
+            | AcornValue::Equals(left, right)
+            | AcornValue::NotEquals(left, right)
+            | AcornValue::And(left, right)
+            | AcornValue::Or(left, right) => {
+                left.find_templated(output);
+                right.find_templated(output);
+            }
+            AcornValue::Not(x) => x.find_templated(output),
+            AcornValue::Instantiation(_, _, _) => {}
+        }
+    }
+
+    // Finds all instantiations of templated constants in this value.
+    // Only handles single-variable instantiations.
+    pub fn find_instantiated(&self, output: &mut Vec<(AtomId, AcornType)>) {
+        match self {
+            AcornValue::Atom(_) => {}
+            AcornValue::Application(app) => {
+                app.function.find_instantiated(output);
+                for arg in &app.args {
+                    arg.find_instantiated(output);
+                }
+            }
+            AcornValue::Lambda(_, value)
+            | AcornValue::ForAll(_, value)
+            | AcornValue::Exists(_, value) => value.find_instantiated(output),
+            AcornValue::Implies(left, right)
+            | AcornValue::Equals(left, right)
+            | AcornValue::NotEquals(left, right)
+            | AcornValue::And(left, right)
+            | AcornValue::Or(left, right) => {
+                left.find_instantiated(output);
+                right.find_instantiated(output);
+            }
+            AcornValue::Not(x) => x.find_instantiated(output),
+            AcornValue::Instantiation(c, _, types) => {
+                assert!(types.len() == 1);
+                output.push((*c, types[0].clone()));
+            }
+        }
     }
 }
