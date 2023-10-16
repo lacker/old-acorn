@@ -1060,7 +1060,9 @@ impl AcornValue {
         match self {
             AcornValue::Atom(ta) => {
                 if let Atom::Constant(c) = ta.atom {
-                    output.push(c);
+                    if let AcornType::Generic(_) = ta.acorn_type {
+                        output.push(c);
+                    }
                 }
             }
             AcornValue::Application(app) => {

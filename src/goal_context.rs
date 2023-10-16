@@ -34,16 +34,23 @@ impl GoalContext<'_> {
         graph.handle_instantiations(&self.facts, &self.goal);
 
         let mut answer = vec![];
-        for (fact, instantiations) in self.facts.iter().zip(graph.instantiations_for_fact) {
-            if instantiations.is_none() {
+        for (fact, instantiation_types) in self.facts.iter().zip(graph.instantiations_for_fact) {
+            if instantiation_types.is_none() {
+                println!("XXX fact is not generic: {}", self.env.value_str(fact));
                 answer.push(fact.clone());
                 continue;
             }
-            for instantiation in instantiations.unwrap() {
-                answer.push(fact.instantiate(&[instantiation]));
+            println!("XXX fact is generic: {}", self.env.value_str(fact));
+            for instantiation_type in instantiation_types.unwrap() {
+                println!(
+                    "XXX instantiating -> {}",
+                    self.env.type_str(&instantiation_type)
+                );
+                let instantiated = fact.instantiate(&[instantiation_type]);
+                answer.push(instantiated);
             }
         }
-        self.facts.clone()
+        answer
     }
 }
 
