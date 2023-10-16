@@ -222,6 +222,13 @@ impl TypedAtom {
             acorn_type: self.acorn_type.genericize(data_type, generic_type),
         }
     }
+
+    pub fn instantiate(&self, types: &[AcornType]) -> TypedAtom {
+        TypedAtom {
+            atom: self.atom.clone(),
+            acorn_type: self.acorn_type.instantiate(types),
+        }
+    }
 }
 
 #[cfg(test)]

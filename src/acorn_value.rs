@@ -751,7 +751,15 @@ impl AcornValue {
                     .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Instantiation(_, _, _) => panic!("can this happen?"),
+            AcornValue::Instantiation(c, _c_type, types) => {
+                if let Some(replacement) = replacer(*c) {
+                    // We do need to replace this
+                    replacement.instantiate(types)
+                } else {
+                    // We don't need to replace this
+                    self.clone()
+                }
+            }
         }
     }
 
@@ -921,6 +929,63 @@ impl AcornValue {
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
             AcornValue::Instantiation(_, _, _) => Ok(()),
+        }
+    }
+
+    // Replaces all the generic types with specific types
+    pub fn instantiate(&self, types: &[AcornType]) -> AcornValue {
+        match self {
+            AcornValue::Atom(ta) => AcornValue::Atom(ta.instantiate(types)),
+            AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
+                function: Box::new(app.function.instantiate(types)),
+                args: app.args.iter().map(|x| x.instantiate(types)).collect(),
+            }),
+            AcornValue::Lambda(args, value) => AcornValue::Lambda(
+                args.iter()
+                    .map(|x| x.instantiate(types))
+                    .collect::<Vec<_>>(),
+                Box::new(value.instantiate(types)),
+            ),
+            AcornValue::ForAll(args, value) => AcornValue::ForAll(
+                args.iter()
+                    .map(|x| x.instantiate(types))
+                    .collect::<Vec<_>>(),
+                Box::new(value.instantiate(types)),
+            ),
+            AcornValue::Exists(args, value) => AcornValue::Exists(
+                args.iter()
+                    .map(|x| x.instantiate(types))
+                    .collect::<Vec<_>>(),
+                Box::new(value.instantiate(types)),
+            ),
+            AcornValue::Implies(left, right) => AcornValue::Implies(
+                Box::new(left.instantiate(types)),
+                Box::new(right.instantiate(types)),
+            ),
+            AcornValue::Equals(left, right) => AcornValue::Equals(
+                Box::new(left.instantiate(types)),
+                Box::new(right.instantiate(types)),
+            ),
+            AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
+                Box::new(left.instantiate(types)),
+                Box::new(right.instantiate(types)),
+            ),
+            AcornValue::And(left, right) => AcornValue::And(
+                Box::new(left.instantiate(types)),
+                Box::new(right.instantiate(types)),
+            ),
+            AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.instantiate(types)),
+                Box::new(right.instantiate(types)),
+            ),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.instantiate(types))),
+            AcornValue::Instantiation(_, _, _) => {
+                // We don't alter instantiations because they cannot have generic types in them.
+                // That would be something like, instantiating T to List<U>, or partially
+                // instantiating Map<T, U> to Map<T, Nat>, neither of which we
+                // support yet.
+                self.clone()
+            }
         }
     }
 

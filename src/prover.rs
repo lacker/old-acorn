@@ -982,7 +982,7 @@ mod tests {
     }
 
     #[test]
-    fn test_application_of_templated_theorem() {
+    fn test_applying_templated_theorem() {
         let mut env = Environment::new();
         env.add(
             r#"
@@ -996,7 +996,7 @@ mod tests {
     }
 
     #[test]
-    fn test_application_of_templated_function() {
+    fn test_applying_templated_function() {
         let mut env = Environment::new();
         env.add(
             r#"
