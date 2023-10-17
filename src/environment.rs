@@ -1191,58 +1191,59 @@ impl Environment {
                     self.bind_templated_args(&ts.generic_types, &ts.args, &statement.first_token)?;
 
                 // Handle the claim
-                let ret_val = match self
-                    .evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))
-                {
-                    Ok(claim_value) => {
-                        // The claim of the theorem is what we need to prove
-                        let claim = if arg_types.is_empty() {
-                            claim_value.clone()
-                        } else {
-                            AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
-                        };
+                let claim_value =
+                    match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
+                        Ok(claim_value) => claim_value,
+                        Err(e) => {
+                            self.unbind_args(arg_names);
+                            self.unbind_generic_types(generic_types);
+                            return Err(e);
+                        }
+                    };
 
-                        // The functional value of the theorem is the lambda that
-                        // is constantly "true" if the theorem is true
-                        let fn_value = if arg_types.is_empty() {
-                            claim_value
-                        } else {
-                            AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
-                        };
-                        let fn_value = self.genericize(&generic_types, fn_value);
-
-                        self.add_constant(&ts.name, fn_value.get_type(), Some(fn_value.clone()));
-
-                        // Figure out the range for this theorem definition.
-                        // It's smaller than the whole theorem statement because it doesn't
-                        // include the proof block.
-                        let range = Range {
-                            start: statement.first_token.start_pos(),
-                            end: ts.claim.last_token().end_pos(),
-                        };
-                        self.definition_ranges.insert(ts.name.to_string(), range);
-
-                        let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
-                        let block =
-                            self.new_block(Some(unbound_claim), &ts.body, Some(&ts.name), None)?;
-                        let prop = Proposition {
-                            display_name: Some(ts.name.to_string()),
-                            proven: ts.axiomatic,
-                            claim,
-                            block,
-                            range,
-                        };
-                        self.add_proposition(prop);
-                        self.theorem_names.insert(ts.name.to_string());
-                        Ok(())
-                    }
-                    Err(e) => Err(e),
+                // The claim of the theorem is what we need to prove
+                let claim = if arg_types.is_empty() {
+                    claim_value.clone()
+                } else {
+                    AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
                 };
+
+                // The functional value of the theorem is the lambda that
+                // is constantly "true" if the theorem is true
+                let fn_value = if arg_types.is_empty() {
+                    claim_value
+                } else {
+                    AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
+                };
+                let fn_value = self.genericize(&generic_types, fn_value);
+
+                self.add_constant(&ts.name, fn_value.get_type(), Some(fn_value.clone()));
+
+                // Figure out the range for this theorem definition.
+                // It's smaller than the whole theorem statement because it doesn't
+                // include the proof block.
+                let range = Range {
+                    start: statement.first_token.start_pos(),
+                    end: ts.claim.last_token().end_pos(),
+                };
+                self.definition_ranges.insert(ts.name.to_string(), range);
+
+                let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
+                let block = self.new_block(Some(unbound_claim), &ts.body, Some(&ts.name), None)?;
+                let prop = Proposition {
+                    display_name: Some(ts.name.to_string()),
+                    proven: ts.axiomatic,
+                    claim,
+                    block,
+                    range,
+                };
+                self.add_proposition(prop);
+                self.theorem_names.insert(ts.name.to_string());
 
                 self.unbind_args(arg_names);
                 self.unbind_generic_types(generic_types);
 
-                ret_val
+                Ok(())
             }
 
             StatementInfo::Prop(ps) => {
