@@ -1054,16 +1054,22 @@ impl AcornValue {
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.genericize(data_type, generic_type))),
             AcornValue::Monomorph(c, c_type, types) => {
-                // We don't alter c_type, because it's just the type of c, not a type in
-                // the space that is being genericized.
-                AcornValue::Monomorph(
-                    *c,
-                    c_type.clone(),
-                    types
-                        .iter()
-                        .map(|x| x.genericize(data_type, generic_type))
-                        .collect(),
-                )
+                if types.len() > 1 || generic_type > 0 {
+                    todo!("genericize monomorphs with multiple types");
+                }
+
+                if types[0] == AcornType::Data(data_type) {
+                    return AcornValue::Atom(TypedAtom {
+                        atom: Atom::Constant(*c),
+                        acorn_type: c_type.clone(),
+                    });
+                }
+
+                if types[0].refers_to(&AcornType::Data(data_type)) {
+                    todo!("genericize monomorphs with complex types");
+                }
+
+                self.clone()
             }
         }
     }

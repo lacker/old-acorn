@@ -87,12 +87,12 @@ impl DependencyGraph {
         let mut monomorphs_for_fact = vec![];
         let mut facts_for_constant = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
-            let mut polymorphic_constants = vec![];
-            fact.find_polymorphic(&mut polymorphic_constants);
-            if polymorphic_constants.is_empty() {
+            let mut polymorphic_fns = vec![];
+            fact.find_polymorphic(&mut polymorphic_fns);
+            if polymorphic_fns.is_empty() {
                 if let AcornValue::ForAll(args, _) = fact {
                     if args.iter().any(|arg| arg.is_polymorphic()) {
-                        // This is a polymorphic fact with no polymorphic constants.
+                        // This is a polymorphic fact with no polymorphic functions.
                         // It could be something trivial and purely propositional, like
                         // forall(x: T) { x = x }
                         // Just skip it.
@@ -105,7 +105,7 @@ impl DependencyGraph {
                 continue;
             }
             monomorphs_for_fact.push(Some(vec![]));
-            for c in polymorphic_constants {
+            for c in polymorphic_fns {
                 facts_for_constant.entry(c).or_insert(vec![]).push(i);
             }
         }

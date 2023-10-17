@@ -235,7 +235,7 @@ impl Environment {
     fn add_proposition(&mut self, prop: Proposition) {
         // Check if we're adding invalid claims.
         // self.validate(&prop.claim);
-        // println!("adding validated prop: {}", self.value_str(&prop.claim));
+        // println!("adding claim: {}", self.value_str(&prop.claim));
 
         self.propositions.push(prop);
     }
@@ -283,6 +283,12 @@ impl Environment {
         assert_eq!(pos + 1, self.constant_names.len());
         let id = pos as AtomId;
         let definition: AcornValue = self.constants[name].value.clone();
+        if let AcornValue::Atom(ta) = &definition {
+            if ta.atom == Atom::Constant(id) {
+                // This constant has no definition
+                return;
+            }
+        }
         let constant_type_clone = self.identifier_types[name].clone();
         // let definition: AcornValue = definition_clone.unwrap();
         // assert_eq!(definition, v);
