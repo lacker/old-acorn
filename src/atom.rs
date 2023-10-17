@@ -19,12 +19,15 @@ pub enum Atom {
     Constant(AtomId),
 
     // Functions created in skolemization, to represent existential variables.
+    // This form can be used in the Term but not in the AcornValue.
     Skolem(AtomId),
 
-    // Monomorphizations of polymorphic functions
+    // Monomorphizations of polymorphic functions.
+    // This form can be used in the Term but not in the AcornValue.
     Monomorph(AtomId),
 
     // Functions created by the synthesizer
+    // This form can be used in the Term but not in the AcornValue.
     Synthetic(AtomId),
 
     // A Variable can be a reference to a variable on the stack, or its meaning can be implicit,

@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub struct FunctionType {
     pub arg_types: Vec<AcornType>,
     pub return_type: Box<AcornType>,
@@ -10,7 +10,7 @@ pub struct FunctionType {
 // Data types include both axiomatic types and struct types.
 // Generics are types that are not yet known.
 // "Any" is a hack used for testing.
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub enum AcornType {
     Bool,
     Data(usize),

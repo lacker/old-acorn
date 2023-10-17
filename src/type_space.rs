@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use crate::acorn_type::AcornType;
@@ -11,11 +12,28 @@ pub type TypeId = u16;
 pub const ANY: TypeId = 0;
 pub const BOOL: TypeId = 1;
 
-// A TypeSpace lets us represent types uniquely as TypeIds.
-// Zero always means "any", which we don't give to specific atoms, but we use for matching or
-// for testing.
+#[derive(Hash, Debug, Eq, PartialEq, Clone)]
+struct MonomorphKey {
+    polymorph: AtomId,
+    parameters: Vec<AcornType>,
+}
+
+// The Acorn language allows a rich variety of types, where each value has an AcornType, and where
+// functions can be polymorphic.
+// The low-level prover only understands simple typing, where each value has a TypeId, and there
+// is no polymorphism.
+// The TypeSpace is a mapping between the two.
+//
+// The zero TypeId always means "any", which we don't give to specific atoms, but we use for
+// matching or for testing.
 pub struct TypeSpace {
     types: Vec<AcornType>,
+
+    // One entry for each monomorphization
+    monomorph_map: HashMap<MonomorphKey, AtomId>,
+
+    // For each monomorphization, store how it was created and its type.
+    monomorph_info: Vec<(MonomorphKey, TypeId)>,
 }
 
 pub enum Error {
@@ -36,6 +54,8 @@ impl TypeSpace {
     pub fn new() -> TypeSpace {
         TypeSpace {
             types: vec![AcornType::Any, AcornType::Bool],
+            monomorph_info: vec![],
+            monomorph_map: HashMap::new(),
         }
     }
 
@@ -125,13 +145,28 @@ impl TypeSpace {
         match value {
             AcornValue::Atom(atom) => Ok(self.term_from_atom(atom)),
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
-            AcornValue::Monomorph(c, _, _) => {
-                // Just use c but give it the right type.
-                let type_id = self.add_type(value.get_type());
+            AcornValue::Monomorph(c, _, parameters) => {
+                let key = MonomorphKey {
+                    polymorph: *c,
+                    parameters: parameters.clone(),
+                };
+                let (monomorph_id, type_id) =
+                    if let Some(monomorph_id) = self.monomorph_map.get(&key) {
+                        let (_, type_id) = self.monomorph_info[*monomorph_id as usize];
+                        (*monomorph_id, type_id)
+                    } else {
+                        // Construct an atom and appropriate entries for this monomorph
+                        let type_id = self.add_type(value.get_type());
+                        let monomorph_id = self.monomorph_info.len() as AtomId;
+                        self.monomorph_info.push((key.clone(), type_id));
+                        self.monomorph_map.insert(key, monomorph_id);
+                        (monomorph_id, type_id)
+                    };
+
                 Ok(Term {
                     term_type: type_id,
                     head_type: type_id,
-                    head: Atom::Constant(*c),
+                    head: Atom::Monomorph(monomorph_id),
                     args: vec![],
                 })
             }
