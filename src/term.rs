@@ -348,15 +348,19 @@ impl Term {
             }
             Atom::Constant(i) => {
                 weight1 += 1;
-                weight2 += 2 * i as u32;
+                weight2 += 4 * i as u32;
             }
             Atom::Skolem(i) => {
                 weight1 += 1;
-                weight2 += 1 + 3 * i as u32;
+                weight2 += 1 + 4 * i as u32;
+            }
+            Atom::Monomorph(i) => {
+                weight1 += 1;
+                weight2 += 2 + 4 * i as u32;
             }
             Atom::Synthetic(i) => {
                 weight1 += 1;
-                weight2 += 2 + 3 * i as u32;
+                weight2 += 3 + 4 * i as u32;
             }
         }
         for arg in &self.args {

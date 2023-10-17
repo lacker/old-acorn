@@ -18,6 +18,7 @@ impl fmt::Display for DisplayAtom<'_> {
             Atom::True => write!(f, "true"),
             Atom::Constant(i) => write!(f, "{}", self.env.get_constant_name(i)),
             Atom::Skolem(i) => write!(f, "s{}", i),
+            Atom::Monomorph(i) => write!(f, "m{}", i),
             Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
         }

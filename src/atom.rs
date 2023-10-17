@@ -18,8 +18,11 @@ pub enum Atom {
     // Not types, types are their own thing.
     Constant(AtomId),
 
-    // Functions created in the normalization process
+    // Functions created in skolemization, to represent existential variables.
     Skolem(AtomId),
+
+    // Monomorphizations of polymorphic functions
+    Monomorph(AtomId),
 
     // Functions created by the synthesizer
     Synthetic(AtomId),
@@ -37,6 +40,7 @@ impl fmt::Display for Atom {
             Atom::True => write!(f, "true"),
             Atom::Constant(i) => write!(f, "c{}", i),
             Atom::Skolem(i) => write!(f, "s{}", i),
+            Atom::Monomorph(i) => write!(f, "m{}", i),
             Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
         }
