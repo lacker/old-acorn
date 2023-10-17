@@ -230,12 +230,14 @@ impl Environment {
     // Adds a proposition.
     fn add_proposition(&mut self, prop: Proposition) {
         // Check if we're adding invalid claims.
-        // println!("adding claim: {}", self.value_str(&prop.claim));
+        // self.validate(&prop.claim);
+        // println!("XXX adding validated prop: {}", self.value_str(&prop.claim));
 
         self.propositions.push(prop);
     }
 
     fn add_data_type(&mut self, name: &str) -> AcornType {
+        // println!("XXX adding data type: {}", name);
         let data_type = AcornType::Data(self.data_types.len());
         self.data_types.push(name.to_string());
         self.type_names.insert(name.to_string(), data_type.clone());
@@ -243,6 +245,11 @@ impl Environment {
     }
 
     fn remove_data_type(&mut self, name: &str) {
+        // println!("XXX removing data type: {}", name);
+        if self.data_types.last() != Some(&name.to_string()) {
+            panic!("removing data type {} which is already not present", name);
+        }
+        self.data_types.pop();
         self.type_names.remove(name);
     }
 
@@ -459,7 +466,12 @@ impl Environment {
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
         match acorn_type {
             AcornType::Bool => "bool".to_string(),
-            AcornType::Data(i) => self.data_types[*i].to_string(),
+            AcornType::Data(i) => {
+                if i >= &self.data_types.len() {
+                    panic!("AcornType {} is invalid in this scope", i);
+                }
+                self.data_types[*i].to_string()
+            }
             AcornType::Generic(i) => {
                 // This return value doesn't mean anything, but it's useful for debugging.
                 format!("T{}", i)
@@ -495,6 +507,12 @@ impl Environment {
             Atom::Synthetic(i) => format!("p{}", i),
             Atom::Variable(i) => format!("x{}", i),
         }
+    }
+
+    // Panics if the value is bad
+    pub fn validate(&self, value: &AcornValue) {
+        self.value_str(value);
+        self.type_str(&value.get_type());
     }
 
     fn macro_str_stacked(
@@ -683,7 +701,7 @@ impl Environment {
 
     // Remove the generic types that were added by bind_generic_types.
     fn unbind_generic_types(&mut self, generic_types: Vec<String>) {
-        for name in generic_types {
+        for name in generic_types.iter().rev() {
             self.remove_data_type(&name);
         }
     }
@@ -1538,6 +1556,8 @@ impl Environment {
         let mut it = path.iter().peekable();
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
+                // self.validate(&previous_prop.claim);
+                // println!("XXX validated {}", self.value_str(&previous_prop.claim));
                 facts.push(env.expand_theorems(&previous_prop.claim));
             }
             let prop = &env.propositions[*i];
@@ -2110,5 +2130,12 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("eq(0 = 0, eq(0, 0))");
         env.bad("eq(0, 0 = 0)");
         env.bad("0 = eq(0, 0)");
+    }
+
+    #[test]
+    fn test_type_params_cleaned_up() {
+        let mut env = Environment::new();
+        env.add("define foo<T>(a: T) -> bool = axiom");
+        assert!(!env.data_types.contains(&"T".to_string()));
     }
 }
