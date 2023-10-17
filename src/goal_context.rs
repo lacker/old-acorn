@@ -37,13 +37,11 @@ impl GoalContext<'_> {
         let mut answer = vec![];
         for (fact, monomorph_types) in self.facts.iter().zip(graph.monomorphs_for_fact) {
             if monomorph_types.is_none() {
-                println!("XXX regular fact: {}", self.env.value_str(fact));
                 answer.push(fact.clone());
                 continue;
             }
             for monomorph_type in monomorph_types.unwrap() {
                 let monomorph = fact.monomorphize(&[monomorph_type]);
-                println!("XXX monomorph: {}", self.env.value_str(&monomorph));
                 answer.push(monomorph);
             }
         }

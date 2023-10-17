@@ -977,7 +977,11 @@ mod tests {
         let mut env = Environment::new();
         env.add(
             r#"
-            theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c
+            theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c by {
+                if (a = b & b = c) {
+                    a = c
+                }
+            }
         "#,
         );
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);

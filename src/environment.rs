@@ -235,13 +235,12 @@ impl Environment {
     fn add_proposition(&mut self, prop: Proposition) {
         // Check if we're adding invalid claims.
         // self.validate(&prop.claim);
-        // println!("XXX adding validated prop: {}", self.value_str(&prop.claim));
+        // println!("adding validated prop: {}", self.value_str(&prop.claim));
 
         self.propositions.push(prop);
     }
 
     fn add_data_type(&mut self, name: &str) -> AcornType {
-        // println!("XXX adding data type: {}", name);
         let data_type = AcornType::Data(self.data_types.len());
         self.data_types.push(name.to_string());
         self.type_names.insert(name.to_string(), data_type.clone());
@@ -249,7 +248,6 @@ impl Environment {
     }
 
     fn remove_data_type(&mut self, name: &str) {
-        // println!("XXX removing data type: {}", name);
         if self.data_types.last() != Some(&name.to_string()) {
             panic!("removing data type {} which is already not present", name);
         }
@@ -334,7 +332,7 @@ impl Environment {
         name: &str,
         constant_type: AcornType,
         definition: Option<AcornValue>,
-    ) {
+    ) -> AtomId {
         if self.identifier_types.contains_key(name) {
             panic!("name {} already bound to a type", name);
         }
@@ -356,6 +354,7 @@ impl Environment {
             .insert(name.to_string(), constant_type);
         self.constants.insert(name.to_string(), info);
         self.constant_names.push(name.to_string());
+        id
     }
 
     fn move_stack_variable_to_constant(&mut self, name: &str) {
@@ -1222,13 +1221,7 @@ impl Environment {
                 };
                 let fn_value = self.genericize(&generic_types, fn_value);
 
-                self.add_constant(&ts.name, fn_value.get_type(), Some(fn_value.clone()));
-
-                println!(
-                    "XXX adding constant {} with value {}",
-                    ts.name,
-                    self.value_str(&fn_value)
-                );
+                let c_id = self.add_constant(&ts.name, fn_value.get_type(), Some(fn_value.clone()));
 
                 // Figure out the range for this theorem definition.
                 // It's smaller than the whole theorem statement because it doesn't
@@ -1239,14 +1232,17 @@ impl Environment {
                 };
                 self.definition_ranges.insert(ts.name.to_string(), range);
 
-                let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
+                let constant_atom = self.get_constant_atom(&ts.name).unwrap();
+                let unbound_claim = if generic_types.is_empty() {
+                    constant_atom
+                } else {
+                    let types = generic_types
+                        .iter()
+                        .map(|t| self.type_names.get(t).unwrap().clone())
+                        .collect();
+                    AcornValue::Monomorph(c_id, constant_atom.get_type(), types)
+                };
                 let block = self.new_block(Some(unbound_claim), &ts.body, Some(&ts.name), None)?;
-
-                println!(
-                    "XXX adding theorem {} with claim: {}",
-                    ts.name,
-                    self.value_str(&claim)
-                );
 
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),
@@ -1576,7 +1572,7 @@ impl Environment {
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
                 // self.validate(&previous_prop.claim);
-                // println!("XXX validated {}", self.value_str(&previous_prop.claim));
+                // println!("validated {}", self.value_str(&previous_prop.claim));
                 facts.push(env.expand_theorems(&previous_prop.claim));
             }
             let prop = &env.propositions[*i];
