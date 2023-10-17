@@ -223,10 +223,10 @@ impl TypedAtom {
         }
     }
 
-    pub fn instantiate(&self, types: &[AcornType]) -> TypedAtom {
+    pub fn monomorphize(&self, types: &[AcornType]) -> TypedAtom {
         TypedAtom {
             atom: self.atom.clone(),
-            acorn_type: self.acorn_type.instantiate(types),
+            acorn_type: self.acorn_type.monomorphize(types),
         }
     }
 }

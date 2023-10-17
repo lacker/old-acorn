@@ -124,7 +124,7 @@ impl AcornType {
             AcornType::Bool => true,
             AcornType::Data(_) => true,
             AcornType::Generic(_) => {
-                // Generic types should be instantiated before passing it to the prover
+                // Generic types should be monomorphized before passing it to the prover
                 false
             }
             AcornType::Any => {
@@ -182,55 +182,54 @@ impl AcornType {
     }
 
     // Replace the generic types with a type from the list
-    pub fn instantiate(&self, types: &[AcornType]) -> AcornType {
+    pub fn monomorphize(&self, types: &[AcornType]) -> AcornType {
         match self {
             AcornType::Generic(index) => types[*index].clone(),
             AcornType::Function(function_type) => AcornType::Function(FunctionType {
                 arg_types: function_type
                     .arg_types
                     .iter()
-                    .map(|t| t.instantiate(types))
+                    .map(|t| t.monomorphize(types))
                     .collect(),
-                return_type: Box::new(function_type.return_type.instantiate(types)),
+                return_type: Box::new(function_type.return_type.monomorphize(types)),
             }),
             _ => self.clone(),
         }
     }
 
-    // Tries to instantiate self to get instantiated.
-    // Fills in any types that need to be filled in, in order to make it match.
+    // Tries to monomorphize self to get monomorph.
+    // Fills in any generic types that need to be filled in, in order to make it match.
     // Returns whether it was successful.
-    pub fn match_instantiated(
+    pub fn match_monomorph(
         &self,
-        instantiated: &AcornType,
+        monomorph: &AcornType,
         types: &mut Vec<Option<AcornType>>,
     ) -> bool {
-        if self == instantiated {
-            // No need to do any actual instantiation
+        if self == monomorph {
             return true;
         }
 
-        match (self, instantiated) {
+        match (self, monomorph) {
             (AcornType::Generic(i), _) => {
                 if types.len() <= *i {
                     types.resize(i + 1, None);
                 }
                 if let Some(t) = &types[*i] {
                     // This generic type is already mapped
-                    return t == instantiated;
+                    return t == monomorph;
                 }
-                types[*i] = Some(instantiated.clone());
+                types[*i] = Some(monomorph.clone());
                 true
             }
             (AcornType::Function(f), AcornType::Function(g)) => {
                 if f.arg_types.len() != g.arg_types.len() {
                     return false;
                 }
-                if !f.return_type.match_instantiated(&g.return_type, types) {
+                if !f.return_type.match_monomorph(&g.return_type, types) {
                     return false;
                 }
                 for (f_arg_type, g_arg_type) in f.arg_types.iter().zip(&g.arg_types) {
-                    if !f_arg_type.match_instantiated(g_arg_type, types) {
+                    if !f_arg_type.match_monomorph(g_arg_type, types) {
                         return false;
                     }
                 }
@@ -241,17 +240,17 @@ impl AcornType {
     }
 
     // If this is a generic type or is dependent on a generic type, return true.
-    pub fn has_generic(&self) -> bool {
+    pub fn is_polymorphic(&self) -> bool {
         match self {
             AcornType::Bool | AcornType::Data(_) | AcornType::Any => false,
             AcornType::Generic(_) => true,
             AcornType::Function(ftype) => {
                 for arg_type in &ftype.arg_types {
-                    if arg_type.has_generic() {
+                    if arg_type.is_polymorphic() {
                         return true;
                     }
                 }
-                ftype.return_type.has_generic()
+                ftype.return_type.is_polymorphic()
             }
         }
     }

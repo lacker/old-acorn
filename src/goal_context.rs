@@ -35,21 +35,21 @@ impl GoalContext<'_> {
         graph.inspect_value(&self.facts, &self.goal);
 
         let mut answer = vec![];
-        for (fact, instantiation_types) in self.facts.iter().zip(graph.monomorphs_for_fact) {
-            if instantiation_types.is_none() {
+        for (fact, monomorph_types) in self.facts.iter().zip(graph.monomorphs_for_fact) {
+            if monomorph_types.is_none() {
                 answer.push(fact.clone());
                 continue;
             }
-            for instantiation_type in instantiation_types.unwrap() {
-                let instantiated = fact.monomorphize(&[instantiation_type]);
-                answer.push(instantiated);
+            for monomorph_type in monomorph_types.unwrap() {
+                let monomorph = fact.monomorphize(&[monomorph_type]);
+                answer.push(monomorph);
             }
         }
         answer
     }
 }
 
-// A helper structure to determine which instantiations are necessary.
+// A helper structure to determine which monomorphs are necessary.
 // Doesn't include facts in order to make memory ownership easier.
 // This only handles a single templated type.
 struct DependencyGraph {
@@ -74,7 +74,7 @@ impl DependencyGraph {
         let mut facts_for_constant = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
             let mut polymorphic_constants = vec![];
-            fact.find_templated(&mut polymorphic_constants);
+            fact.find_polymorphic(&mut polymorphic_constants);
             if polymorphic_constants.is_empty() {
                 monomorphs_for_fact.push(None);
                 continue;
@@ -92,7 +92,7 @@ impl DependencyGraph {
         }
     }
 
-    // Called when we realize that we need to instantiate constant_id with acorn_type.
+    // Called when we realize that we need to monomorphize constant_id with acorn_type.
     fn monomorphize(
         &mut self,
         facts: &Vec<AcornValue>,
@@ -104,7 +104,7 @@ impl DependencyGraph {
             .entry(constant_id)
             .or_insert(vec![]);
         if monomorphs.contains(acorn_type) {
-            // We already have this instantiation
+            // We already have this monomorph
             return;
         }
         monomorphs.push(acorn_type.clone());

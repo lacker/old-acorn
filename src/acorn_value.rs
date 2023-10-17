@@ -194,7 +194,7 @@ impl AcornValue {
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
-            AcornValue::Monomorph(_, generic_type, types) => generic_type.instantiate(types),
+            AcornValue::Monomorph(_, generic_type, types) => generic_type.monomorphize(types),
         }
     }
 
@@ -937,8 +937,8 @@ impl AcornValue {
         match self {
             AcornValue::Atom(ta) => {
                 if let Atom::Constant(c) = ta.atom {
-                    if ta.acorn_type.has_generic() {
-                        // We need to create an instantiation
+                    if ta.acorn_type.is_polymorphic() {
+                        // We need to monomorphize
                         AcornValue::Monomorph(c, ta.acorn_type.clone(), types.to_vec())
                     } else {
                         // Otherwise, this constant is unchanged
@@ -946,7 +946,7 @@ impl AcornValue {
                     }
                 } else {
                     // Change the type appropriately
-                    AcornValue::Atom(ta.instantiate(types))
+                    AcornValue::Atom(ta.monomorphize(types))
                 }
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
@@ -955,19 +955,19 @@ impl AcornValue {
             }),
             AcornValue::Lambda(args, value) => AcornValue::Lambda(
                 args.iter()
-                    .map(|x| x.instantiate(types))
+                    .map(|x| x.monomorphize(types))
                     .collect::<Vec<_>>(),
                 Box::new(value.monomorphize(types)),
             ),
             AcornValue::ForAll(args, value) => AcornValue::ForAll(
                 args.iter()
-                    .map(|x| x.instantiate(types))
+                    .map(|x| x.monomorphize(types))
                     .collect::<Vec<_>>(),
                 Box::new(value.monomorphize(types)),
             ),
             AcornValue::Exists(args, value) => AcornValue::Exists(
                 args.iter()
-                    .map(|x| x.instantiate(types))
+                    .map(|x| x.monomorphize(types))
                     .collect::<Vec<_>>(),
                 Box::new(value.monomorphize(types)),
             ),
@@ -993,9 +993,9 @@ impl AcornValue {
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.monomorphize(types))),
             AcornValue::Monomorph(_, _, _) => {
-                // We don't alter instantiations because they cannot have generic types in them.
-                // That would be something like, instantiating T to List<U>, or partially
-                // instantiating Map<T, U> to Map<T, Nat>, neither of which we
+                // We don't alter monomorphs because they cannot themselves be polymorphic.
+                // That would be something like, taking T to List<U>, or partially
+                // monomorphizing Map<T, U> to Map<T, Nat>, neither of which we
                 // support yet.
                 self.clone()
             }
@@ -1068,40 +1068,40 @@ impl AcornValue {
         }
     }
 
-    // Finds all templated constants used in this value that are *not* instantiated.
-    pub fn find_templated(&self, output: &mut Vec<AtomId>) {
+    // Finds all polymorphic constants used in this value.
+    pub fn find_polymorphic(&self, output: &mut Vec<AtomId>) {
         match self {
             AcornValue::Atom(ta) => {
                 if let Atom::Constant(c) = ta.atom {
-                    if ta.acorn_type.has_generic() {
+                    if ta.acorn_type.is_polymorphic() {
                         output.push(c);
                     }
                 }
             }
             AcornValue::Application(app) => {
-                app.function.find_templated(output);
+                app.function.find_polymorphic(output);
                 for arg in &app.args {
-                    arg.find_templated(output);
+                    arg.find_polymorphic(output);
                 }
             }
             AcornValue::Lambda(_, value)
             | AcornValue::ForAll(_, value)
-            | AcornValue::Exists(_, value) => value.find_templated(output),
+            | AcornValue::Exists(_, value) => value.find_polymorphic(output),
             AcornValue::Implies(left, right)
             | AcornValue::Equals(left, right)
             | AcornValue::NotEquals(left, right)
             | AcornValue::And(left, right)
             | AcornValue::Or(left, right) => {
-                left.find_templated(output);
-                right.find_templated(output);
+                left.find_polymorphic(output);
+                right.find_polymorphic(output);
             }
-            AcornValue::Not(x) => x.find_templated(output),
+            AcornValue::Not(x) => x.find_polymorphic(output),
             AcornValue::Monomorph(_, _, _) => {}
         }
     }
 
-    // Finds all instantiations of templated constants in this value.
-    // Only handles single-variable instantiations.
+    // Finds all monomorphizations of polymorphic constants in this value.
+    // Only handles single generic types.
     pub fn find_monomorphs(&self, output: &mut Vec<(AtomId, AcornType)>) {
         match self {
             AcornValue::Atom(_) => {}

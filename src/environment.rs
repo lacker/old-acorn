@@ -664,7 +664,7 @@ impl Environment {
         let (arg_names, arg_types) = self.bind_args(args)?;
 
         // Each type has to be used by some argument so that we know how to
-        // instantiate the template
+        // monomorphize the template
         for (i, generic_type) in generic_types.iter().enumerate() {
             if !arg_types.iter().any(|a| a.refers_to(generic_type)) {
                 return Err(Error::new(
@@ -911,7 +911,7 @@ impl Environment {
                 for (i, arg_expr) in arg_exprs.iter().enumerate() {
                     let arg_type = &function_type.arg_types[i];
                     let arg_value = self.evaluate_value_expression(arg_expr, None)?;
-                    if !arg_type.match_instantiated(&arg_value.get_type(), &mut template_types) {
+                    if !arg_type.match_monomorph(&arg_value.get_type(), &mut template_types) {
                         return Err(Error::new(
                             arg_expr.token(),
                             &format!(
@@ -970,14 +970,13 @@ impl Environment {
 
                 if expected_type.is_some() {
                     // Check the return type
-                    let return_type = function_type.return_type.instantiate(&inst_types);
+                    let return_type = function_type.return_type.monomorphize(&inst_types);
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let instantiation =
-                    AcornValue::Monomorph(constant_id, fn_atom.acorn_type, inst_types);
+                let monomorph = AcornValue::Monomorph(constant_id, fn_atom.acorn_type, inst_types);
                 Ok(AcornValue::Application(FunctionApplication {
-                    function: Box::new(instantiation),
+                    function: Box::new(monomorph),
                     args,
                 }))
             }
