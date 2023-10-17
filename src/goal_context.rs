@@ -37,11 +37,23 @@ impl GoalContext<'_> {
         let mut answer = vec![];
         for (fact, monomorph_types) in self.facts.iter().zip(graph.monomorphs_for_fact) {
             if monomorph_types.is_none() {
+                if fact.has_generic() {
+                    panic!(
+                        "allegedly non-polymorphic fact {} still has generics",
+                        self.env.value_str(fact)
+                    );
+                }
                 answer.push(fact.clone());
                 continue;
             }
             for monomorph_type in monomorph_types.unwrap() {
                 let monomorph = fact.monomorphize(&[monomorph_type]);
+                if monomorph.has_generic() {
+                    panic!(
+                        "alleged monomorph {} still has generics",
+                        self.env.value_str(&monomorph)
+                    );
+                }
                 answer.push(monomorph);
             }
         }
@@ -82,6 +94,7 @@ impl DependencyGraph {
                         // It could be something trivial and purely propositional, like
                         // forall(x: T) { x = x }
                         // Just skip it.
+                        monomorphs_for_fact.push(Some(vec![]));
                         continue;
                     }
                 }
