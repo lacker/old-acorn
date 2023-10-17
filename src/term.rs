@@ -358,9 +358,6 @@ impl Term {
                 weight1 += 1;
                 weight2 += 2 + 3 * i as u32;
             }
-            Atom::Anonymous => {
-                panic!("cannot calculate weight of an anonymous atom");
-            }
         }
         for arg in &self.args {
             let (w1, w2) = arg.multi_weight(refcounts);
@@ -518,20 +515,6 @@ impl Term {
                 .args
                 .iter()
                 .map(|arg| arg.remap_variables(var_map))
-                .collect(),
-        }
-    }
-
-    // Replaces x_{var_map[i]} with x_i, or Atom::Anonymous if nothing matches.
-    pub fn unmap_variables(&self, var_map: &Vec<AtomId>) -> Term {
-        Term {
-            head_type: self.head_type,
-            term_type: self.term_type,
-            head: self.head.unmap_variables(var_map),
-            args: self
-                .args
-                .iter()
-                .map(|arg| arg.unmap_variables(var_map))
                 .collect(),
         }
     }

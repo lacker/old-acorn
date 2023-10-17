@@ -29,10 +29,6 @@ pub enum Atom {
     // We drop the variable name. Instead we track an id.
     // This does mean that you must be careful when moving values between different environments.
     Variable(AtomId),
-
-    // A variable with no name. This is rare, but needed to represent the situation of, we have an atom
-    // f(x) and we know that it is a constant, so f(_) has a defined value regardless of the _.
-    Anonymous,
 }
 
 impl fmt::Display for Atom {
@@ -43,7 +39,6 @@ impl fmt::Display for Atom {
             Atom::Skolem(i) => write!(f, "s{}", i),
             Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
-            Atom::Anonymous => write!(f, "_"),
         }
     }
 }
@@ -107,20 +102,6 @@ impl Atom {
     pub fn remap_variables(&self, var_map: &Vec<AtomId>) -> Atom {
         match self {
             Atom::Variable(i) => Atom::Variable(var_map[*i as usize]),
-            a => *a,
-        }
-    }
-
-    // Replaces x_{var_map[i]} with x_i, or Atom::Anonymous if nothing matches.
-    pub fn unmap_variables(&self, var_map: &Vec<AtomId>) -> Atom {
-        match self {
-            Atom::Variable(j) => {
-                if let Some(i) = var_map.iter().position(|&x| x == *j) {
-                    Atom::Variable(i as AtomId)
-                } else {
-                    Atom::Anonymous
-                }
-            }
             a => *a,
         }
     }
