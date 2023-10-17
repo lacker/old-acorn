@@ -34,6 +34,8 @@ impl GoalContext<'_> {
         }
         graph.inspect_value(&self.facts, &self.goal);
 
+        assert!(self.facts.len() == graph.monomorphs_for_fact.len());
+
         let mut answer = vec![];
         for (fact, monomorph_types) in self.facts.iter().zip(graph.monomorphs_for_fact) {
             if monomorph_types.is_none() {
