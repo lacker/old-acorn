@@ -88,9 +88,13 @@ pub struct Proposition {
     // If we have a block and a subenvironment, this represents the "external claim".
     // It is the value we can assume is true, in the outer environment, when everything
     // in the inner environment has been proven.
+    //
+    // This claim needs to be proved when proven is false, and there is no block.
     pub claim: AcornValue,
 
     // The body of the proposition, when it has an associated block.
+    // When there is a block, it is implied that proving every proposition in the block
+    // will prove this claim as well.
     pub block: Option<Block>,
 
     // The range in the source document corresponding to this proposition.
@@ -1201,15 +1205,16 @@ impl Environment {
                         }
                     };
 
-                // The claim of the theorem is what we need to prove
+                // The claim of the theorem is what we need to prove.
                 let claim = if arg_types.is_empty() {
                     claim_value.clone()
                 } else {
                     AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
                 };
+                let claim = self.genericize(&generic_types, claim);
 
                 // The functional value of the theorem is the lambda that
-                // is constantly "true" if the theorem is true
+                // is constantly "true" if the theorem is true.
                 let fn_value = if arg_types.is_empty() {
                     claim_value
                 } else {
@@ -1218,6 +1223,12 @@ impl Environment {
                 let fn_value = self.genericize(&generic_types, fn_value);
 
                 self.add_constant(&ts.name, fn_value.get_type(), Some(fn_value.clone()));
+
+                println!(
+                    "XXX adding constant {} with value {}",
+                    ts.name,
+                    self.value_str(&fn_value)
+                );
 
                 // Figure out the range for this theorem definition.
                 // It's smaller than the whole theorem statement because it doesn't
@@ -1230,6 +1241,13 @@ impl Environment {
 
                 let unbound_claim = self.get_constant_atom(&ts.name).unwrap();
                 let block = self.new_block(Some(unbound_claim), &ts.body, Some(&ts.name), None)?;
+
+                println!(
+                    "XXX adding theorem {} with claim: {}",
+                    ts.name,
+                    self.value_str(&claim)
+                );
+
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),
                     proven: ts.axiomatic,
