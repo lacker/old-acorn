@@ -37,11 +37,13 @@ impl GoalContext<'_> {
         let mut answer = vec![];
         for (fact, monomorph_types) in self.facts.iter().zip(graph.monomorphs_for_fact) {
             if monomorph_types.is_none() {
+                println!("XXX regular fact: {}", self.env.value_str(fact));
                 answer.push(fact.clone());
                 continue;
             }
             for monomorph_type in monomorph_types.unwrap() {
                 let monomorph = fact.monomorphize(&[monomorph_type]);
+                println!("XXX monomorph: {}", self.env.value_str(&monomorph));
                 answer.push(monomorph);
             }
         }
@@ -76,6 +78,16 @@ impl DependencyGraph {
             let mut polymorphic_constants = vec![];
             fact.find_polymorphic(&mut polymorphic_constants);
             if polymorphic_constants.is_empty() {
+                if let AcornValue::ForAll(args, _) = fact {
+                    if args.iter().any(|arg| arg.is_polymorphic()) {
+                        // This is a polymorphic fact with no polymorphic constants.
+                        // It could be something trivial and purely propositional, like
+                        // forall(x: T) { x = x }
+                        // Just skip it.
+                        continue;
+                    }
+                }
+
                 monomorphs_for_fact.push(None);
                 continue;
             }
