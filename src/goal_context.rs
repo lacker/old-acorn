@@ -25,23 +25,23 @@ pub struct GoalContext<'a> {
 }
 
 impl GoalContext<'_> {
-    // Find all instantiations of the facts that are needed to prove the goal.
-    pub fn instantiate_facts(&self) -> Vec<AcornValue> {
+    // Find all monomorphizations of the facts that are needed to prove the goal.
+    pub fn monomorphize_facts(&self) -> Vec<AcornValue> {
         let mut graph = DependencyGraph::new(&self.facts);
 
         for fact in &self.facts {
-            graph.handle_instantiations(&self.facts, fact);
+            graph.inspect_value(&self.facts, fact);
         }
-        graph.handle_instantiations(&self.facts, &self.goal);
+        graph.inspect_value(&self.facts, &self.goal);
 
         let mut answer = vec![];
-        for (fact, instantiation_types) in self.facts.iter().zip(graph.instantiations_for_fact) {
+        for (fact, instantiation_types) in self.facts.iter().zip(graph.monomorphs_for_fact) {
             if instantiation_types.is_none() {
                 answer.push(fact.clone());
                 continue;
             }
             for instantiation_type in instantiation_types.unwrap() {
-                let instantiated = fact.instantiate(&[instantiation_type]);
+                let instantiated = fact.monomorphize(&[instantiation_type]);
                 answer.push(instantiated);
             }
         }
@@ -53,88 +53,88 @@ impl GoalContext<'_> {
 // Doesn't include facts in order to make memory ownership easier.
 // This only handles a single templated type.
 struct DependencyGraph {
-    // The instantiations that we need/want for each fact.
+    // The monomorphic types that we need/want for each fact.
     // Parallel to facts.
-    // The entry is None if the fact is not generic.
-    instantiations_for_fact: Vec<Option<Vec<AcornType>>>,
+    // The entry is None if the fact is not polymorphic.
+    monomorphs_for_fact: Vec<Option<Vec<AcornType>>>,
 
     // Indexed by constant id
-    instantiations_for_constant: HashMap<AtomId, Vec<AcornType>>,
+    monomorphs_for_constant: HashMap<AtomId, Vec<AcornType>>,
 
-    // Which facts mention each templated constant *without* instantiating it.
+    // Which facts mention each templated constant *without* monomorphizing it.
     // This one is static and only needs to be computed once.
     facts_for_constant: HashMap<AtomId, Vec<usize>>,
 }
 
 impl DependencyGraph {
     // Populates facts_for_constant, and puts None vs Some([]) in the right place for
-    // instantiations_for_fact.
+    // monomorphs_for_fact.
     fn new(facts: &Vec<AcornValue>) -> DependencyGraph {
-        let mut instantiations_for_fact = vec![];
+        let mut monomorphs_for_fact = vec![];
         let mut facts_for_constant = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
-            let mut generic_constants = vec![];
-            fact.find_templated(&mut generic_constants);
-            if generic_constants.is_empty() {
-                instantiations_for_fact.push(None);
+            let mut polymorphic_constants = vec![];
+            fact.find_templated(&mut polymorphic_constants);
+            if polymorphic_constants.is_empty() {
+                monomorphs_for_fact.push(None);
                 continue;
             }
-            instantiations_for_fact.push(Some(vec![]));
-            for c in generic_constants {
+            monomorphs_for_fact.push(Some(vec![]));
+            for c in polymorphic_constants {
                 facts_for_constant.entry(c).or_insert(vec![]).push(i);
             }
         }
 
         DependencyGraph {
-            instantiations_for_fact,
-            instantiations_for_constant: HashMap::new(),
+            monomorphs_for_fact,
+            monomorphs_for_constant: HashMap::new(),
             facts_for_constant,
         }
     }
 
     // Called when we realize that we need to instantiate constant_id with acorn_type.
-    fn handle_instantiation(
+    fn monomorphize(
         &mut self,
         facts: &Vec<AcornValue>,
         constant_id: AtomId,
         acorn_type: &AcornType,
     ) {
-        let instantiations = self
-            .instantiations_for_constant
+        let monomorphs = self
+            .monomorphs_for_constant
             .entry(constant_id)
             .or_insert(vec![]);
-        if instantiations.contains(acorn_type) {
+        if monomorphs.contains(acorn_type) {
             // We already have this instantiation
             return;
         }
-        instantiations.push(acorn_type.clone());
-        let instantiation_arg = vec![acorn_type.clone()];
+        monomorphs.push(acorn_type.clone());
+        let monomorphize_arg = vec![acorn_type.clone()];
 
-        // Handle all the facts that mention this constant without instantiating it.
+        // Handle all the facts that mention this constant without monomorphizing it.
         if let Some(fact_ids) = self.facts_for_constant.get(&constant_id) {
             for fact_id in fact_ids.clone() {
-                // Check if we already know we need this instantiation for the fact
+                // Check if we already know we need this monomorph for the fact
                 // If not, insert it
-                let instantiations_for_fact = self.instantiations_for_fact[fact_id]
+                let monomorphs_for_fact = self.monomorphs_for_fact[fact_id]
                     .as_mut()
                     .expect("Should have been Some");
-                if instantiations_for_fact.contains(acorn_type) {
+                if monomorphs_for_fact.contains(acorn_type) {
                     continue;
                 }
-                instantiations_for_fact.push(acorn_type.clone());
+                monomorphs_for_fact.push(acorn_type.clone());
 
-                let fact_instance = facts[fact_id].instantiate(&instantiation_arg);
-                self.handle_instantiations(facts, &fact_instance);
+                let monomorph = facts[fact_id].monomorphize(&monomorphize_arg);
+                self.inspect_value(facts, &monomorph);
             }
         }
     }
 
-    // Make sure that we are generating any instantiations that are used in this value.
-    fn handle_instantiations(&mut self, facts: &Vec<AcornValue>, value: &AcornValue) {
-        let mut instantiated = vec![];
-        value.find_instantiated(&mut instantiated);
-        for (constant_id, acorn_type) in instantiated {
-            self.handle_instantiation(facts, constant_id, &acorn_type);
+    // Make sure that we are generating any monomorphizations that are used in this value.
+    fn inspect_value(&mut self, facts: &Vec<AcornValue>, value: &AcornValue) {
+        let mut monomorphs = vec![];
+        value.find_monomorphs(&mut monomorphs);
+        for (constant_id, acorn_type) in monomorphs {
+            self.monomorphize(facts, constant_id, &acorn_type);
         }
     }
 }

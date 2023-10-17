@@ -562,7 +562,7 @@ impl Environment {
             AcornValue::Lambda(types, values) => {
                 self.macro_str_stacked("lambda", types, values, stack_size)
             }
-            AcornValue::Instantiation(c, _, types) => {
+            AcornValue::Monomorph(c, _, types) => {
                 format!(
                     "{}<{}>",
                     self.constant_names[*c as usize],
@@ -975,7 +975,7 @@ impl Environment {
                 }
 
                 let instantiation =
-                    AcornValue::Instantiation(constant_id, fn_atom.acorn_type, inst_types);
+                    AcornValue::Monomorph(constant_id, fn_atom.acorn_type, inst_types);
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(instantiation),
                     args,

@@ -3,11 +3,13 @@ use std::fmt;
 use crate::atom::Atom;
 use crate::clause::Clause;
 use crate::environment::Environment;
+use crate::normalizer::Normalizer;
 use crate::term::{Literal, Term};
 
-pub struct DisplayAtom<'a> {
+struct DisplayAtom<'a> {
     atom: Atom,
     env: &'a Environment,
+    normalizer: &'a Normalizer,
 }
 
 impl fmt::Display for DisplayAtom<'_> {
@@ -26,6 +28,7 @@ impl fmt::Display for DisplayAtom<'_> {
 pub struct DisplayTerm<'a> {
     term: &'a Term,
     env: &'a Environment,
+    normalizer: &'a Normalizer,
 }
 
 impl fmt::Display for DisplayTerm<'_> {
@@ -35,7 +38,8 @@ impl fmt::Display for DisplayTerm<'_> {
             "{}",
             DisplayAtom {
                 atom: self.term.head,
-                env: self.env
+                env: self.env,
+                normalizer: self.normalizer
             }
         )?;
         if self.term.args.len() > 0 {
@@ -49,7 +53,8 @@ impl fmt::Display for DisplayTerm<'_> {
                     "{}",
                     DisplayTerm {
                         term: arg,
-                        env: self.env
+                        env: self.env,
+                        normalizer: self.normalizer
                     }
                 )?;
             }
@@ -59,59 +64,44 @@ impl fmt::Display for DisplayTerm<'_> {
     }
 }
 
-pub struct DisplayLiteral<'a> {
+struct DisplayLiteral<'a> {
     literal: &'a Literal,
     env: &'a Environment,
+    normalizer: &'a Normalizer,
+}
+
+impl DisplayLiteral<'_> {
+    fn term<'a>(&'a self, term: &'a Term) -> DisplayTerm {
+        DisplayTerm {
+            term,
+            env: self.env,
+            normalizer: self.normalizer,
+        }
+    }
 }
 
 impl fmt::Display for DisplayLiteral<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.literal.positive {
             if self.literal.is_boolean() {
-                write!(
-                    f,
-                    "{}",
-                    DisplayTerm {
-                        term: &self.literal.left,
-                        env: self.env
-                    }
-                )
+                write!(f, "{}", self.term(&self.literal.left))
             } else {
                 write!(
                     f,
                     "{} = {}",
-                    DisplayTerm {
-                        term: &self.literal.left,
-                        env: self.env
-                    },
-                    DisplayTerm {
-                        term: &self.literal.right,
-                        env: self.env
-                    }
+                    self.term(&self.literal.left),
+                    self.term(&self.literal.right)
                 )
             }
         } else {
             if self.literal.is_boolean() {
-                write!(
-                    f,
-                    "!{}",
-                    DisplayTerm {
-                        term: &self.literal.left,
-                        env: self.env
-                    }
-                )
+                write!(f, "!{}", self.term(&self.literal.left),)
             } else {
                 write!(
                     f,
                     "{} != {}",
-                    DisplayTerm {
-                        term: &self.literal.left,
-                        env: self.env
-                    },
-                    DisplayTerm {
-                        term: &self.literal.right,
-                        env: self.env
-                    }
+                    self.term(&self.literal.left),
+                    self.term(&self.literal.right),
                 )
             }
         }
@@ -121,6 +111,7 @@ impl fmt::Display for DisplayLiteral<'_> {
 pub struct DisplayClause<'a> {
     pub clause: &'a Clause,
     pub env: &'a Environment,
+    pub normalizer: &'a Normalizer,
 }
 
 impl fmt::Display for DisplayClause<'_> {
@@ -137,7 +128,8 @@ impl fmt::Display for DisplayClause<'_> {
                 "{}",
                 DisplayLiteral {
                     literal,
-                    env: self.env
+                    env: self.env,
+                    normalizer: self.normalizer
                 }
             )?;
         }

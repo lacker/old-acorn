@@ -50,10 +50,10 @@ pub enum AcornValue {
     ForAll(Vec<AcornType>, Box<AcornValue>),
     Exists(Vec<AcornType>, Box<AcornValue>),
 
-    // The instantiation of a constant generic function with generic types.
-    // Contains the id of the constant for the generic function, the generic type,
-    // and the types that the generic function is being instantiated with.
-    Instantiation(AtomId, AcornType, Vec<AcornType>),
+    // The monomorphized version of a constant polymorphic function.
+    // Contains the id of the constant for the polymorphic function, the generic type,
+    // and the types that the generic function is being monomorphized with.
+    Monomorph(AtomId, AcornType, Vec<AcornType>),
 }
 
 // An AcornValue has an implicit stack size that determines what index new stack variables
@@ -81,7 +81,7 @@ impl fmt::Display for Subvalue<'_> {
             }
             AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
-            AcornValue::Instantiation(c, _, types) => {
+            AcornValue::Monomorph(c, _, types) => {
                 write!(f, "c{}<{}>", c, AcornType::vec_to_str(types))
             }
         }
@@ -194,7 +194,7 @@ impl AcornValue {
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
-            AcornValue::Instantiation(_, generic_type, types) => generic_type.instantiate(types),
+            AcornValue::Monomorph(_, generic_type, types) => generic_type.instantiate(types),
         }
     }
 
@@ -409,7 +409,7 @@ impl AcornValue {
                     Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
-            AcornValue::Instantiation(_, _, _) => self,
+            AcornValue::Monomorph(_, _, _) => self,
         }
     }
 
@@ -462,7 +462,7 @@ impl AcornValue {
             AcornValue::Exists(quants, value) => {
                 AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
             }
-            AcornValue::Instantiation(_, _, _) => self,
+            AcornValue::Monomorph(_, _, _) => self,
         }
     }
 
@@ -578,7 +578,7 @@ impl AcornValue {
                     Box::new(value.replace_function_equality(new_stack_size)),
                 )
             }
-            AcornValue::Instantiation(_, _, _) => self.clone(),
+            AcornValue::Monomorph(_, _, _) => self.clone(),
         }
     }
 
@@ -643,7 +643,7 @@ impl AcornValue {
                 let new_stack_size = stack_size + args.len() as AtomId;
                 AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
             }
-            AcornValue::Instantiation(_, _, _) => self,
+            AcornValue::Monomorph(_, _, _) => self,
         }
     }
 
@@ -751,10 +751,10 @@ impl AcornValue {
                     .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Instantiation(c, _c_type, types) => {
+            AcornValue::Monomorph(c, _c_type, types) => {
                 if let Some(replacement) = replacer(*c) {
                     // We do need to replace this
-                    replacement.instantiate(types)
+                    replacement.monomorphize(types)
                 } else {
                     // We don't need to replace this
                     self.clone()
@@ -831,7 +831,7 @@ impl AcornValue {
                 let new_value = value.replace_constants_with_variables(constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Instantiation(_, _, _) => panic!("can this happen?"),
+            AcornValue::Monomorph(_, _, _) => panic!("can this happen?"),
         }
     }
 
@@ -870,7 +870,7 @@ impl AcornValue {
             AcornValue::Not(x) => x.find_constants_gte(index, answer),
             AcornValue::ForAll(_, value) => value.find_constants_gte(index, answer),
             AcornValue::Exists(_, value) => value.find_constants_gte(index, answer),
-            AcornValue::Instantiation(c, generic_type, _) => TypedAtom {
+            AcornValue::Monomorph(c, generic_type, _) => TypedAtom {
                 atom: Atom::Constant(*c),
                 acorn_type: generic_type.clone(),
             }
@@ -928,18 +928,18 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            AcornValue::Instantiation(_, _, _) => Ok(()),
+            AcornValue::Monomorph(_, _, _) => Ok(()),
         }
     }
 
     // Replaces all the generic types with specific types
-    pub fn instantiate(&self, types: &[AcornType]) -> AcornValue {
+    pub fn monomorphize(&self, types: &[AcornType]) -> AcornValue {
         match self {
             AcornValue::Atom(ta) => {
                 if let Atom::Constant(c) = ta.atom {
                     if ta.acorn_type.has_generic() {
                         // We need to create an instantiation
-                        AcornValue::Instantiation(c, ta.acorn_type.clone(), types.to_vec())
+                        AcornValue::Monomorph(c, ta.acorn_type.clone(), types.to_vec())
                     } else {
                         // Otherwise, this constant is unchanged
                         self.clone()
@@ -950,49 +950,49 @@ impl AcornValue {
                 }
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
-                function: Box::new(app.function.instantiate(types)),
-                args: app.args.iter().map(|x| x.instantiate(types)).collect(),
+                function: Box::new(app.function.monomorphize(types)),
+                args: app.args.iter().map(|x| x.monomorphize(types)).collect(),
             }),
             AcornValue::Lambda(args, value) => AcornValue::Lambda(
                 args.iter()
                     .map(|x| x.instantiate(types))
                     .collect::<Vec<_>>(),
-                Box::new(value.instantiate(types)),
+                Box::new(value.monomorphize(types)),
             ),
             AcornValue::ForAll(args, value) => AcornValue::ForAll(
                 args.iter()
                     .map(|x| x.instantiate(types))
                     .collect::<Vec<_>>(),
-                Box::new(value.instantiate(types)),
+                Box::new(value.monomorphize(types)),
             ),
             AcornValue::Exists(args, value) => AcornValue::Exists(
                 args.iter()
                     .map(|x| x.instantiate(types))
                     .collect::<Vec<_>>(),
-                Box::new(value.instantiate(types)),
+                Box::new(value.monomorphize(types)),
             ),
             AcornValue::Implies(left, right) => AcornValue::Implies(
-                Box::new(left.instantiate(types)),
-                Box::new(right.instantiate(types)),
+                Box::new(left.monomorphize(types)),
+                Box::new(right.monomorphize(types)),
             ),
             AcornValue::Equals(left, right) => AcornValue::Equals(
-                Box::new(left.instantiate(types)),
-                Box::new(right.instantiate(types)),
+                Box::new(left.monomorphize(types)),
+                Box::new(right.monomorphize(types)),
             ),
             AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
-                Box::new(left.instantiate(types)),
-                Box::new(right.instantiate(types)),
+                Box::new(left.monomorphize(types)),
+                Box::new(right.monomorphize(types)),
             ),
             AcornValue::And(left, right) => AcornValue::And(
-                Box::new(left.instantiate(types)),
-                Box::new(right.instantiate(types)),
+                Box::new(left.monomorphize(types)),
+                Box::new(right.monomorphize(types)),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
-                Box::new(left.instantiate(types)),
-                Box::new(right.instantiate(types)),
+                Box::new(left.monomorphize(types)),
+                Box::new(right.monomorphize(types)),
             ),
-            AcornValue::Not(x) => AcornValue::Not(Box::new(x.instantiate(types))),
-            AcornValue::Instantiation(_, _, _) => {
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.monomorphize(types))),
+            AcornValue::Monomorph(_, _, _) => {
                 // We don't alter instantiations because they cannot have generic types in them.
                 // That would be something like, instantiating T to List<U>, or partially
                 // instantiating Map<T, U> to Map<T, Nat>, neither of which we
@@ -1053,10 +1053,10 @@ impl AcornValue {
                 Box::new(right.genericize(data_type, generic_type)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.genericize(data_type, generic_type))),
-            AcornValue::Instantiation(c, c_type, types) => {
+            AcornValue::Monomorph(c, c_type, types) => {
                 // We don't alter c_type, because it's just the type of c, not a type in
                 // the space that is being genericized.
-                AcornValue::Instantiation(
+                AcornValue::Monomorph(
                     *c,
                     c_type.clone(),
                     types
@@ -1096,34 +1096,34 @@ impl AcornValue {
                 right.find_templated(output);
             }
             AcornValue::Not(x) => x.find_templated(output),
-            AcornValue::Instantiation(_, _, _) => {}
+            AcornValue::Monomorph(_, _, _) => {}
         }
     }
 
     // Finds all instantiations of templated constants in this value.
     // Only handles single-variable instantiations.
-    pub fn find_instantiated(&self, output: &mut Vec<(AtomId, AcornType)>) {
+    pub fn find_monomorphs(&self, output: &mut Vec<(AtomId, AcornType)>) {
         match self {
             AcornValue::Atom(_) => {}
             AcornValue::Application(app) => {
-                app.function.find_instantiated(output);
+                app.function.find_monomorphs(output);
                 for arg in &app.args {
-                    arg.find_instantiated(output);
+                    arg.find_monomorphs(output);
                 }
             }
             AcornValue::Lambda(_, value)
             | AcornValue::ForAll(_, value)
-            | AcornValue::Exists(_, value) => value.find_instantiated(output),
+            | AcornValue::Exists(_, value) => value.find_monomorphs(output),
             AcornValue::Implies(left, right)
             | AcornValue::Equals(left, right)
             | AcornValue::NotEquals(left, right)
             | AcornValue::And(left, right)
             | AcornValue::Or(left, right) => {
-                left.find_instantiated(output);
-                right.find_instantiated(output);
+                left.find_monomorphs(output);
+                right.find_monomorphs(output);
             }
-            AcornValue::Not(x) => x.find_instantiated(output),
-            AcornValue::Instantiation(c, _, types) => {
+            AcornValue::Not(x) => x.find_monomorphs(output),
+            AcornValue::Monomorph(c, _, types) => {
                 assert!(types.len() == 1);
                 output.push((*c, types[0].clone()));
             }

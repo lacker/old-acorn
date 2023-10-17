@@ -23,7 +23,7 @@ pub struct Prover<'a> {
     env: &'a Environment,
 
     // The normalizer is used when we are turning the facts and goals from the environment into
-    // clauses when we can use internally.
+    // clauses that we can use internally.
     normalizer: Normalizer,
 
     // The synthesizer creates new functions during the proof.
@@ -523,6 +523,7 @@ impl Prover<'_> {
         DisplayClause {
             clause,
             env: self.env,
+            normalizer: &self.normalizer,
         }
     }
 
@@ -532,7 +533,7 @@ impl Prover<'_> {
 
     pub fn load_goal<'a>(&mut self, goal_context: &GoalContext<'a>) {
         assert!(ptr::eq(self.env, goal_context.env));
-        for fact in goal_context.instantiate_facts() {
+        for fact in goal_context.monomorphize_facts() {
             self.add_fact(fact);
         }
         self.add_goal(goal_context.goal.clone());
@@ -1022,7 +1023,7 @@ mod tests {
             theorem goal: foo(0)
             "#,
         );
-        // assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     // An environment with theorems that we should be able to prove in testing.
