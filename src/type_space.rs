@@ -13,9 +13,9 @@ pub const ANY: TypeId = 0;
 pub const BOOL: TypeId = 1;
 
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
-struct MonomorphKey {
-    polymorph: AtomId,
-    parameters: Vec<AcornType>,
+pub struct MonomorphKey {
+    pub polymorph: AtomId,
+    pub parameters: Vec<AcornType>,
 }
 
 // The Acorn language allows a rich variety of types, where each value has an AcornType, and where
@@ -33,7 +33,7 @@ pub struct TypeSpace {
     monomorph_map: HashMap<MonomorphKey, AtomId>,
 
     // For each monomorphization, store how it was created and its type.
-    monomorph_info: Vec<(MonomorphKey, TypeId)>,
+    pub monomorph_info: Vec<(MonomorphKey, TypeId)>,
 }
 
 pub enum Error {

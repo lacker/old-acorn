@@ -480,7 +480,7 @@ impl Environment {
         }
     }
 
-    fn atom_str(&self, atom: &Atom) -> String {
+    pub fn atom_str(&self, atom: &Atom) -> String {
         match atom {
             Atom::True => "true".to_string(),
             Atom::Constant(i) => {
@@ -511,6 +511,14 @@ impl Environment {
             .collect();
         let value_str = self.value_str_stacked(value, stack_size + types.len());
         format!("{}({}) {{ {} }}", macro_name, parts.join(", "), value_str)
+    }
+
+    pub fn monomorph_str(&self, constant_id: AtomId, types: &[AcornType]) -> String {
+        format!(
+            "{}<{}>",
+            self.constant_names[constant_id as usize],
+            self.type_list_str(types)
+        )
     }
 
     fn value_str_stacked(&self, value: &AcornValue, stack_size: usize) -> String {
@@ -562,13 +570,7 @@ impl Environment {
             AcornValue::Lambda(types, values) => {
                 self.macro_str_stacked("lambda", types, values, stack_size)
             }
-            AcornValue::Monomorph(c, _, types) => {
-                format!(
-                    "{}<{}>",
-                    self.constant_names[*c as usize],
-                    self.type_list_str(types)
-                )
-            }
+            AcornValue::Monomorph(c, _, types) => self.monomorph_str(*c, types),
         }
     }
 

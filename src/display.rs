@@ -14,13 +14,15 @@ struct DisplayAtom<'a> {
 
 impl fmt::Display for DisplayAtom<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.atom {
-            Atom::True => write!(f, "true"),
-            Atom::Constant(i) => write!(f, "{}", self.env.get_constant_name(i)),
-            Atom::Skolem(i) => write!(f, "s{}", i),
-            Atom::Monomorph(i) => write!(f, "m{}", i),
-            Atom::Synthetic(i) => write!(f, "p{}", i),
-            Atom::Variable(i) => write!(f, "x{}", i),
+        if let Atom::Monomorph(i) = self.atom {
+            let (key, _) = &self.normalizer.typespace.monomorph_info[i as usize];
+            write!(
+                f,
+                "{}",
+                self.env.monomorph_str(key.polymorph, &key.parameters)
+            )
+        } else {
+            write!(f, "{}", self.env.atom_str(&self.atom))
         }
     }
 }
