@@ -393,44 +393,8 @@ impl Environment {
         &self.binding_map.constant_names[id as usize]
     }
 
-    pub fn type_list_str(&self, types: &[AcornType]) -> String {
-        let mut s = "".to_string();
-        for (i, acorn_type) in types.iter().enumerate() {
-            if i > 0 {
-                s.push_str(", ");
-            }
-            s.push_str(&self.type_str(acorn_type));
-        }
-        s
-    }
-
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
-        match acorn_type {
-            AcornType::Bool => "bool".to_string(),
-            AcornType::Data(i) => {
-                if i >= &self.binding_map.data_types.len() {
-                    panic!("AcornType {} is invalid in this scope", i);
-                }
-                self.binding_map.data_types[*i].to_string()
-            }
-            AcornType::Generic(i) => {
-                // This return value doesn't mean anything, but it's useful for debugging.
-                format!("T{}", i)
-            }
-            AcornType::Function(function_type) => {
-                let ret = self.type_str(&function_type.return_type);
-                if function_type.arg_types.len() > 1 {
-                    format!(
-                        "({}) -> {}",
-                        self.type_list_str(&function_type.arg_types),
-                        ret
-                    )
-                } else {
-                    format!("{} -> {}", self.type_str(&function_type.arg_types[0]), ret)
-                }
-            }
-            AcornType::Any => "any".to_string(),
-        }
+        self.binding_map.type_str(acorn_type)
     }
 
     pub fn atom_str(&self, atom: &Atom) -> String {
@@ -479,7 +443,7 @@ impl Environment {
         format!(
             "{}<{}>",
             self.binding_map.constant_names[constant_id as usize],
-            self.type_list_str(types)
+            self.binding_map.type_list_str(types)
         )
     }
 
