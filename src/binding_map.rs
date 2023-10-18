@@ -75,4 +75,53 @@ impl BindingMap {
         }
         data_type
     }
+
+    pub fn type_list_str(&self, types: &[AcornType]) -> String {
+        let mut s = "".to_string();
+        for (i, acorn_type) in types.iter().enumerate() {
+            if i > 0 {
+                s.push_str(", ");
+            }
+            s.push_str(&self.type_str(acorn_type));
+        }
+        s
+    }
+
+    pub fn type_str(&self, acorn_type: &AcornType) -> String {
+        match acorn_type {
+            AcornType::Bool => "bool".to_string(),
+            AcornType::Data(i) => {
+                if i >= &self.data_types.len() {
+                    panic!("AcornType::Data({}) is invalid in this scope", i);
+                }
+                self.data_types[*i].to_string()
+            }
+            AcornType::Generic(i) => {
+                // This return value doesn't mean anything, but it's useful for debugging.
+                format!("T{}", i)
+            }
+            AcornType::Function(function_type) => {
+                let ret = self.type_str(&function_type.return_type);
+                if function_type.arg_types.len() > 1 {
+                    format!(
+                        "({}) -> {}",
+                        self.type_list_str(&function_type.arg_types),
+                        ret
+                    )
+                } else {
+                    format!("{} -> {}", self.type_str(&function_type.arg_types[0]), ret)
+                }
+            }
+            AcornType::Any => "any".to_string(),
+        }
+    }
+
+    // Check that the given name actually does have this type in the environment.
+    pub fn expect_type(&mut self, name: &str, type_string: &str) {
+        let env_type = match self.identifier_types.get(name) {
+            Some(t) => t,
+            None => panic!("{} not found", name),
+        };
+        assert_eq!(self.type_str(env_type), type_string);
+    }
 }

@@ -179,19 +179,19 @@ mod tests {
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
-        env.constantcheck(0, "0");
+        env.expect_constant(0, "0");
         env.add("let Suc: Nat -> Nat = axiom");
-        env.constantcheck(1, "Suc");
+        env.expect_constant(1, "Suc");
         env.add("let 1: Nat = Suc(0)");
-        env.constantcheck(2, "1");
+        env.expect_constant(2, "1");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         norm.check(&env, "suc_injective", &["c1(x0) != c1(x1) | x0 = x1"]);
-        env.constantcheck(3, "suc_injective");
+        env.expect_constant(3, "suc_injective");
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         norm.check(&env, "suc_neq_zero", &["c1(x0) != c0"]);
-        env.constantcheck(4, "suc_neq_zero");
+        env.expect_constant(4, "suc_neq_zero");
 
         env.add(
             "axiom induction(f: Nat -> bool):\
@@ -205,27 +205,27 @@ mod tests {
                 "!x0(c1(s0(x0))) | !x0(c0) | x0(x1)",
             ],
         );
-        env.constantcheck(5, "induction");
+        env.expect_constant(5, "induction");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
-        env.constantcheck(6, "recursion");
+        env.expect_constant(6, "recursion");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        env.constantcheck(7, "recursion_base");
+        env.expect_constant(7, "recursion_base");
         norm.check(&env, "recursion_base", &["c6(x0, x1, c0) = x1"]);
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
             recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
         );
-        env.constantcheck(8, "recursion_step");
+        env.expect_constant(8, "recursion_step");
         norm.check(
             &env,
             "recursion_step",
             &["c6(x0, x1, c1(x2)) = x0(c6(x0, x1, x2))"],
         );
         env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
-        env.constantcheck(9, "add");
+        env.expect_constant(9, "add");
         env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
         norm.check(&env, "add_zero_right", &["c6(c1, x0, c0) = x0"]);
     }
