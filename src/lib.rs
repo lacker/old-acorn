@@ -2,6 +2,7 @@ pub mod acorn_type;
 pub mod acorn_value;
 pub mod active_set;
 pub mod atom;
+pub mod binding_map;
 pub mod clause;
 pub mod clause_info;
 pub mod display;

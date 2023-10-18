@@ -12,13 +12,10 @@ use crate::goal_context::GoalContext;
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
-// The Environment takes in a bunch of statements that make sense on their own,
-// and combines them while doing typechecking and name resolution.
-// It is not responsible for proving anything, but it is responsible for determining which
+// The Environment does not prove anything directly, but it is responsible for determining which
 // things need to be proved, and which statements are usable in which proofs.
+// It creates subenvironments for nested blocks.
 // It does not have to be efficient enough to run in the inner loop of the prover.
-// It does keep track of names, with the goal of being able to show nice debug information
-// for its values and types.
 pub struct Environment {
     // data_types[i] is the name of AcornType::Data(i).
     data_types: Vec<String>,
@@ -39,13 +36,13 @@ pub struct Environment {
     // constants[constant_names[i]] = (i, _)
     constant_names: Vec<String>,
 
+    // For variables defined on the stack, we keep track of their depth from the top.
+    stack: HashMap<String, AtomId>,
+
     // How many constants were externally imported at creation time.
     // This includes both previously defined constants, and variables defined in
     // "forall" and "exists" statements (since those are constant inside the block).
     num_imported_constants: AtomId,
-
-    // For variables defined on the stack, we keep track of their depth from the top.
-    stack: HashMap<String, AtomId>,
 
     // The propositions in this environment.
     // This includes every sort of thing that we need to know is true, specific to this environment.
