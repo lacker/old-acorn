@@ -155,4 +155,21 @@ impl BindingMap {
         };
         assert_eq!(self.type_str(env_type), type_string);
     }
+
+    // Checks that the given constant id matches the given name
+    pub fn expect_constant(&mut self, id: usize, name: &str) {
+        let constant = match self.constant_names.get(id) {
+            Some(c) => c,
+            None => panic!("constant {} not found", id),
+        };
+        assert_eq!(constant, name);
+        let info = match self.constants.get(name) {
+            Some(info) => info,
+            None => panic!(
+                "inconsistency: c{} evalutes to {}, for which we have no info",
+                id, name
+            ),
+        };
+        assert_eq!(info.id, id as AtomId);
+    }
 }

@@ -1657,21 +1657,8 @@ impl Environment {
     }
 
     // Check the name of the given constant
-    #[cfg(test)]
     pub fn expect_constant(&mut self, id: usize, name: &str) {
-        let constant = match self.binding_map.constant_names.get(id) {
-            Some(c) => c,
-            None => panic!("constant {} not found in environment", id),
-        };
-        assert_eq!(constant, name);
-        let info = match self.binding_map.constants.get(name) {
-            Some(info) => info,
-            None => panic!(
-                "inconsistency: c{} evalutes to {}, for which we have no info",
-                id, name
-            ),
-        };
-        assert_eq!(info.id, id as AtomId);
+        self.binding_map.expect_constant(id, name);
     }
 }
 
