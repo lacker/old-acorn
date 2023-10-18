@@ -63,13 +63,13 @@ pub struct Proposition {
     // The body of the proposition, when it has an associated block.
     // When there is a block, it is implied that proving every proposition in the block
     // will prove this claim as well.
-    pub block: Option<Block>,
+    block: Option<Block>,
 
     // The range in the source document corresponding to this proposition.
     pub range: Range,
 }
 
-pub struct Block {
+struct Block {
     // The "internal claim" of this block.
     // This claim is defined relative to the block's environment.
     // This claim must be proved inside the block's environment in order for the block to be valid.
@@ -99,8 +99,8 @@ impl Environment {
     //
     // theorem_name is the name of the theorem this block is for.
     //
-    // Performance is quadratic and therefore bad; using different data structures
-    // should improve this when we need to.
+    // Performance is quadratic because it clones a lot of the existing environment.
+    // Using different data structures should improve this when we need to.
     //
     // If this block is an "if" block, we add the if_condition as an available fact.
     fn new_block(
