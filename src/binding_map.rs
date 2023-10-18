@@ -55,4 +55,12 @@ impl BindingMap {
             stack: HashMap::new(),
         }
     }
+
+    pub fn stack_names(&self) -> Vec<&str> {
+        let mut names: Vec<&str> = vec![""; self.stack.len()];
+        for (name, i) in &self.stack {
+            names[*i as usize] = name;
+        }
+        names
+    }
 }

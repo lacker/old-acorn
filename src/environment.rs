@@ -147,10 +147,7 @@ impl Environment {
         }
 
         // Convert stack variables to constant values and bind them to the claim
-        let mut names: Vec<&str> = vec![""; self.binding_map.stack.len()];
-        for (name, i) in &self.binding_map.stack {
-            names[*i as usize] = name;
-        }
+        let names = self.binding_map.stack_names();
         for name in &names {
             subenv.move_stack_variable_to_constant(name);
         }
