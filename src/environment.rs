@@ -20,9 +20,7 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // It does keep track of names, with the goal of being able to show nice debug information
 // for its values and types.
 pub struct Environment {
-    // The names of the data types that have been defined in this scope.
-    // A data type is one that cannot be represented as a functional type.
-    // These data types can be stored as ids that are indices into this vector.
+    // data_types[i] is the name of AcornType::Data(i).
     data_types: Vec<String>,
 
     // Maps the name of a type to the type object.
@@ -37,6 +35,7 @@ pub struct Environment {
     constants: HashMap<String, ConstantInfo>,
 
     // Reverse lookup for the information in constants.
+    // constant_names[i] is the name of Atom::Constant(i).
     // constants[constant_names[i]] = (i, _)
     constant_names: Vec<String>,
 
@@ -505,11 +504,14 @@ impl Environment {
         match atom {
             Atom::True => "true".to_string(),
             Atom::Constant(i) => {
-                if let Some(s) = self.constant_names.get(*i as usize) {
-                    s.to_string()
-                } else {
-                    panic!("could not find c{} in {:?}", i, self.constant_names);
+                if *i as usize >= self.constant_names.len() {
+                    panic!(
+                        "atom is c{} but we have only {} constants",
+                        i,
+                        self.constant_names.len()
+                    );
                 }
+                self.constant_names[*i as usize].to_string()
             }
             Atom::Skolem(i) => format!("s{}", i),
             Atom::Monomorph(i) => format!("m{}", i),
@@ -1577,8 +1579,6 @@ impl Environment {
         let mut it = path.iter().peekable();
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
-                // self.validate(&previous_prop.claim);
-                // println!("validated {}", self.value_str(&previous_prop.claim));
                 facts.push(env.expand_theorems(&previous_prop.claim));
             }
             let prop = &env.propositions[*i];
