@@ -1350,6 +1350,6 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_type_params_cleaned_up() {
         let mut env = Environment::new();
         env.add("define foo<T>(a: T) -> bool = axiom");
-        assert!(!env.bindings.data_types.contains(&"T".to_string()));
+        assert!(env.bindings.get_type_for_name("T").is_none());
     }
 }

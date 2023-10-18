@@ -14,7 +14,7 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 #[derive(Clone)]
 pub struct BindingMap {
     // data_types[i] is the name of AcornType::Data(i).
-    pub data_types: Vec<String>,
+    data_types: Vec<String>,
 
     // Maps the name of a type to the type object.
     pub type_names: HashMap<String, AcornType>,
