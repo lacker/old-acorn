@@ -406,7 +406,7 @@ impl Environment {
         let mut names = Vec::new();
         let mut types = Vec::new();
         for declaration in declarations {
-            let (name, acorn_type) = self.parse_declaration(declaration)?;
+            let (name, acorn_type) = self.binding_map.parse_declaration(declaration)?;
             if self.binding_map.identifier_types.contains_key(&name) {
                 return Err(Error::new(
                     declaration.token(),
@@ -767,27 +767,6 @@ impl Environment {
                 self.unbind_args(arg_names);
                 ret_val
             }
-        }
-    }
-
-    // Parses the "x: Nat" sort of declaration.
-    fn parse_declaration(&self, declaration: &Expression) -> Result<(String, AcornType)> {
-        match declaration {
-            Expression::Binary(left, token, right) => match token.token_type {
-                TokenType::Colon => {
-                    if left.token().token_type != TokenType::Identifier {
-                        return Err(Error::new(
-                            left.token(),
-                            "expected an identifier in this declaration",
-                        ));
-                    }
-                    let name = left.token().text().to_string();
-                    let acorn_type = self.binding_map.evaluate_type_expression(right)?;
-                    Ok((name, acorn_type))
-                }
-                _ => Err(Error::new(token, "expected a colon in this declaration")),
-            },
-            _ => Err(Error::new(declaration.token(), "expected a declaration")),
         }
     }
 
