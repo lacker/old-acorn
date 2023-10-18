@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::io;
 use std::path::PathBuf;
-use std::{fmt, io};
 
 use tower_lsp::lsp_types::{Position, Range};
 
@@ -77,19 +77,6 @@ pub struct Block {
 
     // The environment created inside the block.
     pub env: Environment,
-}
-
-impl fmt::Display for Environment {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Environment {{\n")?;
-        for (name, acorn_type) in &self.binding_map.type_names {
-            write!(f, "  type {}: {}\n", name, self.type_str(acorn_type))?;
-        }
-        for (name, acorn_type) in &self.binding_map.identifier_types {
-            write!(f, "  let {}: {}\n", name, self.type_str(acorn_type))?;
-        }
-        write!(f, "}}")
-    }
 }
 
 impl Environment {
