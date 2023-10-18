@@ -159,7 +159,7 @@ impl Environment {
                 } else {
                     let args: Vec<_> = names
                         .iter()
-                        .map(|name| subenv.get_constant_atom(name).unwrap())
+                        .map(|name| subenv.binding_map.get_constant_atom(name).unwrap())
                         .collect();
                     Some(AcornValue::apply(unbound_claim, args))
                 }
@@ -301,15 +301,6 @@ impl Environment {
         self.binding_map.stack.remove(name).unwrap();
         let acorn_type = self.binding_map.identifier_types.remove(name).unwrap();
         self.add_constant(name, acorn_type, None);
-    }
-
-    // This gets the atomic representation of a constant, if this name refers to a constant.
-    pub fn get_constant_atom(&self, name: &str) -> Option<AcornValue> {
-        let info = self.binding_map.constants.get(name)?;
-        Some(AcornValue::Atom(TypedAtom {
-            atom: Atom::Constant(info.id),
-            acorn_type: self.binding_map.identifier_types[name].clone(),
-        }))
     }
 
     // i is the id of a constant
@@ -638,7 +629,7 @@ impl Environment {
                 };
                 self.definition_ranges.insert(ts.name.to_string(), range);
 
-                let constant_atom = self.get_constant_atom(&ts.name).unwrap();
+                let constant_atom = self.binding_map.get_constant_atom(&ts.name).unwrap();
                 let unbound_claim = if generic_types.is_empty() {
                     constant_atom
                 } else {
@@ -811,7 +802,7 @@ impl Environment {
                     });
                     self.add_constant(&member_fn_name, member_fn_type, None);
                     member_fn_names.push(member_fn_name.clone());
-                    member_fns.push(self.get_constant_atom(&member_fn_name).unwrap());
+                    member_fns.push(self.binding_map.get_constant_atom(&member_fn_name).unwrap());
                 }
 
                 // A "new" function to create one of these struct types.
@@ -821,7 +812,7 @@ impl Environment {
                     return_type: Box::new(struct_type.clone()),
                 });
                 self.add_constant(&new_fn_name, new_fn_type, None);
-                let new_fn = self.get_constant_atom(&new_fn_name).unwrap();
+                let new_fn = self.binding_map.get_constant_atom(&new_fn_name).unwrap();
 
                 // A struct can be recreated by new'ing from its members. Ie:
                 // Pair.new(Pair.first(p), Pair.second(p)) = p.
