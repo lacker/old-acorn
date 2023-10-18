@@ -93,8 +93,18 @@ impl BindingMap {
         }))
     }
 
+    pub fn get_constant_name(&self, id: AtomId) -> &str {
+        &self.constant_names[id as usize]
+    }
+
+    // Gets the type for an identifier, not for a type name.
+    // E.g. if let x: Nat = 0, then get_type("x") will give you Nat.
     pub fn get_type(&self, identifier: &str) -> Option<&AcornType> {
         self.identifier_types.get(identifier)
+    }
+
+    pub fn get_type_for_name(&self, type_name: &str) -> Option<&AcornType> {
+        self.type_names.get(type_name)
     }
 
     pub fn num_constants(&self) -> AtomId {

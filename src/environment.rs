@@ -241,17 +241,15 @@ impl Environment {
 
     // i is the id of a constant
     fn get_theorem_value_for_id(&self, i: AtomId) -> Option<&AcornValue> {
-        let name = &self.bindings.constant_names[i as usize];
+        let name = self.bindings.get_constant_name(i);
         if !self.theorem_names.contains(name) {
             return None;
         }
-        let info = &self.bindings.constants[name];
-        if let AcornValue::Atom(typed_atom) = &info.value {
-            if typed_atom.atom == Atom::Constant(i) {
-                panic!("a theorem has no definition");
-            }
+        let def = self.bindings.get_definition(name);
+        if def.is_none() {
+            panic!("theorem {} has no definition", name);
         }
-        Some(&info.value)
+        def
     }
 
     pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {
@@ -375,7 +373,7 @@ impl Environment {
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
         match &statement.statement {
             StatementInfo::Type(ts) => {
-                if self.bindings.type_names.contains_key(&ts.name) {
+                if self.bindings.get_type_for_name(&ts.name).is_some() {
                     return Err(Error::new(
                         &ts.type_expr.token(),
                         "type name already defined in this scope",
@@ -512,7 +510,7 @@ impl Environment {
                 } else {
                     let types = generic_types
                         .iter()
-                        .map(|t| self.bindings.type_names.get(t).unwrap().clone())
+                        .map(|t| self.bindings.get_type_for_name(t).unwrap().clone())
                         .collect();
                     AcornValue::Monomorph(c_id, constant_atom.get_type(), types)
                 };
