@@ -25,7 +25,7 @@ pub struct BindingMap {
     // Maps the name of a constant to information about it.
     // Doesn't handle variables defined on the stack, only ones that will be in scope for the
     // entirety of this environment.
-    pub constants: HashMap<String, ConstantInfo>,
+    constants: HashMap<String, ConstantInfo>,
 
     // Reverse lookup for the information in constants.
     // constant_names[i] is the name of Atom::Constant(i).
@@ -37,14 +37,14 @@ pub struct BindingMap {
 }
 
 #[derive(Clone)]
-pub struct ConstantInfo {
+struct ConstantInfo {
     // The id of this constant, used for constructing its atom or for the index in constant_names.
-    pub id: AtomId,
+    id: AtomId,
 
     // The definition of this constant.
     // If it doesn't have a definition, this is just an atomic constant.
     // TODO: simplify. should be called "definition"
-    pub value: AcornValue,
+    value: AcornValue,
 }
 
 impl BindingMap {
@@ -81,6 +81,12 @@ impl BindingMap {
             panic!("type name {} already exists", name);
         }
         data_type
+    }
+
+    // Returns None if this name does not refer to a constant.
+    pub fn get_constant_id(&self, name: &str) -> Option<AtomId> {
+        let info = self.constants.get(name)?;
+        Some(info.id)
     }
 
     // Returns an AcornValue::Atom representing this name, if there is one.

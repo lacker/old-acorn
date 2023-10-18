@@ -322,8 +322,8 @@ impl Environment {
         // Find the constants that were part of the "forall" that opened the block
         let mut forall_constants: Vec<AtomId> = vec![];
         for name in forall_names {
-            if let Some(info) = self.bindings.constants.get(name) {
-                forall_constants.push(info.id);
+            if let Some(id) = self.bindings.get_constant_id(name) {
+                forall_constants.push(id);
             } else {
                 panic!("name {} not found in block constants", name);
             }
