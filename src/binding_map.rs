@@ -71,7 +71,7 @@ impl BindingMap {
     }
 
     // Adds a new data type to the binding map.
-    // Panics if the name is already a typename. (TODO)
+    // Panics if the name is already a typename.
     pub fn add_data_type(&mut self, name: &str) -> AcornType {
         let data_type = AcornType::Data(self.data_types.len());
         self.data_types.push(name.to_string());
