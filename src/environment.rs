@@ -200,7 +200,7 @@ impl Environment {
             return;
         };
 
-        let constant_type_clone = self.bindings.identifier_types[name].clone();
+        let constant_type_clone = self.bindings.get_type(name).unwrap().clone();
         let atom = Box::new(AcornValue::Atom(TypedAtom {
             atom: Atom::Constant(id),
             acorn_type: constant_type_clone,
