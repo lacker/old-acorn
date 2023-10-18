@@ -203,20 +203,6 @@ impl Environment {
         self.binding_map.type_names.remove(name);
     }
 
-    fn push_stack_variable(&mut self, name: &str, acorn_type: AcornType) {
-        self.binding_map
-            .stack
-            .insert(name.to_string(), self.binding_map.stack.len() as AtomId);
-        self.binding_map
-            .identifier_types
-            .insert(name.to_string(), acorn_type);
-    }
-
-    fn pop_stack_variable(&mut self, name: &str) {
-        self.binding_map.stack.remove(name);
-        self.binding_map.identifier_types.remove(name);
-    }
-
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
     // constant.
     fn add_identity_props(&mut self, name: &str) {
@@ -398,43 +384,6 @@ impl Environment {
         self.binding_map.value_str(value)
     }
 
-    // Parses a list of named argument declarations and adds them to the stack.
-    fn bind_args<'a, I>(&mut self, declarations: I) -> Result<(Vec<String>, Vec<AcornType>)>
-    where
-        I: IntoIterator<Item = &'a Expression>,
-    {
-        let mut names = Vec::new();
-        let mut types = Vec::new();
-        for declaration in declarations {
-            let (name, acorn_type) = self.binding_map.parse_declaration(declaration)?;
-            if self.binding_map.identifier_types.contains_key(&name) {
-                return Err(Error::new(
-                    declaration.token(),
-                    "cannot redeclare a name in an argument list",
-                ));
-            }
-            if names.contains(&name) {
-                return Err(Error::new(
-                    declaration.token(),
-                    "cannot declare a name twice in one argument list",
-                ));
-            }
-            names.push(name);
-            types.push(acorn_type);
-        }
-        for (name, acorn_type) in names.iter().zip(types.iter()) {
-            self.push_stack_variable(name, acorn_type.clone());
-        }
-        Ok((names, types))
-    }
-
-    // There should be a call to unbind_args for every call to bind_args.
-    fn unbind_args(&mut self, names: Vec<String>) {
-        for name in names {
-            self.pop_stack_variable(&name);
-        }
-    }
-
     // Binds a possibly-empty list of generic types, along with function arguments.
     // This adds names for both types and arguments to the environment.
     // Internally to this scope, the types work like any other type.
@@ -460,7 +409,7 @@ impl Environment {
             generic_type_names.push(token.text().to_string());
         }
 
-        let (arg_names, arg_types) = self.bind_args(args)?;
+        let (arg_names, arg_types) = self.binding_map.bind_args(args)?;
 
         // Each type has to be used by some argument so that we know how to
         // monomorphize the template
@@ -749,7 +698,7 @@ impl Environment {
                         "macros must have at least one argument",
                     ));
                 }
-                let (arg_names, arg_types) = self.bind_args(macro_args)?;
+                let (arg_names, arg_types) = self.binding_map.bind_args(macro_args)?;
                 let expected_type = match token.token_type {
                     TokenType::ForAll => Some(&AcornType::Bool),
                     TokenType::Exists => Some(&AcornType::Bool),
@@ -764,7 +713,7 @@ impl Environment {
                     },
                     Err(e) => Err(e),
                 };
-                self.unbind_args(arg_names);
+                self.binding_map.unbind_args(arg_names);
                 ret_val
             }
         }
@@ -892,7 +841,7 @@ impl Environment {
                     AcornValue::Lambda(arg_types, Box::new(return_value))
                 };
                 let fn_value = self.genericize(&generic_types, fn_value);
-                self.unbind_args(arg_names);
+                self.binding_map.unbind_args(arg_names);
                 self.unbind_generic_types(generic_types);
 
                 // Add the function value to the environment
@@ -916,7 +865,7 @@ impl Environment {
                     match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
                         Ok(claim_value) => claim_value,
                         Err(e) => {
-                            self.unbind_args(arg_names);
+                            self.binding_map.unbind_args(arg_names);
                             self.unbind_generic_types(generic_types);
                             return Err(e);
                         }
@@ -972,7 +921,7 @@ impl Environment {
                 self.add_proposition(prop);
                 self.theorem_names.insert(ts.name.to_string());
 
-                self.unbind_args(arg_names);
+                self.binding_map.unbind_args(arg_names);
                 self.unbind_generic_types(generic_types);
 
                 Ok(())
@@ -997,7 +946,7 @@ impl Environment {
                     return Ok(());
                 }
 
-                let (forall_names, forall_types) = self.bind_args(&fas.quantifiers)?;
+                let (forall_names, forall_types) = self.binding_map.bind_args(&fas.quantifiers)?;
 
                 let block = self.new_block(None, &fas.body, None, None)?.unwrap();
 
@@ -1025,7 +974,7 @@ impl Environment {
                     range: statement.range(),
                 };
                 self.add_proposition(prop);
-                self.unbind_args(forall_names);
+                self.binding_map.unbind_args(forall_names);
                 Ok(())
             }
 
@@ -1061,12 +1010,12 @@ impl Environment {
 
             StatementInfo::Exists(es) => {
                 // We need to prove the general existence claim
-                let (quant_names, quant_types) = self.bind_args(&es.quantifiers)?;
+                let (quant_names, quant_types) = self.binding_map.bind_args(&es.quantifiers)?;
                 let general_claim_value =
                     self.evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
                 let general_claim =
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
-                self.unbind_args(quant_names.clone());
+                self.binding_map.unbind_args(quant_names.clone());
                 let general_prop = Proposition {
                     display_name: None,
                     proven: false,

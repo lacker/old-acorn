@@ -226,6 +226,47 @@ impl BindingMap {
         }
     }
 
+    // Parses a list of named argument declarations and adds them to the stack.
+    pub fn bind_args<'a, I>(&mut self, declarations: I) -> Result<(Vec<String>, Vec<AcornType>)>
+    where
+        I: IntoIterator<Item = &'a Expression>,
+    {
+        let mut names = Vec::new();
+        let mut types = Vec::new();
+        for declaration in declarations {
+            let (name, acorn_type) = self.parse_declaration(declaration)?;
+            if self.identifier_types.contains_key(&name) {
+                return Err(Error::new(
+                    declaration.token(),
+                    "cannot redeclare a name in an argument list",
+                ));
+            }
+            if names.contains(&name) {
+                return Err(Error::new(
+                    declaration.token(),
+                    "cannot declare a name twice in one argument list",
+                ));
+            }
+            names.push(name);
+            types.push(acorn_type);
+        }
+        for (name, acorn_type) in names.iter().zip(types.iter()) {
+            self.stack
+                .insert(name.to_string(), self.stack.len() as AtomId);
+            self.identifier_types
+                .insert(name.to_string(), acorn_type.clone());
+        }
+        Ok((names, types))
+    }
+
+    // There should be a call to unbind_args for every call to bind_args.
+    pub fn unbind_args(&mut self, names: Vec<String>) {
+        for name in names {
+            self.stack.remove(&name);
+            self.identifier_types.remove(&name);
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // Tools for converting things to displayable strings.
     ////////////////////////////////////////////////////////////////////////////////
