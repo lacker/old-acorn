@@ -1659,10 +1659,10 @@ impl Environment {
         self.binding_map.expect_type(name, type_string)
     }
 
-    // Check that the given name has this normalized value in the environment
+    // Check that the given name is defined to be this value
     #[cfg(test)]
-    fn expect_value(&mut self, name: &str, value_string: &str) {
-        let env_value = match self.get_expanded_value(name) {
+    fn expect_def(&mut self, name: &str, value_string: &str) {
+        let env_value = match self.binding_map.get_definition(name) {
             Some(t) => t,
             None => panic!("{} not found in environment", name),
         };
@@ -1798,29 +1798,21 @@ mod tests {
         let mut env = Environment::new();
         env.add("let b: bool = axiom");
         env.add("theorem foo: b | !b");
-        env.expect_value("foo", "(b | !b)");
-    }
-
-    #[test]
-    fn test_nested_binding() {
-        let mut env = Environment::new();
-        env.add("let p: bool = forall(b: bool) { b | !b }");
-        env.add("let q: bool = forall(b: bool) { p }");
-        env.expect_value("q", "forall(x0: bool) { forall(x1: bool) { (x1 | !x1) } }");
+        env.expect_def("foo", "(b | !b)");
     }
 
     #[test]
     fn test_forall_value() {
         let mut env = Environment::new();
         env.add("let p: bool = forall(x: bool) { x | !x }");
-        env.expect_value("p", "forall(x0: bool) { (x0 | !x0) }");
+        env.expect_def("p", "forall(x0: bool) { (x0 | !x0) }");
     }
 
     #[test]
     fn test_inline_function_value() {
         let mut env = Environment::new();
         env.add("define ander(a: bool) -> (bool -> bool) = function(b: bool) { a & b }");
-        env.expect_value(
+        env.expect_def(
             "ander",
             "lambda(x0: bool) { lambda(x1: bool) { (x0 & x1) } }",
         );
@@ -1849,24 +1841,21 @@ mod tests {
         env.bad("type Nat: axiom");
 
         env.add("let 0: Nat = axiom");
-        env.expect_value("0", "0");
-
         env.bad("let Nat: 0 = axiom");
         env.bad("let axiom: Nat = 0");
         env.bad("let foo: bool = (axiom = axiom)");
         env.bad("let foo: bool = 0");
 
         env.add("let Suc: Nat -> Nat = axiom");
-        env.expect_value("Suc", "Suc");
         env.add("let 1: Nat = Suc(0)");
-        env.expect_value("1", "Suc(0)");
+        env.expect_def("1", "Suc(0)");
 
         env.bad("let 1: Nat = Suc(1)");
         env.bad("let 1: Nat = Borf");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         env.expect_type("suc_injective", "(Nat, Nat) -> bool");
-        env.expect_value(
+        env.expect_def(
             "suc_injective",
             "lambda(x0: Nat, x1: Nat) { ((Suc(x0) = Suc(x1)) -> (x0 = x1)) }",
         );
@@ -1881,7 +1870,7 @@ mod tests {
         env.bad("let foo: Nat = Suc(0, 0)");
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        env.expect_value("suc_neq_zero", "lambda(x0: Nat) { (Suc(x0) != 0) }");
+        env.expect_def("suc_neq_zero", "lambda(x0: Nat) { (Suc(x0) != 0) }");
 
         assert!(env.binding_map.type_names.contains_key("Nat"));
         assert!(!env.binding_map.identifier_types.contains_key("Nat"));
@@ -1902,7 +1891,7 @@ mod tests {
             "axiom induction(f: Nat -> bool, n: Nat):
             f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> f(n)",
         );
-        env.expect_value("induction", "lambda(x0: Nat -> bool, x1: Nat) { ((x0(0) & forall(x2: Nat) { (x0(x2) -> x0(Suc(x2))) }) -> x0(x1)) }");
+        env.expect_def("induction", "lambda(x0: Nat -> bool, x1: Nat) { ((x0(0) & forall(x2: Nat) { (x0(x2) -> x0(Suc(x2))) }) -> x0(x1)) }");
 
         env.bad("theorem foo(x: Nat): 0");
         env.bad("theorem foo(x: Nat): forall(0, 0) { 0 }");
