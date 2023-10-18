@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
-use crate::atom::AtomId;
+use crate::atom::{Atom, AtomId, TypedAtom};
 
 // In order to convert an Expression to an AcornValue, we need to convert the string representation
 // of types, variable names, and constant names into numeric identifiers, detect name collisions,
@@ -41,6 +41,7 @@ pub struct ConstantInfo {
 
     // The definition of this constant.
     // If it doesn't have a definition, this is just an atomic constant.
+    // TODO: simplify. should be called "definition"
     pub value: AcornValue,
 }
 
@@ -74,6 +75,31 @@ impl BindingMap {
             panic!("type name {} already exists", name);
         }
         data_type
+    }
+
+    // Returns an AcornValue::Atom representing this name, if there is one.
+    // Returns None if this name does not refer to a constant.
+    pub fn get_constant_atom(&self, name: &str) -> Option<AcornValue> {
+        let info = self.constants.get(name)?;
+        Some(AcornValue::Atom(TypedAtom {
+            atom: Atom::Constant(info.id),
+            acorn_type: self.identifier_types[name].clone(),
+        }))
+    }
+
+    // Returns the defined value, if there is a defined value.
+    // If there isn't, returns None.
+    pub fn get_definition(&self, name: &str) -> Option<AcornValue> {
+        let info = self.constants.get(name)?;
+        // TODO: avoid needing this weird clause, once ConstantInfo is simplified
+        if let AcornValue::Atom(ta) = &info.value {
+            if let Atom::Constant(i) = ta.atom {
+                if i == info.id {
+                    return None;
+                }
+            }
+        }
+        Some(info.value.clone())
     }
 
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
@@ -117,7 +143,7 @@ impl BindingMap {
     }
 
     // Check that the given name actually does have this type in the environment.
-    pub fn expect_type(&mut self, name: &str, type_string: &str) {
+    pub fn expect_type(&self, name: &str, type_string: &str) {
         let env_type = match self.identifier_types.get(name) {
             Some(t) => t,
             None => panic!("{} not found", name),

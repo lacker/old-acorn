@@ -611,6 +611,12 @@ mod tests {
     }
 
     #[test]
+    fn test_axiomatic_values_distinct() {
+        let env = thing_env("theorem goal: t = t2");
+        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
+    }
+
+    #[test]
     fn test_finds_example() {
         let env = thing_env(
             r#"

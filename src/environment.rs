@@ -1669,6 +1669,22 @@ impl Environment {
         assert_eq!(self.value_str(&env_value), value_string);
     }
 
+    // Assert that these two names are defined to equal the same thing
+    #[cfg(test)]
+    fn assert_def_eq(&self, name1: &str, name2: &str) {
+        let def1 = self.binding_map.get_definition(name1).unwrap();
+        let def2 = self.binding_map.get_definition(name2).unwrap();
+        assert_eq!(def1, def2);
+    }
+
+    // Assert that these two names are defined to be different things
+    #[cfg(test)]
+    fn assert_def_ne(&self, name1: &str, name2: &str) {
+        let def1 = self.binding_map.get_definition(name1).unwrap();
+        let def2 = self.binding_map.get_definition(name2).unwrap();
+        assert_ne!(def1, def2);
+    }
+
     // Check the name of the given constant
     #[cfg(test)]
     pub fn expect_constant(&mut self, id: usize, name: &str) {
@@ -1712,18 +1728,12 @@ mod tests {
         env.expect_type("idb1", "bool -> bool");
         env.add("define idb2(y: bool) -> bool = y");
         env.expect_type("idb2", "bool -> bool");
-        assert_eq!(
-            env.get_expanded_value("idb1"),
-            env.get_expanded_value("idb2")
-        );
+        env.assert_def_eq("idb1", "idb2");
 
         env.add("type Nat: axiom");
         env.add("define idn1(x: Nat) -> Nat = x");
         env.expect_type("idn1", "Nat -> Nat");
-        assert_ne!(
-            env.get_expanded_value("idb1"),
-            env.get_expanded_value("idn1")
-        );
+        env.assert_def_ne("idb1", "idn1");
     }
 
     #[test]
@@ -1733,18 +1743,12 @@ mod tests {
         env.expect_type("bsym1", "bool");
         env.add("let bsym2: bool = forall(y: bool) { y = y }");
         env.expect_type("bsym2", "bool");
-        assert_eq!(
-            env.get_expanded_value("bsym1"),
-            env.get_expanded_value("bsym2")
-        );
+        env.assert_def_eq("bsym1", "bsym2");
 
         env.add("type Nat: axiom");
         env.add("let nsym1: bool = forall(x: Nat) { x = x }");
         env.expect_type("nsym1", "bool");
-        assert_ne!(
-            env.get_expanded_value("bsym1"),
-            env.get_expanded_value("nsym1")
-        );
+        env.assert_def_ne("bsym1", "nsym1");
     }
 
     #[test]
@@ -1752,17 +1756,11 @@ mod tests {
         let mut env = Environment::new();
         env.add("let bex1: bool = exists(x: bool) { x = x }");
         env.add("let bex2: bool = exists(y: bool) { y = y }");
-        assert_eq!(
-            env.get_expanded_value("bex1"),
-            env.get_expanded_value("bex2")
-        );
+        env.assert_def_eq("bex1", "bex2");
 
         env.add("type Nat: axiom");
         env.add("let nex1: bool = exists(x: Nat) { x = x }");
-        assert_ne!(
-            env.get_expanded_value("bex1"),
-            env.get_expanded_value("nex1")
-        );
+        env.assert_def_ne("bex1", "nex1");
     }
 
     #[test]
@@ -1809,14 +1807,6 @@ mod tests {
         env.add("let p: bool = forall(b: bool) { b | !b }");
         env.add("let q: bool = forall(b: bool) { p }");
         env.expect_value("q", "forall(x0: bool) { forall(x1: bool) { (x1 | !x1) } }");
-    }
-
-    #[test]
-    fn test_axiomatic_values_distinct() {
-        let mut env = Environment::new();
-        env.add("let x: bool = axiom");
-        env.add("let y: bool = axiom");
-        assert_ne!(env.get_expanded_value("x"), env.get_expanded_value("y"));
     }
 
     #[test]
