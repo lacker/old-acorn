@@ -4,7 +4,7 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::expression::Expression;
-use crate::token::{Error, Result, Token, TokenType};
+use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 // In order to convert an Expression to an AcornValue, we need to convert the string representation
 // of types, variable names, and constant names into numeric identifiers, detect name collisions,
@@ -93,6 +93,10 @@ impl BindingMap {
         }))
     }
 
+    pub fn get_type(&self, identifier: &str) -> Option<&AcornType> {
+        self.identifier_types.get(identifier)
+    }
+
     pub fn num_constants(&self) -> AtomId {
         self.constant_names.len() as AtomId
     }
@@ -161,6 +165,15 @@ impl BindingMap {
         self.stack.remove(name).unwrap();
         let acorn_type = self.identifier_types.remove(name).unwrap();
         self.add_constant(name, acorn_type, None);
+    }
+
+    // TODO: why is this a thing?
+    pub fn remove_data_type(&mut self, name: &str) {
+        if self.data_types.last() != Some(&name.to_string()) {
+            panic!("removing data type {} which is already not present", name);
+        }
+        self.data_types.pop();
+        self.type_names.remove(name);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -556,6 +569,73 @@ impl BindingMap {
         }
     }
 
+    // Binds a possibly-empty list of generic types, along with function arguments.
+    // This adds names for both types and arguments to the environment.
+    // Internally to this scope, the types work like any other type.
+    // Externally, these types are marked as generic.
+    // Returns (generic type names, arg names, arg types).
+    // Call both unbind_args and unbind_generic_types when done.
+    pub fn bind_templated_args(
+        &mut self,
+        generic_type_tokens: &[Token],
+        args: &[Expression],
+        location: &Token,
+    ) -> Result<(Vec<String>, Vec<String>, Vec<AcornType>)> {
+        let mut generic_type_names: Vec<String> = vec![];
+        let mut generic_types: Vec<AcornType> = vec![];
+        for token in generic_type_tokens {
+            if self.type_names.contains_key(token.text()) {
+                return Err(Error::new(
+                    token,
+                    "cannot redeclare a type in a generic type list",
+                ));
+            }
+            generic_types.push(self.add_data_type(token.text()));
+            generic_type_names.push(token.text().to_string());
+        }
+
+        let (arg_names, arg_types) = self.bind_args(args)?;
+
+        // Each type has to be used by some argument so that we know how to
+        // monomorphize the template
+        for (i, generic_type) in generic_types.iter().enumerate() {
+            if !arg_types.iter().any(|a| a.refers_to(generic_type)) {
+                return Err(Error::new(
+                    location,
+                    &format!(
+                        "generic type {} is not used in the function arguments",
+                        generic_type_names[i]
+                    ),
+                ));
+            }
+        }
+        Ok((generic_type_names, arg_names, arg_types))
+    }
+
+    // generic_types contains a list of types that should look like opaque data types to us.
+    // genericize converts this value to a polymorphic one, by replacing any types in
+    // this list with AcornType::Generic values.
+    // Do this before unbind_generic_types.
+    pub fn genericize(&self, generic_types: &[String], value: AcornValue) -> AcornValue {
+        let mut value = value;
+        for (generic_type, name) in generic_types.iter().enumerate() {
+            let data_type = if let AcornType::Data(i) = self.type_names.get(name).unwrap() {
+                i
+            } else {
+                panic!("we should only be genericizing data types");
+            };
+            value = value.genericize(*data_type, generic_type);
+        }
+        value
+    }
+
+    // Remove the generic types that were added by bind_generic_types.
+    pub fn unbind_generic_types(&mut self, generic_types: Vec<String>) {
+        for name in generic_types.iter().rev() {
+            self.remove_data_type(&name);
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // Tools for converting things to displayable strings.
     ////////////////////////////////////////////////////////////////////////////////
@@ -705,6 +785,30 @@ impl BindingMap {
     // Tools for testing.
     ////////////////////////////////////////////////////////////////////////////////
 
+    pub fn assert_type_ok(&mut self, input: &str) {
+        let tokens = Token::scan(input);
+        let mut tokens = TokenIter::new(tokens);
+        let (expression, _) =
+            Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
+        match self.evaluate_type(&expression) {
+            Ok(_) => {}
+            Err(error) => panic!("Error evaluating type expression: {}", error),
+        }
+    }
+
+    pub fn assert_type_bad(&mut self, input: &str) {
+        let tokens = Token::scan(input);
+        let mut tokens = TokenIter::new(tokens);
+        let expression = match Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine) {
+            Ok((expression, _)) => expression,
+            Err(_) => {
+                // We expect a bad type so this is fine
+                return;
+            }
+        };
+        assert!(self.evaluate_type(&expression).is_err());
+    }
+
     // Check that the given name actually does have this type in the environment.
     pub fn expect_type(&self, name: &str, type_string: &str) {
         let env_type = match self.identifier_types.get(name) {
@@ -715,7 +819,7 @@ impl BindingMap {
     }
 
     // Checks that the given constant id matches the given name
-    pub fn expect_constant(&mut self, id: usize, name: &str) {
+    pub fn expect_constant(&self, id: usize, name: &str) {
         let constant = match self.constant_names.get(id) {
             Some(c) => c,
             None => panic!("constant {} not found", id),
@@ -729,5 +833,22 @@ impl BindingMap {
             ),
         };
         assert_eq!(info.id, id as AtomId);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_env_types() {
+        let mut b = BindingMap::new();
+        b.assert_type_ok("bool");
+        b.assert_type_ok("bool -> bool");
+        b.assert_type_ok("bool -> (bool -> bool)");
+        b.assert_type_ok("(bool -> bool) -> (bool -> bool)");
+        b.assert_type_ok("(bool, bool) -> bool");
+        b.assert_type_bad("bool, bool -> bool");
+        b.assert_type_bad("(bool, bool)");
     }
 }

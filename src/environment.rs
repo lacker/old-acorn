@@ -8,12 +8,12 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::binding_map::BindingMap;
-use crate::expression::Expression;
 use crate::goal_context::GoalContext;
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
-// The Environment does not prove anything directly, but it is responsible for determining which
+// The Environment takes Statements as input and processes them.
+// It does not prove anything directly, but it is responsible for determining which
 // things need to be proved, and which statements are usable in which proofs.
 // It creates subenvironments for nested blocks.
 // It does not have to be efficient enough to run in the inner loop of the prover.
@@ -182,14 +182,6 @@ impl Environment {
         self.propositions.push(prop);
     }
 
-    fn remove_data_type(&mut self, name: &str) {
-        if self.bindings.data_types.last() != Some(&name.to_string()) {
-            panic!("removing data type {} which is already not present", name);
-        }
-        self.bindings.data_types.pop();
-        self.bindings.type_names.remove(name);
-    }
-
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
     // constant.
     fn add_identity_props(&mut self, name: &str) {
@@ -200,18 +192,15 @@ impl Environment {
             .iter()
             .position(|n| n == name)
             .unwrap();
-        assert_eq!(pos + 1, self.bindings.constant_names.len());
+        assert_eq!(pos + 1, self.bindings.num_constants() as usize);
         let id = pos as AtomId;
-        let definition: AcornValue = self.bindings.constants[name].value.clone();
-        if let AcornValue::Atom(ta) = &definition {
-            if ta.atom == Atom::Constant(id) {
-                // This constant has no definition
-                return;
-            }
-        }
+        let definition = if let Some(d) = self.bindings.get_definition(name) {
+            d.clone()
+        } else {
+            return;
+        };
+
         let constant_type_clone = self.bindings.identifier_types[name].clone();
-        // let definition: AcornValue = definition_clone.unwrap();
-        // assert_eq!(definition, v);
         let atom = Box::new(AcornValue::Atom(TypedAtom {
             atom: Atom::Constant(id),
             acorn_type: constant_type_clone,
@@ -322,75 +311,6 @@ impl Environment {
         self.bindings.value_str(value)
     }
 
-    // Binds a possibly-empty list of generic types, along with function arguments.
-    // This adds names for both types and arguments to the environment.
-    // Internally to this scope, the types work like any other type.
-    // Externally, these types are marked as generic.
-    // Returns (generic type names, arg names, arg types).
-    // Call both unbind_args and unbind_generic_types when done.
-    fn bind_templated_args(
-        &mut self,
-        generic_type_tokens: &[Token],
-        args: &[Expression],
-        location: &Token,
-    ) -> Result<(Vec<String>, Vec<String>, Vec<AcornType>)> {
-        let mut generic_type_names: Vec<String> = vec![];
-        let mut generic_types: Vec<AcornType> = vec![];
-        for token in generic_type_tokens {
-            if self.bindings.type_names.contains_key(token.text()) {
-                return Err(Error::new(
-                    token,
-                    "cannot redeclare a type in a generic type list",
-                ));
-            }
-            generic_types.push(self.bindings.add_data_type(token.text()));
-            generic_type_names.push(token.text().to_string());
-        }
-
-        let (arg_names, arg_types) = self.bindings.bind_args(args)?;
-
-        // Each type has to be used by some argument so that we know how to
-        // monomorphize the template
-        for (i, generic_type) in generic_types.iter().enumerate() {
-            if !arg_types.iter().any(|a| a.refers_to(generic_type)) {
-                return Err(Error::new(
-                    location,
-                    &format!(
-                        "generic type {} is not used in the function arguments",
-                        generic_type_names[i]
-                    ),
-                ));
-            }
-        }
-        Ok((generic_type_names, arg_names, arg_types))
-    }
-
-    // Remove the generic types that were added by bind_generic_types.
-    fn unbind_generic_types(&mut self, generic_types: Vec<String>) {
-        for name in generic_types.iter().rev() {
-            self.remove_data_type(&name);
-        }
-    }
-
-    // self.generic_types contains a list of types that are internally primitive but
-    // externally generic.
-    // genericize does the internal-to-external conversion, replacing any types in
-    // this list with AcornType::Generic values.
-    // Do this before unbind_generic_types.
-    fn genericize(&self, generic_types: &[String], value: AcornValue) -> AcornValue {
-        let mut value = value;
-        for (generic_type, name) in generic_types.iter().enumerate() {
-            let data_type = if let AcornType::Data(i) = self.bindings.type_names.get(name).unwrap()
-            {
-                i
-            } else {
-                panic!("we should only be genericizing data types");
-            };
-            value = value.genericize(*data_type, generic_type);
-        }
-        value
-    }
-
     // Takes a claim that is relative to this environment, and expresses it relative to
     // the parent environment.
     // The caller needs to provide the names of any "forall" variables used in the creation of
@@ -498,8 +418,11 @@ impl Environment {
                 }
 
                 // Calculate the function value
-                let (generic_types, arg_names, arg_types) =
-                    self.bind_templated_args(&ds.generic_types, &ds.args, &statement.first_token)?;
+                let (generic_types, arg_names, arg_types) = self.bindings.bind_templated_args(
+                    &ds.generic_types,
+                    &ds.args,
+                    &statement.first_token,
+                )?;
 
                 let return_type = self.bindings.evaluate_type(&ds.return_type)?;
                 let fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
@@ -514,9 +437,9 @@ impl Environment {
                         .evaluate_value(&ds.return_value, Some(&return_type))?;
                     AcornValue::Lambda(arg_types, Box::new(return_value))
                 };
-                let fn_value = self.genericize(&generic_types, fn_value);
+                let fn_value = self.bindings.genericize(&generic_types, fn_value);
                 self.bindings.unbind_args(arg_names);
-                self.unbind_generic_types(generic_types);
+                self.bindings.unbind_generic_types(generic_types);
 
                 // Add the function value to the environment
                 self.bindings
@@ -532,8 +455,11 @@ impl Environment {
                 //   * A list of generic types
                 //   * A list of arguments that are being universally quantified
                 //   * A boolean expression representing a claim of things that are true.
-                let (generic_types, arg_names, arg_types) =
-                    self.bind_templated_args(&ts.generic_types, &ts.args, &statement.first_token)?;
+                let (generic_types, arg_names, arg_types) = self.bindings.bind_templated_args(
+                    &ts.generic_types,
+                    &ts.args,
+                    &statement.first_token,
+                )?;
 
                 // Handle the claim
                 let claim_value = match self
@@ -543,7 +469,7 @@ impl Environment {
                     Ok(claim_value) => claim_value,
                     Err(e) => {
                         self.bindings.unbind_args(arg_names);
-                        self.unbind_generic_types(generic_types);
+                        self.bindings.unbind_generic_types(generic_types);
                         return Err(e);
                     }
                 };
@@ -554,7 +480,7 @@ impl Environment {
                 } else {
                     AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
                 };
-                let claim = self.genericize(&generic_types, claim);
+                let claim = self.bindings.genericize(&generic_types, claim);
 
                 // The functional value of the theorem is the lambda that
                 // is constantly "true" if the theorem is true.
@@ -563,7 +489,7 @@ impl Environment {
                 } else {
                     AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
                 };
-                let fn_value = self.genericize(&generic_types, fn_value);
+                let fn_value = self.bindings.genericize(&generic_types, fn_value);
 
                 let c_id = self.bindings.add_constant(
                     &ts.name,
@@ -603,7 +529,7 @@ impl Environment {
                 self.theorem_names.insert(ts.name.to_string());
 
                 self.bindings.unbind_args(arg_names);
-                self.unbind_generic_types(generic_types);
+                self.bindings.unbind_generic_types(generic_types);
 
                 Ok(())
             }
@@ -996,32 +922,6 @@ impl Environment {
         None
     }
 
-    #[cfg(test)]
-    fn assert_type_ok(&mut self, input: &str) {
-        let tokens = Token::scan(input);
-        let mut tokens = TokenIter::new(tokens);
-        let (expression, _) =
-            Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
-        match self.bindings.evaluate_type(&expression) {
-            Ok(_) => {}
-            Err(error) => panic!("Error evaluating type expression: {}", error),
-        }
-    }
-
-    #[cfg(test)]
-    fn assert_type_bad(&mut self, input: &str) {
-        let tokens = Token::scan(input);
-        let mut tokens = TokenIter::new(tokens);
-        let expression = match Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine) {
-            Ok((expression, _)) => expression,
-            Err(_) => {
-                // We expect a bad type so this is fine
-                return;
-            }
-        };
-        assert!(self.bindings.evaluate_type(&expression).is_err());
-    }
-
     // Expects the given line to be bad
     #[cfg(test)]
     fn bad(&mut self, input: &str) {
@@ -1075,19 +975,6 @@ impl Environment {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_env_types() {
-        let mut env = Environment::new();
-        env.assert_type_ok("bool");
-        env.assert_type_ok("bool -> bool");
-        env.assert_type_ok("bool -> (bool -> bool)");
-        env.assert_type_ok("(bool -> bool) -> (bool -> bool)");
-        env.assert_type_ok("(bool, bool) -> bool");
-
-        env.assert_type_bad("bool, bool -> bool");
-        env.assert_type_bad("(bool, bool)");
-    }
 
     #[test]
     fn test_fn_equality() {
