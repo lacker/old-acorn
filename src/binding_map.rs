@@ -17,7 +17,7 @@ pub struct BindingMap {
     data_types: Vec<String>,
 
     // Maps the name of a type to the type object.
-    pub type_names: HashMap<String, AcornType>,
+    type_names: HashMap<String, AcornType>,
 
     // Maps an identifier name to its type.
     pub identifier_types: HashMap<String, AcornType>,
@@ -83,6 +83,13 @@ impl BindingMap {
         data_type
     }
 
+    // Adds a new type name that's an alias for an existing type
+    pub fn add_type_alias(&mut self, name: &str, acorn_type: AcornType) {
+        if let Some(_) = self.type_names.insert(name.to_string(), acorn_type) {
+            panic!("type name {} already exists", name);
+        }
+    }
+
     // Returns None if this name does not refer to a constant.
     pub fn get_constant_id(&self, name: &str) -> Option<AtomId> {
         let info = self.constants.get(name)?;
@@ -111,6 +118,10 @@ impl BindingMap {
 
     pub fn get_type_for_name(&self, type_name: &str) -> Option<&AcornType> {
         self.type_names.get(type_name)
+    }
+
+    pub fn has_type_name(&self, type_name: &str) -> bool {
+        self.type_names.contains_key(type_name)
     }
 
     pub fn num_constants(&self) -> AtomId {

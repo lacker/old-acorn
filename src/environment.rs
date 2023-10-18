@@ -373,7 +373,7 @@ impl Environment {
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
         match &statement.statement {
             StatementInfo::Type(ts) => {
-                if self.bindings.get_type_for_name(&ts.name).is_some() {
+                if self.bindings.has_type_name(&ts.name) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
                         "type name already defined in this scope",
@@ -383,9 +383,7 @@ impl Environment {
                     self.bindings.add_data_type(&ts.name);
                 } else {
                     let acorn_type = self.bindings.evaluate_type(&ts.type_expr)?;
-                    self.bindings
-                        .type_names
-                        .insert(ts.name.to_string(), acorn_type);
+                    self.bindings.add_type_alias(&ts.name, acorn_type);
                 };
                 Ok(())
             }
@@ -656,7 +654,7 @@ impl Environment {
             }
 
             StatementInfo::Struct(ss) => {
-                if self.bindings.type_names.contains_key(&ss.name) {
+                if self.bindings.has_type_name(&ss.name) {
                     return Err(Error::new(
                         &statement.first_token,
                         "type name already defined in this scope",
@@ -1125,19 +1123,19 @@ mod tests {
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         env.expect_def("suc_neq_zero", "lambda(x0: Nat) { (Suc(x0) != 0) }");
 
-        assert!(env.bindings.type_names.contains_key("Nat"));
+        assert!(env.bindings.has_type_name("Nat"));
         assert!(!env.bindings.identifier_types.contains_key("Nat"));
 
-        assert!(!env.bindings.type_names.contains_key("0"));
+        assert!(!env.bindings.has_type_name("0"));
         assert!(env.bindings.identifier_types.contains_key("0"));
 
-        assert!(!env.bindings.type_names.contains_key("1"));
+        assert!(!env.bindings.has_type_name("1"));
         assert!(env.bindings.identifier_types.contains_key("1"));
 
-        assert!(!env.bindings.type_names.contains_key("Suc"));
+        assert!(!env.bindings.has_type_name("Suc"));
         assert!(env.bindings.identifier_types.contains_key("Suc"));
 
-        assert!(!env.bindings.type_names.contains_key("foo"));
+        assert!(!env.bindings.has_type_name("foo"));
         assert!(!env.bindings.identifier_types.contains_key("foo"));
 
         env.add(
