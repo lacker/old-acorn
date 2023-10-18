@@ -41,10 +41,8 @@ struct ConstantInfo {
     // The id of this constant, used for constructing its atom or for the index in constant_names.
     id: AtomId,
 
-    // The definition of this constant.
-    // If it doesn't have a definition, this is just an atomic constant.
-    // TODO: simplify. should be called "definition"
-    value: AcornValue,
+    // The definition of this constant, if it has one.
+    definition: Option<AcornValue>,
 }
 
 impl BindingMap {
@@ -144,16 +142,7 @@ impl BindingMap {
     // Returns the defined value, if there is a defined value.
     // If there isn't, returns None.
     pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {
-        let info = self.constants.get(name)?;
-        // TODO: avoid needing this weird clause, once ConstantInfo is simplified
-        if let AcornValue::Atom(ta) = &info.value {
-            if let Atom::Constant(i) = ta.atom {
-                if i == info.id {
-                    return None;
-                }
-            }
-        }
-        Some(&info.value)
+        self.constants.get(name)?.definition.as_ref()
     }
 
     pub fn get_definition_for_id(&self, id: AtomId) -> Option<&AcornValue> {
@@ -175,15 +164,7 @@ impl BindingMap {
         }
 
         let id = self.constant_names.len() as AtomId;
-
-        let info = ConstantInfo {
-            id,
-            value: match definition {
-                Some(value) => value,
-                None => self.next_constant_atom(&constant_type),
-            },
-        };
-
+        let info = ConstantInfo { id, definition };
         self.identifier_types
             .insert(name.to_string(), constant_type);
         self.constants.insert(name.to_string(), info);
