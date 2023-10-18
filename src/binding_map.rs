@@ -9,6 +9,7 @@ use crate::atom::AtomId;
 // and typecheck everything.
 // The BindingMap handles this. It does not handle Statements, just Expressions.
 // It does not have to be efficient enough to run in the inner loop of the prover.
+#[derive(Clone)]
 pub struct BindingMap {
     // data_types[i] is the name of AcornType::Data(i).
     pub data_types: Vec<String>,
@@ -41,4 +42,17 @@ pub struct ConstantInfo {
     // The definition of this constant.
     // If it doesn't have a definition, this is just an atomic constant.
     pub value: AcornValue,
+}
+
+impl BindingMap {
+    pub fn new() -> Self {
+        BindingMap {
+            data_types: Vec::new(),
+            constant_names: Vec::new(),
+            type_names: HashMap::from([("bool".to_string(), AcornType::Bool)]),
+            identifier_types: HashMap::new(),
+            constants: HashMap::new(),
+            stack: HashMap::new(),
+        }
+    }
 }
