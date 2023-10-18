@@ -30,7 +30,7 @@ pub struct BindingMap {
     // Reverse lookup for the information in constants.
     // constant_names[i] is the name of Atom::Constant(i).
     // constants[constant_names[i]] = (i, _)
-    pub constant_names: Vec<String>,
+    constant_names: Vec<String>,
 
     // For variables defined on the stack, we keep track of their depth from the top.
     pub stack: HashMap<String, AtomId>,

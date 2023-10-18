@@ -186,14 +186,8 @@ impl Environment {
     // constant.
     fn add_identity_props(&mut self, name: &str) {
         // Currently we can only handle adding props for the most recently defined constant
-        let pos = self
-            .bindings
-            .constant_names
-            .iter()
-            .position(|n| n == name)
-            .unwrap();
-        assert_eq!(pos + 1, self.bindings.num_constants() as usize);
-        let id = pos as AtomId;
+        let id = self.bindings.get_constant_id(name).unwrap();
+        assert_eq!(self.bindings.num_constants(), id + 1);
         let definition = if let Some(d) = self.bindings.get_definition(name) {
             d.clone()
         } else {
