@@ -19,7 +19,9 @@ impl fmt::Display for DisplayAtom<'_> {
             write!(
                 f,
                 "{}",
-                self.env.monomorph_str(key.polymorph, &key.parameters)
+                self.env
+                    .binding_map
+                    .monomorph_str(key.polymorph, &key.parameters)
             )
         } else {
             write!(f, "{}", self.env.atom_str(&self.atom))

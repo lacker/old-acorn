@@ -176,6 +176,87 @@ impl BindingMap {
         }
     }
 
+    pub fn monomorph_str(&self, constant_id: AtomId, types: &[AcornType]) -> String {
+        format!(
+            "{}<{}>",
+            self.constant_names[constant_id as usize],
+            self.type_list_str(types)
+        )
+    }
+
+    fn macro_str_stacked(
+        &self,
+        macro_name: &str,
+        types: &Vec<AcornType>,
+        value: &AcornValue,
+        stack_size: usize,
+    ) -> String {
+        let parts: Vec<_> = types
+            .iter()
+            .enumerate()
+            .map(|(i, t)| format!("x{}: {}", i + stack_size, self.type_str(t)))
+            .collect();
+        let value_str = self.value_str_stacked(value, stack_size + types.len());
+        format!("{}({}) {{ {} }}", macro_name, parts.join(", "), value_str)
+    }
+
+    fn value_str_stacked(&self, value: &AcornValue, stack_size: usize) -> String {
+        match value {
+            AcornValue::Atom(a) => self.atom_str(&a.atom),
+            AcornValue::Application(app) => {
+                let fn_name = self.value_str_stacked(&app.function, stack_size);
+                let args: Vec<_> = app
+                    .args
+                    .iter()
+                    .map(|a| self.value_str_stacked(a, stack_size))
+                    .collect();
+                format!("{}({})", fn_name, args.join(", "))
+            }
+            AcornValue::Implies(left, right) => format!(
+                "({} -> {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::Equals(left, right) => format!(
+                "({} = {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::NotEquals(left, right) => format!(
+                "({} != {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::And(left, right) => format!(
+                "({} & {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::Or(left, right) => format!(
+                "({} | {})",
+                self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::ForAll(types, values) => {
+                self.macro_str_stacked("forall", types, values, stack_size)
+            }
+            AcornValue::Exists(types, values) => {
+                self.macro_str_stacked("exists", types, values, stack_size)
+            }
+            AcornValue::Not(subvalue) => {
+                format!("!{}", self.value_str_stacked(subvalue, stack_size))
+            }
+            AcornValue::Lambda(types, values) => {
+                self.macro_str_stacked("lambda", types, values, stack_size)
+            }
+            AcornValue::Monomorph(c, _, types) => self.monomorph_str(*c, types),
+        }
+    }
+
+    pub fn value_str(&self, value: &AcornValue) -> String {
+        self.value_str_stacked(value, 0)
+    }
+
     // Check that the given name actually does have this type in the environment.
     pub fn expect_type(&self, name: &str, type_string: &str) {
         let env_type = match self.identifier_types.get(name) {
