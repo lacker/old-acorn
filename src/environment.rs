@@ -69,6 +69,10 @@ pub struct Proposition {
     pub range: Range,
 }
 
+// Proofs are structured into blocks.
+// A block is like a lemma, a bunch of internal propositions whose goal is to prove one final claim.
+// The environment specific to this block can have a bunch of stuff in it, but the only thing
+// that the world outside of the block uses is the final claim.
 struct Block {
     // The "internal claim" of this block.
     // This claim is defined relative to the block's environment.
@@ -77,6 +81,17 @@ struct Block {
 
     // The environment created inside the block.
     pub env: Environment,
+}
+
+// The different ways to construct a block
+enum BlockParams<'a> {
+    // The name of the theorem
+    Theorem(&'a str),
+
+    // The value passed in the "if" condition, and its range in the source document
+    If(&'a AcornValue, Range),
+
+    None,
 }
 
 impl Environment {
@@ -107,8 +122,7 @@ impl Environment {
         &self,
         unbound_claim: Option<AcornValue>,
         body: &Vec<Statement>,
-        theorem_name: Option<&str>,
-        if_condition: Option<(&AcornValue, Range)>,
+        params: BlockParams,
     ) -> Result<Option<Block>> {
         if body.is_empty() {
             return Ok(None);
@@ -120,17 +134,20 @@ impl Environment {
             theorem_names: self.theorem_names.clone(),
             definition_ranges: self.definition_ranges.clone(),
         };
-        if let Some((fact, range)) = if_condition {
-            subenv.add_proposition(Proposition {
-                display_name: None,
-                proven: true,
-                claim: fact.clone(),
-                block: None,
-                range,
-            });
-        }
-        if let Some(theorem_name) = theorem_name {
-            subenv.add_identity_props(theorem_name);
+        match params {
+            BlockParams::If(fact, range) => {
+                subenv.add_proposition(Proposition {
+                    display_name: None,
+                    proven: true,
+                    claim: fact.clone(),
+                    block: None,
+                    range,
+                });
+            }
+            BlockParams::Theorem(theorem_name) => {
+                subenv.add_identity_props(theorem_name);
+            }
+            BlockParams::None => {}
         }
 
         // Convert stack variables to constant values and bind them to the claim
@@ -506,7 +523,11 @@ impl Environment {
                         .collect();
                     AcornValue::Monomorph(c_id, constant_atom.get_type(), types)
                 };
-                let block = self.new_block(Some(unbound_claim), &ts.body, Some(&ts.name), None)?;
+                let block = self.new_block(
+                    Some(unbound_claim),
+                    &ts.body,
+                    BlockParams::Theorem(&ts.name),
+                )?;
 
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),
@@ -547,7 +568,7 @@ impl Environment {
 
                 let (forall_names, forall_types) = self.bindings.bind_args(&fas.quantifiers)?;
 
-                let block = self.new_block(None, &fas.body, None, None)?.unwrap();
+                let block = self.new_block(None, &fas.body, BlockParams::None)?.unwrap();
 
                 // The last claim in the block is exported to the outside environment.
                 // It may have variables that are bound to the "forall" names, which
@@ -585,7 +606,7 @@ impl Environment {
                 let condition = self.bindings.evaluate_value(&is.condition, None)?;
                 let range = is.condition.range();
                 let block = self
-                    .new_block(None, &is.body, None, Some((&condition, range)))?
+                    .new_block(None, &is.body, BlockParams::If(&condition, range))?
                     .unwrap();
                 let inner_claim: &AcornValue = match block.env.propositions.last() {
                     Some(p) => &p.claim,
