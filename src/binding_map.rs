@@ -33,7 +33,7 @@ pub struct BindingMap {
     constant_names: Vec<String>,
 
     // For variables defined on the stack, we keep track of their depth from the top.
-    pub stack: HashMap<String, AtomId>,
+    stack: HashMap<String, AtomId>,
 }
 
 #[derive(Clone)]
