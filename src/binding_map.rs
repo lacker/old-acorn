@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use crate::acorn_type::AcornType;
+use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::AcornValue;
 use crate::atom::{Atom, AtomId, TypedAtom};
-use crate::token::{Error, Result, Token};
+use crate::expression::Expression;
+use crate::token::{Error, Result, Token, TokenType};
 
 // In order to convert an Expression to an AcornValue, we need to convert the string representation
 // of types, variable names, and constant names into numeric identifiers, detect name collisions,
@@ -150,6 +151,56 @@ impl BindingMap {
             }
         }
         Ok(())
+    }
+
+    // Evaluates an expression that represents a type.
+    pub fn evaluate_type_expression(&self, expression: &Expression) -> Result<AcornType> {
+        match expression {
+            Expression::Identifier(token) => {
+                if token.token_type == TokenType::Axiom {
+                    return Err(Error::new(
+                        token,
+                        "axiomatic types can only be created at the top level",
+                    ));
+                }
+                if let Some(acorn_type) = self.type_names.get(token.text()) {
+                    Ok(acorn_type.clone())
+                } else {
+                    Err(Error::new(token, "expected type name"))
+                }
+            }
+            Expression::Unary(token, _) => Err(Error::new(
+                token,
+                "unexpected unary operator in type expression",
+            )),
+            Expression::Binary(left, token, right) => match token.token_type {
+                TokenType::RightArrow => {
+                    let arg_exprs = left.flatten_list(true)?;
+                    let mut arg_types = vec![];
+                    for arg_expr in arg_exprs {
+                        arg_types.push(self.evaluate_type_expression(arg_expr)?);
+                    }
+                    let return_type = self.evaluate_type_expression(right)?;
+                    let function_type = FunctionType {
+                        arg_types,
+                        return_type: Box::new(return_type),
+                    };
+                    Ok(AcornType::Function(function_type))
+                }
+                _ => Err(Error::new(
+                    token,
+                    "unexpected binary operator in type expression",
+                )),
+            },
+            Expression::Apply(left, _) => Err(Error::new(
+                left.token(),
+                "unexpected function application in type expression",
+            )),
+            Expression::Grouping(_, e, _) => self.evaluate_type_expression(e),
+            Expression::Macro(token, _, _, _) => {
+                Err(Error::new(token, "unexpected macro in type expression"))
+            }
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////

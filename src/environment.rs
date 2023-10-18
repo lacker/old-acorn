@@ -504,56 +504,6 @@ impl Environment {
         value
     }
 
-    // Evaluates an expression that we expect to be indicating either a type or an arg list
-    pub fn evaluate_type_expression(&self, expression: &Expression) -> Result<AcornType> {
-        match expression {
-            Expression::Identifier(token) => {
-                if token.token_type == TokenType::Axiom {
-                    return Err(Error::new(
-                        token,
-                        "axiomatic types can only be created at the top level",
-                    ));
-                }
-                if let Some(acorn_type) = self.binding_map.type_names.get(token.text()) {
-                    Ok(acorn_type.clone())
-                } else {
-                    Err(Error::new(token, "expected type name"))
-                }
-            }
-            Expression::Unary(token, _) => Err(Error::new(
-                token,
-                "unexpected unary operator in type expression",
-            )),
-            Expression::Binary(left, token, right) => match token.token_type {
-                TokenType::RightArrow => {
-                    let arg_exprs = left.flatten_list(true)?;
-                    let mut arg_types = vec![];
-                    for arg_expr in arg_exprs {
-                        arg_types.push(self.evaluate_type_expression(arg_expr)?);
-                    }
-                    let return_type = self.evaluate_type_expression(right)?;
-                    let function_type = FunctionType {
-                        arg_types,
-                        return_type: Box::new(return_type),
-                    };
-                    Ok(AcornType::Function(function_type))
-                }
-                _ => Err(Error::new(
-                    token,
-                    "unexpected binary operator in type expression",
-                )),
-            },
-            Expression::Apply(left, _) => Err(Error::new(
-                left.token(),
-                "unexpected function application in type expression",
-            )),
-            Expression::Grouping(_, e, _) => self.evaluate_type_expression(e),
-            Expression::Macro(token, _, _, _) => {
-                Err(Error::new(token, "unexpected macro in type expression"))
-            }
-        }
-    }
-
     // A value expression could be either a value or an argument list.
     // We mutate the environment to account for the stack, so self has to be mut.
     // It might be better to use some fancier data structure.
@@ -832,7 +782,7 @@ impl Environment {
                         ));
                     }
                     let name = left.token().text().to_string();
-                    let acorn_type = self.evaluate_type_expression(right)?;
+                    let acorn_type = self.binding_map.evaluate_type_expression(right)?;
                     Ok((name, acorn_type))
                 }
                 _ => Err(Error::new(token, "expected a colon in this declaration")),
@@ -914,7 +864,7 @@ impl Environment {
                 if ts.type_expr.token().token_type == TokenType::Axiom {
                     self.binding_map.add_data_type(&ts.name);
                 } else {
-                    let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
+                    let acorn_type = self.binding_map.evaluate_type_expression(&ts.type_expr)?;
                     self.binding_map
                         .type_names
                         .insert(ts.name.to_string(), acorn_type);
@@ -929,7 +879,7 @@ impl Environment {
                         &format!("variable name '{}' already defined in this scope", ls.name),
                     ));
                 }
-                let acorn_type = self.evaluate_type_expression(&ls.type_expr)?;
+                let acorn_type = self.binding_map.evaluate_type_expression(&ls.type_expr)?;
                 let acorn_value = self.evaluate_value_expression(&ls.value, Some(&acorn_type))?;
                 self.add_constant(&ls.name, acorn_type, Some(acorn_value));
                 self.definition_ranges
@@ -950,7 +900,7 @@ impl Environment {
                 let (generic_types, arg_names, arg_types) =
                     self.bind_templated_args(&ds.generic_types, &ds.args, &statement.first_token)?;
 
-                let return_type = self.evaluate_type_expression(&ds.return_type)?;
+                let return_type = self.binding_map.evaluate_type_expression(&ds.return_type)?;
                 let fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
                     let new_axiom_type = AcornType::Function(FunctionType {
                         arg_types,
@@ -1181,7 +1131,9 @@ impl Environment {
                 let mut member_fns = vec![];
                 let mut field_types = vec![];
                 for (field_name_token, field_type_expr) in &ss.fields {
-                    let field_type = self.evaluate_type_expression(&field_type_expr)?;
+                    let field_type = self
+                        .binding_map
+                        .evaluate_type_expression(&field_type_expr)?;
                     field_types.push(field_type.clone());
                     let member_fn_name = format!("{}.{}", ss.name, field_name_token.text());
                     let member_fn_type = AcornType::Function(FunctionType {
@@ -1437,7 +1389,7 @@ impl Environment {
         let mut tokens = TokenIter::new(tokens);
         let (expression, _) =
             Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
-        match self.evaluate_type_expression(&expression) {
+        match self.binding_map.evaluate_type_expression(&expression) {
             Ok(_) => {}
             Err(error) => panic!("Error evaluating type expression: {}", error),
         }
@@ -1454,7 +1406,10 @@ impl Environment {
                 return;
             }
         };
-        assert!(self.evaluate_type_expression(&expression).is_err());
+        assert!(self
+            .binding_map
+            .evaluate_type_expression(&expression)
+            .is_err());
     }
 
     // Expects the given line to be bad
