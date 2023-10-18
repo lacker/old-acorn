@@ -20,7 +20,7 @@ pub struct BindingMap {
     type_names: HashMap<String, AcornType>,
 
     // Maps an identifier name to its type.
-    pub identifier_types: HashMap<String, AcornType>,
+    identifier_types: HashMap<String, AcornType>,
 
     // Maps the name of a constant to information about it.
     // Doesn't handle variables defined on the stack, only ones that will be in scope for the
@@ -122,6 +122,10 @@ impl BindingMap {
 
     pub fn has_type_name(&self, type_name: &str) -> bool {
         self.type_names.contains_key(type_name)
+    }
+
+    pub fn has_identifier(&self, identifier: &str) -> bool {
+        self.identifier_types.contains_key(identifier)
     }
 
     pub fn num_constants(&self) -> AtomId {

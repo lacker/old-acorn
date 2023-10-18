@@ -389,7 +389,7 @@ impl Environment {
             }
 
             StatementInfo::Let(ls) => {
-                if self.bindings.identifier_types.contains_key(&ls.name) {
+                if self.bindings.has_identifier(&ls.name) {
                     return Err(Error::new(
                         &statement.first_token,
                         &format!("variable name '{}' already defined in this scope", ls.name),
@@ -406,7 +406,7 @@ impl Environment {
             }
 
             StatementInfo::Define(ds) => {
-                if self.bindings.identifier_types.contains_key(&ds.name) {
+                if self.bindings.has_identifier(&ds.name) {
                     return Err(Error::new(
                         &statement.first_token,
                         &format!("variable name '{}' already defined in this scope", ds.name),
@@ -1018,21 +1018,21 @@ mod tests {
     fn test_arg_binding() {
         let mut env = Environment::new();
         env.bad("define qux(x: bool, x: bool) -> bool = x");
-        assert!(env.bindings.identifier_types.get("x").is_none());
+        assert!(!env.bindings.has_identifier("x"));
         env.add("define qux(x: bool, y: bool) -> bool = x");
         env.expect_type("qux", "(bool, bool) -> bool");
 
         env.bad("theorem foo(x: bool, x: bool): x");
-        assert!(env.bindings.identifier_types.get("x").is_none());
+        assert!(!env.bindings.has_identifier("x"));
         env.add("theorem foo(x: bool, y: bool): x");
         env.expect_type("foo", "(bool, bool) -> bool");
 
         env.bad("let bar: bool = forall(x: bool, x: bool) { x = x }");
-        assert!(env.bindings.identifier_types.get("x").is_none());
+        assert!(!env.bindings.has_identifier("x"));
         env.add("let bar: bool = forall(x: bool, y: bool) { x = x }");
 
         env.bad("let baz: bool = exists(x: bool, x: bool) { x = x }");
-        assert!(env.bindings.identifier_types.get("x").is_none());
+        assert!(!env.bindings.has_identifier("x"));
         env.add("let baz: bool = exists(x: bool, y: bool) { x = x }");
     }
 
@@ -1114,7 +1114,7 @@ mod tests {
         env.bad("axiom bad_types(x: Nat, y: Nat): x -> y");
 
         // We don't want failed typechecks to leave the environment in a bad state
-        assert!(!env.bindings.identifier_types.contains_key("x"));
+        assert!(!env.bindings.has_identifier("x"));
 
         env.bad("let foo: bool = Suc(0)");
         env.bad("let foo: Nat = Suc(0 = 0)");
@@ -1124,19 +1124,19 @@ mod tests {
         env.expect_def("suc_neq_zero", "lambda(x0: Nat) { (Suc(x0) != 0) }");
 
         assert!(env.bindings.has_type_name("Nat"));
-        assert!(!env.bindings.identifier_types.contains_key("Nat"));
+        assert!(!env.bindings.has_identifier("Nat"));
 
         assert!(!env.bindings.has_type_name("0"));
-        assert!(env.bindings.identifier_types.contains_key("0"));
+        assert!(env.bindings.has_identifier("0"));
 
         assert!(!env.bindings.has_type_name("1"));
-        assert!(env.bindings.identifier_types.contains_key("1"));
+        assert!(env.bindings.has_identifier("1"));
 
         assert!(!env.bindings.has_type_name("Suc"));
-        assert!(env.bindings.identifier_types.contains_key("Suc"));
+        assert!(env.bindings.has_identifier("Suc"));
 
         assert!(!env.bindings.has_type_name("foo"));
-        assert!(!env.bindings.identifier_types.contains_key("foo"));
+        assert!(!env.bindings.has_identifier("foo"));
 
         env.add(
             "axiom induction(f: Nat -> bool, n: Nat):
