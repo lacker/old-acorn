@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::atom::{Atom, AtomId, TypedAtom};
+use crate::token::{Error, Result, Token};
 
 // In order to convert an Expression to an AcornValue, we need to convert the string representation
 // of types, variable names, and constant names into numeric identifiers, detect name collisions,
@@ -56,6 +57,10 @@ impl BindingMap {
             stack: HashMap::new(),
         }
     }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Simple helper functions.
+    ////////////////////////////////////////////////////////////////////////////////
 
     // The names of all the stack variables, in order.
     pub fn stack_names(&self) -> Vec<&str> {
@@ -115,6 +120,41 @@ impl BindingMap {
         let name = &self.constant_names[id as usize];
         self.get_definition(name)
     }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Tools for parsing Expressions and similar structures
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // Return an error if the types don't match.
+    // This doesn't do full polymorphic typechecking, but it will fail if there's no
+    // way that the types can match, for example if a function expects T -> Nat and
+    // the value provided is Nat.
+    // actual_type should be non-generic here.
+    // expected_type can be generic.
+    pub fn check_type<'a>(
+        &self,
+        error_token: &Token,
+        expected_type: Option<&AcornType>,
+        actual_type: &AcornType,
+    ) -> Result<()> {
+        if let Some(e) = expected_type {
+            if e != actual_type {
+                return Err(Error::new(
+                    error_token,
+                    &format!(
+                        "expected type {}, but got {}",
+                        self.type_str(e),
+                        self.type_str(actual_type)
+                    ),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Tools for converting things to displayable strings.
+    ////////////////////////////////////////////////////////////////////////////////
 
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
         let mut s = "".to_string();
@@ -256,6 +296,10 @@ impl BindingMap {
     pub fn value_str(&self, value: &AcornValue) -> String {
         self.value_str_stacked(value, 0)
     }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Tools for testing.
+    ////////////////////////////////////////////////////////////////////////////////
 
     // Check that the given name actually does have this type in the environment.
     pub fn expect_type(&self, name: &str, type_string: &str) {

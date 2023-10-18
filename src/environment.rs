@@ -398,29 +398,6 @@ impl Environment {
         self.binding_map.value_str(value)
     }
 
-    // actual_type should be non-generic here.
-    // expected_type can be generic.
-    fn check_type<'a>(
-        &self,
-        error_token: &Token,
-        expected_type: Option<&AcornType>,
-        actual_type: &AcornType,
-    ) -> Result<()> {
-        if let Some(e) = expected_type {
-            if e != actual_type {
-                return Err(Error::new(
-                    error_token,
-                    &format!(
-                        "expected type {}, but got {}",
-                        self.type_str(e),
-                        self.type_str(actual_type)
-                    ),
-                ));
-            }
-        }
-        Ok(())
-    }
-
     // Parses a list of named argument declarations and adds them to the stack.
     fn bind_args<'a, I>(&mut self, declarations: I) -> Result<(Vec<String>, Vec<AcornType>)>
     where
@@ -605,7 +582,7 @@ impl Environment {
                 // Check the type for this identifier
                 let return_type = match self.binding_map.identifier_types.get(token.text()) {
                     Some(t) => {
-                        self.check_type(token, expected_type, t)?;
+                        self.binding_map.check_type(token, expected_type, t)?;
                         t.clone()
                     }
                     None => {
@@ -617,7 +594,7 @@ impl Environment {
                 };
 
                 // Figure out the value for this identifier
-                if let Some(acorn_value) = self.get_constant_atom(token.text()) {
+                if let Some(acorn_value) = self.binding_map.get_constant_atom(token.text()) {
                     Ok(acorn_value)
                 } else if let Some(stack_index) = self.binding_map.stack.get(token.text()) {
                     let atom = Atom::Variable(*stack_index);
@@ -635,7 +612,8 @@ impl Environment {
             }
             Expression::Unary(token, expr) => match token.token_type {
                 TokenType::Exclam => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    self.binding_map
+                        .check_type(token, expected_type, &AcornType::Bool)?;
                     let value = self.evaluate_value_expression(expr, Some(&AcornType::Bool))?;
                     Ok(AcornValue::Not(Box::new(value)))
                 }
@@ -646,7 +624,8 @@ impl Environment {
             },
             Expression::Binary(left, token, right) => match token.token_type {
                 TokenType::RightArrow => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    self.binding_map
+                        .check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value =
                         self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
                     let right_value =
@@ -657,7 +636,8 @@ impl Environment {
                     ))
                 }
                 TokenType::Equals => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    self.binding_map
+                        .check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value_expression(left, None)?;
                     let right_value =
                         self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
@@ -667,7 +647,8 @@ impl Environment {
                     ))
                 }
                 TokenType::NotEquals => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    self.binding_map
+                        .check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value_expression(left, None)?;
                     let right_value =
                         self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
@@ -677,7 +658,8 @@ impl Environment {
                     ))
                 }
                 TokenType::Ampersand => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    self.binding_map
+                        .check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value =
                         self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
                     let right_value =
@@ -685,7 +667,8 @@ impl Environment {
                     Ok(AcornValue::And(Box::new(left_value), Box::new(right_value)))
                 }
                 TokenType::Pipe => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    self.binding_map
+                        .check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value =
                         self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
                     let right_value =
@@ -748,7 +731,7 @@ impl Environment {
                 }
 
                 if template_types.is_empty() {
-                    self.check_type(
+                    self.binding_map.check_type(
                         function_expr.token(),
                         expected_type,
                         &*function_type.return_type,
@@ -794,7 +777,11 @@ impl Environment {
                 if expected_type.is_some() {
                     // Check the return type
                     let return_type = function_type.return_type.monomorphize(&inst_types);
-                    self.check_type(function_expr.token(), expected_type, &return_type)?;
+                    self.binding_map.check_type(
+                        function_expr.token(),
+                        expected_type,
+                        &return_type,
+                    )?;
                 }
 
                 let monomorph = AcornValue::Monomorph(constant_id, fn_atom.acorn_type, inst_types);
