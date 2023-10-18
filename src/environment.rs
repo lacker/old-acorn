@@ -453,272 +453,6 @@ impl Environment {
         value
     }
 
-    // A value expression could be either a value or an argument list.
-    // We mutate the environment to account for the stack, so self has to be mut.
-    // It might be better to use some fancier data structure.
-    // Returns the value along with its type.
-    pub fn evaluate_value_expression(
-        &mut self,
-        expression: &Expression,
-        expected_type: Option<&AcornType>,
-    ) -> Result<AcornValue> {
-        match expression {
-            Expression::Identifier(token) => {
-                if token.token_type == TokenType::Axiom {
-                    return match expected_type {
-                        Some(t) => Ok(self.binding_map.next_constant_atom(&t)),
-                        None => Err(Error::new(
-                            token,
-                            "axiomatic objects can only be created with known types",
-                        )),
-                    };
-                }
-
-                if token.token_type.is_macro() {
-                    return Err(Error::new(token, "macros cannot be used as values"));
-                }
-
-                // Check the type for this identifier
-                let return_type = match self.binding_map.identifier_types.get(token.text()) {
-                    Some(t) => {
-                        self.binding_map.check_type(token, expected_type, t)?;
-                        t.clone()
-                    }
-                    None => {
-                        return Err(Error::new(
-                            token,
-                            &format!("the name {} is unbound", token.text()),
-                        ));
-                    }
-                };
-
-                // Figure out the value for this identifier
-                if let Some(acorn_value) = self.binding_map.get_constant_atom(token.text()) {
-                    Ok(acorn_value)
-                } else if let Some(stack_index) = self.binding_map.stack.get(token.text()) {
-                    let atom = Atom::Variable(*stack_index);
-                    let typed_atom = TypedAtom {
-                        atom,
-                        acorn_type: return_type.clone(),
-                    };
-                    Ok(AcornValue::Atom(typed_atom))
-                } else {
-                    Err(Error::new(
-                        token,
-                        "interpreter bug: name is bound but it has no value and is not on the stack",
-                    ))
-                }
-            }
-            Expression::Unary(token, expr) => match token.token_type {
-                TokenType::Exclam => {
-                    self.binding_map
-                        .check_type(token, expected_type, &AcornType::Bool)?;
-                    let value = self.evaluate_value_expression(expr, Some(&AcornType::Bool))?;
-                    Ok(AcornValue::Not(Box::new(value)))
-                }
-                _ => Err(Error::new(
-                    token,
-                    "unexpected unary operator in value expression",
-                )),
-            },
-            Expression::Binary(left, token, right) => match token.token_type {
-                TokenType::RightArrow => {
-                    self.binding_map
-                        .check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value =
-                        self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
-                    Ok(AcornValue::Implies(
-                        Box::new(left_value),
-                        Box::new(right_value),
-                    ))
-                }
-                TokenType::Equals => {
-                    self.binding_map
-                        .check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value = self.evaluate_value_expression(left, None)?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
-                    Ok(AcornValue::Equals(
-                        Box::new(left_value),
-                        Box::new(right_value),
-                    ))
-                }
-                TokenType::NotEquals => {
-                    self.binding_map
-                        .check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value = self.evaluate_value_expression(left, None)?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
-                    Ok(AcornValue::NotEquals(
-                        Box::new(left_value),
-                        Box::new(right_value),
-                    ))
-                }
-                TokenType::Ampersand => {
-                    self.binding_map
-                        .check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value =
-                        self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
-                    Ok(AcornValue::And(Box::new(left_value), Box::new(right_value)))
-                }
-                TokenType::Pipe => {
-                    self.binding_map
-                        .check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value =
-                        self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
-                    Ok(AcornValue::Or(Box::new(left_value), Box::new(right_value)))
-                }
-                TokenType::Dot => {
-                    let name = expression.concatenate_dots()?;
-                    if let Some(acorn_value) = self.get_constant_atom(&name) {
-                        Ok(acorn_value)
-                    } else {
-                        return Err(Error::new(token, &format!("the name {} is unbound", name)));
-                    }
-                }
-                _ => Err(Error::new(
-                    token,
-                    "unhandled binary operator in value expression",
-                )),
-            },
-            Expression::Apply(function_expr, args_expr) => {
-                let function = self.evaluate_value_expression(function_expr, None)?;
-                let function_type = function.get_type();
-
-                let function_type = match function_type {
-                    AcornType::Function(f) => f,
-                    _ => {
-                        return Err(Error::new(function_expr.token(), "expected a function"));
-                    }
-                };
-
-                let arg_exprs = args_expr.flatten_list(false)?;
-
-                if function_type.arg_types.len() != arg_exprs.len() {
-                    return Err(Error::new(
-                        args_expr.token(),
-                        &format!(
-                            "expected {} arguments, but got {}",
-                            function_type.arg_types.len(),
-                            arg_exprs.len()
-                        ),
-                    ));
-                }
-
-                let mut args = vec![];
-                let mut template_types = vec![];
-                for (i, arg_expr) in arg_exprs.iter().enumerate() {
-                    let arg_type = &function_type.arg_types[i];
-                    let arg_value = self.evaluate_value_expression(arg_expr, None)?;
-                    if !arg_type.match_monomorph(&arg_value.get_type(), &mut template_types) {
-                        return Err(Error::new(
-                            arg_expr.token(),
-                            &format!(
-                                "expected type {}, but got {}",
-                                self.type_str(arg_type),
-                                self.type_str(&arg_value.get_type())
-                            ),
-                        ));
-                    }
-                    args.push(arg_value);
-                }
-
-                if template_types.is_empty() {
-                    self.binding_map.check_type(
-                        function_expr.token(),
-                        expected_type,
-                        &*function_type.return_type,
-                    )?;
-                    return Ok(AcornValue::Application(FunctionApplication {
-                        function: Box::new(function),
-                        args,
-                    }));
-                }
-
-                // Templated functions have to just be atoms
-                let fn_atom = if let AcornValue::Atom(a) = function {
-                    a
-                } else {
-                    return Err(Error::new(
-                        function_expr.token(),
-                        "a non-atomic function cannot be a template",
-                    ));
-                };
-                let constant_id = if let Atom::Constant(c) = fn_atom.atom {
-                    c
-                } else {
-                    return Err(Error::new(
-                        function_expr.token(),
-                        "a non-constant function cannot be a template",
-                    ));
-                };
-
-                // Check to make sure all of the template types were inferred
-                let mut inst_types = vec![];
-                for t in template_types {
-                    match t {
-                        Some(t) => inst_types.push(t),
-                        None => {
-                            return Err(Error::new(
-                                function_expr.token(),
-                                "cannot infer types for this generic function application",
-                            ));
-                        }
-                    }
-                }
-
-                if expected_type.is_some() {
-                    // Check the return type
-                    let return_type = function_type.return_type.monomorphize(&inst_types);
-                    self.binding_map.check_type(
-                        function_expr.token(),
-                        expected_type,
-                        &return_type,
-                    )?;
-                }
-
-                let monomorph = AcornValue::Monomorph(constant_id, fn_atom.acorn_type, inst_types);
-                Ok(AcornValue::Application(FunctionApplication {
-                    function: Box::new(monomorph),
-                    args,
-                }))
-            }
-            Expression::Grouping(_, e, _) => self.evaluate_value_expression(e, expected_type),
-            Expression::Macro(token, args_expr, body, _) => {
-                let macro_args = args_expr.flatten_list(false)?;
-                if macro_args.len() < 1 {
-                    return Err(Error::new(
-                        args_expr.token(),
-                        "macros must have at least one argument",
-                    ));
-                }
-                let (arg_names, arg_types) = self.binding_map.bind_args(macro_args)?;
-                let expected_type = match token.token_type {
-                    TokenType::ForAll => Some(&AcornType::Bool),
-                    TokenType::Exists => Some(&AcornType::Bool),
-                    _ => None,
-                };
-                let ret_val = match self.evaluate_value_expression(body, expected_type) {
-                    Ok(value) => match token.token_type {
-                        TokenType::ForAll => Ok(AcornValue::ForAll(arg_types, Box::new(value))),
-                        TokenType::Exists => Ok(AcornValue::Exists(arg_types, Box::new(value))),
-                        TokenType::Function => Ok(AcornValue::Lambda(arg_types, Box::new(value))),
-                        _ => Err(Error::new(token, "expected a macro identifier token")),
-                    },
-                    Err(e) => Err(e),
-                };
-                self.binding_map.unbind_args(arg_names);
-                ret_val
-            }
-        }
-    }
-
     // Takes a claim that is relative to this environment, and expresses it relative to
     // the parent environment.
     // The caller needs to provide the names of any "forall" variables used in the creation of
@@ -808,7 +542,9 @@ impl Environment {
                     ));
                 }
                 let acorn_type = self.binding_map.evaluate_type_expression(&ls.type_expr)?;
-                let acorn_value = self.evaluate_value_expression(&ls.value, Some(&acorn_type))?;
+                let acorn_value = self
+                    .binding_map
+                    .evaluate_value_expression(&ls.value, Some(&acorn_type))?;
                 self.add_constant(&ls.name, acorn_type, Some(acorn_value));
                 self.definition_ranges
                     .insert(ls.name.clone(), statement.range());
@@ -836,8 +572,9 @@ impl Environment {
                     });
                     self.binding_map.next_constant_atom(&new_axiom_type)
                 } else {
-                    let return_value =
-                        self.evaluate_value_expression(&ds.return_value, Some(&return_type))?;
+                    let return_value = self
+                        .binding_map
+                        .evaluate_value_expression(&ds.return_value, Some(&return_type))?;
                     AcornValue::Lambda(arg_types, Box::new(return_value))
                 };
                 let fn_value = self.genericize(&generic_types, fn_value);
@@ -861,15 +598,17 @@ impl Environment {
                     self.bind_templated_args(&ts.generic_types, &ts.args, &statement.first_token)?;
 
                 // Handle the claim
-                let claim_value =
-                    match self.evaluate_value_expression(&ts.claim, Some(&AcornType::Bool)) {
-                        Ok(claim_value) => claim_value,
-                        Err(e) => {
-                            self.binding_map.unbind_args(arg_names);
-                            self.unbind_generic_types(generic_types);
-                            return Err(e);
-                        }
-                    };
+                let claim_value = match self
+                    .binding_map
+                    .evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))
+                {
+                    Ok(claim_value) => claim_value,
+                    Err(e) => {
+                        self.binding_map.unbind_args(arg_names);
+                        self.unbind_generic_types(generic_types);
+                        return Err(e);
+                    }
+                };
 
                 // The claim of the theorem is what we need to prove.
                 let claim = if arg_types.is_empty() {
@@ -928,7 +667,9 @@ impl Environment {
             }
 
             StatementInfo::Prop(ps) => {
-                let claim = self.evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
+                let claim = self
+                    .binding_map
+                    .evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
@@ -983,7 +724,9 @@ impl Environment {
                     // If statements with an empty body can just be ignored
                     return Ok(());
                 }
-                let condition = self.evaluate_value_expression(&is.condition, None)?;
+                let condition = self
+                    .binding_map
+                    .evaluate_value_expression(&is.condition, None)?;
                 let range = is.condition.range();
                 let block = self
                     .new_block(None, &is.body, None, Some((&condition, range)))?
@@ -1011,8 +754,9 @@ impl Environment {
             StatementInfo::Exists(es) => {
                 // We need to prove the general existence claim
                 let (quant_names, quant_types) = self.binding_map.bind_args(&es.quantifiers)?;
-                let general_claim_value =
-                    self.evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
+                let general_claim_value = self
+                    .binding_map
+                    .evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
                 let general_claim =
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
                 self.binding_map.unbind_args(quant_names.clone());
@@ -1031,8 +775,9 @@ impl Environment {
                 }
 
                 // We can then assume the specific existence claim with the named constants
-                let specific_claim =
-                    self.evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
+                let specific_claim = self
+                    .binding_map
+                    .evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
                 let specific_prop = Proposition {
                     display_name: None,
                     proven: true,
