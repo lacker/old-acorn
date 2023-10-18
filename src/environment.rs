@@ -336,19 +336,6 @@ impl Environment {
     }
 
     // i is the id of a constant
-    fn get_defined_value_for_id(&self, i: AtomId) -> Option<&AcornValue> {
-        let name = &self.binding_map.constant_names[i as usize];
-        let info = &self.binding_map.constants[name];
-        if let AcornValue::Atom(typed_atom) = &info.value {
-            if typed_atom.atom == Atom::Constant(i) {
-                // This constant has no definition
-                return None;
-            }
-        }
-        Some(&info.value)
-    }
-
-    // i is the id of a constant
     fn get_theorem_value_for_id(&self, i: AtomId) -> Option<&AcornValue> {
         let name = &self.binding_map.constant_names[i as usize];
         if !self.theorem_names.contains(name) {
@@ -363,24 +350,8 @@ impl Environment {
         Some(&info.value)
     }
 
-    pub fn get_defined_value(&self, name: &str) -> Option<&AcornValue> {
-        let i = self
-            .binding_map
-            .constant_names
-            .iter()
-            .position(|n| n == name)?;
-        self.get_defined_value_for_id(i as AtomId)
-    }
-
-    // This gets the expanded value of a constant, replacing each defined constant with its definition.
-    pub fn get_expanded_value(&self, name: &str) -> Option<AcornValue> {
-        let value = self.get_constant_atom(name)?;
-        Some(self.expand_constants(&value))
-    }
-
-    // Replaces each defined constant with its definition, recursively.
-    fn expand_constants(&self, value: &AcornValue) -> AcornValue {
-        value.replace_constants_with_values(0, &|i| self.get_defined_value_for_id(i))
+    pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {
+        self.binding_map.get_definition(name)
     }
 
     // Replaces each theorem with its definition.

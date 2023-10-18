@@ -89,7 +89,7 @@ impl BindingMap {
 
     // Returns the defined value, if there is a defined value.
     // If there isn't, returns None.
-    pub fn get_definition(&self, name: &str) -> Option<AcornValue> {
+    pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {
         let info = self.constants.get(name)?;
         // TODO: avoid needing this weird clause, once ConstantInfo is simplified
         if let AcornValue::Atom(ta) = &info.value {
@@ -99,7 +99,12 @@ impl BindingMap {
                 }
             }
         }
-        Some(info.value.clone())
+        Some(&info.value)
+    }
+
+    pub fn get_definition_for_id(&self, id: AtomId) -> Option<&AcornValue> {
+        let name = &self.constant_names[id as usize];
+        self.get_definition(name)
     }
 
     pub fn type_list_str(&self, types: &[AcornType]) -> String {
