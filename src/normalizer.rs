@@ -224,10 +224,6 @@ mod tests {
             "recursion_step",
             &["c6(x0, x1, c1(x2)) = x0(c6(x0, x1, x2))"],
         );
-        env.add("define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)");
-        env.expect_constant(9, "add");
-        env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
-        norm.check(&env, "add_zero_right", &["c6(c1, x0, c0) = x0"]);
     }
 
     #[test]
@@ -288,7 +284,7 @@ mod tests {
         "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["!c0(s0, c2, c3)"]);
+        norm.check(&env, "goal", &["!c5(c4)"]);
     }
 
     #[test]
@@ -337,7 +333,7 @@ mod tests {
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["c0(x0, x1) = c0(x1, x0)"]);
+        norm.check(&env, "goal", &["c1(x0, x1) = c1(x1, x0)"]);
     }
 
     #[test]
@@ -352,6 +348,6 @@ mod tests {
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &[]);
+        norm.check(&env, "goal", &["c1(x0, x1) = c1(x2, x1)"]);
     }
 }

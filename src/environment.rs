@@ -392,7 +392,7 @@ impl Environment {
         for prop in &self.propositions {
             if let Some(claim_name) = &prop.display_name {
                 if claim_name == name {
-                    return Some(self.expand_constants(&prop.claim));
+                    return Some(prop.claim.clone());
                 }
             }
         }
