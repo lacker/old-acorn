@@ -56,11 +56,23 @@ impl BindingMap {
         }
     }
 
+    // The names of all the stack variables, in order.
     pub fn stack_names(&self) -> Vec<&str> {
         let mut names: Vec<&str> = vec![""; self.stack.len()];
         for (name, i) in &self.stack {
             names[*i as usize] = name;
         }
         names
+    }
+
+    // Adds a new data type to the binding map.
+    // Panics if the name is already a typename. (TODO)
+    pub fn add_data_type(&mut self, name: &str) -> AcornType {
+        let data_type = AcornType::Data(self.data_types.len());
+        self.data_types.push(name.to_string());
+        if let Some(_) = self.type_names.insert(name.to_string(), data_type.clone()) {
+            panic!("type name {} already exists", name);
+        }
+        data_type
     }
 }

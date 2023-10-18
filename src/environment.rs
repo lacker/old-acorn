@@ -195,15 +195,6 @@ impl Environment {
         self.propositions.push(prop);
     }
 
-    fn add_data_type(&mut self, name: &str) -> AcornType {
-        let data_type = AcornType::Data(self.binding_map.data_types.len());
-        self.binding_map.data_types.push(name.to_string());
-        self.binding_map
-            .type_names
-            .insert(name.to_string(), data_type.clone());
-        data_type
-    }
-
     fn remove_data_type(&mut self, name: &str) {
         if self.binding_map.data_types.last() != Some(&name.to_string()) {
             panic!("removing data type {} which is already not present", name);
@@ -659,7 +650,7 @@ impl Environment {
                     "cannot redeclare a type in a generic type list",
                 ));
             }
-            generic_types.push(self.add_data_type(token.text()));
+            generic_types.push(self.binding_map.add_data_type(token.text()));
             generic_type_names.push(token.text().to_string());
         }
 
@@ -1105,7 +1096,7 @@ impl Environment {
                     ));
                 }
                 if ts.type_expr.token().token_type == TokenType::Axiom {
-                    self.add_data_type(&ts.name);
+                    self.binding_map.add_data_type(&ts.name);
                 } else {
                     let acorn_type = self.evaluate_type_expression(&ts.type_expr)?;
                     self.binding_map
@@ -1367,7 +1358,7 @@ impl Environment {
                         "type name already defined in this scope",
                     ));
                 }
-                let struct_type = self.add_data_type(&ss.name);
+                let struct_type = self.binding_map.add_data_type(&ss.name);
 
                 // The member functions take the type itself to a particular member.
                 let mut member_fn_names = vec![];
