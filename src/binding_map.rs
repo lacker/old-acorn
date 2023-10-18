@@ -93,9 +93,13 @@ impl BindingMap {
         }))
     }
 
+    pub fn num_constants(&self) -> AtomId {
+        self.constant_names.len() as AtomId
+    }
+
     // This creates an atomic value for the next constant, but does not bind it to any name.
     pub fn next_constant_atom(&self, acorn_type: &AcornType) -> AcornValue {
-        let atom = Atom::Constant(self.constant_names.len() as AtomId);
+        let atom = Atom::Constant(self.num_constants());
         AcornValue::Atom(TypedAtom {
             atom,
             acorn_type: acorn_type.clone(),
@@ -120,6 +124,43 @@ impl BindingMap {
     pub fn get_definition_for_id(&self, id: AtomId) -> Option<&AcornValue> {
         let name = &self.constant_names[id as usize];
         self.get_definition(name)
+    }
+
+    pub fn add_constant(
+        &mut self,
+        name: &str,
+        constant_type: AcornType,
+        definition: Option<AcornValue>,
+    ) -> AtomId {
+        if self.identifier_types.contains_key(name) {
+            panic!("name {} already bound to a type", name);
+        }
+        if self.constants.contains_key(name) {
+            panic!("name {} already bound to a value", name);
+        }
+
+        let id = self.constant_names.len() as AtomId;
+
+        let info = ConstantInfo {
+            id,
+            value: match definition {
+                Some(value) => value,
+                None => self.next_constant_atom(&constant_type),
+            },
+        };
+
+        self.identifier_types
+            .insert(name.to_string(), constant_type);
+        self.constants.insert(name.to_string(), info);
+        self.constant_names.push(name.to_string());
+        id
+    }
+
+    // TODO: why is this a thing?
+    pub fn move_stack_variable_to_constant(&mut self, name: &str) {
+        self.stack.remove(name).unwrap();
+        let acorn_type = self.identifier_types.remove(name).unwrap();
+        self.add_constant(name, acorn_type, None);
     }
 
     ////////////////////////////////////////////////////////////////////////////////

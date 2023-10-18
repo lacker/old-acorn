@@ -7,7 +7,7 @@ use tower_lsp::lsp_types::{Position, Range};
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
-use crate::binding_map::{BindingMap, ConstantInfo};
+use crate::binding_map::BindingMap;
 use crate::expression::Expression;
 use crate::goal_context::GoalContext;
 use crate::statement::{Statement, StatementInfo};
@@ -18,8 +18,8 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // It creates subenvironments for nested blocks.
 // It does not have to be efficient enough to run in the inner loop of the prover.
 pub struct Environment {
-    // Mapping from string names to Atom values
-    pub binding_map: BindingMap,
+    // What all the names mean in this environment
+    pub bindings: BindingMap,
 
     // How many constants were externally imported at creation time.
     // This includes both previously defined constants, and variables defined in
@@ -82,7 +82,7 @@ pub struct Block {
 impl Environment {
     pub fn new() -> Self {
         Environment {
-            binding_map: BindingMap::new(),
+            bindings: BindingMap::new(),
             num_imported_constants: 0,
             propositions: Vec::new(),
             theorem_names: HashSet::new(),
@@ -114,8 +114,8 @@ impl Environment {
             return Ok(None);
         }
         let mut subenv = Environment {
-            binding_map: self.binding_map.clone(),
-            num_imported_constants: self.binding_map.constants.len() as AtomId,
+            bindings: self.bindings.clone(),
+            num_imported_constants: self.bindings.num_constants(),
             propositions: Vec::new(),
             theorem_names: self.theorem_names.clone(),
             definition_ranges: self.definition_ranges.clone(),
@@ -134,9 +134,9 @@ impl Environment {
         }
 
         // Convert stack variables to constant values and bind them to the claim
-        let names = self.binding_map.stack_names();
+        let names = self.bindings.stack_names();
         for name in &names {
-            subenv.move_stack_variable_to_constant(name);
+            subenv.bindings.move_stack_variable_to_constant(name);
         }
         let claim = match unbound_claim {
             None => None,
@@ -146,7 +146,7 @@ impl Environment {
                 } else {
                     let args: Vec<_> = names
                         .iter()
-                        .map(|name| subenv.binding_map.get_constant_atom(name).unwrap())
+                        .map(|name| subenv.bindings.get_constant_atom(name).unwrap())
                         .collect();
                     Some(AcornValue::apply(unbound_claim, args))
                 }
@@ -183,11 +183,11 @@ impl Environment {
     }
 
     fn remove_data_type(&mut self, name: &str) {
-        if self.binding_map.data_types.last() != Some(&name.to_string()) {
+        if self.bindings.data_types.last() != Some(&name.to_string()) {
             panic!("removing data type {} which is already not present", name);
         }
-        self.binding_map.data_types.pop();
-        self.binding_map.type_names.remove(name);
+        self.bindings.data_types.pop();
+        self.bindings.type_names.remove(name);
     }
 
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
@@ -195,21 +195,21 @@ impl Environment {
     fn add_identity_props(&mut self, name: &str) {
         // Currently we can only handle adding props for the most recently defined constant
         let pos = self
-            .binding_map
+            .bindings
             .constant_names
             .iter()
             .position(|n| n == name)
             .unwrap();
-        assert_eq!(pos + 1, self.binding_map.constant_names.len());
+        assert_eq!(pos + 1, self.bindings.constant_names.len());
         let id = pos as AtomId;
-        let definition: AcornValue = self.binding_map.constants[name].value.clone();
+        let definition: AcornValue = self.bindings.constants[name].value.clone();
         if let AcornValue::Atom(ta) = &definition {
             if ta.atom == Atom::Constant(id) {
                 // This constant has no definition
                 return;
             }
         }
-        let constant_type_clone = self.binding_map.identifier_types[name].clone();
+        let constant_type_clone = self.bindings.identifier_types[name].clone();
         // let definition: AcornValue = definition_clone.unwrap();
         // assert_eq!(definition, v);
         let atom = Box::new(AcornValue::Atom(TypedAtom {
@@ -250,53 +250,13 @@ impl Environment {
         });
     }
 
-    // Adds a constant.
-    // If add_identity_prop is true, this also adds a proposition that the constant is equal to
-    // its definition.
-    fn add_constant(
-        &mut self,
-        name: &str,
-        constant_type: AcornType,
-        definition: Option<AcornValue>,
-    ) -> AtomId {
-        if self.binding_map.identifier_types.contains_key(name) {
-            panic!("name {} already bound to a type", name);
-        }
-        if self.binding_map.constants.contains_key(name) {
-            panic!("name {} already bound to a value", name);
-        }
-
-        let id = self.binding_map.constant_names.len() as AtomId;
-
-        let info = ConstantInfo {
-            id,
-            value: match definition {
-                Some(value) => value,
-                None => self.binding_map.next_constant_atom(&constant_type),
-            },
-        };
-
-        self.binding_map
-            .identifier_types
-            .insert(name.to_string(), constant_type);
-        self.binding_map.constants.insert(name.to_string(), info);
-        self.binding_map.constant_names.push(name.to_string());
-        id
-    }
-
-    fn move_stack_variable_to_constant(&mut self, name: &str) {
-        self.binding_map.stack.remove(name).unwrap();
-        let acorn_type = self.binding_map.identifier_types.remove(name).unwrap();
-        self.add_constant(name, acorn_type, None);
-    }
-
     // i is the id of a constant
     fn get_theorem_value_for_id(&self, i: AtomId) -> Option<&AcornValue> {
-        let name = &self.binding_map.constant_names[i as usize];
+        let name = &self.bindings.constant_names[i as usize];
         if !self.theorem_names.contains(name) {
             return None;
         }
-        let info = &self.binding_map.constants[name];
+        let info = &self.bindings.constants[name];
         if let AcornValue::Atom(typed_atom) = &info.value {
             if typed_atom.atom == Atom::Constant(i) {
                 panic!("a theorem has no definition");
@@ -306,7 +266,7 @@ impl Environment {
     }
 
     pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {
-        self.binding_map.get_definition(name)
+        self.bindings.get_definition(name)
     }
 
     // Replaces each theorem with its definition.
@@ -345,11 +305,11 @@ impl Environment {
     }
 
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
-        self.binding_map.type_str(acorn_type)
+        self.bindings.type_str(acorn_type)
     }
 
     pub fn atom_str(&self, atom: &Atom) -> String {
-        self.binding_map.atom_str(atom)
+        self.bindings.atom_str(atom)
     }
 
     // Panics if the value is bad
@@ -359,7 +319,7 @@ impl Environment {
     }
 
     pub fn value_str(&self, value: &AcornValue) -> String {
-        self.binding_map.value_str(value)
+        self.bindings.value_str(value)
     }
 
     // Binds a possibly-empty list of generic types, along with function arguments.
@@ -377,17 +337,17 @@ impl Environment {
         let mut generic_type_names: Vec<String> = vec![];
         let mut generic_types: Vec<AcornType> = vec![];
         for token in generic_type_tokens {
-            if self.binding_map.type_names.contains_key(token.text()) {
+            if self.bindings.type_names.contains_key(token.text()) {
                 return Err(Error::new(
                     token,
                     "cannot redeclare a type in a generic type list",
                 ));
             }
-            generic_types.push(self.binding_map.add_data_type(token.text()));
+            generic_types.push(self.bindings.add_data_type(token.text()));
             generic_type_names.push(token.text().to_string());
         }
 
-        let (arg_names, arg_types) = self.binding_map.bind_args(args)?;
+        let (arg_names, arg_types) = self.bindings.bind_args(args)?;
 
         // Each type has to be used by some argument so that we know how to
         // monomorphize the template
@@ -420,12 +380,12 @@ impl Environment {
     fn genericize(&self, generic_types: &[String], value: AcornValue) -> AcornValue {
         let mut value = value;
         for (generic_type, name) in generic_types.iter().enumerate() {
-            let data_type =
-                if let AcornType::Data(i) = self.binding_map.type_names.get(name).unwrap() {
-                    i
-                } else {
-                    panic!("we should only be genericizing data types");
-                };
+            let data_type = if let AcornType::Data(i) = self.bindings.type_names.get(name).unwrap()
+            {
+                i
+            } else {
+                panic!("we should only be genericizing data types");
+            };
             value = value.genericize(*data_type, generic_type);
         }
         value
@@ -444,7 +404,7 @@ impl Environment {
         // Find the constants that were part of the "forall" that opened the block
         let mut forall_constants: Vec<AtomId> = vec![];
         for name in forall_names {
-            if let Some(info) = self.binding_map.constants.get(name) {
+            if let Some(info) = self.bindings.constants.get(name) {
                 forall_constants.push(info.id);
             } else {
                 panic!("name {} not found in block constants", name);
@@ -495,17 +455,17 @@ impl Environment {
     pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
         match &statement.statement {
             StatementInfo::Type(ts) => {
-                if self.binding_map.type_names.contains_key(&ts.name) {
+                if self.bindings.type_names.contains_key(&ts.name) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
                         "type name already defined in this scope",
                     ));
                 }
                 if ts.type_expr.token().token_type == TokenType::Axiom {
-                    self.binding_map.add_data_type(&ts.name);
+                    self.bindings.add_data_type(&ts.name);
                 } else {
-                    let acorn_type = self.binding_map.evaluate_type(&ts.type_expr)?;
-                    self.binding_map
+                    let acorn_type = self.bindings.evaluate_type(&ts.type_expr)?;
+                    self.bindings
                         .type_names
                         .insert(ts.name.to_string(), acorn_type);
                 };
@@ -513,17 +473,16 @@ impl Environment {
             }
 
             StatementInfo::Let(ls) => {
-                if self.binding_map.identifier_types.contains_key(&ls.name) {
+                if self.bindings.identifier_types.contains_key(&ls.name) {
                     return Err(Error::new(
                         &statement.first_token,
                         &format!("variable name '{}' already defined in this scope", ls.name),
                     ));
                 }
-                let acorn_type = self.binding_map.evaluate_type(&ls.type_expr)?;
-                let acorn_value = self
-                    .binding_map
-                    .evaluate_value(&ls.value, Some(&acorn_type))?;
-                self.add_constant(&ls.name, acorn_type, Some(acorn_value));
+                let acorn_type = self.bindings.evaluate_type(&ls.type_expr)?;
+                let acorn_value = self.bindings.evaluate_value(&ls.value, Some(&acorn_type))?;
+                self.bindings
+                    .add_constant(&ls.name, acorn_type, Some(acorn_value));
                 self.definition_ranges
                     .insert(ls.name.clone(), statement.range());
                 self.add_identity_props(&ls.name);
@@ -531,7 +490,7 @@ impl Environment {
             }
 
             StatementInfo::Define(ds) => {
-                if self.binding_map.identifier_types.contains_key(&ds.name) {
+                if self.bindings.identifier_types.contains_key(&ds.name) {
                     return Err(Error::new(
                         &statement.first_token,
                         &format!("variable name '{}' already defined in this scope", ds.name),
@@ -542,25 +501,26 @@ impl Environment {
                 let (generic_types, arg_names, arg_types) =
                     self.bind_templated_args(&ds.generic_types, &ds.args, &statement.first_token)?;
 
-                let return_type = self.binding_map.evaluate_type(&ds.return_type)?;
+                let return_type = self.bindings.evaluate_type(&ds.return_type)?;
                 let fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
                     let new_axiom_type = AcornType::Function(FunctionType {
                         arg_types,
                         return_type: Box::new(return_type),
                     });
-                    self.binding_map.next_constant_atom(&new_axiom_type)
+                    self.bindings.next_constant_atom(&new_axiom_type)
                 } else {
                     let return_value = self
-                        .binding_map
+                        .bindings
                         .evaluate_value(&ds.return_value, Some(&return_type))?;
                     AcornValue::Lambda(arg_types, Box::new(return_value))
                 };
                 let fn_value = self.genericize(&generic_types, fn_value);
-                self.binding_map.unbind_args(arg_names);
+                self.bindings.unbind_args(arg_names);
                 self.unbind_generic_types(generic_types);
 
                 // Add the function value to the environment
-                self.add_constant(&ds.name, fn_value.get_type(), Some(fn_value));
+                self.bindings
+                    .add_constant(&ds.name, fn_value.get_type(), Some(fn_value));
                 self.definition_ranges
                     .insert(ds.name.clone(), statement.range());
                 self.add_identity_props(&ds.name);
@@ -577,12 +537,12 @@ impl Environment {
 
                 // Handle the claim
                 let claim_value = match self
-                    .binding_map
+                    .bindings
                     .evaluate_value(&ts.claim, Some(&AcornType::Bool))
                 {
                     Ok(claim_value) => claim_value,
                     Err(e) => {
-                        self.binding_map.unbind_args(arg_names);
+                        self.bindings.unbind_args(arg_names);
                         self.unbind_generic_types(generic_types);
                         return Err(e);
                     }
@@ -605,7 +565,11 @@ impl Environment {
                 };
                 let fn_value = self.genericize(&generic_types, fn_value);
 
-                let c_id = self.add_constant(&ts.name, fn_value.get_type(), Some(fn_value.clone()));
+                let c_id = self.bindings.add_constant(
+                    &ts.name,
+                    fn_value.get_type(),
+                    Some(fn_value.clone()),
+                );
 
                 // Figure out the range for this theorem definition.
                 // It's smaller than the whole theorem statement because it doesn't
@@ -616,13 +580,13 @@ impl Environment {
                 };
                 self.definition_ranges.insert(ts.name.to_string(), range);
 
-                let constant_atom = self.binding_map.get_constant_atom(&ts.name).unwrap();
+                let constant_atom = self.bindings.get_constant_atom(&ts.name).unwrap();
                 let unbound_claim = if generic_types.is_empty() {
                     constant_atom
                 } else {
                     let types = generic_types
                         .iter()
-                        .map(|t| self.binding_map.type_names.get(t).unwrap().clone())
+                        .map(|t| self.bindings.type_names.get(t).unwrap().clone())
                         .collect();
                     AcornValue::Monomorph(c_id, constant_atom.get_type(), types)
                 };
@@ -638,7 +602,7 @@ impl Environment {
                 self.add_proposition(prop);
                 self.theorem_names.insert(ts.name.to_string());
 
-                self.binding_map.unbind_args(arg_names);
+                self.bindings.unbind_args(arg_names);
                 self.unbind_generic_types(generic_types);
 
                 Ok(())
@@ -646,7 +610,7 @@ impl Environment {
 
             StatementInfo::Prop(ps) => {
                 let claim = self
-                    .binding_map
+                    .bindings
                     .evaluate_value(&ps.claim, Some(&AcornType::Bool))?;
                 let prop = Proposition {
                     display_name: None,
@@ -665,7 +629,7 @@ impl Environment {
                     return Ok(());
                 }
 
-                let (forall_names, forall_types) = self.binding_map.bind_args(&fas.quantifiers)?;
+                let (forall_names, forall_types) = self.bindings.bind_args(&fas.quantifiers)?;
 
                 let block = self.new_block(None, &fas.body, None, None)?.unwrap();
 
@@ -693,7 +657,7 @@ impl Environment {
                     range: statement.range(),
                 };
                 self.add_proposition(prop);
-                self.binding_map.unbind_args(forall_names);
+                self.bindings.unbind_args(forall_names);
                 Ok(())
             }
 
@@ -702,7 +666,7 @@ impl Environment {
                     // If statements with an empty body can just be ignored
                     return Ok(());
                 }
-                let condition = self.binding_map.evaluate_value(&is.condition, None)?;
+                let condition = self.bindings.evaluate_value(&is.condition, None)?;
                 let range = is.condition.range();
                 let block = self
                     .new_block(None, &is.body, None, Some((&condition, range)))?
@@ -729,13 +693,13 @@ impl Environment {
 
             StatementInfo::Exists(es) => {
                 // We need to prove the general existence claim
-                let (quant_names, quant_types) = self.binding_map.bind_args(&es.quantifiers)?;
+                let (quant_names, quant_types) = self.bindings.bind_args(&es.quantifiers)?;
                 let general_claim_value = self
-                    .binding_map
+                    .bindings
                     .evaluate_value(&es.claim, Some(&AcornType::Bool))?;
                 let general_claim =
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
-                self.binding_map.unbind_args(quant_names.clone());
+                self.bindings.unbind_args(quant_names.clone());
                 let general_prop = Proposition {
                     display_name: None,
                     proven: false,
@@ -747,12 +711,13 @@ impl Environment {
 
                 // Define the quantifiers as constants
                 for (quant_name, quant_type) in quant_names.iter().zip(quant_types.iter()) {
-                    self.add_constant(quant_name, quant_type.clone(), None);
+                    self.bindings
+                        .add_constant(quant_name, quant_type.clone(), None);
                 }
 
                 // We can then assume the specific existence claim with the named constants
                 let specific_claim = self
-                    .binding_map
+                    .bindings
                     .evaluate_value(&es.claim, Some(&AcornType::Bool))?;
                 let specific_prop = Proposition {
                     display_name: None,
@@ -767,29 +732,30 @@ impl Environment {
             }
 
             StatementInfo::Struct(ss) => {
-                if self.binding_map.type_names.contains_key(&ss.name) {
+                if self.bindings.type_names.contains_key(&ss.name) {
                     return Err(Error::new(
                         &statement.first_token,
                         "type name already defined in this scope",
                     ));
                 }
-                let struct_type = self.binding_map.add_data_type(&ss.name);
+                let struct_type = self.bindings.add_data_type(&ss.name);
 
                 // The member functions take the type itself to a particular member.
                 let mut member_fn_names = vec![];
                 let mut member_fns = vec![];
                 let mut field_types = vec![];
                 for (field_name_token, field_type_expr) in &ss.fields {
-                    let field_type = self.binding_map.evaluate_type(&field_type_expr)?;
+                    let field_type = self.bindings.evaluate_type(&field_type_expr)?;
                     field_types.push(field_type.clone());
                     let member_fn_name = format!("{}.{}", ss.name, field_name_token.text());
                     let member_fn_type = AcornType::Function(FunctionType {
                         arg_types: vec![struct_type.clone()],
                         return_type: Box::new(field_type),
                     });
-                    self.add_constant(&member_fn_name, member_fn_type, None);
+                    self.bindings
+                        .add_constant(&member_fn_name, member_fn_type, None);
                     member_fn_names.push(member_fn_name.clone());
-                    member_fns.push(self.binding_map.get_constant_atom(&member_fn_name).unwrap());
+                    member_fns.push(self.bindings.get_constant_atom(&member_fn_name).unwrap());
                 }
 
                 // A "new" function to create one of these struct types.
@@ -798,8 +764,8 @@ impl Environment {
                     arg_types: field_types.clone(),
                     return_type: Box::new(struct_type.clone()),
                 });
-                self.add_constant(&new_fn_name, new_fn_type, None);
-                let new_fn = self.binding_map.get_constant_atom(&new_fn_name).unwrap();
+                self.bindings.add_constant(&new_fn_name, new_fn_type, None);
+                let new_fn = self.bindings.get_constant_atom(&new_fn_name).unwrap();
 
                 // A struct can be recreated by new'ing from its members. Ie:
                 // Pair.new(Pair.first(p), Pair.second(p)) = p.
@@ -1036,7 +1002,7 @@ impl Environment {
         let mut tokens = TokenIter::new(tokens);
         let (expression, _) =
             Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
-        match self.binding_map.evaluate_type(&expression) {
+        match self.bindings.evaluate_type(&expression) {
             Ok(_) => {}
             Err(error) => panic!("Error evaluating type expression: {}", error),
         }
@@ -1053,7 +1019,7 @@ impl Environment {
                 return;
             }
         };
-        assert!(self.binding_map.evaluate_type(&expression).is_err());
+        assert!(self.bindings.evaluate_type(&expression).is_err());
     }
 
     // Expects the given line to be bad
@@ -1071,13 +1037,13 @@ impl Environment {
     // Check that the given name actually does have this type in the environment.
     #[cfg(test)]
     fn expect_type(&mut self, name: &str, type_string: &str) {
-        self.binding_map.expect_type(name, type_string)
+        self.bindings.expect_type(name, type_string)
     }
 
     // Check that the given name is defined to be this value
     #[cfg(test)]
     fn expect_def(&mut self, name: &str, value_string: &str) {
-        let env_value = match self.binding_map.get_definition(name) {
+        let env_value = match self.bindings.get_definition(name) {
             Some(t) => t,
             None => panic!("{} not found in environment", name),
         };
@@ -1087,22 +1053,22 @@ impl Environment {
     // Assert that these two names are defined to equal the same thing
     #[cfg(test)]
     fn assert_def_eq(&self, name1: &str, name2: &str) {
-        let def1 = self.binding_map.get_definition(name1).unwrap();
-        let def2 = self.binding_map.get_definition(name2).unwrap();
+        let def1 = self.bindings.get_definition(name1).unwrap();
+        let def2 = self.bindings.get_definition(name2).unwrap();
         assert_eq!(def1, def2);
     }
 
     // Assert that these two names are defined to be different things
     #[cfg(test)]
     fn assert_def_ne(&self, name1: &str, name2: &str) {
-        let def1 = self.binding_map.get_definition(name1).unwrap();
-        let def2 = self.binding_map.get_definition(name2).unwrap();
+        let def1 = self.bindings.get_definition(name1).unwrap();
+        let def2 = self.bindings.get_definition(name2).unwrap();
         assert_ne!(def1, def2);
     }
 
     // Check the name of the given constant
     pub fn expect_constant(&mut self, id: usize, name: &str) {
-        self.binding_map.expect_constant(id, name);
+        self.bindings.expect_constant(id, name);
     }
 }
 
@@ -1169,21 +1135,21 @@ mod tests {
     fn test_arg_binding() {
         let mut env = Environment::new();
         env.bad("define qux(x: bool, x: bool) -> bool = x");
-        assert!(env.binding_map.identifier_types.get("x").is_none());
+        assert!(env.bindings.identifier_types.get("x").is_none());
         env.add("define qux(x: bool, y: bool) -> bool = x");
         env.expect_type("qux", "(bool, bool) -> bool");
 
         env.bad("theorem foo(x: bool, x: bool): x");
-        assert!(env.binding_map.identifier_types.get("x").is_none());
+        assert!(env.bindings.identifier_types.get("x").is_none());
         env.add("theorem foo(x: bool, y: bool): x");
         env.expect_type("foo", "(bool, bool) -> bool");
 
         env.bad("let bar: bool = forall(x: bool, x: bool) { x = x }");
-        assert!(env.binding_map.identifier_types.get("x").is_none());
+        assert!(env.bindings.identifier_types.get("x").is_none());
         env.add("let bar: bool = forall(x: bool, y: bool) { x = x }");
 
         env.bad("let baz: bool = exists(x: bool, x: bool) { x = x }");
-        assert!(env.binding_map.identifier_types.get("x").is_none());
+        assert!(env.bindings.identifier_types.get("x").is_none());
         env.add("let baz: bool = exists(x: bool, y: bool) { x = x }");
     }
 
@@ -1265,7 +1231,7 @@ mod tests {
         env.bad("axiom bad_types(x: Nat, y: Nat): x -> y");
 
         // We don't want failed typechecks to leave the environment in a bad state
-        assert!(!env.binding_map.identifier_types.contains_key("x"));
+        assert!(!env.bindings.identifier_types.contains_key("x"));
 
         env.bad("let foo: bool = Suc(0)");
         env.bad("let foo: Nat = Suc(0 = 0)");
@@ -1274,20 +1240,20 @@ mod tests {
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         env.expect_def("suc_neq_zero", "lambda(x0: Nat) { (Suc(x0) != 0) }");
 
-        assert!(env.binding_map.type_names.contains_key("Nat"));
-        assert!(!env.binding_map.identifier_types.contains_key("Nat"));
+        assert!(env.bindings.type_names.contains_key("Nat"));
+        assert!(!env.bindings.identifier_types.contains_key("Nat"));
 
-        assert!(!env.binding_map.type_names.contains_key("0"));
-        assert!(env.binding_map.identifier_types.contains_key("0"));
+        assert!(!env.bindings.type_names.contains_key("0"));
+        assert!(env.bindings.identifier_types.contains_key("0"));
 
-        assert!(!env.binding_map.type_names.contains_key("1"));
-        assert!(env.binding_map.identifier_types.contains_key("1"));
+        assert!(!env.bindings.type_names.contains_key("1"));
+        assert!(env.bindings.identifier_types.contains_key("1"));
 
-        assert!(!env.binding_map.type_names.contains_key("Suc"));
-        assert!(env.binding_map.identifier_types.contains_key("Suc"));
+        assert!(!env.bindings.type_names.contains_key("Suc"));
+        assert!(env.bindings.identifier_types.contains_key("Suc"));
 
-        assert!(!env.binding_map.type_names.contains_key("foo"));
-        assert!(!env.binding_map.identifier_types.contains_key("foo"));
+        assert!(!env.bindings.type_names.contains_key("foo"));
+        assert!(!env.bindings.identifier_types.contains_key("foo"));
 
         env.add(
             "axiom induction(f: Nat -> bool, n: Nat):
@@ -1499,6 +1465,6 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_type_params_cleaned_up() {
         let mut env = Environment::new();
         env.add("define foo<T>(a: T) -> bool = axiom");
-        assert!(!env.binding_map.data_types.contains(&"T".to_string()));
+        assert!(!env.bindings.data_types.contains(&"T".to_string()));
     }
 }

@@ -20,7 +20,7 @@ impl fmt::Display for DisplayAtom<'_> {
                 f,
                 "{}",
                 self.env
-                    .binding_map
+                    .bindings
                     .monomorph_str(key.polymorph, &key.parameters)
             )
         } else {
