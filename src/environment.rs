@@ -526,7 +526,7 @@ impl Environment {
                 if ts.type_expr.token().token_type == TokenType::Axiom {
                     self.binding_map.add_data_type(&ts.name);
                 } else {
-                    let acorn_type = self.binding_map.evaluate_type_expression(&ts.type_expr)?;
+                    let acorn_type = self.binding_map.evaluate_type(&ts.type_expr)?;
                     self.binding_map
                         .type_names
                         .insert(ts.name.to_string(), acorn_type);
@@ -541,10 +541,10 @@ impl Environment {
                         &format!("variable name '{}' already defined in this scope", ls.name),
                     ));
                 }
-                let acorn_type = self.binding_map.evaluate_type_expression(&ls.type_expr)?;
+                let acorn_type = self.binding_map.evaluate_type(&ls.type_expr)?;
                 let acorn_value = self
                     .binding_map
-                    .evaluate_value_expression(&ls.value, Some(&acorn_type))?;
+                    .evaluate_value(&ls.value, Some(&acorn_type))?;
                 self.add_constant(&ls.name, acorn_type, Some(acorn_value));
                 self.definition_ranges
                     .insert(ls.name.clone(), statement.range());
@@ -564,7 +564,7 @@ impl Environment {
                 let (generic_types, arg_names, arg_types) =
                     self.bind_templated_args(&ds.generic_types, &ds.args, &statement.first_token)?;
 
-                let return_type = self.binding_map.evaluate_type_expression(&ds.return_type)?;
+                let return_type = self.binding_map.evaluate_type(&ds.return_type)?;
                 let fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
                     let new_axiom_type = AcornType::Function(FunctionType {
                         arg_types,
@@ -574,7 +574,7 @@ impl Environment {
                 } else {
                     let return_value = self
                         .binding_map
-                        .evaluate_value_expression(&ds.return_value, Some(&return_type))?;
+                        .evaluate_value(&ds.return_value, Some(&return_type))?;
                     AcornValue::Lambda(arg_types, Box::new(return_value))
                 };
                 let fn_value = self.genericize(&generic_types, fn_value);
@@ -600,7 +600,7 @@ impl Environment {
                 // Handle the claim
                 let claim_value = match self
                     .binding_map
-                    .evaluate_value_expression(&ts.claim, Some(&AcornType::Bool))
+                    .evaluate_value(&ts.claim, Some(&AcornType::Bool))
                 {
                     Ok(claim_value) => claim_value,
                     Err(e) => {
@@ -669,7 +669,7 @@ impl Environment {
             StatementInfo::Prop(ps) => {
                 let claim = self
                     .binding_map
-                    .evaluate_value_expression(&ps.claim, Some(&AcornType::Bool))?;
+                    .evaluate_value(&ps.claim, Some(&AcornType::Bool))?;
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
@@ -724,9 +724,7 @@ impl Environment {
                     // If statements with an empty body can just be ignored
                     return Ok(());
                 }
-                let condition = self
-                    .binding_map
-                    .evaluate_value_expression(&is.condition, None)?;
+                let condition = self.binding_map.evaluate_value(&is.condition, None)?;
                 let range = is.condition.range();
                 let block = self
                     .new_block(None, &is.body, None, Some((&condition, range)))?
@@ -756,7 +754,7 @@ impl Environment {
                 let (quant_names, quant_types) = self.binding_map.bind_args(&es.quantifiers)?;
                 let general_claim_value = self
                     .binding_map
-                    .evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
+                    .evaluate_value(&es.claim, Some(&AcornType::Bool))?;
                 let general_claim =
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
                 self.binding_map.unbind_args(quant_names.clone());
@@ -777,7 +775,7 @@ impl Environment {
                 // We can then assume the specific existence claim with the named constants
                 let specific_claim = self
                     .binding_map
-                    .evaluate_value_expression(&es.claim, Some(&AcornType::Bool))?;
+                    .evaluate_value(&es.claim, Some(&AcornType::Bool))?;
                 let specific_prop = Proposition {
                     display_name: None,
                     proven: true,
@@ -804,9 +802,7 @@ impl Environment {
                 let mut member_fns = vec![];
                 let mut field_types = vec![];
                 for (field_name_token, field_type_expr) in &ss.fields {
-                    let field_type = self
-                        .binding_map
-                        .evaluate_type_expression(&field_type_expr)?;
+                    let field_type = self.binding_map.evaluate_type(&field_type_expr)?;
                     field_types.push(field_type.clone());
                     let member_fn_name = format!("{}.{}", ss.name, field_name_token.text());
                     let member_fn_type = AcornType::Function(FunctionType {
@@ -1062,7 +1058,7 @@ impl Environment {
         let mut tokens = TokenIter::new(tokens);
         let (expression, _) =
             Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
-        match self.binding_map.evaluate_type_expression(&expression) {
+        match self.binding_map.evaluate_type(&expression) {
             Ok(_) => {}
             Err(error) => panic!("Error evaluating type expression: {}", error),
         }
@@ -1079,10 +1075,7 @@ impl Environment {
                 return;
             }
         };
-        assert!(self
-            .binding_map
-            .evaluate_type_expression(&expression)
-            .is_err());
+        assert!(self.binding_map.evaluate_type(&expression).is_err());
     }
 
     // Expects the given line to be bad

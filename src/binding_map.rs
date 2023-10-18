@@ -154,7 +154,7 @@ impl BindingMap {
     }
 
     // Evaluates an expression that represents a type.
-    pub fn evaluate_type_expression(&self, expression: &Expression) -> Result<AcornType> {
+    pub fn evaluate_type(&self, expression: &Expression) -> Result<AcornType> {
         match expression {
             Expression::Identifier(token) => {
                 if token.token_type == TokenType::Axiom {
@@ -178,9 +178,9 @@ impl BindingMap {
                     let arg_exprs = left.flatten_list(true)?;
                     let mut arg_types = vec![];
                     for arg_expr in arg_exprs {
-                        arg_types.push(self.evaluate_type_expression(arg_expr)?);
+                        arg_types.push(self.evaluate_type(arg_expr)?);
                     }
-                    let return_type = self.evaluate_type_expression(right)?;
+                    let return_type = self.evaluate_type(right)?;
                     let function_type = FunctionType {
                         arg_types,
                         return_type: Box::new(return_type),
@@ -196,7 +196,7 @@ impl BindingMap {
                 left.token(),
                 "unexpected function application in type expression",
             )),
-            Expression::Grouping(_, e, _) => self.evaluate_type_expression(e),
+            Expression::Grouping(_, e, _) => self.evaluate_type(e),
             Expression::Macro(token, _, _, _) => {
                 Err(Error::new(token, "unexpected macro in type expression"))
             }
@@ -217,7 +217,7 @@ impl BindingMap {
                         ));
                     }
                     let name = left.token().text().to_string();
-                    let acorn_type = self.evaluate_type_expression(right)?;
+                    let acorn_type = self.evaluate_type(right)?;
                     Ok((name, acorn_type))
                 }
                 _ => Err(Error::new(token, "expected a colon in this declaration")),
@@ -271,7 +271,7 @@ impl BindingMap {
     // We mutate the environment to account for the stack, so self has to be mut.
     // It might be better to use some fancier data structure.
     // Returns the value along with its type.
-    pub fn evaluate_value_expression(
+    pub fn evaluate_value(
         &mut self,
         expression: &Expression,
         expected_type: Option<&AcornType>,
@@ -326,7 +326,7 @@ impl BindingMap {
             Expression::Unary(token, expr) => match token.token_type {
                 TokenType::Exclam => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
-                    let value = self.evaluate_value_expression(expr, Some(&AcornType::Bool))?;
+                    let value = self.evaluate_value(expr, Some(&AcornType::Bool))?;
                     Ok(AcornValue::Not(Box::new(value)))
                 }
                 _ => Err(Error::new(
@@ -337,10 +337,8 @@ impl BindingMap {
             Expression::Binary(left, token, right) => match token.token_type {
                 TokenType::RightArrow => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value =
-                        self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
+                    let left_value = self.evaluate_value(left, Some(&AcornType::Bool))?;
+                    let right_value = self.evaluate_value(right, Some(&AcornType::Bool))?;
                     Ok(AcornValue::Implies(
                         Box::new(left_value),
                         Box::new(right_value),
@@ -348,9 +346,8 @@ impl BindingMap {
                 }
                 TokenType::Equals => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value = self.evaluate_value_expression(left, None)?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
+                    let left_value = self.evaluate_value(left, None)?;
+                    let right_value = self.evaluate_value(right, Some(&left_value.get_type()))?;
                     Ok(AcornValue::Equals(
                         Box::new(left_value),
                         Box::new(right_value),
@@ -358,9 +355,8 @@ impl BindingMap {
                 }
                 TokenType::NotEquals => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value = self.evaluate_value_expression(left, None)?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&left_value.get_type()))?;
+                    let left_value = self.evaluate_value(left, None)?;
+                    let right_value = self.evaluate_value(right, Some(&left_value.get_type()))?;
                     Ok(AcornValue::NotEquals(
                         Box::new(left_value),
                         Box::new(right_value),
@@ -368,18 +364,14 @@ impl BindingMap {
                 }
                 TokenType::Ampersand => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value =
-                        self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
+                    let left_value = self.evaluate_value(left, Some(&AcornType::Bool))?;
+                    let right_value = self.evaluate_value(right, Some(&AcornType::Bool))?;
                     Ok(AcornValue::And(Box::new(left_value), Box::new(right_value)))
                 }
                 TokenType::Pipe => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
-                    let left_value =
-                        self.evaluate_value_expression(left, Some(&AcornType::Bool))?;
-                    let right_value =
-                        self.evaluate_value_expression(right, Some(&AcornType::Bool))?;
+                    let left_value = self.evaluate_value(left, Some(&AcornType::Bool))?;
+                    let right_value = self.evaluate_value(right, Some(&AcornType::Bool))?;
                     Ok(AcornValue::Or(Box::new(left_value), Box::new(right_value)))
                 }
                 TokenType::Dot => {
@@ -396,7 +388,7 @@ impl BindingMap {
                 )),
             },
             Expression::Apply(function_expr, args_expr) => {
-                let function = self.evaluate_value_expression(function_expr, None)?;
+                let function = self.evaluate_value(function_expr, None)?;
                 let function_type = function.get_type();
 
                 let function_type = match function_type {
@@ -423,7 +415,7 @@ impl BindingMap {
                 let mut template_types = vec![];
                 for (i, arg_expr) in arg_exprs.iter().enumerate() {
                     let arg_type = &function_type.arg_types[i];
-                    let arg_value = self.evaluate_value_expression(arg_expr, None)?;
+                    let arg_value = self.evaluate_value(arg_expr, None)?;
                     if !arg_type.match_monomorph(&arg_value.get_type(), &mut template_types) {
                         return Err(Error::new(
                             arg_expr.token(),
@@ -493,7 +485,7 @@ impl BindingMap {
                     args,
                 }))
             }
-            Expression::Grouping(_, e, _) => self.evaluate_value_expression(e, expected_type),
+            Expression::Grouping(_, e, _) => self.evaluate_value(e, expected_type),
             Expression::Macro(token, args_expr, body, _) => {
                 let macro_args = args_expr.flatten_list(false)?;
                 if macro_args.len() < 1 {
@@ -508,7 +500,7 @@ impl BindingMap {
                     TokenType::Exists => Some(&AcornType::Bool),
                     _ => None,
                 };
-                let ret_val = match self.evaluate_value_expression(body, expected_type) {
+                let ret_val = match self.evaluate_value(body, expected_type) {
                     Ok(value) => match token.token_type {
                         TokenType::ForAll => Ok(AcornValue::ForAll(arg_types, Box::new(value))),
                         TokenType::Exists => Ok(AcornValue::Exists(arg_types, Box::new(value))),
