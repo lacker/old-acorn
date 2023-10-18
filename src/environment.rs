@@ -203,15 +203,6 @@ impl Environment {
         self.binding_map.type_names.remove(name);
     }
 
-    // This creates an atomic value for the next constant, but does not bind it to any name.
-    fn next_constant_atom(&self, acorn_type: &AcornType) -> AcornValue {
-        let atom = Atom::Constant(self.binding_map.constant_names.len() as AtomId);
-        AcornValue::Atom(TypedAtom {
-            atom,
-            acorn_type: acorn_type.clone(),
-        })
-    }
-
     fn push_stack_variable(&mut self, name: &str, acorn_type: AcornType) {
         self.binding_map
             .stack
@@ -308,7 +299,7 @@ impl Environment {
             id,
             value: match definition {
                 Some(value) => value,
-                None => self.next_constant_atom(&constant_type),
+                None => self.binding_map.next_constant_atom(&constant_type),
             },
         };
 
@@ -389,32 +380,12 @@ impl Environment {
         panic!("no proposition named {}", name);
     }
 
-    pub fn get_constant_name(&self, id: AtomId) -> &str {
-        &self.binding_map.constant_names[id as usize]
-    }
-
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
         self.binding_map.type_str(acorn_type)
     }
 
     pub fn atom_str(&self, atom: &Atom) -> String {
-        match atom {
-            Atom::True => "true".to_string(),
-            Atom::Constant(i) => {
-                if *i as usize >= self.binding_map.constant_names.len() {
-                    panic!(
-                        "atom is c{} but we have only {} constants",
-                        i,
-                        self.binding_map.constant_names.len()
-                    );
-                }
-                self.binding_map.constant_names[*i as usize].to_string()
-            }
-            Atom::Skolem(i) => format!("s{}", i),
-            Atom::Monomorph(i) => format!("m{}", i),
-            Atom::Synthetic(i) => format!("p{}", i),
-            Atom::Variable(i) => format!("x{}", i),
-        }
+        self.binding_map.atom_str(atom)
     }
 
     // Panics if the value is bad
@@ -696,7 +667,7 @@ impl Environment {
             Expression::Identifier(token) => {
                 if token.token_type == TokenType::Axiom {
                     return match expected_type {
-                        Some(t) => Ok(self.next_constant_atom(&t)),
+                        Some(t) => Ok(self.binding_map.next_constant_atom(&t)),
                         None => Err(Error::new(
                             token,
                             "axiomatic objects can only be created with known types",
@@ -1075,7 +1046,7 @@ impl Environment {
                         arg_types,
                         return_type: Box::new(return_type),
                     });
-                    self.next_constant_atom(&new_axiom_type)
+                    self.binding_map.next_constant_atom(&new_axiom_type)
                 } else {
                     let return_value =
                         self.evaluate_value_expression(&ds.return_value, Some(&return_type))?;

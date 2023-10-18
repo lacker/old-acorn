@@ -87,6 +87,15 @@ impl BindingMap {
         }))
     }
 
+    // This creates an atomic value for the next constant, but does not bind it to any name.
+    pub fn next_constant_atom(&self, acorn_type: &AcornType) -> AcornValue {
+        let atom = Atom::Constant(self.constant_names.len() as AtomId);
+        AcornValue::Atom(TypedAtom {
+            atom,
+            acorn_type: acorn_type.clone(),
+        })
+    }
+
     // Returns the defined value, if there is a defined value.
     // If there isn't, returns None.
     pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {
@@ -144,6 +153,26 @@ impl BindingMap {
                 }
             }
             AcornType::Any => "any".to_string(),
+        }
+    }
+
+    pub fn atom_str(&self, atom: &Atom) -> String {
+        match atom {
+            Atom::True => "true".to_string(),
+            Atom::Constant(i) => {
+                if *i as usize >= self.constant_names.len() {
+                    panic!(
+                        "atom is c{} but we have only {} constants",
+                        i,
+                        self.constant_names.len()
+                    );
+                }
+                self.constant_names[*i as usize].to_string()
+            }
+            Atom::Skolem(i) => format!("s{}", i),
+            Atom::Monomorph(i) => format!("m{}", i),
+            Atom::Synthetic(i) => format!("p{}", i),
+            Atom::Variable(i) => format!("x{}", i),
         }
     }
 
