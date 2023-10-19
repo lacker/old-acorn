@@ -494,12 +494,8 @@ impl Environment {
                 };
 
                 // The claim of the theorem is what we need to prove.
-                let claim = if arg_types.is_empty() {
-                    claim_value.clone()
-                } else {
-                    AcornValue::ForAll(arg_types.clone(), Box::new(claim_value.clone()))
-                };
-                let claim = self.bindings.genericize(&generic_types, claim);
+                let specific_claim = AcornValue::new_forall(arg_types.clone(), claim_value.clone());
+                let generic_claim = self.bindings.genericize(&generic_types, specific_claim);
 
                 // The functional value of the theorem is the lambda that
                 // is constantly "true" if the theorem is true.
@@ -545,7 +541,7 @@ impl Environment {
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),
                     proven: ts.axiomatic,
-                    claim,
+                    claim: generic_claim,
                     block,
                     range,
                 };

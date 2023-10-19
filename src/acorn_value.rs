@@ -198,6 +198,33 @@ impl AcornValue {
         }
     }
 
+    // Construct a lambda if we have arguments, but omit it otherwise.
+    pub fn new_lambda(args: Vec<AcornType>, value: AcornValue) -> AcornValue {
+        if args.is_empty() {
+            value
+        } else {
+            AcornValue::Lambda(args, Box::new(value))
+        }
+    }
+
+    // Construct a forall if we have arguments, but omit it otherwise.
+    pub fn new_forall(args: Vec<AcornType>, value: AcornValue) -> AcornValue {
+        if args.is_empty() {
+            value
+        } else {
+            AcornValue::ForAll(args, Box::new(value))
+        }
+    }
+
+    // Construct an exists if we have arguments, but omit it otherwise.
+    pub fn new_exists(args: Vec<AcornType>, value: AcornValue) -> AcornValue {
+        if args.is_empty() {
+            value
+        } else {
+            AcornValue::Exists(args, Box::new(value))
+        }
+    }
+
     pub fn negate(self) -> AcornValue {
         self.maybe_negate(true)
     }
