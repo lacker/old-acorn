@@ -583,54 +583,54 @@ impl BindingMap {
 
     // Binds a possibly-empty list of generic types, along with function arguments.
     // This adds names for both types and arguments to the environment.
-    // Internally to this scope, the types work like any other type.
+    // Internally to this scope, the types are opaque data types.
     // Externally, these types are marked as generic.
-    // Returns (generic type names, arg names, arg types).
-    // Call both unbind_args and unbind_generic_types when done.
+    // Returns (type param names, arg names, arg types).
+    // Call both unbind_args and unbind_type_params when done.
     pub fn bind_templated_args(
         &mut self,
-        generic_type_tokens: &[Token],
+        type_param_tokens: &[Token],
         args: &[Expression],
         location: &Token,
     ) -> Result<(Vec<String>, Vec<String>, Vec<AcornType>)> {
-        let mut generic_type_names: Vec<String> = vec![];
-        let mut generic_types: Vec<AcornType> = vec![];
-        for token in generic_type_tokens {
+        let mut type_params: Vec<String> = vec![];
+        let mut opaque_types: Vec<AcornType> = vec![];
+        for token in type_param_tokens {
             if self.type_names.contains_key(token.text()) {
                 return Err(Error::new(
                     token,
                     "cannot redeclare a type in a generic type list",
                 ));
             }
-            generic_types.push(self.add_data_type(token.text()));
-            generic_type_names.push(token.text().to_string());
+            opaque_types.push(self.add_data_type(token.text()));
+            type_params.push(token.text().to_string());
         }
 
         let (arg_names, arg_types) = self.bind_args(args)?;
 
         // Each type has to be used by some argument so that we know how to
         // monomorphize the template
-        for (i, generic_type) in generic_types.iter().enumerate() {
-            if !arg_types.iter().any(|a| a.refers_to(generic_type)) {
+        for (i, opaque_type) in opaque_types.iter().enumerate() {
+            if !arg_types.iter().any(|a| a.refers_to(opaque_type)) {
                 return Err(Error::new(
                     location,
                     &format!(
-                        "generic type {} is not used in the function arguments",
-                        generic_type_names[i]
+                        "type parameter {} is not used in the function arguments",
+                        type_params[i]
                     ),
                 ));
             }
         }
-        Ok((generic_type_names, arg_names, arg_types))
+        Ok((type_params, arg_names, arg_types))
     }
 
-    // generic_types contains a list of types that should look like opaque data types to us.
+    // type_params contains a list of types that should look like opaque data types to us.
     // genericize converts this value to a polymorphic one, by replacing any types in
     // this list with AcornType::Generic values.
-    // Do this before unbind_generic_types.
-    pub fn genericize(&self, generic_types: &[String], value: AcornValue) -> AcornValue {
+    // Do this before unbind_type_params.
+    pub fn genericize(&self, type_params: &[String], value: AcornValue) -> AcornValue {
         let mut value = value;
-        for (generic_type, name) in generic_types.iter().enumerate() {
+        for (generic_type, name) in type_params.iter().enumerate() {
             let data_type = if let AcornType::Data(i) = self.type_names.get(name).unwrap() {
                 i
             } else {
@@ -641,9 +641,9 @@ impl BindingMap {
         value
     }
 
-    // Remove the generic types that were added by bind_generic_types.
-    pub fn unbind_generic_types(&mut self, generic_types: Vec<String>) {
-        for name in generic_types.iter().rev() {
+    // Remove the generic types that were added by bind_type_params.
+    pub fn unbind_type_params(&mut self, type_params: Vec<String>) {
+        for name in type_params.iter().rev() {
             self.remove_data_type(&name);
         }
     }

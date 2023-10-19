@@ -17,7 +17,7 @@ pub struct LetStatement {
 //   define foo(a: int, b: int) -> int = a + a + b
 pub struct DefineStatement {
     pub name: String,
-    pub generic_types: Vec<Token>,
+    pub type_params: Vec<Token>,
 
     // A list of the named arg types, like "a: int" and "b: int".
     pub args: Vec<Expression>,
@@ -167,11 +167,11 @@ fn parse_args(
     if token.token_type == terminator {
         return Ok((vec![], vec![]));
     }
-    let mut generic_types = vec![];
+    let mut type_params = vec![];
     if token.token_type == TokenType::LessThan {
         loop {
             let token = Token::expect_type(tokens, TokenType::Identifier)?;
-            generic_types.push(token);
+            type_params.push(token);
             let token = Token::expect_token(tokens)?;
             match token.token_type {
                 TokenType::GreaterThan => {
@@ -205,7 +205,7 @@ fn parse_args(
             break;
         }
     }
-    Ok((generic_types, args))
+    Ok((type_params, args))
 }
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been found.
@@ -217,11 +217,11 @@ fn parse_theorem_statement(
 ) -> Result<Statement> {
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text().to_string();
-    let (generic_types, args) = parse_args(tokens, TokenType::Colon)?;
-    if generic_types.len() > 1 {
+    let (type_params, args) = parse_args(tokens, TokenType::Colon)?;
+    if type_params.len() > 1 {
         return Err(Error::new(
-            &generic_types[1],
-            "only one generic type is supported",
+            &type_params[1],
+            "only one type parameter is supported",
         ));
     }
     Token::skip_newlines(tokens);
@@ -237,7 +237,7 @@ fn parse_theorem_statement(
     let ts = TheoremStatement {
         axiomatic,
         name,
-        type_params: generic_types,
+        type_params,
         args,
         claim,
         body,
@@ -275,18 +275,18 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     let name = Token::expect_type(tokens, TokenType::Identifier)?
         .text()
         .to_string();
-    let (generic_types, args) = parse_args(tokens, TokenType::RightArrow)?;
-    if generic_types.len() > 1 {
+    let (type_params, args) = parse_args(tokens, TokenType::RightArrow)?;
+    if type_params.len() > 1 {
         return Err(Error::new(
-            &generic_types[1],
-            "only one generic type is supported",
+            &type_params[1],
+            "only one type parameter is supported",
         ));
     }
     let (return_type, _) = Expression::parse(tokens, false, |t| t == TokenType::Equals)?;
     let (return_value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
     let ds = DefineStatement {
         name,
-        generic_types,
+        type_params,
         args,
         return_type,
         return_value,
@@ -404,16 +404,16 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     }
 }
 
-fn write_generic_types(f: &mut fmt::Formatter, generic_types: &[Token]) -> fmt::Result {
-    if generic_types.len() == 0 {
+fn write_type_params(f: &mut fmt::Formatter, type_params: &[Token]) -> fmt::Result {
+    if type_params.len() == 0 {
         return Ok(());
     }
     write!(f, "<")?;
-    for (i, generic_type) in generic_types.iter().enumerate() {
+    for (i, param) in type_params.iter().enumerate() {
         if i > 0 {
             write!(f, ", ")?;
         }
-        write!(f, "{}", generic_type)?;
+        write!(f, "{}", param)?;
     }
     write!(f, ">")?;
     Ok(())
@@ -444,7 +444,7 @@ impl Statement {
 
             StatementInfo::Define(ds) => {
                 write!(f, "define {}", ds.name)?;
-                write_generic_types(f, &ds.generic_types)?;
+                write_type_params(f, &ds.type_params)?;
                 write_args(f, &ds.args)?;
                 write!(f, " -> {} = {}", ds.return_type, ds.return_value)
             }
@@ -456,7 +456,7 @@ impl Statement {
                     write!(f, "theorem")?;
                 }
                 write!(f, " {}", ts.name)?;
-                write_generic_types(f, &ts.type_params)?;
+                write_type_params(f, &ts.type_params)?;
                 write_args(f, &ts.args)?;
                 write!(f, ": {}", ts.claim)?;
                 if ts.body.len() > 0 {

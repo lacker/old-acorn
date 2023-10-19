@@ -73,7 +73,7 @@ struct Block {
     // The generic types that this block is polymorphic over.
     // Internally to the block, these are opaque data types.
     // Externally, these are generic data types.
-    generic_types: Vec<String>,
+    type_params: Vec<String>,
 
     // The arguments to this block.
     // Internally to the block, the arguments are constants.
@@ -168,7 +168,7 @@ impl Environment {
     // Using different data structures should improve this when we need to.
     fn new_block(
         &self,
-        generic_types: Vec<String>,
+        type_params: Vec<String>,
         args: Vec<(String, AcornType)>,
         body: &Vec<Statement>,
         params: BlockParams,
@@ -219,7 +219,7 @@ impl Environment {
             subenv.add_statement(s)?;
         }
         Ok(Some(Block {
-            generic_types,
+            type_params,
             args,
             env: subenv,
             claim,
@@ -418,8 +418,8 @@ impl Environment {
                 }
 
                 // Calculate the function value
-                let (generic_types, arg_names, arg_types) = self.bindings.bind_templated_args(
-                    &ds.generic_types,
+                let (type_params, arg_names, arg_types) = self.bindings.bind_templated_args(
+                    &ds.type_params,
                     &ds.args,
                     &statement.first_token,
                 )?;
@@ -437,9 +437,9 @@ impl Environment {
                         .evaluate_value(&ds.return_value, Some(&return_type))?;
                     AcornValue::Lambda(arg_types, Box::new(return_value))
                 };
-                let fn_value = self.bindings.genericize(&generic_types, fn_value);
+                let fn_value = self.bindings.genericize(&type_params, fn_value);
                 self.bindings.unbind_args(arg_names);
-                self.bindings.unbind_generic_types(generic_types);
+                self.bindings.unbind_type_params(type_params);
 
                 // Add the function value to the environment
                 self.bindings
@@ -475,7 +475,7 @@ impl Environment {
                     Ok(claim_value) => claim_value,
                     Err(e) => {
                         self.bindings.unbind_args(arg_names);
-                        self.bindings.unbind_generic_types(type_params);
+                        self.bindings.unbind_type_params(type_params);
                         return Err(e);
                     }
                 };
@@ -484,8 +484,8 @@ impl Environment {
                 let specific_claim = AcornValue::new_forall(arg_types.clone(), claim_value.clone());
                 let generic_claim = self.bindings.genericize(&type_params, specific_claim);
 
-                // The functional value of the theorem is the lambda that
-                // is constantly "true" if the theorem is true.
+                // The functional value of the theorem is the lambda that is true for all
+                // arguments if the theorem is true.
                 let specific_fn_value = AcornValue::new_lambda(arg_types, claim_value);
                 let generic_fn_value = self.bindings.genericize(&type_params, specific_fn_value);
 
@@ -531,7 +531,7 @@ impl Environment {
                 self.theorem_names.insert(ts.name.to_string());
 
                 self.bindings.unbind_args(arg_names);
-                self.bindings.unbind_generic_types(type_params);
+                self.bindings.unbind_type_params(type_params);
 
                 Ok(())
             }
