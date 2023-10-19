@@ -133,7 +133,7 @@ impl Block {
 
         // Replace all of the constants that only exist in the inside environment
         let replaced = inner_value.replace_constants_with_variables(&ordered_ids);
-
+        let replaced = self.env.bindings.genericize(&self.type_params, replaced);
         AcornValue::new_forall(forall_types, AcornValue::new_exists(exists_types, replaced))
     }
 }
