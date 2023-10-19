@@ -182,6 +182,13 @@ impl Environment {
             theorem_names: self.theorem_names.clone(),
             definition_ranges: self.definition_ranges.clone(),
         };
+
+        // Inside the block, the type parameters are opaque data types.
+        let mut opaque_types = vec![];
+        for type_param in &type_params {
+            opaque_types.push(subenv.bindings.add_data_type(type_param));
+        }
+
         let claim = match params {
             BlockParams::If(fact, range) => {
                 subenv.add_proposition(Proposition {
@@ -194,8 +201,6 @@ impl Environment {
                 None
             }
             BlockParams::Theorem(theorem_name, unbound_claim) => {
-                subenv.add_identity_props(theorem_name);
-
                 for (arg_name, arg_type) in &args {
                     subenv
                         .bindings
@@ -205,6 +210,11 @@ impl Environment {
                     .iter()
                     .map(|(name, _)| subenv.bindings.get_constant_atom(name).unwrap())
                     .collect::<Vec<_>>();
+
+                // Within the theorem block, the theorem is treated like a function,
+                // with propositions to define its identity.
+                // Outside the theorem block, theorems are inlined.
+                subenv.add_identity_props(theorem_name);
 
                 Some(AcornValue::new_apply(unbound_claim, arg_values))
             }
@@ -256,9 +266,7 @@ impl Environment {
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
     // constant.
     fn add_identity_props(&mut self, name: &str) {
-        // Currently we can only handle adding props for the most recently defined constant
         let id = self.bindings.get_constant_id(name).unwrap();
-        assert_eq!(self.bindings.num_constants(), id + 1);
         let definition = if let Some(d) = self.bindings.get_definition(name) {
             d.clone()
         } else {
@@ -461,13 +469,13 @@ impl Environment {
                 //   * A list of type parameters
                 //   * A list of arguments that are being universally quantified
                 //   * A boolean expression representing a claim of things that are true.
-                let (type_params, arg_names, arg_types) = self
+                let (type_params, arg_names, specific_arg_types) = self
                     .bindings
                     .bind_templated_args(&ts.type_params, &ts.args)?;
-                assert_eq!(arg_names.len(), arg_types.len());
+                assert_eq!(arg_names.len(), specific_arg_types.len());
                 let args = arg_names
                     .iter()
-                    .zip(arg_types.iter())
+                    .zip(specific_arg_types.iter())
                     .map(|(name, acorn_type)| (name.clone(), acorn_type.clone()))
                     .collect();
 
@@ -477,12 +485,13 @@ impl Environment {
                     .evaluate_value(&ts.claim, Some(&AcornType::Bool))?;
 
                 // The claim of the theorem is what we need to prove.
-                let specific_claim = AcornValue::new_forall(arg_types.clone(), claim_value.clone());
+                let specific_claim =
+                    AcornValue::new_forall(specific_arg_types.clone(), claim_value.clone());
                 let generic_claim = self.bindings.genericize(&type_params, specific_claim);
 
                 // The functional value of the theorem is the lambda that is true for all
                 // arguments if the theorem is true.
-                let specific_fn_value = AcornValue::new_lambda(arg_types, claim_value);
+                let specific_fn_value = AcornValue::new_lambda(specific_arg_types, claim_value);
                 let generic_fn_value = self.bindings.genericize(&type_params, specific_fn_value);
 
                 let theorem_type = generic_fn_value.get_type();
@@ -499,6 +508,7 @@ impl Environment {
                     .collect();
 
                 self.bindings.unbind_args(&arg_names);
+                self.bindings.unbind_type_params(&type_params);
 
                 let unbound_claim =
                     AcornValue::new_monomorph(theorem_id, theorem_type, opaque_types);
@@ -508,8 +518,6 @@ impl Environment {
                     &ts.body,
                     BlockParams::Theorem(&ts.name, unbound_claim),
                 )?;
-
-                self.bindings.unbind_type_params(&type_params);
 
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),

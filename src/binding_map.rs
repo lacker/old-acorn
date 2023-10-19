@@ -642,7 +642,7 @@ impl BindingMap {
     // This adds names for both types and arguments to the environment.
     // Internally to this scope, the types are opaque data types.
     // Externally, these types are marked as generic.
-    // Returns (type param names, arg names, arg types).
+    // Returns (type param names, arg names, specific arg types).
     // The arg types returned are the internal, opaque data types.
     // Call both unbind_args and unbind_type_params when done.
     pub fn bind_templated_args(
