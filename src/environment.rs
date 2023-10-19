@@ -21,11 +21,6 @@ pub struct Environment {
     // What all the names mean in this environment
     pub bindings: BindingMap,
 
-    // How many constants were externally imported at creation time.
-    // This includes both previously defined constants, and variables defined in
-    // "forall" and "exists" statements (since those are constant inside the block).
-    num_imported_constants: AtomId,
-
     // The propositions in this environment.
     // This includes every sort of thing that we need to know is true, specific to this environment.
     // This includes theorems, anonymous propositions, and the implicit equalities of
@@ -171,7 +166,6 @@ impl Environment {
     pub fn new() -> Self {
         Environment {
             bindings: BindingMap::new(),
-            num_imported_constants: 0,
             propositions: Vec::new(),
             theorem_names: HashSet::new(),
             definition_ranges: HashMap::new(),
@@ -194,7 +188,6 @@ impl Environment {
         }
         let mut subenv = Environment {
             bindings: self.bindings.clone(),
-            num_imported_constants: self.bindings.num_constants(),
             propositions: Vec::new(),
             theorem_names: self.theorem_names.clone(),
             definition_ranges: self.definition_ranges.clone(),
@@ -389,64 +382,6 @@ impl Environment {
 
     pub fn value_str(&self, value: &AcornValue) -> String {
         self.bindings.value_str(value)
-    }
-
-    // Takes a claim that is relative to this environment, and expresses it relative to
-    // the parent environment.
-    // The caller needs to provide the names of any "forall" variables used in the creation of
-    // this block. (Perhaps the environment could just know about that?)
-    fn export_claim(
-        &self,
-        forall_names: &Vec<String>,
-        forall_types: Vec<AcornType>,
-        inner_claim: &AcornValue,
-    ) -> AcornValue {
-        // Find the constants that were part of the "forall" that opened the block
-        let mut forall_constants: Vec<AtomId> = vec![];
-        for name in forall_names {
-            if let Some(id) = self.bindings.get_constant_id(name) {
-                forall_constants.push(id);
-            } else {
-                panic!("name {} not found in block constants", name);
-            }
-        }
-
-        // Find any other constants that were defined in the block
-        let mut all_constants: Vec<(AtomId, AcornType)> = vec![];
-        inner_claim.find_constants_gte(self.num_imported_constants, &mut all_constants);
-
-        // Separate the constants into two groups
-        let mut exists_constants = vec![];
-        let mut exists_types = vec![];
-        for (constant, constant_type) in all_constants {
-            if forall_constants.contains(&constant) {
-                continue;
-            }
-            exists_constants.push(constant);
-            exists_types.push(constant_type);
-        }
-
-        let ordered_constants = forall_constants
-            .iter()
-            .chain(exists_constants.iter())
-            .cloned()
-            .collect();
-
-        // Replace all of the constants that only exist in the inside environment
-        let replaced = inner_claim.replace_constants_with_variables(&ordered_constants);
-
-        let with_exists = if exists_types.is_empty() {
-            replaced
-        } else {
-            AcornValue::Exists(exists_types, Box::new(replaced))
-        };
-        let with_forall = if forall_types.is_empty() {
-            with_exists
-        } else {
-            AcornValue::ForAll(forall_types, Box::new(with_exists))
-        };
-
-        with_forall
     }
 
     // Adds a statement to the environment.
@@ -698,7 +633,7 @@ impl Environment {
                         return Err(Error::new(&is.token, "expected a claim in this block"));
                     }
                 };
-                let outer_claim = block.env.export_claim(&vec![], vec![], inner_claim);
+                let outer_claim = block.export_bool(inner_claim);
                 let claim = AcornValue::Implies(Box::new(condition), Box::new(outer_claim.clone()));
 
                 let prop = Proposition {
