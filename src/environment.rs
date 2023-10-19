@@ -592,8 +592,6 @@ impl Environment {
                     .unwrap();
 
                 // The last claim in the block is exported to the outside environment.
-                // It may have variables that are bound to the "forall" names, which
-                // aren't available in the outside environment, so we need to unbind them.
                 let inner_claim: &AcornValue = match block.env.propositions.last() {
                     Some(p) => &p.claim,
                     None => {
@@ -622,7 +620,9 @@ impl Environment {
                     // If statements with an empty body can just be ignored
                     return Ok(());
                 }
-                let condition = self.bindings.evaluate_value(&is.condition, None)?;
+                let condition = self
+                    .bindings
+                    .evaluate_value(&is.condition, Some(&AcornType::Bool))?;
                 let range = is.condition.range();
                 let block = self
                     .new_block(vec![], vec![], &is.body, BlockParams::If(&condition, range))?
@@ -633,6 +633,8 @@ impl Environment {
                         return Err(Error::new(&is.token, "expected a claim in this block"));
                     }
                 };
+
+                // The last claim in the block is exported to the outside environment.
                 let outer_claim = block.export_bool(inner_claim);
                 let claim = AcornValue::Implies(Box::new(condition), Box::new(outer_claim.clone()));
 
@@ -1383,5 +1385,15 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new();
         env.add("define foo<T>(a: T) -> bool = axiom");
         assert!(env.bindings.get_type_for_name("T").is_none());
+    }
+
+    #[test]
+    fn test_if_condition_must_be_bool() {
+        let mut env = Environment::new();
+        env.add("type Nat: axiom");
+        env.add("let 0: Nat = axiom");
+        env.add("let b: bool = axiom");
+        env.add("if b { 0 = 0 }");
+        env.bad("if 0 { 0 = 0 }");
     }
 }
