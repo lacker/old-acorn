@@ -668,9 +668,7 @@ impl Environment {
                         ));
                     }
                 };
-                let outer_claim = block
-                    .env
-                    .export_claim(&forall_names, forall_types, inner_claim);
+                let outer_claim = block.export_bool(inner_claim);
 
                 let prop = Proposition {
                     display_name: None,
