@@ -468,38 +468,15 @@ impl Environment {
                 };
                 self.definition_ranges.insert(ts.name.to_string(), range);
 
-                // A theorem has three parts:
-                //   * A list of type parameters
-                //   * A list of arguments that are being universally quantified
-                //   * A boolean expression representing a claim of things that are true.
-                let (type_params, arg_names, specific_arg_types) = self
-                    .bindings
-                    .bind_templated_args(&ts.type_params, &ts.args)?;
-                assert_eq!(arg_names.len(), specific_arg_types.len());
-                let mut generic_arg_types = vec![];
+                let (type_params, arg_names, generic_arg_types, unbound_value, _) =
+                    self.bindings
+                        .evaluate_subvalue(&ts.type_params, &ts.args, None, &ts.claim)?;
+
+                let generic_unbound = unbound_value.unwrap();
                 let mut block_args = vec![];
-                for (arg_name, specific_arg_type) in arg_names.iter().zip(&specific_arg_types) {
-                    let generic_arg_type = self
-                        .bindings
-                        .genericize_type(&type_params, specific_arg_type.clone());
-                    block_args.push((arg_name.clone(), generic_arg_type.clone()));
-                    generic_arg_types.push(generic_arg_type);
+                for (arg_name, arg_type) in arg_names.iter().zip(&generic_arg_types) {
+                    block_args.push((arg_name.clone(), arg_type.clone()));
                 }
-
-                // There are many ways to express the claim of a theorem.
-                // The type parameters can be specific or generic.
-                // The value can be wrapped in a lambda or a forall, or it could have
-                // unbound variables.
-
-                let specific_unbound = self
-                    .bindings
-                    .evaluate_value(&ts.claim, Some(&AcornType::Bool))?;
-                let generic_unbound = self
-                    .bindings
-                    .genericize(&type_params, specific_unbound.clone());
-
-                self.bindings.unbind_args(&arg_names);
-                self.bindings.unbind_type_params(&type_params);
 
                 let generic_forall =
                     AcornValue::new_forall(generic_arg_types.clone(), generic_unbound.clone());
