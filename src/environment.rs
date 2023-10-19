@@ -75,13 +75,23 @@ pub struct Proposition {
 // proved, along with helper statements to express those propositions, but they are not
 // visible to the outside world.
 struct Block {
+    // The generic types that this block is polymorphic over.
+    // Internally to the block, these are opaque data types.
+    // Externally, these are generic data types.
+    generic_types: Vec<String>,
+
+    // The arguments to this block.
+    // Internally to the block, the arguments are constants.
+    // Externally, these arguments are variables.
+    args: Vec<(String, AcornType)>,
+
     // The "internal claim" of this block.
     // This claim is defined relative to the block's environment.
     // This claim must be proved inside the block's environment in order for the block to be valid.
-    pub claim: Option<AcornValue>,
+    claim: Option<AcornValue>,
 
     // The environment created inside the block.
-    pub env: Environment,
+    env: Environment,
 }
 
 // The different ways to construct a block
@@ -113,7 +123,13 @@ impl Environment {
     //
     // Performance is quadratic because it clones a lot of the existing environment.
     // Using different data structures should improve this when we need to.
-    fn new_block(&self, body: &Vec<Statement>, params: BlockParams) -> Result<Option<Block>> {
+    fn new_block(
+        &self,
+        generic_types: Vec<String>,
+        args: Vec<(String, AcornType)>,
+        body: &Vec<Statement>,
+        params: BlockParams,
+    ) -> Result<Option<Block>> {
         if body.is_empty() {
             return Ok(None);
         }
@@ -163,7 +179,12 @@ impl Environment {
         for s in body {
             subenv.add_statement(s)?;
         }
-        Ok(Some(Block { env: subenv, claim }))
+        Ok(Some(Block {
+            generic_types,
+            args,
+            env: subenv,
+            claim,
+        }))
     }
 
     pub fn load_file(&mut self, filename: &str) -> io::Result<()> {
@@ -457,6 +478,12 @@ impl Environment {
                     &ts.args,
                     &statement.first_token,
                 )?;
+                assert_eq!(arg_names.len(), arg_types.len());
+                let args = arg_names
+                    .iter()
+                    .zip(arg_types.iter())
+                    .map(|(name, acorn_type)| (name.clone(), acorn_type.clone()))
+                    .collect();
 
                 // Handle the claim
                 let claim_value = match self
@@ -513,8 +540,12 @@ impl Environment {
                         .collect();
                     AcornValue::Monomorph(c_id, constant_atom.get_type(), types)
                 };
-                let block =
-                    self.new_block(&ts.body, BlockParams::Theorem(&ts.name, unbound_claim))?;
+                let block = self.new_block(
+                    generic_types.clone(),
+                    args,
+                    &ts.body,
+                    BlockParams::Theorem(&ts.name, unbound_claim),
+                )?;
 
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),
@@ -554,8 +585,16 @@ impl Environment {
                 }
 
                 let (forall_names, forall_types) = self.bindings.bind_args(&fas.quantifiers)?;
+                assert_eq!(forall_names.len(), forall_types.len());
+                let args = forall_names
+                    .iter()
+                    .zip(forall_types.iter())
+                    .map(|(name, acorn_type)| (name.clone(), acorn_type.clone()))
+                    .collect();
 
-                let block = self.new_block(&fas.body, BlockParams::ForAll)?.unwrap();
+                let block = self
+                    .new_block(vec![], args, &fas.body, BlockParams::ForAll)?
+                    .unwrap();
 
                 // The last claim in the block is exported to the outside environment.
                 // It may have variables that are bound to the "forall" names, which
@@ -593,7 +632,7 @@ impl Environment {
                 let condition = self.bindings.evaluate_value(&is.condition, None)?;
                 let range = is.condition.range();
                 let block = self
-                    .new_block(&is.body, BlockParams::If(&condition, range))?
+                    .new_block(vec![], vec![], &is.body, BlockParams::If(&condition, range))?
                     .unwrap();
                 let inner_claim: &AcornValue = match block.env.propositions.last() {
                     Some(p) => &p.claim,
