@@ -140,10 +140,10 @@ impl Block {
 
 // The different ways to construct a block
 enum BlockParams<'a> {
-    // The name of the theorem, its id, and its type.
+    // The name of the theorem.
     // The theorem is either a bool, or a function from something -> bool.
     // The meaning of the theorem is that it is true for all args.
-    Theorem(&'a str, AtomId),
+    Theorem(&'a str),
 
     // The value passed in the "if" condition, and its range in the source document
     If(&'a AcornValue, Range),
@@ -207,7 +207,8 @@ impl Environment {
                 });
                 None
             }
-            BlockParams::Theorem(theorem_name, theorem_id) => {
+            BlockParams::Theorem(theorem_name) => {
+                let theorem_id = self.bindings.get_constant_id(theorem_name).unwrap();
                 let theorem_type = self.bindings.get_type(theorem_name).unwrap().clone();
                 let unbound_claim =
                     AcornValue::new_monomorph(theorem_id, theorem_type, opaque_types);
@@ -494,7 +495,7 @@ impl Environment {
                 let generic_fn_value = self.bindings.genericize(&type_params, specific_fn_value);
 
                 let theorem_type = generic_fn_value.get_type();
-                let theorem_id = self.bindings.add_constant(
+                self.bindings.add_constant(
                     &ts.name,
                     theorem_type.clone(),
                     Some(generic_fn_value.clone()),
@@ -507,7 +508,7 @@ impl Environment {
                     type_params.clone(),
                     args,
                     &ts.body,
-                    BlockParams::Theorem(&ts.name, theorem_id),
+                    BlockParams::Theorem(&ts.name),
                 )?;
 
                 let prop = Proposition {
