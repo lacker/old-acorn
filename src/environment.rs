@@ -80,9 +80,9 @@ struct Block {
     // Externally, these arguments are variables.
     args: Vec<(String, AcornType)>,
 
-    // The "internal claim" of this block.
-    // This claim is defined relative to the block's environment.
-    // This claim must be proved inside the block's environment for the block to be valid.
+    // The "internal claim" of this block, defined relative to the block's environment.
+    // We always need to prove the propositions in the block's environment.
+    // When the block has an internal claim, we need to prove that too.
     claim: Option<AcornValue>,
 
     // The environment created inside the block.
@@ -207,9 +207,10 @@ impl Environment {
                 Some(AcornValue::new_apply(unbound_claim, args))
             }
             BlockParams::ForAll => {
-                let names = self.bindings.stack_names();
-                for name in &names {
-                    subenv.bindings.move_stack_variable_to_constant(name);
+                for (arg_name, arg_type) in &args {
+                    subenv
+                        .bindings
+                        .add_constant(&arg_name, arg_type.clone(), None);
                 }
                 None
             }
@@ -451,6 +452,15 @@ impl Environment {
             }
 
             StatementInfo::Theorem(ts) => {
+                // Figure out the range for this theorem definition.
+                // It's smaller than the whole theorem statement because it doesn't
+                // include the proof block.
+                let range = Range {
+                    start: statement.first_token.start_pos(),
+                    end: ts.claim.last_token().end_pos(),
+                };
+                self.definition_ranges.insert(ts.name.to_string(), range);
+
                 // A theorem has three parts:
                 //   * A list of type parameters
                 //   * A list of arguments that are being universally quantified
@@ -496,15 +506,6 @@ impl Environment {
                     Some(generic_fn_value.clone()),
                 );
 
-                // Figure out the range for this theorem definition.
-                // It's smaller than the whole theorem statement because it doesn't
-                // include the proof block.
-                let range = Range {
-                    start: statement.first_token.start_pos(),
-                    end: ts.claim.last_token().end_pos(),
-                };
-                self.definition_ranges.insert(ts.name.to_string(), range);
-
                 // Inside the block, the type parameters are represented by opaque data types
                 let opaque_types = type_params
                     .iter()
@@ -520,6 +521,9 @@ impl Environment {
                     BlockParams::Theorem(&ts.name, unbound_claim),
                 )?;
 
+                self.bindings.unbind_args(arg_names);
+                self.bindings.unbind_type_params(type_params);
+
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),
                     proven: ts.axiomatic,
@@ -529,9 +533,6 @@ impl Environment {
                 };
                 self.add_proposition(prop);
                 self.theorem_names.insert(ts.name.to_string());
-
-                self.bindings.unbind_args(arg_names);
-                self.bindings.unbind_type_params(type_params);
 
                 Ok(())
             }
@@ -556,14 +557,11 @@ impl Environment {
                     // ForAll statements with an empty body can just be ignored
                     return Ok(());
                 }
-
-                let (forall_names, forall_types) = self.bindings.bind_args(&fas.quantifiers)?;
-                assert_eq!(forall_names.len(), forall_types.len());
-                let args = forall_names
-                    .iter()
-                    .zip(forall_types.iter())
-                    .map(|(name, acorn_type)| (name.clone(), acorn_type.clone()))
-                    .collect();
+                let mut args = vec![];
+                for quantifier in &fas.quantifiers {
+                    let (arg_name, arg_type) = self.bindings.parse_declaration(quantifier)?;
+                    args.push((arg_name, arg_type));
+                }
 
                 let block = self
                     .new_block(vec![], args, &fas.body, BlockParams::ForAll)?
@@ -589,7 +587,6 @@ impl Environment {
                     range: statement.range(),
                 };
                 self.add_proposition(prop);
-                self.bindings.unbind_args(forall_names);
                 Ok(())
             }
 
