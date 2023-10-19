@@ -134,17 +134,7 @@ impl Block {
         // Replace all of the constants that only exist in the inside environment
         let replaced = inner_value.replace_constants_with_variables(&ordered_ids);
 
-        let with_exists = if exists_types.is_empty() {
-            replaced
-        } else {
-            AcornValue::Exists(exists_types, Box::new(replaced))
-        };
-        let with_forall = if forall_types.is_empty() {
-            with_exists
-        } else {
-            AcornValue::ForAll(forall_types, Box::new(with_exists))
-        };
-        with_forall
+        AcornValue::new_forall(forall_types, AcornValue::new_exists(exists_types, replaced))
     }
 }
 
@@ -216,7 +206,7 @@ impl Environment {
                         .iter()
                         .map(|name| subenv.bindings.get_constant_atom(name).unwrap())
                         .collect();
-                    AcornValue::apply(unbound_claim, args)
+                    AcornValue::new_apply(unbound_claim, args)
                 })
             }
             BlockParams::ForAll => {

@@ -150,17 +150,6 @@ impl fmt::Display for AcornValue {
 }
 
 impl AcornValue {
-    // Creates a value of type matching AcornType::functional.
-    pub fn apply(function: AcornValue, args: Vec<AcornValue>) -> AcornValue {
-        if args.is_empty() {
-            return function;
-        }
-        AcornValue::Application(FunctionApplication {
-            function: Box::new(function),
-            args,
-        })
-    }
-
     pub fn is_constant(&self) -> bool {
         match self {
             AcornValue::Atom(t) => t.is_constant(),
@@ -195,6 +184,18 @@ impl AcornValue {
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
             AcornValue::Monomorph(_, generic_type, types) => generic_type.monomorphize(types),
+        }
+    }
+
+    // Construct an application if we have arguments, but omit it otherwise.
+    pub fn new_apply(function: AcornValue, args: Vec<AcornValue>) -> AcornValue {
+        if args.is_empty() {
+            function
+        } else {
+            AcornValue::Application(FunctionApplication {
+                function: Box::new(function),
+                args,
+            })
         }
     }
 

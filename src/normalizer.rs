@@ -68,7 +68,7 @@ impl Normalizer {
                         atom: Atom::Skolem(skolem_index),
                         acorn_type: skolem_type,
                     });
-                    let replacement = AcornValue::apply(function, args.clone());
+                    let replacement = AcornValue::new_apply(function, args.clone());
                     replacements.push(replacement);
                 }
 
