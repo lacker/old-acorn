@@ -416,31 +416,27 @@ impl Environment {
                 if self.bindings.has_identifier(&ds.name) {
                     return Err(Error::new(
                         &statement.first_token,
-                        &format!("variable name '{}' already defined in this scope", ds.name),
+                        &format!("function name '{}' already defined in this scope", ds.name),
                     ));
                 }
 
                 // Calculate the function value
-                let (type_params, arg_names, arg_types) = self
-                    .bindings
-                    .bind_templated_args(&ds.type_params, &ds.args)?;
-
-                let return_type = self.bindings.evaluate_type(&ds.return_type)?;
-                let fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
+                let (_, _, arg_types, unbound_value, value_type) =
+                    self.bindings.evaluate_subvalue(
+                        &ds.type_params,
+                        &ds.args,
+                        Some(&ds.return_type),
+                        &ds.return_value,
+                    )?;
+                let fn_value = if let Some(v) = unbound_value {
+                    AcornValue::new_lambda(arg_types, v)
+                } else {
                     let new_axiom_type = AcornType::Function(FunctionType {
                         arg_types,
-                        return_type: Box::new(return_type),
+                        return_type: Box::new(value_type),
                     });
                     self.bindings.next_constant_atom(&new_axiom_type)
-                } else {
-                    let return_value = self
-                        .bindings
-                        .evaluate_value(&ds.return_value, Some(&return_type))?;
-                    AcornValue::Lambda(arg_types, Box::new(return_value))
                 };
-                let fn_value = self.bindings.genericize(&type_params, fn_value);
-                self.bindings.unbind_args(&arg_names);
-                self.bindings.unbind_type_params(&type_params);
 
                 // Add the function value to the environment
                 self.bindings
