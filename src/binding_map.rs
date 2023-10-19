@@ -179,7 +179,7 @@ impl BindingMap {
         self.add_constant(name, acorn_type, None);
     }
 
-    // TODO: why is this a thing?
+    // Data types that come from type parameters get removed when they go out of scope.
     pub fn remove_data_type(&mut self, name: &str) {
         if self.data_types.last() != Some(&name.to_string()) {
             panic!("removing data type {} which is already not present", name);
