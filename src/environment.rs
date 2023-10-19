@@ -421,11 +421,9 @@ impl Environment {
                 }
 
                 // Calculate the function value
-                let (type_params, arg_names, arg_types) = self.bindings.bind_templated_args(
-                    &ds.type_params,
-                    &ds.args,
-                    &statement.first_token,
-                )?;
+                let (type_params, arg_names, arg_types) = self
+                    .bindings
+                    .bind_templated_args(&ds.type_params, &ds.args)?;
 
                 let return_type = self.bindings.evaluate_type(&ds.return_type)?;
                 let fn_value = if ds.return_value.token().token_type == TokenType::Axiom {
@@ -441,8 +439,8 @@ impl Environment {
                     AcornValue::Lambda(arg_types, Box::new(return_value))
                 };
                 let fn_value = self.bindings.genericize(&type_params, fn_value);
-                self.bindings.unbind_args(arg_names);
-                self.bindings.unbind_type_params(type_params);
+                self.bindings.unbind_args(&arg_names);
+                self.bindings.unbind_type_params(&type_params);
 
                 // Add the function value to the environment
                 self.bindings
@@ -467,11 +465,9 @@ impl Environment {
                 //   * A list of type parameters
                 //   * A list of arguments that are being universally quantified
                 //   * A boolean expression representing a claim of things that are true.
-                let (type_params, arg_names, arg_types) = self.bindings.bind_templated_args(
-                    &ts.type_params,
-                    &ts.args,
-                    &statement.first_token,
-                )?;
+                let (type_params, arg_names, arg_types) = self
+                    .bindings
+                    .bind_templated_args(&ts.type_params, &ts.args)?;
                 assert_eq!(arg_names.len(), arg_types.len());
                 let args = arg_names
                     .iter()
@@ -506,7 +502,7 @@ impl Environment {
                     .map(|t| self.bindings.get_type_for_name(t).unwrap().clone())
                     .collect();
 
-                self.bindings.unbind_args(arg_names);
+                self.bindings.unbind_args(&arg_names);
 
                 let unbound_claim =
                     AcornValue::new_monomorph(theorem_id, theorem_type, opaque_types);
@@ -517,7 +513,7 @@ impl Environment {
                     BlockParams::Theorem(&ts.name, unbound_claim),
                 )?;
 
-                self.bindings.unbind_type_params(type_params);
+                self.bindings.unbind_type_params(&type_params);
 
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),
@@ -627,7 +623,7 @@ impl Environment {
                     .evaluate_value(&es.claim, Some(&AcornType::Bool))?;
                 let general_claim =
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
-                self.bindings.unbind_args(quant_names.clone());
+                self.bindings.unbind_args(&quant_names);
                 let general_prop = Proposition {
                     display_name: None,
                     proven: false,

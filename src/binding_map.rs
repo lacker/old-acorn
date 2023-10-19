@@ -319,10 +319,10 @@ impl BindingMap {
     }
 
     // There should be a call to unbind_args for every call to bind_args.
-    pub fn unbind_args(&mut self, names: Vec<String>) {
+    pub fn unbind_args(&mut self, names: &[String]) {
         for name in names {
-            self.stack.remove(&name);
-            self.identifier_types.remove(&name);
+            self.stack.remove(name);
+            self.identifier_types.remove(name);
         }
     }
 
@@ -568,10 +568,74 @@ impl BindingMap {
                     },
                     Err(e) => Err(e),
                 };
-                self.unbind_args(arg_names);
+                self.unbind_args(&arg_names);
                 ret_val
             }
         }
+    }
+
+    // Evaluate an expression that is scoped within braces.
+    // type_params is a list of tokens for the parametrized types in this value.
+    // arg_exprs is a list of "<varname>: <typename>" expressions for the arguments.
+    // value_type_expr is an optional expression for the type of the value.
+    //   (None means expect a boolean value.)
+    // value_expr is the expression for the value itself.
+    //
+    // This function mutates the binding map but sets it back to its original state when finished.
+    //
+    // Returns a tuple with:
+    //   a list of type parameter names
+    //   a list of argument names
+    //   a list of argument types
+    //   an optional unbound value. (None means axiom.)
+    //   the value type
+    //
+    // Both the argument types and the value can be polymorphic, with the ith type parameter
+    // represented as AcornType::Generic(i).
+    // The return value is "unbound" in the sense that it has variable atoms that are not
+    // bound within any lambda, exists, or forall value.
+    pub fn evaluate_subvalue(
+        &mut self,
+        type_param_tokens: &[Token],
+        arg_exprs: &[Expression],
+        value_type_expr: Option<&Expression>,
+        value_expr: &Expression,
+    ) -> Result<(
+        Vec<String>,
+        Vec<String>,
+        Vec<AcornType>,
+        Option<AcornValue>,
+        AcornType,
+    )> {
+        // "Specific" types are types that can refer to these parameters bound as opaque types.
+        // "Generic" types are types where those have been replaced with AcornType::Generic types.
+        let (type_param_names, arg_names, specific_arg_types) =
+            self.bind_templated_args(type_param_tokens, arg_exprs)?;
+        let specific_value_type = match value_type_expr {
+            Some(e) => self.evaluate_type(e)?,
+            None => AcornType::Bool,
+        };
+        let generic_value = if value_expr.token().token_type == TokenType::Axiom {
+            None
+        } else {
+            let specific_value = self.evaluate_value(value_expr, Some(&specific_value_type))?;
+            let generic_value = self.genericize(&type_param_names, specific_value);
+            Some(generic_value)
+        };
+        let generic_value_type = self.genericize_type(&type_param_names, specific_value_type);
+        let generic_arg_types = specific_arg_types
+            .into_iter()
+            .map(|t| self.genericize_type(&type_param_names, t))
+            .collect();
+        self.unbind_args(&arg_names);
+        self.unbind_type_params(&type_param_names);
+        Ok((
+            type_param_names,
+            arg_names,
+            generic_arg_types,
+            generic_value,
+            generic_value_type,
+        ))
     }
 
     // Binds a possibly-empty list of generic types, along with function arguments.
@@ -579,12 +643,12 @@ impl BindingMap {
     // Internally to this scope, the types are opaque data types.
     // Externally, these types are marked as generic.
     // Returns (type param names, arg names, arg types).
+    // The arg types returned are the internal, opaque data types.
     // Call both unbind_args and unbind_type_params when done.
     pub fn bind_templated_args(
         &mut self,
         type_param_tokens: &[Token],
         args: &[Expression],
-        location: &Token,
     ) -> Result<(Vec<String>, Vec<String>, Vec<AcornType>)> {
         let mut type_params: Vec<String> = vec![];
         let mut opaque_types: Vec<AcornType> = vec![];
@@ -606,7 +670,7 @@ impl BindingMap {
         for (i, opaque_type) in opaque_types.iter().enumerate() {
             if !arg_types.iter().any(|a| a.refers_to(opaque_type)) {
                 return Err(Error::new(
-                    location,
+                    &type_param_tokens[i],
                     &format!(
                         "type parameter {} is not used in the function arguments",
                         type_params[i]
@@ -634,8 +698,21 @@ impl BindingMap {
         value
     }
 
+    fn genericize_type(&self, type_params: &[String], specific_type: AcornType) -> AcornType {
+        let mut answer = specific_type;
+        for (generic_type, name) in type_params.iter().enumerate() {
+            let data_type = if let AcornType::Data(i) = self.type_names.get(name).unwrap() {
+                i
+            } else {
+                panic!("we should only be genericizing data types");
+            };
+            answer = answer.genericize(*data_type, generic_type);
+        }
+        answer
+    }
+
     // Remove the generic types that were added by bind_type_params.
-    pub fn unbind_type_params(&mut self, type_params: Vec<String>) {
+    pub fn unbind_type_params(&mut self, type_params: &[String]) {
         for name in type_params.iter().rev() {
             self.remove_data_type(&name);
         }
