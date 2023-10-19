@@ -140,10 +140,10 @@ impl Block {
 
 // The different ways to construct a block
 enum BlockParams<'a> {
-    // The name of the theorem, as well as the "unbound claim".
-    // The unbound claim is either a bool, or a function from something -> bool.
-    // The statement of the theorem is that the unbound claim is true for all args.
-    Theorem(&'a str, AcornValue),
+    // The name of the theorem, its id, and its type.
+    // The theorem is either a bool, or a function from something -> bool.
+    // The meaning of the theorem is that it is true for all args.
+    Theorem(&'a str, AtomId),
 
     // The value passed in the "if" condition, and its range in the source document
     If(&'a AcornValue, Range),
@@ -207,7 +207,11 @@ impl Environment {
                 });
                 None
             }
-            BlockParams::Theorem(theorem_name, unbound_claim) => {
+            BlockParams::Theorem(theorem_name, theorem_id) => {
+                let theorem_type = self.bindings.get_type(theorem_name).unwrap().clone();
+                let unbound_claim =
+                    AcornValue::new_monomorph(theorem_id, theorem_type, opaque_types);
+
                 let arg_values = args
                     .iter()
                     .map(|(name, _)| subenv.bindings.get_constant_atom(name).unwrap())
@@ -496,22 +500,14 @@ impl Environment {
                     Some(generic_fn_value.clone()),
                 );
 
-                // Inside the block, the type parameters are represented by opaque data types
-                let opaque_types = type_params
-                    .iter()
-                    .map(|t| self.bindings.get_type_for_name(t).unwrap().clone())
-                    .collect();
-
                 self.bindings.unbind_args(&arg_names);
                 self.bindings.unbind_type_params(&type_params);
 
-                let unbound_claim =
-                    AcornValue::new_monomorph(theorem_id, theorem_type, opaque_types);
                 let block = self.new_block(
                     type_params.clone(),
                     args,
                     &ts.body,
-                    BlockParams::Theorem(&ts.name, unbound_claim),
+                    BlockParams::Theorem(&ts.name, theorem_id),
                 )?;
 
                 let prop = Proposition {
