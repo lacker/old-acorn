@@ -87,11 +87,70 @@ struct Block {
 
     // The "internal claim" of this block.
     // This claim is defined relative to the block's environment.
-    // This claim must be proved inside the block's environment in order for the block to be valid.
+    // This claim must be proved inside the block's environment for the block to be valid.
     claim: Option<AcornValue>,
 
     // The environment created inside the block.
     env: Environment,
+
+    // Constants that were already defined before this block can be exported.
+    // Since we never delete constants, and we assign ids in increasing order,
+    // i < num_exportable_constants implies that Atom::Constant(i) is exportable.
+    num_exportable_constants: AtomId,
+}
+
+impl Block {
+    // Convert a boolean value from the block's environment to a value in the outer environment.
+    fn export_bool(&self, inner_value: &AcornValue) -> AcornValue {
+        // The constants that were block arguments will export as "forall" variables.
+        let mut forall_ids: Vec<AtomId> = vec![];
+        let mut forall_types: Vec<AcornType> = vec![];
+        for (name, t) in &self.args {
+            if let Some(id) = self.env.bindings.get_constant_id(name) {
+                forall_ids.push(id);
+                forall_types.push(t.clone());
+            } else {
+                panic!("name {} not found in block constants", name);
+            }
+        }
+
+        // Find all unexportable constants
+        let mut unexportable: Vec<(AtomId, AcornType)> = vec![];
+        inner_value.find_constants_gte(self.num_exportable_constants, &mut unexportable);
+
+        // Unexportable constants that are not arguments export as "exists" variables.
+        let mut exists_ids = vec![];
+        let mut exists_types = vec![];
+        for (constant, constant_type) in unexportable {
+            if forall_ids.contains(&constant) {
+                continue;
+            }
+            exists_ids.push(constant);
+            exists_types.push(constant_type);
+        }
+
+        // The forall must be outside the exists, so order stack variables appropriately
+        let ordered_ids = forall_ids
+            .iter()
+            .chain(exists_ids.iter())
+            .cloned()
+            .collect();
+
+        // Replace all of the constants that only exist in the inside environment
+        let replaced = inner_value.replace_constants_with_variables(&ordered_ids);
+
+        let with_exists = if exists_types.is_empty() {
+            replaced
+        } else {
+            AcornValue::Exists(exists_types, Box::new(replaced))
+        };
+        let with_forall = if forall_types.is_empty() {
+            with_exists
+        } else {
+            AcornValue::ForAll(forall_types, Box::new(with_exists))
+        };
+        with_forall
+    }
 }
 
 // The different ways to construct a block
@@ -184,6 +243,7 @@ impl Environment {
             args,
             env: subenv,
             claim,
+            num_exportable_constants: self.bindings.num_constants(),
         }))
     }
 
