@@ -468,26 +468,35 @@ impl Environment {
                 };
                 self.definition_ranges.insert(ts.name.to_string(), range);
 
-                let (type_params, arg_names, generic_arg_types, unbound_value, _) =
-                    self.bindings
-                        .evaluate_subvalue(&ts.type_params, &ts.args, None, &ts.claim)?;
+                let (type_params, arg_names, arg_types, value, _) = self
+                    .bindings
+                    .evaluate_subvalue(&ts.type_params, &ts.args, None, &ts.claim)?;
 
-                let generic_unbound = unbound_value.unwrap();
+                let unbound_claim = if let Some(v) = value {
+                    v
+                } else {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        "theorems must have values",
+                    ));
+                };
+
                 let mut block_args = vec![];
-                for (arg_name, arg_type) in arg_names.iter().zip(&generic_arg_types) {
+                for (arg_name, arg_type) in arg_names.iter().zip(&arg_types) {
                     block_args.push((arg_name.clone(), arg_type.clone()));
                 }
 
-                let generic_forall =
-                    AcornValue::new_forall(generic_arg_types.clone(), generic_unbound.clone());
+                // Externally we use the theorem in "forall" form
+                let forall_claim = AcornValue::new_forall(arg_types.clone(), unbound_claim.clone());
 
-                let generic_lambda = AcornValue::new_lambda(generic_arg_types, generic_unbound);
+                // We define the theorem using "lambda" form
+                let lambda_claim = AcornValue::new_lambda(arg_types, unbound_claim);
 
-                let theorem_type = generic_lambda.get_type();
+                let theorem_type = lambda_claim.get_type();
                 self.bindings.add_constant(
                     &ts.name,
                     theorem_type.clone(),
-                    Some(generic_lambda.clone()),
+                    Some(lambda_claim.clone()),
                 );
 
                 let block = self.new_block(
@@ -500,7 +509,7 @@ impl Environment {
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),
                     proven: ts.axiomatic,
-                    claim: generic_forall,
+                    claim: forall_claim,
                     block,
                     range,
                 };

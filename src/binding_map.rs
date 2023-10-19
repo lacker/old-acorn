@@ -609,8 +609,38 @@ impl BindingMap {
     )> {
         // "Specific" types are types that can refer to these parameters bound as opaque types.
         // "Generic" types are types where those have been replaced with AcornType::Generic types.
-        let (type_param_names, arg_names, specific_arg_types) =
-            self.bind_templated_args(type_param_tokens, arg_exprs)?;
+
+        // Bind all the type parameters and arguments
+        let mut type_param_names: Vec<String> = vec![];
+        let mut opaque_types: Vec<AcornType> = vec![];
+        for token in type_param_tokens {
+            if self.type_names.contains_key(token.text()) {
+                return Err(Error::new(
+                    token,
+                    "cannot redeclare a type in a generic type list",
+                ));
+            }
+            opaque_types.push(self.add_data_type(token.text()));
+            type_param_names.push(token.text().to_string());
+        }
+        let (arg_names, specific_arg_types) = self.bind_args(arg_exprs)?;
+
+        // Check for possible errors in the specification.
+        // Each type has to be used by some argument so that we know how to
+        // monomorphize the template.
+        for (i, opaque_type) in opaque_types.iter().enumerate() {
+            if !specific_arg_types.iter().any(|a| a.refers_to(opaque_type)) {
+                return Err(Error::new(
+                    &type_param_tokens[i],
+                    &format!(
+                        "type parameter {} is not used in the function arguments",
+                        type_param_names[i]
+                    ),
+                ));
+            }
+        }
+
+        // Evaluate the inner value using our modified bindings
         let specific_value_type = match value_type_expr {
             Some(e) => self.evaluate_type(e)?,
             None => AcornType::Bool,
@@ -622,13 +652,20 @@ impl BindingMap {
             let generic_value = self.genericize(&type_param_names, specific_value);
             Some(generic_value)
         };
+
+        // Genericize everything before returning it
         let generic_value_type = self.genericize_type(&type_param_names, specific_value_type);
         let generic_arg_types = specific_arg_types
             .into_iter()
             .map(|t| self.genericize_type(&type_param_names, t))
             .collect();
+
+        // Reset the bindings
         self.unbind_args(&arg_names);
-        self.unbind_type_params(&type_param_names);
+        for name in type_param_names.iter().rev() {
+            self.remove_data_type(&name);
+        }
+
         Ok((
             type_param_names,
             arg_names,
@@ -636,49 +673,6 @@ impl BindingMap {
             generic_value,
             generic_value_type,
         ))
-    }
-
-    // Binds a possibly-empty list of generic types, along with function arguments.
-    // This adds names for both types and arguments to the environment.
-    // Internally to this scope, the types are opaque data types.
-    // Externally, these types are marked as generic.
-    // Returns (type param names, arg names, specific arg types).
-    // The arg types returned are the internal, opaque data types.
-    // Call both unbind_args and unbind_type_params when done.
-    pub fn bind_templated_args(
-        &mut self,
-        type_param_tokens: &[Token],
-        args: &[Expression],
-    ) -> Result<(Vec<String>, Vec<String>, Vec<AcornType>)> {
-        let mut type_params: Vec<String> = vec![];
-        let mut opaque_types: Vec<AcornType> = vec![];
-        for token in type_param_tokens {
-            if self.type_names.contains_key(token.text()) {
-                return Err(Error::new(
-                    token,
-                    "cannot redeclare a type in a generic type list",
-                ));
-            }
-            opaque_types.push(self.add_data_type(token.text()));
-            type_params.push(token.text().to_string());
-        }
-
-        let (arg_names, arg_types) = self.bind_args(args)?;
-
-        // Each type has to be used by some argument so that we know how to
-        // monomorphize the template
-        for (i, opaque_type) in opaque_types.iter().enumerate() {
-            if !arg_types.iter().any(|a| a.refers_to(opaque_type)) {
-                return Err(Error::new(
-                    &type_param_tokens[i],
-                    &format!(
-                        "type parameter {} is not used in the function arguments",
-                        type_params[i]
-                    ),
-                ));
-            }
-        }
-        Ok((type_params, arg_names, arg_types))
     }
 
     // type_params contains a list of types that should look like opaque data types to us.
@@ -709,13 +703,6 @@ impl BindingMap {
             answer = answer.genericize(*data_type, generic_type);
         }
         answer
-    }
-
-    // Remove the generic types that were added by bind_type_params.
-    pub fn unbind_type_params(&mut self, type_params: &[String]) {
-        for name in type_params.iter().rev() {
-            self.remove_data_type(&name);
-        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////
