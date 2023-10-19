@@ -189,6 +189,13 @@ impl Environment {
             opaque_types.push(subenv.bindings.add_data_type(type_param));
         }
 
+        // Inside the block, the arguments are constants.
+        for (arg_name, arg_type) in &args {
+            subenv
+                .bindings
+                .add_constant(&arg_name, arg_type.clone(), None);
+        }
+
         let claim = match params {
             BlockParams::If(fact, range) => {
                 subenv.add_proposition(Proposition {
@@ -201,11 +208,6 @@ impl Environment {
                 None
             }
             BlockParams::Theorem(theorem_name, unbound_claim) => {
-                for (arg_name, arg_type) in &args {
-                    subenv
-                        .bindings
-                        .add_constant(&arg_name, arg_type.clone(), None);
-                }
                 let arg_values = args
                     .iter()
                     .map(|(name, _)| subenv.bindings.get_constant_atom(name).unwrap())
@@ -218,14 +220,7 @@ impl Environment {
 
                 Some(AcornValue::new_apply(unbound_claim, arg_values))
             }
-            BlockParams::ForAll => {
-                for (arg_name, arg_type) in &args {
-                    subenv
-                        .bindings
-                        .add_constant(&arg_name, arg_type.clone(), None);
-                }
-                None
-            }
+            BlockParams::ForAll => None,
         };
 
         for s in body {
