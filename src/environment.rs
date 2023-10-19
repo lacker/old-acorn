@@ -499,17 +499,13 @@ impl Environment {
 
                 // The functional value of the theorem is the lambda that
                 // is constantly "true" if the theorem is true.
-                let fn_value = if arg_types.is_empty() {
-                    claim_value
-                } else {
-                    AcornValue::Lambda(arg_types.clone(), Box::new(claim_value))
-                };
-                let fn_value = self.bindings.genericize(&generic_types, fn_value);
+                let specific_fn_value = AcornValue::new_lambda(arg_types, claim_value);
+                let generic_fn_value = self.bindings.genericize(&generic_types, specific_fn_value);
 
                 let c_id = self.bindings.add_constant(
                     &ts.name,
-                    fn_value.get_type(),
-                    Some(fn_value.clone()),
+                    generic_fn_value.get_type(),
+                    Some(generic_fn_value.clone()),
                 );
 
                 // Figure out the range for this theorem definition.
