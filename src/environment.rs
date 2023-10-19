@@ -199,15 +199,12 @@ impl Environment {
                 for name in &names {
                     subenv.bindings.move_stack_variable_to_constant(name);
                 }
-                Some(if names.is_empty() {
-                    unbound_claim
-                } else {
-                    let args: Vec<_> = names
-                        .iter()
-                        .map(|name| subenv.bindings.get_constant_atom(name).unwrap())
-                        .collect();
-                    AcornValue::new_apply(unbound_claim, args)
-                })
+
+                let args: Vec<_> = names
+                    .iter()
+                    .map(|name| subenv.bindings.get_constant_atom(name).unwrap())
+                    .collect();
+                Some(AcornValue::new_apply(unbound_claim, args))
             }
             BlockParams::ForAll => {
                 let names = self.bindings.stack_names();
@@ -455,11 +452,11 @@ impl Environment {
 
             StatementInfo::Theorem(ts) => {
                 // A theorem has three parts:
-                //   * A list of generic types
+                //   * A list of type parameters
                 //   * A list of arguments that are being universally quantified
                 //   * A boolean expression representing a claim of things that are true.
-                let (generic_types, arg_names, arg_types) = self.bindings.bind_templated_args(
-                    &ts.generic_types,
+                let (type_params, arg_names, arg_types) = self.bindings.bind_templated_args(
+                    &ts.type_params,
                     &ts.args,
                     &statement.first_token,
                 )?;
@@ -478,23 +475,24 @@ impl Environment {
                     Ok(claim_value) => claim_value,
                     Err(e) => {
                         self.bindings.unbind_args(arg_names);
-                        self.bindings.unbind_generic_types(generic_types);
+                        self.bindings.unbind_generic_types(type_params);
                         return Err(e);
                     }
                 };
 
                 // The claim of the theorem is what we need to prove.
                 let specific_claim = AcornValue::new_forall(arg_types.clone(), claim_value.clone());
-                let generic_claim = self.bindings.genericize(&generic_types, specific_claim);
+                let generic_claim = self.bindings.genericize(&type_params, specific_claim);
 
                 // The functional value of the theorem is the lambda that
                 // is constantly "true" if the theorem is true.
                 let specific_fn_value = AcornValue::new_lambda(arg_types, claim_value);
-                let generic_fn_value = self.bindings.genericize(&generic_types, specific_fn_value);
+                let generic_fn_value = self.bindings.genericize(&type_params, specific_fn_value);
 
-                let c_id = self.bindings.add_constant(
+                let theorem_type = generic_fn_value.get_type();
+                let theorem_id = self.bindings.add_constant(
                     &ts.name,
-                    generic_fn_value.get_type(),
+                    theorem_type.clone(),
                     Some(generic_fn_value.clone()),
                 );
 
@@ -507,18 +505,16 @@ impl Environment {
                 };
                 self.definition_ranges.insert(ts.name.to_string(), range);
 
-                let constant_atom = self.bindings.get_constant_atom(&ts.name).unwrap();
-                let unbound_claim = if generic_types.is_empty() {
-                    constant_atom
-                } else {
-                    let types = generic_types
-                        .iter()
-                        .map(|t| self.bindings.get_type_for_name(t).unwrap().clone())
-                        .collect();
-                    AcornValue::Monomorph(c_id, constant_atom.get_type(), types)
-                };
+                // Inside the block, the type parameters are represented by opaque data types
+                let opaque_types = type_params
+                    .iter()
+                    .map(|t| self.bindings.get_type_for_name(t).unwrap().clone())
+                    .collect();
+
+                let unbound_claim =
+                    AcornValue::new_monomorph(theorem_id, theorem_type, opaque_types);
                 let block = self.new_block(
-                    generic_types.clone(),
+                    type_params.clone(),
                     args,
                     &ts.body,
                     BlockParams::Theorem(&ts.name, unbound_claim),
@@ -535,7 +531,7 @@ impl Environment {
                 self.theorem_names.insert(ts.name.to_string());
 
                 self.bindings.unbind_args(arg_names);
-                self.bindings.unbind_generic_types(generic_types);
+                self.bindings.unbind_generic_types(type_params);
 
                 Ok(())
             }

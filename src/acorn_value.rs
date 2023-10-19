@@ -226,6 +226,22 @@ impl AcornValue {
         }
     }
 
+    // Construct a monomorph if we have generic types, but otherwise just return the atom.
+    pub fn new_monomorph(
+        constant_id: AtomId,
+        constant_type: AcornType,
+        types: Vec<AcornType>,
+    ) -> AcornValue {
+        if types.is_empty() {
+            AcornValue::Atom(TypedAtom {
+                atom: Atom::Constant(constant_id),
+                acorn_type: constant_type,
+            })
+        } else {
+            AcornValue::Monomorph(constant_id, constant_type, types)
+        }
+    }
+
     pub fn negate(self) -> AcornValue {
         self.maybe_negate(true)
     }

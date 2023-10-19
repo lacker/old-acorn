@@ -38,7 +38,7 @@ pub struct DefineStatement {
 pub struct TheoremStatement {
     pub axiomatic: bool,
     pub name: String,
-    pub generic_types: Vec<Token>,
+    pub type_params: Vec<Token>,
     pub args: Vec<Expression>,
     pub claim: Expression,
     pub body: Vec<Statement>,
@@ -237,7 +237,7 @@ fn parse_theorem_statement(
     let ts = TheoremStatement {
         axiomatic,
         name,
-        generic_types,
+        type_params: generic_types,
         args,
         claim,
         body,
@@ -456,7 +456,7 @@ impl Statement {
                     write!(f, "theorem")?;
                 }
                 write!(f, " {}", ts.name)?;
-                write_generic_types(f, &ts.generic_types)?;
+                write_generic_types(f, &ts.type_params)?;
                 write_args(f, &ts.args)?;
                 write!(f, ": {}", ts.claim)?;
                 if ts.body.len() > 0 {
