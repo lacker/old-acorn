@@ -692,7 +692,7 @@ impl BindingMap {
         value
     }
 
-    pub fn genericize_type(&self, type_params: &[String], specific_type: AcornType) -> AcornType {
+    fn genericize_type(&self, type_params: &[String], specific_type: AcornType) -> AcornType {
         let mut answer = specific_type;
         for (generic_type, name) in type_params.iter().enumerate() {
             let data_type = if let AcornType::Data(i) = self.type_names.get(name).unwrap() {
