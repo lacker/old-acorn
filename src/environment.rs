@@ -166,6 +166,8 @@ impl Environment {
     //
     // Performance is quadratic because it clones a lot of the existing environment.
     // Using different data structures should improve this when we need to.
+    //
+    // The types in args must be generic when type params are provided.
     fn new_block(
         &self,
         type_params: Vec<String>,
@@ -190,10 +192,11 @@ impl Environment {
         }
 
         // Inside the block, the arguments are constants.
-        for (arg_name, arg_type) in &args {
+        for (arg_name, generic_arg_type) in &args {
+            let specific_arg_type = generic_arg_type.monomorphize(&opaque_types);
             subenv
                 .bindings
-                .add_constant(&arg_name, arg_type.clone(), None);
+                .add_constant(&arg_name, specific_arg_type, None);
         }
 
         let claim = match params {
@@ -473,40 +476,46 @@ impl Environment {
                     .bindings
                     .bind_templated_args(&ts.type_params, &ts.args)?;
                 assert_eq!(arg_names.len(), specific_arg_types.len());
-                let args = arg_names
-                    .iter()
-                    .zip(specific_arg_types.iter())
-                    .map(|(name, acorn_type)| (name.clone(), acorn_type.clone()))
-                    .collect();
+                let mut generic_arg_types = vec![];
+                let mut block_args = vec![];
+                for (arg_name, specific_arg_type) in arg_names.iter().zip(&specific_arg_types) {
+                    let generic_arg_type = self
+                        .bindings
+                        .genericize_type(&type_params, specific_arg_type.clone());
+                    block_args.push((arg_name.clone(), generic_arg_type.clone()));
+                    generic_arg_types.push(generic_arg_type);
+                }
 
-                // Handle the claim
-                let claim_value = self
+                // There are many ways to express the claim of a theorem.
+                // The type parameters can be specific or generic.
+                // The value can be wrapped in a lambda or a forall, or it could have
+                // unbound variables.
+
+                let specific_unbound = self
                     .bindings
                     .evaluate_value(&ts.claim, Some(&AcornType::Bool))?;
-
-                // The claim of the theorem is what we need to prove.
-                let specific_claim =
-                    AcornValue::new_forall(specific_arg_types.clone(), claim_value.clone());
-                let generic_claim = self.bindings.genericize(&type_params, specific_claim);
-
-                // The functional value of the theorem is the lambda that is true for all
-                // arguments if the theorem is true.
-                let specific_fn_value = AcornValue::new_lambda(specific_arg_types, claim_value);
-                let generic_fn_value = self.bindings.genericize(&type_params, specific_fn_value);
-
-                let theorem_type = generic_fn_value.get_type();
-                self.bindings.add_constant(
-                    &ts.name,
-                    theorem_type.clone(),
-                    Some(generic_fn_value.clone()),
-                );
+                let generic_unbound = self
+                    .bindings
+                    .genericize(&type_params, specific_unbound.clone());
 
                 self.bindings.unbind_args(&arg_names);
                 self.bindings.unbind_type_params(&type_params);
 
+                let generic_forall =
+                    AcornValue::new_forall(generic_arg_types.clone(), generic_unbound.clone());
+
+                let generic_lambda = AcornValue::new_lambda(generic_arg_types, generic_unbound);
+
+                let theorem_type = generic_lambda.get_type();
+                self.bindings.add_constant(
+                    &ts.name,
+                    theorem_type.clone(),
+                    Some(generic_lambda.clone()),
+                );
+
                 let block = self.new_block(
                     type_params.clone(),
-                    args,
+                    block_args,
                     &ts.body,
                     BlockParams::Theorem(&ts.name),
                 )?;
@@ -514,7 +523,7 @@ impl Environment {
                 let prop = Proposition {
                     display_name: Some(ts.name.to_string()),
                     proven: ts.axiomatic,
-                    claim: generic_claim,
+                    claim: generic_forall,
                     block,
                     range,
                 };
