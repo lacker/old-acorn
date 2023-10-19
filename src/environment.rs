@@ -195,16 +195,18 @@ impl Environment {
             }
             BlockParams::Theorem(theorem_name, unbound_claim) => {
                 subenv.add_identity_props(theorem_name);
-                let names = self.bindings.stack_names();
-                for name in &names {
-                    subenv.bindings.move_stack_variable_to_constant(name);
-                }
 
-                let args: Vec<_> = names
+                for (arg_name, arg_type) in &args {
+                    subenv
+                        .bindings
+                        .add_constant(&arg_name, arg_type.clone(), None);
+                }
+                let arg_values = args
                     .iter()
-                    .map(|name| subenv.bindings.get_constant_atom(name).unwrap())
-                    .collect();
-                Some(AcornValue::new_apply(unbound_claim, args))
+                    .map(|(name, _)| subenv.bindings.get_constant_atom(name).unwrap())
+                    .collect::<Vec<_>>();
+
+                Some(AcornValue::new_apply(unbound_claim, arg_values))
             }
             BlockParams::ForAll => {
                 for (arg_name, arg_type) in &args {
@@ -504,6 +506,8 @@ impl Environment {
                     .map(|t| self.bindings.get_type_for_name(t).unwrap().clone())
                     .collect();
 
+                self.bindings.unbind_args(arg_names);
+
                 let unbound_claim =
                     AcornValue::new_monomorph(theorem_id, theorem_type, opaque_types);
                 let block = self.new_block(
@@ -513,7 +517,6 @@ impl Environment {
                     BlockParams::Theorem(&ts.name, unbound_claim),
                 )?;
 
-                self.bindings.unbind_args(arg_names);
                 self.bindings.unbind_type_params(type_params);
 
                 let prop = Proposition {

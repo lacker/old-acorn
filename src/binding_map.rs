@@ -172,13 +172,6 @@ impl BindingMap {
         id
     }
 
-    // TODO: why is this a thing?
-    pub fn move_stack_variable_to_constant(&mut self, name: &str) {
-        self.stack.remove(name).unwrap();
-        let acorn_type = self.identifier_types.remove(name).unwrap();
-        self.add_constant(name, acorn_type, None);
-    }
-
     // Data types that come from type parameters get removed when they go out of scope.
     pub fn remove_data_type(&mut self, name: &str) {
         if self.data_types.last() != Some(&name.to_string()) {
