@@ -9,7 +9,7 @@ use crate::term::{Literal, Term};
 
 pub type TypeId = u16;
 
-pub const ANY: TypeId = 0;
+pub const EMPTY: TypeId = 0;
 pub const BOOL: TypeId = 1;
 
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
@@ -22,10 +22,7 @@ pub struct MonomorphKey {
 // functions can be polymorphic.
 // The low-level prover only understands simple typing, where each value has a TypeId, and there
 // is no polymorphism.
-// The TypeSpace is a mapping between the two.
-//
-// The zero TypeId always means "any", which we don't give to specific atoms, but we use for
-// matching or for testing.
+// The TypeSpace is a mapping between the two.//
 pub struct TypeSpace {
     types: Vec<AcornType>,
 
@@ -53,7 +50,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl TypeSpace {
     pub fn new() -> TypeSpace {
         TypeSpace {
-            types: vec![AcornType::Any, AcornType::Bool],
+            types: vec![AcornType::Empty, AcornType::Bool],
             monomorph_info: vec![],
             monomorph_map: HashMap::new(),
         }

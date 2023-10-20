@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::atom::{Atom, AtomId};
-use crate::type_space::{TypeId, ANY, BOOL};
+use crate::type_space::{TypeId, BOOL, EMPTY};
 
 // A term with no args is a plain atom.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -101,7 +101,7 @@ fn dominates(a: &Vec<u8>, b: &Vec<u8>) -> bool {
 }
 
 impl Term {
-    // This creates an untyped term, good for testing but not for real use.
+    // This creates a mistyped term, okay for testing but not for real use.
     // For example, this parses
     //   c0(c1, c2(x0, x1))
     // into a term with head c0 and args [c1, c2(x0, x1)].
@@ -112,7 +112,7 @@ impl Term {
 
         let first_paren = match s.find('(') {
             Some(i) => i,
-            None => return Term::atom(ANY, Atom::new(s)),
+            None => return Term::atom(EMPTY, Atom::new(s)),
         };
 
         // Figure out which commas are inside precisely one level of parentheses.

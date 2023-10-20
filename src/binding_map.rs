@@ -722,16 +722,11 @@ impl BindingMap {
 
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
         match acorn_type {
-            AcornType::Bool => "bool".to_string(),
             AcornType::Data(i) => {
                 if i >= &self.data_types.len() {
                     panic!("AcornType::Data({}) is invalid in this scope", i);
                 }
                 self.data_types[*i].to_string()
-            }
-            AcornType::Parameter(i) => {
-                // This return value doesn't mean anything, but it's useful for debugging.
-                format!("T{}", i)
             }
             AcornType::Function(function_type) => {
                 let ret = self.type_str(&function_type.return_type);
@@ -745,7 +740,7 @@ impl BindingMap {
                     format!("{} -> {}", self.type_str(&function_type.arg_types[0]), ret)
                 }
             }
-            AcornType::Any => "any".to_string(),
+            t => t.to_string(),
         }
     }
 

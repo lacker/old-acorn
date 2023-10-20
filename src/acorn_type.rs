@@ -6,17 +6,28 @@ pub struct FunctionType {
     pub return_type: Box<AcornType>,
 }
 
-// Functional types can be applied.
-// Data types include both axiomatic types and struct types.
-// Parameters are types for values within a parametrized expression.
-// "Any" is a hack used for testing.
+// Every AcornValue has an AcornType.
+// This is the "richer" form of a type. The environment uses these types; the prover uses ids.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub enum AcornType {
+    // Nothing can ever be the empty type.
+    Empty,
+
+    // Booleans are special
     Bool,
+
+    // Data types include structs, axiomatic types, and externally defined types.
     Data(usize),
-    Parameter(usize),
+
+    // Function types are defined by their inputs and output.
     Function(FunctionType),
-    Any,
+
+    // Type parameters can be used inside polymorphic expressions.
+    Parameter(usize),
+
+    // Usually before proving we monomorphize everything.
+    // When we don't have a specific type to monomorphize to, we use a placeholder type.
+    Placeholder(usize),
 }
 
 impl AcornType {
@@ -78,10 +89,7 @@ impl AcornType {
                 }
                 function_type.return_type.refers_to(other_type)
             }
-            AcornType::Data(_) => false,
-            AcornType::Parameter(_) => false,
-            AcornType::Bool => false,
-            AcornType::Any => false,
+            _ => false,
         }
     }
 
@@ -127,10 +135,8 @@ impl AcornType {
                 // Generic types should be monomorphized before passing it to the prover
                 false
             }
-            AcornType::Any => {
-                // The "any" type is not normalizable. You just shouldn't use it for prover stuff.
-                false
-            }
+            AcornType::Empty => false,
+            AcornType::Placeholder(_) => true,
         }
     }
 
@@ -242,7 +248,9 @@ impl AcornType {
     // A type is polymorphic if any of its components are type parameters.
     pub fn is_polymorphic(&self) -> bool {
         match self {
-            AcornType::Bool | AcornType::Data(_) | AcornType::Any => false,
+            AcornType::Bool | AcornType::Data(_) | AcornType::Empty | AcornType::Placeholder(_) => {
+                false
+            }
             AcornType::Parameter(_) => true,
             AcornType::Function(ftype) => {
                 for arg_type in &ftype.arg_types {
@@ -270,7 +278,8 @@ impl fmt::Display for AcornType {
                     function_type.return_type
                 )
             }
-            AcornType::Any => write!(f, "any"),
+            AcornType::Empty => write!(f, "empty"),
+            AcornType::Placeholder(index) => write!(f, "P{}", index),
         }
     }
 }
