@@ -411,10 +411,19 @@ theorem has_prime_divisor(n: Nat): lt(1, n) -> exists(p: Nat) {
     }
 }
 
-exists(factorial: Nat -> Nat) {
-    factorial(0) = 1 &
-    forall(n: Nat) { factorial(Suc(n)) = mul(Suc(n), factorial(n)) }
+struct NatPair {
+    first: Nat
+    second: Nat
 }
+
+// Takes (n, n!) -> (n+1, (n+1)!)
+define fac_helper(p: NatPair) -> NatPair = NatPair.new(Suc(NatPair.first(p)), mul(Suc(NatPair.first(p)), NatPair.second(p)))
+
+define factorial(n: Nat) -> Nat = NatPair.second(recursion(fac_helper, NatPair.new(0, 1), n))
+
+theorem factorial_zero: factorial(0) = 1
+
+theorem factorial_step(n: Nat): factorial(Suc(n)) = mul(Suc(n), factorial(n))
 
 theorem divides_factorial(k: Nat, n: Nat):
     k != 0 & lte(k, n) -> divides(k, factorial(n)) by {
