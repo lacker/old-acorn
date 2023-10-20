@@ -171,14 +171,8 @@ impl Prover<'_> {
 
     pub fn add_goal(&mut self, proposition: AcornValue) {
         assert!(self.goal.is_none());
-        if proposition.is_polymorphic() {
-            panic!(
-                "cannot give a polymorphic goal to the prover: {}",
-                self.env.value_str(&proposition)
-            );
-        }
         self.goal = Some(proposition.clone());
-        for clause in self.normalize_proposition(proposition.negate()) {
+        for clause in self.normalize_proposition(proposition.to_placeholder().negate()) {
             let info = self.new_clause_info(
                 clause,
                 ClauseType::NegatedGoal,
