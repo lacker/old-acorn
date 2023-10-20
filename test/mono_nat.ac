@@ -1,5 +1,5 @@
 // Theorems in nat.ac that we should be able to snap-prove.
-// Useful for testing.
+// These theorems are monomorphized to Nat only, so they are simpler than the polymorphic versions.
 
 type Nat: axiom
 

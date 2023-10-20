@@ -1047,49 +1047,51 @@ mod tests {
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
-    fn test_basic(name: &str) {
+    // These tests are like integration tests. See the files in the `tests` directory.
+
+    fn test_mono(name: &str) {
         let mut env = Environment::new();
-        env.load_test("basic_nat.ac").unwrap();
+        env.load_test("mono_nat.ac").unwrap();
         assert_eq!(Prover::prove_theorem(&env, name), Outcome::Success);
     }
 
     #[test]
-    fn test_basic_add_zero_right() {
-        test_basic("add_zero_right");
+    fn test_mono_add_zero_right() {
+        test_mono("add_zero_right");
     }
 
     #[test]
-    fn test_basic_one_plus_one() {
-        test_basic("one_plus_one");
+    fn test_mono_one_plus_one() {
+        test_mono("one_plus_one");
     }
 
     #[test]
-    fn test_basic_add_zero_left() {
-        test_basic("add_zero_left");
+    fn test_mono_add_zero_left() {
+        test_mono("add_zero_left");
     }
 
     #[test]
-    fn test_basic_add_suc_right() {
-        test_basic("add_suc_right");
+    fn test_mono_add_suc_right() {
+        test_mono("add_suc_right");
     }
 
     #[test]
-    fn test_basic_add_suc_left() {
-        test_basic("add_suc_left");
+    fn test_mono_add_suc_left() {
+        test_mono("add_suc_left");
     }
 
     #[test]
-    fn test_basic_suc_ne() {
-        test_basic("suc_ne");
+    fn test_mono_suc_ne() {
+        test_mono("suc_ne");
     }
 
     #[test]
-    fn test_basic_suc_suc_ne() {
-        test_basic("suc_suc_ne");
+    fn test_mono_suc_suc_ne() {
+        test_mono("suc_suc_ne");
     }
 
     #[test]
-    fn test_basic_add_comm() {
-        test_basic("add_comm");
+    fn test_mono_add_comm() {
+        test_mono("add_comm");
     }
 }
