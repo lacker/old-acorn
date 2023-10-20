@@ -1105,4 +1105,39 @@ mod tests {
     fn test_poly_add_zero_right() {
         test_poly("add_zero_right");
     }
+
+    #[test]
+    fn test_poly_one_plus_one() {
+        test_poly("one_plus_one");
+    }
+
+    #[test]
+    fn test_poly_add_zero_left() {
+        test_poly("add_zero_left");
+    }
+
+    #[test]
+    fn test_poly_add_suc_right() {
+        test_poly("add_suc_right");
+    }
+
+    #[test]
+    fn test_poly_add_suc_left() {
+        test_poly("add_suc_left");
+    }
+
+    #[test]
+    fn test_poly_suc_ne() {
+        test_poly("suc_ne");
+    }
+
+    #[test]
+    fn test_poly_suc_suc_ne() {
+        test_poly("suc_suc_ne");
+    }
+
+    #[test]
+    fn test_poly_add_comm() {
+        test_poly("add_comm");
+    }
 }
