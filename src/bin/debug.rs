@@ -25,7 +25,7 @@ fn main() {
 
     // Find all the goals in the file
     let mut env = Environment::new();
-    env.load_file(&input_file).unwrap();
+    env.load_math(&input_file).unwrap();
     let goal_paths = env.goal_paths();
     let goals = goal_paths
         .iter()

@@ -14,7 +14,7 @@ fn main() {
 
     // Load the environment
     let mut env = Environment::new();
-    env.load_file(&input_file).unwrap();
+    env.load_math(&input_file).unwrap();
 
     let paths = env.goal_paths();
     for path in paths {

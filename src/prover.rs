@@ -1052,7 +1052,7 @@ mod tests {
     // to a test that doesn't use the snap environment.
     fn snap_env() -> Environment {
         let mut env = Environment::new();
-        env.load_file("snapnat.ac").unwrap();
+        env.load_test("basic_nat.ac").unwrap();
         env
     }
 

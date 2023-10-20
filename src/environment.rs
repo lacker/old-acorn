@@ -243,18 +243,26 @@ impl Environment {
         }))
     }
 
-    pub fn load_file(&mut self, filename: &str) -> io::Result<()> {
+    fn load_file(&mut self, dir: &str, filename: &str) -> io::Result<()> {
         let path = if filename.starts_with('.') {
             PathBuf::from(filename)
         } else {
             let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            d.push("math/");
+            d.push(dir);
             d.push(filename);
             d
         };
         let contents = std::fs::read_to_string(path)?;
         self.add(&contents);
         Ok(())
+    }
+
+    pub fn load_math(&mut self, filename: &str) -> io::Result<()> {
+        self.load_file("math", filename)
+    }
+
+    pub fn load_test(&mut self, filename: &str) -> io::Result<()> {
+        self.load_file("test", filename)
     }
 
     // Adds a proposition.
