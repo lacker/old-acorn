@@ -1047,75 +1047,49 @@ mod tests {
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
-    // An environment with theorems that we should be able to prove in testing.
-    // Ideally when there's a problem with one of these theorems we can simplify it
-    // to a test that doesn't use the snap environment.
-    fn snap_env() -> Environment {
+    fn test_basic(name: &str) {
         let mut env = Environment::new();
         env.load_test("basic_nat.ac").unwrap();
-        env
+        assert_eq!(Prover::prove_theorem(&env, name), Outcome::Success);
     }
 
     #[test]
-    fn test_snap_add_zero_right() {
-        let env = snap_env();
-        assert_eq!(
-            Prover::prove_theorem(&env, "add_zero_right"),
-            Outcome::Success
-        );
+    fn test_basic_add_zero_right() {
+        test_basic("add_zero_right");
     }
 
     #[test]
-    fn test_snap_one_plus_one() {
-        let env = snap_env();
-        assert_eq!(
-            Prover::prove_theorem(&env, "one_plus_one"),
-            Outcome::Success
-        );
+    fn test_basic_one_plus_one() {
+        test_basic("one_plus_one");
     }
 
     #[test]
-    fn test_snap_add_zero_left() {
-        let env = snap_env();
-        assert_eq!(
-            Prover::prove_theorem(&env, "add_zero_left"),
-            Outcome::Success
-        );
+    fn test_basic_add_zero_left() {
+        test_basic("add_zero_left");
     }
 
     #[test]
-    fn test_snap_add_suc_right() {
-        let env = snap_env();
-        assert_eq!(
-            Prover::prove_theorem(&env, "add_suc_right"),
-            Outcome::Success
-        );
+    fn test_basic_add_suc_right() {
+        test_basic("add_suc_right");
     }
 
     #[test]
-    fn test_snap_add_suc_left() {
-        let env = snap_env();
-        assert_eq!(
-            Prover::prove_theorem(&env, "add_suc_left"),
-            Outcome::Success
-        );
+    fn test_basic_add_suc_left() {
+        test_basic("add_suc_left");
     }
 
     #[test]
-    fn test_snap_suc_ne() {
-        let env = snap_env();
-        assert_eq!(Prover::prove_theorem(&env, "suc_ne"), Outcome::Success);
+    fn test_basic_suc_ne() {
+        test_basic("suc_ne");
     }
 
     #[test]
-    fn test_snap_suc_suc_ne() {
-        let env = snap_env();
-        assert_eq!(Prover::prove_theorem(&env, "suc_suc_ne"), Outcome::Success);
+    fn test_basic_suc_suc_ne() {
+        test_basic("suc_suc_ne");
     }
 
     #[test]
-    fn test_snap_add_comm() {
-        let env = snap_env();
-        assert_eq!(Prover::prove_theorem(&env, "add_comm"), Outcome::Success);
+    fn test_basic_add_comm() {
+        test_basic("add_comm");
     }
 }
