@@ -729,7 +729,7 @@ impl BindingMap {
                 }
                 self.data_types[*i].to_string()
             }
-            AcornType::Generic(i) => {
+            AcornType::Parameter(i) => {
                 // This return value doesn't mean anything, but it's useful for debugging.
                 format!("T{}", i)
             }

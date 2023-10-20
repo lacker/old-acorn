@@ -171,9 +171,9 @@ impl Prover<'_> {
 
     pub fn add_goal(&mut self, proposition: AcornValue) {
         assert!(self.goal.is_none());
-        if proposition.has_generic() {
+        if proposition.is_polymorphic() {
             panic!(
-                "cannot give a generic goal to the prover: {}",
+                "cannot give a polymorphic goal to the prover: {}",
                 self.env.value_str(&proposition)
             );
         }
@@ -999,16 +999,16 @@ mod tests {
         assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
-    // #[test]
-    // fn test_proving_templated_theorem_no_block() {
-    //     let mut env = Environment::new();
-    //     env.add(
-    //         r#"
-    //         theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c
-    //     "#,
-    //     );
-    //     assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
-    // }
+    #[test]
+    fn test_proving_templated_theorem_no_block() {
+        let mut env = Environment::new();
+        env.add(
+            r#"
+            theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c
+        "#,
+        );
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
+    }
 
     #[test]
     fn test_applying_templated_theorem() {

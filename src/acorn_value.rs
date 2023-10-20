@@ -1180,22 +1180,22 @@ impl AcornValue {
         }
     }
 
-    // Whether this value refers to any generic types.
-    pub fn has_generic(&self) -> bool {
+    // A value is polymorphic if any of its components have a polymorphic type.
+    pub fn is_polymorphic(&self) -> bool {
         match self {
             AcornValue::Atom(ta) => ta.acorn_type.is_polymorphic(),
             AcornValue::Application(app) => {
-                app.function.has_generic() || app.args.iter().any(|x| x.has_generic())
+                app.function.is_polymorphic() || app.args.iter().any(|x| x.is_polymorphic())
             }
             AcornValue::Lambda(_, value)
             | AcornValue::ForAll(_, value)
-            | AcornValue::Exists(_, value) => value.has_generic(),
+            | AcornValue::Exists(_, value) => value.is_polymorphic(),
             AcornValue::Implies(left, right)
             | AcornValue::Equals(left, right)
             | AcornValue::NotEquals(left, right)
             | AcornValue::And(left, right)
-            | AcornValue::Or(left, right) => left.has_generic() || right.has_generic(),
-            AcornValue::Not(x) => x.has_generic(),
+            | AcornValue::Or(left, right) => left.is_polymorphic() || right.is_polymorphic(),
+            AcornValue::Not(x) => x.is_polymorphic(),
             AcornValue::Monomorph(_, _, _) => false,
         }
     }

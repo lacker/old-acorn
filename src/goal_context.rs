@@ -39,9 +39,9 @@ impl GoalContext<'_> {
         let mut answer = vec![];
         for (fact, monomorph_types) in self.facts.iter().zip(graph.monomorphs_for_fact) {
             if monomorph_types.is_none() {
-                if fact.has_generic() {
+                if fact.is_polymorphic() {
                     panic!(
-                        "allegedly non-polymorphic fact {} still has generics",
+                        "allegedly non-polymorphic fact {} still has type parameters",
                         self.env.value_str(fact)
                     );
                 }
@@ -50,9 +50,9 @@ impl GoalContext<'_> {
             }
             for monomorph_type in monomorph_types.unwrap() {
                 let monomorph = fact.monomorphize(&[monomorph_type]);
-                if monomorph.has_generic() {
+                if monomorph.is_polymorphic() {
                     panic!(
-                        "alleged monomorph {} still has generics",
+                        "alleged monomorph {} still has type parameters",
                         self.env.value_str(&monomorph)
                     );
                 }

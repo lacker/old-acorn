@@ -8,13 +8,13 @@ pub struct FunctionType {
 
 // Functional types can be applied.
 // Data types include both axiomatic types and struct types.
-// Generics are types that are not yet known.
+// Parameters are types for values within a parametrized expression.
 // "Any" is a hack used for testing.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub enum AcornType {
     Bool,
     Data(usize),
-    Generic(usize),
+    Parameter(usize),
     Function(FunctionType),
     Any,
 }
@@ -79,7 +79,7 @@ impl AcornType {
                 function_type.return_type.refers_to(other_type)
             }
             AcornType::Data(_) => false,
-            AcornType::Generic(_) => false,
+            AcornType::Parameter(_) => false,
             AcornType::Bool => false,
             AcornType::Any => false,
         }
@@ -123,7 +123,7 @@ impl AcornType {
             }
             AcornType::Bool => true,
             AcornType::Data(_) => true,
-            AcornType::Generic(_) => {
+            AcornType::Parameter(_) => {
                 // Generic types should be monomorphized before passing it to the prover
                 false
             }
@@ -172,7 +172,7 @@ impl AcornType {
             }),
             AcornType::Data(index) => {
                 if *index == data_type {
-                    AcornType::Generic(generic_type)
+                    AcornType::Parameter(generic_type)
                 } else {
                     self.clone()
                 }
@@ -184,7 +184,7 @@ impl AcornType {
     // Replace the generic types with a type from the list
     pub fn monomorphize(&self, types: &[AcornType]) -> AcornType {
         match self {
-            AcornType::Generic(index) => types[*index].clone(),
+            AcornType::Parameter(index) => types[*index].clone(),
             AcornType::Function(function_type) => AcornType::Function(FunctionType {
                 arg_types: function_type
                     .arg_types
@@ -210,7 +210,7 @@ impl AcornType {
         }
 
         match (self, monomorph) {
-            (AcornType::Generic(i), _) => {
+            (AcornType::Parameter(i), _) => {
                 if types.len() <= *i {
                     types.resize(i + 1, None);
                 }
@@ -239,11 +239,11 @@ impl AcornType {
         }
     }
 
-    // If this is a generic type or is dependent on a generic type, return true.
+    // A type is polymorphic if any of its components are type parameters.
     pub fn is_polymorphic(&self) -> bool {
         match self {
             AcornType::Bool | AcornType::Data(_) | AcornType::Any => false,
-            AcornType::Generic(_) => true,
+            AcornType::Parameter(_) => true,
             AcornType::Function(ftype) => {
                 for arg_type in &ftype.arg_types {
                     if arg_type.is_polymorphic() {
@@ -261,7 +261,7 @@ impl fmt::Display for AcornType {
         match self {
             AcornType::Bool => write!(f, "bool"),
             AcornType::Data(index) => write!(f, "D{}", index),
-            AcornType::Generic(index) => write!(f, "T{}", index),
+            AcornType::Parameter(index) => write!(f, "T{}", index),
             AcornType::Function(function_type) => {
                 write!(
                     f,
