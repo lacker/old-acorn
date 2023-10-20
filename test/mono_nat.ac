@@ -1,4 +1,4 @@
-// Theorems in nat.ac that we should be able to snap-prove.
+// Theorems in nat.ac that we should be able to prove very quickly.
 // These theorems are monomorphized to Nat only, so they are simpler than the polymorphic versions.
 
 type Nat: axiom

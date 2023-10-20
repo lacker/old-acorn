@@ -1094,4 +1094,15 @@ mod tests {
     fn test_mono_add_comm() {
         test_mono("add_comm");
     }
+
+    fn test_poly(name: &str) {
+        let mut env = Environment::new();
+        env.load_test("poly_nat.ac").unwrap();
+        assert_eq!(Prover::prove_theorem(&env, name), Outcome::Success);
+    }
+
+    #[test]
+    fn test_poly_add_zero_right() {
+        test_poly("add_zero_right");
+    }
 }
