@@ -1199,4 +1199,49 @@ impl AcornValue {
             AcornValue::Monomorph(_, _, _) => false,
         }
     }
+
+    // Converts all the parametrized types to placeholder types.
+    pub fn to_placeholder(&self) -> AcornValue {
+        match self {
+            AcornValue::Atom(ta) => AcornValue::Atom(ta.to_placeholder()),
+            AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
+                function: Box::new(app.function.to_placeholder()),
+                args: app.args.iter().map(|x| x.to_placeholder()).collect(),
+            }),
+            AcornValue::Lambda(args, value) => AcornValue::Lambda(
+                args.iter().map(|x| x.to_placeholder()).collect(),
+                Box::new(value.to_placeholder()),
+            ),
+            AcornValue::ForAll(args, value) => AcornValue::ForAll(
+                args.iter().map(|x| x.to_placeholder()).collect(),
+                Box::new(value.to_placeholder()),
+            ),
+            AcornValue::Exists(args, value) => AcornValue::Exists(
+                args.iter().map(|x| x.to_placeholder()).collect(),
+                Box::new(value.to_placeholder()),
+            ),
+            AcornValue::Implies(left, right) => AcornValue::Implies(
+                Box::new(left.to_placeholder()),
+                Box::new(right.to_placeholder()),
+            ),
+            AcornValue::Equals(left, right) => AcornValue::Equals(
+                Box::new(left.to_placeholder()),
+                Box::new(right.to_placeholder()),
+            ),
+            AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
+                Box::new(left.to_placeholder()),
+                Box::new(right.to_placeholder()),
+            ),
+            AcornValue::And(left, right) => AcornValue::And(
+                Box::new(left.to_placeholder()),
+                Box::new(right.to_placeholder()),
+            ),
+            AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.to_placeholder()),
+                Box::new(right.to_placeholder()),
+            ),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.to_placeholder())),
+            AcornValue::Monomorph(_, _, _) => self.clone(),
+        }
+    }
 }

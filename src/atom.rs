@@ -217,6 +217,14 @@ impl TypedAtom {
             acorn_type: self.acorn_type.monomorphize(types),
         }
     }
+
+    // Converts all the parametrized types to placeholder types
+    pub fn to_placeholder(&self) -> TypedAtom {
+        TypedAtom {
+            atom: self.atom.clone(),
+            acorn_type: self.acorn_type.to_placeholder(),
+        }
+    }
 }
 
 #[cfg(test)]

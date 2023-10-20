@@ -262,6 +262,18 @@ impl AcornType {
             }
         }
     }
+
+    // Converts type parameters to placeholder types
+    pub fn to_placeholder(&self) -> AcornType {
+        match self {
+            AcornType::Parameter(i) => AcornType::Placeholder(*i),
+            AcornType::Function(ftype) => AcornType::Function(FunctionType {
+                arg_types: ftype.arg_types.iter().map(|t| t.to_placeholder()).collect(),
+                return_type: Box::new(ftype.return_type.to_placeholder()),
+            }),
+            _ => self.clone(),
+        }
+    }
 }
 
 impl fmt::Display for AcornType {
