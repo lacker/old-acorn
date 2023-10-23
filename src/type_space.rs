@@ -22,7 +22,7 @@ pub struct MonomorphKey {
 // functions can be polymorphic.
 // The low-level prover only understands simple typing, where each value has a TypeId, and there
 // is no polymorphism.
-// The TypeSpace is a mapping between the two.//
+// The TypeSpace is a mapping between the two.
 pub struct TypeSpace {
     types: Vec<AcornType>,
 
