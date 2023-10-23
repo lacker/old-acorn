@@ -19,5 +19,5 @@ pub mod statement;
 pub mod synthesizer;
 pub mod term;
 pub mod token;
-pub mod type_space;
+pub mod type_map;
 pub mod unifier;

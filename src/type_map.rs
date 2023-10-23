@@ -22,8 +22,8 @@ pub struct MonomorphKey {
 // functions can be polymorphic.
 // The low-level prover only understands simple typing, where each value has a TypeId, and there
 // is no polymorphism.
-// The TypeSpace is a mapping between the two.
-pub struct TypeSpace {
+// The TypeMap is a mapping between the two.
+pub struct TypeMap {
     types: Vec<AcornType>,
 
     // One entry for each monomorphization
@@ -47,9 +47,9 @@ impl fmt::Display for Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-impl TypeSpace {
-    pub fn new() -> TypeSpace {
-        TypeSpace {
+impl TypeMap {
+    pub fn new() -> TypeMap {
+        TypeMap {
             types: vec![AcornType::Empty, AcornType::Bool],
             monomorph_info: vec![],
             monomorph_map: HashMap::new(),

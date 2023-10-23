@@ -1,7 +1,7 @@
 use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
 use crate::term::{Literal, Term};
-use crate::type_space::TypeId;
+use crate::type_map::TypeId;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Scope {
@@ -430,13 +430,13 @@ impl Unifier {
 
 #[cfg(test)]
 mod tests {
-    use crate::type_space::TypeSpace;
+    use crate::type_map::TypeMap;
 
     use super::*;
 
     #[test]
     fn test_unifying_variables() {
-        let mut s = TypeSpace::new();
+        let mut s = TypeMap::new();
         let bool0 = s.bref(0);
         let bool1 = s.bref(1);
         let bool2 = s.bref(2);
@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_same_scope() {
-        let mut s = TypeSpace::new();
+        let mut s = TypeMap::new();
         let bool0 = s.bref(0);
         let bool1 = s.bref(1);
         let bool2 = s.bref(2);
@@ -469,7 +469,7 @@ mod tests {
 
     #[test]
     fn test_different_scope() {
-        let mut s = TypeSpace::new();
+        let mut s = TypeMap::new();
         let bool0 = s.bref(0);
         let bool1 = s.bref(1);
         let bool2 = s.bref(2);
@@ -486,7 +486,7 @@ mod tests {
 
     #[test]
     fn test_unifying_functional_variable() {
-        let mut s = TypeSpace::new();
+        let mut s = TypeMap::new();
         let bool0 = s.bref(0);
         let const_f_term = s.bfn(Atom::Constant(0), vec![bool0.clone()]);
         let var_f_term = s.bfn(Atom::Variable(1), vec![bool0.clone()]);

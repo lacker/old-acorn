@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
 use crate::term::{Literal, Term};
-use crate::type_space::{TypeId, BOOL};
+use crate::type_map::{TypeId, BOOL};
 
 pub struct Synthesizer {
     // Map of var_type to the "var_type -> bool" type, for each argument we want to synthesize
@@ -166,7 +166,7 @@ mod tests {
         let synthesized = synth.synthesize(&neg_goal_clauses[0]);
         assert_eq!(synthesized.len(), 2);
         for clause in synthesized {
-            norm.typespace.check_clause(&clause);
+            norm.type_map.check_clause(&clause);
         }
 
         // Check that we won't re-synthesize

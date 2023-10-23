@@ -3,21 +3,21 @@ use crate::acorn_value::AcornValue;
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::clause::Clause;
 use crate::environment::Environment;
-use crate::type_space::TypeSpace;
+use crate::type_map::TypeMap;
 
 pub struct Normalizer {
     // Types of the skolem functions produced
     // Some of them are just constants, so we store an AcornType rather than a FunctionType
     skolem_types: Vec<AcornType>,
 
-    pub typespace: TypeSpace,
+    pub type_map: TypeMap,
 }
 
 impl Normalizer {
     pub fn new() -> Normalizer {
         Normalizer {
             skolem_types: vec![],
-            typespace: TypeSpace::new(),
+            type_map: TypeMap::new(),
         }
     }
 
@@ -118,7 +118,7 @@ impl Normalizer {
         let mut universal = vec![];
         let value = value.remove_forall(&mut universal);
         let mut literal_lists = vec![];
-        if let Err(e) = self.typespace.into_cnf(&value, &mut literal_lists) {
+        if let Err(e) = self.type_map.into_cnf(&value, &mut literal_lists) {
             panic!(
                 "\nerror converting {} to CNF:\n{}",
                 env.value_str(&value),
