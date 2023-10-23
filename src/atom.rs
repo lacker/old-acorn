@@ -5,7 +5,6 @@ use std::fmt;
 
 pub type AtomId = u16;
 
-pub const MIN_ATOM: Atom = Atom::Constant(0);
 pub const INVALID_ATOM_ID: AtomId = 0xffff;
 
 // An atomic value does not have any internal structure.
@@ -233,13 +232,10 @@ mod tests {
 
     #[test]
     fn test_atom_ordering() {
+        assert!(Atom::True < Atom::Constant(0));
         assert!(Atom::Constant(0) < Atom::Constant(1));
         assert!(Atom::Constant(1) < Atom::Skolem(0));
         assert!(Atom::Skolem(1) < Atom::Variable(0));
-
-        assert!(MIN_ATOM <= Atom::Constant(0));
-        assert!(MIN_ATOM <= Atom::Skolem(0));
-        assert!(MIN_ATOM <= Atom::Variable(0));
     }
 
     #[test]
