@@ -1,5 +1,10 @@
 use std::fmt;
 
+// Each file has its own namespace, and perhaps we'll add more later.
+// You could have two different types both named "MyStruct" but defined in different places.
+// When you look at the AcornType object, they should have each have a different NamespaceId.
+pub type NamespaceId = u16;
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub struct FunctionType {
     pub arg_types: Vec<AcornType>,
@@ -16,8 +21,9 @@ pub enum AcornType {
     // Booleans are special
     Bool,
 
-    // Data types include structs, axiomatic types, and externally defined types.
-    Data(usize),
+    // Data types are structs or axiomatic types.
+    // For their canonical representation, we track the namespace they were initially defined in.
+    Data(NamespaceId, String),
 
     // Function types are defined by their inputs and output.
     Function(FunctionType),
@@ -57,7 +63,7 @@ impl AcornType {
                 AcornType::curry(args, return_type)
             }
             AcornType::Bool => AcornType::Bool,
-            AcornType::Data(_) => self.clone(),
+            AcornType::Data(_, _) => self.clone(),
             _ => panic!("Can't curry {:?}", self),
         }
     }
@@ -76,18 +82,18 @@ impl AcornType {
 
     // Whether this type refers to the other type.
     // For example, (Nat, Int) -> Rat refers to all of Nat, Int, and Rat.
-    pub fn refers_to(&self, other_type: &AcornType) -> bool {
-        if self == other_type {
+    pub fn refers_to(&self, namespace: NamespaceId, name: &str) -> bool {
+        if self.equals_data_type(namespace, name) {
             return true;
         }
         match self {
             AcornType::Function(function_type) => {
                 for arg_type in &function_type.arg_types {
-                    if arg_type.refers_to(other_type) {
+                    if arg_type.refers_to(namespace, name) {
                         return true;
                     }
                 }
-                function_type.return_type.refers_to(other_type)
+                function_type.return_type.refers_to(namespace, name)
             }
             _ => false,
         }
@@ -130,13 +136,22 @@ impl AcornType {
                 function_type.return_type.is_normalized()
             }
             AcornType::Bool => true,
-            AcornType::Data(_) => true,
+            AcornType::Data(_, _) => true,
             AcornType::Parameter(_) => {
                 // Generic types should be monomorphized before passing it to the prover
                 false
             }
             AcornType::Empty => false,
             AcornType::Placeholder(_) => true,
+        }
+    }
+
+    pub fn equals_data_type(&self, data_type_namespace: NamespaceId, data_type_name: &str) -> bool {
+        match self {
+            AcornType::Data(namespace, name) => {
+                *namespace == data_type_namespace && name == data_type_name
+            }
+            _ => false,
         }
     }
 
@@ -162,22 +177,27 @@ impl AcornType {
         result
     }
 
-    pub fn genericize(&self, data_type: usize, generic_type: usize) -> AcornType {
+    pub fn genericize(
+        &self,
+        data_type_namespace: NamespaceId,
+        data_type_name: &str,
+        generic_type: usize,
+    ) -> AcornType {
         match self {
             AcornType::Function(function_type) => AcornType::Function(FunctionType {
                 arg_types: function_type
                     .arg_types
                     .iter()
-                    .map(|t| t.genericize(data_type, generic_type))
+                    .map(|t| t.genericize(data_type_namespace, data_type_name, generic_type))
                     .collect(),
-                return_type: Box::new(
-                    function_type
-                        .return_type
-                        .genericize(data_type, generic_type),
-                ),
+                return_type: Box::new(function_type.return_type.genericize(
+                    data_type_namespace,
+                    data_type_name,
+                    generic_type,
+                )),
             }),
-            AcornType::Data(index) => {
-                if *index == data_type {
+            AcornType::Data(namespace, name) => {
+                if *namespace == data_type_namespace && name == data_type_name {
                     AcornType::Parameter(generic_type)
                 } else {
                     self.clone()
@@ -248,9 +268,10 @@ impl AcornType {
     // A type is polymorphic if any of its components are type parameters.
     pub fn is_polymorphic(&self) -> bool {
         match self {
-            AcornType::Bool | AcornType::Data(_) | AcornType::Empty | AcornType::Placeholder(_) => {
-                false
-            }
+            AcornType::Bool
+            | AcornType::Data(_, _)
+            | AcornType::Empty
+            | AcornType::Placeholder(_) => false,
             AcornType::Parameter(_) => true,
             AcornType::Function(ftype) => {
                 for arg_type in &ftype.arg_types {
@@ -280,7 +301,7 @@ impl fmt::Display for AcornType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             AcornType::Bool => write!(f, "bool"),
-            AcornType::Data(index) => write!(f, "D{}", index),
+            AcornType::Data(_, name) => write!(f, "{}", name),
             AcornType::Parameter(index) => write!(f, "T{}", index),
             AcornType::Function(function_type) => {
                 write!(

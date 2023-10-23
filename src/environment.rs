@@ -155,7 +155,7 @@ enum BlockParams<'a> {
 impl Environment {
     pub fn new() -> Self {
         Environment {
-            bindings: BindingMap::new(),
+            bindings: BindingMap::new(0),
             propositions: Vec::new(),
             theorem_names: HashSet::new(),
             definition_ranges: HashMap::new(),

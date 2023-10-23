@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::acorn_type::{AcornType, FunctionType};
+use crate::acorn_type::{AcornType, FunctionType, NamespaceId};
 use crate::atom::{Atom, AtomId, TypedAtom};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -1047,69 +1047,76 @@ impl AcornValue {
     }
 
     // Replaces a data type with a generic type.
-    pub fn genericize(&self, data_type: usize, generic_type: usize) -> AcornValue {
+    pub fn genericize(
+        &self,
+        namespace: NamespaceId,
+        name: &str,
+        generic_type: usize,
+    ) -> AcornValue {
         match self {
-            AcornValue::Atom(ta) => AcornValue::Atom(ta.genericize(data_type, generic_type)),
+            AcornValue::Atom(ta) => AcornValue::Atom(ta.genericize(namespace, name, generic_type)),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
-                function: Box::new(app.function.genericize(data_type, generic_type)),
+                function: Box::new(app.function.genericize(namespace, name, generic_type)),
                 args: app
                     .args
                     .iter()
-                    .map(|x| x.genericize(data_type, generic_type))
+                    .map(|x| x.genericize(namespace, name, generic_type))
                     .collect(),
             }),
             AcornValue::Lambda(args, value) => AcornValue::Lambda(
                 args.iter()
-                    .map(|x| x.genericize(data_type, generic_type))
+                    .map(|x| x.genericize(namespace, name, generic_type))
                     .collect(),
-                Box::new(value.genericize(data_type, generic_type)),
+                Box::new(value.genericize(namespace, name, generic_type)),
             ),
             AcornValue::ForAll(args, value) => AcornValue::ForAll(
                 args.iter()
-                    .map(|x| x.genericize(data_type, generic_type))
+                    .map(|x| x.genericize(namespace, name, generic_type))
                     .collect(),
-                Box::new(value.genericize(data_type, generic_type)),
+                Box::new(value.genericize(namespace, name, generic_type)),
             ),
             AcornValue::Exists(args, value) => AcornValue::Exists(
                 args.iter()
-                    .map(|x| x.genericize(data_type, generic_type))
+                    .map(|x| x.genericize(namespace, name, generic_type))
                     .collect(),
-                Box::new(value.genericize(data_type, generic_type)),
+                Box::new(value.genericize(namespace, name, generic_type)),
             ),
             AcornValue::Implies(left, right) => AcornValue::Implies(
-                Box::new(left.genericize(data_type, generic_type)),
-                Box::new(right.genericize(data_type, generic_type)),
+                Box::new(left.genericize(namespace, name, generic_type)),
+                Box::new(right.genericize(namespace, name, generic_type)),
             ),
             AcornValue::Equals(left, right) => AcornValue::Equals(
-                Box::new(left.genericize(data_type, generic_type)),
-                Box::new(right.genericize(data_type, generic_type)),
+                Box::new(left.genericize(namespace, name, generic_type)),
+                Box::new(right.genericize(namespace, name, generic_type)),
             ),
             AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
-                Box::new(left.genericize(data_type, generic_type)),
-                Box::new(right.genericize(data_type, generic_type)),
+                Box::new(left.genericize(namespace, name, generic_type)),
+                Box::new(right.genericize(namespace, name, generic_type)),
             ),
             AcornValue::And(left, right) => AcornValue::And(
-                Box::new(left.genericize(data_type, generic_type)),
-                Box::new(right.genericize(data_type, generic_type)),
+                Box::new(left.genericize(namespace, name, generic_type)),
+                Box::new(right.genericize(namespace, name, generic_type)),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
-                Box::new(left.genericize(data_type, generic_type)),
-                Box::new(right.genericize(data_type, generic_type)),
+                Box::new(left.genericize(namespace, name, generic_type)),
+                Box::new(right.genericize(namespace, name, generic_type)),
             ),
-            AcornValue::Not(x) => AcornValue::Not(Box::new(x.genericize(data_type, generic_type))),
+            AcornValue::Not(x) => {
+                AcornValue::Not(Box::new(x.genericize(namespace, name, generic_type)))
+            }
             AcornValue::Monomorph(c, c_type, types) => {
                 if types.len() > 1 || generic_type > 0 {
                     todo!("genericize monomorphs with multiple types");
                 }
 
-                if types[0] == AcornType::Data(data_type) {
+                if types[0].equals_data_type(namespace, name) {
                     return AcornValue::Atom(TypedAtom {
                         atom: Atom::Constant(*c),
                         acorn_type: c_type.clone(),
                     });
                 }
 
-                if types[0].refers_to(&AcornType::Data(data_type)) {
+                if types[0].refers_to(namespace, name) {
                     todo!("genericize monomorphs with complex types");
                 }
 

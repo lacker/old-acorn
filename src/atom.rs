@@ -1,4 +1,4 @@
-use crate::acorn_type::AcornType;
+use crate::acorn_type::{AcornType, NamespaceId};
 use crate::acorn_value::AcornValue;
 use std::cmp::Ordering;
 use std::fmt;
@@ -203,10 +203,19 @@ impl TypedAtom {
         }
     }
 
-    pub fn genericize(&self, data_type: usize, generic_type: usize) -> TypedAtom {
+    pub fn genericize(
+        &self,
+        data_type_namespace: NamespaceId,
+        data_type_name: &str,
+        generic_type: usize,
+    ) -> TypedAtom {
         TypedAtom {
             atom: self.atom.clone(),
-            acorn_type: self.acorn_type.genericize(data_type, generic_type),
+            acorn_type: self.acorn_type.genericize(
+                data_type_namespace,
+                data_type_name,
+                generic_type,
+            ),
         }
     }
 

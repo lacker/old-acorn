@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::acorn_type::{AcornType, FunctionType};
+use crate::acorn_type::{AcornType, FunctionType, NamespaceId};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::expression::Expression;
@@ -13,8 +13,8 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // It does not have to be efficient enough to run in the inner loop of the prover.
 #[derive(Clone)]
 pub struct BindingMap {
-    // data_types[i] is the name of AcornType::Data(i).
-    data_types: Vec<String>,
+    // The namespace all these names are in.
+    namespace: NamespaceId,
 
     // Maps the name of a type to the type object.
     type_names: HashMap<String, AcornType>,
@@ -46,9 +46,9 @@ struct ConstantInfo {
 }
 
 impl BindingMap {
-    pub fn new() -> Self {
+    pub fn new(namespace: NamespaceId) -> Self {
         BindingMap {
-            data_types: Vec::new(),
+            namespace,
             constant_names: Vec::new(),
             type_names: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             identifier_types: HashMap::new(),
@@ -73,8 +73,7 @@ impl BindingMap {
     // Adds a new data type to the binding map.
     // Panics if the name is already a typename.
     pub fn add_data_type(&mut self, name: &str) -> AcornType {
-        let data_type = AcornType::Data(self.data_types.len());
-        self.data_types.push(name.to_string());
+        let data_type = AcornType::Data(self.namespace, name.to_string());
         if let Some(_) = self.type_names.insert(name.to_string(), data_type.clone()) {
             panic!("type name {} already exists", name);
         }
@@ -174,10 +173,9 @@ impl BindingMap {
 
     // Data types that come from type parameters get removed when they go out of scope.
     pub fn remove_data_type(&mut self, name: &str) {
-        if self.data_types.last() != Some(&name.to_string()) {
+        if !self.type_names.contains_key(name) {
             panic!("removing data type {} which is already not present", name);
         }
-        self.data_types.pop();
         self.type_names.remove(name);
     }
 
@@ -612,7 +610,6 @@ impl BindingMap {
 
         // Bind all the type parameters and arguments
         let mut type_param_names: Vec<String> = vec![];
-        let mut opaque_types: Vec<AcornType> = vec![];
         for token in type_param_tokens {
             if self.type_names.contains_key(token.text()) {
                 return Err(Error::new(
@@ -620,7 +617,7 @@ impl BindingMap {
                     "cannot redeclare a type in a generic type list",
                 ));
             }
-            opaque_types.push(self.add_data_type(token.text()));
+            self.add_data_type(token.text());
             type_param_names.push(token.text().to_string());
         }
         let (arg_names, specific_arg_types) = self.bind_args(arg_exprs)?;
@@ -628,8 +625,11 @@ impl BindingMap {
         // Check for possible errors in the specification.
         // Each type has to be used by some argument so that we know how to
         // monomorphize the template.
-        for (i, opaque_type) in opaque_types.iter().enumerate() {
-            if !specific_arg_types.iter().any(|a| a.refers_to(opaque_type)) {
+        for (i, type_param_name) in type_param_names.iter().enumerate() {
+            if !specific_arg_types
+                .iter()
+                .any(|a| a.refers_to(self.namespace, &type_param_name))
+            {
                 return Err(Error::new(
                     &type_param_tokens[i],
                     &format!(
@@ -682,12 +682,7 @@ impl BindingMap {
     pub fn genericize(&self, type_params: &[String], value: AcornValue) -> AcornValue {
         let mut value = value;
         for (generic_type, name) in type_params.iter().enumerate() {
-            let data_type = if let AcornType::Data(i) = self.type_names.get(name).unwrap() {
-                i
-            } else {
-                panic!("we should only be genericizing data types");
-            };
-            value = value.genericize(*data_type, generic_type);
+            value = value.genericize(self.namespace, name, generic_type);
         }
         value
     }
@@ -695,12 +690,7 @@ impl BindingMap {
     fn genericize_type(&self, type_params: &[String], specific_type: AcornType) -> AcornType {
         let mut answer = specific_type;
         for (generic_type, name) in type_params.iter().enumerate() {
-            let data_type = if let AcornType::Data(i) = self.type_names.get(name).unwrap() {
-                i
-            } else {
-                panic!("we should only be genericizing data types");
-            };
-            answer = answer.genericize(*data_type, generic_type);
+            answer = answer.genericize(self.namespace, name, generic_type);
         }
         answer
     }
@@ -722,12 +712,7 @@ impl BindingMap {
 
     pub fn type_str(&self, acorn_type: &AcornType) -> String {
         match acorn_type {
-            AcornType::Data(i) => {
-                if i >= &self.data_types.len() {
-                    panic!("AcornType::Data({}) is invalid in this scope", i);
-                }
-                self.data_types[*i].to_string()
-            }
+            AcornType::Data(_, name) => name.to_string(),
             AcornType::Function(function_type) => {
                 let ret = self.type_str(&function_type.return_type);
                 if function_type.arg_types.len() > 1 {
@@ -906,7 +891,7 @@ mod tests {
 
     #[test]
     fn test_env_types() {
-        let mut b = BindingMap::new();
+        let mut b = BindingMap::new(0);
         b.assert_type_ok("bool");
         b.assert_type_ok("bool -> bool");
         b.assert_type_ok("bool -> (bool -> bool)");
