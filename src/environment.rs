@@ -293,13 +293,7 @@ impl Environment {
             let args: Vec<_> = acorn_types
                 .iter()
                 .enumerate()
-                .map(|(i, acorn_type)| {
-                    let atom = Atom::Variable(i as AtomId);
-                    AcornValue::Atom(TypedAtom {
-                        atom,
-                        acorn_type: acorn_type.clone(),
-                    })
-                })
+                .map(|(i, acorn_type)| AcornValue::Variable(i as AtomId, acorn_type.clone()))
                 .collect();
             let app = AcornValue::Application(FunctionApplication {
                 function: atom,
@@ -693,10 +687,7 @@ impl Environment {
                 // A struct can be recreated by new'ing from its members. Ie:
                 // Pair.new(Pair.first(p), Pair.second(p)) = p.
                 // This is the "new equation" for a struct type.
-                let new_eq_var = AcornValue::Atom(TypedAtom {
-                    atom: Atom::Variable(0),
-                    acorn_type: struct_type.clone(),
-                });
+                let new_eq_var = AcornValue::Variable(0, struct_type.clone());
                 let new_eq_args = member_fns
                     .iter()
                     .map(|f| {

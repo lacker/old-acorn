@@ -853,10 +853,7 @@ impl AcornValue {
             AcornValue::Atom(typed_atom) => match typed_atom.atom {
                 Atom::Constant(c) => {
                     if let Some(i) = constants.iter().position(|&x| x == c) {
-                        AcornValue::Atom(TypedAtom {
-                            atom: Atom::Variable(i as AtomId),
-                            acorn_type: typed_atom.acorn_type.clone(),
-                        })
+                        AcornValue::Variable(i as AtomId, typed_atom.acorn_type.clone())
                     } else {
                         self.clone()
                     }
