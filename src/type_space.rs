@@ -141,6 +141,15 @@ impl TypeSpace {
     pub fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
         match value {
             AcornValue::Atom(atom) => Ok(self.term_from_atom(atom)),
+            AcornValue::Variable(i, var_type) => {
+                let type_id = self.add_type(var_type.clone());
+                Ok(Term {
+                    term_type: type_id,
+                    head_type: type_id,
+                    head: Atom::Variable(*i),
+                    args: vec![],
+                })
+            }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
             AcornValue::Monomorph(c, _, parameters) => {
                 let key = MonomorphKey {
@@ -181,6 +190,15 @@ impl TypeSpace {
     pub fn literal_from_value(&mut self, value: &AcornValue) -> Result<Literal> {
         match value {
             AcornValue::Atom(atom) => Ok(Literal::positive(self.term_from_atom(atom))),
+            AcornValue::Variable(i, var_type) => {
+                let type_id = self.add_type(var_type.clone());
+                Ok(Literal::positive(Term {
+                    term_type: type_id,
+                    head_type: type_id,
+                    head: Atom::Variable(*i),
+                    args: vec![],
+                }))
+            }
             AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),
             AcornValue::Equals(left, right) => {
                 let left_term = self.term_from_value(&*left)?;

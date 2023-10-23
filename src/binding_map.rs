@@ -367,12 +367,7 @@ impl BindingMap {
                 if let Some(acorn_value) = self.get_constant_atom(token.text()) {
                     Ok(acorn_value)
                 } else if let Some(stack_index) = self.stack.get(token.text()) {
-                    let atom = Atom::Variable(*stack_index);
-                    let typed_atom = TypedAtom {
-                        atom,
-                        acorn_type: return_type.clone(),
-                    };
-                    Ok(AcornValue::Atom(typed_atom))
+                    Ok(AcornValue::Variable(*stack_index, return_type.clone()))
                 } else {
                     Err(Error::new(
                         token,

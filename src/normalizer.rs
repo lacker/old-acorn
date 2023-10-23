@@ -93,11 +93,12 @@ impl Normalizer {
             }
 
             // Acceptable terminal nodes for the skolemization algorithm
-            AcornValue::Atom(_) => value,
-            AcornValue::Application(_) => value,
-            AcornValue::Not(_) => value,
-            AcornValue::Equals(_, _) => value,
-            AcornValue::NotEquals(_, _) => value,
+            AcornValue::Atom(_)
+            | AcornValue::Application(_)
+            | AcornValue::Not(_)
+            | AcornValue::Equals(_, _)
+            | AcornValue::NotEquals(_, _)
+            | AcornValue::Variable(_, _) => value,
 
             _ => panic!(
                 "moving negation inwards should have eliminated this node: {:?}",
