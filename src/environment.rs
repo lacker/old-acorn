@@ -718,12 +718,7 @@ impl Environment {
                 // Pair.first(Pair.new(a, b)) = a.
                 // These are the "member equations".
                 let var_args = (0..ss.fields.len())
-                    .map(|i| {
-                        AcornValue::Atom(TypedAtom {
-                            atom: Atom::Variable(i as AtomId),
-                            acorn_type: field_types[i].clone(),
-                        })
-                    })
+                    .map(|i| AcornValue::Variable(i as AtomId, field_types[i].clone()))
                     .collect::<Vec<_>>();
                 let new_application = AcornValue::Application(FunctionApplication {
                     function: Box::new(new_fn),
@@ -737,10 +732,7 @@ impl Environment {
                             function: Box::new(member_fn.clone()),
                             args: vec![new_application.clone()],
                         })),
-                        Box::new(AcornValue::Atom(TypedAtom {
-                            atom: Atom::Variable(i as AtomId),
-                            acorn_type: field_types[i].clone(),
-                        })),
+                        Box::new(AcornValue::Variable(i as AtomId, field_types[i].clone())),
                     );
                     let member_claim = AcornValue::ForAll(field_types.clone(), Box::new(member_eq));
                     self.add_proposition(Proposition {

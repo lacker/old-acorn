@@ -579,7 +579,7 @@ impl AcornValue {
         match self {
             AcornValue::Atom(ta) => {
                 if let Atom::Variable(_) = ta.atom {
-                    // panic!("TODO: eliminate this");
+                    panic!("dead branch");
                 }
                 self.clone()
             }
