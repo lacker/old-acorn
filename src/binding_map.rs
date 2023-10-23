@@ -776,6 +776,7 @@ impl BindingMap {
     fn value_str_stacked(&self, value: &AcornValue, stack_size: usize) -> String {
         match value {
             AcornValue::Atom(a) => self.atom_str(&a.atom),
+            AcornValue::Variable(i, _) => format!("x{}", i),
             AcornValue::Application(app) => {
                 let fn_name = self.value_str_stacked(&app.function, stack_size);
                 let args: Vec<_> = app
