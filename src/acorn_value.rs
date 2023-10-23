@@ -559,12 +559,7 @@ impl AcornValue {
                     .arg_types
                     .iter()
                     .enumerate()
-                    .map(|(i, t)| {
-                        AcornValue::Atom(TypedAtom {
-                            atom: Atom::Variable(stack_size + i as AtomId),
-                            acorn_type: t.clone(),
-                        })
-                    })
+                    .map(|(i, t)| AcornValue::Variable(stack_size + i as AtomId, t.clone()))
                     .collect(),
             });
 
@@ -582,7 +577,12 @@ impl AcornValue {
     // f != g is equivalent to exists(x) { f(x) != g(x) }
     pub fn replace_function_equality(&self, stack_size: AtomId) -> AcornValue {
         match self {
-            AcornValue::Atom(_) => self.clone(),
+            AcornValue::Atom(ta) => {
+                if let Atom::Variable(_) = ta.atom {
+                    // panic!("TODO: eliminate this");
+                }
+                self.clone()
+            }
             AcornValue::Variable(_, _) => self.clone(),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.replace_function_equality(stack_size)),
