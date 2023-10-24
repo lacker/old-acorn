@@ -5,6 +5,7 @@ use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::clause::Clause;
 use crate::constant_map::ConstantMap;
+use crate::display::DisplayClause;
 use crate::environment::Environment;
 use crate::literal::Literal;
 use crate::term::Term;
@@ -323,12 +324,14 @@ impl Normalizer {
                     .join("\n")
             );
         }
-        for i in 0..actual.len() {
-            if actual[i].to_string() != expected[i] {
-                panic!(
-                    "expected clause {} to be:\n{}\ngot:\n{}",
-                    i, expected[i], actual[i]
-                );
+        for (i, clause) in actual.iter().enumerate() {
+            let c = DisplayClause {
+                clause,
+                normalizer: self,
+            };
+            let a = c.to_string();
+            if a != expected[i] {
+                panic!("expected clause {} to be:\n{}\ngot:\n{}", i, expected[i], a);
             }
         }
     }
@@ -360,11 +363,11 @@ mod tests {
         env.expect_constant(2, "1");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
-        norm.check(&env, "suc_injective", &["c1(x0) != c1(x1) | x0 = x1"]);
+        norm.check(&env, "suc_injective", &["Suc(x0) != Suc(x1) | x0 = x1"]);
         env.expect_constant(3, "suc_injective");
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        norm.check(&env, "suc_neq_zero", &["c1(x0) != c0"]);
+        norm.check(&env, "suc_neq_zero", &["0 != Suc(x0)"]);
         env.expect_constant(4, "suc_neq_zero");
 
         env.add(
@@ -375,8 +378,8 @@ mod tests {
             &env,
             "induction",
             &[
-                "!x0(c0) | x0(s0(x0)) | x0(x1)",
-                "!x0(c1(s0(x0))) | !x0(c0) | x0(x1)",
+                "!x0(0) | x0(s0(x0)) | x0(x1)",
+                "!x0(Suc(s0(x0))) | !x0(0) | x0(x1)",
             ],
         );
         env.expect_constant(5, "induction");
@@ -386,7 +389,7 @@ mod tests {
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
         env.expect_constant(7, "recursion_base");
-        norm.check(&env, "recursion_base", &["c6(x0, x1, c0) = x1"]);
+        norm.check(&env, "recursion_base", &["recursion(x0, x1, 0) = x1"]);
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
@@ -396,7 +399,7 @@ mod tests {
         norm.check(
             &env,
             "recursion_step",
-            &["c6(x0, x1, c1(x2)) = x0(c6(x0, x1, x2))"],
+            &["recursion(x0, x1, Suc(x2)) = x0(recursion(x0, x1, x2))"],
         );
     }
 
@@ -439,7 +442,7 @@ mod tests {
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
         env.add("theorem exists_zero: exists(x: Nat) { x = 0 }");
-        norm.check(&env, "exists_zero", &["s0 = c0"]);
+        norm.check(&env, "exists_zero", &["s0 = 0"]);
     }
 
     #[test]
@@ -458,7 +461,7 @@ mod tests {
         "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["!c5(c4)"]);
+        norm.check(&env, "goal", &["!always_true(specific_borf)"]);
     }
 
     #[test]
@@ -475,7 +478,7 @@ mod tests {
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["c1 != c0 | c3 = c2", "c3 != c2 | c1 = c0"]);
+        norm.check(&env, "goal", &["n1 != n0 | n3 = n2", "n3 != n2 | n1 = n0"]);
     }
 
     #[test]
@@ -492,7 +495,7 @@ mod tests {
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["c3 != c2 | c1 != c0", "c3 = c2 | c1 = c0"]);
+        norm.check(&env, "goal", &["n3 != n2 | n1 != n0", "n3 = n2 | n1 = n0"]);
     }
 
     #[test]
@@ -507,7 +510,7 @@ mod tests {
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["c1(x0, x1) = c1(x1, x0)"]);
+        norm.check(&env, "goal", &["adder(x0, x1) = adder(x1, x0)"]);
     }
 
     #[test]
@@ -522,6 +525,6 @@ mod tests {
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["c1(x0, x1) = c1(x2, x1)"]);
+        norm.check(&env, "goal", &["zerof(x0, x1) = zerof(x2, x1)"]);
     }
 }

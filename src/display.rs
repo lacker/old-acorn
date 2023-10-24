@@ -1,6 +1,5 @@
 use std::fmt;
 
-use crate::acorn_type::AcornType;
 use crate::atom::Atom;
 use crate::clause::Clause;
 use crate::literal::Literal;
@@ -14,17 +13,7 @@ struct DisplayAtom<'a> {
 
 impl fmt::Display for DisplayAtom<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Atom::Monomorph(i) = self.atom {
-            let (key, _) = &self.normalizer.type_map.monomorph_info[i as usize];
-            write!(
-                f,
-                "{}<{}>",
-                &key.name,
-                AcornType::types_to_str(&key.parameters)
-            )
-        } else {
-            write!(f, "{}", self.normalizer.atom_str(&self.atom))
-        }
+        write!(f, "{}", self.normalizer.atom_str(&self.atom))
     }
 }
 
