@@ -590,15 +590,8 @@ impl AcornValue {
     // f != g is equivalent to exists(x) { f(x) != g(x) }
     pub fn replace_function_equality(&self, stack_size: AtomId) -> AcornValue {
         match self {
-            AcornValue::Atom(ta) => {
-                if let Atom::Variable(_) = ta.atom {
-                    panic!("dead branch");
-                }
-                if let Atom::Constant(_) = ta.atom {
-                    panic!("dead branch");
-                }
-                self.clone()
-            }
+            AcornValue::Atom(_) => panic!("dead branch"),
+
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.replace_function_equality(stack_size)),
                 args: app
