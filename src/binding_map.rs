@@ -93,14 +93,16 @@ impl BindingMap {
         Some(info.id)
     }
 
-    // Returns an AcornValue::Atom representing this name, if there is one.
+    // Returns an AcornValue representing this name, if there is one.
     // Returns None if this name does not refer to a constant.
-    pub fn get_constant_atom(&self, name: &str) -> Option<AcornValue> {
+    pub fn get_constant_value(&self, name: &str) -> Option<AcornValue> {
         let info = self.constants.get(name)?;
-        Some(AcornValue::Atom(TypedAtom {
-            atom: Atom::Constant(info.id),
-            acorn_type: self.identifier_types[name].clone(),
-        }))
+        Some(AcornValue::Constant(
+            self.namespace,
+            info.id,
+            name.to_string(),
+            self.identifier_types[name].clone(),
+        ))
     }
 
     pub fn get_constant_name(&self, id: AtomId) -> &str {
@@ -364,7 +366,7 @@ impl BindingMap {
                 };
 
                 // Figure out the value for this identifier
-                if let Some(acorn_value) = self.get_constant_atom(token.text()) {
+                if let Some(acorn_value) = self.get_constant_value(token.text()) {
                     Ok(acorn_value)
                 } else if let Some(stack_index) = self.stack.get(token.text()) {
                     Ok(AcornValue::Variable(*stack_index, return_type.clone()))
@@ -428,7 +430,7 @@ impl BindingMap {
                 }
                 TokenType::Dot => {
                     let name = expression.concatenate_dots()?;
-                    if let Some(acorn_value) = self.get_constant_atom(&name) {
+                    if let Some(acorn_value) = self.get_constant_value(&name) {
                         Ok(acorn_value)
                     } else {
                         return Err(Error::new(token, &format!("the name {} is unbound", name)));
@@ -493,17 +495,9 @@ impl BindingMap {
                     }));
                 }
 
-                // Templated functions have to just be atoms
-                let fn_atom = if let AcornValue::Atom(a) = function {
-                    a
-                } else {
-                    return Err(Error::new(
-                        function_expr.token(),
-                        "a non-atomic function cannot be a template",
-                    ));
-                };
-                let constant_id = if let Atom::Constant(c) = fn_atom.atom {
-                    c
+                // Templated functions have to just be constants
+                let (c_id, c_type) = if let AcornValue::Constant(_, c_id, _, c_type) = function {
+                    (c_id, c_type)
                 } else {
                     return Err(Error::new(
                         function_expr.token(),
@@ -531,7 +525,7 @@ impl BindingMap {
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let monomorph = AcornValue::Monomorph(constant_id, fn_atom.acorn_type, inst_types);
+                let monomorph = AcornValue::Monomorph(c_id, c_type, inst_types);
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(monomorph),
                     args,
