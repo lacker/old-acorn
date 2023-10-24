@@ -3,8 +3,9 @@ use std::fmt;
 use crate::atom::Atom;
 use crate::clause::Clause;
 use crate::environment::Environment;
+use crate::literal::Literal;
 use crate::normalizer::Normalizer;
-use crate::term::{Literal, Term};
+use crate::term::Term;
 
 struct DisplayAtom<'a> {
     atom: Atom,

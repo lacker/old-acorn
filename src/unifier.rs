@@ -1,6 +1,7 @@
 use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
-use crate::term::{Literal, Term};
+use crate::literal::Literal;
+use crate::term::Term;
 use crate::type_map::TypeId;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

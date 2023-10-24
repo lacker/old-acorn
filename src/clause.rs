@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt};
 
 use crate::atom::AtomId;
-use crate::term::Literal;
+use crate::literal::Literal;
 use crate::unifier::Unifier;
 
 // A clause is a disjunction (an "or") of literals, universally quantified over some variables.

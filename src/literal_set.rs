@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::fingerprint::Fingerprint;
+use crate::literal::Literal;
 use crate::specializer::Specializer;
-use crate::term::Literal;
 
 // A datastructure for storing a set of literals to make it quick, for a new
 // literal, to discover if we already know it or not.

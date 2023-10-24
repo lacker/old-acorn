@@ -5,7 +5,8 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::clause::Clause;
-use crate::term::{Literal, Term};
+use crate::literal::Literal;
+use crate::term::Term;
 
 pub type TypeId = u16;
 

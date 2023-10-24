@@ -4,9 +4,10 @@ use std::collections::HashSet;
 use crate::clause::Clause;
 use crate::clause_info::{ClauseInfo, ClauseType, ProofRule, ProofStep};
 use crate::fingerprint::FingerprintTree;
+use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
 use crate::specializer::Specializer;
-use crate::term::{Literal, Term};
+use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
 
 // The ActiveSet stores a bunch of clauses that are indexed for various efficient lookups.
@@ -719,8 +720,6 @@ impl ActiveSet {
 
 #[cfg(test)]
 mod tests {
-    use crate::term::Literal;
-
     use super::*;
 
     #[test]
