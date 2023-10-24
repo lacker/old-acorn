@@ -356,19 +356,19 @@ mod tests {
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
-        env.expect_constant(0, "0");
+        env.expect_type("0", "Nat");
         env.add("let Suc: Nat -> Nat = axiom");
-        env.expect_constant(1, "Suc");
+        env.expect_type("Suc", "Nat -> Nat");
         env.add("let 1: Nat = Suc(0)");
-        env.expect_constant(2, "1");
+        env.expect_type("1", "Nat");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         norm.check(&env, "suc_injective", &["Suc(x0) != Suc(x1) | x0 = x1"]);
-        env.expect_constant(3, "suc_injective");
+        env.expect_type("suc_injective", "(Nat, Nat) -> bool");
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         norm.check(&env, "suc_neq_zero", &["0 != Suc(x0)"]);
-        env.expect_constant(4, "suc_neq_zero");
+        env.expect_type("suc_neq_zero", "Nat -> bool");
 
         env.add(
             "axiom induction(f: Nat -> bool):\
@@ -382,20 +382,20 @@ mod tests {
                 "!x0(Suc(s0(x0))) | !x0(0) | x0(x1)",
             ],
         );
-        env.expect_constant(5, "induction");
+        env.expect_type("induction", "Nat -> bool -> bool");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
-        env.expect_constant(6, "recursion");
+        env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        env.expect_constant(7, "recursion_base");
+        env.expect_type("recursion_base", "(Nat -> Nat, Nat) -> bool");
         norm.check(&env, "recursion_base", &["recursion(x0, x1, 0) = x1"]);
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
             recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
         );
-        env.expect_constant(8, "recursion_step");
+        env.expect_type("recursion_step", "(Nat -> Nat, Nat, Nat) -> bool");
         norm.check(
             &env,
             "recursion_step",

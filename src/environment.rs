@@ -929,7 +929,7 @@ impl Environment {
 
     // Check that the given name actually does have this type in the environment.
     #[cfg(test)]
-    fn expect_type(&mut self, name: &str, type_string: &str) {
+    pub fn expect_type(&mut self, name: &str, type_string: &str) {
         self.bindings.expect_type(name, type_string)
     }
 
@@ -957,11 +957,6 @@ impl Environment {
         let def1 = self.bindings.get_definition(name1).unwrap();
         let def2 = self.bindings.get_definition(name2).unwrap();
         assert_ne!(def1, def2);
-    }
-
-    // Check the name of the given constant
-    pub fn expect_constant(&mut self, id: usize, name: &str) {
-        self.bindings.expect_constant(id, name);
     }
 }
 
