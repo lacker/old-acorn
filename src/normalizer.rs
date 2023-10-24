@@ -184,7 +184,7 @@ impl Normalizer {
             }
             AcornValue::Constant(namespace, _, name, t) => {
                 let type_id = self.type_map.add_type(t.clone());
-                let c_id = self.constant_map.new_add_constant(*namespace, name);
+                let c_id = self.constant_map.add_constant(*namespace, name);
                 Ok(Term {
                     term_type: type_id,
                     head_type: type_id,

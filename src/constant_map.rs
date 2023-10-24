@@ -32,22 +32,8 @@ impl ConstantMap {
         }
     }
 
-    // The version where the environment already knew what AtomId the constant should get.
-    pub fn old_add_constant(&mut self, namespace: NamespaceId, id: AtomId, name: &str) -> AtomId {
-        let key = ConstantKey {
-            namespace,
-            name: name.to_string(),
-        };
-        if self.constants.len() <= id as usize {
-            self.constants.resize(id as usize + 1, None);
-        }
-        self.constants[id as usize] = Some(key.clone());
-        self.keymap.insert(key, id);
-        id
-    }
-
     // Assigns an id to this (namespace, name) pair if it doesn't already have one.
-    pub fn new_add_constant(&mut self, namespace: NamespaceId, name: &str) -> AtomId {
+    pub fn add_constant(&mut self, namespace: NamespaceId, name: &str) -> AtomId {
         let key = ConstantKey {
             namespace,
             name: name.to_string(),
