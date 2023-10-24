@@ -218,38 +218,4 @@ impl TypeMap {
             ))),
         }
     }
-
-    // Converts a value to Clausal Normal Form.
-    // Everything below "and" and "or" nodes must be literals.
-    // Skips any tautologies.
-    // Appends all results found.
-    pub fn into_cnf(&mut self, value: &AcornValue, results: &mut Vec<Vec<Literal>>) -> Result<()> {
-        match value {
-            AcornValue::And(left, right) => {
-                self.into_cnf(left, results)?;
-                self.into_cnf(right, results)
-            }
-            AcornValue::Or(left, right) => {
-                let mut left_results = Vec::new();
-                self.into_cnf(left, &mut left_results)?;
-                let mut right_results = Vec::new();
-                self.into_cnf(right, &mut right_results)?;
-                for left_result in left_results {
-                    for right_result in &right_results {
-                        let mut combined = left_result.clone();
-                        combined.extend(right_result.clone());
-                        results.push(combined);
-                    }
-                }
-                Ok(())
-            }
-            _ => {
-                let literal = self.literal_from_value(&value)?;
-                if !literal.is_tautology() {
-                    results.push(vec![literal]);
-                }
-                Ok(())
-            }
-        }
-    }
 }

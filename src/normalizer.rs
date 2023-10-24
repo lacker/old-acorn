@@ -3,7 +3,8 @@ use crate::acorn_value::AcornValue;
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::clause::Clause;
 use crate::environment::Environment;
-use crate::type_map::TypeMap;
+use crate::literal::Literal;
+use crate::type_map::{Result, TypeMap};
 
 pub struct Normalizer {
     // Types of the skolem functions produced
@@ -107,6 +108,40 @@ impl Normalizer {
         }
     }
 
+    // Converts a value to Clausal Normal Form.
+    // Everything below "and" and "or" nodes must be literals.
+    // Skips any tautologies.
+    // Appends all results found.
+    fn into_cnf(&mut self, value: &AcornValue, results: &mut Vec<Vec<Literal>>) -> Result<()> {
+        match value {
+            AcornValue::And(left, right) => {
+                self.into_cnf(left, results)?;
+                self.into_cnf(right, results)
+            }
+            AcornValue::Or(left, right) => {
+                let mut left_results = Vec::new();
+                self.into_cnf(left, &mut left_results)?;
+                let mut right_results = Vec::new();
+                self.into_cnf(right, &mut right_results)?;
+                for left_result in left_results {
+                    for right_result in &right_results {
+                        let mut combined = left_result.clone();
+                        combined.extend(right_result.clone());
+                        results.push(combined);
+                    }
+                }
+                Ok(())
+            }
+            _ => {
+                let literal = self.type_map.literal_from_value(&value)?;
+                if !literal.is_tautology() {
+                    results.push(vec![literal]);
+                }
+                Ok(())
+            }
+        }
+    }
+
     pub fn normalize(&mut self, env: &Environment, value: AcornValue) -> Vec<Clause> {
         // println!("\nnormalizing: {}", env.value_str(&value));
         let value = value.replace_function_equality(0);
@@ -118,7 +153,7 @@ impl Normalizer {
         let mut universal = vec![];
         let value = value.remove_forall(&mut universal);
         let mut literal_lists = vec![];
-        if let Err(e) = self.type_map.into_cnf(&value, &mut literal_lists) {
+        if let Err(e) = self.into_cnf(&value, &mut literal_lists) {
             panic!(
                 "\nerror converting {} to CNF:\n{}",
                 env.value_str(&value),
