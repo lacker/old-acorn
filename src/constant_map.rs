@@ -17,7 +17,7 @@ struct ConstantKey {
 pub struct ConstantMap {
     // For c_i in the prover, constants[i] is the corresponding ConstantKey.
     // The AtomId -> ConstantKey lookup direction.
-    constants: Vec<ConstantKey>,
+    constants: Vec<Option<ConstantKey>>,
 
     // Inverse map of constants.
     // The ConstantKey -> AtomId lookup direction.
@@ -32,7 +32,21 @@ impl ConstantMap {
         }
     }
 
-    pub fn add_constant(&mut self, namespace: NamespaceId, name: &str) -> AtomId {
+    // The version where the environment already knew what AtomId the constant should get.
+    pub fn old_add_constant(&mut self, namespace: NamespaceId, id: AtomId, name: &str) {
+        let key = ConstantKey {
+            namespace,
+            name: name.to_string(),
+        };
+        if self.constants.len() <= id as usize {
+            self.constants.resize(id as usize + 1, None);
+        }
+        self.constants[id as usize] = Some(key.clone());
+        self.keymap.insert(key, id);
+    }
+
+    // Assigns an id to this (namespace, name) pair if it doesn't already have one.
+    pub fn new_add_constant(&mut self, namespace: NamespaceId, name: &str) -> AtomId {
         let key = ConstantKey {
             namespace,
             name: name.to_string(),
@@ -41,13 +55,13 @@ impl ConstantMap {
             return atom_id;
         }
         let atom_id = self.constants.len() as AtomId;
-        self.constants.push(key.clone());
+        self.constants.push(Some(key.clone()));
         self.keymap.insert(key, atom_id);
         atom_id
     }
 
     pub fn get_info(&self, atom_id: AtomId) -> (NamespaceId, &str) {
-        let key = &self.constants[atom_id as usize];
+        let key = &self.constants[atom_id as usize].as_ref().unwrap();
         (key.namespace, &key.name)
     }
 }
