@@ -4,7 +4,7 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId};
 use crate::expression::Expression;
-use crate::namespace::NamespaceId;
+use crate::namespace::{NamespaceId, FIRST_NORMAL};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 // In order to convert an Expression to an AcornValue, we need to convert the string representation
@@ -48,6 +48,7 @@ struct ConstantInfo {
 
 impl BindingMap {
     pub fn new(namespace: NamespaceId) -> Self {
+        assert!(namespace >= FIRST_NORMAL);
         BindingMap {
             namespace,
             constant_names: Vec::new(),
@@ -836,7 +837,7 @@ mod tests {
 
     #[test]
     fn test_env_types() {
-        let mut b = BindingMap::new(0);
+        let mut b = BindingMap::new(FIRST_NORMAL);
         b.assert_type_ok("bool");
         b.assert_type_ok("bool -> bool");
         b.assert_type_ok("bool -> (bool -> bool)");

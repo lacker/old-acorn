@@ -135,6 +135,10 @@ impl Normalizer {
 
     // Constructs a new term from an atom
     fn term_from_atom(&mut self, atom: &TypedAtom) -> Term {
+        // TODO: skolem atoms are the last case.
+        // Fix them, then remove this function.
+        assert!(atom.atom.is_skolem());
+
         let type_id = self.type_map.add_type(atom.acorn_type.clone());
         Term {
             term_type: type_id,
@@ -177,12 +181,13 @@ impl Normalizer {
                     args: vec![],
                 })
             }
-            AcornValue::Constant(_, i, _, t) => {
+            AcornValue::Constant(namespace, id, name, t) => {
                 let type_id = self.type_map.add_type(t.clone());
+                let c_id = self.constant_map.old_add_constant(*namespace, *id, name);
                 Ok(Term {
                     term_type: type_id,
                     head_type: type_id,
-                    head: Atom::Constant(*i),
+                    head: Atom::Constant(c_id),
                     args: vec![],
                 })
             }

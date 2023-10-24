@@ -9,7 +9,7 @@ use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId};
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
-use crate::namespace::NamespaceId;
+use crate::namespace::{NamespaceId, FIRST_NORMAL};
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
@@ -157,7 +157,7 @@ enum BlockParams<'a> {
 
 impl Environment {
     pub fn new() -> Self {
-        let namespace = 0;
+        let namespace = FIRST_NORMAL;
         Environment {
             namespace,
             bindings: BindingMap::new(namespace),
