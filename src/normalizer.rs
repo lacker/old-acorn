@@ -169,6 +169,15 @@ impl Normalizer {
                     args: vec![],
                 })
             }
+            AcornValue::Constant(_, i, _, t) => {
+                let type_id = self.type_map.add_type(t.clone());
+                Ok(Term {
+                    term_type: type_id,
+                    head_type: type_id,
+                    head: Atom::Constant(*i),
+                    args: vec![],
+                })
+            }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
             AcornValue::Monomorph(c, _, parameters) => {
                 Ok(self

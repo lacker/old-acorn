@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use tower_lsp::lsp_types::{Position, Range};
 
-use crate::acorn_type::{AcornType, FunctionType};
+use crate::acorn_type::{AcornType, FunctionType, NamespaceId};
 use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::{Atom, AtomId, TypedAtom};
+use crate::atom::{Atom, AtomId};
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
 use crate::statement::{Statement, StatementInfo};
@@ -18,6 +18,8 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // It creates subenvironments for nested blocks.
 // It does not have to be efficient enough to run in the inner loop of the prover.
 pub struct Environment {
+    namespace: NamespaceId,
+
     // What all the names mean in this environment
     pub bindings: BindingMap,
 
@@ -154,8 +156,10 @@ enum BlockParams<'a> {
 
 impl Environment {
     pub fn new() -> Self {
+        let namespace = 0;
         Environment {
-            bindings: BindingMap::new(0),
+            namespace,
+            bindings: BindingMap::new(namespace),
             propositions: Vec::new(),
             theorem_names: HashSet::new(),
             definition_ranges: HashMap::new(),
@@ -179,6 +183,7 @@ impl Environment {
             return Ok(None);
         }
         let mut subenv = Environment {
+            namespace: self.namespace,
             bindings: self.bindings.clone(),
             propositions: Vec::new(),
             theorem_names: self.theorem_names.clone(),
@@ -285,10 +290,12 @@ impl Environment {
         };
 
         let constant_type_clone = self.bindings.get_type(name).unwrap().clone();
-        let atom = Box::new(AcornValue::Atom(TypedAtom {
-            atom: Atom::Constant(id),
-            acorn_type: constant_type_clone,
-        }));
+        let atom = Box::new(AcornValue::Constant(
+            self.namespace,
+            id,
+            name.to_string(),
+            constant_type_clone,
+        ));
         let claim = if let AcornValue::Lambda(acorn_types, return_value) = definition {
             let args: Vec<_> = acorn_types
                 .iter()
