@@ -522,7 +522,6 @@ impl Prover<'_> {
     fn display<'a>(&'a self, clause: &'a Clause) -> DisplayClause<'a> {
         DisplayClause {
             clause,
-            env: self.env,
             normalizer: &self.normalizer,
         }
     }
