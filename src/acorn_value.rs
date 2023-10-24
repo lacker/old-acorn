@@ -1046,20 +1046,8 @@ impl AcornValue {
     pub fn monomorphize(&self, types: &[AcornType]) -> AcornValue {
         match self {
             AcornValue::Atom(ta) => {
-                if let Atom::Constant(c) = ta.atom {
-                    if ta.acorn_type.is_polymorphic() {
-                        // We need to monomorphize
-                        AcornValue::Monomorph(
-                            0,
-                            c,
-                            "XXX".to_string(),
-                            ta.acorn_type.clone(),
-                            types.to_vec(),
-                        )
-                    } else {
-                        // Otherwise, this constant is unchanged
-                        self.clone()
-                    }
+                if let Atom::Constant(_) = ta.atom {
+                    panic!("dead branch");
                 } else {
                     // Change the type appropriately
                     AcornValue::Atom(ta.monomorphize(types))
