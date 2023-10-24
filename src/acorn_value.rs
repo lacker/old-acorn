@@ -1197,16 +1197,18 @@ impl AcornValue {
             AcornValue::Not(x) => {
                 AcornValue::Not(Box::new(x.genericize(namespace, name, generic_type)))
             }
-            AcornValue::Monomorph(_, c, _, c_type, types) => {
+            AcornValue::Monomorph(c_namespace, c_id, c_name, c_type, types) => {
                 if types.len() > 1 || generic_type > 0 {
                     todo!("genericize monomorphs with multiple types");
                 }
 
                 if types[0].equals_data_type(namespace, name) {
-                    return AcornValue::Atom(TypedAtom {
-                        atom: Atom::Constant(*c),
-                        acorn_type: c_type.clone(),
-                    });
+                    return AcornValue::Constant(
+                        *c_namespace,
+                        *c_id,
+                        c_name.clone(),
+                        c_type.clone(),
+                    );
                 }
 
                 if types[0].refers_to(namespace, name) {
