@@ -65,9 +65,8 @@ pub enum AcornValue {
     Exists(Vec<AcornType>, Box<AcornValue>),
 
     // The monomorphized version of a constant polymorphic function.
-    // Contains the id of the constant for the polymorphic function, the generic type,
-    // and the types that the generic function is being monomorphized with.
-    Monomorph(AtomId, AcornType, Vec<AcornType>),
+    // Like the Constant but also has a list of types that it has been monomorphized to.
+    Monomorph(NamespaceId, AtomId, String, AcornType, Vec<AcornType>),
 }
 
 // An AcornValue has an implicit stack size that determines what index new stack variables
@@ -97,8 +96,8 @@ impl fmt::Display for Subvalue<'_> {
             }
             AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
-            AcornValue::Monomorph(c, _, types) => {
-                write!(f, "c{}<{}>", c, AcornType::vec_to_str(types))
+            AcornValue::Monomorph(_, _, name, _, types) => {
+                write!(f, "{}<{}>", name, AcornType::vec_to_str(types))
             }
         }
     }
@@ -184,7 +183,7 @@ impl AcornValue {
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
-            AcornValue::Monomorph(_, generic_type, types) => generic_type.monomorphize(types),
+            AcornValue::Monomorph(_, _, _, c_type, types) => c_type.monomorphize(types),
         }
     }
 
@@ -238,7 +237,7 @@ impl AcornValue {
         if opaque_types.is_empty() {
             AcornValue::Constant(namespace, constant_id, name, constant_type)
         } else {
-            AcornValue::Monomorph(constant_id, constant_type, opaque_types)
+            AcornValue::Monomorph(namespace, constant_id, name, constant_type, opaque_types)
         }
     }
 
@@ -473,7 +472,7 @@ impl AcornValue {
                     Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
-            AcornValue::Monomorph(_, _, _) => self,
+            AcornValue::Monomorph(_, _, _, _, _) => self,
         }
     }
 
@@ -537,7 +536,7 @@ impl AcornValue {
             AcornValue::Exists(quants, value) => {
                 AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
             }
-            AcornValue::Monomorph(_, _, _) => self,
+            AcornValue::Monomorph(_, _, _, _, _) => self,
         }
     }
 
@@ -651,7 +650,7 @@ impl AcornValue {
             }
             AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
-            | AcornValue::Monomorph(_, _, _) => self.clone(),
+            | AcornValue::Monomorph(_, _, _, _, _) => self.clone(),
         }
     }
 
@@ -718,7 +717,7 @@ impl AcornValue {
             AcornValue::Atom(_)
             | AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
-            | AcornValue::Monomorph(_, _, _) => self,
+            | AcornValue::Monomorph(_, _, _, _, _) => self,
         }
     }
 
@@ -836,8 +835,8 @@ impl AcornValue {
                     .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Monomorph(c, _c_type, types) => {
-                if let Some(replacement) = replacer(*c) {
+            AcornValue::Monomorph(_, id, _, _, types) => {
+                if let Some(replacement) = replacer(*id) {
                     // We do need to replace this
                     replacement.monomorphize(types)
                 } else {
@@ -923,7 +922,7 @@ impl AcornValue {
                 let new_value = value.replace_constants_with_variables(constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Monomorph(_, _, _) => panic!("can this happen?"),
+            AcornValue::Monomorph(_, _, _, _, _) => panic!("can this happen?"),
         }
     }
 
@@ -968,7 +967,7 @@ impl AcornValue {
             AcornValue::Not(x) => x.find_constants_gte(index, answer),
             AcornValue::ForAll(_, value) => value.find_constants_gte(index, answer),
             AcornValue::Exists(_, value) => value.find_constants_gte(index, answer),
-            AcornValue::Monomorph(c, generic_type, _) => TypedAtom {
+            AcornValue::Monomorph(_, c, _, generic_type, _) => TypedAtom {
                 atom: Atom::Constant(*c),
                 acorn_type: generic_type.clone(),
             }
@@ -1039,7 +1038,7 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            AcornValue::Monomorph(_, _, _) | AcornValue::Constant(_, _, _, _) => Ok(()),
+            AcornValue::Monomorph(_, _, _, _, _) | AcornValue::Constant(_, _, _, _) => Ok(()),
         }
     }
 
@@ -1050,7 +1049,13 @@ impl AcornValue {
                 if let Atom::Constant(c) = ta.atom {
                     if ta.acorn_type.is_polymorphic() {
                         // We need to monomorphize
-                        AcornValue::Monomorph(c, ta.acorn_type.clone(), types.to_vec())
+                        AcornValue::Monomorph(
+                            0,
+                            c,
+                            "XXX".to_string(),
+                            ta.acorn_type.clone(),
+                            types.to_vec(),
+                        )
                     } else {
                         // Otherwise, this constant is unchanged
                         self.clone()
@@ -1063,10 +1068,10 @@ impl AcornValue {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.monomorphize(types))
             }
-            AcornValue::Constant(_, id, _, t) => {
+            AcornValue::Constant(namespace, id, name, t) => {
                 if t.is_polymorphic() {
                     // We need to monomorphize
-                    AcornValue::Monomorph(*id, t.clone(), types.to_vec())
+                    AcornValue::Monomorph(*namespace, *id, name.clone(), t.clone(), types.to_vec())
                 } else {
                     // Otherwise, this constant is unchanged
                     self.clone()
@@ -1115,7 +1120,7 @@ impl AcornValue {
                 Box::new(right.monomorphize(types)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.monomorphize(types))),
-            AcornValue::Monomorph(_, _, _) => {
+            AcornValue::Monomorph(_, _, _, _, _) => {
                 // We don't alter monomorphs because they cannot themselves be polymorphic.
                 // That would be something like, taking T to List<U>, or partially
                 // monomorphizing Map<T, U> to Map<T, Nat>, neither of which we
@@ -1192,7 +1197,7 @@ impl AcornValue {
             AcornValue::Not(x) => {
                 AcornValue::Not(Box::new(x.genericize(namespace, name, generic_type)))
             }
-            AcornValue::Monomorph(c, c_type, types) => {
+            AcornValue::Monomorph(_, c, _, c_type, types) => {
                 if types.len() > 1 || generic_type > 0 {
                     todo!("genericize monomorphs with multiple types");
                 }
@@ -1247,7 +1252,7 @@ impl AcornValue {
                 right.find_polymorphic(output);
             }
             AcornValue::Not(x) => x.find_polymorphic(output),
-            AcornValue::Monomorph(_, _, _) => {}
+            AcornValue::Monomorph(_, _, _, _, _) => {}
         }
     }
 
@@ -1275,9 +1280,9 @@ impl AcornValue {
                 right.find_monomorphs(output);
             }
             AcornValue::Not(x) => x.find_monomorphs(output),
-            AcornValue::Monomorph(c, _, types) => {
+            AcornValue::Monomorph(_, id, _, _, types) => {
                 assert!(types.len() == 1);
-                output.push((*c, types[0].clone()));
+                output.push((*id, types[0].clone()));
             }
         }
     }
@@ -1300,7 +1305,7 @@ impl AcornValue {
             | AcornValue::And(left, right)
             | AcornValue::Or(left, right) => left.is_polymorphic() || right.is_polymorphic(),
             AcornValue::Not(x) => x.is_polymorphic(),
-            AcornValue::Monomorph(_, _, _) => false,
+            AcornValue::Monomorph(_, _, _, _, _) => false,
         }
     }
 
@@ -1351,7 +1356,7 @@ impl AcornValue {
                 Box::new(right.to_placeholder()),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.to_placeholder())),
-            AcornValue::Monomorph(_, _, _) => self.clone(),
+            AcornValue::Monomorph(_, _, _, _, _) => self.clone(),
         }
     }
 }

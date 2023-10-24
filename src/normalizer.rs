@@ -181,7 +181,7 @@ impl Normalizer {
                 })
             }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
-            AcornValue::Monomorph(c, _, parameters) => {
+            AcornValue::Monomorph(_, c, _, _, parameters) => {
                 Ok(self
                     .type_map
                     .term_from_monomorph(*c, parameters, value.get_type()))

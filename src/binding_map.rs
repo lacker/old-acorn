@@ -487,14 +487,15 @@ impl BindingMap {
                 }
 
                 // Templated functions have to just be constants
-                let (c_id, c_type) = if let AcornValue::Constant(_, c_id, _, c_type) = function {
-                    (c_id, c_type)
-                } else {
-                    return Err(Error::new(
-                        function_expr.token(),
-                        "a non-constant function cannot be a template",
-                    ));
-                };
+                let (c_namespace, c_id, c_name, c_type) =
+                    if let AcornValue::Constant(c_namespace, c_id, c_name, c_type) = function {
+                        (c_namespace, c_id, c_name, c_type)
+                    } else {
+                        return Err(Error::new(
+                            function_expr.token(),
+                            "a non-constant function cannot be a template",
+                        ));
+                    };
 
                 // Check to make sure all of the template types were inferred
                 let mut inst_types = vec![];
@@ -516,7 +517,8 @@ impl BindingMap {
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let monomorph = AcornValue::Monomorph(c_id, c_type, inst_types);
+                let monomorph =
+                    AcornValue::Monomorph(c_namespace, c_id, c_name, c_type, inst_types);
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(monomorph),
                     args,
@@ -804,7 +806,9 @@ impl BindingMap {
             AcornValue::Lambda(types, values) => {
                 self.macro_str_stacked("lambda", types, values, stack_size)
             }
-            AcornValue::Monomorph(c, _, types) => self.monomorph_str(*c, types),
+            AcornValue::Monomorph(_, _, name, _, types) => {
+                format!("{}<{}>", name, self.type_list_str(&types))
+            }
         }
     }
 
