@@ -218,8 +218,13 @@ impl Environment {
             BlockParams::Theorem(theorem_name) => {
                 let theorem_id = self.bindings.get_constant_id(theorem_name).unwrap();
                 let theorem_type = self.bindings.get_type(theorem_name).unwrap().clone();
-                let unbound_claim =
-                    AcornValue::new_monomorph(theorem_id, theorem_type, opaque_types);
+                let unbound_claim = AcornValue::new_monomorph(
+                    self.namespace,
+                    theorem_id,
+                    theorem_name.to_string(),
+                    theorem_type,
+                    opaque_types,
+                );
 
                 let arg_values = args
                     .iter()
