@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::acorn_type::AcornType;
+use crate::acorn_type::{AcornType, NamespaceId};
 
 use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
@@ -14,7 +14,8 @@ pub const BOOL: TypeId = 1;
 
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
 pub struct MonomorphKey {
-    pub polymorph: AtomId,
+    pub namespace: NamespaceId,
+    pub name: String,
     pub parameters: Vec<AcornType>,
 }
 
@@ -94,12 +95,14 @@ impl TypeMap {
 
     pub fn term_from_monomorph(
         &mut self,
-        polymorph: AtomId,
+        namespace: NamespaceId,
+        name: &str,
         parameters: &Vec<AcornType>,
         monomorph_type: AcornType,
     ) -> Term {
         let key = MonomorphKey {
-            polymorph,
+            namespace,
+            name: name.to_string(),
             parameters: parameters.clone(),
         };
         let (monomorph_id, type_id) = if let Some(monomorph_id) = self.monomorph_map.get(&key) {

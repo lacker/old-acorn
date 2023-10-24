@@ -731,12 +731,8 @@ impl BindingMap {
         }
     }
 
-    pub fn monomorph_str(&self, constant_id: AtomId, types: &[AcornType]) -> String {
-        format!(
-            "{}<{}>",
-            self.constant_names[constant_id as usize],
-            self.type_list_str(types)
-        )
+    pub fn monomorph_str(&self, name: &str, types: &[AcornType]) -> String {
+        format!("{}<{}>", name, self.type_list_str(types))
     }
 
     fn macro_str_stacked(

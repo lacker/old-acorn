@@ -181,11 +181,9 @@ impl Normalizer {
                 })
             }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
-            AcornValue::Monomorph(_, c, _, _, parameters) => {
-                Ok(self
-                    .type_map
-                    .term_from_monomorph(*c, parameters, value.get_type()))
-            }
+            AcornValue::Monomorph(namespace, _, name, _, parameters) => Ok(self
+                .type_map
+                .term_from_monomorph(*namespace, name, parameters, value.get_type())),
             _ => Err(Error::Normalization(format!(
                 "Cannot convert {} to term",
                 value
