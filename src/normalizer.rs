@@ -4,6 +4,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::clause::Clause;
+use crate::constant_map::ConstantMap;
 use crate::environment::Environment;
 use crate::literal::Literal;
 use crate::term::Term;
@@ -29,6 +30,8 @@ pub struct Normalizer {
     skolem_types: Vec<AcornType>,
 
     pub type_map: TypeMap,
+
+    constant_map: ConstantMap,
 }
 
 impl Normalizer {
@@ -36,6 +39,7 @@ impl Normalizer {
         Normalizer {
             skolem_types: vec![],
             type_map: TypeMap::new(),
+            constant_map: ConstantMap::new(),
         }
     }
 
@@ -116,7 +120,8 @@ impl Normalizer {
             | AcornValue::Not(_)
             | AcornValue::Equals(_, _)
             | AcornValue::NotEquals(_, _)
-            | AcornValue::Variable(_, _) => value,
+            | AcornValue::Variable(_, _)
+            | AcornValue::Constant(_, _, _, _) => value,
 
             _ => panic!(
                 "moving negation inwards should have eliminated this node: {:?}",
