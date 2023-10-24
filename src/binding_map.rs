@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::acorn_type::{AcornType, FunctionType, NamespaceId};
 use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::{Atom, AtomId, TypedAtom};
+use crate::atom::{Atom, AtomId};
 use crate::expression::Expression;
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
@@ -131,13 +131,10 @@ impl BindingMap {
         self.constant_names.len() as AtomId
     }
 
-    // This creates an atomic value for the next constant, but does not bind it to any name.
-    pub fn next_constant_atom(&self, acorn_type: &AcornType) -> AcornValue {
-        let atom = Atom::Constant(self.num_constants());
-        AcornValue::Atom(TypedAtom {
-            atom,
-            acorn_type: acorn_type.clone(),
-        })
+    // This creates an atomic value for the next constant, but does not bind it to the name.
+    pub fn next_constant_atom(&self, name: &str, acorn_type: &AcornType) -> AcornValue {
+        let c_id = self.num_constants();
+        AcornValue::Constant(self.namespace, c_id, name.to_string(), acorn_type.clone())
     }
 
     // Returns the defined value, if there is a defined value.
@@ -338,13 +335,7 @@ impl BindingMap {
         match expression {
             Expression::Identifier(token) => {
                 if token.token_type == TokenType::Axiom {
-                    return match expected_type {
-                        Some(t) => Ok(self.next_constant_atom(&t)),
-                        None => Err(Error::new(
-                            token,
-                            "axiomatic objects can only be created with known types",
-                        )),
-                    };
+                    panic!("axiomatic values should be handled elsewhere");
                 }
 
                 if token.token_type.is_macro() {

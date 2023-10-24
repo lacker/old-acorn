@@ -423,9 +423,13 @@ impl Environment {
                     ));
                 }
                 let acorn_type = self.bindings.evaluate_type(&ls.type_expr)?;
-                let acorn_value = self.bindings.evaluate_value(&ls.value, Some(&acorn_type))?;
+                let value = if ls.value.token().token_type == TokenType::Axiom {
+                    self.bindings.next_constant_atom(&ls.name, &acorn_type)
+                } else {
+                    self.bindings.evaluate_value(&ls.value, Some(&acorn_type))?
+                };
                 self.bindings
-                    .add_constant(&ls.name, acorn_type, Some(acorn_value));
+                    .add_constant(&ls.name, acorn_type, Some(value));
                 self.definition_ranges
                     .insert(ls.name.clone(), statement.range());
                 self.add_identity_props(&ls.name);
@@ -455,7 +459,7 @@ impl Environment {
                         arg_types,
                         return_type: Box::new(value_type),
                     });
-                    self.bindings.next_constant_atom(&new_axiom_type)
+                    self.bindings.next_constant_atom(&ds.name, &new_axiom_type)
                 };
 
                 // Add the function value to the environment
