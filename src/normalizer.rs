@@ -1,10 +1,27 @@
+use std::fmt;
+
 use crate::acorn_type::AcornType;
-use crate::acorn_value::AcornValue;
+use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId, TypedAtom};
 use crate::clause::Clause;
 use crate::environment::Environment;
 use crate::literal::Literal;
-use crate::type_map::{Result, TypeMap};
+use crate::term::Term;
+use crate::type_map::TypeMap;
+
+pub enum Error {
+    Normalization(String),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Normalization(msg) => write!(f, "Normalization error: {}", msg),
+        }
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub struct Normalizer {
     // Types of the skolem functions produced
@@ -108,6 +125,97 @@ impl Normalizer {
         }
     }
 
+    // Constructs a new term from an atom
+    fn term_from_atom(&mut self, atom: &TypedAtom) -> Term {
+        let type_id = self.type_map.add_type(atom.acorn_type.clone());
+        Term {
+            term_type: type_id,
+            head_type: type_id,
+            head: atom.atom,
+            args: vec![],
+        }
+    }
+
+    // Constructs a new term from a function application
+    // Function applications that are nested like f(x)(y) are flattened to f(x, y)
+    fn term_from_application(&mut self, application: &FunctionApplication) -> Result<Term> {
+        let term_type = self.type_map.add_type(application.return_type());
+        let func_term = self.term_from_value(&application.function)?;
+        let head = func_term.head;
+        let head_type = func_term.head_type;
+        let mut args = func_term.args;
+        for arg in &application.args {
+            args.push(self.term_from_value(arg)?);
+        }
+        Ok(Term {
+            term_type,
+            head_type,
+            head,
+            args,
+        })
+    }
+
+    // Constructs a new term from an AcornValue
+    // Returns None if it's inconvertible
+    fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
+        match value {
+            AcornValue::Atom(atom) => Ok(self.term_from_atom(atom)),
+            AcornValue::Variable(i, var_type) => {
+                let type_id = self.type_map.add_type(var_type.clone());
+                Ok(Term {
+                    term_type: type_id,
+                    head_type: type_id,
+                    head: Atom::Variable(*i),
+                    args: vec![],
+                })
+            }
+            AcornValue::Application(application) => Ok(self.term_from_application(application)?),
+            AcornValue::Monomorph(c, _, parameters) => {
+                Ok(self
+                    .type_map
+                    .term_from_monomorph(*c, parameters, value.get_type()))
+            }
+            _ => Err(Error::Normalization(format!(
+                "Cannot convert {} to term",
+                value
+            ))),
+        }
+    }
+    // Panics if this value cannot be converted to a literal.
+    // Swaps left and right if needed, to sort.
+    // Normalizes literals to <larger> = <smaller>, because that's the logical direction
+    // to do rewrite-type lookups, on the larger literal first.
+    fn literal_from_value(&mut self, value: &AcornValue) -> Result<Literal> {
+        match value {
+            AcornValue::Atom(atom) => Ok(Literal::positive(self.term_from_atom(atom))),
+            AcornValue::Variable(i, var_type) => {
+                let type_id = self.type_map.add_type(var_type.clone());
+                Ok(Literal::positive(Term {
+                    term_type: type_id,
+                    head_type: type_id,
+                    head: Atom::Variable(*i),
+                    args: vec![],
+                }))
+            }
+            AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),
+            AcornValue::Equals(left, right) => {
+                let left_term = self.term_from_value(&*left)?;
+                let right_term = self.term_from_value(&*right)?;
+                Ok(Literal::equals(left_term, right_term))
+            }
+            AcornValue::NotEquals(left, right) => {
+                let left_term = self.term_from_value(&*left)?;
+                let right_term = self.term_from_value(&*right)?;
+                Ok(Literal::not_equals(left_term, right_term))
+            }
+            AcornValue::Not(subvalue) => Ok(Literal::negative(self.term_from_value(subvalue)?)),
+            _ => Err(Error::Normalization(format!(
+                "Cannot convert {} to literal",
+                value
+            ))),
+        }
+    }
+
     // Converts a value to Clausal Normal Form.
     // Everything below "and" and "or" nodes must be literals.
     // Skips any tautologies.
@@ -133,7 +241,7 @@ impl Normalizer {
                 Ok(())
             }
             _ => {
-                let literal = self.type_map.literal_from_value(&value)?;
+                let literal = self.literal_from_value(&value)?;
                 if !literal.is_tautology() {
                     results.push(vec![literal]);
                 }

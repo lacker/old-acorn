@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-use std::fmt;
 
 use crate::acorn_type::AcornType;
-use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::{Atom, AtomId, TypedAtom};
+
+use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
 use crate::literal::Literal;
 use crate::term::Term;
@@ -33,20 +32,6 @@ pub struct TypeMap {
     // For each monomorphization, store how it was created and its type.
     pub monomorph_info: Vec<(MonomorphKey, TypeId)>,
 }
-
-pub enum Error {
-    Normalization(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::Normalization(msg) => write!(f, "Normalization error: {}", msg),
-        }
-    }
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 impl TypeMap {
     pub fn new() -> TypeMap {
@@ -107,115 +92,33 @@ impl TypeMap {
         }
     }
 
-    // Constructs a new term from an atom
-    pub fn term_from_atom(&mut self, atom: &TypedAtom) -> Term {
-        let type_id = self.add_type(atom.acorn_type.clone());
+    pub fn term_from_monomorph(
+        &mut self,
+        polymorph: AtomId,
+        parameters: &Vec<AcornType>,
+        monomorph_type: AcornType,
+    ) -> Term {
+        let key = MonomorphKey {
+            polymorph,
+            parameters: parameters.clone(),
+        };
+        let (monomorph_id, type_id) = if let Some(monomorph_id) = self.monomorph_map.get(&key) {
+            let (_, type_id) = self.monomorph_info[*monomorph_id as usize];
+            (*monomorph_id, type_id)
+        } else {
+            // Construct an atom and appropriate entries for this monomorph
+            let type_id = self.add_type(monomorph_type);
+            let monomorph_id = self.monomorph_info.len() as AtomId;
+            self.monomorph_info.push((key.clone(), type_id));
+            self.monomorph_map.insert(key, monomorph_id);
+            (monomorph_id, type_id)
+        };
+
         Term {
             term_type: type_id,
             head_type: type_id,
-            head: atom.atom,
+            head: Atom::Monomorph(monomorph_id),
             args: vec![],
-        }
-    }
-
-    // Constructs a new term from a function application
-    // Function applications that are nested like f(x)(y) are flattened to f(x, y)
-    pub fn term_from_application(&mut self, application: &FunctionApplication) -> Result<Term> {
-        let term_type = self.add_type(application.return_type());
-        let func_term = self.term_from_value(&application.function)?;
-        let head = func_term.head;
-        let head_type = func_term.head_type;
-        let mut args = func_term.args;
-        for arg in &application.args {
-            args.push(self.term_from_value(arg)?);
-        }
-        Ok(Term {
-            term_type,
-            head_type,
-            head,
-            args,
-        })
-    }
-
-    // Constructs a new term from an AcornValue
-    // Returns None if it's inconvertible
-    pub fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
-        match value {
-            AcornValue::Atom(atom) => Ok(self.term_from_atom(atom)),
-            AcornValue::Variable(i, var_type) => {
-                let type_id = self.add_type(var_type.clone());
-                Ok(Term {
-                    term_type: type_id,
-                    head_type: type_id,
-                    head: Atom::Variable(*i),
-                    args: vec![],
-                })
-            }
-            AcornValue::Application(application) => Ok(self.term_from_application(application)?),
-            AcornValue::Monomorph(c, _, parameters) => {
-                let key = MonomorphKey {
-                    polymorph: *c,
-                    parameters: parameters.clone(),
-                };
-                let (monomorph_id, type_id) =
-                    if let Some(monomorph_id) = self.monomorph_map.get(&key) {
-                        let (_, type_id) = self.monomorph_info[*monomorph_id as usize];
-                        (*monomorph_id, type_id)
-                    } else {
-                        // Construct an atom and appropriate entries for this monomorph
-                        let type_id = self.add_type(value.get_type());
-                        let monomorph_id = self.monomorph_info.len() as AtomId;
-                        self.monomorph_info.push((key.clone(), type_id));
-                        self.monomorph_map.insert(key, monomorph_id);
-                        (monomorph_id, type_id)
-                    };
-
-                Ok(Term {
-                    term_type: type_id,
-                    head_type: type_id,
-                    head: Atom::Monomorph(monomorph_id),
-                    args: vec![],
-                })
-            }
-            _ => Err(Error::Normalization(format!(
-                "Cannot convert {} to term",
-                value
-            ))),
-        }
-    }
-
-    // Panics if this value cannot be converted to a literal.
-    // Swaps left and right if needed, to sort.
-    // Normalizes literals to <larger> = <smaller>, because that's the logical direction
-    // to do rewrite-type lookups, on the larger literal first.
-    pub fn literal_from_value(&mut self, value: &AcornValue) -> Result<Literal> {
-        match value {
-            AcornValue::Atom(atom) => Ok(Literal::positive(self.term_from_atom(atom))),
-            AcornValue::Variable(i, var_type) => {
-                let type_id = self.add_type(var_type.clone());
-                Ok(Literal::positive(Term {
-                    term_type: type_id,
-                    head_type: type_id,
-                    head: Atom::Variable(*i),
-                    args: vec![],
-                }))
-            }
-            AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),
-            AcornValue::Equals(left, right) => {
-                let left_term = self.term_from_value(&*left)?;
-                let right_term = self.term_from_value(&*right)?;
-                Ok(Literal::equals(left_term, right_term))
-            }
-            AcornValue::NotEquals(left, right) => {
-                let left_term = self.term_from_value(&*left)?;
-                let right_term = self.term_from_value(&*right)?;
-                Ok(Literal::not_equals(left_term, right_term))
-            }
-            AcornValue::Not(subvalue) => Ok(Literal::negative(self.term_from_value(subvalue)?)),
-            _ => Err(Error::Normalization(format!(
-                "Cannot convert {} to literal",
-                value
-            ))),
         }
     }
 }
