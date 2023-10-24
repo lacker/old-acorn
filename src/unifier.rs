@@ -431,16 +431,20 @@ impl Unifier {
 
 #[cfg(test)]
 mod tests {
-    use crate::type_map::TypeMap;
+    use crate::type_map::{TypeMap, BOOL};
 
     use super::*;
+
+    fn bool_var(i: AtomId) -> Term {
+        Term::atom(BOOL, Atom::Variable(i))
+    }
 
     #[test]
     fn test_unifying_variables() {
         let mut s = TypeMap::new();
-        let bool0 = s.bref(0);
-        let bool1 = s.bref(1);
-        let bool2 = s.bref(2);
+        let bool0 = bool_var(0);
+        let bool1 = bool_var(1);
+        let bool2 = bool_var(2);
         let fterm = s.bfn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
         let mut u = Unifier::new();
 
@@ -454,9 +458,9 @@ mod tests {
     #[test]
     fn test_same_scope() {
         let mut s = TypeMap::new();
-        let bool0 = s.bref(0);
-        let bool1 = s.bref(1);
-        let bool2 = s.bref(2);
+        let bool0 = bool_var(0);
+        let bool1 = bool_var(1);
+        let bool2 = bool_var(2);
         let term1 = s.bfn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
         let term2 = s.bfn(Atom::Constant(0), vec![bool1.clone(), bool2.clone()]);
         let mut u = Unifier::new();
@@ -471,9 +475,9 @@ mod tests {
     #[test]
     fn test_different_scope() {
         let mut s = TypeMap::new();
-        let bool0 = s.bref(0);
-        let bool1 = s.bref(1);
-        let bool2 = s.bref(2);
+        let bool0 = bool_var(0);
+        let bool1 = bool_var(1);
+        let bool2 = bool_var(2);
         let term1 = s.bfn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
         let term2 = s.bfn(Atom::Constant(0), vec![bool1.clone(), bool2.clone()]);
         let mut u = Unifier::new();
@@ -488,7 +492,7 @@ mod tests {
     #[test]
     fn test_unifying_functional_variable() {
         let mut s = TypeMap::new();
-        let bool0 = s.bref(0);
+        let bool0 = bool_var(0);
         let const_f_term = s.bfn(Atom::Constant(0), vec![bool0.clone()]);
         let var_f_term = s.bfn(Atom::Variable(1), vec![bool0.clone()]);
 

@@ -253,14 +253,6 @@ impl TypeMap {
         }
     }
 
-    // For testing, make a boolean reference
-    pub fn bref(&mut self, index: AtomId) -> Term {
-        self.term_from_atom(&TypedAtom {
-            atom: Atom::Variable(index),
-            acorn_type: AcornType::Bool,
-        })
-    }
-
     // For testing, make a function application with this head, return type bool
     pub fn bfn(&mut self, head: Atom, args: Vec<Term>) -> Term {
         Term {
