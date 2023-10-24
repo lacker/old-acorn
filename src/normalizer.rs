@@ -73,10 +73,7 @@ impl Normalizer {
                 // The current stack will be the arguments for the skolem functions
                 let mut args = vec![];
                 for (i, univ) in stack.iter().enumerate() {
-                    args.push(AcornValue::Atom(TypedAtom {
-                        atom: Atom::Variable(i as AtomId),
-                        acorn_type: univ.clone(),
-                    }));
+                    args.push(AcornValue::Variable(i as AtomId, univ.clone()));
                 }
 
                 // Find a replacement for each of the quantifiers.

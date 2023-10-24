@@ -166,23 +166,6 @@ impl fmt::Display for AcornValue {
 }
 
 impl AcornValue {
-    pub fn is_constant(&self) -> bool {
-        match self {
-            AcornValue::Atom(t) => t.is_constant(),
-            _ => false,
-        }
-    }
-
-    pub fn constant_index(&self) -> Option<AtomId> {
-        match self {
-            AcornValue::Atom(t) => match t.atom {
-                Atom::Constant(i) => Some(i),
-                _ => None,
-            },
-            _ => None,
-        }
-    }
-
     pub fn get_type(&self) -> AcornType {
         match self {
             AcornValue::Atom(t) => t.acorn_type.clone(),
