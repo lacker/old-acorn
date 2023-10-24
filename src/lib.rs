@@ -5,6 +5,7 @@ pub mod atom;
 pub mod binding_map;
 pub mod clause;
 pub mod clause_info;
+pub mod constant_map;
 pub mod display;
 pub mod environment;
 pub mod expression;
