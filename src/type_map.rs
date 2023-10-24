@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use crate::acorn_type::{AcornType, NamespaceId};
+use crate::acorn_type::AcornType;
 
 use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
 use crate::literal::Literal;
+use crate::namespace::NamespaceId;
 use crate::term::Term;
 
 pub type TypeId = u16;
@@ -123,5 +124,10 @@ impl TypeMap {
             head: Atom::Monomorph(monomorph_id),
             args: vec![],
         }
+    }
+
+    pub fn get_monomorph_info(&self, id: AtomId) -> (NamespaceId, &str, &Vec<AcornType>) {
+        let (key, _) = &self.monomorph_info[id as usize];
+        (key.namespace, &key.name, &key.parameters)
     }
 }

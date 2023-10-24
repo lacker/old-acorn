@@ -1,5 +1,6 @@
-use crate::acorn_type::{AcornType, NamespaceId};
+use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
+use crate::namespace::NamespaceId;
 use std::cmp::Ordering;
 use std::fmt;
 

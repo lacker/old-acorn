@@ -1,7 +1,8 @@
 use std::fmt;
 
-use crate::acorn_type::{AcornType, FunctionType, NamespaceId};
+use crate::acorn_type::{AcornType, FunctionType};
 use crate::atom::{Atom, AtomId, TypedAtom};
+use crate::namespace::NamespaceId;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FunctionApplication {

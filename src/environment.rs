@@ -4,11 +4,12 @@ use std::path::PathBuf;
 
 use tower_lsp::lsp_types::{Position, Range};
 
-use crate::acorn_type::{AcornType, FunctionType, NamespaceId};
+use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::{Atom, AtomId};
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
+use crate::namespace::NamespaceId;
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 

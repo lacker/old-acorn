@@ -158,7 +158,7 @@ impl Normalizer {
     }
 
     // Constructs a new term from an AcornValue
-    // Returns None if it's inconvertible
+    // Returns an error if it's inconvertible
     fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
         match value {
             AcornValue::Atom(atom) => Ok(self.term_from_atom(atom)),
@@ -286,6 +286,23 @@ impl Normalizer {
             clauses.push(clause);
         }
         clauses
+    }
+
+    pub fn atom_str(&self, atom: &Atom) -> String {
+        match atom {
+            Atom::True => "true".to_string(),
+            Atom::Constant(i) => {
+                let (_, name) = self.constant_map.get_info(*i);
+                name.to_string()
+            }
+            Atom::Skolem(i) => format!("s{}", i),
+            Atom::Monomorph(i) => {
+                let (_, name, parameters) = self.type_map.get_monomorph_info(*i);
+                format!("{}<{}>", name, AcornType::types_to_str(&parameters))
+            }
+            Atom::Synthetic(i) => format!("p{}", i),
+            Atom::Variable(i) => format!("x{}", i),
+        }
     }
 
     fn check_value(&mut self, env: &Environment, value: AcornValue, expected: &[&str]) {

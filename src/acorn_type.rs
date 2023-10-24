@@ -1,9 +1,6 @@
 use std::fmt;
 
-// Each file has its own namespace, and perhaps we'll add more later.
-// You could have two different types both named "MyStruct" but defined in different places.
-// When you look at the AcornType object, they should have each have a different NamespaceId.
-pub type NamespaceId = u16;
+use crate::namespace::NamespaceId;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub struct FunctionType {
