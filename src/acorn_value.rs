@@ -67,6 +67,7 @@ pub enum AcornValue {
 
     // The monomorphized version of a constant polymorphic function.
     // Like the Constant but also has a list of types that it has been monomorphized to.
+    // TODO: remove the AtomId
     Monomorph(NamespaceId, AtomId, String, AcornType, Vec<AcornType>),
 }
 
