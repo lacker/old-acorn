@@ -1045,13 +1045,8 @@ impl AcornValue {
     // Replaces all the generic types with specific types
     pub fn monomorphize(&self, types: &[AcornType]) -> AcornValue {
         match self {
-            AcornValue::Atom(ta) => {
-                if let Atom::Constant(_) = ta.atom {
-                    panic!("dead branch");
-                } else {
-                    // Change the type appropriately
-                    AcornValue::Atom(ta.monomorphize(types))
-                }
+            AcornValue::Atom(_) => {
+                panic!("dead branch");
             }
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.monomorphize(types))
