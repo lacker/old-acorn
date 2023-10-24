@@ -155,7 +155,7 @@ impl AcornType {
         }
     }
 
-    pub fn vec_to_str(types: &Vec<AcornType>) -> String {
+    pub fn types_to_str(types: &[AcornType]) -> String {
         let mut result = String::new();
         for (i, acorn_type) in types.iter().enumerate() {
             if i > 0 {
@@ -305,12 +305,12 @@ impl fmt::Display for AcornType {
             AcornType::Data(_, name) => write!(f, "{}", name),
             AcornType::Parameter(index) => write!(f, "T{}", index),
             AcornType::Function(function_type) => {
-                write!(
-                    f,
-                    "({} -> {})",
-                    AcornType::vec_to_str(&function_type.arg_types),
-                    function_type.return_type
-                )
+                let lhs = if function_type.arg_types.len() == 1 {
+                    format!("{}", function_type.arg_types[0])
+                } else {
+                    format!("({})", AcornType::types_to_str(&function_type.arg_types))
+                };
+                write!(f, "{} -> {}", lhs, function_type.return_type)
             }
             AcornType::Empty => write!(f, "empty"),
             AcornType::Placeholder(index) => write!(f, "P{}", index),

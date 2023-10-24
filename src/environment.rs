@@ -381,18 +381,14 @@ impl Environment {
         panic!("no proposition named {}", name);
     }
 
-    pub fn type_str(&self, acorn_type: &AcornType) -> String {
-        self.bindings.type_str(acorn_type)
-    }
-
     pub fn atom_str(&self, atom: &Atom) -> String {
         self.bindings.atom_str(atom)
     }
 
-    // Panics if the value is bad
+    // Panics if the value is bad, for some varieties of bad
     pub fn validate(&self, value: &AcornValue) {
         self.value_str(value);
-        self.type_str(&value.get_type());
+        value.get_type();
     }
 
     pub fn value_str(&self, value: &AcornValue) -> String {

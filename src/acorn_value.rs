@@ -97,7 +97,7 @@ impl fmt::Display for Subvalue<'_> {
             AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
             AcornValue::Monomorph(_, _, name, _, types) => {
-                write!(f, "{}<{}>", name, AcornType::vec_to_str(types))
+                write!(f, "{}<{}>", name, AcornType::types_to_str(types))
             }
         }
     }

@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::acorn_type::AcornType;
 use crate::atom::Atom;
 use crate::clause::Clause;
 use crate::environment::Environment;
@@ -19,8 +20,9 @@ impl fmt::Display for DisplayAtom<'_> {
             let (key, _) = &self.normalizer.type_map.monomorph_info[i as usize];
             write!(
                 f,
-                "{}",
-                self.env.bindings.monomorph_str(&key.name, &key.parameters)
+                "{}<{}>",
+                &key.name,
+                AcornType::types_to_str(&key.parameters)
             )
         } else {
             write!(f, "{}", self.env.atom_str(&self.atom))

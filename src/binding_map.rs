@@ -198,11 +198,7 @@ impl BindingMap {
             if e != actual_type {
                 return Err(Error::new(
                     error_token,
-                    &format!(
-                        "expected type {}, but got {}",
-                        self.type_str(e),
-                        self.type_str(actual_type)
-                    ),
+                    &format!("expected type {}, but got {}", e, actual_type),
                 ));
             }
         }
@@ -466,8 +462,8 @@ impl BindingMap {
                             arg_expr.token(),
                             &format!(
                                 "expected type {}, but got {}",
-                                self.type_str(arg_type),
-                                self.type_str(&arg_value.get_type())
+                                arg_type,
+                                arg_value.get_type()
                             ),
                         ));
                     }
@@ -681,36 +677,6 @@ impl BindingMap {
     // Tools for converting things to displayable strings.
     ////////////////////////////////////////////////////////////////////////////////
 
-    pub fn type_list_str(&self, types: &[AcornType]) -> String {
-        let mut s = "".to_string();
-        for (i, acorn_type) in types.iter().enumerate() {
-            if i > 0 {
-                s.push_str(", ");
-            }
-            s.push_str(&self.type_str(acorn_type));
-        }
-        s
-    }
-
-    pub fn type_str(&self, acorn_type: &AcornType) -> String {
-        match acorn_type {
-            AcornType::Data(_, name) => name.to_string(),
-            AcornType::Function(function_type) => {
-                let ret = self.type_str(&function_type.return_type);
-                if function_type.arg_types.len() > 1 {
-                    format!(
-                        "({}) -> {}",
-                        self.type_list_str(&function_type.arg_types),
-                        ret
-                    )
-                } else {
-                    format!("{} -> {}", self.type_str(&function_type.arg_types[0]), ret)
-                }
-            }
-            t => t.to_string(),
-        }
-    }
-
     pub fn atom_str(&self, atom: &Atom) -> String {
         match atom {
             Atom::True => "true".to_string(),
@@ -731,10 +697,6 @@ impl BindingMap {
         }
     }
 
-    pub fn monomorph_str(&self, name: &str, types: &[AcornType]) -> String {
-        format!("{}<{}>", name, self.type_list_str(types))
-    }
-
     fn macro_str_stacked(
         &self,
         macro_name: &str,
@@ -745,7 +707,7 @@ impl BindingMap {
         let parts: Vec<_> = types
             .iter()
             .enumerate()
-            .map(|(i, t)| format!("x{}: {}", i + stack_size, self.type_str(t)))
+            .map(|(i, t)| format!("x{}: {}", i + stack_size, t))
             .collect();
         let value_str = self.value_str_stacked(value, stack_size + types.len());
         format!("{}({}) {{ {} }}", macro_name, parts.join(", "), value_str)
@@ -803,7 +765,7 @@ impl BindingMap {
                 self.macro_str_stacked("lambda", types, values, stack_size)
             }
             AcornValue::Monomorph(_, _, name, _, types) => {
-                format!("{}<{}>", name, self.type_list_str(&types))
+                format!("{}<{}>", name, AcornType::types_to_str(&types))
             }
         }
     }
@@ -846,7 +808,7 @@ impl BindingMap {
             Some(t) => t,
             None => panic!("{} not found", name),
         };
-        assert_eq!(self.type_str(env_type), type_string);
+        assert_eq!(env_type.to_string(), type_string);
     }
 
     // Checks that the given constant id matches the given name
