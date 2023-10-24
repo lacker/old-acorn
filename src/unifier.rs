@@ -431,17 +431,25 @@ impl Unifier {
 
 #[cfg(test)]
 mod tests {
-    use crate::type_map::{TypeMap, BOOL};
+    use crate::type_map::BOOL;
 
     use super::*;
 
+    fn bool_fn(head: Atom, args: Vec<Term>) -> Term {
+        Term {
+            term_type: BOOL,
+            head_type: 0,
+            head,
+            args,
+        }
+    }
+
     #[test]
     fn test_unifying_variables() {
-        let mut s = TypeMap::new();
         let bool0 = Term::atom(BOOL, Atom::Variable(0));
         let bool1 = Term::atom(BOOL, Atom::Variable(1));
         let bool2 = Term::atom(BOOL, Atom::Variable(2));
-        let fterm = s.bfn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
+        let fterm = bool_fn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
         let mut u = Unifier::new();
 
         // Replace x0 with x1 and x1 with x2.
@@ -453,12 +461,11 @@ mod tests {
 
     #[test]
     fn test_same_scope() {
-        let mut s = TypeMap::new();
         let bool0 = Term::atom(BOOL, Atom::Variable(0));
         let bool1 = Term::atom(BOOL, Atom::Variable(1));
         let bool2 = Term::atom(BOOL, Atom::Variable(2));
-        let term1 = s.bfn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
-        let term2 = s.bfn(Atom::Constant(0), vec![bool1.clone(), bool2.clone()]);
+        let term1 = bool_fn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
+        let term2 = bool_fn(Atom::Constant(0), vec![bool1.clone(), bool2.clone()]);
         let mut u = Unifier::new();
 
         u.assert_unify(Scope::Left, &term1, Scope::Left, &term2);
@@ -470,12 +477,11 @@ mod tests {
 
     #[test]
     fn test_different_scope() {
-        let mut s = TypeMap::new();
         let bool0 = Term::atom(BOOL, Atom::Variable(0));
         let bool1 = Term::atom(BOOL, Atom::Variable(1));
         let bool2 = Term::atom(BOOL, Atom::Variable(2));
-        let term1 = s.bfn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
-        let term2 = s.bfn(Atom::Constant(0), vec![bool1.clone(), bool2.clone()]);
+        let term1 = bool_fn(Atom::Constant(0), vec![bool0.clone(), bool1.clone()]);
+        let term2 = bool_fn(Atom::Constant(0), vec![bool1.clone(), bool2.clone()]);
         let mut u = Unifier::new();
 
         u.assert_unify(Scope::Left, &term1, Scope::Right, &term2);
@@ -487,10 +493,9 @@ mod tests {
 
     #[test]
     fn test_unifying_functional_variable() {
-        let mut s = TypeMap::new();
         let bool0 = Term::atom(BOOL, Atom::Variable(0));
-        let const_f_term = s.bfn(Atom::Constant(0), vec![bool0.clone()]);
-        let var_f_term = s.bfn(Atom::Variable(1), vec![bool0.clone()]);
+        let const_f_term = bool_fn(Atom::Constant(0), vec![bool0.clone()]);
+        let var_f_term = bool_fn(Atom::Variable(1), vec![bool0.clone()]);
 
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &const_f_term, Scope::Right, &var_f_term);

@@ -252,14 +252,4 @@ impl TypeMap {
             }
         }
     }
-
-    // For testing, make a function application with this head, return type bool
-    pub fn bfn(&mut self, head: Atom, args: Vec<Term>) -> Term {
-        Term {
-            term_type: BOOL,
-            head_type: 0,
-            head,
-            args,
-        }
-    }
 }
