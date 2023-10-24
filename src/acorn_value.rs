@@ -303,6 +303,7 @@ impl AcornValue {
     // page 3, steps 1 and 2.
     pub fn move_negation_inwards(self, negate: bool) -> AcornValue {
         match self {
+            AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Implies(left, right) => {
                 // (left -> right) is equivalent to (!left | right)
                 let equivalent = AcornValue::Or(Box::new(AcornValue::Not(left)), right);
@@ -715,8 +716,8 @@ impl AcornValue {
                 let new_stack_size = stack_size + args.len() as AtomId;
                 AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
             }
-            AcornValue::Atom(_)
-            | AcornValue::Variable(_, _)
+            AcornValue::Atom(_) => panic!("dead branch"),
+            AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
             | AcornValue::Monomorph(_, _, _, _, _) => self,
         }
@@ -725,6 +726,13 @@ impl AcornValue {
     // Removes all "forall" nodes, collecting the quantified types into quantifiers.
     pub fn remove_forall(self, quantifiers: &mut Vec<AcornType>) -> AcornValue {
         match self {
+            AcornValue::Atom(ta) => {
+                if let Atom::Skolem(_) = ta.atom {
+                    AcornValue::Atom(ta)
+                } else {
+                    panic!("dead branch");
+                }
+            }
             AcornValue::And(left, right) => {
                 let original_num_quants = quantifiers.len() as AtomId;
                 let new_left = left.remove_forall(quantifiers);

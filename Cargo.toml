@@ -19,3 +19,19 @@ tower-lsp = "0.20.0"
 
 [profile.release]
 debug = true
+
+[[bin]]
+name = "check"
+test = false
+
+[[bin]]
+name = "debug"
+test = false
+
+[[bin]]
+name = "language_server"
+test = false
+
+[[bin]]
+name = "profiling"
+test = false
