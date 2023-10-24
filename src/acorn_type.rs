@@ -177,28 +177,29 @@ impl AcornType {
         result
     }
 
+    // Replaces the type with the given namespace and name with a parameter.
     pub fn genericize(
         &self,
         data_type_namespace: NamespaceId,
         data_type_name: &str,
-        generic_type: usize,
+        param_id: usize,
     ) -> AcornType {
         match self {
             AcornType::Function(function_type) => AcornType::Function(FunctionType {
                 arg_types: function_type
                     .arg_types
                     .iter()
-                    .map(|t| t.genericize(data_type_namespace, data_type_name, generic_type))
+                    .map(|t| t.genericize(data_type_namespace, data_type_name, param_id))
                     .collect(),
                 return_type: Box::new(function_type.return_type.genericize(
                     data_type_namespace,
                     data_type_name,
-                    generic_type,
+                    param_id,
                 )),
             }),
             AcornType::Data(namespace, name) => {
                 if *namespace == data_type_namespace && name == data_type_name {
-                    AcornType::Parameter(generic_type)
+                    AcornType::Parameter(param_id)
                 } else {
                     self.clone()
                 }

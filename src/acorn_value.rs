@@ -42,6 +42,11 @@ pub enum AcornValue {
     // Represented by (stack index, type).
     Variable(AtomId, AcornType),
 
+    // A constant, defined in a particular namespace.
+    // (namespace, constant id, constant name, type)
+    // TODO: remove the constant id
+    Constant(NamespaceId, AtomId, String, AcornType),
+
     Application(FunctionApplication),
 
     // A function definition that introduces variables onto the stack.
@@ -79,6 +84,7 @@ impl fmt::Display for Subvalue<'_> {
         match self.value {
             AcornValue::Atom(a) => write!(f, "{}", a),
             AcornValue::Variable(i, _) => write!(f, "x{}", i),
+            AcornValue::Constant(_, _, name, _) => write!(f, "{}", name),
             AcornValue::Application(a) => a.fmt_helper(f, self.stack_size),
             AcornValue::Lambda(args, body) => fmt_macro(f, "lambda", args, body, self.stack_size),
             AcornValue::Implies(a, b) => fmt_binary(f, "=>", a, b, self.stack_size),
@@ -181,6 +187,7 @@ impl AcornValue {
         match self {
             AcornValue::Atom(t) => t.acorn_type.clone(),
             AcornValue::Variable(_, t) => t.clone(),
+            AcornValue::Constant(_, _, _, t) => t.clone(),
             AcornValue::Application(t) => t.return_type(),
             AcornValue::Lambda(args, return_value) => AcornType::Function(FunctionType {
                 arg_types: args.clone(),
@@ -419,6 +426,9 @@ impl AcornValue {
                 // This reference just needs to be shifted
                 AcornValue::Variable(i - values.len() as AtomId, var_type)
             }
+            AcornValue::Constant(namespace, id, name, t) => {
+                AcornValue::Constant(namespace, id, name, t)
+            }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.bind_values(
                     first_binding_index,
@@ -504,6 +514,9 @@ impl AcornValue {
                 // This reference just needs to be shifted
                 AcornValue::Variable(i + increment, var_type)
             }
+            AcornValue::Constant(namespace, id, name, t) => {
+                AcornValue::Constant(namespace, id, name, t)
+            }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.insert_stack(index, increment)),
                 args: app
@@ -583,7 +596,6 @@ impl AcornValue {
                 }
                 self.clone()
             }
-            AcornValue::Variable(_, _) => self.clone(),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.replace_function_equality(stack_size)),
                 args: app
@@ -659,7 +671,9 @@ impl AcornValue {
                     Box::new(value.replace_function_equality(new_stack_size)),
                 )
             }
-            AcornValue::Monomorph(_, _, _) => self.clone(),
+            AcornValue::Variable(_, _)
+            | AcornValue::Constant(_, _, _, _)
+            | AcornValue::Monomorph(_, _, _) => self.clone(),
         }
     }
 
@@ -670,8 +684,6 @@ impl AcornValue {
     // stack_size is the number of variables that are already on the stack.
     pub fn expand_lambdas(self, stack_size: AtomId) -> AcornValue {
         match self {
-            AcornValue::Atom(_) => self.clone(),
-            AcornValue::Variable(_, _) => self.clone(),
             AcornValue::Application(app) => {
                 let function = app.function.expand_lambdas(stack_size);
                 if let AcornValue::Lambda(_, return_value) = function {
@@ -725,7 +737,10 @@ impl AcornValue {
                 let new_stack_size = stack_size + args.len() as AtomId;
                 AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
             }
-            AcornValue::Monomorph(_, _, _) => self,
+            AcornValue::Atom(_)
+            | AcornValue::Variable(_, _)
+            | AcornValue::Constant(_, _, _, _)
+            | AcornValue::Monomorph(_, _, _) => self,
         }
     }
 
@@ -778,6 +793,15 @@ impl AcornValue {
                     }
                 }
                 AcornValue::Atom(typed_atom.clone())
+            }
+            AcornValue::Constant(_, id, _, _) => {
+                if let Some(replacement) = replacer(*id) {
+                    // First we need to make the replacement use the correct stack variables
+                    let shifted = replacement.clone().insert_stack(0, stack_size);
+                    // Then we need to recursively replace constants in the replacement
+                    return shifted.replace_constants_with_values(stack_size, replacer);
+                }
+                self.clone()
             }
             AcornValue::Variable(_, _) => self.clone(),
             AcornValue::Application(fa) => {
@@ -867,6 +891,13 @@ impl AcornValue {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(i + constants.len() as AtomId, var_type.clone())
             }
+            AcornValue::Constant(_, id, _, t) => {
+                if let Some(i) = constants.iter().position(|&x| x == *id) {
+                    AcornValue::Variable(i as AtomId, t.clone())
+                } else {
+                    self.clone()
+                }
+            }
             AcornValue::Application(fa) => {
                 let new_function = fa.function.replace_constants_with_variables(constants);
                 let new_args = fa
@@ -924,6 +955,11 @@ impl AcornValue {
         match self {
             AcornValue::Atom(ta) => ta.find_constants_gte(index, answer),
             AcornValue::Variable(_, _) => {}
+            AcornValue::Constant(_, id, _, t) => {
+                if *id >= index {
+                    answer.push((*id, t.clone()));
+                }
+            }
             AcornValue::Application(fa) => {
                 fa.function.find_constants_gte(index, answer);
                 for arg in &fa.args {
@@ -1025,7 +1061,7 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            AcornValue::Monomorph(_, _, _) => Ok(()),
+            AcornValue::Monomorph(_, _, _) | AcornValue::Constant(_, _, _, _) => Ok(()),
         }
     }
 
@@ -1048,6 +1084,15 @@ impl AcornValue {
             }
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.monomorphize(types))
+            }
+            AcornValue::Constant(_, id, _, t) => {
+                if t.is_polymorphic() {
+                    // We need to monomorphize
+                    AcornValue::Monomorph(*id, t.clone(), types.to_vec())
+                } else {
+                    // Otherwise, this constant is unchanged
+                    self.clone()
+                }
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.monomorphize(types)),
@@ -1114,6 +1159,12 @@ impl AcornValue {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.genericize(namespace, name, generic_type))
             }
+            AcornValue::Constant(const_namespace, id, name, t) => AcornValue::Constant(
+                *const_namespace,
+                *id,
+                name.clone(),
+                t.genericize(namespace, name, generic_type),
+            ),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.genericize(namespace, name, generic_type)),
                 args: app
@@ -1195,6 +1246,11 @@ impl AcornValue {
                 }
             }
             AcornValue::Variable(_, _) => {}
+            AcornValue::Constant(_, id, _, t) => {
+                if t.is_polymorphic() {
+                    output.push(*id);
+                }
+            }
             AcornValue::Application(app) => {
                 app.function.find_polymorphic(output);
                 for arg in &app.args {
@@ -1221,8 +1277,8 @@ impl AcornValue {
     // Only handles single generic types.
     pub fn find_monomorphs(&self, output: &mut Vec<(AtomId, AcornType)>) {
         match self {
-            AcornValue::Atom(_) => {}
-            AcornValue::Variable(_, _) => {}
+            AcornValue::Atom(_) | AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _, _) => {
+            }
             AcornValue::Application(app) => {
                 app.function.find_monomorphs(output);
                 for arg in &app.args {
@@ -1252,7 +1308,8 @@ impl AcornValue {
     pub fn is_polymorphic(&self) -> bool {
         match self {
             AcornValue::Atom(ta) => ta.acorn_type.is_polymorphic(),
-            AcornValue::Variable(_, var_type) => var_type.is_polymorphic(),
+            AcornValue::Variable(_, t) | AcornValue::Constant(_, _, _, t) => t.is_polymorphic(),
+
             AcornValue::Application(app) => {
                 app.function.is_polymorphic() || app.args.iter().any(|x| x.is_polymorphic())
             }
@@ -1275,6 +1332,9 @@ impl AcornValue {
             AcornValue::Atom(ta) => AcornValue::Atom(ta.to_placeholder()),
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.to_placeholder())
+            }
+            AcornValue::Constant(namespace, id, name, t) => {
+                AcornValue::Constant(*namespace, *id, name.clone(), t.to_placeholder())
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.to_placeholder()),
