@@ -594,6 +594,9 @@ impl AcornValue {
                 if let Atom::Variable(_) = ta.atom {
                     panic!("dead branch");
                 }
+                if let Atom::Constant(_) = ta.atom {
+                    panic!("dead branch");
+                }
                 self.clone()
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
