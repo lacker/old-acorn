@@ -112,8 +112,14 @@ impl Normalizer {
             }
 
             // Acceptable terminal nodes for the skolemization algorithm
-            AcornValue::Atom(_)
-            | AcornValue::Application(_)
+            AcornValue::Atom(ta) => {
+                if let Atom::Skolem(_) = ta.atom {
+                    AcornValue::Atom(ta)
+                } else {
+                    panic!("dead branch")
+                }
+            }
+            AcornValue::Application(_)
             | AcornValue::Not(_)
             | AcornValue::Equals(_, _)
             | AcornValue::NotEquals(_, _)
@@ -196,15 +202,8 @@ impl Normalizer {
     // to do rewrite-type lookups, on the larger literal first.
     fn literal_from_value(&mut self, value: &AcornValue) -> Result<Literal> {
         match value {
-            AcornValue::Atom(atom) => Ok(Literal::positive(self.term_from_atom(atom))),
-            AcornValue::Variable(i, var_type) => {
-                let type_id = self.type_map.add_type(var_type.clone());
-                Ok(Literal::positive(Term {
-                    term_type: type_id,
-                    head_type: type_id,
-                    head: Atom::Variable(*i),
-                    args: vec![],
-                }))
+            AcornValue::Atom(_) | AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _, _) => {
+                Ok(Literal::positive(self.term_from_value(value)?))
             }
             AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),
             AcornValue::Equals(left, right) => {
