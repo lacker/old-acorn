@@ -89,12 +89,6 @@ impl BindingMap {
         }
     }
 
-    // Returns None if this name does not refer to a constant.
-    pub fn get_constant_id(&self, name: &str) -> Option<AtomId> {
-        let info = self.constants.get(name)?;
-        Some(info.id)
-    }
-
     // Returns an AcornValue representing this name, if there is one.
     // Returns None if this name does not refer to a constant.
     pub fn get_constant_value(&self, name: &str) -> Option<AcornValue> {
@@ -104,10 +98,6 @@ impl BindingMap {
             name.to_string(),
             self.identifier_types[name].clone(),
         ))
-    }
-
-    pub fn get_constant_name(&self, id: AtomId) -> &str {
-        &self.constant_names[id as usize]
     }
 
     // Gets the type for an identifier, not for a type name.
