@@ -44,6 +44,15 @@ impl Normalizer {
         }
     }
 
+    fn new_skolem_value(&mut self, acorn_type: AcornType) -> AcornValue {
+        let skolem_index = self.skolem_types.len() as AtomId;
+        self.skolem_types.push(acorn_type.clone());
+        AcornValue::Atom(TypedAtom {
+            atom: Atom::Skolem(skolem_index),
+            acorn_type,
+        })
+    }
+
     // The input should already have negations moved inwards.
     // The stack must be entirely universal quantifiers.
     //
@@ -82,13 +91,8 @@ impl Normalizer {
                 let mut replacements = vec![];
                 for quant in quants {
                     let skolem_type = AcornType::functional(stack.clone(), quant);
-                    let skolem_index = self.skolem_types.len() as AtomId;
-                    self.skolem_types.push(skolem_type.clone());
-                    let function = AcornValue::Atom(TypedAtom {
-                        atom: Atom::Skolem(skolem_index),
-                        acorn_type: skolem_type,
-                    });
-                    let replacement = AcornValue::new_apply(function, args.clone());
+                    let skolem_fn = self.new_skolem_value(skolem_type);
+                    let replacement = AcornValue::new_apply(skolem_fn, args.clone());
                     replacements.push(replacement);
                 }
 
