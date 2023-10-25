@@ -80,7 +80,7 @@ impl Document {
         // TODO: use the Project
         let mut env = Environment::new(FIRST_NORMAL);
         let tokens = Token::scan(&self.text);
-        if let Err(e) = env.add_tokens(tokens) {
+        if let Err(e) = env.add_tokens(&None, tokens) {
             self.log(&format!("env.add failed: {:?}", e));
             diagnostics.push(Diagnostic {
                 range: e.token.range(),

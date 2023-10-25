@@ -1,6 +1,7 @@
 use tower_lsp::lsp_types::Range;
 
 use crate::expression::Expression;
+use crate::project::Project;
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 use std::fmt;
@@ -137,7 +138,7 @@ impl fmt::Display for Statement {
 fn parse_block(tokens: &mut TokenIter) -> Result<(Vec<Statement>, Token)> {
     let mut body = Vec::new();
     loop {
-        match Statement::parse(tokens, true)? {
+        match Statement::parse(&None, tokens, true)? {
             (Some(s), maybe_right_brace) => {
                 body.push(s);
                 if let Some(brace) = maybe_right_brace {
@@ -510,9 +511,11 @@ impl Statement {
 
     // Tries to parse a single statement from the provided tokens.
     // A statement can always end with a newline, which is consumed.
+    // If project is not provided, we won't be able to handle import statements.
     // If in_block is true, a prop statement can also end with a right brace.
     // Returns statement, as well as the right brace token, if the current block ended.
     pub fn parse(
+        project: &Option<&mut Project>,
         tokens: &mut TokenIter,
         in_block: bool,
     ) -> Result<(Option<Statement>, Option<Token>)> {
@@ -606,11 +609,11 @@ impl Statement {
         }
     }
 
-    // Helper for tests; don't use in production code
+    #[cfg(test)]
     pub fn parse_str(input: &str) -> Result<Statement> {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        match Statement::parse(&mut tokens, false)? {
+        match Statement::parse(&None, &mut tokens, false)? {
             (Some(statement), _) => Ok(statement),
             _ => panic!("expected statement, got EOF"),
         }

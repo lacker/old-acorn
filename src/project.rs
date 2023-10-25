@@ -95,7 +95,7 @@ impl Project {
         let namespace = self.modules.len() as NamespaceId;
         let mut env = Environment::new(namespace);
         let tokens = Token::scan(&text);
-        let module = if let Err(e) = env.add_tokens(tokens) {
+        let module = if let Err(e) = env.add_tokens(&Some(self), tokens) {
             Err(e)
         } else {
             Ok(env)

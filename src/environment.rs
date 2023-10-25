@@ -8,6 +8,7 @@ use crate::atom::AtomId;
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
 use crate::namespace::NamespaceId;
+use crate::project::Project;
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
@@ -745,17 +746,20 @@ impl Environment {
 
     // Adds a possibly multi-line statement to the environment.
     // Panics on failure.
+    #[cfg(test)]
     pub fn add(&mut self, input: &str) {
         let tokens = Token::scan(input);
-        if let Err(e) = self.add_tokens(tokens) {
+        if let Err(e) = self.add_tokens(&None, tokens) {
             panic!("error in add_tokens: {}", e);
         }
     }
 
-    pub fn add_tokens(&mut self, tokens: Vec<Token>) -> Result<()> {
+    // Parse these tokens and add them to the environment.
+    // If project is not provided, we won't be able to handle import statements.
+    pub fn add_tokens(&mut self, project: &Option<&mut Project>, tokens: Vec<Token>) -> Result<()> {
         let mut tokens = TokenIter::new(tokens);
         loop {
-            match Statement::parse(&mut tokens, false) {
+            match Statement::parse(project, &mut tokens, false) {
                 Ok((Some(statement), _)) => {
                     if let Err(e) = self.add_statement(&statement) {
                         return Err(e);
