@@ -350,10 +350,6 @@ impl Term {
                 weight1 += 1;
                 weight2 += 4 * i as u32;
             }
-            Atom::Skolem(i) => {
-                weight1 += 1;
-                weight2 += 1 + 4 * i as u32;
-            }
             Atom::Monomorph(i) => {
                 weight1 += 1;
                 weight2 += 2 + 4 * i as u32;
@@ -548,7 +544,7 @@ mod tests {
     fn test_term_ordering() {
         assert!(Term::parse("c0") < Term::parse("c1"));
         assert!(Term::parse("c2") < Term::parse("c0(c1)"));
-        assert!(Term::parse("x0(x1)") < Term::parse("x0(s0(x0))"));
+        assert!(Term::parse("x0(x1)") < Term::parse("x0(c0(x0))"));
     }
 
     #[test]

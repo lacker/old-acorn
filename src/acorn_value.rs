@@ -722,12 +722,8 @@ impl AcornValue {
     // Removes all "forall" nodes, collecting the quantified types into quantifiers.
     pub fn remove_forall(self, quantifiers: &mut Vec<AcornType>) -> AcornValue {
         match self {
-            AcornValue::Atom(ta) => {
-                if let Atom::Skolem(_) = ta.atom {
-                    AcornValue::Atom(ta)
-                } else {
-                    panic!("dead branch");
-                }
+            AcornValue::Atom(_) => {
+                panic!("dead branch");
             }
             AcornValue::And(left, right) => {
                 let original_num_quants = quantifiers.len() as AtomId;

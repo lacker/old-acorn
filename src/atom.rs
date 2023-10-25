@@ -9,6 +9,8 @@ pub type AtomId = u16;
 pub const INVALID_ATOM_ID: AtomId = 0xffff;
 
 // An atomic value does not have any internal structure.
+// The Atom is a lower-level representation.
+// It is used in the prover, but not in the AcornValue / Environment.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Atom {
     True,
@@ -18,16 +20,10 @@ pub enum Atom {
     // Not types, types are their own thing.
     Constant(AtomId),
 
-    // Functions created in skolemization, to represent existential variables.
-    // This form can be used in the Term but not in the AcornValue.
-    Skolem(AtomId),
-
     // Monomorphizations of polymorphic functions.
-    // This form can be used in the Term but not in the AcornValue.
     Monomorph(AtomId),
 
     // Functions created by the synthesizer
-    // This form can be used in the Term but not in the AcornValue.
     Synthetic(AtomId),
 
     // A Variable can be a reference to a variable on the stack, or its meaning can be implicit,
@@ -42,7 +38,6 @@ impl fmt::Display for Atom {
         match self {
             Atom::True => write!(f, "true"),
             Atom::Constant(i) => write!(f, "c{}", i),
-            Atom::Skolem(i) => write!(f, "s{}", i),
             Atom::Monomorph(i) => write!(f, "m{}", i),
             Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
@@ -61,7 +56,6 @@ impl Atom {
         let rest = chars.as_str();
         match first {
             'c' => Some(Atom::Constant(rest.parse().unwrap())),
-            's' => Some(Atom::Skolem(rest.parse().unwrap())),
             'p' => Some(Atom::Synthetic(rest.parse().unwrap())),
             'x' => Some(Atom::Variable(rest.parse().unwrap())),
             _ => None,
@@ -78,13 +72,6 @@ impl Atom {
     pub fn is_variable(&self) -> bool {
         match self {
             Atom::Variable(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_skolem(&self) -> bool {
-        match self {
-            Atom::Skolem(_) => true,
             _ => false,
         }
     }
@@ -244,22 +231,12 @@ mod tests {
     fn test_atom_ordering() {
         assert!(Atom::True < Atom::Constant(0));
         assert!(Atom::Constant(0) < Atom::Constant(1));
-        assert!(Atom::Constant(1) < Atom::Skolem(0));
-        assert!(Atom::Skolem(1) < Atom::Variable(0));
     }
 
     #[test]
     fn test_atom_stable_partial_ordering() {
         assert_eq!(
             Atom::Constant(0).stable_partial_order(&Atom::Constant(1)),
-            Ordering::Less
-        );
-        assert_eq!(
-            Atom::Constant(1).stable_partial_order(&Atom::Skolem(0)),
-            Ordering::Less
-        );
-        assert_eq!(
-            Atom::Skolem(1).stable_partial_order(&Atom::Variable(0)),
             Ordering::Less
         );
         assert_eq!(

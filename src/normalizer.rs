@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::{Atom, AtomId, TypedAtom};
+use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
 use crate::constant_map::ConstantMap;
 use crate::display::DisplayClause;
@@ -125,12 +125,8 @@ impl Normalizer {
             }
 
             // Acceptable terminal nodes for the skolemization algorithm
-            AcornValue::Atom(ta) => {
-                if let Atom::Skolem(_) = ta.atom {
-                    AcornValue::Atom(ta)
-                } else {
-                    panic!("dead branch")
-                }
+            AcornValue::Atom(_) => {
+                panic!("dead branch")
             }
             AcornValue::Application(_)
             | AcornValue::Not(_)
@@ -143,21 +139,6 @@ impl Normalizer {
                 "moving negation inwards should have eliminated this node: {:?}",
                 value
             ),
-        }
-    }
-
-    // Constructs a new term from an atom
-    fn term_from_atom(&mut self, atom: &TypedAtom) -> Term {
-        // TODO: skolem atoms are the last case.
-        // Fix them, then remove this function.
-        assert!(atom.atom.is_skolem());
-
-        let type_id = self.type_map.add_type(atom.acorn_type.clone());
-        Term {
-            term_type: type_id,
-            head_type: type_id,
-            head: atom.atom,
-            args: vec![],
         }
     }
 
@@ -184,7 +165,7 @@ impl Normalizer {
     // Returns an error if it's inconvertible
     fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
         match value {
-            AcornValue::Atom(atom) => Ok(self.term_from_atom(atom)),
+            AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Variable(i, var_type) => {
                 let type_id = self.type_map.add_type(var_type.clone());
                 Ok(Term {
@@ -312,7 +293,6 @@ impl Normalizer {
                 let (_, name) = self.constant_map.get_info(*i);
                 name.to_string()
             }
-            Atom::Skolem(i) => format!("s{}", i),
             Atom::Monomorph(i) => {
                 let (_, name, parameters) = self.type_map.get_monomorph_info(*i);
                 format!("{}<{}>", name, AcornType::types_to_str(&parameters))

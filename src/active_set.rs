@@ -815,10 +815,10 @@ mod tests {
         let mut info = ClauseInfo::mock("!c2(c0(c0(x0))) | c1(x0) != x0");
         info.clause_type = ClauseType::Fact;
         set.insert(info);
-        let mut info = ClauseInfo::mock("c1(s1) = s1");
+        let mut info = ClauseInfo::mock("c1(c3) = c3");
         info.clause_type = ClauseType::NegatedGoal;
         let new_clauses = set.generate(info);
         assert_eq!(new_clauses.len(), 1);
-        assert_eq!(new_clauses[0].0.to_string(), "!c2(c0(c0(s1)))".to_string());
+        assert_eq!(new_clauses[0].0.to_string(), "!c2(c0(c0(c3)))".to_string());
     }
 }

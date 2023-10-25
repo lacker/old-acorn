@@ -180,7 +180,7 @@ mod tests {
     #[test]
     fn test_fingerprint_matching() {
         let term1 = Term::parse("c2(x0, x1, c0)");
-        let term2 = Term::parse("c2(c1, s1(x0), c0)");
+        let term2 = Term::parse("c2(c1, c3(x0), c0)");
         assert!(Fingerprint::new(&term1).matches(&Fingerprint::new(&term2)));
     }
 
@@ -188,7 +188,7 @@ mod tests {
     fn test_fingerprint_tree() {
         let mut tree = FingerprintTree::new();
         let term1 = Term::parse("c2(x0, x1, c0)");
-        let term2 = Term::parse("c2(c1, s1(x0), c0)");
+        let term2 = Term::parse("c2(c1, c3(x0), c0)");
         tree.insert(&term1, 1);
         assert!(tree.get_unifying(&term1).len() > 0);
         assert!(tree.get_unifying(&term2).len() > 0);
