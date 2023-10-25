@@ -98,10 +98,9 @@ impl BindingMap {
     // Returns an AcornValue representing this name, if there is one.
     // Returns None if this name does not refer to a constant.
     pub fn get_constant_value(&self, name: &str) -> Option<AcornValue> {
-        let info = self.constants.get(name)?;
+        self.constants.get(name)?;
         Some(AcornValue::Constant(
             self.namespace,
-            info.id,
             name.to_string(),
             self.identifier_types[name].clone(),
         ))
@@ -136,8 +135,7 @@ impl BindingMap {
 
     // This creates an atomic value for the next constant, but does not bind it to the name.
     pub fn next_constant_atom(&self, name: &str, acorn_type: &AcornType) -> AcornValue {
-        let c_id = self.num_constants();
-        AcornValue::Constant(self.namespace, c_id, name.to_string(), acorn_type.clone())
+        AcornValue::Constant(self.namespace, name.to_string(), acorn_type.clone())
     }
 
     // Returns the defined value, if there is a defined value.
@@ -486,9 +484,9 @@ impl BindingMap {
                 }
 
                 // Templated functions have to just be constants
-                let (c_namespace, c_id, c_name, c_type) =
-                    if let AcornValue::Constant(c_namespace, c_id, c_name, c_type) = function {
-                        (c_namespace, c_id, c_name, c_type)
+                let (c_namespace, c_name, c_type) =
+                    if let AcornValue::Constant(c_namespace, c_name, c_type) = function {
+                        (c_namespace, c_name, c_type)
                     } else {
                         return Err(Error::new(
                             function_expr.token(),
@@ -516,8 +514,7 @@ impl BindingMap {
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let monomorph =
-                    AcornValue::Monomorph(c_namespace, c_id, c_name, c_type, inst_types);
+                let monomorph = AcornValue::Monomorph(c_namespace, c_name, c_type, inst_types);
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(monomorph),
                     args,
@@ -686,8 +683,8 @@ impl BindingMap {
         match value {
             AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Variable(_, _) => {}
-            AcornValue::Constant(namespace, _, name, t)
-            | AcornValue::Monomorph(namespace, _, name, t, _) => {
+            AcornValue::Constant(namespace, name, t)
+            | AcornValue::Monomorph(namespace, name, t, _) => {
                 if *namespace == self.namespace && !self.constants.contains_key(name) {
                     answer.insert(name.to_string(), t.clone());
                 }
@@ -761,7 +758,7 @@ impl BindingMap {
         match value {
             AcornValue::Atom(a) => self.atom_str(&a.atom),
             AcornValue::Variable(i, _) => format!("x{}", i),
-            AcornValue::Constant(_, _, name, _) => name.to_string(),
+            AcornValue::Constant(_, name, _) => name.to_string(),
             AcornValue::Application(app) => {
                 let fn_name = self.value_str_stacked(&app.function, stack_size);
                 let args: Vec<_> = app
@@ -808,7 +805,7 @@ impl BindingMap {
             AcornValue::Lambda(types, values) => {
                 self.macro_str_stacked("lambda", types, values, stack_size)
             }
-            AcornValue::Monomorph(_, _, name, _, types) => {
+            AcornValue::Monomorph(_, name, _, types) => {
                 format!("{}<{}>", name, AcornType::types_to_str(&types))
             }
         }

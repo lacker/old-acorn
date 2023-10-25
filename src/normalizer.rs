@@ -125,7 +125,7 @@ impl Normalizer {
             | AcornValue::Equals(_, _)
             | AcornValue::NotEquals(_, _)
             | AcornValue::Variable(_, _)
-            | AcornValue::Constant(_, _, _, _) => value,
+            | AcornValue::Constant(_, _, _) => value,
 
             _ => panic!(
                 "moving negation inwards should have eliminated this node: {:?}",
@@ -182,7 +182,7 @@ impl Normalizer {
                     args: vec![],
                 })
             }
-            AcornValue::Constant(namespace, _, name, t) => {
+            AcornValue::Constant(namespace, name, t) => {
                 let type_id = self.type_map.add_type(t.clone());
                 let c_id = self.constant_map.add_constant(*namespace, name);
                 Ok(Term {
@@ -193,7 +193,7 @@ impl Normalizer {
                 })
             }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
-            AcornValue::Monomorph(namespace, _, name, _, parameters) => Ok(self
+            AcornValue::Monomorph(namespace, name, _, parameters) => Ok(self
                 .type_map
                 .term_from_monomorph(*namespace, name, parameters, value.get_type())),
             _ => Err(Error::Normalization(format!(
@@ -208,7 +208,7 @@ impl Normalizer {
     // to do rewrite-type lookups, on the larger literal first.
     fn literal_from_value(&mut self, value: &AcornValue) -> Result<Literal> {
         match value {
-            AcornValue::Atom(_) | AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _, _) => {
+            AcornValue::Atom(_) | AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _) => {
                 Ok(Literal::positive(self.term_from_value(value)?))
             }
             AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),

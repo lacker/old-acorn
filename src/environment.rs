@@ -213,11 +213,9 @@ impl Environment {
                 None
             }
             BlockParams::Theorem(theorem_name) => {
-                let theorem_id = self.bindings.get_constant_id(theorem_name).unwrap();
                 let theorem_type = self.bindings.get_type(theorem_name).unwrap().clone();
                 let unbound_claim = AcornValue::new_monomorph(
                     self.namespace,
-                    theorem_id,
                     theorem_name.to_string(),
                     theorem_type,
                     opaque_types,
@@ -287,7 +285,6 @@ impl Environment {
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
     // constant.
     fn add_identity_props(&mut self, name: &str) {
-        let id = self.bindings.get_constant_id(name).unwrap();
         let definition = if let Some(d) = self.bindings.get_definition(name) {
             d.clone()
         } else {
@@ -297,7 +294,6 @@ impl Environment {
         let constant_type_clone = self.bindings.get_type(name).unwrap().clone();
         let atom = Box::new(AcornValue::Constant(
             self.namespace,
-            id,
             name.to_string(),
             constant_type_clone,
         ));
