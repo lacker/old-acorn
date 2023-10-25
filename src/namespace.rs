@@ -7,8 +7,5 @@ pub type NamespaceId = u16;
 // Skolem functions are ones created to replace "exists" quantifiers.
 pub const SKOLEM: NamespaceId = 0;
 
-// Synthetic functions are created to assist in the proof search.
-pub const SYNTHETIC: NamespaceId = 1;
-
-// The regular namespaces start after the artificial ones.
-pub const FIRST_NORMAL: NamespaceId = 2;
+// The regular namespaces start here.
+pub const FIRST_NORMAL: NamespaceId = 1;

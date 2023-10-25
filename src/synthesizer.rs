@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
 use crate::literal::Literal;
+use crate::normalizer::Normalizer;
 use crate::term::Term;
 use crate::type_map::{TypeId, BOOL};
 
@@ -101,7 +102,7 @@ impl Synthesizer {
     // Synthesize some new functions that provide alternative ways of writing the given clause.
     // This is really heuristically restricted right now - we only allow synthesis by abstracting over
     // a skolem variable, which basically means we can only find a particular sort of induction.
-    pub fn synthesize(&mut self, clause: &Clause) -> Vec<Clause> {
+    pub fn synthesize(&mut self, normalizer: &Normalizer, clause: &Clause) -> Vec<Clause> {
         let mut answer = Vec::new();
         if clause.literals.len() > 1 {
             // For now we only synthesize clauses with a single literal
@@ -125,7 +126,7 @@ impl Synthesizer {
 
         // Try replacing each atom with a free variable
         for (var_type, atom) in typed_atoms {
-            if !atom.is_skolem() {
+            if !normalizer.is_skolem(&atom) {
                 continue;
             }
             if let Some(prop_type) = self.types.get(&var_type) {
@@ -164,14 +165,14 @@ mod tests {
         let neg_goal_clauses =
             norm.normalize(&env, env.get_theorem_claim("goal").unwrap().negate());
         assert_eq!(neg_goal_clauses.len(), 1);
-        let synthesized = synth.synthesize(&neg_goal_clauses[0]);
+        let synthesized = synth.synthesize(&norm, &neg_goal_clauses[0]);
         assert_eq!(synthesized.len(), 2);
         for clause in synthesized {
             norm.type_map.check_clause(&clause);
         }
 
         // Check that we won't re-synthesize
-        let synthesized_again = synth.synthesize(&neg_goal_clauses[0]);
+        let synthesized_again = synth.synthesize(&norm, &neg_goal_clauses[0]);
         assert_eq!(synthesized_again.len(), 0);
     }
 }

@@ -8,6 +8,7 @@ use crate::constant_map::ConstantMap;
 use crate::display::DisplayClause;
 use crate::environment::Environment;
 use crate::literal::Literal;
+use crate::namespace::SKOLEM;
 use crate::term::Term;
 use crate::type_map::TypeMap;
 
@@ -47,10 +48,17 @@ impl Normalizer {
     fn new_skolem_value(&mut self, acorn_type: AcornType) -> AcornValue {
         let skolem_index = self.skolem_types.len() as AtomId;
         self.skolem_types.push(acorn_type.clone());
-        AcornValue::Atom(TypedAtom {
-            atom: Atom::Skolem(skolem_index),
-            acorn_type,
-        })
+        let name = format!("s{}", skolem_index);
+        AcornValue::Constant(SKOLEM, name, acorn_type)
+    }
+
+    pub fn is_skolem(&self, atom: &Atom) -> bool {
+        if let Atom::Constant(id) = atom {
+            let (namespace, _) = self.constant_map.get_info(*id);
+            namespace == SKOLEM
+        } else {
+            false
+        }
     }
 
     // The input should already have negations moved inwards.
@@ -446,7 +454,7 @@ mod tests {
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
         env.add("theorem exists_zero: exists(x: Nat) { x = 0 }");
-        norm.check(&env, "exists_zero", &["s0 = 0"]);
+        norm.check(&env, "exists_zero", &["0 = s0"]);
     }
 
     #[test]

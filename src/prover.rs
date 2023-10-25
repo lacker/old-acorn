@@ -415,7 +415,7 @@ impl Prover<'_> {
 
         // Synthesize predicates if this is the negated goal.
         if info.clause_type == ClauseType::NegatedGoal {
-            let synth_clauses = self.synthesizer.synthesize(clause);
+            let synth_clauses = self.synthesizer.synthesize(&self.normalizer, clause);
             if !synth_clauses.is_empty() {
                 for synth_clause in synth_clauses {
                     if verbose {
