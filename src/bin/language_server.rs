@@ -2,6 +2,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use acorn::environment::Environment;
+use acorn::namespace::FIRST_NORMAL;
 use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
@@ -76,7 +77,8 @@ impl Document {
         self.log("running diagnostics");
 
         let mut diagnostics = vec![];
-        let mut env = Environment::new();
+        // TODO: use the Project
+        let mut env = Environment::new(FIRST_NORMAL);
         let tokens = Token::scan(&self.text);
         if let Err(e) = env.add_tokens(tokens) {
             self.log(&format!("env.add failed: {:?}", e));

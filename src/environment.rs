@@ -7,7 +7,7 @@ use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
-use crate::namespace::{NamespaceId, FIRST_NORMAL};
+use crate::namespace::NamespaceId;
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
@@ -150,8 +150,7 @@ enum BlockParams<'a> {
 }
 
 impl Environment {
-    pub fn new() -> Self {
-        let namespace = FIRST_NORMAL;
+    pub fn new(namespace: NamespaceId) -> Self {
         Environment {
             namespace,
             bindings: BindingMap::new(namespace),
@@ -159,6 +158,13 @@ impl Environment {
             theorem_names: HashSet::new(),
             definition_ranges: HashMap::new(),
         }
+    }
+
+    // Create a test version of the environment.
+    #[cfg(test)]
+    pub fn new_test() -> Self {
+        use crate::namespace::FIRST_NORMAL;
+        Environment::new(FIRST_NORMAL)
     }
 
     // Creates a new block with a subenvironment by copying this environment and adding some stuff.
@@ -938,7 +944,7 @@ mod tests {
 
     #[test]
     fn test_fn_equality() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("define idb1(x: bool) -> bool = x");
         env.expect_type("idb1", "bool -> bool");
         env.add("define idb2(y: bool) -> bool = y");
@@ -953,7 +959,7 @@ mod tests {
 
     #[test]
     fn test_forall_equality() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("let bsym1: bool = forall(x: bool) { x = x }");
         env.expect_type("bsym1", "bool");
         env.add("let bsym2: bool = forall(y: bool) { y = y }");
@@ -968,7 +974,7 @@ mod tests {
 
     #[test]
     fn test_exists_equality() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("let bex1: bool = exists(x: bool) { x = x }");
         env.add("let bex2: bool = exists(y: bool) { y = y }");
         env.assert_def_eq("bex1", "bex2");
@@ -980,7 +986,7 @@ mod tests {
 
     #[test]
     fn test_arg_binding() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.bad("define qux(x: bool, x: bool) -> bool = x");
         assert!(!env.bindings.has_identifier("x"));
         env.add("define qux(x: bool, y: bool) -> bool = x");
@@ -1002,7 +1008,7 @@ mod tests {
 
     #[test]
     fn test_no_double_grouped_arg_list() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("define foo(x: bool, y: bool) -> bool = x");
         env.add("let b: bool = axiom");
         env.bad("foo((b, b))");
@@ -1010,7 +1016,7 @@ mod tests {
 
     #[test]
     fn test_argless_theorem() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("let b: bool = axiom");
         env.add("theorem foo: b | !b");
         env.expect_def("foo", "(b | !b)");
@@ -1018,14 +1024,14 @@ mod tests {
 
     #[test]
     fn test_forall_value() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("let p: bool = forall(x: bool) { x | !x }");
         env.expect_def("p", "forall(x0: bool) { (x0 | !x0) }");
     }
 
     #[test]
     fn test_inline_function_value() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("define ander(a: bool) -> (bool -> bool) = function(b: bool) { a & b }");
         env.expect_def(
             "ander",
@@ -1035,7 +1041,7 @@ mod tests {
 
     #[test]
     fn test_empty_if_block() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("let b: bool = axiom");
         env.add("if b {}");
     }
@@ -1043,13 +1049,13 @@ mod tests {
     #[test]
     fn test_empty_forall_statement() {
         // Allowed as statement but not as an expression.
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("forall(b: bool) {}");
     }
 
     #[test]
     fn test_nat_ac_piecewise() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
         env.add("let Suc: Nat -> Nat = axiom");
@@ -1110,7 +1116,7 @@ mod tests {
 
     #[test]
     fn test_nat_ac_together() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
 // The axioms of Peano arithmetic.
@@ -1154,7 +1160,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_names_in_subenvs() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -1168,7 +1174,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_forall_subenv() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -1181,7 +1187,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_if_subenv() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -1195,7 +1201,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_exists_exports_names() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -1208,7 +1214,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_if_block_ending_with_exists() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             let a: bool = axiom
@@ -1226,7 +1232,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_forall_block_ending_with_exists() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             let a: bool = axiom
@@ -1244,7 +1250,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_struct_new_definition() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
         struct BoolPair {
@@ -1258,19 +1264,19 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_templated_types_required_in_function_args() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.bad("define foo<T>(a: bool) -> bool = a");
     }
 
     #[test]
     fn test_templated_types_required_in_theorem_args() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.bad("theorem foo<T>(a: bool): a | !a");
     }
 
     #[test]
     fn test_template_typechecking() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
         env.add("define eq<T>(a: T, b: T) -> bool = a = b");
@@ -1283,14 +1289,14 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_type_params_cleaned_up() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("define foo<T>(a: T) -> bool = axiom");
         assert!(env.bindings.get_type_for_name("T").is_none());
     }
 
     #[test]
     fn test_if_condition_must_be_bool() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
         env.add("let b: bool = axiom");

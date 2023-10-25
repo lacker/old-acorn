@@ -568,7 +568,7 @@ mod tests {
     use super::*;
 
     fn thing_env(s: &str) -> Environment {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Thing: axiom
@@ -749,7 +749,7 @@ mod tests {
 
     #[test]
     fn test_proof_inside_theorem_block() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Thing: axiom
@@ -764,7 +764,7 @@ mod tests {
 
     #[test]
     fn test_proof_inside_forall_block() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Thing: axiom
@@ -781,7 +781,7 @@ mod tests {
 
     #[test]
     fn test_proof_inside_if_block() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Thing: axiom
@@ -797,7 +797,7 @@ mod tests {
 
     #[test]
     fn test_multi_hop_rewriting() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -826,7 +826,7 @@ mod tests {
 
     #[test]
     fn test_matching_newly_synthesized_goal() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
         type Nat: axiom
@@ -841,7 +841,7 @@ mod tests {
 
     #[test]
     fn test_closure_proof() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -855,7 +855,7 @@ mod tests {
 
     #[test]
     fn test_boolean_equality() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -870,7 +870,7 @@ mod tests {
 
     #[test]
     fn test_using_conditional_existence_theorem() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -887,7 +887,7 @@ mod tests {
 
     #[test]
     fn test_instance_of_conditional_existence_theorem() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -903,7 +903,7 @@ mod tests {
 
     #[test]
     fn test_another_instance_of_conditional_existence_theorem() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -920,7 +920,7 @@ mod tests {
 
     #[test]
     fn test_forall_scopes() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         // Unprovable, since we know nothing about lt, but it shouldn't crash.
         env.add(
             r#"
@@ -936,7 +936,7 @@ mod tests {
 
     #[test]
     fn test_struct_new_equation() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             struct Pair {
@@ -951,7 +951,7 @@ mod tests {
 
     #[test]
     fn test_struct_first_member_equation() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             struct Pair {
@@ -966,7 +966,7 @@ mod tests {
 
     #[test]
     fn test_struct_second_member_equation() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             struct Pair {
@@ -981,7 +981,7 @@ mod tests {
 
     #[test]
     fn test_proving_templated_theorem() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c by {
@@ -996,7 +996,7 @@ mod tests {
 
     #[test]
     fn test_proving_templated_theorem_no_block() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c
@@ -1007,7 +1007,7 @@ mod tests {
 
     #[test]
     fn test_applying_templated_theorem() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -1021,7 +1021,7 @@ mod tests {
 
     #[test]
     fn test_applying_templated_function() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -1035,7 +1035,7 @@ mod tests {
 
     #[test]
     fn test_templated_definition_and_theorem() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             define foo<T>(a: T) -> bool = axiom

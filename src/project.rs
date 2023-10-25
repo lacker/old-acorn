@@ -92,14 +92,14 @@ impl Project {
         }
 
         let text = std::fs::read_to_string(&filename)?;
-        let mut env = Environment::new();
+        let namespace = self.modules.len() as NamespaceId;
+        let mut env = Environment::new(namespace);
         let tokens = Token::scan(&text);
         let module = if let Err(e) = env.add_tokens(tokens) {
             Err(e)
         } else {
             Ok(env)
         };
-        let namespace = self.modules.len() as NamespaceId;
         self.modules.push(Some(module));
         self.namespaces.insert(module_name.to_string(), namespace);
         Ok(namespace)

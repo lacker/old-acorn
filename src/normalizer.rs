@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_nat_normalization() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn test_bool_formulas() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
         env.add("theorem one(a: bool): a -> a | (a | a)");
         norm.check(&env, "one", &["!x0 | x0"]);
@@ -404,7 +404,7 @@ mod tests {
 
     #[test]
     fn test_tautology_elimination() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("theorem one(n: Nat): n = n");
@@ -416,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_nested_skolemization() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("theorem exists_eq(x: Nat): exists(y: Nat) { x = y }");
@@ -425,7 +425,7 @@ mod tests {
 
     #[test]
     fn test_skolemizing_without_args() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
@@ -435,7 +435,7 @@ mod tests {
 
     #[test]
     fn test_second_order_binding() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -454,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_boolean_equality() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn test_boolean_inequality() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn test_functions_returning_lambdas() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
@@ -503,7 +503,7 @@ mod tests {
 
     #[test]
     fn test_functional_equality() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom

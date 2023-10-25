@@ -148,7 +148,7 @@ mod tests {
 
     #[test]
     fn test_synthesis() {
-        let mut env = Environment::new();
+        let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
         let mut synth = Synthesizer::new();
 
