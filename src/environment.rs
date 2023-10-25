@@ -99,7 +99,7 @@ struct Block {
 
 impl Block {
     // Convert a boolean value from the block's environment to a value in the outer environment.
-    fn export_bool(&self, inner_value: &AcornValue) -> AcornValue {
+    fn export_bool(&self, outer_env: &Environment, inner_value: &AcornValue) -> AcornValue {
         // The constants that were block arguments will export as "forall" variables.
         let mut forall_ids: Vec<AtomId> = vec![];
         let mut forall_types: Vec<AcornType> = vec![];
@@ -114,7 +114,7 @@ impl Block {
 
         // Find all unexportable constants
         let mut unexportable: Vec<(AtomId, AcornType)> = vec![];
-        inner_value.find_constants_gte(self.num_exportable_constants, &mut unexportable);
+        inner_value.old_find_constants_gte(self.num_exportable_constants, &mut unexportable);
 
         // Unexportable constants that are not arguments export as "exists" variables.
         let mut exists_ids = vec![];
@@ -135,7 +135,7 @@ impl Block {
             .collect();
 
         // Replace all of the constants that only exist in the inside environment
-        let replaced = inner_value.replace_constants_with_variables(&ordered_ids);
+        let replaced = inner_value.old_replace_constants_with_variables(&ordered_ids);
         let replaced = self.env.bindings.genericize(&self.type_params, replaced);
         AcornValue::new_forall(forall_types, AcornValue::new_exists(exists_types, replaced))
     }
@@ -276,6 +276,10 @@ impl Environment {
         self.load_file("test", filename)
     }
 
+    pub fn has_local_name(&self, name: &str) -> bool {
+        self.bindings.has_identifier(name)
+    }
+
     // Adds a proposition.
     fn add_proposition(&mut self, prop: Proposition) {
         // Check if we're adding invalid claims.
@@ -349,7 +353,7 @@ impl Environment {
 
     // Replaces each theorem with its definition.
     fn expand_theorems(&self, value: &AcornValue) -> AcornValue {
-        value.replace_constants_with_values(0, &|i| self.get_theorem_value_for_id(i))
+        value.old_replace_constants_with_values(0, &|i| self.get_theorem_value_for_id(i))
     }
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {
@@ -574,7 +578,7 @@ impl Environment {
                         ));
                     }
                 };
-                let outer_claim = block.export_bool(inner_claim);
+                let outer_claim = block.export_bool(&self, inner_claim);
 
                 let prop = Proposition {
                     display_name: None,
@@ -607,7 +611,7 @@ impl Environment {
                 };
 
                 // The last claim in the block is exported to the outside environment.
-                let outer_claim = block.export_bool(inner_claim);
+                let outer_claim = block.export_bool(&self, inner_claim);
                 let claim = AcornValue::Implies(Box::new(condition), Box::new(outer_claim.clone()));
 
                 let prop = Proposition {

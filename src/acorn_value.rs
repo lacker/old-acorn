@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use crate::acorn_type::{AcornType, FunctionType};
@@ -764,7 +765,7 @@ impl AcornValue {
     // 'replacer' tells us what value a constant should be replaced with, or None to not replace it.
     // stack_size is how many variables are already on the stack, that we should not use when
     // constructing replacements.
-    pub fn replace_constants_with_values<'a>(
+    pub fn old_replace_constants_with_values<'a>(
         &self,
         stack_size: AtomId,
         replacer: &impl Fn(AtomId) -> Option<&'a AcornValue>,
@@ -776,7 +777,7 @@ impl AcornValue {
                         // First we need to make the replacement use the correct stack variables
                         let shifted = replacement.clone().insert_stack(0, stack_size);
                         // Then we need to recursively replace constants in the replacement
-                        return shifted.replace_constants_with_values(stack_size, replacer);
+                        return shifted.old_replace_constants_with_values(stack_size, replacer);
                     }
                 }
                 AcornValue::Atom(typed_atom.clone())
@@ -786,7 +787,7 @@ impl AcornValue {
                     // First we need to make the replacement use the correct stack variables
                     let shifted = replacement.clone().insert_stack(0, stack_size);
                     // Then we need to recursively replace constants in the replacement
-                    return shifted.replace_constants_with_values(stack_size, replacer);
+                    return shifted.old_replace_constants_with_values(stack_size, replacer);
                 }
                 self.clone()
             }
@@ -794,11 +795,11 @@ impl AcornValue {
             AcornValue::Application(fa) => {
                 let new_function = fa
                     .function
-                    .replace_constants_with_values(stack_size, replacer);
+                    .old_replace_constants_with_values(stack_size, replacer);
                 let new_args = fa
                     .args
                     .iter()
-                    .map(|x| x.replace_constants_with_values(stack_size, replacer))
+                    .map(|x| x.old_replace_constants_with_values(stack_size, replacer))
                     .collect();
                 AcornValue::Application(FunctionApplication {
                     function: Box::new(new_function),
@@ -806,43 +807,47 @@ impl AcornValue {
                 })
             }
             AcornValue::Lambda(arg_types, value) => {
-                let new_value = value.replace_constants_with_values(
+                let new_value = value.old_replace_constants_with_values(
                     stack_size + arg_types.len() as AtomId,
                     replacer,
                 );
                 AcornValue::Lambda(arg_types.clone(), Box::new(new_value))
             }
             AcornValue::Implies(left, right) => AcornValue::Implies(
-                Box::new(left.replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::Equals(left, right) => AcornValue::Equals(
-                Box::new(left.replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
-                Box::new(left.replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::And(left, right) => AcornValue::And(
-                Box::new(left.replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
-                Box::new(left.replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(
-                x.replace_constants_with_values(stack_size, replacer),
+                x.old_replace_constants_with_values(stack_size, replacer),
             )),
             AcornValue::ForAll(quants, value) => {
-                let new_value = value
-                    .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
+                let new_value = value.old_replace_constants_with_values(
+                    stack_size + quants.len() as AtomId,
+                    replacer,
+                );
                 AcornValue::ForAll(quants.clone(), Box::new(new_value))
             }
             AcornValue::Exists(quants, value) => {
-                let new_value = value
-                    .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
+                let new_value = value.old_replace_constants_with_values(
+                    stack_size + quants.len() as AtomId,
+                    replacer,
+                );
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
             AcornValue::Monomorph(_, id, _, _, types) => {
@@ -857,9 +862,79 @@ impl AcornValue {
         }
     }
 
+    // For constants in this namespace, replace them with a variable id if they are in the constants map.
+    pub fn replace_constants_with_vars(
+        &self,
+        namespace: NamespaceId,
+        constants: &HashMap<String, AtomId>,
+    ) -> AcornValue {
+        match self {
+            AcornValue::Atom(_) => panic!("dead branch"),
+            AcornValue::Variable(_, _) => self.clone(),
+            AcornValue::Constant(n, _, name, t) => {
+                if *n == namespace {
+                    if let Some(i) = constants.get(name) {
+                        return AcornValue::Variable(*i, t.clone());
+                    }
+                }
+                self.clone()
+            }
+            AcornValue::Application(fa) => {
+                let new_function = fa
+                    .function
+                    .replace_constants_with_vars(namespace, constants);
+                let new_args = fa
+                    .args
+                    .iter()
+                    .map(|x| x.replace_constants_with_vars(namespace, constants))
+                    .collect();
+                AcornValue::Application(FunctionApplication {
+                    function: Box::new(new_function),
+                    args: new_args,
+                })
+            }
+            AcornValue::Lambda(arg_types, value) => {
+                let new_value = value.replace_constants_with_vars(namespace, constants);
+                AcornValue::Lambda(arg_types.clone(), Box::new(new_value))
+            }
+            AcornValue::Implies(left, right) => AcornValue::Implies(
+                Box::new(left.replace_constants_with_vars(namespace, constants)),
+                Box::new(right.replace_constants_with_vars(namespace, constants)),
+            ),
+            AcornValue::Equals(left, right) => AcornValue::Equals(
+                Box::new(left.replace_constants_with_vars(namespace, constants)),
+                Box::new(right.replace_constants_with_vars(namespace, constants)),
+            ),
+            AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
+                Box::new(left.replace_constants_with_vars(namespace, constants)),
+                Box::new(right.replace_constants_with_vars(namespace, constants)),
+            ),
+            AcornValue::And(left, right) => AcornValue::And(
+                Box::new(left.replace_constants_with_vars(namespace, constants)),
+                Box::new(right.replace_constants_with_vars(namespace, constants)),
+            ),
+            AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.replace_constants_with_vars(namespace, constants)),
+                Box::new(right.replace_constants_with_vars(namespace, constants)),
+            ),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(
+                x.replace_constants_with_vars(namespace, constants),
+            )),
+            AcornValue::ForAll(quants, value) => {
+                let new_value = value.replace_constants_with_vars(namespace, constants);
+                AcornValue::ForAll(quants.clone(), Box::new(new_value))
+            }
+            AcornValue::Exists(quants, value) => {
+                let new_value = value.replace_constants_with_vars(namespace, constants);
+                AcornValue::Exists(quants.clone(), Box::new(new_value))
+            }
+            AcornValue::Monomorph(_, _, _, _, _) => panic!("can this happen?"),
+        }
+    }
+
     // Replace the constant(constants[i]) with a variable(i).
     // Shift all other variable indexes up to account for the new variables.
-    pub fn replace_constants_with_variables(&self, constants: &Vec<AtomId>) -> AcornValue {
+    pub fn old_replace_constants_with_variables(&self, constants: &Vec<AtomId>) -> AcornValue {
         match self {
             AcornValue::Atom(typed_atom) => match typed_atom.atom {
                 Atom::Constant(c) => {
@@ -886,11 +961,11 @@ impl AcornValue {
                 }
             }
             AcornValue::Application(fa) => {
-                let new_function = fa.function.replace_constants_with_variables(constants);
+                let new_function = fa.function.old_replace_constants_with_variables(constants);
                 let new_args = fa
                     .args
                     .iter()
-                    .map(|x| x.replace_constants_with_variables(constants))
+                    .map(|x| x.old_replace_constants_with_variables(constants))
                     .collect();
                 AcornValue::Application(FunctionApplication {
                     function: Box::new(new_function),
@@ -898,38 +973,38 @@ impl AcornValue {
                 })
             }
             AcornValue::Lambda(arg_types, value) => {
-                let new_value = value.replace_constants_with_variables(constants);
+                let new_value = value.old_replace_constants_with_variables(constants);
                 AcornValue::Lambda(arg_types.clone(), Box::new(new_value))
             }
             AcornValue::Implies(left, right) => AcornValue::Implies(
-                Box::new(left.replace_constants_with_variables(constants)),
-                Box::new(right.replace_constants_with_variables(constants)),
+                Box::new(left.old_replace_constants_with_variables(constants)),
+                Box::new(right.old_replace_constants_with_variables(constants)),
             ),
             AcornValue::Equals(left, right) => AcornValue::Equals(
-                Box::new(left.replace_constants_with_variables(constants)),
-                Box::new(right.replace_constants_with_variables(constants)),
+                Box::new(left.old_replace_constants_with_variables(constants)),
+                Box::new(right.old_replace_constants_with_variables(constants)),
             ),
             AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
-                Box::new(left.replace_constants_with_variables(constants)),
-                Box::new(right.replace_constants_with_variables(constants)),
+                Box::new(left.old_replace_constants_with_variables(constants)),
+                Box::new(right.old_replace_constants_with_variables(constants)),
             ),
             AcornValue::And(left, right) => AcornValue::And(
-                Box::new(left.replace_constants_with_variables(constants)),
-                Box::new(right.replace_constants_with_variables(constants)),
+                Box::new(left.old_replace_constants_with_variables(constants)),
+                Box::new(right.old_replace_constants_with_variables(constants)),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
-                Box::new(left.replace_constants_with_variables(constants)),
-                Box::new(right.replace_constants_with_variables(constants)),
+                Box::new(left.old_replace_constants_with_variables(constants)),
+                Box::new(right.old_replace_constants_with_variables(constants)),
             ),
             AcornValue::Not(x) => {
-                AcornValue::Not(Box::new(x.replace_constants_with_variables(constants)))
+                AcornValue::Not(Box::new(x.old_replace_constants_with_variables(constants)))
             }
             AcornValue::ForAll(quants, value) => {
-                let new_value = value.replace_constants_with_variables(constants);
+                let new_value = value.old_replace_constants_with_variables(constants);
                 AcornValue::ForAll(quants.clone(), Box::new(new_value))
             }
             AcornValue::Exists(quants, value) => {
-                let new_value = value.replace_constants_with_variables(constants);
+                let new_value = value.old_replace_constants_with_variables(constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
             AcornValue::Monomorph(_, _, _, _, _) => panic!("can this happen?"),
@@ -938,7 +1013,7 @@ impl AcornValue {
 
     // Find all constants c_i with i >= index.
     // Report tuples of (i, type).
-    pub fn find_constants_gte(&self, index: AtomId, answer: &mut Vec<(AtomId, AcornType)>) {
+    pub fn old_find_constants_gte(&self, index: AtomId, answer: &mut Vec<(AtomId, AcornType)>) {
         match self {
             AcornValue::Atom(ta) => ta.find_constants_gte(index, answer),
             AcornValue::Variable(_, _) => {}
@@ -948,35 +1023,35 @@ impl AcornValue {
                 }
             }
             AcornValue::Application(fa) => {
-                fa.function.find_constants_gte(index, answer);
+                fa.function.old_find_constants_gte(index, answer);
                 for arg in &fa.args {
-                    arg.find_constants_gte(index, answer);
+                    arg.old_find_constants_gte(index, answer);
                 }
             }
-            AcornValue::Lambda(_, value) => value.find_constants_gte(index, answer),
+            AcornValue::Lambda(_, value) => value.old_find_constants_gte(index, answer),
             AcornValue::Implies(left, right) => {
-                left.find_constants_gte(index, answer);
-                right.find_constants_gte(index, answer);
+                left.old_find_constants_gte(index, answer);
+                right.old_find_constants_gte(index, answer);
             }
             AcornValue::Equals(left, right) => {
-                left.find_constants_gte(index, answer);
-                right.find_constants_gte(index, answer);
+                left.old_find_constants_gte(index, answer);
+                right.old_find_constants_gte(index, answer);
             }
             AcornValue::NotEquals(left, right) => {
-                left.find_constants_gte(index, answer);
-                right.find_constants_gte(index, answer);
+                left.old_find_constants_gte(index, answer);
+                right.old_find_constants_gte(index, answer);
             }
             AcornValue::And(left, right) => {
-                left.find_constants_gte(index, answer);
-                right.find_constants_gte(index, answer);
+                left.old_find_constants_gte(index, answer);
+                right.old_find_constants_gte(index, answer);
             }
             AcornValue::Or(left, right) => {
-                left.find_constants_gte(index, answer);
-                right.find_constants_gte(index, answer);
+                left.old_find_constants_gte(index, answer);
+                right.old_find_constants_gte(index, answer);
             }
-            AcornValue::Not(x) => x.find_constants_gte(index, answer),
-            AcornValue::ForAll(_, value) => value.find_constants_gte(index, answer),
-            AcornValue::Exists(_, value) => value.find_constants_gte(index, answer),
+            AcornValue::Not(x) => x.old_find_constants_gte(index, answer),
+            AcornValue::ForAll(_, value) => value.old_find_constants_gte(index, answer),
+            AcornValue::Exists(_, value) => value.old_find_constants_gte(index, answer),
             AcornValue::Monomorph(_, c, _, generic_type, _) => TypedAtom {
                 atom: Atom::Constant(*c),
                 acorn_type: generic_type.clone(),

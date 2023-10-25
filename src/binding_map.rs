@@ -675,6 +675,47 @@ impl BindingMap {
         answer
     }
 
+    // Finds the names of all constants that are in this namespace but unknown to this binding map.
+    // Does not deduplicate
+    fn find_unknown_local_constants(
+        &self,
+        value: &AcornValue,
+        answer: &mut HashMap<String, AcornType>,
+    ) {
+        match value {
+            AcornValue::Atom(_) => panic!("dead branch"),
+            AcornValue::Variable(_, _) => {}
+            AcornValue::Constant(namespace, _, name, t)
+            | AcornValue::Monomorph(namespace, _, name, t, _) => {
+                if *namespace == self.namespace && !self.constants.contains_key(name) {
+                    answer.insert(name.to_string(), t.clone());
+                }
+            }
+            AcornValue::Application(app) => {
+                self.find_unknown_local_constants(&app.function, answer);
+                for arg in &app.args {
+                    self.find_unknown_local_constants(arg, answer);
+                }
+            }
+            AcornValue::Lambda(_, value)
+            | AcornValue::ForAll(_, value)
+            | AcornValue::Exists(_, value) => {
+                self.find_unknown_local_constants(value, answer);
+            }
+            AcornValue::Implies(left, right)
+            | AcornValue::Equals(left, right)
+            | AcornValue::NotEquals(left, right)
+            | AcornValue::And(left, right)
+            | AcornValue::Or(left, right) => {
+                self.find_unknown_local_constants(left, answer);
+                self.find_unknown_local_constants(right, answer);
+            }
+            AcornValue::Not(value) => {
+                self.find_unknown_local_constants(value, answer);
+            }
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // Tools for converting things to displayable strings.
     ////////////////////////////////////////////////////////////////////////////////
