@@ -4,10 +4,10 @@
 
 use std::io::Write;
 
-use acorn::environment::Environment;
+use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
 
-const USAGE: &str = "Usage: cargo run --bin=debug <filename> <goal name>";
+const USAGE: &str = "Usage: cargo run --bin=debug <module name> <goal name>";
 
 fn trim_command<'a>(command: &str, line: &'a str) -> Option<&'a str> {
     if line.starts_with(command) {
@@ -20,12 +20,11 @@ fn trim_command<'a>(command: &str, line: &'a str) -> Option<&'a str> {
 fn main() {
     // Parse command line arguments
     let mut args = std::env::args().skip(1);
-    let input_file = args.next().expect(USAGE);
+    let module_name = args.next().expect(USAGE);
     let theorem_name = args.next().expect(USAGE);
 
     // Find all the goals in the file
-    let mut env = Environment::new();
-    env.load_math(&input_file).unwrap();
+    let env = Project::load_math(&module_name);
     let goal_paths = env.goal_paths();
     let goals = goal_paths
         .iter()

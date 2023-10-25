@@ -2,14 +2,13 @@
 // Try:
 //   cargo flamegraph --bin=profiling
 
-use acorn::environment::Environment;
+use acorn::project::Project;
 use acorn::prover::Prover;
 
 fn main() {
-    let input_file = "nat.ac";
+    let module_name = "nat";
     let theorem_name = "add_suc_left";
-    let mut env = Environment::new();
-    env.load_math(&input_file).unwrap();
+    let env = Project::load_math(&module_name);
     let goal_context = env.get_theorem_context(theorem_name);
     let mut prover = Prover::new_with_goal(&goal_context);
     let result = prover.search_for_contradiction(1000000, 30.0);

@@ -1,20 +1,19 @@
 // Checks an acorn file to see if it compiles.
 // Try:
-//   cargo run --bin=check nat.ac
+//   cargo run --bin=check nat
 
-use acorn::environment::Environment;
+use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
 
-const USAGE: &str = "Usage: cargo run --bin=check <filename>";
+const USAGE: &str = "Usage: cargo run --bin=check <module name>";
 
 fn main() {
     // Parse command line arguments
     let mut args = std::env::args().skip(1);
-    let input_file = args.next().expect(USAGE);
+    let module_name = args.next().expect(USAGE);
 
     // Load the environment
-    let mut env = Environment::new();
-    env.load_math(&input_file).unwrap();
+    let env = Project::load_math(&module_name);
 
     let paths = env.goal_paths();
     for path in paths {
