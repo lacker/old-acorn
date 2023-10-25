@@ -119,19 +119,10 @@ impl BindingMap {
         self.identifier_types.contains_key(identifier)
     }
 
-    pub fn num_constants(&self) -> AtomId {
-        self.constant_names.len() as AtomId
-    }
-
     // Returns the defined value, if there is a defined value.
     // If there isn't, returns None.
     pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {
         self.constants.get(name)?.definition.as_ref()
-    }
-
-    pub fn get_definition_for_id(&self, id: AtomId) -> Option<&AcornValue> {
-        let name = &self.constant_names[id as usize];
-        self.get_definition(name)
     }
 
     pub fn add_constant(

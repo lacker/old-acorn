@@ -6,7 +6,7 @@ use tower_lsp::lsp_types::{Position, Range};
 
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::{Atom, AtomId};
+use crate::atom::AtomId;
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
 use crate::namespace::{NamespaceId, FIRST_NORMAL};
@@ -380,10 +380,6 @@ impl Environment {
             }
         }
         panic!("no proposition named {}", name);
-    }
-
-    pub fn atom_str(&self, atom: &Atom) -> String {
-        self.bindings.atom_str(atom)
     }
 
     // Panics if the value is bad, for some varieties of bad
