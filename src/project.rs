@@ -23,6 +23,7 @@ pub struct Project {
 
 // An error found while importing a module.
 // Not an error in the code of the module itself.
+#[derive(Debug)]
 pub struct LoadError(String);
 
 impl From<io::Error> for LoadError {
@@ -32,7 +33,7 @@ impl From<io::Error> for LoadError {
 }
 
 impl Project {
-    fn new(root: String) -> Project {
+    fn new(root: &str) -> Project {
         let root = if root.starts_with('/') {
             PathBuf::from(root)
         } else {
@@ -63,13 +64,13 @@ impl Project {
         })
     }
 
-    // Loads a module from disk.
+    // Loads a module from cache if possible, or else from disk.
     // Module names are a .-separated list where each one must be [a-z_].
     // Each component maps to a subdirectory, except the last one, which maps to a .ac file.
     // load returns an error if the module-loading process itself has an error.
     // For example, we might have an invalid name, or the file might not exist.
     // If there is an error in the file, that will be reported by the Module.
-    pub fn load_from_disk(&mut self, module_name: &str) -> Result<NamespaceId, LoadError> {
+    pub fn load(&mut self, module_name: &str) -> Result<NamespaceId, LoadError> {
         if let Some(namespace) = self.namespaces.get(module_name) {
             return Ok(*namespace);
         }
@@ -102,5 +103,28 @@ impl Project {
         self.modules.push(Some(module));
         self.namespaces.insert(module_name.to_string(), namespace);
         Ok(namespace)
+    }
+
+    fn take_env(&mut self, namespace: NamespaceId) -> Environment {
+        let module = std::mem::take(&mut self.modules[namespace as usize]);
+        match module {
+            None => panic!("module not loaded"),
+            Some(Ok(env)) => env,
+            Some(Err(err)) => panic!("module had error: {}", err),
+        }
+    }
+
+    fn force_load(root: &str, module_name: &str) -> Environment {
+        let mut project = Project::new(root);
+        let namespace = project.load(module_name).unwrap();
+        project.take_env(namespace)
+    }
+
+    pub fn load_math(module_name: &str) -> Environment {
+        Project::force_load("math", module_name)
+    }
+
+    pub fn load_test(module_name: &str) -> Environment {
+        Project::force_load("test", module_name)
     }
 }
