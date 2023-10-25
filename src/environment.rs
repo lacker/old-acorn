@@ -265,10 +265,6 @@ impl Environment {
         self.load_file("math", filename)
     }
 
-    pub fn load_test(&mut self, filename: &str) -> io::Result<()> {
-        self.load_file("test", filename)
-    }
-
     pub fn has_local_name(&self, name: &str) -> bool {
         self.bindings.has_identifier(name)
     }
