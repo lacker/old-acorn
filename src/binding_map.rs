@@ -133,11 +133,6 @@ impl BindingMap {
         self.constant_names.len() as AtomId
     }
 
-    // This creates an atomic value for the next constant, but does not bind it to the name.
-    pub fn next_constant_atom(&self, name: &str, acorn_type: &AcornType) -> AcornValue {
-        AcornValue::Constant(self.namespace, name.to_string(), acorn_type.clone())
-    }
-
     // Returns the defined value, if there is a defined value.
     // If there isn't, returns None.
     pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {

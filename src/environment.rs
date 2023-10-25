@@ -426,7 +426,7 @@ impl Environment {
                 }
                 let acorn_type = self.bindings.evaluate_type(&ls.type_expr)?;
                 let value = if ls.value.token().token_type == TokenType::Axiom {
-                    self.bindings.next_constant_atom(&ls.name, &acorn_type)
+                    AcornValue::Constant(self.namespace, ls.name.clone(), acorn_type.clone())
                 } else {
                     self.bindings.evaluate_value(&ls.value, Some(&acorn_type))?
                 };
@@ -461,7 +461,7 @@ impl Environment {
                         arg_types,
                         return_type: Box::new(value_type),
                     });
-                    self.bindings.next_constant_atom(&ds.name, &new_axiom_type)
+                    AcornValue::Constant(self.namespace, ds.name.clone(), new_axiom_type)
                 };
 
                 // Add the function value to the environment
