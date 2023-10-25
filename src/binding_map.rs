@@ -117,6 +117,7 @@ impl BindingMap {
         self.identifier_types.get(identifier)
     }
 
+    // Gets the type for a type name, not for an identifier.
     pub fn get_type_for_name(&self, type_name: &str) -> Option<&AcornType> {
         self.type_names.get(type_name)
     }
@@ -677,7 +678,7 @@ impl BindingMap {
 
     // Finds the names of all constants that are in this namespace but unknown to this binding map.
     // Does not deduplicate
-    fn find_unknown_local_constants(
+    pub fn find_unknown_local_constants(
         &self,
         value: &AcornValue,
         answer: &mut HashMap<String, AcornType>,

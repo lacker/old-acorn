@@ -90,52 +90,48 @@ struct Block {
 
     // The environment created inside the block.
     env: Environment,
-
-    // Constants that were already defined before this block can be exported.
-    // Since we never delete constants, and we assign ids in increasing order,
-    // i < num_exportable_constants implies that Atom::Constant(i) is exportable.
-    num_exportable_constants: AtomId,
 }
 
 impl Block {
     // Convert a boolean value from the block's environment to a value in the outer environment.
     fn export_bool(&self, outer_env: &Environment, inner_value: &AcornValue) -> AcornValue {
         // The constants that were block arguments will export as "forall" variables.
-        let mut forall_ids: Vec<AtomId> = vec![];
+        let mut forall_names: Vec<String> = vec![];
         let mut forall_types: Vec<AcornType> = vec![];
         for (name, t) in &self.args {
-            if let Some(id) = self.env.bindings.get_constant_id(name) {
-                forall_ids.push(id);
-                forall_types.push(t.clone());
-            } else {
-                panic!("name {} not found in block constants", name);
-            }
+            forall_names.push(name.clone());
+            forall_types.push(t.clone());
         }
 
         // Find all unexportable constants
-        let mut unexportable: Vec<(AtomId, AcornType)> = vec![];
-        inner_value.old_find_constants_gte(self.num_exportable_constants, &mut unexportable);
+        let mut unexportable: HashMap<String, AcornType> = HashMap::new();
+        outer_env
+            .bindings
+            .find_unknown_local_constants(inner_value, &mut unexportable);
 
         // Unexportable constants that are not arguments export as "exists" variables.
-        let mut exists_ids = vec![];
+        let mut exists_names = vec![];
         let mut exists_types = vec![];
-        for (constant, constant_type) in unexportable {
-            if forall_ids.contains(&constant) {
+        for (name, t) in unexportable {
+            if forall_names.contains(&name) {
                 continue;
             }
-            exists_ids.push(constant);
-            exists_types.push(constant_type);
+            exists_names.push(name);
+            exists_types.push(t);
         }
 
         // The forall must be outside the exists, so order stack variables appropriately
-        let ordered_ids = forall_ids
-            .iter()
-            .chain(exists_ids.iter())
-            .cloned()
-            .collect();
+        let mut map: HashMap<String, AtomId> = HashMap::new();
+        for (i, name) in forall_names
+            .into_iter()
+            .chain(exists_names.into_iter())
+            .enumerate()
+        {
+            map.insert(name, i as AtomId);
+        }
 
         // Replace all of the constants that only exist in the inside environment
-        let replaced = inner_value.old_replace_constants_with_variables(&ordered_ids);
+        let replaced = inner_value.replace_constants_with_vars(outer_env.namespace, &map);
         let replaced = self.env.bindings.genericize(&self.type_params, replaced);
         AcornValue::new_forall(forall_types, AcornValue::new_exists(exists_types, replaced))
     }
@@ -250,7 +246,6 @@ impl Environment {
             args,
             env: subenv,
             claim,
-            num_exportable_constants: self.bindings.num_constants(),
         }))
     }
 
