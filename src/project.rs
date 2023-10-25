@@ -64,7 +64,7 @@ impl Project {
         })
     }
 
-    // Loads a module from cache if possible, or else from disk.
+    // Loads a module from cache if possible, or else from the filesystem.
     // Module names are a .-separated list where each one must be [a-z_].
     // Each component maps to a subdirectory, except the last one, which maps to a .ac file.
     // load returns an error if the module-loading process itself has an error.
