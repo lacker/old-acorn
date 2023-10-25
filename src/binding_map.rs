@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, FunctionApplication};
-use crate::atom::{Atom, AtomId};
+use crate::atom::AtomId;
 use crate::expression::Expression;
 use crate::namespace::{NamespaceId, FIRST_NORMAL};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
@@ -694,26 +694,6 @@ impl BindingMap {
     // Tools for converting things to displayable strings.
     ////////////////////////////////////////////////////////////////////////////////
 
-    pub fn atom_str(&self, atom: &Atom) -> String {
-        match atom {
-            Atom::True => "true".to_string(),
-            Atom::Constant(i) => {
-                if *i as usize >= self.constant_names.len() {
-                    panic!(
-                        "atom is c{} but we have only {} constants",
-                        i,
-                        self.constant_names.len()
-                    );
-                }
-                self.constant_names[*i as usize].to_string()
-            }
-            Atom::Skolem(i) => format!("s{}", i),
-            Atom::Monomorph(i) => format!("m{}", i),
-            Atom::Synthetic(i) => format!("p{}", i),
-            Atom::Variable(i) => format!("x{}", i),
-        }
-    }
-
     fn macro_str_stacked(
         &self,
         macro_name: &str,
@@ -732,7 +712,7 @@ impl BindingMap {
 
     fn value_str_stacked(&self, value: &AcornValue, stack_size: usize) -> String {
         match value {
-            AcornValue::Atom(a) => self.atom_str(&a.atom),
+            AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Variable(i, _) => format!("x{}", i),
             AcornValue::Constant(_, name, _) => name.to_string(),
             AcornValue::Application(app) => {
