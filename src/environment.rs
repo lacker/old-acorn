@@ -330,8 +330,11 @@ impl Environment {
     }
 
     // i is the id of a constant
-    fn get_theorem_value_for_id(&self, i: AtomId) -> Option<&AcornValue> {
-        let name = self.bindings.get_constant_name(i);
+    fn get_theorem_value(&self, namespace: NamespaceId, name: &str) -> Option<&AcornValue> {
+        if namespace != self.namespace {
+            // For now, we cannot look up theorems from other namespaces.
+            return None;
+        }
         if !self.theorem_names.contains(name) {
             return None;
         }
@@ -348,7 +351,9 @@ impl Environment {
 
     // Replaces each theorem with its definition.
     fn expand_theorems(&self, value: &AcornValue) -> AcornValue {
-        value.old_replace_constants_with_values(0, &|i| self.get_theorem_value_for_id(i))
+        value.replace_constants_with_values(0, &|namespace, name| {
+            self.get_theorem_value(namespace, name)
+        })
     }
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {

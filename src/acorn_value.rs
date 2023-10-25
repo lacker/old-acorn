@@ -765,29 +765,21 @@ impl AcornValue {
     // 'replacer' tells us what value a constant should be replaced with, or None to not replace it.
     // stack_size is how many variables are already on the stack, that we should not use when
     // constructing replacements.
-    pub fn old_replace_constants_with_values<'a>(
+    pub fn replace_constants_with_values<'a>(
         &self,
         stack_size: AtomId,
-        replacer: &impl Fn(AtomId) -> Option<&'a AcornValue>,
+        replacer: &impl Fn(NamespaceId, &str) -> Option<&'a AcornValue>,
     ) -> AcornValue {
         match self {
-            AcornValue::Atom(typed_atom) => {
-                if let Atom::Constant(i) = typed_atom.atom {
-                    if let Some(replacement) = replacer(i) {
-                        // First we need to make the replacement use the correct stack variables
-                        let shifted = replacement.clone().insert_stack(0, stack_size);
-                        // Then we need to recursively replace constants in the replacement
-                        return shifted.old_replace_constants_with_values(stack_size, replacer);
-                    }
-                }
-                AcornValue::Atom(typed_atom.clone())
+            AcornValue::Atom(_) => {
+                panic!("dead branch");
             }
-            AcornValue::Constant(_, id, _, _) => {
-                if let Some(replacement) = replacer(*id) {
+            AcornValue::Constant(namespace, _, name, _) => {
+                if let Some(replacement) = replacer(*namespace, name) {
                     // First we need to make the replacement use the correct stack variables
                     let shifted = replacement.clone().insert_stack(0, stack_size);
                     // Then we need to recursively replace constants in the replacement
-                    return shifted.old_replace_constants_with_values(stack_size, replacer);
+                    return shifted.replace_constants_with_values(stack_size, replacer);
                 }
                 self.clone()
             }
@@ -795,11 +787,11 @@ impl AcornValue {
             AcornValue::Application(fa) => {
                 let new_function = fa
                     .function
-                    .old_replace_constants_with_values(stack_size, replacer);
+                    .replace_constants_with_values(stack_size, replacer);
                 let new_args = fa
                     .args
                     .iter()
-                    .map(|x| x.old_replace_constants_with_values(stack_size, replacer))
+                    .map(|x| x.replace_constants_with_values(stack_size, replacer))
                     .collect();
                 AcornValue::Application(FunctionApplication {
                     function: Box::new(new_function),
@@ -807,51 +799,47 @@ impl AcornValue {
                 })
             }
             AcornValue::Lambda(arg_types, value) => {
-                let new_value = value.old_replace_constants_with_values(
+                let new_value = value.replace_constants_with_values(
                     stack_size + arg_types.len() as AtomId,
                     replacer,
                 );
                 AcornValue::Lambda(arg_types.clone(), Box::new(new_value))
             }
             AcornValue::Implies(left, right) => AcornValue::Implies(
-                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::Equals(left, right) => AcornValue::Equals(
-                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::NotEquals(left, right) => AcornValue::NotEquals(
-                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::And(left, right) => AcornValue::And(
-                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
-                Box::new(left.old_replace_constants_with_values(stack_size, replacer)),
-                Box::new(right.old_replace_constants_with_values(stack_size, replacer)),
+                Box::new(left.replace_constants_with_values(stack_size, replacer)),
+                Box::new(right.replace_constants_with_values(stack_size, replacer)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(
-                x.old_replace_constants_with_values(stack_size, replacer),
+                x.replace_constants_with_values(stack_size, replacer),
             )),
             AcornValue::ForAll(quants, value) => {
-                let new_value = value.old_replace_constants_with_values(
-                    stack_size + quants.len() as AtomId,
-                    replacer,
-                );
+                let new_value = value
+                    .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::ForAll(quants.clone(), Box::new(new_value))
             }
             AcornValue::Exists(quants, value) => {
-                let new_value = value.old_replace_constants_with_values(
-                    stack_size + quants.len() as AtomId,
-                    replacer,
-                );
+                let new_value = value
+                    .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Monomorph(_, id, _, _, types) => {
-                if let Some(replacement) = replacer(*id) {
+            AcornValue::Monomorph(namespace, _, name, _, types) => {
+                if let Some(replacement) = replacer(*namespace, name) {
                     // We do need to replace this
                     replacement.monomorphize(types)
                 } else {
