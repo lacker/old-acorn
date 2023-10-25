@@ -125,9 +125,6 @@ impl Normalizer {
             }
 
             // Acceptable terminal nodes for the skolemization algorithm
-            AcornValue::Atom(_) => {
-                panic!("dead branch")
-            }
             AcornValue::Application(_)
             | AcornValue::Not(_)
             | AcornValue::Equals(_, _)
@@ -165,7 +162,6 @@ impl Normalizer {
     // Returns an error if it's inconvertible
     fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
         match value {
-            AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Variable(i, var_type) => {
                 let type_id = self.type_map.add_type(var_type.clone());
                 Ok(Term {
@@ -201,7 +197,7 @@ impl Normalizer {
     // to do rewrite-type lookups, on the larger literal first.
     fn literal_from_value(&mut self, value: &AcornValue) -> Result<Literal> {
         match value {
-            AcornValue::Atom(_) | AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _) => {
+            AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _) => {
                 Ok(Literal::positive(self.term_from_value(value)?))
             }
             AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),

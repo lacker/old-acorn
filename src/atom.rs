@@ -130,29 +130,7 @@ impl TypedAtom {
         stack_size: AtomId,
         values: &Vec<AcornValue>,
     ) -> AcornValue {
-        match self.atom {
-            Atom::Variable(i) => {
-                if i < first_binding_index {
-                    // This reference is unchanged
-                    return AcornValue::Atom(self);
-                }
-                if i < first_binding_index + values.len() as AtomId {
-                    // This reference is bound to a new value
-                    let new_value = values[(i - first_binding_index) as usize].clone();
-
-                    // We are moving this value between contexts with possibly different stack sizes
-                    assert!(stack_size >= first_binding_index);
-                    return new_value
-                        .insert_stack(first_binding_index, stack_size - first_binding_index);
-                }
-                // This reference just needs to be shifted
-                AcornValue::Atom(TypedAtom {
-                    atom: Atom::Variable(i - values.len() as AtomId),
-                    acorn_type: self.acorn_type,
-                })
-            }
-            _ => AcornValue::Atom(self),
-        }
+        panic!("dead branch");
     }
 
     pub fn insert_stack(self, index: AtomId, increment: AtomId) -> TypedAtom {

@@ -645,7 +645,6 @@ impl BindingMap {
         answer: &mut HashMap<String, AcornType>,
     ) {
         match value {
-            AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Variable(_, _) => {}
             AcornValue::Constant(namespace, name, t)
             | AcornValue::Monomorph(namespace, name, t, _) => {
@@ -700,7 +699,6 @@ impl BindingMap {
 
     fn value_str_stacked(&self, value: &AcornValue, stack_size: usize) -> String {
         match value {
-            AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Variable(i, _) => format!("x{}", i),
             AcornValue::Constant(_, name, _) => name.to_string(),
             AcornValue::Application(app) => {

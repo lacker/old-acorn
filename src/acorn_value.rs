@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::atom::{Atom, AtomId, TypedAtom};
+use crate::atom::AtomId;
 use crate::constant_map::ConstantKey;
 use crate::namespace::NamespaceId;
 
@@ -31,16 +31,6 @@ impl FunctionApplication {
 // Comparison doesn't do any evaluations.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AcornValue {
-    // An atomic value could be an axiom.
-    // It could be a defined value that we don't want to expand inline.
-    // It could be a function produced by skolemization.
-    // Basically anything that isn't composed of smaller parts.
-    //
-    // TODO: deprecate. Make it clear that:
-    //   Term/Atom/TypeId is for the Prover.
-    //   AcornValue/AcornType is for the Environment.
-    Atom(TypedAtom),
-
     // A variable that is bound to a value on the stack.
     // Represented by (stack index, type).
     Variable(AtomId, AcornType),
@@ -83,7 +73,6 @@ struct Subvalue<'a> {
 impl fmt::Display for Subvalue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.value {
-            AcornValue::Atom(a) => write!(f, "{}", a),
             AcornValue::Variable(i, _) => write!(f, "x{}", i),
             AcornValue::Constant(_, name, _) => write!(f, "{}", name),
             AcornValue::Application(a) => a.fmt_helper(f, self.stack_size),
@@ -169,7 +158,6 @@ impl fmt::Display for AcornValue {
 impl AcornValue {
     pub fn get_type(&self) -> AcornType {
         match self {
-            AcornValue::Atom(t) => t.acorn_type.clone(),
             AcornValue::Variable(_, t) => t.clone(),
             AcornValue::Constant(_, _, t) => t.clone(),
             AcornValue::Application(t) => t.return_type(),
@@ -303,7 +291,6 @@ impl AcornValue {
     // page 3, steps 1 and 2.
     pub fn move_negation_inwards(self, negate: bool) -> AcornValue {
         match self {
-            AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Implies(left, right) => {
                 // (left -> right) is equivalent to (!left | right)
                 let equivalent = AcornValue::Or(Box::new(AcornValue::Not(left)), right);
@@ -391,7 +378,6 @@ impl AcornValue {
         values: &Vec<AcornValue>,
     ) -> AcornValue {
         match self {
-            AcornValue::Atom(a) => a.bind_values(first_binding_index, stack_size, values),
             AcornValue::Variable(i, var_type) => {
                 if i < first_binding_index {
                     // This reference is unchanged
@@ -486,7 +472,6 @@ impl AcornValue {
             return self;
         }
         match self {
-            AcornValue::Atom(a) => AcornValue::Atom(a.insert_stack(index, increment)),
             AcornValue::Variable(i, var_type) => {
                 if i < index {
                     // This reference is unchanged
@@ -569,8 +554,6 @@ impl AcornValue {
     // f != g is equivalent to exists(x) { f(x) != g(x) }
     pub fn replace_function_equality(&self, stack_size: AtomId) -> AcornValue {
         match self {
-            AcornValue::Atom(_) => panic!("dead branch"),
-
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.replace_function_equality(stack_size)),
                 args: app
@@ -712,7 +695,6 @@ impl AcornValue {
                 let new_stack_size = stack_size + args.len() as AtomId;
                 AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
             }
-            AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _)
             | AcornValue::Monomorph(_, _, _, _) => self,
@@ -722,9 +704,6 @@ impl AcornValue {
     // Removes all "forall" nodes, collecting the quantified types into quantifiers.
     pub fn remove_forall(self, quantifiers: &mut Vec<AcornType>) -> AcornValue {
         match self {
-            AcornValue::Atom(_) => {
-                panic!("dead branch");
-            }
             AcornValue::And(left, right) => {
                 let original_num_quants = quantifiers.len() as AtomId;
                 let new_left = left.remove_forall(quantifiers);
@@ -761,9 +740,6 @@ impl AcornValue {
         replacer: &impl Fn(NamespaceId, &str) -> Option<&'a AcornValue>,
     ) -> AcornValue {
         match self {
-            AcornValue::Atom(_) => {
-                panic!("dead branch");
-            }
             AcornValue::Constant(namespace, name, _) => {
                 if let Some(replacement) = replacer(*namespace, name) {
                     // First we need to make the replacement use the correct stack variables
@@ -847,7 +823,6 @@ impl AcornValue {
         constants: &HashMap<String, AtomId>,
     ) -> AcornValue {
         match self {
-            AcornValue::Atom(_) => panic!("dead branch"),
             AcornValue::Variable(_, _) => self.clone(),
             AcornValue::Constant(n, name, t) => {
                 if *n == namespace {
@@ -919,22 +894,6 @@ impl AcornValue {
 
     fn validate_against_stack(&self, stack: &mut Vec<AcornType>) -> Result<(), String> {
         match self {
-            AcornValue::Atom(ta) => match ta.atom {
-                Atom::Variable(i) => match stack.get(i as usize) {
-                    Some(t) => {
-                        if ta.acorn_type == *t {
-                            Ok(())
-                        } else {
-                            Err(format!(
-                                "variable {} has type {:?} but is used as type {:?}",
-                                i, t, ta.acorn_type
-                            ))
-                        }
-                    }
-                    None => Err(format!("variable {} is not in scope", i)),
-                },
-                _ => Ok(()),
-            },
             AcornValue::Variable(i, var_type) => match stack.get(*i as usize) {
                 Some(t) => {
                     if var_type == t {
@@ -980,9 +939,6 @@ impl AcornValue {
     // Replaces all the generic types with specific types
     pub fn monomorphize(&self, types: &[AcornType]) -> AcornValue {
         match self {
-            AcornValue::Atom(_) => {
-                panic!("dead branch");
-            }
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.monomorphize(types))
             }
@@ -1056,7 +1012,6 @@ impl AcornValue {
         generic_type: usize,
     ) -> AcornValue {
         match self {
-            AcornValue::Atom(ta) => AcornValue::Atom(ta.genericize(namespace, name, generic_type)),
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.genericize(namespace, name, generic_type))
             }
@@ -1135,9 +1090,6 @@ impl AcornValue {
     // Finds all polymorphic constants used in this value.
     pub fn find_polymorphic(&self, output: &mut Vec<ConstantKey>) {
         match self {
-            AcornValue::Atom(_) => {
-                panic!("dead branch");
-            }
             AcornValue::Variable(_, _) => {}
             AcornValue::Constant(namespace, name, t) => {
                 if t.is_polymorphic() {
@@ -1173,7 +1125,7 @@ impl AcornValue {
     // Only handles single generic types.
     pub fn find_monomorphs(&self, output: &mut Vec<(ConstantKey, AcornType)>) {
         match self {
-            AcornValue::Atom(_) | AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _) => {}
+            AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _) => {}
             AcornValue::Application(app) => {
                 app.function.find_monomorphs(output);
                 for arg in &app.args {
@@ -1206,7 +1158,6 @@ impl AcornValue {
     // A value is polymorphic if any of its components have a polymorphic type.
     pub fn is_polymorphic(&self) -> bool {
         match self {
-            AcornValue::Atom(ta) => ta.acorn_type.is_polymorphic(),
             AcornValue::Variable(_, t) | AcornValue::Constant(_, _, t) => t.is_polymorphic(),
 
             AcornValue::Application(app) => {
@@ -1228,7 +1179,6 @@ impl AcornValue {
     // Converts all the parametrized types to placeholder types.
     pub fn to_placeholder(&self) -> AcornValue {
         match self {
-            AcornValue::Atom(ta) => AcornValue::Atom(ta.to_placeholder()),
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.to_placeholder())
             }
