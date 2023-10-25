@@ -28,20 +28,12 @@ pub struct BindingMap {
     // entirety of this environment.
     constants: HashMap<String, ConstantInfo>,
 
-    // Reverse lookup for the information in constants.
-    // constant_names[i] is the name of Atom::Constant(i).
-    // constants[constant_names[i]] = (i, _)
-    constant_names: Vec<String>,
-
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, AtomId>,
 }
 
 #[derive(Clone)]
 struct ConstantInfo {
-    // The id of this constant, used for constructing its atom or for the index in constant_names.
-    id: AtomId,
-
     // The definition of this constant, if it has one.
     definition: Option<AcornValue>,
 }
@@ -51,7 +43,6 @@ impl BindingMap {
         assert!(namespace >= FIRST_NORMAL);
         BindingMap {
             namespace,
-            constant_names: Vec::new(),
             type_names: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             identifier_types: HashMap::new(),
             constants: HashMap::new(),
@@ -130,7 +121,7 @@ impl BindingMap {
         name: &str,
         constant_type: AcornType,
         definition: Option<AcornValue>,
-    ) -> AtomId {
+    ) {
         if self.identifier_types.contains_key(name) {
             panic!("name {} already bound to a type", name);
         }
@@ -138,13 +129,10 @@ impl BindingMap {
             panic!("name {} already bound to a value", name);
         }
 
-        let id = self.constant_names.len() as AtomId;
-        let info = ConstantInfo { id, definition };
+        let info = ConstantInfo { definition };
         self.identifier_types
             .insert(name.to_string(), constant_type);
         self.constants.insert(name.to_string(), info);
-        self.constant_names.push(name.to_string());
-        id
     }
 
     // Data types that come from type parameters get removed when they go out of scope.
@@ -806,23 +794,6 @@ impl BindingMap {
             None => panic!("{} not found", name),
         };
         assert_eq!(env_type.to_string(), type_string);
-    }
-
-    // Checks that the given constant id matches the given name
-    pub fn expect_constant(&self, id: usize, name: &str) {
-        let constant = match self.constant_names.get(id) {
-            Some(c) => c,
-            None => panic!("constant {} not found", id),
-        };
-        assert_eq!(constant, name);
-        let info = match self.constants.get(name) {
-            Some(info) => info,
-            None => panic!(
-                "inconsistency: c{} evalutes to {}, for which we have no info",
-                id, name
-            ),
-        };
-        assert_eq!(info.id, id as AtomId);
     }
 }
 
