@@ -5,9 +5,9 @@ use crate::namespace::NamespaceId;
 
 // The ConstantKey identifies a constant in the Acorn language.
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
-struct ConstantKey {
-    namespace: NamespaceId,
-    name: String,
+pub struct ConstantKey {
+    pub namespace: NamespaceId,
+    pub name: String,
 }
 
 // In the Acorn language a constant is specified by its namespace and name.

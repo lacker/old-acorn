@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::atom::{Atom, AtomId, TypedAtom};
+use crate::constant_map::ConstantKey;
 use crate::namespace::NamespaceId;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -1149,19 +1150,18 @@ impl AcornValue {
     }
 
     // Finds all polymorphic constants used in this value.
-    pub fn find_polymorphic(&self, output: &mut Vec<AtomId>) {
+    pub fn find_polymorphic(&self, output: &mut Vec<ConstantKey>) {
         match self {
-            AcornValue::Atom(ta) => {
-                if let Atom::Constant(c) = ta.atom {
-                    if ta.acorn_type.is_polymorphic() {
-                        output.push(c);
-                    }
-                }
+            AcornValue::Atom(_) => {
+                panic!("dead branch");
             }
             AcornValue::Variable(_, _) => {}
-            AcornValue::Constant(_, id, _, t) => {
+            AcornValue::Constant(namespace, _, name, t) => {
                 if t.is_polymorphic() {
-                    output.push(*id);
+                    output.push(ConstantKey {
+                        namespace: *namespace,
+                        name: name.clone(),
+                    });
                 }
             }
             AcornValue::Application(app) => {
@@ -1188,7 +1188,7 @@ impl AcornValue {
 
     // Finds all monomorphizations of polymorphic constants in this value.
     // Only handles single generic types.
-    pub fn find_monomorphs(&self, output: &mut Vec<(AtomId, AcornType)>) {
+    pub fn find_monomorphs(&self, output: &mut Vec<(ConstantKey, AcornType)>) {
         match self {
             AcornValue::Atom(_) | AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _, _) => {
             }
@@ -1210,9 +1210,13 @@ impl AcornValue {
                 right.find_monomorphs(output);
             }
             AcornValue::Not(x) => x.find_monomorphs(output),
-            AcornValue::Monomorph(_, id, _, _, types) => {
+            AcornValue::Monomorph(namespace, _, name, _, types) => {
                 assert!(types.len() == 1);
-                output.push((*id, types[0].clone()));
+                let key = ConstantKey {
+                    namespace: *namespace,
+                    name: name.clone(),
+                };
+                output.push((key, types[0].clone()));
             }
         }
     }

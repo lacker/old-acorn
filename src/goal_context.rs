@@ -4,7 +4,7 @@ use tower_lsp::lsp_types::Range;
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
-use crate::atom::AtomId;
+use crate::constant_map::ConstantKey;
 use crate::environment::Environment;
 
 // A goal and the information used to prove it.
@@ -73,11 +73,11 @@ struct DependencyGraph {
     monomorphs_for_fact: Vec<Option<Vec<AcornType>>>,
 
     // Indexed by constant id
-    monomorphs_for_constant: HashMap<AtomId, Vec<AcornType>>,
+    monomorphs_for_constant: HashMap<ConstantKey, Vec<AcornType>>,
 
     // Which facts mention each templated constant *without* monomorphizing it.
     // This one is static and only needs to be computed once.
-    facts_for_constant: HashMap<AtomId, Vec<usize>>,
+    facts_for_constant: HashMap<ConstantKey, Vec<usize>>,
 }
 
 impl DependencyGraph {
@@ -121,12 +121,12 @@ impl DependencyGraph {
     fn monomorphize(
         &mut self,
         facts: &Vec<AcornValue>,
-        constant_id: AtomId,
+        constant_key: ConstantKey,
         acorn_type: &AcornType,
     ) {
         let monomorphs = self
             .monomorphs_for_constant
-            .entry(constant_id)
+            .entry(constant_key.clone())
             .or_insert(vec![]);
         if monomorphs.contains(acorn_type) {
             // We already have this monomorph
@@ -136,7 +136,7 @@ impl DependencyGraph {
         let monomorphize_arg = vec![acorn_type.clone()];
 
         // Handle all the facts that mention this constant without monomorphizing it.
-        if let Some(fact_ids) = self.facts_for_constant.get(&constant_id) {
+        if let Some(fact_ids) = self.facts_for_constant.get(&constant_key) {
             for fact_id in fact_ids.clone() {
                 // Check if we already know we need this monomorph for the fact
                 // If not, insert it
@@ -158,8 +158,8 @@ impl DependencyGraph {
     fn inspect_value(&mut self, facts: &Vec<AcornValue>, value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
-        for (constant_id, acorn_type) in monomorphs {
-            self.monomorphize(facts, constant_id, &acorn_type);
+        for (constant_key, acorn_type) in monomorphs {
+            self.monomorphize(facts, constant_key, &acorn_type);
         }
     }
 }
