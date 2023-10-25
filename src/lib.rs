@@ -16,6 +16,7 @@ pub mod literal_set;
 pub mod namespace;
 pub mod normalizer;
 pub mod passive_set;
+pub mod project;
 pub mod prover;
 pub mod specializer;
 pub mod statement;
