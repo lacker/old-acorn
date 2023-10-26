@@ -110,6 +110,7 @@ impl BindingMap {
         self.type_names.contains_key(type_name)
     }
 
+    #[cfg(test)]
     pub fn has_identifier(&self, identifier: &str) -> bool {
         self.identifier_types.contains_key(identifier)
     }
@@ -256,7 +257,7 @@ impl BindingMap {
         let mut types = Vec::new();
         for declaration in declarations {
             let (name, acorn_type) = self.parse_declaration(declaration)?;
-            if self.identifier_types.contains_key(&name) {
+            if self.name_in_use(&name) {
                 return Err(Error::new(
                     declaration.token(),
                     "cannot redeclare a name in an argument list",

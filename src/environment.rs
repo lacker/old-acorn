@@ -254,10 +254,6 @@ impl Environment {
         }))
     }
 
-    pub fn has_local_name(&self, name: &str) -> bool {
-        self.bindings.has_identifier(name)
-    }
-
     // Adds a proposition.
     fn add_proposition(&mut self, prop: Proposition) {
         // Check if we're adding invalid claims.
@@ -456,6 +452,13 @@ impl Environment {
             }
 
             StatementInfo::Theorem(ts) => {
+                if self.bindings.name_in_use(&ts.name) {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        &format!("theorem name '{}' already defined in this scope", ts.name),
+                    ));
+                }
+
                 // Figure out the range for this theorem definition.
                 // It's smaller than the whole theorem statement because it doesn't
                 // include the proof block.
