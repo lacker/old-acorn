@@ -25,7 +25,7 @@ pub struct Project {
 // An error found while importing a module.
 // Not an error in the code of the module itself.
 #[derive(Debug)]
-pub struct LoadError(String);
+pub struct LoadError(pub String);
 
 impl From<io::Error> for LoadError {
     fn from(error: io::Error) -> Self {
@@ -62,10 +62,7 @@ impl Project {
     }
 
     // Returns None if no such module has been loaded.
-    pub fn get_module(
-        &self,
-        namespace: NamespaceId,
-    ) -> Option<Result<&Environment, &token::Error>> {
+    pub fn get_env(&self, namespace: NamespaceId) -> Option<Result<&Environment, &token::Error>> {
         self.modules.get(namespace as usize).and_then(|x| match x {
             None => None,
             Some(Ok(env)) => Some(Ok(env)),

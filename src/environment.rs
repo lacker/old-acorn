@@ -8,7 +8,7 @@ use crate::atom::AtomId;
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
 use crate::namespace::NamespaceId;
-use crate::project::Project;
+use crate::project::{LoadError, Project};
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
@@ -753,7 +753,16 @@ impl Environment {
             }
 
             StatementInfo::Import(is) => {
-                let _module_name = is.components.join(".");
+                let module_name = is.components.join(".");
+                let namespace = match project.load(&module_name) {
+                    Ok(namespace) => namespace,
+                    Err(LoadError(s)) => {
+                        return Err(Error::new(
+                            &statement.first_token,
+                            &format!("import error: {}", s),
+                        ));
+                    }
+                };
                 todo!();
             }
         }
