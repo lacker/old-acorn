@@ -161,6 +161,10 @@ impl BindingMap {
         self.modules.insert(name.to_string(), namespace);
     }
 
+    pub fn is_module(&self, name: &str) -> bool {
+        self.modules.contains_key(name)
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // Tools for parsing Expressions and similar structures
     ////////////////////////////////////////////////////////////////////////////////
@@ -461,6 +465,27 @@ impl BindingMap {
                 }
                 TokenType::Dot => {
                     let components = expression.flatten_dots()?;
+
+                    if components.len() == 2 {
+                        // Check for imported constants
+                        let module_name = &components[0];
+                        if self.is_module(module_name) {
+                            let constant_name = &components[1];
+                            let bindings =
+                                self.get_imported_bindings(project, token, module_name)?;
+                            return match bindings.get_constant_value(constant_name) {
+                                Some(acorn_value) => {
+                                    self.check_type(token, expected_type, &acorn_value.get_type())?;
+                                    Ok(acorn_value)
+                                }
+                                None => Err(Error::new(
+                                    token,
+                                    &format!("unknown constant {}.{}", module_name, constant_name),
+                                )),
+                            };
+                        }
+                    }
+
                     let name = components.join(".");
                     if let Some(acorn_value) = self.get_constant_value(&name) {
                         Ok(acorn_value)
