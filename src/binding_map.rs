@@ -153,6 +153,13 @@ impl BindingMap {
         self.type_names.remove(name);
     }
 
+    pub fn add_module(&mut self, name: &str, namespace: NamespaceId) {
+        if self.name_in_use(name) {
+            panic!("module name {} already bound", name);
+        }
+        self.modules.insert(name.to_string(), namespace);
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // Tools for parsing Expressions and similar structures
     ////////////////////////////////////////////////////////////////////////////////

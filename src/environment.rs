@@ -776,7 +776,8 @@ impl Environment {
                         ));
                     }
                 };
-                todo!();
+                self.bindings.add_module(local_name, namespace);
+                Ok(())
             }
         }
     }
