@@ -36,7 +36,8 @@ impl From<io::Error> for LoadError {
 }
 
 impl Project {
-    pub fn stub() -> Project {
+    // A Project where nothing can be imported.
+    pub fn empty() -> Project {
         Project {
             root: None,
             modules: vec![],
@@ -44,6 +45,7 @@ impl Project {
         }
     }
 
+    // A Project where files are imported from the real filesystem.
     fn new(root: &str) -> Project {
         let root = if root.starts_with('/') {
             PathBuf::from(root)

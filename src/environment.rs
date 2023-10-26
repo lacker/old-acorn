@@ -389,7 +389,7 @@ impl Environment {
                 if ts.type_expr.token().token_type == TokenType::Axiom {
                     self.bindings.add_data_type(&ts.name);
                 } else {
-                    let acorn_type = self.bindings.evaluate_type(&ts.type_expr)?;
+                    let acorn_type = self.bindings.evaluate_type(project, &ts.type_expr)?;
                     self.bindings.add_type_alias(&ts.name, acorn_type);
                 };
                 Ok(())
@@ -402,11 +402,12 @@ impl Environment {
                         &format!("variable name '{}' already defined in this scope", ls.name),
                     ));
                 }
-                let acorn_type = self.bindings.evaluate_type(&ls.type_expr)?;
+                let acorn_type = self.bindings.evaluate_type(project, &ls.type_expr)?;
                 let value = if ls.value.token().token_type == TokenType::Axiom {
                     AcornValue::Constant(self.namespace, ls.name.clone(), acorn_type.clone())
                 } else {
-                    self.bindings.evaluate_value(&ls.value, Some(&acorn_type))?
+                    self.bindings
+                        .evaluate_value(project, &ls.value, Some(&acorn_type))?
                 };
                 self.bindings
                     .add_constant(&ls.name, acorn_type, Some(value));
@@ -427,6 +428,7 @@ impl Environment {
                 // Calculate the function value
                 let (_, _, arg_types, unbound_value, value_type) =
                     self.bindings.evaluate_subvalue(
+                        project,
                         &ds.type_params,
                         &ds.args,
                         Some(&ds.return_type),
@@ -470,7 +472,7 @@ impl Environment {
 
                 let (type_params, arg_names, arg_types, value, _) = self
                     .bindings
-                    .evaluate_subvalue(&ts.type_params, &ts.args, None, &ts.claim)?;
+                    .evaluate_subvalue(project, &ts.type_params, &ts.args, None, &ts.claim)?;
 
                 let unbound_claim = if let Some(v) = value {
                     v
@@ -521,9 +523,9 @@ impl Environment {
             }
 
             StatementInfo::Prop(ps) => {
-                let claim = self
-                    .bindings
-                    .evaluate_value(&ps.claim, Some(&AcornType::Bool))?;
+                let claim =
+                    self.bindings
+                        .evaluate_value(project, &ps.claim, Some(&AcornType::Bool))?;
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
@@ -542,7 +544,8 @@ impl Environment {
                 }
                 let mut args = vec![];
                 for quantifier in &fas.quantifiers {
-                    let (arg_name, arg_type) = self.bindings.parse_declaration(quantifier)?;
+                    let (arg_name, arg_type) =
+                        self.bindings.parse_declaration(project, quantifier)?;
                     args.push((arg_name, arg_type));
                 }
 
@@ -578,9 +581,9 @@ impl Environment {
                     // If statements with an empty body can just be ignored
                     return Ok(());
                 }
-                let condition = self
-                    .bindings
-                    .evaluate_value(&is.condition, Some(&AcornType::Bool))?;
+                let condition =
+                    self.bindings
+                        .evaluate_value(project, &is.condition, Some(&AcornType::Bool))?;
                 let range = is.condition.range();
                 let block = self
                     .new_block(
@@ -615,10 +618,11 @@ impl Environment {
 
             StatementInfo::Exists(es) => {
                 // We need to prove the general existence claim
-                let (quant_names, quant_types) = self.bindings.bind_args(&es.quantifiers)?;
-                let general_claim_value = self
-                    .bindings
-                    .evaluate_value(&es.claim, Some(&AcornType::Bool))?;
+                let (quant_names, quant_types) =
+                    self.bindings.bind_args(project, &es.quantifiers)?;
+                let general_claim_value =
+                    self.bindings
+                        .evaluate_value(project, &es.claim, Some(&AcornType::Bool))?;
                 let general_claim =
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
                 self.bindings.unbind_args(&quant_names);
@@ -638,9 +642,9 @@ impl Environment {
                 }
 
                 // We can then assume the specific existence claim with the named constants
-                let specific_claim = self
-                    .bindings
-                    .evaluate_value(&es.claim, Some(&AcornType::Bool))?;
+                let specific_claim =
+                    self.bindings
+                        .evaluate_value(project, &es.claim, Some(&AcornType::Bool))?;
                 let specific_prop = Proposition {
                     display_name: None,
                     proven: true,
@@ -667,7 +671,7 @@ impl Environment {
                 let mut member_fns = vec![];
                 let mut field_types = vec![];
                 for (field_name_token, field_type_expr) in &ss.fields {
-                    let field_type = self.bindings.evaluate_type(&field_type_expr)?;
+                    let field_type = self.bindings.evaluate_type(project, &field_type_expr)?;
                     field_types.push(field_type.clone());
                     let member_fn_name = format!("{}.{}", ss.name, field_name_token.text());
                     let member_fn_type = AcornType::Function(FunctionType {
@@ -787,7 +791,7 @@ impl Environment {
     #[cfg(test)]
     pub fn add(&mut self, input: &str) {
         let tokens = Token::scan(input);
-        if let Err(e) = self.add_tokens(&mut Project::stub(), tokens) {
+        if let Err(e) = self.add_tokens(&mut Project::empty(), tokens) {
             panic!("error in add_tokens: {}", e);
         }
     }
@@ -940,7 +944,7 @@ impl Environment {
     fn bad(&mut self, input: &str) {
         if let Ok(statement) = Statement::parse_str(input) {
             assert!(
-                self.add_statement(&mut Project::stub(), &statement)
+                self.add_statement(&mut Project::empty(), &statement)
                     .is_err(),
                 "expected error in: {}",
                 input
