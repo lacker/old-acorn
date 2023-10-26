@@ -20,12 +20,13 @@ pub struct Project {
     // Maps (filename, contents).
     mock_files: HashMap<String, String>,
 
-    // modules[namespace] can be:
+    // The results from loading each module.
+    // results[namespace] can be:
     //   None, if it's a non-loadable namespace (ie below FIRST_NORMAL)
     //   None, when we are in the middle of loading the module
     //   Ok(env) where env is the environment for that namespace
     //   Err(error) if there was an error in the code of the module
-    modules: Vec<Option<Result<Environment, token::Error>>>,
+    results: Vec<Option<Result<Environment, token::Error>>>,
 
     // namespaces maps from a file specified in Acorn (like "foo.bar") to the namespace id
     namespaces: HashMap<String, NamespaceId>,
@@ -60,7 +61,7 @@ impl Project {
             root,
             use_filesystem: true,
             mock_files: HashMap::new(),
-            modules: envs,
+            results: envs,
             namespaces: HashMap::new(),
         }
     }
@@ -85,9 +86,7 @@ impl Project {
         &self,
         namespace: NamespaceId,
     ) -> Option<Result<&BindingMap, &token::Error>> {
-        let module = self.modules.get(namespace as usize)?;
-        let result = module.as_ref()?;
-        Some(match result {
+        Some(match self.results.get(namespace as usize)?.as_ref()? {
             Ok(env) => Ok(&env.bindings),
             Err(e) => Err(e),
         })
@@ -122,7 +121,7 @@ impl Project {
             if *namespace < FIRST_NORMAL {
                 panic!("namespace {} should not be loadable", namespace);
             }
-            if self.modules[*namespace as usize].is_none() {
+            if self.results[*namespace as usize].is_none() {
                 return Err(LoadError(format!("circular import of {}", module_name)));
             }
             return Ok(*namespace);
@@ -145,17 +144,22 @@ impl Project {
         }
 
         let text = self.read_file(&filename)?;
-        let namespace = self.modules.len() as NamespaceId;
-        self.modules.push(None);
+
+        // Give this module a namespace id before parsing it, so that we can catch
+        // circular imports.
+        let namespace = self.results.len() as NamespaceId;
+        self.results.push(None);
+        self.namespaces.insert(module_name.to_string(), namespace);
+
         let mut env = Environment::new(namespace);
         let tokens = Token::scan(&text);
-        let module = if let Err(e) = env.add_tokens(self, tokens) {
+        let result = if let Err(e) = env.add_tokens(self, tokens) {
             Err(e)
         } else {
             Ok(env)
         };
-        self.modules[namespace as usize] = Some(module);
-        self.namespaces.insert(module_name.to_string(), namespace);
+        self.results[namespace as usize] = Some(result);
+
         Ok(namespace)
     }
 
@@ -166,7 +170,7 @@ impl Project {
         // Here we ignore any LoadError
         let namespace = project.load(module_name).unwrap();
 
-        std::mem::take(&mut project.modules[namespace as usize]).unwrap()
+        std::mem::take(&mut project.results[namespace as usize]).unwrap()
     }
 
     #[cfg(test)]
@@ -188,12 +192,25 @@ impl Project {
     fn expect_module_err(&mut self, module_name: &str) {
         let namespace = self.load(module_name).expect("load failed");
         let result = self
-            .modules
+            .results
             .get(namespace as usize)
             .unwrap()
             .as_ref()
             .unwrap();
         assert!(result.is_err());
+    }
+
+    // This expects something to have an error somewhere, but doesn't know what module it's in.
+    #[cfg(test)]
+    fn expect_err(&mut self) {
+        for result in &self.results {
+            if let Some(result) = result {
+                if result.is_err() {
+                    return;
+                }
+            }
+        }
+        panic!("expected an error, but didn't find one");
     }
 }
 
@@ -249,6 +266,15 @@ mod tests {
         p.add("/mock/a.ac", "import b");
         p.add("/mock/b.ac", "import c");
         p.add("/mock/c.ac", "import a");
-        p.expect_load_err("a");
+        p.expect_load_ok("a");
+        // The error should show up in c.ac, not in a.ac
+        p.expect_err();
+    }
+
+    #[test]
+    fn test_self_import() {
+        let mut p = Project::new_mock();
+        p.add("/mock/a.ac", "import a");
+        p.expect_module_err("a");
     }
 }
