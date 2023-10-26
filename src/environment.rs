@@ -1353,4 +1353,32 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("type Nat: axiom");
         env.bad("define Nat(x: bool) -> bool = x");
     }
+
+    #[test]
+    fn test_reusing_type_name_as_theorem_name() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("theorem Nat(x: bool): x = x");
+    }
+
+    #[test]
+    fn test_reusing_type_name_as_exists_arg() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("let b: bool = exists(x: bool, Nat: bool) { x = x }");
+    }
+
+    #[test]
+    fn test_reusing_type_name_as_forall_arg() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("let b: bool = forall(x: bool, Nat: bool) { x = x }");
+    }
+
+    #[test]
+    fn test_reusing_type_name_as_lambda_arg() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("let f: (bool, bool) -> bool = function(x: bool, Nat: bool) { x = x }");
+    }
 }
