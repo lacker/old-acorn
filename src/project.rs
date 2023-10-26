@@ -277,4 +277,12 @@ mod tests {
         p.add("/mock/a.ac", "import a");
         p.expect_module_err("a");
     }
+
+    #[test]
+    fn test_import_from_subdir() {
+        let mut p = Project::new_mock();
+        p.add("/mock/stuff/foo.ac", FOO_AC);
+        p.add("/mock/main.ac", "import stuff.foo");
+        p.expect_load_ok("main");
+    }
 }
