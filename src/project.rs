@@ -100,7 +100,16 @@ impl Project {
             filename.push(component);
         }
 
-        let text = std::fs::read_to_string(&filename)?;
+        let text = match std::fs::read_to_string(&filename) {
+            Ok(text) => text,
+            Err(e) => {
+                return Err(LoadError(format!(
+                    "error loading {}: {}",
+                    filename.to_string_lossy(),
+                    e
+                )))
+            }
+        };
         let namespace = self.modules.len() as NamespaceId;
         let mut env = Environment::new(namespace);
         let tokens = Token::scan(&text);
@@ -135,8 +144,14 @@ mod tests {
     }
 
     #[test]
-    fn test_import_err() {
-        let result = Project::force_load("test", "import_err");
+    fn test_import_nonexistent() {
+        let result = Project::force_load("test", "import_nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_nonexistent_property() {
+        let result = Project::force_load("test", "nonexistent_property");
         assert!(result.is_err());
     }
 }

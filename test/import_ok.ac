@@ -1,2 +1,5 @@
 // This file should work
 import foo
+
+// Referring to an imported type
+let foo2: foo.Foo = axiom

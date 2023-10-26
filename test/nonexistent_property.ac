@@ -1,0 +1,5 @@
+// This should work
+import foo
+
+// This should fail
+let bar: foo.nonexistent = axiom
