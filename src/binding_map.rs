@@ -398,7 +398,8 @@ impl BindingMap {
                     Ok(AcornValue::Or(Box::new(left_value), Box::new(right_value)))
                 }
                 TokenType::Dot => {
-                    let name = expression.concatenate_dots()?;
+                    let components = expression.flatten_dots()?;
+                    let name = components.join(".");
                     if let Some(acorn_value) = self.get_constant_value(&name) {
                         Ok(acorn_value)
                     } else {

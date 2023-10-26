@@ -159,9 +159,10 @@ impl Expression {
         ))
     }
 
-    pub fn concatenate_dots(&self) -> Result<String> {
+    // Turn an expression like foo.bar.baz into ["foo", "bar", "baz"]
+    pub fn flatten_dots(&self) -> Result<Vec<String>> {
         match self {
-            Expression::Identifier(token) => Ok(token.text().to_string()),
+            Expression::Identifier(token) => Ok(vec![token.text().to_string()]),
             Expression::Binary(left, token, right) => {
                 if token.token_type != TokenType::Dot {
                     return Err(Error::new(
@@ -169,11 +170,10 @@ impl Expression {
                         &format!("expected dot operator but found: {}", token),
                     ));
                 }
-                Ok(format!(
-                    "{}.{}",
-                    left.concatenate_dots()?,
-                    right.concatenate_dots()?
-                ))
+                let mut left = left.flatten_dots()?;
+                let mut right = right.flatten_dots()?;
+                left.append(&mut right);
+                Ok(left)
             }
             _ => Err(Error::new(
                 self.token(),

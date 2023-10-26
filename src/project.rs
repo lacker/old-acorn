@@ -62,6 +62,8 @@ impl Project {
     }
 
     // Returns None if no such module has been loaded.
+    // This is either an invalid namespace id, or a namespace that we started loading but
+    // did not finish.
     pub fn get_env(&self, namespace: NamespaceId) -> Option<Result<&Environment, &token::Error>> {
         self.modules.get(namespace as usize).and_then(|x| match x {
             None => None,
@@ -111,6 +113,7 @@ impl Project {
             }
         };
         let namespace = self.modules.len() as NamespaceId;
+        self.modules.push(None);
         let mut env = Environment::new(namespace);
         let tokens = Token::scan(&text);
         let module = if let Err(e) = env.add_tokens(self, tokens) {
@@ -118,7 +121,7 @@ impl Project {
         } else {
             Ok(env)
         };
-        self.modules.push(Some(module));
+        self.modules[namespace as usize] = Some(module);
         self.namespaces.insert(module_name.to_string(), namespace);
         Ok(namespace)
     }
