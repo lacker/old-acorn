@@ -41,6 +41,7 @@ pub enum TokenType {
     By,
     Function,
     Struct,
+    Import,
 }
 
 pub const MAX_PRECEDENCE: i8 = 100;
@@ -389,6 +390,7 @@ impl Token {
                             "by" => TokenType::By,
                             "function" => TokenType::Function,
                             "struct" => TokenType::Struct,
+                            "import" => TokenType::Import,
                             _ => TokenType::Identifier,
                         }
                     }

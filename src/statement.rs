@@ -410,6 +410,34 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     }
 }
 
+// Parses an import statement where the "import" keyword has already been found.
+fn parse_import_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    let mut components = Vec::new();
+    let last_token = loop {
+        let token = Token::expect_type(tokens, TokenType::Identifier)?;
+        components.push(token.text().to_string());
+        let token = Token::expect_token(tokens)?;
+        match token.token_type {
+            TokenType::NewLine => {
+                break token;
+            }
+            TokenType::Dot => {
+                continue;
+            }
+            _ => {
+                return Err(Error::new(&token, "expected '.' or newline"));
+            }
+        }
+    };
+    let is = ImportStatement { components };
+    let statement = Statement {
+        first_token: keyword,
+        last_token,
+        statement: StatementInfo::Import(is),
+    };
+    Ok(statement)
+}
+
 fn write_type_params(f: &mut fmt::Formatter, type_params: &[Token]) -> fmt::Result {
     if type_params.len() == 0 {
         return Ok(());
@@ -586,6 +614,11 @@ impl Statement {
                     TokenType::Struct => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_struct_statement(keyword, tokens)?;
+                        return Ok((Some(s), None));
+                    }
+                    TokenType::Import => {
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_import_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
                     _ => {
@@ -800,5 +833,10 @@ mod tests {
     #[test]
     fn test_templated_definition() {
         ok("define recursion<T>(f: T -> T, a: T, n: Nat) -> Nat = axiom");
+    }
+
+    #[test]
+    fn test_import_statement() {
+        ok("import foo.bar.baz");
     }
 }
