@@ -384,10 +384,10 @@ impl Environment {
     pub fn add_statement(&mut self, project: &mut Project, statement: &Statement) -> Result<()> {
         match &statement.statement {
             StatementInfo::Type(ts) => {
-                if self.bindings.has_type_name(&ts.name) {
+                if self.bindings.name_in_use(&ts.name) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
-                        "type name already defined in this scope",
+                        &format!("type name '{}' already defined in this scope", ts.name),
                     ));
                 }
                 if ts.type_expr.token().token_type == TokenType::Axiom {
@@ -400,7 +400,7 @@ impl Environment {
             }
 
             StatementInfo::Let(ls) => {
-                if self.bindings.has_identifier(&ls.name) {
+                if self.bindings.name_in_use(&ls.name) {
                     return Err(Error::new(
                         &statement.first_token,
                         &format!("variable name '{}' already defined in this scope", ls.name),
@@ -421,7 +421,7 @@ impl Environment {
             }
 
             StatementInfo::Define(ds) => {
-                if self.bindings.has_identifier(&ds.name) {
+                if self.bindings.name_in_use(&ds.name) {
                     return Err(Error::new(
                         &statement.first_token,
                         &format!("function name '{}' already defined in this scope", ds.name),
@@ -1331,5 +1331,26 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("let b: bool = axiom");
         env.add("if b { 0 = 0 }");
         env.bad("if 0 { 0 = 0 }");
+    }
+
+    #[test]
+    fn test_reusing_type_name_as_var_name() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("let Nat: bool = axiom");
+    }
+
+    #[test]
+    fn test_reusing_var_name_as_type_name() {
+        let mut env = Environment::new_test();
+        env.add("let x: bool = axiom");
+        env.bad("type x: axiom");
+    }
+
+    #[test]
+    fn test_reusing_type_name_as_fn_name() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("define Nat(x: bool) -> bool = x");
     }
 }

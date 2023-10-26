@@ -54,6 +54,10 @@ impl BindingMap {
     // Simple helper functions.
     ////////////////////////////////////////////////////////////////////////////////
 
+    pub fn name_in_use(&self, name: &str) -> bool {
+        self.type_names.contains_key(name) || self.identifier_types.contains_key(name)
+    }
+
     // The names of all the stack variables, in order.
     pub fn stack_names(&self) -> Vec<&str> {
         let mut names: Vec<&str> = vec![""; self.stack.len()];
