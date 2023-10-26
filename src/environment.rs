@@ -756,8 +756,18 @@ impl Environment {
             }
 
             StatementInfo::Import(is) => {
-                let module_name = is.components.join(".");
-                let namespace = match project.load(&module_name) {
+                let local_name = is.components.last().unwrap();
+                if self.bindings.name_in_use(local_name) {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        &format!(
+                            "imported name '{}' already defined in this scope",
+                            local_name
+                        ),
+                    ));
+                }
+                let full_name = is.components.join(".");
+                let namespace = match project.load(&full_name) {
                     Ok(namespace) => namespace,
                     Err(LoadError(s)) => {
                         return Err(Error::new(

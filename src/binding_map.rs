@@ -30,6 +30,9 @@ pub struct BindingMap {
 
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, AtomId>,
+
+    // Names that refer to modules. For example after "import foo.bar.baz", "baz" refers to a module.
+    modules: HashMap<String, NamespaceId>,
 }
 
 #[derive(Clone)]
@@ -47,6 +50,7 @@ impl BindingMap {
             identifier_types: HashMap::new(),
             constants: HashMap::new(),
             stack: HashMap::new(),
+            modules: HashMap::new(),
         }
     }
 
@@ -55,7 +59,9 @@ impl BindingMap {
     ////////////////////////////////////////////////////////////////////////////////
 
     pub fn name_in_use(&self, name: &str) -> bool {
-        self.type_names.contains_key(name) || self.identifier_types.contains_key(name)
+        self.type_names.contains_key(name)
+            || self.identifier_types.contains_key(name)
+            || self.modules.contains_key(name)
     }
 
     // The names of all the stack variables, in order.
@@ -68,20 +74,22 @@ impl BindingMap {
     }
 
     // Adds a new data type to the binding map.
-    // Panics if the name is already a typename.
+    // Panics if the name is already bound.
     pub fn add_data_type(&mut self, name: &str) -> AcornType {
-        let data_type = AcornType::Data(self.namespace, name.to_string());
-        if let Some(_) = self.type_names.insert(name.to_string(), data_type.clone()) {
-            panic!("type name {} already exists", name);
+        if self.name_in_use(name) {
+            panic!("type name {} already bound", name);
         }
+        let data_type = AcornType::Data(self.namespace, name.to_string());
+        self.type_names.insert(name.to_string(), data_type.clone());
         data_type
     }
 
     // Adds a new type name that's an alias for an existing type
     pub fn add_type_alias(&mut self, name: &str, acorn_type: AcornType) {
-        if let Some(_) = self.type_names.insert(name.to_string(), acorn_type) {
-            panic!("type name {} already exists", name);
+        if self.name_in_use(name) {
+            panic!("type alias {} already bound", name);
         }
+        self.type_names.insert(name.to_string(), acorn_type);
     }
 
     // Returns an AcornValue representing this name, if there is one.
@@ -127,11 +135,8 @@ impl BindingMap {
         constant_type: AcornType,
         definition: Option<AcornValue>,
     ) {
-        if self.identifier_types.contains_key(name) {
-            panic!("name {} already bound to a type", name);
-        }
-        if self.constants.contains_key(name) {
-            panic!("name {} already bound to a value", name);
+        if self.name_in_use(name) {
+            panic!("constant name {} already bound", name);
         }
 
         let info = ConstantInfo { definition };
