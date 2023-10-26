@@ -1,7 +1,6 @@
 use tower_lsp::lsp_types::Range;
 
 use crate::expression::Expression;
-use crate::project::Project;
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 use std::fmt;
@@ -89,6 +88,11 @@ pub struct StructStatement {
     pub fields: Vec<(Token, Expression)>,
 }
 
+pub struct ImportStatement {
+    // The full path to the module, like in "foo.bar.baz" the module would be ["foo", "bar", "baz"]
+    pub components: Vec<String>,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Each type has its own struct.
 pub struct Statement {
@@ -108,6 +112,7 @@ pub enum StatementInfo {
     If(IfStatement),
     Exists(ExistsStatement),
     Struct(StructStatement),
+    Import(ImportStatement),
 }
 
 const ONE_INDENT: &str = "    ";
@@ -138,7 +143,7 @@ impl fmt::Display for Statement {
 fn parse_block(tokens: &mut TokenIter) -> Result<(Vec<Statement>, Token)> {
     let mut body = Vec::new();
     loop {
-        match Statement::parse(&None, tokens, true)? {
+        match Statement::parse(tokens, true)? {
             (Some(s), maybe_right_brace) => {
                 body.push(s);
                 if let Some(brace) = maybe_right_brace {
@@ -506,6 +511,10 @@ impl Statement {
                 }
                 write!(f, "{}}}", indentation)
             }
+
+            StatementInfo::Import(is) => {
+                write!(f, "import {}", is.components.join("."))
+            }
         }
     }
 
@@ -515,7 +524,6 @@ impl Statement {
     // If in_block is true, a prop statement can also end with a right brace.
     // Returns statement, as well as the right brace token, if the current block ended.
     pub fn parse(
-        project: &Option<&mut Project>,
         tokens: &mut TokenIter,
         in_block: bool,
     ) -> Result<(Option<Statement>, Option<Token>)> {
@@ -613,7 +621,7 @@ impl Statement {
     pub fn parse_str(input: &str) -> Result<Statement> {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        match Statement::parse(&None, &mut tokens, false)? {
+        match Statement::parse(&mut tokens, false)? {
             (Some(statement), _) => Ok(statement),
             _ => panic!("expected statement, got EOF"),
         }

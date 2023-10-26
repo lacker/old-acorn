@@ -242,7 +242,8 @@ impl Environment {
         };
 
         for s in body {
-            subenv.add_statement(s)?;
+            // Imports are not allowed in blocks, so the subenv doesn't need the project.
+            subenv.add_statement(&None, s)?;
         }
         Ok(Some(Block {
             type_params,
@@ -378,7 +379,12 @@ impl Environment {
     // Adds a statement to the environment.
     // If the statement has a body, this call creates a sub-environment and adds the body
     // to that sub-environment.
-    pub fn add_statement(&mut self, statement: &Statement) -> Result<()> {
+    // If project is not provided, we won't be able to handle import statements.
+    pub fn add_statement(
+        &mut self,
+        project: &Option<&mut Project>,
+        statement: &Statement,
+    ) -> Result<()> {
         match &statement.statement {
             StatementInfo::Type(ts) => {
                 if self.bindings.has_type_name(&ts.name) {
@@ -741,6 +747,11 @@ impl Environment {
 
                 Ok(())
             }
+
+            StatementInfo::Import(is) => {
+                let module_name = is.components.join(".");
+                todo!();
+            }
         }
     }
 
@@ -759,9 +770,9 @@ impl Environment {
     pub fn add_tokens(&mut self, project: &Option<&mut Project>, tokens: Vec<Token>) -> Result<()> {
         let mut tokens = TokenIter::new(tokens);
         loop {
-            match Statement::parse(project, &mut tokens, false) {
+            match Statement::parse(&mut tokens, false) {
                 Ok((Some(statement), _)) => {
-                    if let Err(e) = self.add_statement(&statement) {
+                    if let Err(e) = self.add_statement(project, &statement) {
                         return Err(e);
                     }
                 }
@@ -902,7 +913,7 @@ impl Environment {
     fn bad(&mut self, input: &str) {
         if let Ok(statement) = Statement::parse_str(input) {
             assert!(
-                self.add_statement(&statement).is_err(),
+                self.add_statement(&None, &statement).is_err(),
                 "expected error in: {}",
                 input
             );
