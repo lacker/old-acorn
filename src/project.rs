@@ -221,6 +221,8 @@ mod tests {
     const FOO_AC: &str = r#"
     // Imported by other tests
     type Foo: axiom
+    type AlsoFoo: Foo
+    type NotFoo: axiom
     let foo: Foo = axiom
     define fooify(x: Foo) -> Foo = foo
     "#;
@@ -284,5 +286,39 @@ mod tests {
         p.add("/mock/stuff/foo.ac", FOO_AC);
         p.add("/mock/main.ac", "import stuff.foo");
         p.expect_load_ok("main");
+    }
+
+    #[test]
+    fn test_good_imported_types() {
+        let mut p = Project::new_mock();
+        p.add("/mock/foo.ac", FOO_AC);
+        p.add(
+            "/mock/main.ac",
+            r#"
+            import foo
+            type MyFoo: foo.AlsoFoo
+            let x: foo.Foo = axiom
+            let y: MyFoo = axiom
+            let z: bool = (x = y)
+        "#,
+        );
+        p.expect_load_ok("main");
+    }
+
+    #[test]
+    fn test_bad_imported_types() {
+        let mut p = Project::new_mock();
+        p.add("/mock/foo.ac", FOO_AC);
+        p.add(
+            "/mock/main.ac",
+            r#"
+            import foo
+            type MyFoo: foo.NotFoo
+            let x: foo.Foo = axiom
+            let y: MyFoo = axiom
+            let z: bool = (x = y)
+        "#,
+        );
+        p.expect_module_err("main");
     }
 }
