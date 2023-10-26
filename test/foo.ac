@@ -1,0 +1,5 @@
+// Imported by other tests
+type Foo: axiom
+let foo: Foo = axiom
+
+define fooify(x: Foo) -> Foo = foo

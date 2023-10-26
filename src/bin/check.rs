@@ -13,7 +13,7 @@ fn main() {
     let module_name = args.next().expect(USAGE);
 
     // Load the environment
-    let env = Project::load_math(&module_name);
+    let env = Project::force_load("math", &module_name).unwrap();
 
     let paths = env.goal_paths();
     for path in paths {

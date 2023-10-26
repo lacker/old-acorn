@@ -114,26 +114,29 @@ impl Project {
         Ok(namespace)
     }
 
-    fn take_env(&mut self, namespace: NamespaceId) -> Environment {
-        let module = std::mem::take(&mut self.modules[namespace as usize]);
-        match module {
-            None => panic!("module not loaded"),
-            Some(Ok(env)) => env,
-            Some(Err(err)) => panic!("module had error: {}", err),
-        }
-    }
-
-    fn force_load(root: &str, module_name: &str) -> Environment {
+    // Loads a file from the filesystem and just panics if that file is not there.
+    pub fn force_load(root: &str, module_name: &str) -> Result<Environment, token::Error> {
         let mut project = Project::new(root);
+
+        // Here we ignore any LoadError
         let namespace = project.load(module_name).unwrap();
-        project.take_env(namespace)
+
+        std::mem::take(&mut project.modules[namespace as usize]).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_import_ok() {
+        Project::force_load("test", "import_ok").unwrap();
     }
 
-    pub fn load_math(module_name: &str) -> Environment {
-        Project::force_load("math", module_name)
-    }
-
-    pub fn load_test(module_name: &str) -> Environment {
-        Project::force_load("test", module_name)
+    #[test]
+    fn test_import_err() {
+        let result = Project::force_load("test", "import_err");
+        assert!(result.is_err());
     }
 }
