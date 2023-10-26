@@ -176,6 +176,7 @@ impl Environment {
     // The types in args must be generic when type params are provided.
     fn new_block(
         &self,
+        project: &mut Project,
         type_params: Vec<String>,
         args: Vec<(String, AcornType)>,
         body: &Vec<Statement>,
@@ -243,7 +244,7 @@ impl Environment {
 
         for s in body {
             // Imports are not allowed in blocks, so the subenv doesn't need the project.
-            subenv.add_statement(&None, s)?;
+            subenv.add_statement(project, s)?;
         }
         Ok(Some(Block {
             type_params,
@@ -380,11 +381,7 @@ impl Environment {
     // If the statement has a body, this call creates a sub-environment and adds the body
     // to that sub-environment.
     // If project is not provided, we won't be able to handle import statements.
-    pub fn add_statement(
-        &mut self,
-        project: &Option<&mut Project>,
-        statement: &Statement,
-    ) -> Result<()> {
+    pub fn add_statement(&mut self, project: &mut Project, statement: &Statement) -> Result<()> {
         match &statement.statement {
             StatementInfo::Type(ts) => {
                 if self.bindings.has_type_name(&ts.name) {
@@ -500,6 +497,7 @@ impl Environment {
                 );
 
                 let block = self.new_block(
+                    project,
                     type_params.clone(),
                     block_args,
                     &ts.body,
@@ -546,7 +544,7 @@ impl Environment {
                 }
 
                 let block = self
-                    .new_block(vec![], args, &fas.body, BlockParams::ForAll)?
+                    .new_block(project, vec![], args, &fas.body, BlockParams::ForAll)?
                     .unwrap();
 
                 // The last claim in the block is exported to the outside environment.
@@ -582,7 +580,13 @@ impl Environment {
                     .evaluate_value(&is.condition, Some(&AcornType::Bool))?;
                 let range = is.condition.range();
                 let block = self
-                    .new_block(vec![], vec![], &is.body, BlockParams::If(&condition, range))?
+                    .new_block(
+                        project,
+                        vec![],
+                        vec![],
+                        &is.body,
+                        BlockParams::If(&condition, range),
+                    )?
                     .unwrap();
                 let inner_claim: &AcornValue = match block.env.propositions.last() {
                     Some(p) => &p.claim,
@@ -749,7 +753,7 @@ impl Environment {
             }
 
             StatementInfo::Import(is) => {
-                let module_name = is.components.join(".");
+                let _module_name = is.components.join(".");
                 todo!();
             }
         }
@@ -760,14 +764,14 @@ impl Environment {
     #[cfg(test)]
     pub fn add(&mut self, input: &str) {
         let tokens = Token::scan(input);
-        if let Err(e) = self.add_tokens(&None, tokens) {
+        if let Err(e) = self.add_tokens(&mut Project::stub(), tokens) {
             panic!("error in add_tokens: {}", e);
         }
     }
 
     // Parse these tokens and add them to the environment.
     // If project is not provided, we won't be able to handle import statements.
-    pub fn add_tokens(&mut self, project: &Option<&mut Project>, tokens: Vec<Token>) -> Result<()> {
+    pub fn add_tokens(&mut self, project: &mut Project, tokens: Vec<Token>) -> Result<()> {
         let mut tokens = TokenIter::new(tokens);
         loop {
             match Statement::parse(&mut tokens, false) {
@@ -913,7 +917,8 @@ impl Environment {
     fn bad(&mut self, input: &str) {
         if let Ok(statement) = Statement::parse_str(input) {
             assert!(
-                self.add_statement(&None, &statement).is_err(),
+                self.add_statement(&mut Project::stub(), &statement)
+                    .is_err(),
                 "expected error in: {}",
                 input
             );

@@ -9,7 +9,8 @@ use crate::token::{self, Token};
 // The Project is responsible for importing different files and assigning them namespace ids.
 pub struct Project {
     // The root directory of the project
-    root: PathBuf,
+    // Can be None for stub projects where every import fails.
+    root: Option<PathBuf>,
 
     // modules[namespace] can be:
     //   None, if it's a non-loadable namespace (ie below FIRST_NORMAL)
@@ -33,6 +34,14 @@ impl From<io::Error> for LoadError {
 }
 
 impl Project {
+    pub fn stub() -> Project {
+        Project {
+            root: None,
+            modules: vec![],
+            namespaces: HashMap::new(),
+        }
+    }
+
     fn new(root: &str) -> Project {
         let root = if root.starts_with('/') {
             PathBuf::from(root)
@@ -46,7 +55,7 @@ impl Project {
             envs.push(None);
         }
         Project {
-            root,
+            root: Some(root),
             modules: envs,
             namespaces: HashMap::new(),
         }
@@ -75,7 +84,10 @@ impl Project {
             return Ok(*namespace);
         }
 
-        let mut filename = self.root.clone();
+        let mut filename = match self.root {
+            None => return Err(LoadError("cannot import in stub projects".to_string())),
+            Some(ref root) => root.clone(),
+        };
         let parts: Vec<&str> = module_name.split('.').collect();
 
         for (i, part) in parts.iter().enumerate() {
@@ -95,7 +107,7 @@ impl Project {
         let namespace = self.modules.len() as NamespaceId;
         let mut env = Environment::new(namespace);
         let tokens = Token::scan(&text);
-        let module = if let Err(e) = env.add_tokens(&Some(self), tokens) {
+        let module = if let Err(e) = env.add_tokens(self, tokens) {
             Err(e)
         } else {
             Ok(env)

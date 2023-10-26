@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use acorn::environment::Environment;
 use acorn::namespace::FIRST_NORMAL;
+use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
@@ -77,10 +78,10 @@ impl Document {
         self.log("running diagnostics");
 
         let mut diagnostics = vec![];
-        // TODO: use the Project
+        // TODO: use a real Project rather than the stub
         let mut env = Environment::new(FIRST_NORMAL);
         let tokens = Token::scan(&self.text);
-        if let Err(e) = env.add_tokens(&None, tokens) {
+        if let Err(e) = env.add_tokens(&mut Project::stub(), tokens) {
             self.log(&format!("env.add failed: {:?}", e));
             diagnostics.push(Diagnostic {
                 range: e.token.range(),
