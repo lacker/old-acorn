@@ -242,4 +242,13 @@ mod tests {
         );
         p.expect_module_err("main");
     }
+
+    #[test]
+    fn test_circular_imports() {
+        let mut p = Project::new_mock();
+        p.add("/mock/a.ac", "import b");
+        p.add("/mock/b.ac", "import c");
+        p.add("/mock/c.ac", "import a");
+        p.expect_load_err("a");
+    }
 }
