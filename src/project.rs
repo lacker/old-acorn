@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
 
+use crate::binding_map::BindingMap;
 use crate::environment::Environment;
 use crate::namespace::{NamespaceId, FIRST_NORMAL};
 use crate::token::{self, Token};
@@ -14,6 +15,7 @@ pub struct Project {
 
     // modules[namespace] can be:
     //   None, if it's a non-loadable namespace (ie below FIRST_NORMAL)
+    //   None, when we are in the middle of loading the module
     //   Ok(env) where env is the environment for that namespace
     //   Err(error) if there was an error in the code of the module
     modules: Vec<Option<Result<Environment, token::Error>>>,
@@ -61,25 +63,29 @@ impl Project {
         }
     }
 
-    // Returns None if no such module has been loaded.
-    // This is either an invalid namespace id, or a namespace that we started loading but
-    // did not finish.
-    pub fn get_env(&self, namespace: NamespaceId) -> Option<Result<&Environment, &token::Error>> {
-        self.modules.get(namespace as usize).and_then(|x| match x {
-            None => None,
-            Some(Ok(env)) => Some(Ok(env)),
-            Some(Err(err)) => Some(Err(err)),
-        })
+    // Returns the bindings for a namespace, or None if we don't have them.
+    pub fn get_bindings(&self, namespace: NamespaceId) -> Option<&BindingMap> {
+        let module = self.modules.get(namespace as usize)?;
+        let result = module.as_ref()?;
+        let env = result.as_ref().ok()?;
+        Some(&env.bindings)
     }
 
     // Loads a module from cache if possible, or else from the filesystem.
     // Module names are a .-separated list where each one must be [a-z_].
     // Each component maps to a subdirectory, except the last one, which maps to a .ac file.
     // load returns an error if the module-loading process itself has an error.
-    // For example, we might have an invalid name, or the file might not exist.
+    // For example, we might have an invalid name, the file might not exist, or this
+    // might be a circular import.
     // If there is an error in the file, that will be reported by the Module.
     pub fn load(&mut self, module_name: &str) -> Result<NamespaceId, LoadError> {
         if let Some(namespace) = self.namespaces.get(module_name) {
+            if *namespace < FIRST_NORMAL {
+                panic!("namespace {} should not be loadable", namespace);
+            }
+            if self.modules[*namespace as usize].is_none() {
+                return Err(LoadError(format!("circular import of {}", module_name)));
+            }
             return Ok(*namespace);
         }
 
