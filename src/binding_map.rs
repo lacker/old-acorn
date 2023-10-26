@@ -188,6 +188,32 @@ impl BindingMap {
         Ok(())
     }
 
+    fn get_imported_bindings<'a>(
+        &self,
+        project: &'a Project,
+        token: &Token,
+        module_name: &str,
+    ) -> Result<&'a BindingMap> {
+        let namespace = match self.modules.get(module_name) {
+            Some(namespace) => *namespace,
+            None => {
+                return Err(Error::new(
+                    token,
+                    &format!("unknown module {}", module_name),
+                ));
+            }
+        };
+        match project.get_bindings(namespace) {
+            Some(bindings) => Ok(bindings),
+            None => {
+                return Err(Error::new(
+                    token,
+                    &format!("compiler bug: {} is not loaded", module_name),
+                ));
+            }
+        }
+    }
+
     // Evaluates an expression that represents a type.
     pub fn evaluate_type(&self, project: &Project, expression: &Expression) -> Result<AcornType> {
         match expression {
@@ -224,7 +250,20 @@ impl BindingMap {
                 }
                 TokenType::Dot => {
                     let components = expression.flatten_dots()?;
-                    todo!("handle type with components: {:?}", components);
+                    if components.len() != 2 {
+                        return Err(Error::new(token, "expected <module>.<type> here"));
+                    }
+                    let module_name = &components[0];
+                    let type_name = &components[1];
+                    let bindings = self.get_imported_bindings(project, token, module_name)?;
+                    if let Some(acorn_type) = bindings.get_type_for_name(type_name) {
+                        Ok(acorn_type.clone())
+                    } else {
+                        Err(Error::new(
+                            token,
+                            &format!("unknown type {}.{}", module_name, type_name),
+                        ))
+                    }
                 }
                 _ => Err(Error::new(
                     token,
