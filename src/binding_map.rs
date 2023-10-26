@@ -221,6 +221,10 @@ impl BindingMap {
                     };
                     Ok(AcornType::Function(function_type))
                 }
+                TokenType::Dot => {
+                    let components = expression.flatten_dots()?;
+                    todo!("handle type with components: {:?}", components);
+                }
                 _ => Err(Error::new(
                     token,
                     "unexpected binary operator in type expression",
