@@ -173,8 +173,9 @@ impl Project {
         std::mem::take(&mut project.results[namespace as usize]).unwrap()
     }
 
+    // Expects the module to load successfully and for there to be no errors in the loaded module.
     #[cfg(test)]
-    fn expect_load_ok(&mut self, module_name: &str) {
+    fn expect_ok(&mut self, module_name: &str) {
         let namespace = self.load(module_name).expect("load failed");
         self.get_bindings(namespace)
             .expect("no bindings found")
@@ -232,7 +233,7 @@ mod tests {
         let mut p = Project::new_mock();
         p.add("/mock/foo.ac", FOO_AC);
         p.add("/mock/main.ac", "import foo");
-        p.expect_load_ok("main");
+        p.expect_ok("main");
     }
 
     #[test]
@@ -268,7 +269,7 @@ mod tests {
         p.add("/mock/a.ac", "import b");
         p.add("/mock/b.ac", "import c");
         p.add("/mock/c.ac", "import a");
-        p.expect_load_ok("a");
+        p.expect_ok("a");
         // The error should show up in c.ac, not in a.ac
         p.expect_err();
     }
@@ -285,7 +286,7 @@ mod tests {
         let mut p = Project::new_mock();
         p.add("/mock/stuff/foo.ac", FOO_AC);
         p.add("/mock/main.ac", "import stuff.foo");
-        p.expect_load_ok("main");
+        p.expect_ok("main");
     }
 
     #[test]
@@ -302,7 +303,7 @@ mod tests {
             let z: bool = (x = y)
         "#,
         );
-        p.expect_load_ok("main");
+        p.expect_ok("main");
     }
 
     #[test]
@@ -320,5 +321,21 @@ mod tests {
         "#,
         );
         p.expect_module_err("main");
+    }
+
+    #[test]
+    fn test_imported_constants() {
+        let mut p = Project::new_mock();
+        p.add("/mock/foo.ac", FOO_AC);
+        p.add(
+            "/mock/main.ac",
+            r#"
+            import foo
+            let x: foo.Foo = axiom
+            let y: foo.Foo = foo.foo
+            let z: bool = (x = y)
+        "#,
+        );
+        p.expect_ok("main");
     }
 }
