@@ -81,7 +81,7 @@ impl Document {
         // TODO: use a real Project rather than the stub
         let mut env = Environment::new(FIRST_NORMAL);
         let tokens = Token::scan(&self.text);
-        if let Err(e) = env.add_tokens(&mut Project::empty(), tokens) {
+        if let Err(e) = env.add_tokens(&mut Project::new_mock(), tokens) {
             self.log(&format!("env.add failed: {:?}", e));
             diagnostics.push(Diagnostic {
                 range: e.token.range(),

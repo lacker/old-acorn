@@ -791,7 +791,7 @@ impl Environment {
     #[cfg(test)]
     pub fn add(&mut self, input: &str) {
         let tokens = Token::scan(input);
-        if let Err(e) = self.add_tokens(&mut Project::empty(), tokens) {
+        if let Err(e) = self.add_tokens(&mut Project::new_mock(), tokens) {
             panic!("error in add_tokens: {}", e);
         }
     }
@@ -944,7 +944,7 @@ impl Environment {
     fn bad(&mut self, input: &str) {
         if let Ok(statement) = Statement::parse_str(input) {
             assert!(
-                self.add_statement(&mut Project::empty(), &statement)
+                self.add_statement(&mut Project::new_mock(), &statement)
                     .is_err(),
                 "expected error in: {}",
                 input

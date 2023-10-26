@@ -204,7 +204,11 @@ impl BindingMap {
             }
         };
         match project.get_bindings(namespace) {
-            Some(bindings) => Ok(bindings),
+            Some(Ok(bindings)) => Ok(bindings),
+            Some(Err(_)) => Err(Error::new(
+                token,
+                &format!("error while importing module: {}", module_name),
+            )),
             None => {
                 return Err(Error::new(
                     token,
@@ -844,7 +848,7 @@ impl BindingMap {
         let mut tokens = TokenIter::new(tokens);
         let (expression, _) =
             Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
-        match self.evaluate_type(&Project::empty(), &expression) {
+        match self.evaluate_type(&Project::new_mock(), &expression) {
             Ok(_) => {}
             Err(error) => panic!("Error evaluating type expression: {}", error),
         }
@@ -860,7 +864,9 @@ impl BindingMap {
                 return;
             }
         };
-        assert!(self.evaluate_type(&Project::empty(), &expression).is_err());
+        assert!(self
+            .evaluate_type(&Project::new_mock(), &expression)
+            .is_err());
     }
 
     // Check that the given name actually does have this type in the environment.
