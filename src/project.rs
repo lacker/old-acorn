@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::PathBuf;
 
+use crate::acorn_value::AcornValue;
 use crate::environment::Environment;
 use crate::namespace::{NamespaceId, FIRST_NORMAL};
 use crate::token::{self, Token};
@@ -218,6 +219,18 @@ impl Project {
         let mut answer: Vec<_> = seen.into_iter().collect();
         answer.sort();
         answer
+    }
+
+    // Replaces each theorem with its definition.
+    pub fn inline_theorems(&self, value: &AcornValue) -> AcornValue {
+        value.replace_constants_with_values(0, &|namespace, name| {
+            if let Module::Ok(env) = self.get_module(namespace) {
+                if env.bindings.is_theorem(name) {
+                    return env.bindings.get_definition(name).clone();
+                }
+            }
+            None
+        })
     }
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
