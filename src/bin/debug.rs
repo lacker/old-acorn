@@ -43,7 +43,7 @@ fn main() {
             return;
         }
     };
-    let mut prover = Prover::new_with_goal(&goals[current]);
+    let mut prover = Prover::new(&goals[current], false, None);
     println!("loaded {}", goals[current].name);
 
     loop {
@@ -117,13 +117,13 @@ fn main() {
                     println!("already at the last proposition");
                 } else {
                     current = current + 1;
-                    prover = Prover::new_with_goal(&goals[current]);
+                    prover = Prover::new(&goals[current], false, None);
                     println!("loaded {}", goals[current].name);
                 }
             }
 
             "reset" => {
-                prover = Prover::new_with_goal(&goals[current]);
+                prover = Prover::new(&goals[current], false, None);
                 println!("loaded {}", goals[current].name);
             }
 

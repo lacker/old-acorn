@@ -10,7 +10,7 @@ fn main() {
     let theorem_name = "add_suc_left";
     let env = Project::force_load("math", &module_name);
     let goal_context = env.get_theorem_context(theorem_name);
-    let mut prover = Prover::new_with_goal(&goal_context);
+    let mut prover = Prover::new(&goal_context, false, None);
     let result = prover.search_for_contradiction(1000000, 30.0);
     println!("result: {:?}", result);
     prover.print_stats();

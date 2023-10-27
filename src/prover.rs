@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::ptr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -94,23 +93,34 @@ pub enum Outcome {
 }
 
 impl Prover<'_> {
-    pub fn new(env: &Environment) -> Prover {
-        Prover {
+    pub fn new<'a>(
+        goal_context: &'a GoalContext<'a>,
+        verbose: bool,
+        print_queue: Option<Arc<SegQueue<String>>>,
+    ) -> Prover {
+        let mut p = Prover {
+            env: goal_context.env,
             normalizer: Normalizer::new(),
             synthesizer: Synthesizer::new(),
             facts: Vec::new(),
             goal: None,
             active_set: ActiveSet::new(),
             passive: PassiveSet::new(),
-            env,
-            verbose: false,
-            print_queue: None,
+            verbose,
+            print_queue,
             trace: None,
             hit_trace: false,
             final_step: None,
             num_generated: 0,
             stop_flags: Vec::new(),
+        };
+
+        // Load the goal
+        for fact in goal_context.monomorphize_facts() {
+            p.add_fact(fact);
         }
+        p.add_goal(goal_context.goal.clone());
+        p
     }
 
     pub fn set_trace(&mut self, trace: &str) {
@@ -530,23 +540,9 @@ impl Prover<'_> {
         self.passive.next_clause_type() != Some(ClauseType::Fact)
     }
 
-    pub fn load_goal<'a>(&mut self, goal_context: &GoalContext<'a>) {
-        assert!(ptr::eq(self.env, goal_context.env));
-        for fact in goal_context.monomorphize_facts() {
-            self.add_fact(fact);
-        }
-        self.add_goal(goal_context.goal.clone());
-    }
-
-    pub fn new_with_goal<'a>(goal_context: &GoalContext<'a>) -> Prover<'a> {
-        let mut prover = Prover::new(&goal_context.env);
-        prover.load_goal(goal_context);
-        prover
-    }
-
     pub fn prove(env: &Environment, name: &str) -> Outcome {
         let goal_context = env.get_goal_context_by_name(name);
-        let mut prover = Prover::new_with_goal(&goal_context);
+        let mut prover = Prover::new(&goal_context, false, None);
         prover.verbose = true;
         prover.search_for_contradiction(2000, 2.0)
     }
