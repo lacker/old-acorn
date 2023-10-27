@@ -583,6 +583,12 @@ mod tests {
         env
     }
 
+    fn prove_one(text: &str, goal_name: &str) -> Outcome {
+        let mut env = Environment::new_test();
+        env.add(text);
+        Prover::prove(env, goal_name)
+    }
+
     #[test]
     fn test_specialization() {
         let env = thing_env(
@@ -749,24 +755,19 @@ mod tests {
 
     #[test]
     fn test_proof_inside_theorem_block() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Thing: axiom
             let t: Thing = axiom
             theorem reflexivity(x: Thing): x = x by {
                 reflexivity(t)
             }
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "reflexivity(t)"), Outcome::Success);
+            "#;
+        assert_eq!(prove_one(text, "reflexivity(t)"), Outcome::Success);
     }
 
     #[test]
     fn test_proof_inside_forall_block() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Thing: axiom
             let t: Thing = axiom
             let foo: Thing -> bool = axiom
@@ -774,32 +775,26 @@ mod tests {
             forall(x: Thing) {
                 x = t -> foo(x)
             }
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "((x = t) -> foo(x))"), Outcome::Success);
+            "#;
+        assert_eq!(prove_one(text, "((x = t) -> foo(x))"), Outcome::Success);
     }
 
     #[test]
     fn test_proof_inside_if_block() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Thing: axiom
             forall(x: Thing, y: Thing) {
                 if x = y {
                     x = y
                 }
             }
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "(x = y)"), Outcome::Success);
+            "#;
+        assert_eq!(prove_one(text, "(x = y)"), Outcome::Success);
     }
 
     #[test]
     fn test_multi_hop_rewriting() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
             let Suc: Nat -> Nat = axiom
@@ -807,9 +802,8 @@ mod tests {
             axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
             define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)
             theorem add_zero_right(a: Nat): add(a, 0) = a
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "add_zero_right"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "add_zero_right"), Outcome::Success);
     }
 
     #[test]
@@ -826,53 +820,42 @@ mod tests {
 
     #[test]
     fn test_matching_newly_synthesized_goal() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
         type Nat: axiom
         let 0: Nat = axiom
         axiom everything(x0: Nat -> bool, x1: Nat): x0(x1)
         let add: (Nat, Nat) -> Nat = axiom
         theorem goal(a: Nat): add(a, 0) = a
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_closure_proof() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Nat: axiom
             let add: (Nat, Nat) -> Nat = axiom
             define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
             theorem goal(a: Nat, b: Nat): add(a, b) = adder(a)(b)
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_boolean_equality() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Nat: axiom
             let add: (Nat, Nat) -> Nat = axiom
             define lte(a: Nat, b: Nat) -> bool = exists(c: Nat) { add(a, c) = b }
             define lt(a: Nat, b: Nat) -> bool = lte(a, b) & a != b
             theorem goal(a: Nat): !lt(a, a)
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_using_conditional_existence_theorem() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
             let 1: Nat = axiom
@@ -880,32 +863,26 @@ mod tests {
             axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
             axiom one_neq_zero: 1 != 0
             theorem goal: exists(x: Nat) { 1 = Suc(x) }
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_instance_of_conditional_existence_theorem() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
             let Suc: Nat -> Nat = axiom
             let y: Nat = axiom
             axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
             theorem goal: zero_or_suc(y)
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_another_instance_of_conditional_existence_theorem() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
             let Suc: Nat -> Nat = axiom
@@ -913,139 +890,112 @@ mod tests {
             axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
             axiom y_not_zero: y != 0
             theorem goal: zero_or_suc(y)
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_forall_scopes() {
-        let mut env = Environment::new_test();
         // Unprovable, since we know nothing about lt, but it shouldn't crash.
-        env.add(
-            r#"
+
+        let text = r#"
             type Nat: axiom
             let lt: (Nat, Nat) -> bool = axiom
             theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
                 forall(m: Nat) { lt(m, k) -> f(m) } -> f(k)
             } -> forall(n: Nat) { f(n) }
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "strong_induction"), Outcome::Exhausted);
+            "#;
+        assert_eq!(prove_one(text, "strong_induction"), Outcome::Exhausted);
     }
 
     #[test]
     fn test_struct_new_equation() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             struct Pair {
                 first: bool
                 second: bool
             }
             theorem goal(p: Pair): p = Pair.new(Pair.first(p), Pair.second(p))
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_struct_first_member_equation() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             struct Pair {
                 first: bool
                 second: bool
             }
             theorem goal(a: bool, b: bool): Pair.first(Pair.new(a, b)) = a
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_struct_second_member_equation() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             struct Pair {
                 first: bool
                 second: bool
             }
             theorem goal(a: bool, b: bool): Pair.second(Pair.new(a, b)) = b
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_proving_templated_theorem() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c by {
                 if (a = b & b = c) {
                     a = c
                 }
             }
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_proving_templated_theorem_no_block() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_applying_templated_theorem() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
             theorem foo<T>(a: T): a = a
             theorem goal: foo(0)
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_applying_templated_function() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             type Nat: axiom
             define foo<T>(a: T) -> bool = (a = a)
             let 0: Nat = axiom
             theorem goal: foo(0)
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_templated_definition_and_theorem() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
+        let text = r#"
             define foo<T>(a: T) -> bool = axiom
             axiom foo_true<T>(a: T): foo(a)
             type Nat: axiom
             let 0: Nat = axiom
             theorem goal: foo(0)
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_one(text, "goal"), Outcome::Success);
     }
 
     // These tests are like integration tests. See the files in the `tests` directory.
