@@ -549,16 +549,6 @@ impl Prover<'_> {
     pub fn done_with_facts(&self) -> bool {
         self.passive.next_clause_type() != Some(ClauseType::Fact)
     }
-
-    pub fn prove(env: Environment, name: &str) -> Outcome {
-        let namespace = env.namespace;
-        let project = Project::shim(env);
-        let env = project.get_env(namespace).unwrap();
-        let goal_context = env.get_goal_context_by_name(name);
-        let mut prover = Prover::new(&project, &goal_context, false, None);
-        prover.verbose = true;
-        prover.search_for_contradiction(2000, 2.0)
-    }
 }
 
 #[cfg(test)]
@@ -567,16 +557,21 @@ mod tests {
 
     use super::*;
 
-    // Does one proof on a source text.
-    fn prove_one(text: &str, goal_name: &str) -> Outcome {
-        let mut project = Project::new_mock();
-        project.add("/mock/main.ac", text);
-        let namespace = project.load("main").expect("load failed");
+    // Tries to prove one thing from the project.
+    fn prove(project: &mut Project, module_name: &str, goal_name: &str) -> Outcome {
+        let namespace = project.load(module_name).expect("load failed");
         let env = project.get_env(namespace).unwrap();
         let goal_context = env.get_goal_context_by_name(goal_name);
         let mut prover = Prover::new(&project, &goal_context, false, None);
         prover.verbose = true;
         prover.search_for_contradiction(2000, 2.0)
+    }
+
+    // Does one proof on the provided text.
+    fn prove_text(text: &str, goal_name: &str) -> Outcome {
+        let mut project = Project::new_mock();
+        project.add("/mock/main.ac", text);
+        prove(&mut project, "main", goal_name)
     }
 
     const THING: &str = r#"
@@ -591,7 +586,7 @@ mod tests {
     // Does one proof in the "thing" environment.
     fn prove_thing(text: &str, goal_name: &str) -> Outcome {
         let text = format!("{}\n{}", THING, text);
-        prove_one(&text, goal_name)
+        prove_text(&text, goal_name)
     }
 
     #[test]
@@ -739,7 +734,7 @@ mod tests {
                 reflexivity(t)
             }
             "#;
-        assert_eq!(prove_one(text, "reflexivity(t)"), Outcome::Success);
+        assert_eq!(prove_text(text, "reflexivity(t)"), Outcome::Success);
     }
 
     #[test]
@@ -753,7 +748,7 @@ mod tests {
                 x = t -> foo(x)
             }
             "#;
-        assert_eq!(prove_one(text, "((x = t) -> foo(x))"), Outcome::Success);
+        assert_eq!(prove_text(text, "((x = t) -> foo(x))"), Outcome::Success);
     }
 
     #[test]
@@ -766,7 +761,7 @@ mod tests {
                 }
             }
             "#;
-        assert_eq!(prove_one(text, "(x = y)"), Outcome::Success);
+        assert_eq!(prove_text(text, "(x = y)"), Outcome::Success);
     }
 
     #[test]
@@ -780,7 +775,7 @@ mod tests {
             define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)
             theorem add_zero_right(a: Nat): add(a, 0) = a
         "#;
-        assert_eq!(prove_one(text, "add_zero_right"), Outcome::Success);
+        assert_eq!(prove_text(text, "add_zero_right"), Outcome::Success);
     }
 
     #[test]
@@ -802,7 +797,7 @@ mod tests {
         let add: (Nat, Nat) -> Nat = axiom
         theorem goal(a: Nat): add(a, 0) = a
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -813,7 +808,7 @@ mod tests {
             define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
             theorem goal(a: Nat, b: Nat): add(a, b) = adder(a)(b)
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -825,7 +820,7 @@ mod tests {
             define lt(a: Nat, b: Nat) -> bool = lte(a, b) & a != b
             theorem goal(a: Nat): !lt(a, a)
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -839,7 +834,7 @@ mod tests {
             axiom one_neq_zero: 1 != 0
             theorem goal: exists(x: Nat) { 1 = Suc(x) }
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -852,7 +847,7 @@ mod tests {
             axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
             theorem goal: zero_or_suc(y)
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -866,7 +861,7 @@ mod tests {
             axiom y_not_zero: y != 0
             theorem goal: zero_or_suc(y)
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -880,7 +875,7 @@ mod tests {
                 forall(m: Nat) { lt(m, k) -> f(m) } -> f(k)
             } -> forall(n: Nat) { f(n) }
             "#;
-        assert_eq!(prove_one(text, "strong_induction"), Outcome::Exhausted);
+        assert_eq!(prove_text(text, "strong_induction"), Outcome::Exhausted);
     }
 
     #[test]
@@ -892,7 +887,7 @@ mod tests {
             }
             theorem goal(p: Pair): p = Pair.new(Pair.first(p), Pair.second(p))
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -904,7 +899,7 @@ mod tests {
             }
             theorem goal(a: bool, b: bool): Pair.first(Pair.new(a, b)) = a
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -916,7 +911,7 @@ mod tests {
             }
             theorem goal(a: bool, b: bool): Pair.second(Pair.new(a, b)) = b
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -928,7 +923,7 @@ mod tests {
                 }
             }
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -936,7 +931,7 @@ mod tests {
         let text = r#"
             theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -947,7 +942,7 @@ mod tests {
             theorem foo<T>(a: T): a = a
             theorem goal: foo(0)
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -958,7 +953,7 @@ mod tests {
             let 0: Nat = axiom
             theorem goal: foo(0)
         "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -970,14 +965,16 @@ mod tests {
             let 0: Nat = axiom
             theorem goal: foo(0)
             "#;
-        assert_eq!(prove_one(text, "goal"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
     // These tests are like integration tests. See the files in the `tests` directory.
 
     fn test_mono(name: &str) {
-        let env = Project::force_load("test", "mono_nat");
-        assert_eq!(Prover::prove(env, name), Outcome::Success);
+        assert_eq!(
+            prove(&mut Project::new("test"), "mono_nat", name),
+            Outcome::Success
+        );
     }
 
     #[test]
@@ -1021,8 +1018,10 @@ mod tests {
     }
 
     fn test_poly(name: &str) {
-        let env = Project::force_load("test", "poly_nat");
-        assert_eq!(Prover::prove(env, name), Outcome::Success);
+        assert_eq!(
+            prove(&mut Project::new("test"), "poly_nat", name),
+            Outcome::Success
+        );
     }
 
     #[test]

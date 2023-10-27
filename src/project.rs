@@ -56,7 +56,7 @@ impl From<io::Error> for LoadError {
 
 impl Project {
     // A Project where files are imported from the real filesystem.
-    fn new(root: &str) -> Project {
+    pub fn new(root: &str) -> Project {
         let root = if root.starts_with('/') {
             PathBuf::from(root)
         } else {
