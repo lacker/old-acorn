@@ -13,12 +13,14 @@ fn main() {
     let module_name = args.next().expect(USAGE);
 
     // Load the environment
-    let env = Project::old_force_load("math", &module_name);
+    let mut project = Project::new("math");
+    let namespace = project.load(&module_name).unwrap();
+    let env = project.get_env(namespace).unwrap();
 
     let paths = env.goal_paths();
     for path in paths {
         let goal_context = env.get_goal_context(&path);
-        let mut prover = Prover::old_new(&goal_context, false, None);
+        let mut prover = Prover::new(&project, &goal_context, false, None);
         let outcome = prover.search_for_contradiction(1000, 1.0);
 
         match outcome {
