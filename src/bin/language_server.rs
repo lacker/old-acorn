@@ -106,7 +106,7 @@ impl Document {
         let total = paths.len() as i32;
         for path in paths {
             let goal_context = env.get_goal_context(&path);
-            let mut prover = Prover::new(&goal_context, false, None);
+            let mut prover = Prover::old_new(&goal_context, false, None);
             prover.stop_flags.push(self.superseded.clone());
             let outcome = prover.search_for_contradiction(1000, 1.0);
 
@@ -267,7 +267,7 @@ impl DebugTask {
 
         // Get the environment for this specific goal
         let goal_context = doc_env.get_goal_context(&self.path);
-        let mut prover = Prover::new(&goal_context, true, Some(self.queue.clone()));
+        let mut prover = Prover::old_new(&goal_context, true, Some(self.queue.clone()));
 
         // Stop the prover if either this task or this document version is superseded
         prover.stop_flags.push(self.superseded.clone());
