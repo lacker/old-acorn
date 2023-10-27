@@ -2,10 +2,25 @@ use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
 
-use crate::binding_map::BindingMap;
 use crate::environment::Environment;
 use crate::namespace::{NamespaceId, FIRST_NORMAL};
 use crate::token::{self, Token};
+
+// The Module represents a module that can be in different states of being loaded.
+pub enum Module {
+    // There is no such module, not even a namespace id for it
+    None,
+
+    // The module is in the process of being loaded.
+    // Modules that fail on circular import will be in this state forever.
+    Loading,
+
+    // The module has been loaded, but there is an error in its code
+    Error(token::Error),
+
+    // The module has been loaded successfully and we have its environment
+    Ok(Environment),
+}
 
 // The Project is responsible for importing different files and assigning them namespace ids.
 pub struct Project {
@@ -20,13 +35,8 @@ pub struct Project {
     // Maps (filename, contents).
     mock_files: HashMap<String, String>,
 
-    // The results from loading each module.
-    // results[namespace] can be:
-    //   None, if it's a non-loadable namespace (ie below FIRST_NORMAL)
-    //   None, when we are in the middle of loading the module
-    //   Ok(env) where env is the environment for that namespace
-    //   Err(error) if there was an error in the code of the module
-    results: Vec<Option<Result<Environment, token::Error>>>,
+    // modules[namespace] is the Module for the given namespace id
+    modules: Vec<Module>,
 
     // namespaces maps from a file specified in Acorn (like "foo.bar") to the namespace id
     namespaces: HashMap<String, NamespaceId>,
@@ -53,15 +63,15 @@ impl Project {
             d.push(root);
             d
         };
-        let mut envs = vec![];
-        while envs.len() < FIRST_NORMAL as usize {
-            envs.push(None);
+        let mut modules = vec![];
+        while modules.len() < FIRST_NORMAL as usize {
+            modules.push(Module::None);
         }
         Project {
             root,
             use_filesystem: true,
             mock_files: HashMap::new(),
-            results: envs,
+            modules,
             namespaces: HashMap::new(),
         }
     }
@@ -80,16 +90,20 @@ impl Project {
             .insert(filename.to_string(), content.to_string());
     }
 
-    // Returns the bindings for a namespace, None if we don't have them, or an error if
-    // there was an error importing the other module.
-    pub fn get_bindings(
-        &self,
-        namespace: NamespaceId,
-    ) -> Option<Result<&BindingMap, &token::Error>> {
-        Some(match self.results.get(namespace as usize)?.as_ref()? {
-            Ok(env) => Ok(&env.bindings),
-            Err(e) => Err(e),
-        })
+    pub fn get_module(&self, namespace: NamespaceId) -> &Module {
+        self.modules
+            .get(namespace as usize)
+            .unwrap_or(&Module::None)
+    }
+
+    pub fn errors(&self) -> Vec<(NamespaceId, &token::Error)> {
+        let mut errors = vec![];
+        for (namespace, module) in self.modules.iter().enumerate() {
+            if let Module::Error(e) = module {
+                errors.push((namespace as NamespaceId, e));
+            }
+        }
+        errors
     }
 
     fn read_file(&self, path: &PathBuf) -> Result<String, LoadError> {
@@ -115,13 +129,14 @@ impl Project {
     // load returns an error if the module-loading process itself has an error.
     // For example, we might have an invalid name, the file might not exist, or this
     // might be a circular import.
-    // If there is an error in the file, that will be reported by get_bindings.
+    // If there is an error in the file, the load will return a namespace id, but the module
+    // for this namespace id will have an error.
     pub fn load(&mut self, module_name: &str) -> Result<NamespaceId, LoadError> {
         if let Some(namespace) = self.namespaces.get(module_name) {
             if *namespace < FIRST_NORMAL {
                 panic!("namespace {} should not be loadable", namespace);
             }
-            if self.results[*namespace as usize].is_none() {
+            if let Module::Loading = self.get_module(*namespace) {
                 return Err(LoadError(format!("circular import of {}", module_name)));
             }
             return Ok(*namespace);
@@ -147,39 +162,47 @@ impl Project {
 
         // Give this module a namespace id before parsing it, so that we can catch
         // circular imports.
-        let namespace = self.results.len() as NamespaceId;
-        self.results.push(None);
+        let namespace = self.modules.len() as NamespaceId;
+        self.modules.push(Module::Loading);
         self.namespaces.insert(module_name.to_string(), namespace);
 
         let mut env = Environment::new(namespace);
         let tokens = Token::scan(&text);
-        let result = if let Err(e) = env.add_tokens(self, tokens) {
-            Err(e)
+        let module = if let Err(e) = env.add_tokens(self, tokens) {
+            Module::Error(e)
         } else {
-            Ok(env)
+            Module::Ok(env)
         };
-        self.results[namespace as usize] = Some(result);
+        self.modules[namespace as usize] = module;
 
         Ok(namespace)
     }
 
     // Loads a file from the filesystem and just panics if that file is not there.
-    pub fn force_load(root: &str, module_name: &str) -> Result<Environment, token::Error> {
+    pub fn force_load(root: &str, module_name: &str) -> Environment {
         let mut project = Project::new(root);
 
-        // Here we ignore any LoadError
+        // Panic on LoadError
         let namespace = project.load(module_name).unwrap();
 
-        std::mem::take(&mut project.results[namespace as usize]).unwrap()
+        let mut module = Module::None;
+        std::mem::swap(&mut project.modules[namespace as usize], &mut module);
+        if let Module::Ok(env) = module {
+            env
+        } else {
+            panic!("error in force_load");
+        }
     }
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
     #[cfg(test)]
     fn expect_ok(&mut self, module_name: &str) {
         let namespace = self.load(module_name).expect("load failed");
-        self.get_bindings(namespace)
-            .expect("no bindings found")
-            .expect("module had an error");
+        if let Module::Ok(_) = self.get_module(namespace) {
+            // Success
+        } else {
+            panic!("module had an error");
+        }
     }
 
     // This expects there to be an error during loading itself.
@@ -192,26 +215,11 @@ impl Project {
     #[cfg(test)]
     fn expect_module_err(&mut self, module_name: &str) {
         let namespace = self.load(module_name).expect("load failed");
-        let result = self
-            .results
-            .get(namespace as usize)
-            .unwrap()
-            .as_ref()
-            .unwrap();
-        assert!(result.is_err());
-    }
-
-    // This expects something to have an error somewhere, but doesn't know what module it's in.
-    #[cfg(test)]
-    fn expect_err(&mut self) {
-        for result in &self.results {
-            if let Some(result) = result {
-                if result.is_err() {
-                    return;
-                }
-            }
+        if let Module::Error(_) = self.get_module(namespace) {
+            // What we expected
+        } else {
+            panic!("expected error");
         }
-        panic!("expected an error, but didn't find one");
     }
 }
 
@@ -271,7 +279,7 @@ mod tests {
         p.add("/mock/c.ac", "import a");
         p.expect_ok("a");
         // The error should show up in c.ac, not in a.ac
-        p.expect_err();
+        assert!(p.errors().len() > 0);
     }
 
     #[test]

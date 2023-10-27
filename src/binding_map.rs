@@ -5,7 +5,7 @@ use crate::acorn_value::{AcornValue, FunctionApplication};
 use crate::atom::AtomId;
 use crate::expression::Expression;
 use crate::namespace::{NamespaceId, FIRST_NORMAL};
-use crate::project::Project;
+use crate::project::{Module, Project};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 // In order to convert an Expression to an AcornValue, we need to convert the string representation
@@ -207,18 +207,12 @@ impl BindingMap {
                 ));
             }
         };
-        match project.get_bindings(namespace) {
-            Some(Ok(bindings)) => Ok(bindings),
-            Some(Err(_)) => Err(Error::new(
+        match project.get_module(namespace) {
+            Module::Ok(env) => Ok(&env.bindings),
+            _ => Err(Error::new(
                 token,
                 &format!("error while importing module: {}", module_name),
             )),
-            None => {
-                return Err(Error::new(
-                    token,
-                    &format!("compiler bug: {} is not loaded", module_name),
-                ));
-            }
         }
     }
 

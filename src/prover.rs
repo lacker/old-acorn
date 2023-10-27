@@ -1051,7 +1051,7 @@ mod tests {
     // These tests are like integration tests. See the files in the `tests` directory.
 
     fn test_mono(name: &str) {
-        let env = Project::force_load("test", "mono_nat").unwrap();
+        let env = Project::force_load("test", "mono_nat");
         assert_eq!(Prover::prove_theorem(&env, name), Outcome::Success);
     }
 
@@ -1096,7 +1096,7 @@ mod tests {
     }
 
     fn test_poly(name: &str) {
-        let env = Project::force_load("test", "poly_nat").unwrap();
+        let env = Project::force_load("test", "poly_nat");
         assert_eq!(Prover::prove_theorem(&env, name), Outcome::Success);
     }
 
