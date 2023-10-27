@@ -84,6 +84,14 @@ impl Project {
         p
     }
 
+    // A Project that only contains a single, already-existing Environment.
+    pub fn shim(env: Environment) -> Project {
+        let mut p = Project::new_mock();
+        assert_eq!(env.namespace, p.modules.len() as NamespaceId);
+        p.modules.push(Module::Ok(env));
+        p
+    }
+
     // Used for mocking
     pub fn add(&mut self, filename: &str, content: &str) {
         assert!(!self.use_filesystem);

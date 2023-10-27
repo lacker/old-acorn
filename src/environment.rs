@@ -18,7 +18,7 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // It creates subenvironments for nested blocks.
 // It does not have to be efficient enough to run in the inner loop of the prover.
 pub struct Environment {
-    namespace: NamespaceId,
+    pub namespace: NamespaceId,
 
     // What all the names mean in this environment
     pub bindings: BindingMap,
