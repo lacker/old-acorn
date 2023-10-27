@@ -544,15 +544,11 @@ impl Prover<'_> {
         prover
     }
 
-    fn prove_goal(goal_context: &GoalContext) -> Outcome {
+    pub fn prove(env: &Environment, name: &str) -> Outcome {
+        let goal_context = env.get_goal_context_by_name(name);
         let mut prover = Prover::new_with_goal(&goal_context);
         prover.verbose = true;
         prover.search_for_contradiction(2000, 2.0)
-    }
-
-    pub fn prove(env: &Environment, name: &str) -> Outcome {
-        let goal_context = env.get_goal_context_by_name(name);
-        Prover::prove_goal(&goal_context)
     }
 }
 
