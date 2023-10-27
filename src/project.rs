@@ -105,6 +105,14 @@ impl Project {
             .unwrap_or(&Module::None)
     }
 
+    pub fn get_env(&self, namespace: NamespaceId) -> Option<&Environment> {
+        if let Module::Ok(env) = self.get_module(namespace) {
+            Some(env)
+        } else {
+            None
+        }
+    }
+
     pub fn errors(&self) -> Vec<(NamespaceId, &token::Error)> {
         let mut errors = vec![];
         for (namespace, module) in self.modules.iter().enumerate() {

@@ -551,8 +551,11 @@ impl Prover<'_> {
     }
 
     pub fn prove(env: Environment, name: &str) -> Outcome {
+        let namespace = env.namespace;
+        let project = Project::shim(env);
+        let env = project.get_env(namespace).unwrap();
         let goal_context = env.get_goal_context_by_name(name);
-        let mut prover = Prover::old_new(&goal_context, false, None);
+        let mut prover = Prover::new(&project, &goal_context, false, None);
         prover.verbose = true;
         prover.search_for_contradiction(2000, 2.0)
     }
