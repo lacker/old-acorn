@@ -544,11 +544,6 @@ impl Prover<'_> {
         prover
     }
 
-    pub fn prove_theorem(env: &Environment, theorem_name: &str) -> Outcome {
-        let goal_context = env.get_theorem_context(theorem_name);
-        Prover::prove_goal(&goal_context)
-    }
-
     fn prove_goal(goal_context: &GoalContext) -> Outcome {
         let mut prover = Prover::new_with_goal(&goal_context);
         prover.verbose = true;
@@ -591,7 +586,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -602,13 +597,13 @@ mod tests {
             theorem goal(x: Thing): f(x)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Exhausted);
     }
 
     #[test]
     fn test_axiomatic_values_distinct() {
         let env = thing_env("theorem goal: t = t2");
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Exhausted);
     }
 
     #[test]
@@ -619,7 +614,7 @@ mod tests {
             theorem goal: exists(x: Thing) { f(x) }
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -630,7 +625,7 @@ mod tests {
             theorem goal: !f(t)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -641,7 +636,7 @@ mod tests {
             theorem goal: f(t) = f(t2) 
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -653,7 +648,7 @@ mod tests {
             theorem goal: f(g(t, t))
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -665,7 +660,7 @@ mod tests {
             theorem goal: f(g(t, t2))
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Exhausted);
     }
 
     #[test]
@@ -677,7 +672,7 @@ mod tests {
             theorem goal: !f(g(t, t))
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -688,7 +683,7 @@ mod tests {
             theorem goal: t != t2
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -699,7 +694,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -710,7 +705,7 @@ mod tests {
             theorem goal(x: Thing): x = t2
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -722,7 +717,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Exhausted);
     }
 
     #[test]
@@ -733,7 +728,7 @@ mod tests {
             theorem goal: f(t2)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Exhausted);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Exhausted);
     }
 
     #[test]
@@ -744,7 +739,7 @@ mod tests {
             theorem goal: f(t)
             "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -821,7 +816,7 @@ mod tests {
             theorem goal: f(t2)
         "#,
         );
-        assert_eq!(Prover::prove_theorem(&env, "goal"), Outcome::Success);
+        assert_eq!(Prover::prove(&env, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -1052,7 +1047,7 @@ mod tests {
 
     fn test_mono(name: &str) {
         let env = Project::force_load("test", "mono_nat");
-        assert_eq!(Prover::prove_theorem(&env, name), Outcome::Success);
+        assert_eq!(Prover::prove(&env, name), Outcome::Success);
     }
 
     #[test]
@@ -1097,7 +1092,7 @@ mod tests {
 
     fn test_poly(name: &str) {
         let env = Project::force_load("test", "poly_nat");
-        assert_eq!(Prover::prove_theorem(&env, name), Outcome::Success);
+        assert_eq!(Prover::prove(&env, name), Outcome::Success);
     }
 
     #[test]
