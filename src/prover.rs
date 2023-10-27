@@ -567,190 +567,167 @@ mod tests {
 
     use super::*;
 
-    fn thing_env(s: &str) -> Environment {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
-            type Thing: axiom
-            let t: Thing = axiom
-            let t2: Thing = axiom
-            let f: Thing -> bool = axiom
-            let g: (Thing, Thing) -> Thing = axiom
-            let h: Thing -> Thing = axiom
-            "#,
-        );
-        env.add(s);
-        env
+    // Does one proof on a source text.
+    fn prove_one(text: &str, goal_name: &str) -> Outcome {
+        let mut project = Project::new_mock();
+        project.add("/mock/main.ac", text);
+        let namespace = project.load("main").expect("load failed");
+        let env = project.get_env(namespace).unwrap();
+        let goal_context = env.get_goal_context_by_name(goal_name);
+        let mut prover = Prover::new(&project, &goal_context, false, None);
+        prover.verbose = true;
+        prover.search_for_contradiction(2000, 2.0)
     }
 
-    fn prove_one(text: &str, goal_name: &str) -> Outcome {
-        let mut env = Environment::new_test();
-        env.add(text);
-        Prover::prove(env, goal_name)
+    const THING: &str = r#"
+    type Thing: axiom
+    let t: Thing = axiom
+    let t2: Thing = axiom
+    let f: Thing -> bool = axiom
+    let g: (Thing, Thing) -> Thing = axiom
+    let h: Thing -> Thing = axiom
+    "#;
+
+    // Does one proof in the "thing" environment.
+    fn prove_thing(text: &str, goal_name: &str) -> Outcome {
+        let text = format!("{}\n{}", THING, text);
+        prove_one(&text, goal_name)
     }
 
     #[test]
     fn test_specialization() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom f_all(x: Thing): f(x)
             theorem goal: f(t)
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_backward_specialization_fails() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom f_one: f(t)
             theorem goal(x: Thing): f(x)
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Exhausted);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     }
 
     #[test]
     fn test_axiomatic_values_distinct() {
-        let env = thing_env("theorem goal: t = t2");
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Exhausted);
+        let text = "theorem goal: t = t2";
+        assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     }
 
     #[test]
     fn test_finds_example() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom f_one: f(t)
             theorem goal: exists(x: Thing) { f(x) }
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_finds_negative_example() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom not_f(x: Thing): !f(x)
             theorem goal: !f(t)
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_extends_equality() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom t_eq_t2: t = t2
             theorem goal: f(t) = f(t2) 
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_composition() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom g_id(x: Thing): g(x, x) = x
             axiom f_t: f(t)
             theorem goal: f(g(t, t))
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_composition_can_fail() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom f_t: f(t)
             axiom g_id(x: Thing): g(x, x) = x
             theorem goal: f(g(t, t2))
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Exhausted);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     }
 
     #[test]
     fn test_negative_rewriting() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom not_f_t: !f(t)
             axiom g_id(x: Thing): g(x, x) = x
             theorem goal: !f(g(t, t))
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_extends_ne() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom f_t_ne_f_t2: f(t) != f(t2)
             theorem goal: t != t2
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_equality_resolution() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom foo(x: Thing): x != t | f(t)
             theorem goal: f(t)
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_equality_factoring() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom foo(x: Thing, y: Thing): x = t | y = t
             theorem goal(x: Thing): x = t2
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
     fn test_prover_avoids_loops() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom trivial(x: Thing): !f(h(x)) | f(h(x))
             axiom arbitrary(x: Thing): f(h(x)) | f(x)
             theorem goal: f(t)
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Exhausted);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     }
 
     #[test]
     fn test_synthesis_avoids_loops() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom foo(x: Thing -> bool): x(t) | f(h(t))
             theorem goal: f(t2)
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Exhausted);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     }
 
     #[test]
     fn test_higher_order_unification() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom foo(x: Thing -> bool): x(t)
             theorem goal: f(t)
-            "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
@@ -808,14 +785,12 @@ mod tests {
 
     #[test]
     fn test_second_literal_matches_goal() {
-        let env = thing_env(
-            r#"
+        let text = r#"
             axiom axiom1: f(g(t, t)) | f(t2)
             axiom axiom2: !f(g(t, t)) | f(t2)
             theorem goal: f(t2)
-        "#,
-        );
-        assert_eq!(Prover::prove(env, "goal"), Outcome::Success);
+        "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
 
     #[test]
