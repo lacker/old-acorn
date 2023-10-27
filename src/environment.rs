@@ -305,7 +305,7 @@ impl Environment {
     }
 
     // Replaces each theorem with its definition.
-    fn expand_theorems(&self, value: &AcornValue) -> AcornValue {
+    fn old_expand_theorems(&self, value: &AcornValue) -> AcornValue {
         value.replace_constants_with_values(0, &|namespace, name| {
             if namespace != self.namespace {
                 return None;
@@ -852,7 +852,7 @@ impl Environment {
         let mut it = path.iter().peekable();
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
-                facts.push(env.expand_theorems(&previous_prop.claim));
+                facts.push(env.old_expand_theorems(&previous_prop.claim));
             }
             let prop = &env.propositions[*i];
             if let Some(block) = &prop.block {
@@ -860,7 +860,7 @@ impl Environment {
                     // This is the last element of the path. It has a block, so we can use the
                     // contents of the block to help prove it.
                     for p in &block.env.propositions {
-                        facts.push(block.env.expand_theorems(&p.claim));
+                        facts.push(block.env.old_expand_theorems(&p.claim));
                     }
                     let claim = if let Some(claim) = &block.claim {
                         claim
@@ -871,7 +871,7 @@ impl Environment {
                         env: &block.env,
                         facts,
                         name: env.get_proposition_name(&prop),
-                        goal: block.env.expand_theorems(claim),
+                        goal: block.env.old_expand_theorems(claim),
                         range: prop.range,
                     };
                 }
@@ -884,7 +884,7 @@ impl Environment {
                     env: &env,
                     facts,
                     name: env.get_proposition_name(&prop),
-                    goal: env.expand_theorems(&prop.claim),
+                    goal: env.old_expand_theorems(&prop.claim),
                     range: prop.range,
                 };
             }

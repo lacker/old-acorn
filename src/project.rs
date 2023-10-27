@@ -196,7 +196,7 @@ impl Project {
     }
 
     // Loads a file from the filesystem and just panics if that file is not there.
-    pub fn force_load(root: &str, module_name: &str) -> Environment {
+    pub fn old_force_load(root: &str, module_name: &str) -> Environment {
         let mut project = Project::new(root);
 
         // Panic on LoadError
