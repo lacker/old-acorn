@@ -24,7 +24,9 @@ fn main() {
     let theorem_name = args.next().expect(USAGE);
 
     // Find all the goals in the file
-    let env = Project::old_force_load("math", &module_name);
+    let mut project = Project::new("math");
+    let namespace = project.load(&module_name).unwrap();
+    let env = project.get_env(namespace).unwrap();
     let goal_paths = env.goal_paths();
     let goals = goal_paths
         .iter()

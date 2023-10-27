@@ -195,22 +195,6 @@ impl Project {
         Ok(namespace)
     }
 
-    // Loads a file from the filesystem and just panics if that file is not there.
-    pub fn old_force_load(root: &str, module_name: &str) -> Environment {
-        let mut project = Project::new(root);
-
-        // Panic on LoadError
-        let namespace = project.load(module_name).unwrap();
-
-        let mut module = Module::None;
-        std::mem::swap(&mut project.modules[namespace as usize], &mut module);
-        if let Module::Ok(env) = module {
-            env
-        } else {
-            panic!("error in force_load");
-        }
-    }
-
     // All dependencies, including chains of direct depedencies.
     // Ie, if A imports B and B imports C, then A depends on B and C.
     // Does not count this namespace itself.
