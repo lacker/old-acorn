@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use tower_lsp::lsp_types::{Position, Range};
 
@@ -31,10 +31,6 @@ pub struct Environment {
     // The propositions are fundamentally linear; each may depend on the previous propositions
     // but not on later ones.
     propositions: Vec<Proposition>,
-
-    // The names of theorems in this environment.
-    // Does not include the "goal" theorem that this environment is trying to prove.
-    theorem_names: HashSet<String>,
 
     // The region in the source document where a name was defined
     definition_ranges: HashMap<String, Range>,
@@ -156,7 +152,6 @@ impl Environment {
             namespace,
             bindings: BindingMap::new(namespace),
             propositions: Vec::new(),
-            theorem_names: HashSet::new(),
             definition_ranges: HashMap::new(),
         }
     }
@@ -189,7 +184,6 @@ impl Environment {
             namespace: self.namespace,
             bindings: self.bindings.clone(),
             propositions: Vec::new(),
-            theorem_names: self.theorem_names.clone(),
             definition_ranges: self.definition_ranges.clone(),
         };
 
@@ -508,7 +502,6 @@ impl Environment {
                 };
                 self.add_proposition(prop);
                 self.bindings.mark_as_theorem(&ts.name);
-                self.theorem_names.insert(ts.name.to_string());
 
                 Ok(())
             }
