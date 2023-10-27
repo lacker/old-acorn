@@ -32,9 +32,11 @@ pub struct Project {
     // Whether we permit loading files from the filesystem
     use_filesystem: bool,
 
-    // Anything in here is used in preference to the real filesystem
+    // Anything in here is used in preference to the real filesystem.
+    // This can store either test data that doesn't exist on the filesystem at all, or
+    // work in progress that hasn't been saved yet, via an IDE.
     // Maps (filename, contents).
-    mock_files: HashMap<String, String>,
+    file_content: HashMap<String, String>,
 
     // modules[namespace] is the Module for the given namespace id
     modules: Vec<Module>,
@@ -71,7 +73,7 @@ impl Project {
         Project {
             root,
             use_filesystem: true,
-            mock_files: HashMap::new(),
+            file_content: HashMap::new(),
             modules,
             namespaces: HashMap::new(),
         }
@@ -92,10 +94,10 @@ impl Project {
         p
     }
 
-    // Used for mocking
-    pub fn add(&mut self, filename: &str, content: &str) {
+    // Set the file content. This has priority over the actual filesystem.
+    pub fn set_file_content(&mut self, filename: &str, content: &str) {
         assert!(!self.use_filesystem);
-        self.mock_files
+        self.file_content
             .insert(filename.to_string(), content.to_string());
     }
 
@@ -132,7 +134,7 @@ impl Project {
             std::fs::read_to_string(&path)
                 .map_err(|e| LoadError(format!("error loading {}: {}", s, e)))
         } else {
-            if let Some(content) = self.mock_files.get(s) {
+            if let Some(content) = self.file_content.get(s) {
                 Ok(content.clone())
             } else {
                 Err(LoadError(format!("no mocked file for: {}", s)))
@@ -278,8 +280,8 @@ mod tests {
     #[test]
     fn test_basic_import() {
         let mut p = Project::new_mock();
-        p.add("/mock/foo.ac", FOO_AC);
-        p.add("/mock/main.ac", "import foo");
+        p.set_file_content("/mock/foo.ac", FOO_AC);
+        p.set_file_content("/mock/main.ac", "import foo");
         p.expect_ok("main");
     }
 
@@ -292,15 +294,15 @@ mod tests {
     #[test]
     fn test_indirect_import_nonexistent() {
         let mut p = Project::new_mock();
-        p.add("/mock/main.ac", "import nonexistent");
+        p.set_file_content("/mock/main.ac", "import nonexistent");
         p.expect_module_err("main");
     }
 
     #[test]
     fn test_nonexistent_property() {
         let mut p = Project::new_mock();
-        p.add("/mock/foo.ac", FOO_AC);
-        p.add(
+        p.set_file_content("/mock/foo.ac", FOO_AC);
+        p.set_file_content(
             "/mock/main.ac",
             r#"
             import foo
@@ -313,9 +315,9 @@ mod tests {
     #[test]
     fn test_circular_imports() {
         let mut p = Project::new_mock();
-        p.add("/mock/a.ac", "import b");
-        p.add("/mock/b.ac", "import c");
-        p.add("/mock/c.ac", "import a");
+        p.set_file_content("/mock/a.ac", "import b");
+        p.set_file_content("/mock/b.ac", "import c");
+        p.set_file_content("/mock/c.ac", "import a");
         p.expect_ok("a");
         // The error should show up in c.ac, not in a.ac
         assert!(p.errors().len() > 0);
@@ -324,23 +326,23 @@ mod tests {
     #[test]
     fn test_self_import() {
         let mut p = Project::new_mock();
-        p.add("/mock/a.ac", "import a");
+        p.set_file_content("/mock/a.ac", "import a");
         p.expect_module_err("a");
     }
 
     #[test]
     fn test_import_from_subdir() {
         let mut p = Project::new_mock();
-        p.add("/mock/stuff/foo.ac", FOO_AC);
-        p.add("/mock/main.ac", "import stuff.foo");
+        p.set_file_content("/mock/stuff/foo.ac", FOO_AC);
+        p.set_file_content("/mock/main.ac", "import stuff.foo");
         p.expect_ok("main");
     }
 
     #[test]
     fn test_good_imported_types() {
         let mut p = Project::new_mock();
-        p.add("/mock/foo.ac", FOO_AC);
-        p.add(
+        p.set_file_content("/mock/foo.ac", FOO_AC);
+        p.set_file_content(
             "/mock/main.ac",
             r#"
             import foo
@@ -356,8 +358,8 @@ mod tests {
     #[test]
     fn test_bad_imported_types() {
         let mut p = Project::new_mock();
-        p.add("/mock/foo.ac", FOO_AC);
-        p.add(
+        p.set_file_content("/mock/foo.ac", FOO_AC);
+        p.set_file_content(
             "/mock/main.ac",
             r#"
             import foo
@@ -373,8 +375,8 @@ mod tests {
     #[test]
     fn test_imported_constants() {
         let mut p = Project::new_mock();
-        p.add("/mock/foo.ac", FOO_AC);
-        p.add(
+        p.set_file_content("/mock/foo.ac", FOO_AC);
+        p.set_file_content(
             "/mock/main.ac",
             r#"
             import foo

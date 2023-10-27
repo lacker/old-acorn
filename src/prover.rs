@@ -570,7 +570,7 @@ mod tests {
     // Does one proof on the provided text.
     fn prove_text(text: &str, goal_name: &str) -> Outcome {
         let mut project = Project::new_mock();
-        project.add("/mock/main.ac", text);
+        project.set_file_content("/mock/main.ac", text);
         prove(&mut project, "main", goal_name)
     }
 
