@@ -130,6 +130,12 @@ impl BindingMap {
         self.constants.get(name)?.definition.as_ref()
     }
 
+    // All other namespaces that we depend on, besides this one.
+    // In no particular order.
+    pub fn direct_dependencies(&self) -> Vec<NamespaceId> {
+        self.modules.values().copied().collect()
+    }
+
     pub fn add_constant(
         &mut self,
         name: &str,

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::PathBuf;
 
@@ -192,6 +192,32 @@ impl Project {
         } else {
             panic!("error in force_load");
         }
+    }
+
+    // All dependencies, including chains of direct depedencies.
+    // Ie, if A imports B and B imports C, then A depends on B and C.
+    // Does not count this namespace itself.
+    // Includes modules with errors, but doesn't follow their dependencies.
+    // Sorts in ascending order.
+    pub fn all_dependencies(&self, original_namespace: NamespaceId) -> Vec<NamespaceId> {
+        let mut seen = HashSet::new();
+        let mut todo = vec![original_namespace];
+        while !todo.is_empty() {
+            let namespace = todo.pop().unwrap();
+            if seen.contains(&namespace) {
+                continue;
+            }
+            seen.insert(namespace);
+            if let Module::Ok(env) = self.get_module(namespace) {
+                for dep in env.bindings.direct_dependencies() {
+                    todo.push(dep);
+                }
+            }
+        }
+        seen.remove(&original_namespace);
+        let mut answer: Vec<_> = seen.into_iter().collect();
+        answer.sort();
+        answer
     }
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
