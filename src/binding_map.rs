@@ -40,6 +40,11 @@ pub struct BindingMap {
 struct ConstantInfo {
     // The definition of this constant, if it has one.
     definition: Option<AcornValue>,
+
+    // Whether this constant is the name of a theorem in this context.
+    // Inside the block containing the proof of a theorem, a theorem is just treated like a function, so
+    // this flag will be set to false.
+    theorem: bool,
 }
 
 impl BindingMap {
@@ -146,10 +151,27 @@ impl BindingMap {
             panic!("constant name {} already bound", name);
         }
 
-        let info = ConstantInfo { definition };
+        let info = ConstantInfo {
+            definition,
+            theorem: false,
+        };
         self.identifier_types
             .insert(name.to_string(), constant_type);
         self.constants.insert(name.to_string(), info);
+    }
+
+    pub fn mark_as_theorem(&mut self, name: &str) {
+        if !self.constants.contains_key(name) {
+            panic!("cannot mark as theorem the unknown constant {}", name);
+        }
+        self.constants.get_mut(name).unwrap().theorem = true;
+    }
+
+    pub fn is_theorem(&self, name: &str) -> bool {
+        match self.constants.get(name) {
+            Some(info) => info.theorem,
+            None => false,
+        }
     }
 
     // Data types that come from type parameters get removed when they go out of scope.

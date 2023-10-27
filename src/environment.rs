@@ -306,22 +306,6 @@ impl Environment {
         });
     }
 
-    // i is the id of a constant
-    fn get_theorem_value(&self, namespace: NamespaceId, name: &str) -> Option<&AcornValue> {
-        if namespace != self.namespace {
-            // For now, we cannot look up theorems from other namespaces.
-            return None;
-        }
-        if !self.theorem_names.contains(name) {
-            return None;
-        }
-        let def = self.bindings.get_definition(name);
-        if def.is_none() {
-            panic!("theorem {} has no definition", name);
-        }
-        def
-    }
-
     pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {
         self.bindings.get_definition(name)
     }
@@ -329,7 +313,13 @@ impl Environment {
     // Replaces each theorem with its definition.
     fn expand_theorems(&self, value: &AcornValue) -> AcornValue {
         value.replace_constants_with_values(0, &|namespace, name| {
-            self.get_theorem_value(namespace, name)
+            if namespace != self.namespace {
+                return None;
+            }
+            if !self.bindings.is_theorem(name) {
+                return None;
+            }
+            Some(self.bindings.get_definition(name).unwrap())
         })
     }
 
@@ -517,6 +507,7 @@ impl Environment {
                     range,
                 };
                 self.add_proposition(prop);
+                self.bindings.mark_as_theorem(&ts.name);
                 self.theorem_names.insert(ts.name.to_string());
 
                 Ok(())
