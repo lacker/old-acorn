@@ -64,6 +64,14 @@ fn new_modules() -> Vec<Module> {
     modules
 }
 
+fn check_valid_module_part(s: &str, error_name: &str) -> Result<(), LoadError> {
+    if s.is_empty() || !s.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
+        Err(LoadError(format!("invalid module name: {}", error_name)))
+    } else {
+        Ok(())
+    }
+}
+
 impl Project {
     // A Project where files are imported from the real filesystem.
     pub fn new(root: &str) -> Project {
@@ -153,7 +161,38 @@ impl Project {
     }
 
     pub fn module_name_from_path(&self, path: &Path) -> Result<String, LoadError> {
-        todo!();
+        let relative = path.strip_prefix(&self.root).map_err(|_| {
+            LoadError(format!(
+                "path {} is not in the project root {}",
+                path.display(),
+                self.root.display()
+            ))
+        })?;
+        let components: Vec<_> = relative
+            .components()
+            .map(|comp| comp.as_os_str().to_string_lossy())
+            .collect();
+        let mut answer = String::new();
+        for (i, component) in components.iter().enumerate() {
+            let part = if i + 1 == components.len() {
+                if !component.ends_with(".ac") {
+                    return Err(LoadError(format!(
+                        "path {} does not end with .ac",
+                        path.display()
+                    )));
+                }
+                component[..component.len() - 3].to_string()
+            } else {
+                component.to_string()
+            };
+            if i > 0 {
+                answer.push('.');
+            }
+            answer.push_str(&part);
+            check_valid_module_part(&part, &answer)?;
+        }
+
+        Ok(answer)
     }
 
     pub fn path_from_module_name(&self, module_name: &str) -> Result<PathBuf, LoadError> {
@@ -161,9 +200,7 @@ impl Project {
         let parts: Vec<&str> = module_name.split('.').collect();
 
         for (i, part) in parts.iter().enumerate() {
-            if !part.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
-                return Err(LoadError(format!("invalid module name: {}", module_name)));
-            }
+            check_valid_module_part(part, module_name)?;
 
             let component = if i + 1 == parts.len() {
                 format!("{}.ac", part)
