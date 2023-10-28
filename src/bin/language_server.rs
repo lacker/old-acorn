@@ -73,12 +73,29 @@ impl Document {
     // Create diagnostics based on the cached data for the given url.
     // Publishes them incrementally as each new diagnostic is found.
     // The task completes when all diagnostics are created.
-    async fn run_diagnostics(&self, client: Client) {
+    async fn run_diagnostics(&self, project: Arc<RwLock<Project>>, client: Client) {
         let start_time = chrono::Local::now();
         self.log("running diagnostics");
 
+        let path = match self.url.to_file_path() {
+            Ok(path) => path,
+            Err(()) => {
+                self.log(&format!("could not convert VSCode url: {}", self.url));
+                return;
+            }
+        };
+
+        // We want to refresh the module that contains this file, so we need write
+        // access to the project.
+        let project: &mut Project = &mut *project.write().await;
+        let module_name = project.module_name_from_path(&path);
+        project.drop_modules();
+
+        if true {
+            todo!();
+        }
+
         let mut diagnostics = vec![];
-        // TODO: use a real Project rather than the stub
         let mut env = Environment::new(FIRST_NORMAL);
         let tokens = Token::scan(&self.text);
         if let Err(e) = env.add_tokens(&mut Project::new_mock(), tokens) {
@@ -304,6 +321,9 @@ impl DebugTask {
 struct Backend {
     client: Client,
 
+    // The project we're working on
+    project: Arc<RwLock<Project>>,
+
     // Maps uri to the most recent version of a document
     documents: DashMap<Url, Arc<Document>>,
 
@@ -314,6 +334,7 @@ struct Backend {
 impl Backend {
     fn new(client: Client) -> Backend {
         Backend {
+            project: Arc::new(RwLock::new(Project::new("math"))),
             client,
             documents: DashMap::new(),
             debug_task: Arc::new(RwLock::new(None)),
@@ -330,8 +351,9 @@ impl Backend {
             }
         };
         let client = self.client.clone();
+        let project = self.project.clone();
         tokio::spawn(async move {
-            doc.run_diagnostics(client).await;
+            doc.run_diagnostics(project, client).await;
         });
     }
 

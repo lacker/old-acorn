@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::acorn_value::AcornValue;
 use crate::environment::Environment;
@@ -36,7 +36,7 @@ pub struct Project {
     // This can store either test data that doesn't exist on the filesystem at all, or
     // work in progress that hasn't been saved yet, via an IDE.
     // Maps (filename, contents).
-    file_content: HashMap<String, String>,
+    file_content: HashMap<PathBuf, String>,
 
     // modules[namespace] is the Module for the given namespace id
     modules: Vec<Module>,
@@ -56,6 +56,14 @@ impl From<io::Error> for LoadError {
     }
 }
 
+fn new_modules() -> Vec<Module> {
+    let mut modules = vec![];
+    while modules.len() < FIRST_NORMAL as usize {
+        modules.push(Module::None);
+    }
+    modules
+}
+
 impl Project {
     // A Project where files are imported from the real filesystem.
     pub fn new(root: &str) -> Project {
@@ -66,15 +74,11 @@ impl Project {
             d.push(root);
             d
         };
-        let mut modules = vec![];
-        while modules.len() < FIRST_NORMAL as usize {
-            modules.push(Module::None);
-        }
         Project {
             root,
             use_filesystem: true,
             file_content: HashMap::new(),
-            modules,
+            modules: new_modules(),
             namespaces: HashMap::new(),
         }
     }
@@ -94,11 +98,22 @@ impl Project {
         p
     }
 
+    // Dropping existing modules lets you update the project for new data.
+    // TODO: do this incrementally instead of dropping everything.
+    pub fn drop_modules(&mut self) {
+        self.modules = new_modules();
+        self.namespaces = HashMap::new();
+    }
+
+    pub fn set_file_content(&mut self, path: PathBuf, content: &str) {
+        self.file_content.insert(path, content.to_string());
+    }
+
     // Set the file content. This has priority over the actual filesystem.
-    pub fn set_file_content(&mut self, filename: &str, content: &str) {
+    #[cfg(test)]
+    pub fn mock(&mut self, filename: &str, content: &str) {
         assert!(!self.use_filesystem);
-        self.file_content
-            .insert(filename.to_string(), content.to_string());
+        self.set_file_content(PathBuf::from(filename), content);
     }
 
     pub fn get_module(&self, namespace: NamespaceId) -> &Module {
@@ -126,20 +141,38 @@ impl Project {
     }
 
     fn read_file(&self, path: &PathBuf) -> Result<String, LoadError> {
-        let s = match path.to_str() {
-            Some(s) => s,
-            None => return Err(LoadError(format!("invalid path: {:?}", path))),
-        };
+        if let Some(content) = self.file_content.get(path) {
+            return Ok(content.clone());
+        }
         if self.use_filesystem {
             std::fs::read_to_string(&path)
-                .map_err(|e| LoadError(format!("error loading {}: {}", s, e)))
+                .map_err(|e| LoadError(format!("error loading {}: {}", path.display(), e)))
         } else {
-            if let Some(content) = self.file_content.get(s) {
-                Ok(content.clone())
-            } else {
-                Err(LoadError(format!("no mocked file for: {}", s)))
-            }
+            Err(LoadError(format!("no mocked file for: {}", path.display())))
         }
+    }
+
+    pub fn module_name_from_path(&self, path: &Path) -> Result<String, LoadError> {
+        todo!();
+    }
+
+    pub fn path_from_module_name(&self, module_name: &str) -> Result<PathBuf, LoadError> {
+        let mut path = self.root.clone();
+        let parts: Vec<&str> = module_name.split('.').collect();
+
+        for (i, part) in parts.iter().enumerate() {
+            if !part.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
+                return Err(LoadError(format!("invalid module name: {}", module_name)));
+            }
+
+            let component = if i + 1 == parts.len() {
+                format!("{}.ac", part)
+            } else {
+                part.to_string()
+            };
+            path.push(component);
+        }
+        Ok(path)
     }
 
     // Loads a module from cache if possible, or else from the filesystem.
@@ -161,23 +194,8 @@ impl Project {
             return Ok(*namespace);
         }
 
-        let mut filename = self.root.clone();
-        let parts: Vec<&str> = module_name.split('.').collect();
-
-        for (i, part) in parts.iter().enumerate() {
-            if !part.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
-                return Err(LoadError(format!("invalid module name: {}", module_name)));
-            }
-
-            let component = if i + 1 == parts.len() {
-                format!("{}.ac", part)
-            } else {
-                part.to_string()
-            };
-            filename.push(component);
-        }
-
-        let text = self.read_file(&filename)?;
+        let path = self.path_from_module_name(module_name)?;
+        let text = self.read_file(&path)?;
 
         // Give this module a namespace id before parsing it, so that we can catch
         // circular imports.
@@ -280,8 +298,8 @@ mod tests {
     #[test]
     fn test_basic_import() {
         let mut p = Project::new_mock();
-        p.set_file_content("/mock/foo.ac", FOO_AC);
-        p.set_file_content("/mock/main.ac", "import foo");
+        p.mock("/mock/foo.ac", FOO_AC);
+        p.mock("/mock/main.ac", "import foo");
         p.expect_ok("main");
     }
 
@@ -294,15 +312,15 @@ mod tests {
     #[test]
     fn test_indirect_import_nonexistent() {
         let mut p = Project::new_mock();
-        p.set_file_content("/mock/main.ac", "import nonexistent");
+        p.mock("/mock/main.ac", "import nonexistent");
         p.expect_module_err("main");
     }
 
     #[test]
     fn test_nonexistent_property() {
         let mut p = Project::new_mock();
-        p.set_file_content("/mock/foo.ac", FOO_AC);
-        p.set_file_content(
+        p.mock("/mock/foo.ac", FOO_AC);
+        p.mock(
             "/mock/main.ac",
             r#"
             import foo
@@ -315,9 +333,9 @@ mod tests {
     #[test]
     fn test_circular_imports() {
         let mut p = Project::new_mock();
-        p.set_file_content("/mock/a.ac", "import b");
-        p.set_file_content("/mock/b.ac", "import c");
-        p.set_file_content("/mock/c.ac", "import a");
+        p.mock("/mock/a.ac", "import b");
+        p.mock("/mock/b.ac", "import c");
+        p.mock("/mock/c.ac", "import a");
         p.expect_ok("a");
         // The error should show up in c.ac, not in a.ac
         assert!(p.errors().len() > 0);
@@ -326,23 +344,23 @@ mod tests {
     #[test]
     fn test_self_import() {
         let mut p = Project::new_mock();
-        p.set_file_content("/mock/a.ac", "import a");
+        p.mock("/mock/a.ac", "import a");
         p.expect_module_err("a");
     }
 
     #[test]
     fn test_import_from_subdir() {
         let mut p = Project::new_mock();
-        p.set_file_content("/mock/stuff/foo.ac", FOO_AC);
-        p.set_file_content("/mock/main.ac", "import stuff.foo");
+        p.mock("/mock/stuff/foo.ac", FOO_AC);
+        p.mock("/mock/main.ac", "import stuff.foo");
         p.expect_ok("main");
     }
 
     #[test]
     fn test_good_imported_types() {
         let mut p = Project::new_mock();
-        p.set_file_content("/mock/foo.ac", FOO_AC);
-        p.set_file_content(
+        p.mock("/mock/foo.ac", FOO_AC);
+        p.mock(
             "/mock/main.ac",
             r#"
             import foo
@@ -358,8 +376,8 @@ mod tests {
     #[test]
     fn test_bad_imported_types() {
         let mut p = Project::new_mock();
-        p.set_file_content("/mock/foo.ac", FOO_AC);
-        p.set_file_content(
+        p.mock("/mock/foo.ac", FOO_AC);
+        p.mock(
             "/mock/main.ac",
             r#"
             import foo
@@ -375,8 +393,8 @@ mod tests {
     #[test]
     fn test_imported_constants() {
         let mut p = Project::new_mock();
-        p.set_file_content("/mock/foo.ac", FOO_AC);
-        p.set_file_content(
+        p.mock("/mock/foo.ac", FOO_AC);
+        p.mock(
             "/mock/main.ac",
             r#"
             import foo
