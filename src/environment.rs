@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use tower_lsp::lsp_types::{Position, Range};
 
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, FunctionApplication};
+use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
@@ -284,10 +284,14 @@ impl Environment {
             });
             AcornValue::ForAll(
                 acorn_types,
-                Box::new(AcornValue::Equals(Box::new(app), return_value)),
+                Box::new(AcornValue::Binary(
+                    BinaryOp::Equals,
+                    Box::new(app),
+                    return_value,
+                )),
             )
         } else {
-            AcornValue::Equals(atom, Box::new(definition))
+            AcornValue::Binary(BinaryOp::Equals, atom, Box::new(definition))
         };
         let range = self.definition_ranges.get(name).unwrap().clone();
 
@@ -574,7 +578,11 @@ impl Environment {
 
                 // The last claim in the block is exported to the outside environment.
                 let outer_claim = block.export_bool(&self, inner_claim);
-                let claim = AcornValue::Implies(Box::new(condition), Box::new(outer_claim.clone()));
+                let claim = AcornValue::Binary(
+                    BinaryOp::Implies,
+                    Box::new(condition),
+                    Box::new(outer_claim.clone()),
+                );
 
                 let prop = Proposition {
                     display_name: None,
@@ -681,7 +689,8 @@ impl Environment {
                     function: Box::new(new_fn.clone()),
                     args: new_eq_args,
                 });
-                let new_eq = AcornValue::Equals(Box::new(recreated), Box::new(new_eq_var));
+                let new_eq =
+                    AcornValue::Binary(BinaryOp::Equals, Box::new(recreated), Box::new(new_eq_var));
                 let new_claim = AcornValue::ForAll(vec![struct_type], Box::new(new_eq));
                 self.add_proposition(Proposition {
                     display_name: None,
@@ -707,7 +716,8 @@ impl Environment {
                 for i in 0..ss.fields.len() {
                     let (field_name_token, field_type_expr) = &ss.fields[i];
                     let member_fn = &member_fns[i];
-                    let member_eq = AcornValue::Equals(
+                    let member_eq = AcornValue::Binary(
+                        BinaryOp::Equals,
                         Box::new(AcornValue::Application(FunctionApplication {
                             function: Box::new(member_fn.clone()),
                             args: vec![new_application.clone()],

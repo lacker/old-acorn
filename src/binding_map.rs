@@ -804,14 +804,6 @@ impl BindingMap {
             | AcornValue::Exists(_, value) => {
                 self.find_unknown_local_constants(value, answer);
             }
-            AcornValue::Implies(left, right)
-            | AcornValue::Equals(left, right)
-            | AcornValue::NotEquals(left, right)
-            | AcornValue::And(left, right)
-            | AcornValue::Or(left, right) => {
-                self.find_unknown_local_constants(left, answer);
-                self.find_unknown_local_constants(right, answer);
-            }
             AcornValue::Binary(_, left, right) => {
                 self.find_unknown_local_constants(left, answer);
                 self.find_unknown_local_constants(right, answer);
@@ -855,31 +847,6 @@ impl BindingMap {
                     .collect();
                 format!("{}({})", fn_name, args.join(", "))
             }
-            AcornValue::Implies(left, right) => format!(
-                "({} -> {})",
-                self.value_str_stacked(left, stack_size),
-                self.value_str_stacked(right, stack_size)
-            ),
-            AcornValue::Equals(left, right) => format!(
-                "({} = {})",
-                self.value_str_stacked(left, stack_size),
-                self.value_str_stacked(right, stack_size)
-            ),
-            AcornValue::NotEquals(left, right) => format!(
-                "({} != {})",
-                self.value_str_stacked(left, stack_size),
-                self.value_str_stacked(right, stack_size)
-            ),
-            AcornValue::And(left, right) => format!(
-                "({} & {})",
-                self.value_str_stacked(left, stack_size),
-                self.value_str_stacked(right, stack_size)
-            ),
-            AcornValue::Or(left, right) => format!(
-                "({} | {})",
-                self.value_str_stacked(left, stack_size),
-                self.value_str_stacked(right, stack_size)
-            ),
             AcornValue::Binary(op, left, right) => format!(
                 "({} {} {})",
                 self.value_str_stacked(left, stack_size),
