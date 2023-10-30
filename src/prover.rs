@@ -1064,4 +1064,26 @@ mod tests {
     fn test_poly_add_comm() {
         test_poly("add_comm");
     }
+
+    #[test]
+    fn test_using_imported_axiom() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/bar.ac",
+            r#"
+            type Bar: axiom
+            let bar: Bar = axiom
+            let morph: Bar -> Bar = axiom
+            axiom meq(b: Bar): morph(b) = morph(bar)
+        "#,
+        );
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            import bar
+            theorem goal(a: bar.Bar, b: bar.Bar) { bar.morph(a) = bar.morph(b) }
+        "#,
+        );
+        assert_eq!(prove(&mut p, "main", "goal"), Outcome::Success);
+    }
 }
