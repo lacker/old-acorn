@@ -94,11 +94,12 @@ pub enum Outcome {
 }
 
 impl Prover<'_> {
-    pub fn old_new<'a>(
+    pub fn new<'a>(
+        _project: &'a Project,
         goal_context: &'a GoalContext<'a>,
         verbose: bool,
         print_queue: Option<Arc<SegQueue<String>>>,
-    ) -> Prover {
+    ) -> Prover<'a> {
         let mut p = Prover {
             env: goal_context.env,
             normalizer: Normalizer::new(),
@@ -122,15 +123,6 @@ impl Prover<'_> {
         }
         p.add_goal(goal_context.goal.clone());
         p
-    }
-
-    pub fn new<'a>(
-        _project: &'a Project,
-        goal_context: &'a GoalContext<'a>,
-        verbose: bool,
-        print_queue: Option<Arc<SegQueue<String>>>,
-    ) -> Prover<'a> {
-        Prover::old_new(goal_context, verbose, print_queue)
     }
 
     pub fn set_trace(&mut self, trace: &str) {
