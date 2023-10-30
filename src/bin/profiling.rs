@@ -11,7 +11,7 @@ fn main() {
     let mut project = Project::new("math");
     let namespace = project.load(&module_name).unwrap();
     let env = project.get_env(namespace).unwrap();
-    let goal_context = env.get_theorem_context(theorem_name);
+    let goal_context = env.get_theorem_context(&project, theorem_name);
     let mut prover = Prover::new(&project, &goal_context, false, None);
     let result = prover.search_for_contradiction(1000000, 30.0);
     println!("result: {:?}", result);

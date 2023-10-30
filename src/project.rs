@@ -132,14 +132,6 @@ impl Project {
         p
     }
 
-    // A Project that only contains a single, already-existing Environment.
-    pub fn shim(env: Environment) -> Project {
-        let mut p = Project::new_mock();
-        assert_eq!(env.namespace, p.modules.len() as NamespaceId);
-        p.modules.push(Module::Ok(env));
-        p
-    }
-
     // Dropping existing modules lets you update the project for new data.
     // TODO: do this incrementally instead of dropping everything.
     pub fn drop_modules(&mut self) {
@@ -377,10 +369,11 @@ impl Project {
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
     #[cfg(test)]
-    fn expect_ok(&mut self, module_name: &str) {
+    pub fn expect_ok(&mut self, module_name: &str) -> NamespaceId {
         let namespace = self.load(module_name).expect("load failed");
         if let Module::Ok(_) = self.get_module(namespace) {
             // Success
+            namespace
         } else {
             panic!("module had an error");
         }

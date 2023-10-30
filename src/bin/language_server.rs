@@ -113,7 +113,7 @@ impl Document {
         let mut done = 0;
         let total = paths.len() as i32;
         for path in paths {
-            let goal_context = env.get_goal_context(&path);
+            let goal_context = env.get_goal_context(&project, &path);
             let mut prover = Prover::new(&project, &goal_context, false, None);
             prover.stop_flags.push(self.superseded.clone());
             let outcome = prover.search_for_contradiction(1000, 1.0);
@@ -275,7 +275,7 @@ impl DebugTask {
         log(&format!("running debug task for {}", self.goal_name));
 
         // Get the environment for this specific goal
-        let goal_context = env.get_goal_context(&self.path);
+        let goal_context = env.get_goal_context(&project, &self.path);
         let mut prover = Prover::new(&project, &goal_context, true, Some(self.queue.clone()));
 
         // Stop the prover if either this task or this document version is superseded
@@ -417,7 +417,7 @@ impl Backend {
             }
         };
 
-        let (path, goal_context) = match env.find_location(params.start, params.end) {
+        let (path, goal_context) = match env.find_location(&project, params.start, params.end) {
             Some(tuple) => tuple,
             None => {
                 return self.fail("no goal at this location");

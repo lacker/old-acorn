@@ -798,11 +798,11 @@ impl Environment {
     }
 
     // Will return a context for a subenvironment if this theorem has a block
-    pub fn get_theorem_context(&self, theorem_name: &str) -> GoalContext {
+    pub fn get_theorem_context(&self, project: &Project, theorem_name: &str) -> GoalContext {
         for (i, p) in self.propositions.iter().enumerate() {
             if let Some(name) = &p.display_name {
                 if name == theorem_name {
-                    return self.get_goal_context(&vec![i]);
+                    return self.get_goal_context(project, &vec![i]);
                 }
             }
         }
@@ -846,7 +846,7 @@ impl Environment {
 
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
-    pub fn get_goal_context(&self, path: &Vec<usize>) -> GoalContext {
+    pub fn get_goal_context(&self, _project: &Project, path: &Vec<usize>) -> GoalContext {
         let mut facts = Vec::new();
         let mut env = self;
         let mut it = path.iter().peekable();
@@ -892,11 +892,11 @@ impl Environment {
         panic!("control should not get here");
     }
 
-    pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
+    pub fn get_goal_context_by_name(&self, project: &Project, name: &str) -> GoalContext {
         let paths = self.goal_paths();
         let mut names = Vec::new();
         for path in paths {
-            let context = self.get_goal_context(&path);
+            let context = self.get_goal_context(project, &path);
             if context.name == name {
                 return context;
             }
@@ -909,12 +909,13 @@ impl Environment {
     // Returns the path and goal context for the given location.
     pub fn find_location(
         &self,
+        project: &Project,
         start: Position,
         end: Position,
     ) -> Option<(Vec<usize>, GoalContext)> {
         let paths = self.goal_paths();
         for path in paths {
-            let goal_context = self.get_goal_context(&path);
+            let goal_context = self.get_goal_context(project, &path);
             if goal_context.range.start <= start && goal_context.range.end >= end {
                 // This is the goal that contains the cursor.
                 return Some((path, goal_context));
@@ -1245,8 +1246,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_if_block_ending_with_exists() {
-        let mut env = Environment::new_test();
-        env.add(
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/main.ac",
             r#"
             let a: bool = axiom
             theorem goal: a by {
@@ -1256,15 +1258,18 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             }
             "#,
         );
+        let namespace = p.expect_ok("main");
+        let env = p.get_env(namespace).unwrap();
         for path in env.goal_paths() {
-            env.get_goal_context(&path);
+            env.get_goal_context(&p, &path);
         }
     }
 
     #[test]
     fn test_forall_block_ending_with_exists() {
-        let mut env = Environment::new_test();
-        env.add(
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/main.ac",
             r#"
             let a: bool = axiom
             theorem goal: a by {
@@ -1274,8 +1279,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             }
             "#,
         );
+        let namespace = p.expect_ok("main");
+        let env = p.get_env(namespace).unwrap();
         for path in env.goal_paths() {
-            env.get_goal_context(&path);
+            env.get_goal_context(&p, &path);
         }
     }
 

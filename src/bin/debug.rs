@@ -30,7 +30,7 @@ fn main() {
     let goal_paths = env.goal_paths();
     let goals = goal_paths
         .iter()
-        .map(|path| env.get_goal_context(path))
+        .map(|path| env.get_goal_context(&project, path))
         .collect::<Vec<_>>();
 
     // Find the goal whose name matches theorem_name

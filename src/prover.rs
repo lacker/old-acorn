@@ -553,7 +553,7 @@ mod tests {
     fn prove(project: &mut Project, module_name: &str, goal_name: &str) -> Outcome {
         let namespace = project.load(module_name).expect("load failed");
         let env = project.get_env(namespace).unwrap();
-        let goal_context = env.get_goal_context_by_name(goal_name);
+        let goal_context = env.get_goal_context_by_name(project, goal_name);
         let mut prover = Prover::new(&project, &goal_context, false, None);
         prover.verbose = true;
         prover.search_for_contradiction(2000, 2.0)

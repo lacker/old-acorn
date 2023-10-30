@@ -19,7 +19,7 @@ fn main() {
 
     let paths = env.goal_paths();
     for path in paths {
-        let goal_context = env.get_goal_context(&path);
+        let goal_context = env.get_goal_context(&project, &path);
         let mut prover = Prover::new(&project, &goal_context, false, None);
         let outcome = prover.search_for_contradiction(1000, 1.0);
 
