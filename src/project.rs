@@ -130,6 +130,14 @@ impl Project {
             .unwrap_or(&Module::None)
     }
 
+    pub fn get_module_by_name(&self, module_name: &str) -> &Module {
+        if let Some(namespace) = self.namespaces.get(module_name) {
+            self.get_module(*namespace)
+        } else {
+            &Module::None
+        }
+    }
+
     pub fn get_env(&self, namespace: NamespaceId) -> Option<&Environment> {
         if let Module::Ok(env) = self.get_module(namespace) {
             Some(env)

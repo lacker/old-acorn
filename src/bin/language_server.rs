@@ -1,9 +1,8 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use acorn::environment::Environment;
-use acorn::namespace::FIRST_NORMAL;
-use acorn::project::Project;
+use acorn::namespace::NamespaceId;
+use acorn::project::{LoadError, Module, Project};
 use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
@@ -11,7 +10,7 @@ use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, RwLock};
-use tower_lsp::jsonrpc::Result;
+use tower_lsp::jsonrpc;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
@@ -45,10 +44,6 @@ struct Document {
 
     // superseded is set to true when there is a newer version of the document.
     superseded: Arc<AtomicBool>,
-
-    // env is set by the background diagnostics task.
-    // It is None before that completes.
-    env: Arc<RwLock<Option<Environment>>>,
 }
 
 impl Document {
@@ -59,7 +54,6 @@ impl Document {
             version,
             progress: Arc::new(Mutex::new(ProgressResponse::default())),
             superseded: Arc::new(AtomicBool::new(false)),
-            env: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -70,6 +64,23 @@ impl Document {
         log(&versioned);
     }
 
+    // Updates the project to contain this document.
+    // Acquires the write lock on the project during its operation.
+    async fn update_file(&self, project: Arc<RwLock<Project>>) -> Result<NamespaceId, LoadError> {
+        let path = self
+            .url
+            .to_file_path()
+            .map_err(|_| LoadError(format!("could not convert VSCode url: {}", self.url)))?;
+
+        // We want to refresh the module that contains this file, so we need write
+        // access to the project.
+        let project: &mut Project = &mut *project.write().await;
+        let module_name = project.module_name_from_path(&path)?;
+        project.drop_modules();
+        project.set_file_content(path, &self.text);
+        project.load(&module_name)
+    }
+
     // Create diagnostics based on the cached data for the given url.
     // Publishes them incrementally as each new diagnostic is found.
     // The task completes when all diagnostics are created.
@@ -77,47 +88,40 @@ impl Document {
         let start_time = chrono::Local::now();
         self.log("running diagnostics");
 
-        let path = match self.url.to_file_path() {
-            Ok(path) => path,
-            Err(()) => {
-                self.log(&format!("could not convert VSCode url: {}", self.url));
+        let namespace = match self.update_file(project.clone()).await {
+            Ok(namespace) => namespace,
+            Err(e) => {
+                self.log(&format!("update_file failed: {:?}", e));
                 return;
             }
         };
 
-        // We want to refresh the module that contains this file, so we need write
-        // access to the project.
-        let project: &mut Project = &mut *project.write().await;
-        let module_name = project.module_name_from_path(&path);
-        project.drop_modules();
-
-        if true {
-            todo!();
-        }
-
+        // Load the module for this document
         let mut diagnostics = vec![];
-        let mut env = Environment::new(FIRST_NORMAL);
-        let tokens = Token::scan(&self.text);
-        if let Err(e) = env.add_tokens(&mut Project::new_mock(), tokens) {
-            self.log(&format!("env.add failed: {:?}", e));
-            diagnostics.push(Diagnostic {
-                range: e.token.range(),
-                severity: Some(DiagnosticSeverity::ERROR),
-                message: e.to_string(),
-                ..Diagnostic::default()
-            });
-            client
-                .publish_diagnostics(self.url.clone(), diagnostics, None)
-                .await;
-            return;
-        }
+        let project = project.read().await;
+        let module = project.get_module(namespace);
+        let env = match module {
+            Module::None | Module::Loading => {
+                self.log("module not loaded. programmer error");
+                return;
+            }
+            Module::Error(e) => {
+                self.log(&format!("module load failed: {:?}", e));
+                diagnostics.push(Diagnostic {
+                    range: e.token.range(),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    message: e.to_string(),
+                    ..Diagnostic::default()
+                });
+                client
+                    .publish_diagnostics(self.url.clone(), diagnostics, None)
+                    .await;
+                return;
+            }
+            Module::Ok(env) => env,
+        };
 
-        // Save the environment for use by other tasks.
-        // We can't mutate it after this point.
-        *self.env.write().await = Some(env);
-        let shared_env = self.env.read().await;
-        let env = shared_env.as_ref().unwrap().clone();
-
+        // Prove everything in this module
         let paths = env.goal_paths();
         let mut done = 0;
         let total = paths.len() as i32;
@@ -220,6 +224,8 @@ impl DebugResponse {
 // The DebugTask tracks information around that request.
 #[derive(Clone)]
 struct DebugTask {
+    project: Arc<RwLock<Project>>,
+
     document: Arc<Document>,
 
     // The range in the document corresponding to the goal we're debugging
@@ -269,13 +275,27 @@ impl DebugTask {
 
     // Runs the debug task.
     async fn run(&self) {
-        // Get the environment for the full document
-        let read_doc_env = self.document.env.read().await;
-        let doc_env = match read_doc_env.as_ref() {
-            Some(doc_env) => doc_env,
-            None => {
-                // There should be an env available, because we don't run this task without one.
-                log("no env available in DebugTask::run");
+        // Get the environment for this document
+        let project = self.project.read().await;
+        let path = match self.document.url.to_file_path() {
+            Ok(path) => path,
+            Err(_) => {
+                // There should be a path available, because we don't run this task without one.
+                log("no path available in DebugTask::run");
+                return;
+            }
+        };
+        let module_name = match project.module_name_from_path(&path) {
+            Ok(name) => name,
+            Err(e) => {
+                log(&format!("module_name_from_path failed: {:?}", e));
+                return;
+            }
+        };
+        let env = match project.get_module_by_name(&module_name) {
+            Module::Ok(env) => env,
+            _ => {
+                log(&format!("could not load module named {}", module_name));
                 return;
             }
         };
@@ -283,7 +303,7 @@ impl DebugTask {
         log(&format!("running debug task for {}", self.goal_name));
 
         // Get the environment for this specific goal
-        let goal_context = doc_env.get_goal_context(&self.path);
+        let goal_context = env.get_goal_context(&self.path);
         let mut prover = Prover::old_new(&goal_context, true, Some(self.queue.clone()));
 
         // Stop the prover if either this task or this document version is superseded
@@ -369,12 +389,15 @@ impl Backend {
         self.documents.insert(url.clone(), Arc::new(new_doc));
     }
 
-    fn fail(&self, message: &str) -> Result<DebugResponse> {
+    fn fail(&self, message: &str) -> jsonrpc::Result<DebugResponse> {
         log(message);
         Ok(DebugResponse::message(message))
     }
 
-    async fn handle_progress_request(&self, params: ProgressParams) -> Result<ProgressResponse> {
+    async fn handle_progress_request(
+        &self,
+        params: ProgressParams,
+    ) -> jsonrpc::Result<ProgressResponse> {
         let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
             None => {
@@ -385,7 +408,7 @@ impl Backend {
         Ok(locked_progress.clone())
     }
 
-    async fn handle_debug_request(&self, params: DebugParams) -> Result<DebugResponse> {
+    async fn handle_debug_request(&self, params: DebugParams) -> jsonrpc::Result<DebugResponse> {
         let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
             None => {
@@ -403,11 +426,22 @@ impl Backend {
             }
         }
 
-        let read_env = doc.env.read().await;
-        let env = match read_env.as_ref() {
-            Some(env) => env,
-            None => {
-                return self.fail("no env available");
+        let project = self.project.read().await;
+        let path = match doc.url.to_file_path() {
+            Ok(path) => path,
+            Err(_) => {
+                // There should be a path available, because we don't run this task without one.
+                return self.fail("no path available in DebugTask::run");
+            }
+        };
+        let module_name = match project.module_name_from_path(&path) {
+            Ok(name) => name,
+            Err(e) => return self.fail(&format!("module_name_from_path failed: {:?}", e)),
+        };
+        let env = match project.get_module_by_name(&module_name) {
+            Module::Ok(env) => env,
+            _ => {
+                return self.fail(&format!("could not load module named {}", module_name));
             }
         };
 
@@ -420,6 +454,7 @@ impl Backend {
 
         // Create a new debug task
         let new_task = DebugTask {
+            project: self.project.clone(),
             document: doc.clone(),
             range: goal_context.range,
             path,
@@ -455,7 +490,7 @@ impl Backend {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
-    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(&self, _: InitializeParams) -> jsonrpc::Result<InitializeResult> {
         log("initializing...");
         Ok(InitializeResult {
             server_info: None,
@@ -520,7 +555,7 @@ impl LanguageServer for Backend {
         self.update_document(uri, text, version, "change");
     }
 
-    async fn shutdown(&self) -> Result<()> {
+    async fn shutdown(&self) -> jsonrpc::Result<()> {
         log("shutdown");
         Ok(())
     }
@@ -528,7 +563,7 @@ impl LanguageServer for Backend {
     async fn semantic_tokens_full(
         &self,
         params: SemanticTokensParams,
-    ) -> Result<Option<SemanticTokensResult>> {
+    ) -> jsonrpc::Result<Option<SemanticTokensResult>> {
         let uri = params.text_document.uri;
         let doc = match self.documents.get(&uri) {
             Some(doc) => doc,
