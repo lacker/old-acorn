@@ -852,6 +852,15 @@ impl Environment {
         })
     }
 
+    // Get all facts from this environment.
+    pub fn get_facts(&self, project: &Project) -> Vec<AcornValue> {
+        let mut facts = Vec::new();
+        for prop in &self.propositions {
+            facts.push(self.inline_theorems(project, &prop.claim));
+        }
+        facts
+    }
+
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
     pub fn get_goal_context(&self, project: &Project, path: &Vec<usize>) -> GoalContext {
