@@ -304,19 +304,6 @@ impl Environment {
         self.bindings.get_definition(name)
     }
 
-    // Replaces each theorem with its definition.
-    fn old_expand_theorems(&self, value: &AcornValue) -> AcornValue {
-        value.replace_constants_with_values(0, &|namespace, name| {
-            if namespace != self.namespace {
-                return None;
-            }
-            if !self.bindings.is_theorem(name) {
-                return None;
-            }
-            Some(self.bindings.get_definition(name).unwrap())
-        })
-    }
-
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {
         for prop in &self.propositions {
             if let Some(claim_name) = &prop.display_name {
@@ -846,13 +833,13 @@ impl Environment {
 
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
-    pub fn get_goal_context(&self, _project: &Project, path: &Vec<usize>) -> GoalContext {
+    pub fn get_goal_context(&self, project: &Project, path: &Vec<usize>) -> GoalContext {
         let mut facts = Vec::new();
         let mut env = self;
         let mut it = path.iter().peekable();
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
-                facts.push(env.old_expand_theorems(&previous_prop.claim));
+                facts.push(project.inline_theorems(&previous_prop.claim));
             }
             let prop = &env.propositions[*i];
             if let Some(block) = &prop.block {
@@ -860,7 +847,7 @@ impl Environment {
                     // This is the last element of the path. It has a block, so we can use the
                     // contents of the block to help prove it.
                     for p in &block.env.propositions {
-                        facts.push(block.env.old_expand_theorems(&p.claim));
+                        facts.push(project.inline_theorems(&p.claim));
                     }
                     let claim = if let Some(claim) = &block.claim {
                         claim
@@ -871,7 +858,7 @@ impl Environment {
                         env: &block.env,
                         facts,
                         name: env.get_proposition_name(&prop),
-                        goal: block.env.old_expand_theorems(claim),
+                        goal: project.inline_theorems(claim),
                         range: prop.range,
                     };
                 }
@@ -884,7 +871,7 @@ impl Environment {
                     env: &env,
                     facts,
                     name: env.get_proposition_name(&prop),
-                    goal: env.old_expand_theorems(&prop.claim),
+                    goal: project.inline_theorems(&prop.claim),
                     range: prop.range,
                 };
             }
