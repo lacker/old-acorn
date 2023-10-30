@@ -147,7 +147,7 @@ impl TokenType {
         }
     }
 
-    pub fn is_macro(&self) -> bool {
+    pub fn is_binder(&self) -> bool {
         match self {
             TokenType::ForAll => true,
             TokenType::Exists => true,

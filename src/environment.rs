@@ -1094,7 +1094,7 @@ mod tests {
         env.add("define ander(a: bool) -> (bool -> bool) = function(b: bool) { a & b }");
         env.expect_def(
             "ander",
-            "lambda(x0: bool) { lambda(x1: bool) { (x0 & x1) } }",
+            "function(x0: bool) { function(x1: bool) { (x0 & x1) } }",
         );
     }
 
@@ -1125,11 +1125,11 @@ mod tests {
         env.expect_type("suc_injective", "(Nat, Nat) -> bool");
         env.expect_def(
             "suc_injective",
-            "lambda(x0: Nat, x1: Nat) { ((Suc(x0) = Suc(x1)) -> (x0 = x1)) }",
+            "function(x0: Nat, x1: Nat) { ((Suc(x0) = Suc(x1)) -> (x0 = x1)) }",
         );
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        env.expect_def("suc_neq_zero", "lambda(x0: Nat) { (Suc(x0) != 0) }");
+        env.expect_def("suc_neq_zero", "function(x0: Nat) { (Suc(x0) != 0) }");
 
         assert!(env.bindings.has_type_name("Nat"));
         assert!(!env.bindings.has_identifier("Nat"));
@@ -1150,7 +1150,7 @@ mod tests {
             "axiom induction(f: Nat -> bool, n: Nat):
             f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> f(n)",
         );
-        env.expect_def("induction", "lambda(x0: Nat -> bool, x1: Nat) { ((x0(0) & forall(x2: Nat) { (x0(x2) -> x0(Suc(x2))) }) -> x0(x1)) }");
+        env.expect_def("induction", "function(x0: Nat -> bool, x1: Nat) { ((x0(0) & forall(x2: Nat) { (x0(x2) -> x0(Suc(x2))) }) -> x0(x1)) }");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");

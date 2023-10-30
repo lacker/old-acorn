@@ -305,8 +305,8 @@ impl BindingMap {
                 "unexpected function application in type expression",
             )),
             Expression::Grouping(_, e, _) => self.evaluate_type(project, e),
-            Expression::Macro(token, _, _, _) => {
-                Err(Error::new(token, "unexpected macro in type expression"))
+            Expression::Binder(token, _, _, _) => {
+                Err(Error::new(token, "unexpected binder in type expression"))
             }
         }
     }
@@ -399,8 +399,11 @@ impl BindingMap {
                     panic!("axiomatic values should be handled elsewhere");
                 }
 
-                if token.token_type.is_macro() {
-                    return Err(Error::new(token, "macros cannot be used as values"));
+                if token.token_type.is_binder() {
+                    return Err(Error::new(
+                        token,
+                        "binder keywords cannot be used as values",
+                    ));
                 }
 
                 // Check the type for this identifier
@@ -624,15 +627,15 @@ impl BindingMap {
                 }))
             }
             Expression::Grouping(_, e, _) => self.evaluate_value(project, e, expected_type),
-            Expression::Macro(token, args_expr, body, _) => {
-                let macro_args = args_expr.flatten_list(false)?;
-                if macro_args.len() < 1 {
+            Expression::Binder(token, args_expr, body, _) => {
+                let binder_args = args_expr.flatten_list(false)?;
+                if binder_args.len() < 1 {
                     return Err(Error::new(
                         args_expr.token(),
-                        "macros must have at least one argument",
+                        "binders must have at least one argument",
                     ));
                 }
-                let (arg_names, arg_types) = self.bind_args(project, macro_args)?;
+                let (arg_names, arg_types) = self.bind_args(project, binder_args)?;
                 let expected_type = match token.token_type {
                     TokenType::ForAll => Some(&AcornType::Bool),
                     TokenType::Exists => Some(&AcornType::Bool),
@@ -643,7 +646,7 @@ impl BindingMap {
                         TokenType::ForAll => Ok(AcornValue::ForAll(arg_types, Box::new(value))),
                         TokenType::Exists => Ok(AcornValue::Exists(arg_types, Box::new(value))),
                         TokenType::Function => Ok(AcornValue::Lambda(arg_types, Box::new(value))),
-                        _ => Err(Error::new(token, "expected a macro identifier token")),
+                        _ => Err(Error::new(token, "expected a binder identifier token")),
                     },
                     Err(e) => Err(e),
                 };
@@ -818,9 +821,9 @@ impl BindingMap {
     // Tools for converting things to displayable strings.
     ////////////////////////////////////////////////////////////////////////////////
 
-    fn macro_str_stacked(
+    fn binder_str_stacked(
         &self,
-        macro_name: &str,
+        binder_name: &str,
         types: &Vec<AcornType>,
         value: &AcornValue,
         stack_size: usize,
@@ -831,7 +834,7 @@ impl BindingMap {
             .map(|(i, t)| format!("x{}: {}", i + stack_size, t))
             .collect();
         let value_str = self.value_str_stacked(value, stack_size + types.len());
-        format!("{}({}) {{ {} }}", macro_name, parts.join(", "), value_str)
+        format!("{}({}) {{ {} }}", binder_name, parts.join(", "), value_str)
     }
 
     fn value_str_stacked(&self, value: &AcornValue, stack_size: usize) -> String {
@@ -854,16 +857,16 @@ impl BindingMap {
                 self.value_str_stacked(right, stack_size)
             ),
             AcornValue::ForAll(types, values) => {
-                self.macro_str_stacked("forall", types, values, stack_size)
+                self.binder_str_stacked("forall", types, values, stack_size)
             }
             AcornValue::Exists(types, values) => {
-                self.macro_str_stacked("exists", types, values, stack_size)
+                self.binder_str_stacked("exists", types, values, stack_size)
             }
             AcornValue::Not(subvalue) => {
                 format!("!{}", self.value_str_stacked(subvalue, stack_size))
             }
             AcornValue::Lambda(types, values) => {
-                self.macro_str_stacked("lambda", types, values, stack_size)
+                self.binder_str_stacked("function", types, values, stack_size)
             }
             AcornValue::Monomorph(_, name, _, types) => {
                 format!("{}<{}>", name, AcornType::types_to_str(&types))

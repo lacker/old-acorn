@@ -16,9 +16,9 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // "Apply" is the application of a function. The second expression must be an arg list.
 // "Grouping" is another expression enclosed in parentheses.
 // "Block" is another expression enclosed in braces. Just one for now.
-// "Macro" is the application of a macro.
+// "Binder" is an expression that binds variables, like a forall/exists/function.
 //   The second expression must be an arg list.
-//   Macros include the terminating brace as a token.
+//   Binder expressions include the terminating brace as a token.
 #[derive(Debug)]
 pub enum Expression {
     Identifier(Token),
@@ -26,7 +26,7 @@ pub enum Expression {
     Binary(Box<Expression>, Token, Box<Expression>),
     Apply(Box<Expression>, Box<Expression>),
     Grouping(Token, Box<Expression>, Token),
-    Macro(Token, Box<Expression>, Box<Expression>, Token),
+    Binder(Token, Box<Expression>, Box<Expression>, Token),
 }
 
 impl fmt::Display for Expression {
@@ -59,7 +59,7 @@ impl fmt::Display for Expression {
             Expression::Grouping(_, e, _) => {
                 write!(f, "({})", e)
             }
-            Expression::Macro(token, args, sub, _) => {
+            Expression::Binder(token, args, sub, _) => {
                 write!(f, "{}{} {{ {} }}", token, args, sub)
             }
         }
@@ -75,7 +75,7 @@ impl Expression {
             Expression::Binary(_, token, _) => token,
             Expression::Apply(left, _) => left.token(),
             Expression::Grouping(left_paren, _, _) => left_paren,
-            Expression::Macro(token, _, _, _) => token,
+            Expression::Binder(token, _, _, _) => token,
         }
     }
 
@@ -86,7 +86,7 @@ impl Expression {
             Expression::Binary(left, _, _) => left.first_token(),
             Expression::Apply(left, _) => left.first_token(),
             Expression::Grouping(left_paren, _, _) => left_paren,
-            Expression::Macro(token, _, _, _) => token,
+            Expression::Binder(token, _, _, _) => token,
         }
     }
 
@@ -97,7 +97,7 @@ impl Expression {
             Expression::Binary(_, _, right) => right.last_token(),
             Expression::Apply(_, right) => right.last_token(),
             Expression::Grouping(_, _, right_paren) => right_paren,
-            Expression::Macro(_, _, _, right_brace) => right_brace,
+            Expression::Binder(_, _, _, right_brace) => right_brace,
         }
     }
 
@@ -340,27 +340,30 @@ fn combine_partial_expressions(
         None => {
             let first_partial = partials.pop_front().unwrap();
 
-            // Check if this is a macro.
+            // Check if this is a binder.
             if let PartialExpression::Expression(Expression::Identifier(token)) = &first_partial {
-                if token.token_type.is_macro() {
+                if token.token_type.is_binder() {
                     if partials.len() != 2 {
-                        return Err(Error::new(&token, "macro must have arguments and a block"));
+                        return Err(Error::new(&token, "binder must have arguments and a block"));
                     }
                     let expect_args = partials.pop_front().unwrap();
                     if let PartialExpression::Expression(args) = expect_args {
                         let expect_block = partials.pop_back().unwrap();
                         if let PartialExpression::Block(_, block, right_brace) = expect_block {
-                            return Ok(Expression::Macro(
+                            return Ok(Expression::Binder(
                                 token.clone(),
                                 Box::new(args),
                                 Box::new(block),
                                 right_brace,
                             ));
                         } else {
-                            return Err(Error::new(expect_block.token(), "expected a macro block"));
+                            return Err(Error::new(
+                                expect_block.token(),
+                                "expected a binder block",
+                            ));
                         }
                     }
-                    return Err(Error::new(expect_args.token(), "expected macro arguments"));
+                    return Err(Error::new(expect_args.token(), "expected binder arguments"));
                 }
             }
 

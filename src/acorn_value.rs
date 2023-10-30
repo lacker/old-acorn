@@ -94,7 +94,7 @@ impl fmt::Display for Subvalue<'_> {
             AcornValue::Variable(i, _) => write!(f, "x{}", i),
             AcornValue::Constant(_, name, _) => write!(f, "{}", name),
             AcornValue::Application(a) => a.fmt_helper(f, self.stack_size),
-            AcornValue::Lambda(args, body) => fmt_macro(f, "lambda", args, body, self.stack_size),
+            AcornValue::Lambda(args, body) => fmt_binder(f, "lambda", args, body, self.stack_size),
             AcornValue::Binary(op, left, right) => {
                 write!(
                     f,
@@ -107,8 +107,8 @@ impl fmt::Display for Subvalue<'_> {
             AcornValue::Not(a) => {
                 write!(f, "!{}", Subvalue::new(a, self.stack_size))
             }
-            AcornValue::ForAll(args, body) => fmt_macro(f, "forall", args, body, self.stack_size),
-            AcornValue::Exists(args, body) => fmt_macro(f, "exists", args, body, self.stack_size),
+            AcornValue::ForAll(args, body) => fmt_binder(f, "forall", args, body, self.stack_size),
+            AcornValue::Exists(args, body) => fmt_binder(f, "exists", args, body, self.stack_size),
             AcornValue::Monomorph(_, name, _, types) => {
                 write!(f, "{}<{}>", name, AcornType::types_to_str(types))
             }
@@ -139,7 +139,7 @@ fn fmt_values(v: &Vec<AcornValue>, f: &mut fmt::Formatter, stack_size: usize) ->
     Ok(())
 }
 
-fn fmt_macro(
+fn fmt_binder(
     f: &mut fmt::Formatter,
     name: &str,
     decs: &Vec<AcornType>,
