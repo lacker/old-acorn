@@ -331,6 +331,12 @@ impl AcornValue {
                 let equivalent = AcornValue::Or(Box::new(AcornValue::Not(left)), right);
                 equivalent.move_negation_inwards(negate)
             }
+            AcornValue::Binary(BinaryOp::Implies, left, right) => {
+                // (left -> right) is equivalent to (!left | right)
+                let equivalent =
+                    AcornValue::Binary(BinaryOp::Or, Box::new(AcornValue::Not(left)), right);
+                equivalent.move_negation_inwards(negate)
+            }
             AcornValue::And(left, right) => {
                 if negate {
                     // !(left & right) is equivalent to (!left | !right)
@@ -346,6 +352,23 @@ impl AcornValue {
                     )
                 }
             }
+            AcornValue::Binary(BinaryOp::And, left, right) => {
+                if negate {
+                    // !(left & right) is equivalent to (!left | !right)
+                    let equivalent = AcornValue::Binary(
+                        BinaryOp::Or,
+                        Box::new(AcornValue::Not(left)),
+                        Box::new(AcornValue::Not(right)),
+                    );
+                    equivalent.move_negation_inwards(false)
+                } else {
+                    AcornValue::Binary(
+                        BinaryOp::And,
+                        Box::new(left.move_negation_inwards(false)),
+                        Box::new(right.move_negation_inwards(false)),
+                    )
+                }
+            }
             AcornValue::Or(left, right) => {
                 if negate {
                     // !(left | right) is equivalent to (!left & !right)
@@ -356,6 +379,23 @@ impl AcornValue {
                     equivalent.move_negation_inwards(false)
                 } else {
                     AcornValue::Or(
+                        Box::new(left.move_negation_inwards(false)),
+                        Box::new(right.move_negation_inwards(false)),
+                    )
+                }
+            }
+            AcornValue::Binary(BinaryOp::Or, left, right) => {
+                if negate {
+                    // !(left | right) is equivalent to (!left & !right)
+                    let equivalent = AcornValue::Binary(
+                        BinaryOp::And,
+                        Box::new(AcornValue::Not(left)),
+                        Box::new(AcornValue::Not(right)),
+                    );
+                    equivalent.move_negation_inwards(false)
+                } else {
+                    AcornValue::Binary(
+                        BinaryOp::Or,
                         Box::new(left.move_negation_inwards(false)),
                         Box::new(right.move_negation_inwards(false)),
                     )
