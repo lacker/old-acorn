@@ -554,14 +554,18 @@ impl Prover<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::project::Project;
+    use crate::project::{Module, Project};
 
     use super::*;
 
     // Tries to prove one thing from the project.
     fn prove(project: &mut Project, module_name: &str, goal_name: &str) -> Outcome {
         let namespace = project.load(module_name).expect("load failed");
-        let env = project.get_env(namespace).unwrap();
+        let env = match project.get_module(namespace) {
+            Module::Ok(env) => env,
+            Module::Error(e) => panic!("get_module error: {}", e),
+            _ => panic!("unexpected get_module result"),
+        };
         let goal_context = env.get_goal_context_by_name(project, goal_name);
         let mut prover = Prover::new(&project, &goal_context, false, None);
         prover.verbose = true;
@@ -1081,7 +1085,7 @@ mod tests {
             "/mock/main.ac",
             r#"
             import bar
-            theorem goal(a: bar.Bar, b: bar.Bar) { bar.morph(a) = bar.morph(b) }
+            theorem goal(a: bar.Bar, b: bar.Bar): bar.morph(a) = bar.morph(b)
         "#,
         );
         assert_eq!(prove(&mut p, "main", "goal"), Outcome::Success);
