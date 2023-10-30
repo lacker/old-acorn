@@ -95,7 +95,7 @@ pub enum Outcome {
 
 impl Prover<'_> {
     pub fn new<'a>(
-        _project: &'a Project,
+        project: &'a Project,
         goal_context: &'a GoalContext<'a>,
         verbose: bool,
         print_queue: Option<Arc<SegQueue<String>>>,
@@ -117,8 +117,17 @@ impl Prover<'_> {
             stop_flags: Vec::new(),
         };
 
-        // Load facts from the goal context
-        for fact in monomorphize_facts(&goal_context.facts, &goal_context.goal) {
+        // Get facts both from the goal context and from the overall project
+        let mut polymorphic_facts = vec![];
+        for dependency in project.all_dependencies(goal_context.env.namespace) {
+            let env = project.get_env(dependency).unwrap();
+            polymorphic_facts.extend(env.get_facts(project));
+        }
+        polymorphic_facts.extend(goal_context.facts.iter().cloned());
+        let monomorphic_facts = monomorphize_facts(&polymorphic_facts, &goal_context.goal);
+
+        // Load facts into the prover
+        for fact in monomorphic_facts {
             p.add_fact(fact);
         }
         p.add_goal(goal_context.goal.clone());
