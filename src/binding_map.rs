@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::acorn_type::{AcornType, FunctionType};
-use crate::acorn_value::{AcornValue, FunctionApplication};
+use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::expression::Expression;
 use crate::namespace::{NamespaceId, FIRST_NORMAL};
@@ -446,10 +446,18 @@ impl BindingMap {
                     let left_value = self.evaluate_value(project, left, Some(&AcornType::Bool))?;
                     let right_value =
                         self.evaluate_value(project, right, Some(&AcornType::Bool))?;
-                    Ok(AcornValue::Implies(
-                        Box::new(left_value),
-                        Box::new(right_value),
-                    ))
+                    if true {
+                        Ok(AcornValue::Implies(
+                            Box::new(left_value),
+                            Box::new(right_value),
+                        ))
+                    } else {
+                        Ok(AcornValue::Binary(
+                            BinaryOp::Implies,
+                            Box::new(left_value),
+                            Box::new(right_value),
+                        ))
+                    }
                 }
                 TokenType::Equals => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;

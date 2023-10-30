@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::acorn_type::AcornType;
-use crate::acorn_value::{AcornValue, FunctionApplication};
+use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
 use crate::constant_map::ConstantMap;
@@ -124,11 +124,24 @@ impl Normalizer {
                 AcornValue::Or(Box::new(left), Box::new(right))
             }
 
+            AcornValue::Binary(BinaryOp::And, left, right) => {
+                let left = self.skolemize(stack, *left);
+                let right = self.skolemize(stack, *right);
+                AcornValue::Binary(BinaryOp::And, Box::new(left), Box::new(right))
+            }
+
+            AcornValue::Binary(BinaryOp::Or, left, right) => {
+                let left = self.skolemize(stack, *left);
+                let right = self.skolemize(stack, *right);
+                AcornValue::Binary(BinaryOp::Or, Box::new(left), Box::new(right))
+            }
+
             // Acceptable terminal nodes for the skolemization algorithm
             AcornValue::Application(_)
             | AcornValue::Not(_)
             | AcornValue::Equals(_, _)
             | AcornValue::NotEquals(_, _)
+            | AcornValue::Binary(_, _, _)
             | AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _) => value,
 
