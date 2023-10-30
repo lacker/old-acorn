@@ -27,6 +27,27 @@ impl FunctionApplication {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum BinaryOp {
+    Implies,
+    Equals,
+    NotEquals,
+    And,
+    Or,
+}
+
+impl fmt::Display for BinaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BinaryOp::Implies => write!(f, "->"),
+            BinaryOp::Equals => write!(f, "="),
+            BinaryOp::NotEquals => write!(f, "!="),
+            BinaryOp::And => write!(f, "&"),
+            BinaryOp::Or => write!(f, "|"),
+        }
+    }
+}
+
 // Two AcornValue compare to equal if they are structurally identical.
 // Comparison doesn't do any evaluations.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -50,6 +71,10 @@ pub enum AcornValue {
     NotEquals(Box<AcornValue>, Box<AcornValue>),
     And(Box<AcornValue>, Box<AcornValue>),
     Or(Box<AcornValue>, Box<AcornValue>),
+
+    // The boolean binary operators are treated specially during inference
+    Binary(BinaryOp, Box<AcornValue>, Box<AcornValue>),
+
     Not(Box<AcornValue>),
 
     // Quantifiers that introduce variables onto the stack.
@@ -82,6 +107,15 @@ impl fmt::Display for Subvalue<'_> {
             AcornValue::NotEquals(a, b) => fmt_binary(f, "!=", a, b, self.stack_size),
             AcornValue::And(a, b) => fmt_binary(f, "&", a, b, self.stack_size),
             AcornValue::Or(a, b) => fmt_binary(f, "|", a, b, self.stack_size),
+            AcornValue::Binary(op, left, right) => {
+                write!(
+                    f,
+                    "({} {} {})",
+                    Subvalue::new(left, self.stack_size),
+                    op,
+                    Subvalue::new(right, self.stack_size)
+                )
+            }
             AcornValue::Not(a) => {
                 write!(f, "!{}", Subvalue::new(a, self.stack_size))
             }
@@ -170,6 +204,7 @@ impl AcornValue {
             AcornValue::NotEquals(_, _) => AcornType::Bool,
             AcornValue::And(_, _) => AcornType::Bool,
             AcornValue::Or(_, _) => AcornType::Bool,
+            AcornValue::Binary(_, _, _) => AcornType::Bool,
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
@@ -439,6 +474,11 @@ impl AcornValue {
                 Box::new(left.bind_values(first_binding_index, stack_size, values)),
                 Box::new(right.bind_values(first_binding_index, stack_size, values)),
             ),
+            AcornValue::Binary(op, left, right) => AcornValue::Binary(
+                op,
+                Box::new(left.bind_values(first_binding_index, stack_size, values)),
+                Box::new(right.bind_values(first_binding_index, stack_size, values)),
+            ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.bind_values(
                 first_binding_index,
                 stack_size,
@@ -512,6 +552,11 @@ impl AcornValue {
                 Box::new(left.insert_stack(index, increment)),
                 Box::new(right.insert_stack(index, increment)),
             ),
+            AcornValue::Binary(op, left, right) => AcornValue::Binary(
+                op,
+                Box::new(left.insert_stack(index, increment)),
+                Box::new(right.insert_stack(index, increment)),
+            ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.insert_stack(index, increment))),
             AcornValue::ForAll(quants, value) => {
                 AcornValue::ForAll(quants, Box::new(value.insert_stack(index, increment)))
@@ -562,10 +607,6 @@ impl AcornValue {
                     .map(|x| x.replace_function_equality(stack_size))
                     .collect(),
             }),
-            AcornValue::Implies(left, right) => AcornValue::Implies(
-                Box::new(left.replace_function_equality(stack_size)),
-                Box::new(right.replace_function_equality(stack_size)),
-            ),
             AcornValue::Equals(left, right) => {
                 let (left_quants, left) = left
                     .replace_function_equality(stack_size)
@@ -575,6 +616,23 @@ impl AcornValue {
                     .apply_to_free_variables(stack_size);
                 assert_eq!(left_quants, right_quants);
                 let equality = AcornValue::Equals(Box::new(left), Box::new(right));
+                let answer = if left_quants.is_empty() {
+                    equality
+                } else {
+                    AcornValue::ForAll(left_quants, Box::new(equality))
+                };
+                answer
+            }
+            AcornValue::Binary(BinaryOp::Equals, left, right) => {
+                let (left_quants, left) = left
+                    .replace_function_equality(stack_size)
+                    .apply_to_free_variables(stack_size);
+                let (right_quants, right) = right
+                    .replace_function_equality(stack_size)
+                    .apply_to_free_variables(stack_size);
+                assert_eq!(left_quants, right_quants);
+                let equality =
+                    AcornValue::Binary(BinaryOp::Equals, Box::new(left), Box::new(right));
                 let answer = if left_quants.is_empty() {
                     equality
                 } else {
@@ -597,11 +655,36 @@ impl AcornValue {
                     AcornValue::Exists(left_quants, Box::new(inequality))
                 }
             }
+            AcornValue::Binary(BinaryOp::NotEquals, left, right) => {
+                let (left_quants, left) = left
+                    .replace_function_equality(stack_size)
+                    .apply_to_free_variables(stack_size);
+                let (right_quants, right) = right
+                    .replace_function_equality(stack_size)
+                    .apply_to_free_variables(stack_size);
+                assert_eq!(left_quants, right_quants);
+                let inequality =
+                    AcornValue::Binary(BinaryOp::NotEquals, Box::new(left), Box::new(right));
+                if left_quants.is_empty() {
+                    inequality
+                } else {
+                    AcornValue::Exists(left_quants, Box::new(inequality))
+                }
+            }
+            AcornValue::Implies(left, right) => AcornValue::Implies(
+                Box::new(left.replace_function_equality(stack_size)),
+                Box::new(right.replace_function_equality(stack_size)),
+            ),
             AcornValue::And(left, right) => AcornValue::And(
                 Box::new(left.replace_function_equality(stack_size)),
                 Box::new(right.replace_function_equality(stack_size)),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.replace_function_equality(stack_size)),
+                Box::new(right.replace_function_equality(stack_size)),
+            ),
+            AcornValue::Binary(op, left, right) => AcornValue::Binary(
+                *op,
                 Box::new(left.replace_function_equality(stack_size)),
                 Box::new(right.replace_function_equality(stack_size)),
             ),
@@ -676,6 +759,11 @@ impl AcornValue {
                 Box::new(right.expand_lambdas(stack_size)),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.expand_lambdas(stack_size)),
+                Box::new(right.expand_lambdas(stack_size)),
+            ),
+            AcornValue::Binary(op, left, right) => AcornValue::Binary(
+                op,
                 Box::new(left.expand_lambdas(stack_size)),
                 Box::new(right.expand_lambdas(stack_size)),
             ),
@@ -791,6 +879,11 @@ impl AcornValue {
                 Box::new(left.replace_constants_with_values(stack_size, replacer)),
                 Box::new(right.replace_constants_with_values(stack_size, replacer)),
             ),
+            AcornValue::Binary(op, left, right) => {
+                let new_left = left.replace_constants_with_values(stack_size, replacer);
+                let new_right = right.replace_constants_with_values(stack_size, replacer);
+                AcornValue::Binary(*op, Box::new(new_left), Box::new(new_right))
+            }
             AcornValue::Not(x) => AcornValue::Not(Box::new(
                 x.replace_constants_with_values(stack_size, replacer),
             )),
@@ -870,6 +963,11 @@ impl AcornValue {
                 Box::new(left.replace_constants_with_vars(namespace, constants)),
                 Box::new(right.replace_constants_with_vars(namespace, constants)),
             ),
+            AcornValue::Binary(op, left, right) => {
+                let new_left = left.replace_constants_with_vars(namespace, constants);
+                let new_right = right.replace_constants_with_vars(namespace, constants);
+                AcornValue::Binary(*op, Box::new(new_left), Box::new(new_right))
+            }
             AcornValue::Not(x) => AcornValue::Not(Box::new(
                 x.replace_constants_with_vars(namespace, constants),
             )),
@@ -928,6 +1026,10 @@ impl AcornValue {
             | AcornValue::NotEquals(left, right)
             | AcornValue::And(left, right)
             | AcornValue::Or(left, right) => {
+                left.validate_against_stack(stack)?;
+                right.validate_against_stack(stack)
+            }
+            AcornValue::Binary(_, left, right) => {
                 left.validate_against_stack(stack)?;
                 right.validate_against_stack(stack)
             }
@@ -990,6 +1092,11 @@ impl AcornValue {
                 Box::new(right.monomorphize(types)),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.monomorphize(types)),
+                Box::new(right.monomorphize(types)),
+            ),
+            AcornValue::Binary(op, left, right) => AcornValue::Binary(
+                *op,
                 Box::new(left.monomorphize(types)),
                 Box::new(right.monomorphize(types)),
             ),
@@ -1066,6 +1173,11 @@ impl AcornValue {
                 Box::new(left.genericize(namespace, name, generic_type)),
                 Box::new(right.genericize(namespace, name, generic_type)),
             ),
+            AcornValue::Binary(op, left, right) => AcornValue::Binary(
+                *op,
+                Box::new(left.genericize(namespace, name, generic_type)),
+                Box::new(right.genericize(namespace, name, generic_type)),
+            ),
             AcornValue::Not(x) => {
                 AcornValue::Not(Box::new(x.genericize(namespace, name, generic_type)))
             }
@@ -1116,6 +1228,10 @@ impl AcornValue {
                 left.find_polymorphic(output);
                 right.find_polymorphic(output);
             }
+            AcornValue::Binary(_, left, right) => {
+                left.find_polymorphic(output);
+                right.find_polymorphic(output);
+            }
             AcornValue::Not(x) => x.find_polymorphic(output),
             AcornValue::Monomorph(_, _, _, _) => {}
         }
@@ -1140,6 +1256,10 @@ impl AcornValue {
             | AcornValue::NotEquals(left, right)
             | AcornValue::And(left, right)
             | AcornValue::Or(left, right) => {
+                left.find_monomorphs(output);
+                right.find_monomorphs(output);
+            }
+            AcornValue::Binary(_, left, right) => {
                 left.find_monomorphs(output);
                 right.find_monomorphs(output);
             }
@@ -1171,6 +1291,7 @@ impl AcornValue {
             | AcornValue::NotEquals(left, right)
             | AcornValue::And(left, right)
             | AcornValue::Or(left, right) => left.is_polymorphic() || right.is_polymorphic(),
+            AcornValue::Binary(_, left, right) => left.is_polymorphic() || right.is_polymorphic(),
             AcornValue::Not(x) => x.is_polymorphic(),
             AcornValue::Monomorph(_, _, _, _) => false,
         }
@@ -1218,6 +1339,11 @@ impl AcornValue {
                 Box::new(right.to_placeholder()),
             ),
             AcornValue::Or(left, right) => AcornValue::Or(
+                Box::new(left.to_placeholder()),
+                Box::new(right.to_placeholder()),
+            ),
+            AcornValue::Binary(op, left, right) => AcornValue::Binary(
+                *op,
                 Box::new(left.to_placeholder()),
                 Box::new(right.to_placeholder()),
             ),

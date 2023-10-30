@@ -800,6 +800,10 @@ impl BindingMap {
                 self.find_unknown_local_constants(left, answer);
                 self.find_unknown_local_constants(right, answer);
             }
+            AcornValue::Binary(_, left, right) => {
+                self.find_unknown_local_constants(left, answer);
+                self.find_unknown_local_constants(right, answer);
+            }
             AcornValue::Not(value) => {
                 self.find_unknown_local_constants(value, answer);
             }
@@ -862,6 +866,12 @@ impl BindingMap {
             AcornValue::Or(left, right) => format!(
                 "({} | {})",
                 self.value_str_stacked(left, stack_size),
+                self.value_str_stacked(right, stack_size)
+            ),
+            AcornValue::Binary(op, left, right) => format!(
+                "({} {} {})",
+                self.value_str_stacked(left, stack_size),
+                op,
                 self.value_str_stacked(right, stack_size)
             ),
             AcornValue::ForAll(types, values) => {
