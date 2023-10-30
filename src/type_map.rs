@@ -14,10 +14,10 @@ pub const EMPTY: TypeId = 0;
 pub const BOOL: TypeId = 1;
 
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
-pub struct MonomorphKey {
-    pub namespace: NamespaceId,
-    pub name: String,
-    pub parameters: Vec<AcornType>,
+struct MonomorphKey {
+    namespace: NamespaceId,
+    name: String,
+    parameters: Vec<AcornType>,
 }
 
 // The Acorn language allows a rich variety of types, where each value has an AcornType, and where
@@ -32,7 +32,7 @@ pub struct TypeMap {
     monomorph_map: HashMap<MonomorphKey, AtomId>,
 
     // For each monomorphization, store how it was created and its type.
-    pub monomorph_info: Vec<(MonomorphKey, TypeId)>,
+    monomorph_info: Vec<(MonomorphKey, TypeId)>,
 }
 
 impl TypeMap {
