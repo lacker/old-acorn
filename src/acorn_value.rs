@@ -279,6 +279,12 @@ impl AcornValue {
             AcornValue::Not(x) => *x,
             AcornValue::Equals(x, y) => AcornValue::NotEquals(x, y),
             AcornValue::NotEquals(x, y) => AcornValue::Equals(x, y),
+            AcornValue::Binary(BinaryOp::Equals, x, y) => {
+                AcornValue::Binary(BinaryOp::NotEquals, x, y)
+            }
+            AcornValue::Binary(BinaryOp::NotEquals, x, y) => {
+                AcornValue::Binary(BinaryOp::Equals, x, y)
+            }
             _ => AcornValue::Not(Box::new(self)),
         }
     }
@@ -425,11 +431,25 @@ impl AcornValue {
                     AcornValue::Equals(left, right).maybe_negate(negate)
                 }
             }
+            AcornValue::Binary(BinaryOp::Equals, left, right) => {
+                if left.get_type() == AcornType::Bool {
+                    AcornValue::boolean_comparison(*left, *right, negate)
+                } else {
+                    AcornValue::Binary(BinaryOp::Equals, left, right).maybe_negate(negate)
+                }
+            }
             AcornValue::NotEquals(left, right) => {
                 if left.get_type() == AcornType::Bool {
                     AcornValue::boolean_comparison(*left, *right, !negate)
                 } else {
                     AcornValue::NotEquals(left, right).maybe_negate(negate)
+                }
+            }
+            AcornValue::Binary(BinaryOp::NotEquals, left, right) => {
+                if left.get_type() == AcornType::Bool {
+                    AcornValue::boolean_comparison(*left, *right, !negate)
+                } else {
+                    AcornValue::Binary(BinaryOp::NotEquals, left, right).maybe_negate(negate)
                 }
             }
             _ => self.maybe_negate(negate),
@@ -841,6 +861,15 @@ impl AcornValue {
                 let new_right = shifted_right.remove_forall(quantifiers);
                 AcornValue::And(Box::new(new_left), Box::new(new_right))
             }
+            AcornValue::Binary(BinaryOp::And, left, right) => {
+                let original_num_quants = quantifiers.len() as AtomId;
+                let new_left = left.remove_forall(quantifiers);
+                let added_quants = quantifiers.len() as AtomId - original_num_quants;
+
+                let shifted_right = right.insert_stack(original_num_quants, added_quants);
+                let new_right = shifted_right.remove_forall(quantifiers);
+                AcornValue::Binary(BinaryOp::And, Box::new(new_left), Box::new(new_right))
+            }
             AcornValue::Or(left, right) => {
                 let original_num_quants = quantifiers.len() as AtomId;
                 let new_left = left.remove_forall(quantifiers);
@@ -849,6 +878,15 @@ impl AcornValue {
                 let shifted_right = right.insert_stack(original_num_quants, added_quants);
                 let new_right = shifted_right.remove_forall(quantifiers);
                 AcornValue::Or(Box::new(new_left), Box::new(new_right))
+            }
+            AcornValue::Binary(BinaryOp::Or, left, right) => {
+                let original_num_quants = quantifiers.len() as AtomId;
+                let new_left = left.remove_forall(quantifiers);
+                let added_quants = quantifiers.len() as AtomId - original_num_quants;
+
+                let shifted_right = right.insert_stack(original_num_quants, added_quants);
+                let new_right = shifted_right.remove_forall(quantifiers);
+                AcornValue::Binary(BinaryOp::Or, Box::new(new_left), Box::new(new_right))
             }
             AcornValue::ForAll(new_quants, value) => {
                 quantifiers.extend(new_quants);

@@ -446,25 +446,20 @@ impl BindingMap {
                     let left_value = self.evaluate_value(project, left, Some(&AcornType::Bool))?;
                     let right_value =
                         self.evaluate_value(project, right, Some(&AcornType::Bool))?;
-                    if true {
-                        Ok(AcornValue::Implies(
-                            Box::new(left_value),
-                            Box::new(right_value),
-                        ))
-                    } else {
-                        Ok(AcornValue::Binary(
-                            BinaryOp::Implies,
-                            Box::new(left_value),
-                            Box::new(right_value),
-                        ))
-                    }
+
+                    Ok(AcornValue::Binary(
+                        BinaryOp::Implies,
+                        Box::new(left_value),
+                        Box::new(right_value),
+                    ))
                 }
                 TokenType::Equals => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value(project, left, None)?;
                     let right_value =
                         self.evaluate_value(project, right, Some(&left_value.get_type()))?;
-                    Ok(AcornValue::Equals(
+                    Ok(AcornValue::Binary(
+                        BinaryOp::Equals,
                         Box::new(left_value),
                         Box::new(right_value),
                     ))
