@@ -300,12 +300,15 @@ impl AcornValue {
         if negate {
             // left != right is equivalent to:
             //   (left | right) & (!left | !right)
-            AcornValue::And(
-                Box::new(AcornValue::Or(
+            AcornValue::Binary(
+                BinaryOp::And,
+                Box::new(AcornValue::Binary(
+                    BinaryOp::Or,
                     Box::new(negative_left),
                     Box::new(negative_right),
                 )),
-                Box::new(AcornValue::Or(
+                Box::new(AcornValue::Binary(
+                    BinaryOp::Or,
                     Box::new(positive_left),
                     Box::new(positive_right),
                 )),
@@ -313,12 +316,15 @@ impl AcornValue {
         } else {
             // left = right is equivalent to:
             //   (!left | right) & (left | !right)
-            AcornValue::And(
-                Box::new(AcornValue::Or(
+            AcornValue::Binary(
+                BinaryOp::And,
+                Box::new(AcornValue::Binary(
+                    BinaryOp::Or,
                     Box::new(negative_left),
                     Box::new(positive_right),
                 )),
-                Box::new(AcornValue::Or(
+                Box::new(AcornValue::Binary(
+                    BinaryOp::Or,
                     Box::new(positive_left),
                     Box::new(negative_right),
                 )),
