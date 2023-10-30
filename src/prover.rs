@@ -12,7 +12,7 @@ use crate::clause::Clause;
 use crate::clause_info::{ClauseInfo, ClauseType, ProofStep};
 use crate::display::DisplayClause;
 use crate::environment::Environment;
-use crate::goal_context::GoalContext;
+use crate::goal_context::{monomorphize_facts, GoalContext};
 use crate::normalizer::Normalizer;
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
@@ -117,8 +117,8 @@ impl Prover<'_> {
             stop_flags: Vec::new(),
         };
 
-        // Load the goal
-        for fact in goal_context.monomorphize_facts() {
+        // Load facts from the goal context
+        for fact in monomorphize_facts(&goal_context.facts, &goal_context.goal) {
             p.add_fact(fact);
         }
         p.add_goal(goal_context.goal.clone());
