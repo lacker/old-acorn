@@ -1,8 +1,7 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use acorn::namespace::NamespaceId;
-use acorn::project::{LoadError, Module, Project};
+use acorn::project::{Module, Project, UserError};
 use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
@@ -64,21 +63,23 @@ impl Document {
         log(&versioned);
     }
 
-    // Updates the project to contain this document.
-    // Acquires the write lock on the project during its operation.
-    async fn update_file(&self, project: Arc<RwLock<Project>>) -> Result<NamespaceId, LoadError> {
-        let path = self
-            .url
-            .to_file_path()
-            .map_err(|_| LoadError(format!("could not convert VSCode url: {}", self.url)))?;
-
-        // We want to refresh the module that contains this file, so we need write
-        // access to the project.
-        let project: &mut Project = &mut *project.write().await;
-        let module_name = project.module_name_from_path(&path)?;
-        project.drop_modules();
-        project.set_file_content(path, &self.text);
-        project.load(&module_name)
+    async fn log_error(&self, client: Client, e: UserError) {
+        match e {
+            UserError::Global(s) => {
+                self.log(&s);
+            }
+            UserError::Local(url, range, s) => {
+                let diagnostic = Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    message: s,
+                    ..Diagnostic::default()
+                };
+                client
+                    .publish_diagnostics(url, vec![diagnostic], None)
+                    .await;
+            }
+        }
     }
 
     // Create diagnostics based on the cached data for the given url.
@@ -88,40 +89,26 @@ impl Document {
         let start_time = chrono::Local::now();
         self.log("running diagnostics");
 
-        let namespace = match self.update_file(project.clone()).await {
-            Ok(namespace) => namespace,
-            Err(e) => {
-                self.log(&format!("update_file failed: {:?}", e));
+        {
+            let mut mut_project = project.write().await;
+            if let Err(e) = mut_project.update_url_content(&self.url, &self.text) {
+                self.log(&format!("update_url_content failed: {}", e));
                 return;
             }
-        };
+        }
 
         // Load the module for this document
-        let mut diagnostics = vec![];
         let project = project.read().await;
-        let module = project.get_module(namespace);
-        let env = match module {
-            Module::None | Module::Loading => {
-                self.log("module not loaded. programmer error");
+        let env = match project.get_url_env(&self.url) {
+            Ok(env) => env,
+            Err(e) => {
+                self.log_error(client, e).await;
                 return;
             }
-            Module::Error(e) => {
-                self.log(&format!("module load failed: {:?}", e));
-                diagnostics.push(Diagnostic {
-                    range: e.token.range(),
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    message: e.to_string(),
-                    ..Diagnostic::default()
-                });
-                client
-                    .publish_diagnostics(self.url.clone(), diagnostics, None)
-                    .await;
-                return;
-            }
-            Module::Ok(env) => env,
         };
 
         // Prove everything in this module
+        let mut diagnostics = vec![];
         let paths = env.goal_paths();
         let mut done = 0;
         let total = paths.len() as i32;
@@ -277,25 +264,10 @@ impl DebugTask {
     async fn run(&self) {
         // Get the environment for this document
         let project = self.project.read().await;
-        let path = match self.document.url.to_file_path() {
-            Ok(path) => path,
-            Err(_) => {
-                // There should be a path available, because we don't run this task without one.
-                log("no path available in DebugTask::run");
-                return;
-            }
-        };
-        let module_name = match project.module_name_from_path(&path) {
-            Ok(name) => name,
+        let env = match project.get_url_env(&self.document.url) {
+            Ok(env) => env,
             Err(e) => {
-                log(&format!("module_name_from_path failed: {:?}", e));
-                return;
-            }
-        };
-        let env = match project.get_module_by_name(&module_name) {
-            Module::Ok(env) => env,
-            _ => {
-                log(&format!("could not load module named {}", module_name));
+                self.document.log(&e.to_string());
                 return;
             }
         };

@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
-use std::io;
 use std::path::{Path, PathBuf};
+use std::{fmt, io};
+
+use tower_lsp::lsp_types::{Range, Url};
 
 use crate::acorn_value::AcornValue;
 use crate::environment::Environment;
@@ -53,6 +55,38 @@ pub struct LoadError(pub String);
 impl From<io::Error> for LoadError {
     fn from(error: io::Error) -> Self {
         LoadError(format!("{}", error))
+    }
+}
+
+impl fmt::Display for LoadError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+// An error that can be reported to the user.
+pub enum UserError {
+    // This sort of error can be attached to a specific place in a document.
+    // Document, range in document, message.
+    Local(Url, Range, String),
+
+    // This sort of error cannot be attached to anything.
+    Global(String),
+}
+
+// Loading errors are global errors.
+impl From<LoadError> for UserError {
+    fn from(e: LoadError) -> UserError {
+        UserError::Global(e.to_string())
+    }
+}
+
+impl fmt::Display for UserError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            UserError::Local(_, _, message) => write!(f, "{}", message),
+            UserError::Global(message) => write!(f, "{}", message),
+        }
     }
 }
 
@@ -296,6 +330,49 @@ impl Project {
             }
             None
         })
+    }
+
+    // Gets the current environment corresponding to a file url.
+    pub fn get_url_env<'a>(&'a self, url: &Url) -> Result<&'a Environment, UserError> {
+        let path = url
+            .to_file_path()
+            .map_err(|_| UserError::Global(format!("could not convert url to path: {}", url)))?;
+        let module_name = self.module_name_from_path(&path)?;
+        match self.get_module_by_name(&module_name) {
+            Module::Ok(env) => Ok(env),
+            Module::None => Err(UserError::Global(format!(
+                "module {} not loaded",
+                module_name
+            ))),
+            Module::Loading => Err(UserError::Global(format!(
+                "module {} is still loading",
+                module_name
+            ))),
+            Module::Error(e) => Err(UserError::Local(
+                url.clone(),
+                e.token.range(),
+                e.to_string(),
+            )),
+        }
+    }
+
+    // Updates the contents of a file corresponding to a file url.
+    pub fn update_url_content<'a>(
+        &'a mut self,
+        url: &Url,
+        content: &str,
+    ) -> Result<NamespaceId, UserError> {
+        let path = url
+            .to_file_path()
+            .map_err(|_| UserError::Global(format!("could not convert url to path: {}", url)))?;
+        let module_name = self.module_name_from_path(&path)?;
+
+        // TODO: Ideally we would be able to refresh only one module, rather than dropping all of
+        // them whenever one of them changes.
+        self.drop_modules();
+
+        self.set_file_content(path, content);
+        Ok(self.load(&module_name)?)
     }
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
