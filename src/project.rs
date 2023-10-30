@@ -4,7 +4,6 @@ use std::{fmt, io};
 
 use tower_lsp::lsp_types::{Range, Url};
 
-use crate::acorn_value::AcornValue;
 use crate::environment::Environment;
 use crate::namespace::{NamespaceId, FIRST_NORMAL};
 use crate::token::{self, Token};
@@ -310,18 +309,6 @@ impl Project {
         let mut answer: Vec<_> = seen.into_iter().collect();
         answer.sort();
         answer
-    }
-
-    // Replaces each theorem with its definition.
-    pub fn inline_theorems(&self, value: &AcornValue) -> AcornValue {
-        value.replace_constants_with_values(0, &|namespace, name| {
-            if let Module::Ok(env) = self.get_module(namespace) {
-                if env.bindings.is_theorem(name) {
-                    return env.bindings.get_definition(name).clone();
-                }
-            }
-            None
-        })
     }
 
     // Gets the current environment corresponding to a file url.

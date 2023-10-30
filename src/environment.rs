@@ -831,6 +831,27 @@ impl Environment {
         paths
     }
 
+    // Uses our own binding to inline theorems when the namespace matches.
+    // Falls back to project-level when the namespace doesn't match.
+    fn inline_theorems(&self, project: &Project, value: &AcornValue) -> AcornValue {
+        // Replaces each theorem with its definition.
+        value.replace_constants_with_values(0, &|namespace, name| {
+            let bindings = if self.namespace == namespace {
+                &self.bindings
+            } else {
+                &project
+                    .get_env(namespace)
+                    .expect("missing namespace in inline_theorems")
+                    .bindings
+            };
+            if bindings.is_theorem(name) {
+                bindings.get_definition(name).clone()
+            } else {
+                None
+            }
+        })
+    }
+
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
     pub fn get_goal_context(&self, project: &Project, path: &Vec<usize>) -> GoalContext {
@@ -839,7 +860,7 @@ impl Environment {
         let mut it = path.iter().peekable();
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
-                facts.push(project.inline_theorems(&previous_prop.claim));
+                facts.push(env.inline_theorems(project, &previous_prop.claim));
             }
             let prop = &env.propositions[*i];
             if let Some(block) = &prop.block {
@@ -847,7 +868,7 @@ impl Environment {
                     // This is the last element of the path. It has a block, so we can use the
                     // contents of the block to help prove it.
                     for p in &block.env.propositions {
-                        facts.push(project.inline_theorems(&p.claim));
+                        facts.push(block.env.inline_theorems(project, &p.claim));
                     }
                     let claim = if let Some(claim) = &block.claim {
                         claim
@@ -858,7 +879,7 @@ impl Environment {
                         env: &block.env,
                         facts,
                         name: env.get_proposition_name(&prop),
-                        goal: project.inline_theorems(claim),
+                        goal: block.env.inline_theorems(project, claim),
                         range: prop.range,
                     };
                 }
@@ -871,7 +892,7 @@ impl Environment {
                     env: &env,
                     facts,
                     name: env.get_proposition_name(&prop),
-                    goal: project.inline_theorems(&prop.claim),
+                    goal: env.inline_theorems(project, &prop.claim),
                     range: prop.range,
                 };
             }
