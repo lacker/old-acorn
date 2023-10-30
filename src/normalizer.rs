@@ -214,12 +214,13 @@ impl Normalizer {
                 Ok(Literal::positive(self.term_from_value(value)?))
             }
             AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),
-            AcornValue::Equals(left, right) => {
+            AcornValue::Equals(left, right) | AcornValue::Binary(BinaryOp::Equals, left, right) => {
                 let left_term = self.term_from_value(&*left)?;
                 let right_term = self.term_from_value(&*right)?;
                 Ok(Literal::equals(left_term, right_term))
             }
-            AcornValue::NotEquals(left, right) => {
+            AcornValue::NotEquals(left, right)
+            | AcornValue::Binary(BinaryOp::NotEquals, left, right) => {
                 let left_term = self.term_from_value(&*left)?;
                 let right_term = self.term_from_value(&*right)?;
                 Ok(Literal::not_equals(left_term, right_term))
@@ -238,11 +239,11 @@ impl Normalizer {
     // Appends all results found.
     fn into_cnf(&mut self, value: &AcornValue, results: &mut Vec<Vec<Literal>>) -> Result<()> {
         match value {
-            AcornValue::And(left, right) => {
+            AcornValue::And(left, right) | AcornValue::Binary(BinaryOp::And, left, right) => {
                 self.into_cnf(left, results)?;
                 self.into_cnf(right, results)
             }
-            AcornValue::Or(left, right) => {
+            AcornValue::Or(left, right) | AcornValue::Binary(BinaryOp::Or, left, right) => {
                 let mut left_results = Vec::new();
                 self.into_cnf(left, &mut left_results)?;
                 let mut right_results = Vec::new();
