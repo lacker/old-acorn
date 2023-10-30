@@ -469,7 +469,8 @@ impl BindingMap {
                     let left_value = self.evaluate_value(project, left, None)?;
                     let right_value =
                         self.evaluate_value(project, right, Some(&left_value.get_type()))?;
-                    Ok(AcornValue::NotEquals(
+                    Ok(AcornValue::Binary(
+                        BinaryOp::NotEquals,
                         Box::new(left_value),
                         Box::new(right_value),
                     ))
@@ -479,14 +480,22 @@ impl BindingMap {
                     let left_value = self.evaluate_value(project, left, Some(&AcornType::Bool))?;
                     let right_value =
                         self.evaluate_value(project, right, Some(&AcornType::Bool))?;
-                    Ok(AcornValue::And(Box::new(left_value), Box::new(right_value)))
+                    Ok(AcornValue::Binary(
+                        BinaryOp::And,
+                        Box::new(left_value),
+                        Box::new(right_value),
+                    ))
                 }
                 TokenType::Pipe => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value(project, left, Some(&AcornType::Bool))?;
                     let right_value =
                         self.evaluate_value(project, right, Some(&AcornType::Bool))?;
-                    Ok(AcornValue::Or(Box::new(left_value), Box::new(right_value)))
+                    Ok(AcornValue::Binary(
+                        BinaryOp::Or,
+                        Box::new(left_value),
+                        Box::new(right_value),
+                    ))
                 }
                 TokenType::Dot => {
                     let components = expression.flatten_dots()?;
