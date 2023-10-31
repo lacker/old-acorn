@@ -310,7 +310,7 @@ impl fmt::Display for AcornType {
                 write!(f, "{} -> {}", lhs, function_type.return_type)
             }
             AcornType::Empty => write!(f, "empty"),
-            AcornType::Placeholder(index) => write!(f, "P{}", index),
+            AcornType::Placeholder(name) => write!(f, "{}", name),
         }
     }
 }
