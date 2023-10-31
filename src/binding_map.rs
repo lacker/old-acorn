@@ -38,6 +38,10 @@ pub struct BindingMap {
 
 #[derive(Clone)]
 struct ConstantInfo {
+    // The names of the type parameters this constant was defined with, if any.
+    // These type parameters can be used in the definition.
+    params: Vec<String>,
+
     // The definition of this constant, if it has one.
     definition: Option<AcornValue>,
 
@@ -144,6 +148,7 @@ impl BindingMap {
     pub fn add_constant(
         &mut self,
         name: &str,
+        params: Vec<String>,
         constant_type: AcornType,
         definition: Option<AcornValue>,
     ) {
@@ -152,6 +157,7 @@ impl BindingMap {
         }
 
         let info = ConstantInfo {
+            params,
             definition,
             theorem: false,
         };

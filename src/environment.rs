@@ -198,7 +198,7 @@ impl Environment {
             let specific_arg_type = generic_arg_type.monomorphize(&param_pairs);
             subenv
                 .bindings
-                .add_constant(&arg_name, specific_arg_type, None);
+                .add_constant(&arg_name, vec![], specific_arg_type, None);
         }
 
         let claim = match params {
@@ -385,7 +385,7 @@ impl Environment {
                         .evaluate_value(project, &ls.value, Some(&acorn_type))?
                 };
                 self.bindings
-                    .add_constant(&ls.name, acorn_type, Some(value));
+                    .add_constant(&ls.name, vec![], acorn_type, Some(value));
                 self.definition_ranges
                     .insert(ls.name.clone(), statement.range());
                 self.add_identity_props(&ls.name);
@@ -412,14 +412,19 @@ impl Environment {
                 if let Some(v) = unbound_value {
                     let fn_value = AcornValue::new_lambda(arg_types, v);
                     // Add the function value to the environment
-                    self.bindings
-                        .add_constant(&ds.name, fn_value.get_type(), Some(fn_value));
+                    self.bindings.add_constant(
+                        &ds.name,
+                        param_names,
+                        fn_value.get_type(),
+                        Some(fn_value),
+                    );
                 } else {
                     let new_axiom_type = AcornType::Function(FunctionType {
                         arg_types,
                         return_type: Box::new(value_type),
                     });
-                    self.bindings.add_constant(&ds.name, new_axiom_type, None);
+                    self.bindings
+                        .add_constant(&ds.name, param_names, new_axiom_type, None);
                 };
 
                 self.definition_ranges
@@ -472,13 +477,14 @@ impl Environment {
                 let theorem_type = lambda_claim.get_type();
                 self.bindings.add_constant(
                     &ts.name,
+                    type_params.clone(),
                     theorem_type.clone(),
                     Some(lambda_claim.clone()),
                 );
 
                 let block = self.new_block(
                     project,
-                    type_params.clone(),
+                    type_params,
                     block_args,
                     &ts.body,
                     BlockParams::Theorem(&ts.name),
@@ -617,7 +623,7 @@ impl Environment {
                 // Define the quantifiers as constants
                 for (quant_name, quant_type) in quant_names.iter().zip(quant_types.iter()) {
                     self.bindings
-                        .add_constant(quant_name, quant_type.clone(), None);
+                        .add_constant(quant_name, vec![], quant_type.clone(), None);
                 }
 
                 // We can then assume the specific existence claim with the named constants
@@ -658,7 +664,7 @@ impl Environment {
                         return_type: Box::new(field_type),
                     });
                     self.bindings
-                        .add_constant(&member_fn_name, member_fn_type, None);
+                        .add_constant(&member_fn_name, vec![], member_fn_type, None);
                     member_fn_names.push(member_fn_name.clone());
                     member_fns.push(self.bindings.get_constant_value(&member_fn_name).unwrap());
                 }
@@ -669,7 +675,8 @@ impl Environment {
                     arg_types: field_types.clone(),
                     return_type: Box::new(struct_type.clone()),
                 });
-                self.bindings.add_constant(&new_fn_name, new_fn_type, None);
+                self.bindings
+                    .add_constant(&new_fn_name, vec![], new_fn_type, None);
                 let new_fn = self.bindings.get_constant_value(&new_fn_name).unwrap();
 
                 // A struct can be recreated by new'ing from its members. Ie:
