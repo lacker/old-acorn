@@ -205,22 +205,6 @@ impl AcornType {
         }
     }
 
-    // Replace the generic types with a type from the list
-    pub fn old_monomorphize(&self, types: &[AcornType]) -> AcornType {
-        match self {
-            AcornType::Parameter(index, _) => types[*index].clone(),
-            AcornType::Function(function_type) => AcornType::Function(FunctionType {
-                arg_types: function_type
-                    .arg_types
-                    .iter()
-                    .map(|t| t.old_monomorphize(types))
-                    .collect(),
-                return_type: Box::new(function_type.return_type.old_monomorphize(types)),
-            }),
-            _ => self.clone(),
-        }
-    }
-
     pub fn monomorphize(&self, params: &[(String, AcornType)]) -> AcornType {
         match self {
             AcornType::Parameter(_, name) => {
@@ -240,48 +224,6 @@ impl AcornType {
                 return_type: Box::new(function_type.return_type.monomorphize(params)),
             }),
             _ => self.clone(),
-        }
-    }
-
-    // Tries to monomorphize self to get monomorph.
-    // Fills in any generic types that need to be filled in, in order to make it match.
-    // Returns whether it was successful.
-    pub fn old_match_monomorph(
-        &self,
-        monomorph: &AcornType,
-        types: &mut Vec<Option<AcornType>>,
-    ) -> bool {
-        if self == monomorph {
-            return true;
-        }
-
-        match (self, monomorph) {
-            (AcornType::Parameter(i, _), _) => {
-                if types.len() <= *i {
-                    types.resize(i + 1, None);
-                }
-                if let Some(t) = &types[*i] {
-                    // This generic type is already mapped
-                    return t == monomorph;
-                }
-                types[*i] = Some(monomorph.clone());
-                true
-            }
-            (AcornType::Function(f), AcornType::Function(g)) => {
-                if f.arg_types.len() != g.arg_types.len() {
-                    return false;
-                }
-                if !f.return_type.old_match_monomorph(&g.return_type, types) {
-                    return false;
-                }
-                for (f_arg_type, g_arg_type) in f.arg_types.iter().zip(&g.arg_types) {
-                    if !f_arg_type.old_match_monomorph(g_arg_type, types) {
-                        return false;
-                    }
-                }
-                true
-            }
-            _ => false,
         }
     }
 

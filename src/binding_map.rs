@@ -601,6 +601,7 @@ impl BindingMap {
                         ));
                     };
 
+                // TODO: this sort doesn't seem right.
                 let mut params = mapping
                     .iter()
                     .map(|(k, v)| (k.to_string(), v.clone()))
