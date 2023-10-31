@@ -36,10 +36,6 @@ pub enum AcornType {
     // Function types are defined by their inputs and output.
     Function(FunctionType),
 
-    // Polymorphic types are defined by a list of type parameters and a type.
-    // The type uses the type parameters named in the vector.
-    Polymorphic(Vec<String>, FunctionType),
-
     // Type parameters can be used inside polymorphic expressions.
     Parameter(usize, String),
 
@@ -149,7 +145,7 @@ impl AcornType {
             }
             AcornType::Bool => true,
             AcornType::Data(_, _) => true,
-            AcornType::Parameter(_, _) | AcornType::Polymorphic(_, _) => {
+            AcornType::Parameter(_, _) => {
                 // Generic types should be monomorphized before passing it to the prover
                 false
             }
@@ -288,7 +284,7 @@ impl AcornType {
             | AcornType::Data(_, _)
             | AcornType::Empty
             | AcornType::Placeholder(_) => false,
-            AcornType::Polymorphic(_, _) | AcornType::Parameter(_, _) => true,
+            AcornType::Parameter(_, _) => true,
             AcornType::Function(ftype) => {
                 for arg_type in &ftype.arg_types {
                     if arg_type.is_parametric() {
@@ -320,9 +316,6 @@ impl fmt::Display for AcornType {
             AcornType::Data(_, name) => write!(f, "{}", name),
             AcornType::Parameter(_, name) => write!(f, "{}", name),
             AcornType::Function(function_type) => write!(f, "{}", function_type),
-            AcornType::Polymorphic(params, function_type) => {
-                write!(f, "({})<{}>", function_type, params.join(", "))
-            }
             AcornType::Empty => write!(f, "empty"),
             AcornType::Placeholder(name) => write!(f, "{}", name),
         }
