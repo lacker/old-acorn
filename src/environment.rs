@@ -188,14 +188,14 @@ impl Environment {
         };
 
         // Inside the block, the type parameters are opaque data types.
-        let mut opaque_types = vec![];
-        for type_param in &type_params {
-            opaque_types.push(subenv.bindings.add_data_type(type_param));
-        }
+        let param_pairs: Vec<(String, AcornType)> = type_params
+            .iter()
+            .map(|s| (s.clone(), subenv.bindings.add_data_type(&s)))
+            .collect();
 
         // Inside the block, the arguments are constants.
         for (arg_name, generic_arg_type) in &args {
-            let specific_arg_type = generic_arg_type.monomorphize(&opaque_types);
+            let specific_arg_type = generic_arg_type.monomorphize(&param_pairs);
             subenv
                 .bindings
                 .add_constant(&arg_name, specific_arg_type, None);
@@ -218,7 +218,7 @@ impl Environment {
                     self.namespace,
                     theorem_name.to_string(),
                     theorem_type,
-                    opaque_types,
+                    param_pairs,
                 );
 
                 let arg_values = args

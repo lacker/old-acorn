@@ -560,11 +560,11 @@ impl BindingMap {
                 }
 
                 let mut args = vec![];
-                let mut template_types = vec![];
+                let mut mapping = HashMap::new();
                 for (i, arg_expr) in arg_exprs.iter().enumerate() {
                     let arg_type = &function_type.arg_types[i];
                     let arg_value = self.evaluate_value(project, arg_expr, None)?;
-                    if !arg_type.match_monomorph(&arg_value.get_type(), &mut template_types) {
+                    if !arg_type.match_monomorph(&arg_value.get_type(), &mut mapping) {
                         return Err(Error::new(
                             arg_expr.token(),
                             &format!(
@@ -577,7 +577,8 @@ impl BindingMap {
                     args.push(arg_value);
                 }
 
-                if template_types.is_empty() {
+                // For non-polymorphic functions we are done
+                if mapping.is_empty() {
                     self.check_type(
                         function_expr.token(),
                         expected_type,
@@ -600,27 +601,19 @@ impl BindingMap {
                         ));
                     };
 
-                // Check to make sure all of the template types were inferred
-                let mut inst_types = vec![];
-                for t in template_types {
-                    match t {
-                        Some(t) => inst_types.push(t),
-                        None => {
-                            return Err(Error::new(
-                                function_expr.token(),
-                                "cannot infer types for this generic function application",
-                            ));
-                        }
-                    }
-                }
+                let mut params = mapping
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.clone()))
+                    .collect::<Vec<_>>();
+                params.sort();
 
                 if expected_type.is_some() {
                     // Check the return type
-                    let return_type = function_type.return_type.monomorphize(&inst_types);
+                    let return_type = function_type.return_type.monomorphize(&params);
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let monomorph = AcornValue::Monomorph(c_namespace, c_name, c_type, inst_types);
+                let monomorph = AcornValue::Monomorph(c_namespace, c_name, c_type, params);
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(monomorph),
                     args,
@@ -868,8 +861,9 @@ impl BindingMap {
             AcornValue::Lambda(types, values) => {
                 self.binder_str_stacked("function", types, values, stack_size)
             }
-            AcornValue::Monomorph(_, name, _, types) => {
-                format!("{}<{}>", name, AcornType::types_to_str(&types))
+            AcornValue::Monomorph(_, name, _, params) => {
+                let param_names: Vec<_> = params.iter().map(|(s, _)| s.to_string()).collect();
+                format!("{}<{}>", name, param_names.join(", "))
             }
         }
     }

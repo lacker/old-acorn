@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use crate::namespace::NamespaceId;
 
@@ -206,16 +206,38 @@ impl AcornType {
     }
 
     // Replace the generic types with a type from the list
-    pub fn monomorphize(&self, types: &[AcornType]) -> AcornType {
+    pub fn old_monomorphize(&self, types: &[AcornType]) -> AcornType {
         match self {
             AcornType::Parameter(index, _) => types[*index].clone(),
             AcornType::Function(function_type) => AcornType::Function(FunctionType {
                 arg_types: function_type
                     .arg_types
                     .iter()
-                    .map(|t| t.monomorphize(types))
+                    .map(|t| t.old_monomorphize(types))
                     .collect(),
-                return_type: Box::new(function_type.return_type.monomorphize(types)),
+                return_type: Box::new(function_type.return_type.old_monomorphize(types)),
+            }),
+            _ => self.clone(),
+        }
+    }
+
+    pub fn monomorphize(&self, params: &[(String, AcornType)]) -> AcornType {
+        match self {
+            AcornType::Parameter(_, name) => {
+                for (param_name, param_type) in params {
+                    if name == param_name {
+                        return param_type.clone();
+                    }
+                }
+                panic!("couldn't find mapping for {} while monomorphizing", name);
+            }
+            AcornType::Function(function_type) => AcornType::Function(FunctionType {
+                arg_types: function_type
+                    .arg_types
+                    .iter()
+                    .map(|t| t.monomorphize(params))
+                    .collect(),
+                return_type: Box::new(function_type.return_type.monomorphize(params)),
             }),
             _ => self.clone(),
         }
@@ -224,7 +246,7 @@ impl AcornType {
     // Tries to monomorphize self to get monomorph.
     // Fills in any generic types that need to be filled in, in order to make it match.
     // Returns whether it was successful.
-    pub fn match_monomorph(
+    pub fn old_match_monomorph(
         &self,
         monomorph: &AcornType,
         types: &mut Vec<Option<AcornType>>,
@@ -249,11 +271,50 @@ impl AcornType {
                 if f.arg_types.len() != g.arg_types.len() {
                     return false;
                 }
-                if !f.return_type.match_monomorph(&g.return_type, types) {
+                if !f.return_type.old_match_monomorph(&g.return_type, types) {
                     return false;
                 }
                 for (f_arg_type, g_arg_type) in f.arg_types.iter().zip(&g.arg_types) {
-                    if !f_arg_type.match_monomorph(g_arg_type, types) {
+                    if !f_arg_type.old_match_monomorph(g_arg_type, types) {
+                        return false;
+                    }
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    // Tries to monomorphize self to get monomorph.
+    // Fills in a mapping for any generic types that need to be specified, in order to make it match.
+    // Returns whether it was successful.
+    pub fn match_monomorph(
+        &self,
+        monomorph: &AcornType,
+        mapping: &mut HashMap<String, AcornType>,
+    ) -> bool {
+        if self == monomorph {
+            return true;
+        }
+
+        match (self, monomorph) {
+            (AcornType::Parameter(_, name), _) => {
+                if let Some(t) = mapping.get(name) {
+                    // This generic type is already mapped
+                    return t == monomorph;
+                }
+                mapping.insert(name.clone(), monomorph.clone());
+                true
+            }
+            (AcornType::Function(f), AcornType::Function(g)) => {
+                if f.arg_types.len() != g.arg_types.len() {
+                    return false;
+                }
+                if !f.return_type.match_monomorph(&g.return_type, mapping) {
+                    return false;
+                }
+                for (f_arg_type, g_arg_type) in f.arg_types.iter().zip(&g.arg_types) {
+                    if !f_arg_type.match_monomorph(g_arg_type, mapping) {
                         return false;
                     }
                 }

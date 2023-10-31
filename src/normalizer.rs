@@ -289,8 +289,9 @@ impl Normalizer {
                 name.to_string()
             }
             Atom::Monomorph(i) => {
-                let (_, name, parameters) = self.type_map.get_monomorph_info(*i);
-                format!("{}<{}>", name, AcornType::types_to_str(&parameters))
+                let (_, name, params) = self.type_map.get_monomorph_info(*i);
+                let param_names: Vec<_> = params.iter().map(|(name, _)| name.clone()).collect();
+                format!("{}<{}>", name, param_names.join(", "))
             }
             Atom::Synthetic(i) => format!("p{}", i),
             Atom::Variable(i) => format!("x{}", i),

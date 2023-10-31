@@ -17,7 +17,7 @@ pub const BOOL: TypeId = 1;
 struct MonomorphKey {
     namespace: NamespaceId,
     name: String,
-    parameters: Vec<AcornType>,
+    parameters: Vec<(String, AcornType)>,
 }
 
 // The Acorn language allows a rich variety of types, where each value has an AcornType, and where
@@ -106,7 +106,7 @@ impl TypeMap {
         &mut self,
         namespace: NamespaceId,
         name: &str,
-        parameters: &Vec<AcornType>,
+        parameters: &Vec<(String, AcornType)>,
         monomorph_type: AcornType,
     ) -> Term {
         let key = MonomorphKey {
@@ -134,7 +134,7 @@ impl TypeMap {
         }
     }
 
-    pub fn get_monomorph_info(&self, id: AtomId) -> (NamespaceId, &str, &Vec<AcornType>) {
+    pub fn get_monomorph_info(&self, id: AtomId) -> (NamespaceId, &str, &Vec<(String, AcornType)>) {
         let (key, _) = &self.monomorph_info[id as usize];
         (key.namespace, &key.name, &key.parameters)
     }

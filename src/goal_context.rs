@@ -36,8 +36,8 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
     assert!(facts.len() == graph.monomorphs_for_fact.len());
 
     let mut answer = vec![];
-    for (fact, monomorph_types) in facts.iter().zip(graph.monomorphs_for_fact) {
-        if monomorph_types.is_none() {
+    for (fact, monomorph_keys) in facts.iter().zip(graph.monomorphs_for_fact) {
+        if monomorph_keys.is_none() {
             if fact.is_polymorphic() {
                 panic!(
                     "allegedly non-polymorphic fact {} still has type parameters",
@@ -47,8 +47,8 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
             answer.push(fact.clone());
             continue;
         }
-        for monomorph_type in monomorph_types.unwrap() {
-            let monomorph = fact.monomorphize(&[monomorph_type]);
+        for monomorph_key in monomorph_keys.unwrap() {
+            let monomorph = fact.monomorphize(&monomorph_key.params);
             if monomorph.is_polymorphic() {
                 panic!("alleged monomorph {} still has type parameters", monomorph);
             }
@@ -58,6 +58,13 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
     answer
 }
 
+// Each monomorph is identified by its MonomorphKey
+#[derive(PartialEq, Eq, Hash, Clone)]
+struct MonomorphKey {
+    // Sorted
+    params: Vec<(String, AcornType)>,
+}
+
 // A helper structure to determine which monomorphs are necessary.
 // Doesn't include facts in order to make memory ownership easier.
 // This only handles a single templated type.
@@ -65,10 +72,10 @@ struct DependencyGraph {
     // The monomorphic types that we need/want for each fact.
     // Parallel to facts.
     // The entry is None if the fact is not polymorphic.
-    monomorphs_for_fact: Vec<Option<Vec<AcornType>>>,
+    monomorphs_for_fact: Vec<Option<Vec<MonomorphKey>>>,
 
     // Indexed by constant id
-    monomorphs_for_constant: HashMap<ConstantKey, Vec<AcornType>>,
+    monomorphs_for_constant: HashMap<ConstantKey, Vec<MonomorphKey>>,
 
     // Which facts mention each templated constant *without* monomorphizing it.
     // This one is static and only needs to be computed once.
@@ -118,18 +125,17 @@ impl DependencyGraph {
         &mut self,
         facts: &[AcornValue],
         constant_key: ConstantKey,
-        acorn_type: &AcornType,
+        monomorph_key: &MonomorphKey,
     ) {
         let monomorphs = self
             .monomorphs_for_constant
             .entry(constant_key.clone())
             .or_insert(vec![]);
-        if monomorphs.contains(acorn_type) {
+        if monomorphs.contains(&monomorph_key) {
             // We already have this monomorph
             return;
         }
-        monomorphs.push(acorn_type.clone());
-        let monomorphize_arg = vec![acorn_type.clone()];
+        monomorphs.push(monomorph_key.clone());
 
         // Handle all the facts that mention this constant without monomorphizing it.
         if let Some(fact_ids) = self.facts_for_constant.get(&constant_key) {
@@ -139,12 +145,12 @@ impl DependencyGraph {
                 let monomorphs_for_fact = self.monomorphs_for_fact[fact_id]
                     .as_mut()
                     .expect("Should have been Some");
-                if monomorphs_for_fact.contains(acorn_type) {
+                if monomorphs_for_fact.contains(monomorph_key) {
                     continue;
                 }
-                monomorphs_for_fact.push(acorn_type.clone());
+                monomorphs_for_fact.push(monomorph_key.clone());
 
-                let monomorph = facts[fact_id].monomorphize(&monomorphize_arg);
+                let monomorph = facts[fact_id].monomorphize(&monomorph_key.params);
                 self.inspect_value(facts, &monomorph);
             }
         }
@@ -154,8 +160,8 @@ impl DependencyGraph {
     fn inspect_value(&mut self, facts: &[AcornValue], value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
-        for (constant_key, acorn_type) in monomorphs {
-            self.add_monomorph(facts, constant_key, &acorn_type);
+        for (constant_key, params) in monomorphs {
+            self.add_monomorph(facts, constant_key, &MonomorphKey { params });
         }
     }
 }
