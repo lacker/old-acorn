@@ -26,6 +26,10 @@ struct MonomorphKey {
 // is no polymorphism.
 // The TypeMap is a mapping between the two.
 pub struct TypeMap {
+    // type_map[acorn_type] is the TypeId
+    type_map: HashMap<AcornType, TypeId>,
+
+    // types[type_id] is the AcornType
     types: Vec<AcornType>,
 
     // One entry for each monomorphization
@@ -37,25 +41,29 @@ pub struct TypeMap {
 
 impl TypeMap {
     pub fn new() -> TypeMap {
-        TypeMap {
-            types: vec![AcornType::Empty, AcornType::Bool],
+        let mut map = TypeMap {
+            type_map: HashMap::new(),
+            types: vec![],
             monomorph_info: vec![],
             monomorph_map: HashMap::new(),
-        }
+        };
+        map.add_type(&AcornType::Empty);
+        map.add_type(&AcornType::Bool);
+        map
     }
 
     // Returns the id for the new type.
-    pub fn add_type(&mut self, acorn_type: AcornType) -> TypeId {
-        for (i, t) in self.types.iter().enumerate() {
-            if t == &acorn_type {
-                return i as TypeId;
-            }
+    pub fn add_type(&mut self, acorn_type: &AcornType) -> TypeId {
+        if let Some(type_id) = self.type_map.get(acorn_type) {
+            return *type_id;
         }
         if !acorn_type.is_normalized() {
             panic!("Type {} is not normalized", acorn_type);
         }
-        self.types.push(acorn_type);
-        (self.types.len() - 1) as TypeId
+        self.types.push(acorn_type.clone());
+        let id = (self.types.len() - 1) as TypeId;
+        self.type_map.insert(acorn_type.clone(), id);
+        id
     }
 
     pub fn get_type(&self, type_id: TypeId) -> &AcornType {
@@ -111,7 +119,7 @@ impl TypeMap {
             (*monomorph_id, type_id)
         } else {
             // Construct an atom and appropriate entries for this monomorph
-            let type_id = self.add_type(monomorph_type);
+            let type_id = self.add_type(&monomorph_type);
             let monomorph_id = self.monomorph_info.len() as AtomId;
             self.monomorph_info.push((key.clone(), type_id));
             self.monomorph_map.insert(key, monomorph_id);
@@ -129,5 +137,17 @@ impl TypeMap {
     pub fn get_monomorph_info(&self, id: AtomId) -> (NamespaceId, &str, &Vec<AcornType>) {
         let (key, _) = &self.monomorph_info[id as usize];
         (key.namespace, &key.name, &key.parameters)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_type_map_defaults() {
+        let map = TypeMap::new();
+        assert_eq!(map.get_type(EMPTY), &AcornType::Empty);
+        assert_eq!(map.get_type(BOOL), &AcornType::Bool);
     }
 }

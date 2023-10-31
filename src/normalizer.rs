@@ -141,7 +141,7 @@ impl Normalizer {
     // Constructs a new term from a function application
     // Function applications that are nested like f(x)(y) are flattened to f(x, y)
     fn term_from_application(&mut self, application: &FunctionApplication) -> Result<Term> {
-        let term_type = self.type_map.add_type(application.return_type());
+        let term_type = self.type_map.add_type(&application.return_type());
         let func_term = self.term_from_value(&application.function)?;
         let head = func_term.head;
         let head_type = func_term.head_type;
@@ -162,7 +162,7 @@ impl Normalizer {
     fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
         match value {
             AcornValue::Variable(i, var_type) => {
-                let type_id = self.type_map.add_type(var_type.clone());
+                let type_id = self.type_map.add_type(var_type);
                 Ok(Term {
                     term_type: type_id,
                     head_type: type_id,
@@ -171,7 +171,7 @@ impl Normalizer {
                 })
             }
             AcornValue::Constant(namespace, name, t) => {
-                let type_id = self.type_map.add_type(t.clone());
+                let type_id = self.type_map.add_type(t);
                 let c_id = self.constant_map.add_constant(*namespace, name);
                 Ok(Term {
                     term_type: type_id,

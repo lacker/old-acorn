@@ -138,7 +138,7 @@ impl AcornType {
                 // Generic types should be monomorphized before passing it to the prover
                 false
             }
-            AcornType::Empty => false,
+            AcornType::Empty => true,
             AcornType::Placeholder(_) => true,
         }
     }
