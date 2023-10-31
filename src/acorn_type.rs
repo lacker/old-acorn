@@ -30,7 +30,7 @@ pub enum AcornType {
 
     // Usually before proving we monomorphize everything.
     // When we don't have a specific type to monomorphize to, we use a placeholder type.
-    Placeholder(usize),
+    Placeholder(String),
 }
 
 impl AcornType {
@@ -285,7 +285,7 @@ impl AcornType {
     // Converts type parameters to placeholder types
     pub fn to_placeholder(&self) -> AcornType {
         match self {
-            AcornType::Parameter(i, _) => AcornType::Placeholder(*i),
+            AcornType::Parameter(_, name) => AcornType::Placeholder(name.to_string()),
             AcornType::Function(ftype) => AcornType::Function(FunctionType {
                 arg_types: ftype.arg_types.iter().map(|t| t.to_placeholder()).collect(),
                 return_type: Box::new(ftype.return_type.to_placeholder()),
