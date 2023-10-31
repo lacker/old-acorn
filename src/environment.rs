@@ -401,7 +401,7 @@ impl Environment {
                 }
 
                 // Calculate the function value
-                let (_, _, arg_types, unbound_value, value_type) =
+                let (param_names, _, arg_types, unbound_value, value_type) =
                     self.bindings.evaluate_subvalue(
                         project,
                         &ds.type_params,
@@ -409,19 +409,19 @@ impl Environment {
                         Some(&ds.return_type),
                         &ds.return_value,
                     )?;
-                let fn_value = if let Some(v) = unbound_value {
-                    AcornValue::new_lambda(arg_types, v)
+                if let Some(v) = unbound_value {
+                    let fn_value = AcornValue::new_lambda(arg_types, v);
+                    // Add the function value to the environment
+                    self.bindings
+                        .add_constant(&ds.name, fn_value.get_type(), Some(fn_value));
                 } else {
                     let new_axiom_type = AcornType::Function(FunctionType {
                         arg_types,
                         return_type: Box::new(value_type),
                     });
-                    AcornValue::Constant(self.namespace, ds.name.clone(), new_axiom_type)
+                    self.bindings.add_constant(&ds.name, new_axiom_type, None);
                 };
 
-                // Add the function value to the environment
-                self.bindings
-                    .add_constant(&ds.name, fn_value.get_type(), Some(fn_value));
                 self.definition_ranges
                     .insert(ds.name.clone(), statement.range());
                 self.add_identity_props(&ds.name);
