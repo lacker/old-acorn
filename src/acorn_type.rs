@@ -266,8 +266,8 @@ impl AcornType {
         }
     }
 
-    // A type is polymorphic if any of its components are type parameters.
-    pub fn is_polymorphic(&self) -> bool {
+    // A type is parametric if any of its components are typed with type parameters.
+    pub fn is_parametric(&self) -> bool {
         match self {
             AcornType::Bool
             | AcornType::Data(_, _)
@@ -276,11 +276,11 @@ impl AcornType {
             AcornType::Parameter(_, _) => true,
             AcornType::Function(ftype) => {
                 for arg_type in &ftype.arg_types {
-                    if arg_type.is_polymorphic() {
+                    if arg_type.is_parametric() {
                         return true;
                     }
                 }
-                ftype.return_type.is_polymorphic()
+                ftype.return_type.is_parametric()
             }
         }
     }

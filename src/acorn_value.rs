@@ -877,7 +877,7 @@ impl AcornValue {
                 AcornValue::Variable(*i, var_type.monomorphize(params))
             }
             AcornValue::Constant(namespace, name, t) => {
-                if t.is_polymorphic() {
+                if t.is_parametric() {
                     // We need to monomorphize
                     AcornValue::Monomorph(*namespace, name.clone(), t.clone(), params.to_vec())
                 } else {
@@ -997,7 +997,7 @@ impl AcornValue {
         match self {
             AcornValue::Variable(_, _) => {}
             AcornValue::Constant(namespace, name, t) => {
-                if t.is_polymorphic() {
+                if t.is_parametric() {
                     output.push(ConstantKey {
                         namespace: *namespace,
                         name: name.clone(),
@@ -1051,19 +1051,19 @@ impl AcornValue {
         }
     }
 
-    // A value is polymorphic if any of its components have a polymorphic type.
-    pub fn is_polymorphic(&self) -> bool {
+    // A value is parametric if any of its components have a parametric type.
+    pub fn is_parametric(&self) -> bool {
         match self {
-            AcornValue::Variable(_, t) | AcornValue::Constant(_, _, t) => t.is_polymorphic(),
+            AcornValue::Variable(_, t) | AcornValue::Constant(_, _, t) => t.is_parametric(),
 
             AcornValue::Application(app) => {
-                app.function.is_polymorphic() || app.args.iter().any(|x| x.is_polymorphic())
+                app.function.is_parametric() || app.args.iter().any(|x| x.is_parametric())
             }
             AcornValue::Lambda(_, value)
             | AcornValue::ForAll(_, value)
-            | AcornValue::Exists(_, value) => value.is_polymorphic(),
-            AcornValue::Binary(_, left, right) => left.is_polymorphic() || right.is_polymorphic(),
-            AcornValue::Not(x) => x.is_polymorphic(),
+            | AcornValue::Exists(_, value) => value.is_parametric(),
+            AcornValue::Binary(_, left, right) => left.is_parametric() || right.is_parametric(),
+            AcornValue::Not(x) => x.is_parametric(),
             AcornValue::Monomorph(_, _, _, _) => false,
         }
     }

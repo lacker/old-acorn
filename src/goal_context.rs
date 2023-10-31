@@ -38,7 +38,7 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
     let mut answer = vec![];
     for (fact, monomorph_keys) in facts.iter().zip(graph.monomorphs_for_fact) {
         if monomorph_keys.is_none() {
-            if fact.is_polymorphic() {
+            if fact.is_parametric() {
                 panic!(
                     "allegedly non-polymorphic fact {} still has type parameters",
                     fact
@@ -49,7 +49,7 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
         }
         for monomorph_key in monomorph_keys.unwrap() {
             let monomorph = fact.monomorphize(&monomorph_key.params);
-            if monomorph.is_polymorphic() {
+            if monomorph.is_parametric() {
                 panic!("alleged monomorph {} still has type parameters", monomorph);
             }
             answer.push(monomorph);
@@ -93,7 +93,7 @@ impl DependencyGraph {
             fact.find_polymorphic(&mut polymorphic_fns);
             if polymorphic_fns.is_empty() {
                 if let AcornValue::ForAll(args, _) = fact {
-                    if args.iter().any(|arg| arg.is_polymorphic()) {
+                    if args.iter().any(|arg| arg.is_parametric()) {
                         // This is a polymorphic fact with no polymorphic functions.
                         // It could be something trivial and purely propositional, like
                         // forall(x: T) { x = x }
