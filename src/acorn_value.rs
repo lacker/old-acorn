@@ -839,6 +839,13 @@ impl AcornValue {
 
     fn validate_against_stack(&self, stack: &mut Vec<AcornType>) -> Result<(), String> {
         match self {
+            AcornValue::Constant(_, _, _, params) => {
+                if !params.is_empty() {
+                    Err("should be no polymorphs during validation".to_string())
+                } else {
+                    Ok(())
+                }
+            }
             AcornValue::Variable(i, var_type) => match stack.get(*i as usize) {
                 Some(t) => {
                     if var_type == t {
@@ -873,7 +880,7 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            AcornValue::Specialized(_, _, _, _) | AcornValue::Constant(_, _, _, _) => Ok(()),
+            AcornValue::Specialized(_, _, _, _) => Ok(()),
         }
     }
 
@@ -883,32 +890,9 @@ impl AcornValue {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.specialize(params))
             }
-            AcornValue::Constant(namespace, name, t, c_params) => {
-                if c_params.is_empty() {
-                    // This constant isn't polymorphic in the first place
-                    return self.clone();
-                }
-                assert!(t.is_parametric());
-
-                // TODO: this branch should be eliminated by no longer using parametric constants
-                // outside of parsing
-
-                // Match up names to specialize
-                let mut out_params = vec![];
-                for name in c_params {
-                    let mut found = false;
-                    for (param_name, param_type) in params {
-                        if name == param_name {
-                            out_params.push((name.clone(), param_type.clone()));
-                            found = true;
-                            break;
-                        }
-                    }
-                    if !found {
-                        panic!("could not find param {} in {:?}", name, params);
-                    }
-                }
-                AcornValue::Specialized(*namespace, name.clone(), t.clone(), out_params)
+            AcornValue::Constant(_, _, _, c_params) => {
+                assert!(c_params.is_empty());
+                self.clone()
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.specialize(params)),

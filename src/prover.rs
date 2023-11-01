@@ -143,13 +143,13 @@ impl Prover<'_> {
     }
 
     fn normalize_proposition(&mut self, proposition: AcornValue) -> Vec<Clause> {
-        if let Err(e) = proposition.validate() {
+        proposition.validate().unwrap_or_else(|e| {
             panic!(
-                "error: {} while adding proposition to prover: {}",
+                "validation error: {} while adding proposition to prover: {}",
                 e,
                 self.env.value_str(&proposition)
             );
-        }
+        });
         assert_eq!(proposition.get_type(), AcornType::Bool);
         let answer = self.normalizer.normalize(self.env, proposition);
         answer

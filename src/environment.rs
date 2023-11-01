@@ -251,8 +251,9 @@ impl Environment {
     // Adds a proposition.
     fn add_proposition(&mut self, prop: Proposition) {
         // Check if we're adding invalid claims.
-        // self.validate(&prop.claim);
-        // println!("adding claim: {}", self.value_str(&prop.claim));
+        prop.claim
+            .validate()
+            .unwrap_or_else(|e| panic!("invalid claim: {} ({})", self.value_str(&prop.claim), e,));
 
         self.propositions.push(prop);
     }
@@ -267,12 +268,27 @@ impl Environment {
         };
 
         let constant_type_clone = self.bindings.get_type(name).unwrap().clone();
-        let atom = Box::new(AcornValue::Constant(
-            self.namespace,
-            name.to_string(),
-            constant_type_clone,
-            self.bindings.get_params(name),
-        ));
+        let param_names = self.bindings.get_params(name);
+
+        let constant = if param_names.is_empty() {
+            AcornValue::Constant(
+                self.namespace,
+                name.to_string(),
+                constant_type_clone,
+                vec![],
+            )
+        } else {
+            let params = param_names
+                .into_iter()
+                .map(|n| (n.clone(), AcornType::Parameter(n)))
+                .collect();
+            AcornValue::Specialized(
+                self.namespace,
+                name.to_string(),
+                constant_type_clone,
+                params,
+            )
+        };
         let claim = if let AcornValue::Lambda(acorn_types, return_value) = definition {
             let args: Vec<_> = acorn_types
                 .iter()
@@ -280,7 +296,7 @@ impl Environment {
                 .map(|(i, acorn_type)| AcornValue::Variable(i as AtomId, acorn_type.clone()))
                 .collect();
             let app = AcornValue::Application(FunctionApplication {
-                function: atom,
+                function: Box::new(constant),
                 args,
             });
             AcornValue::ForAll(
@@ -292,7 +308,7 @@ impl Environment {
                 )),
             )
         } else {
-            AcornValue::Binary(BinaryOp::Equals, atom, Box::new(definition))
+            AcornValue::Binary(BinaryOp::Equals, Box::new(constant), Box::new(definition))
         };
         let range = self.definition_ranges.get(name).unwrap().clone();
 
@@ -337,12 +353,6 @@ impl Environment {
             }
         }
         panic!("no proposition named {}", name);
-    }
-
-    // Panics if the value is bad, for some varieties of bad
-    pub fn validate(&self, value: &AcornValue) {
-        self.value_str(value);
-        value.get_type();
     }
 
     pub fn value_str(&self, value: &AcornValue) -> String {

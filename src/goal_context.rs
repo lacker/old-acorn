@@ -30,6 +30,9 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
     let mut graph = DependencyGraph::new(facts);
 
     for fact in facts {
+        fact.validate().unwrap_or_else(|e| {
+            panic!("bad fact: {} ({})", fact, e);
+        });
         graph.inspect_value(facts, fact);
     }
     graph.inspect_value(facts, &goal);
