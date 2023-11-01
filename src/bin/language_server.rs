@@ -129,6 +129,7 @@ impl Document {
             let description = match outcome {
                 Outcome::Success => continue,
                 Outcome::Exhausted => "is unprovable",
+                Outcome::Inconsistent => "- prover found an inconsistency",
                 Outcome::Unknown => "timed out",
                 Outcome::Interrupted => "was interrupted",
             };
@@ -287,6 +288,10 @@ impl DebugTask {
         match outcome {
             Outcome::Success => {
                 self.queue.push("Success!".to_string());
+                prover.print_proof();
+            }
+            Outcome::Inconsistent => {
+                self.queue.push("Found inconsistency!".to_string());
                 prover.print_proof();
             }
             Outcome::Exhausted => {

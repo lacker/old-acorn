@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -79,14 +80,28 @@ macro_rules! cprintln {
 // The outcome of a prover operation.
 // "Success" means we proved it.
 // "Exhausted" means we tried every possibility and couldn't prove it.
+// "Inconsistent" means that we found a contradiction just in our initial assumptions.
 // "Interrupted" means that the prover was explicitly stopped.
 // "Unknown" means that we could keep working longer at it.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     Success,
     Exhausted,
+    Inconsistent,
     Interrupted,
     Unknown,
+}
+
+impl fmt::Display for Outcome {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Outcome::Success => write!(f, "Success"),
+            Outcome::Exhausted => write!(f, "Exhausted"),
+            Outcome::Inconsistent => write!(f, "Inconsistent"),
+            Outcome::Interrupted => write!(f, "Interrupted"),
+            Outcome::Unknown => write!(f, "Unknown"),
+        }
+    }
 }
 
 impl Prover {

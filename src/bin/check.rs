@@ -27,14 +27,8 @@ fn main() {
             Outcome::Success => {
                 // println!("{} proved", goal_context.name);
             }
-            Outcome::Exhausted => {
-                println!("{} is unprovable", goal_context.name);
-            }
-            Outcome::Unknown => {
-                println!("{} could not be proved", goal_context.name);
-            }
-            Outcome::Interrupted => {
-                panic!("interrupted");
+            _ => {
+                println!("{}: {}", outcome, goal_context.name);
             }
         }
     }

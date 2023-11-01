@@ -145,6 +145,10 @@ fn main() {
                             println!("Failure!");
                             break;
                         }
+                        Outcome::Inconsistent => {
+                            println!("Inconsistency detected!");
+                            break;
+                        }
                         Outcome::Unknown => {
                             if prover.hit_trace {
                                 println!("trace found!");
@@ -152,7 +156,7 @@ fn main() {
                             }
                         }
                         Outcome::Interrupted => {
-                            panic!("interrupted");
+                            panic!("Interrupted!");
                         }
                     }
                     if start_time.elapsed().as_secs_f32() > 10.0 {
@@ -168,17 +172,10 @@ fn main() {
                 while !prover.done_with_facts() {
                     let outcome = prover.activate_next();
                     match outcome {
-                        Outcome::Success => {
-                            println!("Success!");
-                            break;
-                        }
-                        Outcome::Exhausted => {
-                            println!("Failure!");
-                            break;
-                        }
                         Outcome::Unknown => (),
-                        Outcome::Interrupted => {
-                            panic!("interrupted");
+                        _ => {
+                            println!("{}!", outcome);
+                            break;
                         }
                     }
                 }
@@ -190,17 +187,9 @@ fn main() {
                 prover.verbose = true;
                 let outcome = prover.activate_next();
                 match outcome {
-                    Outcome::Success => {
-                        println!("Success!");
-                        break;
-                    }
-                    Outcome::Exhausted => {
-                        println!("Failure!");
-                        break;
-                    }
                     Outcome::Unknown => (),
-                    Outcome::Interrupted => {
-                        panic!("interrupted");
+                    _ => {
+                        println!("{}!", outcome);
                     }
                 }
                 prover.verbose = false;
