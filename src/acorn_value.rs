@@ -1012,9 +1012,8 @@ impl AcornValue {
         }
     }
 
-    // Finds all parametric constants used in this value.
-    // This includes constants that are specialized but still have parameters in them.
-    pub fn find_parametric(&self, output: &mut Vec<ConstantKey>) {
+    // Finds all specialized constants used in this value that still have parameters in them.
+    pub fn find_parametric(&self, output: &mut Vec<(ConstantKey, Vec<(String, AcornType)>)>) {
         match self {
             AcornValue::Variable(_, _) => {}
             AcornValue::Constant(_, _, _, params) => {
@@ -1037,10 +1036,11 @@ impl AcornValue {
             AcornValue::Specialized(namespace, name, _, params) => {
                 for (_, t) in params {
                     if t.is_parametric() {
-                        output.push(ConstantKey {
+                        let key = ConstantKey {
                             namespace: *namespace,
                             name: name.clone(),
-                        });
+                        };
+                        output.push((key, params.clone()));
                         break;
                     }
                 }

@@ -130,7 +130,7 @@ impl DependencyGraph {
                 continue;
             }
             monomorphs_for_fact.push(Some(vec![]));
-            for c in polymorphic_fns {
+            for (c, _) in polymorphic_fns {
                 facts_for_constant.entry(c).or_insert(vec![]).push(i);
             }
         }
