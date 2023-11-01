@@ -1015,14 +1015,8 @@ impl AcornValue {
     pub fn find_parametric(&self, output: &mut Vec<ConstantKey>) {
         match self {
             AcornValue::Variable(_, _) => {}
-            AcornValue::Constant(namespace, name, t, _) => {
-                if t.is_parametric() {
-                    // TODO: remove this case. Shouldn't this only exist during parsing?
-                    output.push(ConstantKey {
-                        namespace: *namespace,
-                        name: name.clone(),
-                    });
-                }
+            AcornValue::Constant(_, _, _, params) => {
+                assert!(params.is_empty());
             }
             AcornValue::Application(app) => {
                 app.function.find_parametric(output);
