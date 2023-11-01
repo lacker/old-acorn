@@ -195,7 +195,7 @@ impl Environment {
 
         // Inside the block, the arguments are constants.
         for (arg_name, generic_arg_type) in &args {
-            let specific_arg_type = generic_arg_type.monomorphize(&param_pairs);
+            let specific_arg_type = generic_arg_type.specialize(&param_pairs);
             subenv
                 .bindings
                 .add_constant(&arg_name, vec![], specific_arg_type, None);

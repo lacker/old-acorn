@@ -18,6 +18,7 @@ pub enum Atom {
     Constant(AtomId),
 
     // Monomorphizations of polymorphic functions.
+    // A monomorphization is when every parametric type has been replaced with a concrete type.
     Monomorph(AtomId),
 
     // Functions created by the synthesizer

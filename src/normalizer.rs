@@ -182,7 +182,7 @@ impl Normalizer {
                 })
             }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
-            AcornValue::Monomorph(namespace, name, _, parameters) => Ok(self
+            AcornValue::Specialized(namespace, name, _, parameters) => Ok(self
                 .type_map
                 .term_from_monomorph(*namespace, name, parameters, value.get_type())),
             _ => Err(Error::Normalization(format!(

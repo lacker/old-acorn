@@ -630,11 +630,11 @@ impl BindingMap {
 
                 if expected_type.is_some() {
                     // Check the return type
-                    let return_type = function_type.return_type.monomorphize(&params);
+                    let return_type = function_type.return_type.specialize(&params);
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let monomorph = AcornValue::Monomorph(c_namespace, c_name, c_type, params);
+                let monomorph = AcornValue::Specialized(c_namespace, c_name, c_type, params);
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(monomorph),
                     args,
@@ -785,7 +785,7 @@ impl BindingMap {
         match value {
             AcornValue::Variable(_, _) => {}
             AcornValue::Constant(namespace, name, t, _)
-            | AcornValue::Monomorph(namespace, name, t, _) => {
+            | AcornValue::Specialized(namespace, name, t, _) => {
                 if *namespace == self.namespace && !self.constants.contains_key(name) {
                     answer.insert(name.to_string(), t.clone());
                 }
@@ -862,7 +862,7 @@ impl BindingMap {
             AcornValue::Lambda(types, values) => {
                 self.binder_str_stacked("function", types, values, stack_size)
             }
-            AcornValue::Monomorph(_, name, _, params) => {
+            AcornValue::Specialized(_, name, _, params) => {
                 let param_names: Vec<_> = params.iter().map(|(s, _)| s.to_string()).collect();
                 format!("{}<{}>", name, param_names.join(", "))
             }

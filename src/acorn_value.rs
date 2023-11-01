@@ -59,10 +59,8 @@ pub enum AcornValue {
     // A constant, defined in a particular namespace.
     // (namespace, constant name, type, type parameters)
     // The type parameters can be empty.
-    // The type parameters must be used in the type of this constant, because
-    // we need to be able to infer the monomorph whenever this constant is applied.
-    // Conversely, every type parameter used in the definition of this constant must be
-    // present in the parameter list.
+    // When the type parameters are not empty, this indicates a polymorphic constant
+    // whose type can still be inferred.
     Constant(NamespaceId, String, AcornType, Vec<String>),
 
     Application(FunctionApplication),
@@ -79,12 +77,12 @@ pub enum AcornValue {
     ForAll(Vec<AcornType>, Box<AcornValue>),
     Exists(Vec<AcornType>, Box<AcornValue>),
 
-    // The monomorphized version of a polymorphic constant.
+    // The specialized version of a polymorphic constant.
     // (namespace, constant name, type, (type parameter, type) mapping)
     // The type is the polymorphic type of the constant.
-    // The vector parameter maps parameter names to types they were monomorphized to.
-    // The parameters cannot be empty - that should be a Constant rather than a Monomorph.
-    Monomorph(NamespaceId, String, AcornType, Vec<(String, AcornType)>),
+    // The vector parameter maps parameter names to types they were replaced with.
+    // The parameters cannot be empty - that should just be a Constant.
+    Specialized(NamespaceId, String, AcornType, Vec<(String, AcornType)>),
 }
 
 // An AcornValue has an implicit stack size that determines what index new stack variables
@@ -117,7 +115,7 @@ impl fmt::Display for Subvalue<'_> {
             }
             AcornValue::ForAll(args, body) => fmt_binder(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_binder(f, "exists", args, body, self.stack_size),
-            AcornValue::Monomorph(_, name, _, params) => {
+            AcornValue::Specialized(_, name, _, params) => {
                 let param_names: Vec<_> = params.iter().map(|(name, _)| name.to_string()).collect();
                 write!(f, "{}<{}>", name, param_names.join(", "))
             }
@@ -184,7 +182,7 @@ impl AcornValue {
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
-            AcornValue::Monomorph(_, _, c_type, params) => c_type.monomorphize(&params),
+            AcornValue::Specialized(_, _, c_type, params) => c_type.specialize(&params),
         }
     }
 
@@ -237,7 +235,7 @@ impl AcornValue {
         if params.is_empty() {
             AcornValue::Constant(namespace, name, constant_type, vec![])
         } else {
-            AcornValue::Monomorph(namespace, name, constant_type, params)
+            AcornValue::Specialized(namespace, name, constant_type, params)
         }
     }
 
@@ -469,7 +467,7 @@ impl AcornValue {
                     Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
-            AcornValue::Monomorph(_, _, _, _) => self,
+            AcornValue::Specialized(_, _, _, _) => self,
         }
     }
 
@@ -514,7 +512,7 @@ impl AcornValue {
             AcornValue::Exists(quants, value) => {
                 AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
             }
-            AcornValue::Constant(_, _, _, _) | AcornValue::Monomorph(_, _, _, _) => self,
+            AcornValue::Constant(_, _, _, _) | AcornValue::Specialized(_, _, _, _) => self,
         }
     }
 
@@ -621,7 +619,7 @@ impl AcornValue {
             }
             AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
-            | AcornValue::Monomorph(_, _, _, _) => self.clone(),
+            | AcornValue::Specialized(_, _, _, _) => self.clone(),
         }
     }
 
@@ -672,7 +670,7 @@ impl AcornValue {
             }
             AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
-            | AcornValue::Monomorph(_, _, _, _) => self,
+            | AcornValue::Specialized(_, _, _, _) => self,
         }
     }
 
@@ -765,7 +763,7 @@ impl AcornValue {
                     .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Monomorph(namespace, name, _, params) => {
+            AcornValue::Specialized(namespace, name, _, params) => {
                 if let Some(replacement) = replacer(*namespace, name) {
                     // We do need to replace this
                     replacement.monomorphize(params)
@@ -828,7 +826,7 @@ impl AcornValue {
                 let new_value = value.replace_constants_with_vars(namespace, constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Monomorph(_, _, _, _) => panic!("can this happen?"),
+            AcornValue::Specialized(_, _, _, _) => panic!("can this happen?"),
         }
     }
 
@@ -875,7 +873,7 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            AcornValue::Monomorph(_, _, _, _) | AcornValue::Constant(_, _, _, _) => Ok(()),
+            AcornValue::Specialized(_, _, _, _) | AcornValue::Constant(_, _, _, _) => Ok(()),
         }
     }
 
@@ -886,7 +884,7 @@ impl AcornValue {
     pub fn monomorphize(&self, params: &[(String, AcornType)]) -> AcornValue {
         match self {
             AcornValue::Variable(i, var_type) => {
-                AcornValue::Variable(*i, var_type.monomorphize(params))
+                AcornValue::Variable(*i, var_type.specialize(params))
             }
             AcornValue::Constant(namespace, name, t, c_params) => {
                 if c_params.is_empty() {
@@ -910,7 +908,7 @@ impl AcornValue {
                         panic!("could not find param {} in {:?}", name, params);
                     }
                 }
-                AcornValue::Monomorph(*namespace, name.clone(), t.clone(), out_params)
+                AcornValue::Specialized(*namespace, name.clone(), t.clone(), out_params)
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.monomorphize(params)),
@@ -918,19 +916,19 @@ impl AcornValue {
             }),
             AcornValue::Lambda(args, value) => AcornValue::Lambda(
                 args.iter()
-                    .map(|x| x.monomorphize(params))
+                    .map(|x| x.specialize(params))
                     .collect::<Vec<_>>(),
                 Box::new(value.monomorphize(params)),
             ),
             AcornValue::ForAll(args, value) => AcornValue::ForAll(
                 args.iter()
-                    .map(|x| x.monomorphize(params))
+                    .map(|x| x.specialize(params))
                     .collect::<Vec<_>>(),
                 Box::new(value.monomorphize(params)),
             ),
             AcornValue::Exists(args, value) => AcornValue::Exists(
                 args.iter()
-                    .map(|x| x.monomorphize(params))
+                    .map(|x| x.specialize(params))
                     .collect::<Vec<_>>(),
                 Box::new(value.monomorphize(params)),
             ),
@@ -940,14 +938,14 @@ impl AcornValue {
                 Box::new(right.monomorphize(params)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.monomorphize(params))),
-            AcornValue::Monomorph(namespace, name, base_type, params) => {
+            AcornValue::Specialized(namespace, name, base_type, params) => {
                 // I think we should alter the types within params.
                 // I'm not entirely sure. I'm not aware of any test hitting this.
                 let out_params: Vec<_> = params
                     .iter()
-                    .map(|(name, t)| (name.clone(), t.monomorphize(params)))
+                    .map(|(name, t)| (name.clone(), t.specialize(params)))
                     .collect();
-                AcornValue::Monomorph(*namespace, name.clone(), base_type.clone(), out_params)
+                AcornValue::Specialized(*namespace, name.clone(), base_type.clone(), out_params)
             }
         }
     }
@@ -997,7 +995,7 @@ impl AcornValue {
                 Box::new(right.parametrize(namespace, type_names)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.parametrize(namespace, type_names))),
-            AcornValue::Monomorph(c_namespace, c_name, c_type, params) => {
+            AcornValue::Specialized(c_namespace, c_name, c_type, params) => {
                 if true {
                     // Old way
                     if params.len() > 1 {
@@ -1027,7 +1025,12 @@ impl AcornValue {
                     for (param_name, t) in params {
                         out_params.push((param_name.clone(), t.parametrize(namespace, type_names)));
                     }
-                    AcornValue::Monomorph(*c_namespace, c_name.clone(), c_type.clone(), out_params)
+                    AcornValue::Specialized(
+                        *c_namespace,
+                        c_name.clone(),
+                        c_type.clone(),
+                        out_params,
+                    )
                 }
             }
         }
@@ -1059,7 +1062,7 @@ impl AcornValue {
                 right.find_polymorphic(output);
             }
             AcornValue::Not(x) => x.find_polymorphic(output),
-            AcornValue::Monomorph(_, _, _, _) => {}
+            AcornValue::Specialized(_, _, _, _) => {}
         }
     }
 
@@ -1081,7 +1084,7 @@ impl AcornValue {
                 right.find_monomorphs(output);
             }
             AcornValue::Not(x) => x.find_monomorphs(output),
-            AcornValue::Monomorph(namespace, name, _, params) => {
+            AcornValue::Specialized(namespace, name, _, params) => {
                 let key = ConstantKey {
                     namespace: *namespace,
                     name: name.clone(),
@@ -1122,7 +1125,7 @@ impl AcornValue {
                 Box::new(right.to_placeholder()),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.to_placeholder())),
-            AcornValue::Monomorph(_, _, _, _) => self.clone(),
+            AcornValue::Specialized(_, _, _, _) => self.clone(),
         }
     }
 }

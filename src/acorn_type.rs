@@ -208,8 +208,8 @@ impl AcornType {
         }
     }
 
-    // A type is monomorphized by replacing *all* parametric types with concrete types.
-    pub fn monomorphize(&self, params: &[(String, AcornType)]) -> AcornType {
+    // Replaces type parameters in the provided list with the corresponding type.
+    pub fn specialize(&self, params: &[(String, AcornType)]) -> AcornType {
         match self {
             AcornType::Parameter(name) => {
                 for (param_name, param_type) in params {
@@ -217,15 +217,15 @@ impl AcornType {
                         return param_type.clone();
                     }
                 }
-                panic!("couldn't find mapping for {} while monomorphizing", name);
+                self.clone()
             }
             AcornType::Function(function_type) => AcornType::Function(FunctionType {
                 arg_types: function_type
                     .arg_types
                     .iter()
-                    .map(|t| t.monomorphize(params))
+                    .map(|t| t.specialize(params))
                     .collect(),
-                return_type: Box::new(function_type.return_type.monomorphize(params)),
+                return_type: Box::new(function_type.return_type.specialize(params)),
             }),
             _ => self.clone(),
         }
