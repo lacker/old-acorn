@@ -102,9 +102,10 @@ struct DependencyGraph {
     // Indexed by constant id
     monomorphs_for_constant: HashMap<ConstantKey, Vec<ParamList>>,
 
-    // Which facts mention each parametric constant *without* monomorphizing it.
-    // This one is static and only needs to be computed once.
-    facts_for_constant: HashMap<ConstantKey, Vec<usize>>,
+    // Where each parametric constant is mentioned in a parametric way.
+    // Lists (fact id, params for the constant) for each occurrence.
+    // parametric_instances only needs to be computed once.
+    parametric_instances: HashMap<ConstantKey, Vec<(usize, ParamList)>>,
 }
 
 impl DependencyGraph {
@@ -112,11 +113,11 @@ impl DependencyGraph {
     // monomorphs_for_fact.
     fn new(facts: &[AcornValue]) -> DependencyGraph {
         let mut monomorphs_for_fact = vec![];
-        let mut facts_for_constant = HashMap::new();
+        let mut parametric_instances = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
-            let mut polymorphic_fns = vec![];
-            fact.find_parametric(&mut polymorphic_fns);
-            if polymorphic_fns.is_empty() {
+            let mut instances = vec![];
+            fact.find_parametric(&mut instances);
+            if instances.is_empty() {
                 if let AcornValue::ForAll(args, _) = fact {
                     if args.iter().any(|arg| arg.is_parametric()) {
                         // This is a polymorphic fact with no polymorphic functions.
@@ -132,15 +133,19 @@ impl DependencyGraph {
                 continue;
             }
             monomorphs_for_fact.push(Some(vec![]));
-            for (c, _) in polymorphic_fns {
-                facts_for_constant.entry(c).or_insert(vec![]).push(i);
+            for (constant_key, params) in instances {
+                let params = ParamList::new(params);
+                parametric_instances
+                    .entry(constant_key)
+                    .or_insert(vec![])
+                    .push((i, params));
             }
         }
 
         DependencyGraph {
             monomorphs_for_fact,
             monomorphs_for_constant: HashMap::new(),
-            facts_for_constant,
+            parametric_instances,
         }
     }
 
@@ -150,39 +155,61 @@ impl DependencyGraph {
         &mut self,
         facts: &[AcornValue],
         constant_key: ConstantKey,
-        params: &ParamList,
+        monomorph_params: &ParamList,
     ) {
-        params.assert_monomorph();
+        monomorph_params.assert_monomorph();
         let monomorphs = self
             .monomorphs_for_constant
             .entry(constant_key.clone())
             .or_insert(vec![]);
-        if monomorphs.contains(&params) {
+        if monomorphs.contains(&monomorph_params) {
             // We already have this monomorph
             return;
         }
-        monomorphs.push(params.clone());
+        monomorphs.push(monomorph_params.clone());
 
         // Handle all the facts that mention this constant without monomorphizing it.
-        if let Some(fact_ids) = self.facts_for_constant.get(&constant_key) {
-            for fact_id in fact_ids.clone() {
-                // TODO: this logic is wrong. The param list was generated based on the
-                // constant, but now we're applying it to the fact, which could have
-                // different parameters.
+        if let Some(instances) = self.parametric_instances.get(&constant_key) {
+            for (fact_id, instance_params) in instances.clone() {
+                // The instance params are the way this instance was parametrized in the fact.
+                // The monomorph params are how we would like to parametrize this instance.
+                // It may or may not be possible to match them up.
+                // For example, this may be a fact about foo<bool, T>, and our goal
+                // is saying something about foo<Nat, Nat>.
+                // Our goal is to find the "fact params", a way in which we can parametrize
+                // the whole fact so that the instance params become the monomorph params.
+                assert_eq!(instance_params.params.len(), monomorph_params.params.len());
+                let mut fact_params = HashMap::new();
+                for ((i_name, instance_type), (m_name, monomorph_type)) in instance_params
+                    .params
+                    .iter()
+                    .zip(monomorph_params.params.iter())
+                {
+                    assert_eq!(i_name, m_name);
+                    instance_type.match_specialized(monomorph_type, &mut fact_params);
+                }
 
-                // Check if we already know we need this monomorph for the fact
-                // If not, insert it
+                // We sort because there's no inherently canonical order.
+                let mut fact_params: Vec<_> = fact_params.into_iter().collect();
+                fact_params.sort();
+                let fact_params = ParamList::new(fact_params);
+
                 let monomorphs_for_fact = self.monomorphs_for_fact[fact_id]
                     .as_mut()
                     .expect("Should have been Some");
-                if monomorphs_for_fact.contains(params) {
+                if monomorphs_for_fact.contains(&fact_params) {
+                    // We already have this monomorph
                     continue;
                 }
-                monomorphs_for_fact.push(params.clone());
-                let monomorph = facts[fact_id].specialize(&params.params);
+
+                let monomorph = facts[fact_id].specialize(&fact_params.params);
                 if monomorph.is_parametric() {
-                    panic!("alleged monomorph {} is still parametric", monomorph);
+                    // This is a little awkward. Completely monomorphizing this instance
+                    // still doesn't monomorphize the whole fact.
+                    // TODO: instead of bailing out, partially monomorphize, and continue.
+                    continue;
                 }
+                monomorphs_for_fact.push(fact_params);
                 self.inspect_value(facts, &monomorph);
             }
         }
