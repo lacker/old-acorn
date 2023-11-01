@@ -815,62 +815,8 @@ impl BindingMap {
     // Tools for converting things to displayable strings.
     ////////////////////////////////////////////////////////////////////////////////
 
-    fn binder_str_stacked(
-        &self,
-        binder_name: &str,
-        types: &Vec<AcornType>,
-        value: &AcornValue,
-        stack_size: usize,
-    ) -> String {
-        let parts: Vec<_> = types
-            .iter()
-            .enumerate()
-            .map(|(i, t)| format!("x{}: {}", i + stack_size, t))
-            .collect();
-        let value_str = self.value_str_stacked(value, stack_size + types.len());
-        format!("{}({}) {{ {} }}", binder_name, parts.join(", "), value_str)
-    }
-
-    fn value_str_stacked(&self, value: &AcornValue, stack_size: usize) -> String {
-        match value {
-            AcornValue::Variable(i, _) => format!("x{}", i),
-            AcornValue::Constant(_, name, _, _) => name.to_string(),
-            AcornValue::Application(app) => {
-                let fn_name = self.value_str_stacked(&app.function, stack_size);
-                let args: Vec<_> = app
-                    .args
-                    .iter()
-                    .map(|a| self.value_str_stacked(a, stack_size))
-                    .collect();
-                format!("{}({})", fn_name, args.join(", "))
-            }
-            AcornValue::Binary(op, left, right) => format!(
-                "({} {} {})",
-                self.value_str_stacked(left, stack_size),
-                op,
-                self.value_str_stacked(right, stack_size)
-            ),
-            AcornValue::ForAll(types, values) => {
-                self.binder_str_stacked("forall", types, values, stack_size)
-            }
-            AcornValue::Exists(types, values) => {
-                self.binder_str_stacked("exists", types, values, stack_size)
-            }
-            AcornValue::Not(subvalue) => {
-                format!("!{}", self.value_str_stacked(subvalue, stack_size))
-            }
-            AcornValue::Lambda(types, values) => {
-                self.binder_str_stacked("function", types, values, stack_size)
-            }
-            AcornValue::Specialized(_, name, _, params) => {
-                let param_names: Vec<_> = params.iter().map(|(s, _)| s.to_string()).collect();
-                format!("{}<{}>", name, param_names.join(", "))
-            }
-        }
-    }
-
     pub fn value_str(&self, value: &AcornValue) -> String {
-        self.value_str_stacked(value, 0)
+        value.to_string()
     }
 
     ////////////////////////////////////////////////////////////////////////////////

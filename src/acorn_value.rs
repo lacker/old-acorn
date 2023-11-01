@@ -101,7 +101,9 @@ impl fmt::Display for Subvalue<'_> {
             AcornValue::Variable(i, _) => write!(f, "x{}", i),
             AcornValue::Constant(_, name, _, _) => write!(f, "{}", name),
             AcornValue::Application(a) => a.fmt_helper(f, self.stack_size),
-            AcornValue::Lambda(args, body) => fmt_binder(f, "lambda", args, body, self.stack_size),
+            AcornValue::Lambda(args, body) => {
+                fmt_binder(f, "function", args, body, self.stack_size)
+            }
             AcornValue::Binary(op, left, right) => {
                 write!(
                     f,

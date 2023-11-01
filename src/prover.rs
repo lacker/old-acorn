@@ -151,7 +151,7 @@ impl Prover<'_> {
             );
         });
         assert_eq!(proposition.get_type(), AcornType::Bool);
-        let answer = self.normalizer.normalize(self.env, proposition);
+        let answer = self.normalizer.normalize(proposition);
         answer
     }
 

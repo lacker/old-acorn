@@ -356,7 +356,7 @@ impl Environment {
     }
 
     pub fn value_str(&self, value: &AcornValue) -> String {
-        self.bindings.value_str(value)
+        value.to_string()
     }
 
     // Adds a statement to the environment.

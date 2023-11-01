@@ -253,23 +253,19 @@ impl Normalizer {
         }
     }
 
-    pub fn normalize(&mut self, env: &Environment, value: AcornValue) -> Vec<Clause> {
-        // println!("\nnormalizing: {}", env.value_str(&value));
+    pub fn normalize(&mut self, value: AcornValue) -> Vec<Clause> {
+        // println!("\nnormalizing: {}", value);
         let value = value.replace_function_equality(0);
         let value = value.expand_lambdas(0);
         let value = value.move_negation_inwards(false);
-        // println!("negin'd: {}", env.value_str(&value));
+        // println!("negin'd: {}", value);
         let value = self.skolemize(&vec![], value);
-        // println!("skolemized: {}", env.value_str(&value));
+        // println!("skolemized: {}", value);
         let mut universal = vec![];
         let value = value.remove_forall(&mut universal);
         let mut literal_lists = vec![];
         if let Err(e) = self.into_cnf(&value, &mut literal_lists) {
-            panic!(
-                "\nerror converting {} to CNF:\n{}",
-                env.value_str(&value),
-                e
-            );
+            panic!("\nerror converting {} to CNF:\n{}", value, e);
         }
 
         let mut clauses = vec![];
@@ -299,8 +295,8 @@ impl Normalizer {
         }
     }
 
-    fn check_value(&mut self, env: &Environment, value: AcornValue, expected: &[&str]) {
-        let actual = self.normalize(env, value);
+    fn check_value(&mut self, value: AcornValue, expected: &[&str]) {
+        let actual = self.normalize(value);
         if actual.len() != expected.len() {
             panic!(
                 "expected {} clauses, got {}:\n{}",
@@ -331,7 +327,7 @@ impl Normalizer {
             Some(val) => val,
             None => panic!("no value named {}", name),
         };
-        self.check_value(env, val, expected);
+        self.check_value(val, expected);
     }
 }
 
