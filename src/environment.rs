@@ -271,6 +271,7 @@ impl Environment {
             self.namespace,
             name.to_string(),
             constant_type_clone,
+            self.bindings.get_params(name),
         ));
         let claim = if let AcornValue::Lambda(acorn_types, return_value) = definition {
             let args: Vec<_> = acorn_types
@@ -379,7 +380,12 @@ impl Environment {
                 }
                 let acorn_type = self.bindings.evaluate_type(project, &ls.type_expr)?;
                 let value = if ls.value.token().token_type == TokenType::Axiom {
-                    AcornValue::Constant(self.namespace, ls.name.clone(), acorn_type.clone())
+                    AcornValue::Constant(
+                        self.namespace,
+                        ls.name.clone(),
+                        acorn_type.clone(),
+                        vec![],
+                    )
                 } else {
                     self.bindings
                         .evaluate_value(project, &ls.value, Some(&acorn_type))?

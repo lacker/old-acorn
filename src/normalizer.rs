@@ -49,7 +49,7 @@ impl Normalizer {
         let skolem_index = self.skolem_types.len() as AtomId;
         self.skolem_types.push(acorn_type.clone());
         let name = format!("s{}", skolem_index);
-        AcornValue::Constant(SKOLEM, name, acorn_type)
+        AcornValue::Constant(SKOLEM, name, acorn_type, vec![])
     }
 
     pub fn is_skolem(&self, atom: &Atom) -> bool {
@@ -129,7 +129,7 @@ impl Normalizer {
             | AcornValue::Not(_)
             | AcornValue::Binary(_, _, _)
             | AcornValue::Variable(_, _)
-            | AcornValue::Constant(_, _, _) => value,
+            | AcornValue::Constant(_, _, _, _) => value,
 
             _ => panic!(
                 "moving negation inwards should have eliminated this node: {:?}",
@@ -170,7 +170,8 @@ impl Normalizer {
                     args: vec![],
                 })
             }
-            AcornValue::Constant(namespace, name, t) => {
+            AcornValue::Constant(namespace, name, t, params) => {
+                assert!(params.is_empty());
                 let type_id = self.type_map.add_type(t);
                 let c_id = self.constant_map.add_constant(*namespace, name);
                 Ok(Term {
@@ -196,7 +197,7 @@ impl Normalizer {
     // to do rewrite-type lookups, on the larger literal first.
     fn literal_from_value(&mut self, value: &AcornValue) -> Result<Literal> {
         match value {
-            AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _) => {
+            AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _, _) => {
                 Ok(Literal::positive(self.term_from_value(value)?))
             }
             AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),

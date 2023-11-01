@@ -57,8 +57,9 @@ pub enum AcornValue {
     Variable(AtomId, AcornType),
 
     // A constant, defined in a particular namespace.
-    // (namespace, constant id, constant name, type)
-    Constant(NamespaceId, String, AcornType),
+    // (namespace, constant name, type, any type parameters this constant puts into scope)
+    // The type parameters can be empty.
+    Constant(NamespaceId, String, AcornType, Vec<String>),
 
     Application(FunctionApplication),
 
@@ -77,6 +78,7 @@ pub enum AcornValue {
     // The monomorphized version of a constant polymorphic function.
     // The type is the polymorphic type of the constant.
     // The vector parameter maps parameter names to types they were monomorphized to.
+    // The type parameters cannot be empty - that is just a Constant.
     Monomorph(NamespaceId, String, AcornType, Vec<(String, AcornType)>),
 }
 
@@ -93,7 +95,7 @@ impl fmt::Display for Subvalue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.value {
             AcornValue::Variable(i, _) => write!(f, "x{}", i),
-            AcornValue::Constant(_, name, _) => write!(f, "{}", name),
+            AcornValue::Constant(_, name, _, _) => write!(f, "{}", name),
             AcornValue::Application(a) => a.fmt_helper(f, self.stack_size),
             AcornValue::Lambda(args, body) => fmt_binder(f, "lambda", args, body, self.stack_size),
             AcornValue::Binary(op, left, right) => {
@@ -167,7 +169,7 @@ impl AcornValue {
     pub fn get_type(&self) -> AcornType {
         match self {
             AcornValue::Variable(_, t) => t.clone(),
-            AcornValue::Constant(_, _, t) => t.clone(),
+            AcornValue::Constant(_, _, t, _) => t.clone(),
             AcornValue::Application(t) => t.return_type(),
             AcornValue::Lambda(args, return_value) => AcornType::Function(FunctionType {
                 arg_types: args.clone(),
@@ -228,7 +230,7 @@ impl AcornValue {
         params: Vec<(String, AcornType)>,
     ) -> AcornValue {
         if params.is_empty() {
-            AcornValue::Constant(namespace, name, constant_type)
+            AcornValue::Constant(namespace, name, constant_type, vec![])
         } else {
             AcornValue::Monomorph(namespace, name, constant_type, params)
         }
@@ -414,7 +416,7 @@ impl AcornValue {
                 // This reference just needs to be shifted
                 AcornValue::Variable(i - values.len() as AtomId, var_type)
             }
-            AcornValue::Constant(namespace, name, t) => AcornValue::Constant(namespace, name, t),
+            AcornValue::Constant(_, _, _, _) => self.clone(),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.bind_values(
                     first_binding_index,
@@ -484,7 +486,6 @@ impl AcornValue {
                 // This reference just needs to be shifted
                 AcornValue::Variable(i + increment, var_type)
             }
-            AcornValue::Constant(namespace, name, t) => AcornValue::Constant(namespace, name, t),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.insert_stack(index, increment)),
                 args: app
@@ -508,7 +509,7 @@ impl AcornValue {
             AcornValue::Exists(quants, value) => {
                 AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
             }
-            AcornValue::Monomorph(_, _, _, _) => self,
+            AcornValue::Constant(_, _, _, _) | AcornValue::Monomorph(_, _, _, _) => self,
         }
     }
 
@@ -614,7 +615,7 @@ impl AcornValue {
                 )
             }
             AcornValue::Variable(_, _)
-            | AcornValue::Constant(_, _, _)
+            | AcornValue::Constant(_, _, _, _)
             | AcornValue::Monomorph(_, _, _, _) => self.clone(),
         }
     }
@@ -665,7 +666,7 @@ impl AcornValue {
                 AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
             }
             AcornValue::Variable(_, _)
-            | AcornValue::Constant(_, _, _)
+            | AcornValue::Constant(_, _, _, _)
             | AcornValue::Monomorph(_, _, _, _) => self,
         }
     }
@@ -709,8 +710,9 @@ impl AcornValue {
         replacer: &impl Fn(NamespaceId, &str) -> Option<&'a AcornValue>,
     ) -> AcornValue {
         match self {
-            AcornValue::Constant(namespace, name, _) => {
+            AcornValue::Constant(namespace, name, _, params) => {
                 if let Some(replacement) = replacer(*namespace, name) {
+                    assert!(params.is_empty());
                     // First we need to make the replacement use the correct stack variables
                     let shifted = replacement.clone().insert_stack(0, stack_size);
                     // Then we need to recursively replace constants in the replacement
@@ -778,9 +780,10 @@ impl AcornValue {
     ) -> AcornValue {
         match self {
             AcornValue::Variable(_, _) => self.clone(),
-            AcornValue::Constant(n, name, t) => {
+            AcornValue::Constant(n, name, t, params) => {
                 if *n == namespace {
                     if let Some(i) = constants.get(name) {
+                        assert!(params.is_empty());
                         return AcornValue::Variable(*i, t.clone());
                     }
                 }
@@ -867,7 +870,7 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            AcornValue::Monomorph(_, _, _, _) | AcornValue::Constant(_, _, _) => Ok(()),
+            AcornValue::Monomorph(_, _, _, _) | AcornValue::Constant(_, _, _, _) => Ok(()),
         }
     }
 
@@ -876,7 +879,8 @@ impl AcornValue {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.monomorphize(params))
             }
-            AcornValue::Constant(namespace, name, t) => {
+            AcornValue::Constant(namespace, name, t, _) => {
+                // TODO: use params? this can't be right
                 if t.is_parametric() {
                     // We need to monomorphize
                     AcornValue::Monomorph(*namespace, name.clone(), t.clone(), params.to_vec())
@@ -934,11 +938,15 @@ impl AcornValue {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.genericize(namespace, name, generic_type))
             }
-            AcornValue::Constant(const_namespace, name, t) => AcornValue::Constant(
-                *const_namespace,
-                name.clone(),
-                t.genericize(namespace, name, generic_type),
-            ),
+            AcornValue::Constant(const_namespace, name, t, params) => {
+                // TODO: use params differently? seems wrong
+                AcornValue::Constant(
+                    *const_namespace,
+                    name.clone(),
+                    t.genericize(namespace, name, generic_type),
+                    params.clone(),
+                )
+            }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.genericize(namespace, name, generic_type)),
                 args: app
@@ -978,9 +986,14 @@ impl AcornValue {
                     todo!("genericize monomorphs with multiple types");
                 }
 
-                let (_, t) = &params[0];
+                let (name, t) = &params[0];
                 if t.equals_data_type(namespace, name) {
-                    return AcornValue::Constant(*c_namespace, c_name.clone(), c_type.clone());
+                    return AcornValue::Constant(
+                        *c_namespace,
+                        c_name.clone(),
+                        c_type.clone(),
+                        vec![name.clone()],
+                    );
                 }
 
                 if t.refers_to(namespace, name) {
@@ -996,7 +1009,7 @@ impl AcornValue {
     pub fn find_polymorphic(&self, output: &mut Vec<ConstantKey>) {
         match self {
             AcornValue::Variable(_, _) => {}
-            AcornValue::Constant(namespace, name, t) => {
+            AcornValue::Constant(namespace, name, t, _) => {
                 if t.is_parametric() {
                     output.push(ConstantKey {
                         namespace: *namespace,
@@ -1026,7 +1039,7 @@ impl AcornValue {
     // Only handles single generic types.
     pub fn find_monomorphs(&self, output: &mut Vec<(ConstantKey, Vec<(String, AcornType)>)>) {
         match self {
-            AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _) => {}
+            AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _, _) => {}
             AcornValue::Application(app) => {
                 app.function.find_monomorphs(output);
                 for arg in &app.args {
@@ -1054,7 +1067,7 @@ impl AcornValue {
     // A value is parametric if any of its components have a parametric type.
     pub fn is_parametric(&self) -> bool {
         match self {
-            AcornValue::Variable(_, t) | AcornValue::Constant(_, _, t) => t.is_parametric(),
+            AcornValue::Variable(_, t) | AcornValue::Constant(_, _, t, _) => t.is_parametric(),
 
             AcornValue::Application(app) => {
                 app.function.is_parametric() || app.args.iter().any(|x| x.is_parametric())
@@ -1074,8 +1087,8 @@ impl AcornValue {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.to_placeholder())
             }
-            AcornValue::Constant(namespace, name, t) => {
-                AcornValue::Constant(*namespace, name.clone(), t.to_placeholder())
+            AcornValue::Constant(namespace, name, t, params) => {
+                AcornValue::Constant(*namespace, name.clone(), t.to_placeholder(), params.clone())
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.to_placeholder()),

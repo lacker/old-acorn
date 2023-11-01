@@ -105,11 +105,12 @@ impl BindingMap {
     // Returns an AcornValue representing this name, if there is one.
     // Returns None if this name does not refer to a constant.
     pub fn get_constant_value(&self, name: &str) -> Option<AcornValue> {
-        self.constants.get(name)?;
+        let info = self.constants.get(name)?;
         Some(AcornValue::Constant(
             self.namespace,
             name.to_string(),
             self.identifier_types[name].clone(),
+            info.params.clone(),
         ))
     }
 
@@ -117,6 +118,13 @@ impl BindingMap {
     // E.g. if let x: Nat = 0, then get_type("x") will give you Nat.
     pub fn get_type(&self, identifier: &str) -> Option<&AcornType> {
         self.identifier_types.get(identifier)
+    }
+
+    pub fn get_params(&self, identifier: &str) -> Vec<String> {
+        match self.constants.get(identifier) {
+            Some(info) => info.params.clone(),
+            None => vec![],
+        }
     }
 
     // Gets the type for a type name, not for an identifier.
@@ -597,9 +605,9 @@ impl BindingMap {
                 }
 
                 // Templated functions have to just be constants
-                let (c_namespace, c_name, c_type) =
-                    if let AcornValue::Constant(c_namespace, c_name, c_type) = function {
-                        (c_namespace, c_name, c_type)
+                let (c_namespace, c_name, c_type, c_params) =
+                    if let AcornValue::Constant(c_namespace, c_name, c_type, c_params) = function {
+                        (c_namespace, c_name, c_type, c_params)
                     } else {
                         return Err(Error::new(
                             function_expr.token(),
@@ -607,12 +615,18 @@ impl BindingMap {
                         ));
                     };
 
-                // TODO: this sort doesn't seem right.
-                let mut params = mapping
-                    .iter()
-                    .map(|(k, v)| (k.to_string(), v.clone()))
-                    .collect::<Vec<_>>();
-                params.sort();
+                let mut params = vec![];
+                for param_name in &c_params {
+                    match mapping.get(param_name) {
+                        Some(t) => params.push((param_name.clone(), t.clone())),
+                        None => {
+                            return Err(Error::new(
+                                function_expr.token(),
+                                &format!("parameter {} could not be inferred", param_name),
+                            ))
+                        }
+                    }
+                }
 
                 if expected_type.is_some() {
                     // Check the return type
@@ -790,7 +804,7 @@ impl BindingMap {
     ) {
         match value {
             AcornValue::Variable(_, _) => {}
-            AcornValue::Constant(namespace, name, t)
+            AcornValue::Constant(namespace, name, t, _)
             | AcornValue::Monomorph(namespace, name, t, _) => {
                 if *namespace == self.namespace && !self.constants.contains_key(name) {
                     answer.insert(name.to_string(), t.clone());
@@ -840,7 +854,7 @@ impl BindingMap {
     fn value_str_stacked(&self, value: &AcornValue, stack_size: usize) -> String {
         match value {
             AcornValue::Variable(i, _) => format!("x{}", i),
-            AcornValue::Constant(_, name, _) => name.to_string(),
+            AcornValue::Constant(_, name, _, _) => name.to_string(),
             AcornValue::Application(app) => {
                 let fn_name = self.value_str_stacked(&app.function, stack_size);
                 let args: Vec<_> = app
