@@ -940,12 +940,14 @@ impl AcornValue {
                 Box::new(right.monomorphize(params)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.monomorphize(params))),
-            AcornValue::Monomorph(_, _, _, _) => {
-                // We don't alter monomorphs because they cannot themselves be polymorphic.
-                // That would be something like, taking T to List<U>, or partially
-                // monomorphizing Map<T, U> to Map<T, Nat>, neither of which we
-                // support yet.
-                self.clone()
+            AcornValue::Monomorph(namespace, name, base_type, params) => {
+                // I think we should alter the types within params.
+                // I'm not entirely sure. I'm not aware of any test hitting this.
+                let out_params: Vec<_> = params
+                    .iter()
+                    .map(|(name, t)| (name.clone(), t.monomorphize(params)))
+                    .collect();
+                AcornValue::Monomorph(*namespace, name.clone(), base_type.clone(), out_params)
             }
         }
     }
