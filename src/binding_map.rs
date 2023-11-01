@@ -781,16 +781,16 @@ impl BindingMap {
     // Do this before unbind_type_params.
     pub fn genericize(&self, type_params: &[String], value: AcornValue) -> AcornValue {
         let mut value = value;
-        for (generic_type, name) in type_params.iter().enumerate() {
-            value = value.genericize(self.namespace, name, generic_type);
+        for name in type_params {
+            value = value.genericize(self.namespace, name);
         }
         value
     }
 
     fn genericize_type(&self, type_params: &[String], specific_type: AcornType) -> AcornType {
         let mut answer = specific_type;
-        for (generic_type, name) in type_params.iter().enumerate() {
-            answer = answer.genericize(self.namespace, name, generic_type);
+        for name in type_params {
+            answer = answer.genericize(self.namespace, name);
         }
         answer
     }

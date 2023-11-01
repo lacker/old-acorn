@@ -37,7 +37,7 @@ pub enum AcornType {
     Function(FunctionType),
 
     // Type parameters can be used inside polymorphic expressions.
-    Parameter(usize, String),
+    Parameter(String),
 
     // Usually before proving we monomorphize everything.
     // When we don't have a specific type to monomorphize to, we use a placeholder type.
@@ -145,8 +145,8 @@ impl AcornType {
             }
             AcornType::Bool => true,
             AcornType::Data(_, _) => true,
-            AcornType::Parameter(_, _) => {
-                // Generic types should be monomorphized before passing it to the prover
+            AcornType::Parameter(_) => {
+                // Parametric types should be monomorphized before passing them the prover
                 false
             }
             AcornType::Empty => true,
@@ -186,28 +186,23 @@ impl AcornType {
     }
 
     // Replaces the type with the given namespace and name with a parameter of the same name.
-    pub fn genericize(
-        &self,
-        data_type_namespace: NamespaceId,
-        data_type_name: &str,
-        param_id: usize,
-    ) -> AcornType {
+    pub fn genericize(&self, data_type_namespace: NamespaceId, data_type_name: &str) -> AcornType {
         match self {
             AcornType::Function(function_type) => AcornType::Function(FunctionType {
                 arg_types: function_type
                     .arg_types
                     .iter()
-                    .map(|t| t.genericize(data_type_namespace, data_type_name, param_id))
+                    .map(|t| t.genericize(data_type_namespace, data_type_name))
                     .collect(),
-                return_type: Box::new(function_type.return_type.genericize(
-                    data_type_namespace,
-                    data_type_name,
-                    param_id,
-                )),
+                return_type: Box::new(
+                    function_type
+                        .return_type
+                        .genericize(data_type_namespace, data_type_name),
+                ),
             }),
             AcornType::Data(namespace, name) => {
                 if *namespace == data_type_namespace && name == data_type_name {
-                    AcornType::Parameter(param_id, name.to_string())
+                    AcornType::Parameter(name.to_string())
                 } else {
                     self.clone()
                 }
@@ -218,7 +213,7 @@ impl AcornType {
 
     pub fn monomorphize(&self, params: &[(String, AcornType)]) -> AcornType {
         match self {
-            AcornType::Parameter(_, name) => {
+            AcornType::Parameter(name) => {
                 for (param_name, param_type) in params {
                     if name == param_name {
                         return param_type.clone();
@@ -239,7 +234,7 @@ impl AcornType {
     }
 
     // Tries to monomorphize self to get monomorph.
-    // Fills in a mapping for any generic types that need to be specified, in order to make it match.
+    // Fills in a mapping for any parametric types that need to be specified, in order to make it match.
     // Returns whether it was successful.
     pub fn match_monomorph(
         &self,
@@ -251,9 +246,9 @@ impl AcornType {
         }
 
         match (self, monomorph) {
-            (AcornType::Parameter(_, name), _) => {
+            (AcornType::Parameter(name), _) => {
                 if let Some(t) = mapping.get(name) {
-                    // This generic type is already mapped
+                    // This parametric type is already mapped
                     return t == monomorph;
                 }
                 mapping.insert(name.clone(), monomorph.clone());
@@ -284,7 +279,7 @@ impl AcornType {
             | AcornType::Data(_, _)
             | AcornType::Empty
             | AcornType::Placeholder(_) => false,
-            AcornType::Parameter(_, _) => true,
+            AcornType::Parameter(_) => true,
             AcornType::Function(ftype) => {
                 for arg_type in &ftype.arg_types {
                     if arg_type.is_parametric() {
@@ -299,7 +294,7 @@ impl AcornType {
     // Converts type parameters to placeholder types
     pub fn to_placeholder(&self) -> AcornType {
         match self {
-            AcornType::Parameter(_, name) => AcornType::Placeholder(name.to_string()),
+            AcornType::Parameter(name) => AcornType::Placeholder(name.to_string()),
             AcornType::Function(ftype) => AcornType::Function(FunctionType {
                 arg_types: ftype.arg_types.iter().map(|t| t.to_placeholder()).collect(),
                 return_type: Box::new(ftype.return_type.to_placeholder()),
@@ -314,7 +309,7 @@ impl fmt::Display for AcornType {
         match self {
             AcornType::Bool => write!(f, "bool"),
             AcornType::Data(_, name) => write!(f, "{}", name),
-            AcornType::Parameter(_, name) => write!(f, "{}", name),
+            AcornType::Parameter(name) => write!(f, "{}", name),
             AcornType::Function(function_type) => write!(f, "{}", function_type),
             AcornType::Empty => write!(f, "empty"),
             AcornType::Placeholder(name) => write!(f, "{}", name),

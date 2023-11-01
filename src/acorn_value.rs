@@ -59,7 +59,7 @@ pub enum AcornValue {
     // A constant, defined in a particular namespace.
     // (namespace, constant name, type, type parameters)
     // The type parameters can be empty.
-    // These type parameters must be used in the type of this constant, because
+    // The type parameters must be used in the type of this constant, because
     // we need to be able to infer the monomorph whenever this constant is applied.
     Constant(NamespaceId, String, AcornType, Vec<String>),
 
@@ -930,61 +930,48 @@ impl AcornValue {
     }
 
     // Replaces a data type with a generic type.
-    pub fn genericize(
-        &self,
-        namespace: NamespaceId,
-        name: &str,
-        generic_type: usize,
-    ) -> AcornValue {
+    pub fn genericize(&self, namespace: NamespaceId, name: &str) -> AcornValue {
         match self {
             AcornValue::Variable(i, var_type) => {
-                AcornValue::Variable(*i, var_type.genericize(namespace, name, generic_type))
+                AcornValue::Variable(*i, var_type.genericize(namespace, name))
             }
             AcornValue::Constant(const_namespace, name, t, params) => {
                 // TODO: use params differently? seems wrong
                 AcornValue::Constant(
                     *const_namespace,
                     name.clone(),
-                    t.genericize(namespace, name, generic_type),
+                    t.genericize(namespace, name),
                     params.clone(),
                 )
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
-                function: Box::new(app.function.genericize(namespace, name, generic_type)),
+                function: Box::new(app.function.genericize(namespace, name)),
                 args: app
                     .args
                     .iter()
-                    .map(|x| x.genericize(namespace, name, generic_type))
+                    .map(|x| x.genericize(namespace, name))
                     .collect(),
             }),
             AcornValue::Lambda(args, value) => AcornValue::Lambda(
-                args.iter()
-                    .map(|x| x.genericize(namespace, name, generic_type))
-                    .collect(),
-                Box::new(value.genericize(namespace, name, generic_type)),
+                args.iter().map(|x| x.genericize(namespace, name)).collect(),
+                Box::new(value.genericize(namespace, name)),
             ),
             AcornValue::ForAll(args, value) => AcornValue::ForAll(
-                args.iter()
-                    .map(|x| x.genericize(namespace, name, generic_type))
-                    .collect(),
-                Box::new(value.genericize(namespace, name, generic_type)),
+                args.iter().map(|x| x.genericize(namespace, name)).collect(),
+                Box::new(value.genericize(namespace, name)),
             ),
             AcornValue::Exists(args, value) => AcornValue::Exists(
-                args.iter()
-                    .map(|x| x.genericize(namespace, name, generic_type))
-                    .collect(),
-                Box::new(value.genericize(namespace, name, generic_type)),
+                args.iter().map(|x| x.genericize(namespace, name)).collect(),
+                Box::new(value.genericize(namespace, name)),
             ),
             AcornValue::Binary(op, left, right) => AcornValue::Binary(
                 *op,
-                Box::new(left.genericize(namespace, name, generic_type)),
-                Box::new(right.genericize(namespace, name, generic_type)),
+                Box::new(left.genericize(namespace, name)),
+                Box::new(right.genericize(namespace, name)),
             ),
-            AcornValue::Not(x) => {
-                AcornValue::Not(Box::new(x.genericize(namespace, name, generic_type)))
-            }
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.genericize(namespace, name))),
             AcornValue::Monomorph(c_namespace, c_name, c_type, params) => {
-                if params.len() > 1 || generic_type > 0 {
+                if params.len() > 1 {
                     todo!("genericize monomorphs with multiple types");
                 }
 
