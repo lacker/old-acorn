@@ -185,6 +185,29 @@ impl AcornType {
         result
     }
 
+    // parametrize should only be called on concrete types.
+    // It replaces every data type with the given namespace and name with a type parameter.
+    pub fn parametrize(&self, namespace: NamespaceId, type_names: &[String]) -> AcornType {
+        match self {
+            AcornType::Function(function_type) => AcornType::Function(FunctionType {
+                arg_types: function_type
+                    .arg_types
+                    .iter()
+                    .map(|t| t.parametrize(namespace, type_names))
+                    .collect(),
+                return_type: Box::new(function_type.return_type.parametrize(namespace, type_names)),
+            }),
+            AcornType::Data(ns, name) => {
+                if *ns == namespace && type_names.contains(name) {
+                    AcornType::Parameter(name.clone())
+                } else {
+                    self.clone()
+                }
+            }
+            _ => self.clone(),
+        }
+    }
+
     // Replaces the type with the given namespace and name with a parameter of the same name.
     pub fn genericize(&self, data_type_namespace: NamespaceId, data_type_name: &str) -> AcornType {
         match self {

@@ -749,15 +749,15 @@ impl BindingMap {
         } else {
             let specific_value =
                 self.evaluate_value(project, value_expr, Some(&specific_value_type))?;
-            let generic_value = self.genericize(&type_param_names, specific_value);
+            let generic_value = self.parametrize(&type_param_names, specific_value);
             Some(generic_value)
         };
 
-        // Genericize everything before returning it
-        let generic_value_type = self.genericize_type(&type_param_names, specific_value_type);
+        // Parametrize everything before returning it
+        let generic_value_type = specific_value_type.parametrize(self.namespace, &type_param_names);
         let generic_arg_types = specific_arg_types
             .into_iter()
-            .map(|t| self.genericize_type(&type_param_names, t))
+            .map(|t| self.parametrize_type(&type_param_names, t))
             .collect();
 
         // Reset the bindings
@@ -775,24 +775,22 @@ impl BindingMap {
         ))
     }
 
-    // type_params contains a list of types that should look like opaque data types to us.
-    // genericize converts this value to a polymorphic one, by replacing any types in
-    // this list with AcornType::Generic values.
-    // Do this before unbind_type_params.
-    pub fn genericize(&self, type_params: &[String], value: AcornValue) -> AcornValue {
+    // parametrize takes a value that should be concrete - no type parameters at all -
+    // but replaces some of the data types with parameters of the same name.
+    // It replaces a type when it's in this namespace, and its name is in type_names.
+    pub fn parametrize(&self, type_names: &[String], value: AcornValue) -> AcornValue {
         let mut value = value;
-        for name in type_params {
+        for name in type_names {
             value = value.genericize(self.namespace, name);
         }
         value
     }
 
-    fn genericize_type(&self, type_params: &[String], specific_type: AcornType) -> AcornType {
-        let mut answer = specific_type;
-        for name in type_params {
-            answer = answer.genericize(self.namespace, name);
-        }
-        answer
+    // parametrize_type takes a type that should be concrete - no type parameters at all -
+    // but replaces some of the data types with parameters of the same name.
+    // It replaces a type when it's in this namespace, and its name is in type_names.
+    fn parametrize_type(&self, type_params: &[String], specific_type: AcornType) -> AcornType {
+        specific_type.parametrize(self.namespace, type_params)
     }
 
     // Finds the names of all constants that are in this namespace but unknown to this binding map.
