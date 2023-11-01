@@ -998,27 +998,37 @@ impl AcornValue {
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.parametrize(namespace, type_names))),
             AcornValue::Monomorph(c_namespace, c_name, c_type, params) => {
-                if params.len() > 1 {
-                    todo!("parametrize monomorphs with multiple types");
-                }
+                if true {
+                    // Old way
+                    if params.len() > 1 {
+                        todo!("parametrize monomorphs with multiple types");
+                    }
 
-                let (name, t) = &params[0];
-                if t.equals_data_type(namespace, name) {
-                    // TODO: could this be a monomorph instead? we'd have to describe this in the
-                    // comment to AcornValue::Monomorph.
-                    return AcornValue::Constant(
-                        *c_namespace,
-                        c_name.clone(),
-                        c_type.clone(),
-                        vec![name.clone()],
-                    );
-                }
+                    let (name, t) = &params[0];
+                    if t.equals_data_type(namespace, name) {
+                        // TODO: could this be a monomorph instead? we'd have to describe this in the
+                        // comment to AcornValue::Monomorph.
+                        return AcornValue::Constant(
+                            *c_namespace,
+                            c_name.clone(),
+                            c_type.clone(),
+                            vec![name.clone()],
+                        );
+                    }
 
-                if t.refers_to(namespace, name) {
-                    todo!("parametrize monomorphs with complex types");
-                }
+                    if t.refers_to(namespace, name) {
+                        todo!("parametrize monomorphs with complex types");
+                    }
 
-                self.clone()
+                    self.clone()
+                } else {
+                    // New way
+                    let mut out_params = vec![];
+                    for (param_name, t) in params {
+                        out_params.push((param_name.clone(), t.parametrize(namespace, type_names)));
+                    }
+                    AcornValue::Monomorph(*c_namespace, c_name.clone(), c_type.clone(), out_params)
+                }
             }
         }
     }
