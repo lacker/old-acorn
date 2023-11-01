@@ -888,15 +888,29 @@ impl AcornValue {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.monomorphize(params))
             }
-            AcornValue::Constant(namespace, name, t, _) => {
-                // TODO: use params? this can't be right
-                if t.is_parametric() {
-                    // We need to monomorphize
-                    AcornValue::Monomorph(*namespace, name.clone(), t.clone(), params.to_vec())
-                } else {
-                    // Otherwise, this constant is unchanged
-                    self.clone()
+            AcornValue::Constant(namespace, name, t, c_params) => {
+                if c_params.is_empty() {
+                    // This constant isn't polymorphic in the first place
+                    return self.clone();
                 }
+                assert!(t.is_parametric());
+
+                // Match up names to monomorphize
+                let mut out_params = vec![];
+                for name in c_params {
+                    let mut found = false;
+                    for (param_name, param_type) in params {
+                        if name == param_name {
+                            out_params.push((name.clone(), param_type.clone()));
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        panic!("could not find param {} in {:?}", name, params);
+                    }
+                }
+                AcornValue::Monomorph(*namespace, name.clone(), t.clone(), out_params)
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.monomorphize(params)),
