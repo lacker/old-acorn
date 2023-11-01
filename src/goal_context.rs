@@ -56,14 +56,15 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
     answer
 }
 
-// Each monomorph is identified by its MonomorphKey
+// For the purposes of the goal context, we store parameter lists that correspond to
+// monomorphizations.
 #[derive(PartialEq, Eq, Hash, Clone)]
-struct MonomorphKey {
+struct ParamList {
     // Sorted
     params: Vec<(String, AcornType)>,
 }
 
-impl fmt::Display for MonomorphKey {
+impl fmt::Display for ParamList {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, (name, t)) in self.params.iter().enumerate() {
             if i > 0 {
@@ -75,16 +76,17 @@ impl fmt::Display for MonomorphKey {
     }
 }
 
-impl MonomorphKey {
-    fn new(params: Vec<(String, AcornType)>) -> MonomorphKey {
-        let mut params = params;
-        params.sort();
-        for (name, t) in &params {
+impl ParamList {
+    fn new(params: Vec<(String, AcornType)>) -> ParamList {
+        ParamList { params }
+    }
+
+    fn assert_monomorph(&self) {
+        for (name, t) in &self.params {
             if t.is_parametric() {
                 panic!("bad monomorphization: {} = {}", name, t);
             }
         }
-        MonomorphKey { params }
     }
 }
 
@@ -95,10 +97,10 @@ struct DependencyGraph {
     // The monomorphic types that we need/want for each fact.
     // Parallel to facts.
     // The entry is None if the fact is not polymorphic.
-    monomorphs_for_fact: Vec<Option<Vec<MonomorphKey>>>,
+    monomorphs_for_fact: Vec<Option<Vec<ParamList>>>,
 
     // Indexed by constant id
-    monomorphs_for_constant: HashMap<ConstantKey, Vec<MonomorphKey>>,
+    monomorphs_for_constant: HashMap<ConstantKey, Vec<ParamList>>,
 
     // Which facts mention each parametric constant *without* monomorphizing it.
     // This one is static and only needs to be computed once.
@@ -148,38 +150,39 @@ impl DependencyGraph {
         &mut self,
         facts: &[AcornValue],
         constant_key: ConstantKey,
-        monomorph_key: &MonomorphKey,
+        params: &ParamList,
     ) {
+        params.assert_monomorph();
         let monomorphs = self
             .monomorphs_for_constant
             .entry(constant_key.clone())
             .or_insert(vec![]);
-        if monomorphs.contains(&monomorph_key) {
+        if monomorphs.contains(&params) {
             // We already have this monomorph
             return;
         }
-        monomorphs.push(monomorph_key.clone());
+        monomorphs.push(params.clone());
 
         // Handle all the facts that mention this constant without monomorphizing it.
         if let Some(fact_ids) = self.facts_for_constant.get(&constant_key) {
             for fact_id in fact_ids.clone() {
+                // TODO: this logic is wrong. The param list was generated based on the
+                // constant, but now we're applying it to the fact, which could have
+                // different parameters.
+
                 // Check if we already know we need this monomorph for the fact
                 // If not, insert it
                 let monomorphs_for_fact = self.monomorphs_for_fact[fact_id]
                     .as_mut()
                     .expect("Should have been Some");
-                if monomorphs_for_fact.contains(monomorph_key) {
+                if monomorphs_for_fact.contains(params) {
                     continue;
                 }
-                monomorphs_for_fact.push(monomorph_key.clone());
-
-                // TODO: this logic is wrong. We know that this constant is mentioned in the fact,
-                // but that doesn't mean we can monomorphize the whole fact using parameters
-                // that make sense for the constant alone. The names of the parameters in the fact
-                // could be totally different from the names of the parameters in the constant's
-                // definition.
-                let monomorph = facts[fact_id].specialize(&monomorph_key.params);
-
+                monomorphs_for_fact.push(params.clone());
+                let monomorph = facts[fact_id].specialize(&params.params);
+                if monomorph.is_parametric() {
+                    panic!("alleged monomorph {} is still parametric", monomorph);
+                }
                 self.inspect_value(facts, &monomorph);
             }
         }
@@ -190,7 +193,7 @@ impl DependencyGraph {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {
-            self.add_monomorph(facts, constant_key, &MonomorphKey::new(params));
+            self.add_monomorph(facts, constant_key, &ParamList::new(params));
         }
     }
 }
