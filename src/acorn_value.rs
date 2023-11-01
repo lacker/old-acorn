@@ -61,6 +61,7 @@ pub enum AcornValue {
     // The type parameters can be empty.
     // When the type parameters are not empty, this indicates a polymorphic constant
     // whose type can still be inferred.
+    // This sort of pre-type-inference value should only exist during parsing.
     Constant(NamespaceId, String, AcornType, Vec<String>),
 
     Application(FunctionApplication),
