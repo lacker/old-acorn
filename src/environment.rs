@@ -1206,7 +1206,7 @@ axiom suc_neq_zero(x: Nat): Suc(x) != 0
 
 axiom induction(f: Nat -> bool): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
 
-// Ideally a and f would be templated rather than just Nat.
+// The old version. In the modern codebase these are parametric.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom
 axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
 axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))
@@ -1341,13 +1341,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     }
 
     #[test]
-    fn test_templated_types_required_in_function_args() {
+    fn test_parametric_types_required_in_function_args() {
         let mut env = Environment::new_test();
         env.bad("define foo<T>(a: bool) -> bool = a");
     }
 
     #[test]
-    fn test_templated_types_required_in_theorem_args() {
+    fn test_parametric_types_required_in_theorem_args() {
         let mut env = Environment::new_test();
         env.bad("theorem foo<T>(a: bool): a | !a");
     }

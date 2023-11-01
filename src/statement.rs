@@ -826,12 +826,12 @@ mod tests {
     }
 
     #[test]
-    fn test_templated_theorem() {
+    fn test_parametric_theorem() {
         ok("axiom recursion_base<T>(f: T -> T, a: T): recursion(f, a, 0) = a");
     }
 
     #[test]
-    fn test_templated_definition() {
+    fn test_parametric_definition() {
         ok("define recursion<T>(f: T -> T, a: T, n: Nat) -> Nat = axiom");
     }
 

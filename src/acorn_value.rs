@@ -1064,7 +1064,6 @@ impl AcornValue {
     }
 
     // Finds all monomorphizations of polymorphic constants in this value.
-    // Only handles single generic types.
     pub fn find_monomorphs(&self, output: &mut Vec<(ConstantKey, Vec<(String, AcornType)>)>) {
         match self {
             AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _, _) => {}

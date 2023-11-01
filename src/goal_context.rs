@@ -58,7 +58,7 @@ struct MonomorphKey {
 
 // A helper structure to determine which monomorphs are necessary.
 // Doesn't include facts in order to make memory ownership easier.
-// This only handles a single templated type.
+// This only handles a single parametric type.
 struct DependencyGraph {
     // The monomorphic types that we need/want for each fact.
     // Parallel to facts.
@@ -68,7 +68,7 @@ struct DependencyGraph {
     // Indexed by constant id
     monomorphs_for_constant: HashMap<ConstantKey, Vec<MonomorphKey>>,
 
-    // Which facts mention each templated constant *without* monomorphizing it.
+    // Which facts mention each parametric constant *without* monomorphizing it.
     // This one is static and only needs to be computed once.
     facts_for_constant: HashMap<ConstantKey, Vec<usize>>,
 }
@@ -111,7 +111,7 @@ impl DependencyGraph {
     }
 
     // Called when we realize that we need to monomorphize the constant specified by constant_key
-    // with acorn_type.
+    // using the types in monomorph_key.
     fn add_monomorph(
         &mut self,
         facts: &[AcornValue],
@@ -141,7 +141,13 @@ impl DependencyGraph {
                 }
                 monomorphs_for_fact.push(monomorph_key.clone());
 
+                // TODO: this logic is wrong. We know that this constant is mentioned in the fact,
+                // but that doesn't mean we can monomorphize the whole fact using parameters
+                // that make sense for the constant alone. The names of the parameters in the fact
+                // could be totally different from the names of the parameters in the constant's
+                // definition.
                 let monomorph = facts[fact_id].monomorphize(&monomorph_key.params);
+
                 self.inspect_value(facts, &monomorph);
             }
         }

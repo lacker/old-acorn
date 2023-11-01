@@ -920,7 +920,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proving_templated_theorem() {
+    fn test_proving_parametric_theorem() {
         let text = r#"
             theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c by {
                 if (a = b & b = c) {
@@ -932,7 +932,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proving_templated_theorem_no_block() {
+    fn test_proving_parametric_theorem_no_block() {
         let text = r#"
             theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c
         "#;
@@ -940,7 +940,7 @@ mod tests {
     }
 
     #[test]
-    fn test_applying_templated_theorem() {
+    fn test_applying_parametric_theorem() {
         let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
@@ -951,7 +951,7 @@ mod tests {
     }
 
     #[test]
-    fn test_applying_templated_function() {
+    fn test_applying_parametric_function() {
         let text = r#"
             type Nat: axiom
             define foo<T>(a: T) -> bool = (a = a)
@@ -962,7 +962,7 @@ mod tests {
     }
 
     #[test]
-    fn test_templated_definition_and_theorem() {
+    fn test_parametric_definition_and_theorem() {
         let text = r#"
             define foo<T>(a: T) -> bool = axiom
             axiom foo_true<T>(a: T): foo(a)
