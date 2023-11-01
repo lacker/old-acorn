@@ -634,9 +634,9 @@ impl BindingMap {
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let monomorph = AcornValue::Specialized(c_namespace, c_name, c_type, params);
+                let specialized = AcornValue::Specialized(c_namespace, c_name, c_type, params);
                 Ok(AcornValue::Application(FunctionApplication {
-                    function: Box::new(monomorph),
+                    function: Box::new(specialized),
                     args,
                 }))
             }

@@ -214,7 +214,7 @@ impl Environment {
             }
             BlockParams::Theorem(theorem_name) => {
                 let theorem_type = self.bindings.get_type(theorem_name).unwrap().clone();
-                let unbound_claim = AcornValue::new_monomorph(
+                let unbound_claim = AcornValue::new_specialized(
                     self.namespace,
                     theorem_name.to_string(),
                     theorem_type,

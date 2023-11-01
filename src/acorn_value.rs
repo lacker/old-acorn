@@ -225,8 +225,8 @@ impl AcornValue {
         }
     }
 
-    // Construct a monomorph if we have generic types, but otherwise just return the atom.
-    pub fn new_monomorph(
+    // Make a Constant or a Specialized depending on whether we have params.
+    pub fn new_specialized(
         namespace: NamespaceId,
         name: String,
         constant_type: AcornType,
@@ -766,7 +766,7 @@ impl AcornValue {
             AcornValue::Specialized(namespace, name, _, params) => {
                 if let Some(replacement) = replacer(*namespace, name) {
                     // We do need to replace this
-                    replacement.monomorphize(params)
+                    replacement.specialize(params)
                 } else {
                     // We don't need to replace this
                     self.clone()
@@ -877,11 +877,8 @@ impl AcornValue {
         }
     }
 
-    // A value is monomorphized by replacing *all* parametric types with concrete types.
-    // For example, the definition of a polymorphic function or a theorem is stored with
-    // parameters. However, in the context where it is applied, or used in the prover,
-    // we should be able to figure out its monomorphization from the context.
-    pub fn monomorphize(&self, params: &[(String, AcornType)]) -> AcornValue {
+    // Replace some parametric types with other types.
+    pub fn specialize(&self, params: &[(String, AcornType)]) -> AcornValue {
         match self {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.specialize(params))
@@ -893,7 +890,10 @@ impl AcornValue {
                 }
                 assert!(t.is_parametric());
 
-                // Match up names to monomorphize
+                // TODO: this branch should be eliminated by no longer using parametric constants
+                // outside of parsing
+
+                // Match up names to specialize
                 let mut out_params = vec![];
                 for name in c_params {
                     let mut found = false;
@@ -911,36 +911,34 @@ impl AcornValue {
                 AcornValue::Specialized(*namespace, name.clone(), t.clone(), out_params)
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
-                function: Box::new(app.function.monomorphize(params)),
-                args: app.args.iter().map(|x| x.monomorphize(params)).collect(),
+                function: Box::new(app.function.specialize(params)),
+                args: app.args.iter().map(|x| x.specialize(params)).collect(),
             }),
             AcornValue::Lambda(args, value) => AcornValue::Lambda(
                 args.iter()
                     .map(|x| x.specialize(params))
                     .collect::<Vec<_>>(),
-                Box::new(value.monomorphize(params)),
+                Box::new(value.specialize(params)),
             ),
             AcornValue::ForAll(args, value) => AcornValue::ForAll(
                 args.iter()
                     .map(|x| x.specialize(params))
                     .collect::<Vec<_>>(),
-                Box::new(value.monomorphize(params)),
+                Box::new(value.specialize(params)),
             ),
             AcornValue::Exists(args, value) => AcornValue::Exists(
                 args.iter()
                     .map(|x| x.specialize(params))
                     .collect::<Vec<_>>(),
-                Box::new(value.monomorphize(params)),
+                Box::new(value.specialize(params)),
             ),
             AcornValue::Binary(op, left, right) => AcornValue::Binary(
                 *op,
-                Box::new(left.monomorphize(params)),
-                Box::new(right.monomorphize(params)),
+                Box::new(left.specialize(params)),
+                Box::new(right.specialize(params)),
             ),
-            AcornValue::Not(x) => AcornValue::Not(Box::new(x.monomorphize(params))),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.specialize(params))),
             AcornValue::Specialized(namespace, name, base_type, params) => {
-                // I think we should alter the types within params.
-                // I'm not entirely sure. I'm not aware of any test hitting this.
                 let out_params: Vec<_> = params
                     .iter()
                     .map(|(name, t)| (name.clone(), t.specialize(params)))
@@ -997,7 +995,7 @@ impl AcornValue {
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.parametrize(namespace, type_names))),
             AcornValue::Specialized(c_namespace, c_name, c_type, params) => {
                 if true {
-                    // Old way
+                    // Old way. TODO: eliminate this branch
                     if params.len() > 1 {
                         todo!("parametrize monomorphs with multiple types");
                     }

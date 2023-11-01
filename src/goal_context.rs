@@ -42,7 +42,7 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
             continue;
         }
         for monomorph_key in monomorph_keys.unwrap() {
-            let monomorph = fact.monomorphize(&monomorph_key.params);
+            let monomorph = fact.specialize(&monomorph_key.params);
             answer.push(monomorph);
         }
     }
@@ -146,7 +146,7 @@ impl DependencyGraph {
                 // that make sense for the constant alone. The names of the parameters in the fact
                 // could be totally different from the names of the parameters in the constant's
                 // definition.
-                let monomorph = facts[fact_id].monomorphize(&monomorph_key.params);
+                let monomorph = facts[fact_id].specialize(&monomorph_key.params);
 
                 self.inspect_value(facts, &monomorph);
             }
