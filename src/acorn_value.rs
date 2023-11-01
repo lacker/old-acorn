@@ -952,20 +952,90 @@ impl AcornValue {
         }
     }
 
+    // parametrize should only be called on concrete types.
+    // It replaces every data type with the given namespace and name with a type parameter.
+    pub fn parametrize(&self, namespace: NamespaceId, type_names: &[String]) -> AcornValue {
+        match self {
+            AcornValue::Variable(i, var_type) => {
+                AcornValue::Variable(*i, var_type.parametrize(namespace, type_names))
+            }
+            AcornValue::Constant(_, _, _, params) => {
+                if !params.is_empty() {
+                    panic!("we should only be genericizing concrete values");
+                }
+                self.clone()
+            }
+            AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
+                function: Box::new(app.function.parametrize(namespace, type_names)),
+                args: app
+                    .args
+                    .iter()
+                    .map(|x| x.parametrize(namespace, type_names))
+                    .collect(),
+            }),
+            AcornValue::Lambda(args, value) => AcornValue::Lambda(
+                args.iter()
+                    .map(|x| x.parametrize(namespace, type_names))
+                    .collect(),
+                Box::new(value.parametrize(namespace, type_names)),
+            ),
+            AcornValue::ForAll(args, value) => AcornValue::ForAll(
+                args.iter()
+                    .map(|x| x.parametrize(namespace, type_names))
+                    .collect(),
+                Box::new(value.parametrize(namespace, type_names)),
+            ),
+            AcornValue::Exists(args, value) => AcornValue::Exists(
+                args.iter()
+                    .map(|x| x.parametrize(namespace, type_names))
+                    .collect(),
+                Box::new(value.parametrize(namespace, type_names)),
+            ),
+            AcornValue::Binary(op, left, right) => AcornValue::Binary(
+                *op,
+                Box::new(left.parametrize(namespace, type_names)),
+                Box::new(right.parametrize(namespace, type_names)),
+            ),
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.parametrize(namespace, type_names))),
+            AcornValue::Monomorph(c_namespace, c_name, c_type, params) => {
+                if params.len() > 1 {
+                    todo!("parametrize monomorphs with multiple types");
+                }
+
+                let (name, t) = &params[0];
+                if t.equals_data_type(namespace, name) {
+                    // TODO: could this be a monomorph instead? we'd have to describe this in the
+                    // comment to AcornValue::Monomorph.
+                    return AcornValue::Constant(
+                        *c_namespace,
+                        c_name.clone(),
+                        c_type.clone(),
+                        vec![name.clone()],
+                    );
+                }
+
+                if t.refers_to(namespace, name) {
+                    todo!("parametrize monomorphs with complex types");
+                }
+
+                self.clone()
+            }
+        }
+    }
+
     // Replaces a data type with a generic type.
     pub fn genericize(&self, namespace: NamespaceId, name: &str) -> AcornValue {
         match self {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.genericize(namespace, name))
             }
-            AcornValue::Constant(const_namespace, name, t, params) => {
-                // TODO: use params differently? seems wrong
-                AcornValue::Constant(
-                    *const_namespace,
-                    name.clone(),
-                    t.genericize(namespace, name),
-                    params.clone(),
-                )
+            AcornValue::Constant(_, name, t, params) => {
+                if !params.is_empty() {
+                    panic!("we should only be genericizing concrete values");
+                }
+                let new_type = t.genericize(namespace, name);
+                assert_eq!(t, &new_type);
+                self.clone()
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.genericize(namespace, name)),

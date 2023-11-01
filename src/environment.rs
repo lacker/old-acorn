@@ -127,7 +127,7 @@ impl Block {
 
         // Replace all of the constants that only exist in the inside environment
         let replaced = inner_value.replace_constants_with_vars(outer_env.namespace, &map);
-        let replaced = self.env.bindings.parametrize(&self.type_params, replaced);
+        let replaced = replaced.parametrize(self.env.namespace, &self.type_params);
         AcornValue::new_forall(forall_types, AcornValue::new_exists(exists_types, replaced))
     }
 }

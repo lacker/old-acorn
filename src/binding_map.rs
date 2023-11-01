@@ -749,7 +749,7 @@ impl BindingMap {
         } else {
             let specific_value =
                 self.evaluate_value(project, value_expr, Some(&specific_value_type))?;
-            let generic_value = self.parametrize(&type_param_names, specific_value);
+            let generic_value = specific_value.parametrize(self.namespace, &type_param_names);
             Some(generic_value)
         };
 
@@ -778,12 +778,8 @@ impl BindingMap {
     // parametrize takes a value that should be concrete - no type parameters at all -
     // but replaces some of the data types with parameters of the same name.
     // It replaces a type when it's in this namespace, and its name is in type_names.
-    pub fn parametrize(&self, type_names: &[String], value: AcornValue) -> AcornValue {
-        let mut value = value;
-        for name in type_names {
-            value = value.genericize(self.namespace, name);
-        }
-        value
+    pub fn xparametrize(&self, type_names: &[String], value: AcornValue) -> AcornValue {
+        value.parametrize(self.namespace, type_names)
     }
 
     // Finds the names of all constants that are in this namespace but unknown to this binding map.
