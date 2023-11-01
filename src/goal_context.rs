@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 
 use tower_lsp::lsp_types::Range;
 
@@ -43,6 +44,9 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
         }
         for monomorph_key in monomorph_keys.unwrap() {
             let monomorph = fact.specialize(&monomorph_key.params);
+            if monomorph.is_parametric() {
+                panic!("monomorph {} is still parametric", monomorph);
+            }
             answer.push(monomorph);
         }
     }
@@ -54,6 +58,31 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
 struct MonomorphKey {
     // Sorted
     params: Vec<(String, AcornType)>,
+}
+
+impl fmt::Display for MonomorphKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (i, (name, t)) in self.params.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{} => {}", name, t)?;
+        }
+        Ok(())
+    }
+}
+
+impl MonomorphKey {
+    fn new(params: Vec<(String, AcornType)>) -> MonomorphKey {
+        let mut params = params;
+        params.sort();
+        for (name, t) in &params {
+            if t.is_parametric() {
+                panic!("bad monomorphization: {} = {}", name, t);
+            }
+        }
+        MonomorphKey { params }
+    }
 }
 
 // A helper structure to determine which monomorphs are necessary.
@@ -81,7 +110,7 @@ impl DependencyGraph {
         let mut facts_for_constant = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
             let mut polymorphic_fns = vec![];
-            fact.find_polymorphic(&mut polymorphic_fns);
+            fact.find_parametric(&mut polymorphic_fns);
             if polymorphic_fns.is_empty() {
                 if let AcornValue::ForAll(args, _) = fact {
                     if args.iter().any(|arg| arg.is_parametric()) {
@@ -158,7 +187,7 @@ impl DependencyGraph {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {
-            self.add_monomorph(facts, constant_key, &MonomorphKey { params });
+            self.add_monomorph(facts, constant_key, &MonomorphKey::new(params));
         }
     }
 }

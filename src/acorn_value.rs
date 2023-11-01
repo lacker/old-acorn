@@ -116,8 +116,8 @@ impl fmt::Display for Subvalue<'_> {
             AcornValue::ForAll(args, body) => fmt_binder(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_binder(f, "exists", args, body, self.stack_size),
             AcornValue::Specialized(_, name, _, params) => {
-                let param_names: Vec<_> = params.iter().map(|(name, _)| name.to_string()).collect();
-                write!(f, "{}<{}>", name, param_names.join(", "))
+                let types: Vec<_> = params.iter().map(|(_, t)| t.to_string()).collect();
+                write!(f, "{}<{}>", name, types.join(", "))
             }
         }
     }
@@ -938,8 +938,8 @@ impl AcornValue {
                 Box::new(right.specialize(params)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.specialize(params))),
-            AcornValue::Specialized(namespace, name, base_type, params) => {
-                let out_params: Vec<_> = params
+            AcornValue::Specialized(namespace, name, base_type, in_params) => {
+                let out_params: Vec<_> = in_params
                     .iter()
                     .map(|(name, t)| (name.clone(), t.specialize(params)))
                     .collect();
@@ -994,52 +994,45 @@ impl AcornValue {
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.parametrize(namespace, type_names))),
             AcornValue::Specialized(c_namespace, c_name, c_type, params) => {
-                if true {
-                    // Old way. TODO: eliminate this branch
-                    if params.len() > 1 {
-                        todo!("parametrize monomorphs with multiple types");
-                    }
-
-                    let (name, t) = &params[0];
-                    if t.equals_data_type(namespace, name) {
-                        // TODO: could this be a monomorph instead? we'd have to describe this in the
-                        // comment to AcornValue::Monomorph.
-                        return AcornValue::Constant(
-                            *c_namespace,
-                            c_name.clone(),
-                            c_type.clone(),
-                            vec![name.clone()],
-                        );
-                    }
-
-                    if t.refers_to(namespace, name) {
-                        todo!("parametrize monomorphs with complex types");
-                    }
-
-                    self.clone()
-                } else {
-                    // New way
-                    let mut out_params = vec![];
-                    for (param_name, t) in params {
-                        out_params.push((param_name.clone(), t.parametrize(namespace, type_names)));
-                    }
-                    AcornValue::Specialized(
-                        *c_namespace,
-                        c_name.clone(),
-                        c_type.clone(),
-                        out_params,
-                    )
+                // New way
+                let mut out_params = vec![];
+                for (param_name, t) in params {
+                    out_params.push((param_name.clone(), t.parametrize(namespace, type_names)));
                 }
+                AcornValue::Specialized(*c_namespace, c_name.clone(), c_type.clone(), out_params)
             }
         }
     }
 
-    // Finds all polymorphic constants used in this value.
-    pub fn find_polymorphic(&self, output: &mut Vec<ConstantKey>) {
+    // Whether anything in this value has unbound type parameters.
+    pub fn is_parametric(&self) -> bool {
+        match self {
+            AcornValue::Variable(_, t) => t.is_parametric(),
+            AcornValue::Constant(_, _, t, _) => t.is_parametric(),
+            AcornValue::Application(app) => {
+                app.function.is_parametric() || app.args.iter().any(|x| x.is_parametric())
+            }
+            AcornValue::Lambda(args, value)
+            | AcornValue::ForAll(args, value)
+            | AcornValue::Exists(args, value) => {
+                args.iter().any(|x| x.is_parametric()) || value.is_parametric()
+            }
+            AcornValue::Binary(_, left, right) => left.is_parametric() || right.is_parametric(),
+            AcornValue::Not(x) => x.is_parametric(),
+            AcornValue::Specialized(_, _, _, params) => {
+                params.iter().any(|(_, t)| t.is_parametric())
+            }
+        }
+    }
+
+    // Finds all parametric constants used in this value.
+    // This includes constants that are specialized but still have parameters in them.
+    pub fn find_parametric(&self, output: &mut Vec<ConstantKey>) {
         match self {
             AcornValue::Variable(_, _) => {}
             AcornValue::Constant(namespace, name, t, _) => {
                 if t.is_parametric() {
+                    // TODO: remove this case. Shouldn't this only exist during parsing?
                     output.push(ConstantKey {
                         namespace: *namespace,
                         name: name.clone(),
@@ -1047,20 +1040,30 @@ impl AcornValue {
                 }
             }
             AcornValue::Application(app) => {
-                app.function.find_polymorphic(output);
+                app.function.find_parametric(output);
                 for arg in &app.args {
-                    arg.find_polymorphic(output);
+                    arg.find_parametric(output);
                 }
             }
             AcornValue::Lambda(_, value)
             | AcornValue::ForAll(_, value)
-            | AcornValue::Exists(_, value) => value.find_polymorphic(output),
+            | AcornValue::Exists(_, value) => value.find_parametric(output),
             AcornValue::Binary(_, left, right) => {
-                left.find_polymorphic(output);
-                right.find_polymorphic(output);
+                left.find_parametric(output);
+                right.find_parametric(output);
             }
-            AcornValue::Not(x) => x.find_polymorphic(output),
-            AcornValue::Specialized(_, _, _, _) => {}
+            AcornValue::Not(x) => x.find_parametric(output),
+            AcornValue::Specialized(namespace, name, _, params) => {
+                for (_, t) in params {
+                    if t.is_parametric() {
+                        output.push(ConstantKey {
+                            namespace: *namespace,
+                            name: name.clone(),
+                        });
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -1083,6 +1086,12 @@ impl AcornValue {
             }
             AcornValue::Not(x) => x.find_monomorphs(output),
             AcornValue::Specialized(namespace, name, _, params) => {
+                for (_, t) in params {
+                    if t.is_parametric() {
+                        // This is not a monomorphization
+                        return;
+                    }
+                }
                 let key = ConstantKey {
                     namespace: *namespace,
                     name: name.clone(),
