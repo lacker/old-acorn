@@ -253,7 +253,7 @@ impl Environment {
         // Check if we're adding invalid claims.
         prop.claim
             .validate()
-            .unwrap_or_else(|e| panic!("invalid claim: {} ({})", self.value_str(&prop.claim), e,));
+            .unwrap_or_else(|e| panic!("invalid claim: {} ({})", prop.claim, e));
 
         self.propositions.push(prop);
     }
@@ -340,7 +340,7 @@ impl Environment {
         if let Some(name) = &prop.display_name {
             name.clone()
         } else {
-            self.value_str(&prop.claim)
+            prop.claim.to_string()
         }
     }
 
@@ -353,10 +353,6 @@ impl Environment {
             }
         }
         panic!("no proposition named {}", name);
-    }
-
-    pub fn value_str(&self, value: &AcornValue) -> String {
-        value.to_string()
     }
 
     // Adds a statement to the environment.
@@ -1000,7 +996,7 @@ impl Environment {
             Some(t) => t,
             None => panic!("{} not found in environment", name),
         };
-        assert_eq!(self.value_str(&env_value), value_string);
+        assert_eq!(env_value.to_string(), value_string);
     }
 
     // Assert that these two names are defined to equal the same thing

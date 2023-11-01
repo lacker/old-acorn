@@ -144,11 +144,7 @@ impl Prover<'_> {
 
     fn normalize_proposition(&mut self, proposition: AcornValue) -> Vec<Clause> {
         proposition.validate().unwrap_or_else(|e| {
-            panic!(
-                "validation error: {} while adding proposition to prover: {}",
-                e,
-                self.env.value_str(&proposition)
-            );
+            panic!("validation error: {} while normalizing: {}", e, proposition);
         });
         assert_eq!(proposition.get_type(), AcornType::Bool);
         let answer = self.normalizer.normalize(proposition);
@@ -321,11 +317,11 @@ impl Prover<'_> {
     pub fn print_env(&self) {
         cprintln!(self, "facts:");
         for fact in &self.facts {
-            cprintln!(self, "  {}", self.env.value_str(fact));
+            cprintln!(self, "  {}", fact);
         }
         cprintln!(self, "goal:");
         if let Some(goal) = &self.goal {
-            cprintln!(self, "  {}", self.env.value_str(goal));
+            cprintln!(self, "  {}", goal);
         } else {
             cprintln!(self, "  none");
         }

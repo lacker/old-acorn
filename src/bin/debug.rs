@@ -81,7 +81,7 @@ fn main() {
         if let Some(constant_str) = trim_command("define", &line) {
             let env = goals[current].env;
             if let Some(definition) = env.get_definition(constant_str) {
-                println!("{} = {}", constant_str, env.value_str(definition));
+                println!("{} = {}", constant_str, definition);
             } else {
                 println!("{} is not a defined constant", constant_str);
             }
