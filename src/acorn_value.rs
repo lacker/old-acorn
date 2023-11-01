@@ -61,6 +61,8 @@ pub enum AcornValue {
     // The type parameters can be empty.
     // The type parameters must be used in the type of this constant, because
     // we need to be able to infer the monomorph whenever this constant is applied.
+    // Conversely, every type parameter used in the definition of this constant must be
+    // present in the parameter list.
     Constant(NamespaceId, String, AcornType, Vec<String>),
 
     Application(FunctionApplication),
@@ -77,10 +79,11 @@ pub enum AcornValue {
     ForAll(Vec<AcornType>, Box<AcornValue>),
     Exists(Vec<AcornType>, Box<AcornValue>),
 
-    // The monomorphized version of a constant polymorphic function.
+    // The monomorphized version of a polymorphic constant.
+    // (namespace, constant name, type, (type parameter, type) mapping)
     // The type is the polymorphic type of the constant.
     // The vector parameter maps parameter names to types they were monomorphized to.
-    // The type parameters cannot be empty - that is just a Constant.
+    // The parameters cannot be empty - that should be a Constant rather than a Monomorph.
     Monomorph(NamespaceId, String, AcornType, Vec<(String, AcornType)>),
 }
 
@@ -876,6 +879,10 @@ impl AcornValue {
         }
     }
 
+    // A value is monomorphized by replacing *all* parametric types with concrete types.
+    // For example, the definition of a polymorphic function or a theorem is stored with
+    // parameters. However, in the context where it is applied, or used in the prover,
+    // we should be able to figure out its monomorphization from the context.
     pub fn monomorphize(&self, params: &[(String, AcornType)]) -> AcornValue {
         match self {
             AcornValue::Variable(i, var_type) => {

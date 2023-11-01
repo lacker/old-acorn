@@ -211,6 +211,7 @@ impl AcornType {
         }
     }
 
+    // A type is monomorphized by replacing *all* parametric types with concrete types.
     pub fn monomorphize(&self, params: &[(String, AcornType)]) -> AcornType {
         match self {
             AcornType::Parameter(name) => {
