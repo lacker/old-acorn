@@ -11,17 +11,13 @@ use crate::atom::Atom;
 use crate::clause::Clause;
 use crate::clause_info::{ClauseInfo, ClauseType, ProofStep};
 use crate::display::DisplayClause;
-use crate::environment::Environment;
 use crate::goal_context::{monomorphize_facts, GoalContext};
 use crate::normalizer::Normalizer;
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
 use crate::synthesizer::Synthesizer;
 
-pub struct Prover<'a> {
-    // The environment in which all the AcornValues we are passed live.
-    env: &'a Environment,
-
+pub struct Prover {
     // The normalizer is used when we are turning the facts and goals from the environment into
     // clauses that we can use internally.
     normalizer: Normalizer,
@@ -93,15 +89,14 @@ pub enum Outcome {
     Unknown,
 }
 
-impl Prover<'_> {
+impl Prover {
     pub fn new<'a>(
         project: &'a Project,
         goal_context: &'a GoalContext<'a>,
         verbose: bool,
         print_queue: Option<Arc<SegQueue<String>>>,
-    ) -> Prover<'a> {
+    ) -> Prover {
         let mut p = Prover {
-            env: goal_context.env,
             normalizer: Normalizer::new(),
             synthesizer: Synthesizer::new(),
             facts: Vec::new(),
