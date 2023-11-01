@@ -757,7 +757,7 @@ impl BindingMap {
         let generic_value_type = specific_value_type.parametrize(self.namespace, &type_param_names);
         let generic_arg_types = specific_arg_types
             .into_iter()
-            .map(|t| self.parametrize_type(&type_param_names, t))
+            .map(|t| t.parametrize(self.namespace, &type_param_names))
             .collect();
 
         // Reset the bindings
@@ -784,13 +784,6 @@ impl BindingMap {
             value = value.genericize(self.namespace, name);
         }
         value
-    }
-
-    // parametrize_type takes a type that should be concrete - no type parameters at all -
-    // but replaces some of the data types with parameters of the same name.
-    // It replaces a type when it's in this namespace, and its name is in type_names.
-    fn parametrize_type(&self, type_params: &[String], specific_type: AcornType) -> AcornType {
-        specific_type.parametrize(self.namespace, type_params)
     }
 
     // Finds the names of all constants that are in this namespace but unknown to this binding map.
