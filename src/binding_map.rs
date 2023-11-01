@@ -578,7 +578,7 @@ impl BindingMap {
                 for (i, arg_expr) in arg_exprs.iter().enumerate() {
                     let arg_type = &function_type.arg_types[i];
                     let arg_value = self.evaluate_value(project, arg_expr, None)?;
-                    if !arg_type.match_monomorph(&arg_value.get_type(), &mut mapping) {
+                    if !arg_type.match_specialized(&arg_value.get_type(), &mut mapping) {
                         return Err(Error::new(
                             arg_expr.token(),
                             &format!(

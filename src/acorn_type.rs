@@ -231,42 +231,40 @@ impl AcornType {
         }
     }
 
-    // Tries to monomorphize self to get monomorph.
+    // Figures out whether it is possible to specialize self to get specialized.
     // Fills in a mapping for any parametric types that need to be specified, in order to make it match.
+    // This will include "Foo" -> Parameter("Foo") mappings for types that should remain the same.
+    // Every parameter used in self will get a mapping entry.
     // Returns whether it was successful.
-    pub fn match_monomorph(
+    pub fn match_specialized(
         &self,
-        monomorph: &AcornType,
+        specialized: &AcornType,
         mapping: &mut HashMap<String, AcornType>,
     ) -> bool {
-        if self == monomorph {
-            return true;
-        }
-
-        match (self, monomorph) {
+        match (self, specialized) {
             (AcornType::Parameter(name), _) => {
                 if let Some(t) = mapping.get(name) {
                     // This parametric type is already mapped
-                    return t == monomorph;
+                    return t == specialized;
                 }
-                mapping.insert(name.clone(), monomorph.clone());
+                mapping.insert(name.clone(), specialized.clone());
                 true
             }
             (AcornType::Function(f), AcornType::Function(g)) => {
                 if f.arg_types.len() != g.arg_types.len() {
                     return false;
                 }
-                if !f.return_type.match_monomorph(&g.return_type, mapping) {
+                if !f.return_type.match_specialized(&g.return_type, mapping) {
                     return false;
                 }
                 for (f_arg_type, g_arg_type) in f.arg_types.iter().zip(&g.arg_types) {
-                    if !f_arg_type.match_monomorph(g_arg_type, mapping) {
+                    if !f_arg_type.match_specialized(g_arg_type, mapping) {
                         return false;
                     }
                 }
                 true
             }
-            _ => false,
+            _ => self == specialized,
         }
     }
 
