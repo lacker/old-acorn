@@ -208,32 +208,6 @@ impl AcornType {
         }
     }
 
-    // Replaces the type with the given namespace and name with a parameter of the same name.
-    pub fn genericize(&self, data_type_namespace: NamespaceId, data_type_name: &str) -> AcornType {
-        match self {
-            AcornType::Function(function_type) => AcornType::Function(FunctionType {
-                arg_types: function_type
-                    .arg_types
-                    .iter()
-                    .map(|t| t.genericize(data_type_namespace, data_type_name))
-                    .collect(),
-                return_type: Box::new(
-                    function_type
-                        .return_type
-                        .genericize(data_type_namespace, data_type_name),
-                ),
-            }),
-            AcornType::Data(namespace, name) => {
-                if *namespace == data_type_namespace && name == data_type_name {
-                    AcornType::Parameter(name.to_string())
-                } else {
-                    self.clone()
-                }
-            }
-            _ => self.clone(),
-        }
-    }
-
     // A type is monomorphized by replacing *all* parametric types with concrete types.
     pub fn monomorphize(&self, params: &[(String, AcornType)]) -> AcornType {
         match self {
