@@ -775,13 +775,6 @@ impl BindingMap {
         ))
     }
 
-    // parametrize takes a value that should be concrete - no type parameters at all -
-    // but replaces some of the data types with parameters of the same name.
-    // It replaces a type when it's in this namespace, and its name is in type_names.
-    pub fn xparametrize(&self, type_names: &[String], value: AcornValue) -> AcornValue {
-        value.parametrize(self.namespace, type_names)
-    }
-
     // Finds the names of all constants that are in this namespace but unknown to this binding map.
     // Does not deduplicate
     pub fn find_unknown_local_constants(
