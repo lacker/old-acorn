@@ -969,7 +969,19 @@ mod tests {
             type Nat: axiom
             let 0: Nat = axiom
             theorem goal: foo(0)
-            "#;
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_parameter_name_can_change() {
+        let text = r#"
+            define foo<T>(a: T) -> bool = axiom
+            axiom foo_true<U>(a: U): foo(a)
+            type Nat: axiom
+            let 0: Nat = axiom
+            theorem goal: foo(0)
+        "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
