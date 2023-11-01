@@ -57,8 +57,10 @@ pub enum AcornValue {
     Variable(AtomId, AcornType),
 
     // A constant, defined in a particular namespace.
-    // (namespace, constant name, type, any type parameters this constant puts into scope)
+    // (namespace, constant name, type, type parameters)
     // The type parameters can be empty.
+    // These type parameters must be used in the type of this constant, because
+    // we need to be able to infer the monomorph whenever this constant is applied.
     Constant(NamespaceId, String, AcornType, Vec<String>),
 
     Application(FunctionApplication),
