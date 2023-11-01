@@ -38,20 +38,11 @@ pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornV
     let mut answer = vec![];
     for (fact, monomorph_keys) in facts.iter().zip(graph.monomorphs_for_fact) {
         if monomorph_keys.is_none() {
-            if fact.is_parametric() {
-                panic!(
-                    "allegedly non-polymorphic fact {} still has type parameters",
-                    fact
-                );
-            }
             answer.push(fact.clone());
             continue;
         }
         for monomorph_key in monomorph_keys.unwrap() {
             let monomorph = fact.monomorphize(&monomorph_key.params);
-            if monomorph.is_parametric() {
-                panic!("alleged monomorph {} still has type parameters", monomorph);
-            }
             answer.push(monomorph);
         }
     }

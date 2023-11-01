@@ -1092,23 +1092,6 @@ impl AcornValue {
         }
     }
 
-    // A value is parametric if any of its components have a parametric type.
-    pub fn is_parametric(&self) -> bool {
-        match self {
-            AcornValue::Variable(_, t) | AcornValue::Constant(_, _, t, _) => t.is_parametric(),
-
-            AcornValue::Application(app) => {
-                app.function.is_parametric() || app.args.iter().any(|x| x.is_parametric())
-            }
-            AcornValue::Lambda(_, value)
-            | AcornValue::ForAll(_, value)
-            | AcornValue::Exists(_, value) => value.is_parametric(),
-            AcornValue::Binary(_, left, right) => left.is_parametric() || right.is_parametric(),
-            AcornValue::Not(x) => x.is_parametric(),
-            AcornValue::Monomorph(_, _, _, _) => false,
-        }
-    }
-
     // Converts all the parametrized types to placeholder types.
     pub fn to_placeholder(&self) -> AcornValue {
         match self {
