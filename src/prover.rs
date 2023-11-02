@@ -144,10 +144,7 @@ impl Prover {
 
         // Load facts into the prover
         for fact in monomorphic_facts {
-            if p.add_fact(fact) == Outcome::Inconsistent {
-                p.final_step = Some(ProofStep::assumption());
-                return p;
-            }
+            p.add_fact(fact);
         }
         p.add_goal(goal_context.goal.clone());
         p
@@ -195,19 +192,21 @@ impl Prover {
         }
     }
 
-    // Returns Outcome::Inconsistent if this fact is inconsistent.
-    pub fn add_fact(&mut self, proposition: AcornValue) -> Outcome {
+    pub fn add_fact(&mut self, proposition: AcornValue) {
         self.facts.push(proposition.clone());
         let clauses = match self.normalize_proposition(proposition) {
             Some(clauses) => clauses,
-            None => return Outcome::Inconsistent,
+            None => {
+                // We have a false assumption, so we're done already.
+                self.final_step = Some(ProofStep::assumption());
+                return;
+            }
         };
         for clause in clauses {
             let info =
                 self.new_clause_info(clause, ClauseType::Fact, ProofStep::assumption(), None);
             self.passive.push(info);
         }
-        Outcome::Unknown
     }
 
     pub fn add_goal(&mut self, proposition: AcornValue) {
@@ -216,12 +215,17 @@ impl Prover {
         let clauses = match self.normalize_proposition(proposition.to_placeholder().negate()) {
             Some(clauses) => clauses,
             None => {
-                // When we have a structurally impossible goal, we expect the contradiction to come
-                // from the facts.
+                // Our goal is trivially true, so we're done already.
                 self.expect_contradiction = true;
+                self.final_step = Some(ProofStep::assumption());
                 return;
             }
         };
+        if clauses.is_empty() {
+            // This goal is either explicitly "false" or simplifies to it.
+            // The user must intend for there to be a contradiction in the assumptions.
+            self.expect_contradiction = true;
+        }
         for clause in clauses {
             let info = self.new_clause_info(
                 clause,
