@@ -496,13 +496,25 @@ impl Prover {
 
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
         let clause_type = info.clause_type;
-        let new_clauses = self.active_set.generate(info);
+        let generated_clauses = self.active_set.generate(info);
 
         let generated_type = if clause_type == ClauseType::Fact {
             ClauseType::Fact
         } else {
             ClauseType::Impure
         };
+
+        // Simplify the generated clauses
+        let mut new_clauses = vec![];
+        for (clause, step) in generated_clauses {
+            if clause_type == ClauseType::Fact && step.proof_size > 2 {
+                // Limit fact-fact inference
+                continue;
+            }
+            if let Some(clause) = self.active_set.old_simplify(&clause, clause_type) {
+                new_clauses.push((clause, step));
+            }
+        }
 
         let print_limit = 30;
         if !new_clauses.is_empty() {

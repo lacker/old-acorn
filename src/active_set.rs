@@ -687,7 +687,7 @@ impl ActiveSet {
     }
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
-    // The generated clauses are simplified, but we will simplify them again at activation time.
+    // Does not simplify.
     // After generation, adds this clause to the active set.
     // Returns pairs describing how the generated clauses were proved.
     pub fn generate(&mut self, info: ClauseInfo) -> Vec<(Clause, ProofStep)> {
@@ -751,22 +751,8 @@ impl ActiveSet {
             ))
         }
 
-        let clause_type = info.clause_type;
         self.insert(info);
-
-        // Simplify the generated clauses
-        let mut simp_clauses = vec![];
-        for (clause, step) in generated_clauses {
-            if clause_type == ClauseType::Fact && step.proof_size > 2 {
-                // Limit fact-fact inference
-                continue;
-            }
-            if let Some(clause) = self.old_simplify(&clause, clause_type) {
-                simp_clauses.push((clause, step));
-            }
-        }
-
-        simp_clauses
+        generated_clauses
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
