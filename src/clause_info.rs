@@ -58,7 +58,7 @@ pub enum ProofRule {
 }
 
 // The ProofStep records how one clause was generated from other clauses.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProofStep {
     pub rule: ProofRule,
 
@@ -68,10 +68,14 @@ pub struct ProofStep {
     // The index of the already-activated clause in the active set we used, if there was any.
     pub existing: Option<usize>,
 
+    // The clauses that we used for rewrites.
+    pub rewrites: Vec<usize>,
+
     // The number of proof steps that this proof step depends on.
     // The size includes this proof step itself, but does not count assumptions and definitions.
     // So the size for any assumption or definition is zero.
     // This does not deduplicate among different branches, so it may be an overestimate.
+    // This also ignores rewrites, which doesn't really seem right, does it.
     pub proof_size: u32,
 }
 
@@ -81,6 +85,7 @@ impl ProofStep {
             rule: ProofRule::Assumption,
             activated: None,
             existing: None,
+            rewrites: vec![],
             proof_size: 0,
         }
     }
@@ -90,6 +95,7 @@ impl ProofStep {
             rule: ProofRule::Definition,
             activated: None,
             existing: None,
+            rewrites: vec![],
             proof_size: 0,
         }
     }

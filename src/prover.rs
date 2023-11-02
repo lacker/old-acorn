@@ -333,7 +333,7 @@ impl Prover {
         );
     }
 
-    pub fn print_proof_step(&self, preface: &str, clause: &Clause, ps: ProofStep) {
+    pub fn print_proof_step(&self, preface: &str, clause: &Clause, ps: &ProofStep) {
         cprintln!(
             self,
             "{}{:?} generated:\n    {}",
@@ -365,7 +365,7 @@ impl Prover {
     }
 
     pub fn print_proof(&self) {
-        let final_step = if let Some(final_step) = self.final_step {
+        let final_step = if let Some(final_step) = &self.final_step {
             final_step
         } else {
             cprintln!(self, "we do not have a proof");
@@ -403,13 +403,13 @@ impl Prover {
             let step = self.active_set.get_proof_step(i);
             let clause = self.active_set.get_clause(i);
             let preface = format!("clause {}: ", i);
-            self.print_proof_step(&preface, clause, *step);
+            self.print_proof_step(&preface, clause, step);
         }
         self.print_proof_step("final step: ", &Clause::impossible(), final_step);
     }
 
     // Returns None if the clause is redundant.
-    fn simplify(&mut self, info: &ClauseInfo) -> Option<ClauseInfo> {
+    fn simplify(&mut self, info: ClauseInfo) -> Option<ClauseInfo> {
         let new_clause = self.active_set.simplify(&info.clause, info.clause_type)?;
         Some(self.new_clause_info(
             new_clause,
@@ -431,7 +431,7 @@ impl Prover {
 
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
-        if let Some(ps) = self.final_step {
+        if let Some(ps) = self.final_step.take() {
             // We already found a contradiction, so we're done.
             return self.report_contradiction(ps);
         }
@@ -458,7 +458,7 @@ impl Prover {
             original_clause_string = self.display(&info.clause).to_string();
         }
 
-        let new_info = match self.simplify(&info) {
+        let info = match self.simplify(info) {
             Some(i) => i,
             None => {
                 // The clause is redundant, so skip it.
@@ -468,7 +468,7 @@ impl Prover {
                 return Outcome::Unknown;
             }
         };
-        let clause = &new_info.clause;
+        let clause = &info.clause;
         if verbose {
             simplified_clause_string = self.display(clause).to_string();
             if simplified_clause_string != original_clause_string {
@@ -515,7 +515,7 @@ impl Prover {
             };
             cprintln!(self, "activating{}: {}", prefix, simplified_clause_string);
         }
-        self.activate(new_info, verbose, tracing)
+        self.activate(info, verbose, tracing)
     }
 
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
@@ -544,11 +544,11 @@ impl Prover {
                     return self.report_contradiction(ps);
                 }
                 if tracing {
-                    self.print_proof_step("", &c, ps);
+                    self.print_proof_step("", &c, &ps);
                 } else if verbose && (i < print_limit) {
                     cprintln!(self, "  {}", self.display(&c));
                 } else if self.is_tracing(&c) {
-                    self.print_proof_step("", &c, ps);
+                    self.print_proof_step("", &c, &ps);
                 }
                 let info = self.new_clause_info(c, generated_type, ps, None);
                 self.passive.push(info);

@@ -656,6 +656,7 @@ impl ActiveSet {
                     rule: ProofRule::EqualityResolution,
                     activated,
                     existing: None,
+                    rewrites: vec![],
                     proof_size: activated_size + 1,
                 },
             ));
@@ -667,6 +668,7 @@ impl ActiveSet {
                     rule: ProofRule::EqualityFactoring,
                     activated,
                     existing: None,
+                    rewrites: vec![],
                     proof_size: activated_size + 1,
                 },
             ));
@@ -680,6 +682,7 @@ impl ActiveSet {
                     rule: ProofRule::ActivatingParamodulator,
                     activated,
                     existing: Some(i),
+                    rewrites: vec![],
                     proof_size: activated_size + existing_size + 1,
                 },
             ))
@@ -692,6 +695,7 @@ impl ActiveSet {
                     rule: ProofRule::ActivatingResolver,
                     activated,
                     existing: Some(i),
+                    rewrites: vec![],
                     proof_size: activated_size + existing_size + 1,
                 },
             ))
