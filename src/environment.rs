@@ -66,6 +66,15 @@ pub struct Proposition {
     pub range: Range,
 }
 
+impl Proposition {
+    pub fn name(&self) -> String {
+        match &self.display_name {
+            Some(name) => name.clone(),
+            None => self.claim.to_string(),
+        }
+    }
+}
+
 // Proofs are structured into blocks.
 // The environment specific to this block can have a bunch of propositions that need to be
 // proved, along with helper statements to express those propositions, but they are not
@@ -340,14 +349,6 @@ impl Environment {
             }
         }
         None
-    }
-
-    pub fn get_proposition_name(&self, prop: &Proposition) -> String {
-        if let Some(name) = &prop.display_name {
-            name.clone()
-        } else {
-            prop.claim.to_string()
-        }
     }
 
     pub fn get_proposition(&self, name: &str) -> &Proposition {
@@ -922,7 +923,7 @@ impl Environment {
                     return GoalContext::new(
                         &block.env,
                         facts,
-                        env.get_proposition_name(&prop),
+                        prop.name(),
                         block.env.inline_theorems(project, claim),
                         prop.range,
                     );
@@ -935,7 +936,7 @@ impl Environment {
                 return GoalContext::new(
                     &env,
                     facts,
-                    env.get_proposition_name(&prop),
+                    prop.name(),
                     env.inline_theorems(project, &prop.claim),
                     prop.range,
                 );
