@@ -626,6 +626,27 @@ mod tests {
         prove(&mut project, "main", goal_name)
     }
 
+    // Proves all the goals in the provided text, expecting success for all of them.
+    fn prove_all(text: &str) {
+        let mut project = Project::new_mock();
+        project.mock("/mock/main.ac", text);
+        let namespace = project.load("main").expect("load failed");
+        let env = match project.get_module(namespace) {
+            Module::Ok(env) => env,
+            Module::Error(e) => panic!("get_module error: {}", e),
+            _ => panic!("unexpected get_module result"),
+        };
+        let paths = env.goal_paths();
+        for path in paths {
+            let goal_context = env.get_goal_context(&project, &path);
+            println!("proving: {}", goal_context.name);
+            let mut prover = Prover::new(&project, &goal_context, false, None);
+            prover.verbose = true;
+            let outcome = prover.search_for_contradiction(2000, 2.0);
+            assert_eq!(outcome, Outcome::Success);
+        }
+    }
+
     const THING: &str = r#"
     type Thing: axiom
     let t: Thing = axiom
@@ -1062,6 +1083,18 @@ mod tests {
             theorem goal: b
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Inconsistent);
+    }
+
+    #[test]
+    fn test_proving_explicit_false_okay() {
+        prove_all(
+            r#"
+            let b: bool = axiom
+            if b != b {
+                false
+            }
+        "#,
+        );
     }
 
     // These tests are like integration tests. See the files in the `tests` directory.
