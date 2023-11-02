@@ -991,6 +991,20 @@ mod tests {
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
+    #[test]
+    fn test_finding_inconsistency() {
+        let text = r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            let foo: Nat -> bool = axiom
+            let bar: Nat -> bool = axiom
+            axiom foo_true: foo(0)
+            axiom foo_false: !foo(0)
+            theorem goal: bar(0)
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Inconsistent);
+    }
+
     // These tests are like integration tests. See the files in the `tests` directory.
 
     fn test_mono(name: &str) {
