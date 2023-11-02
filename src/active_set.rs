@@ -485,7 +485,7 @@ impl ActiveSet {
         Literal::new(literal.positive, left, right)
     }
 
-    fn evaluate_literal(&mut self, literal: &Literal) -> Option<bool> {
+    fn evaluate_literal(&self, literal: &Literal) -> Option<bool> {
         if literal.left == literal.right {
             return Some(literal.positive);
         }
@@ -499,7 +499,7 @@ impl ActiveSet {
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
-    pub fn simplify(&mut self, clause: &Clause, clause_type: ClauseType) -> Option<Clause> {
+    pub fn simplify(&self, clause: &Clause, clause_type: ClauseType) -> Option<Clause> {
         if clause.is_tautology() {
             return None;
         }
