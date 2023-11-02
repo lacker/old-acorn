@@ -84,6 +84,9 @@ pub enum AcornValue {
     // The vector parameter maps parameter names to types they were replaced with.
     // The parameters cannot be empty - that should just be a Constant.
     Specialized(NamespaceId, String, AcornType, Vec<(String, AcornType)>),
+
+    // A plain old bool. True or false
+    Bool(bool),
 }
 
 // An AcornValue has an implicit stack size that determines what index new stack variables
@@ -122,6 +125,7 @@ impl fmt::Display for Subvalue<'_> {
                 let types: Vec<_> = params.iter().map(|(_, t)| t.to_string()).collect();
                 write!(f, "{}<{}>", name, types.join(", "))
             }
+            AcornValue::Bool(b) => write!(f, "{}", b),
         }
     }
 }
@@ -186,6 +190,7 @@ impl AcornValue {
             AcornValue::ForAll(_, _) => AcornType::Bool,
             AcornValue::Exists(_, _) => AcornType::Bool,
             AcornValue::Specialized(_, _, c_type, params) => c_type.specialize(&params),
+            AcornValue::Bool(_) => AcornType::Bool,
         }
     }
 
@@ -422,7 +427,6 @@ impl AcornValue {
                 // This reference just needs to be shifted
                 AcornValue::Variable(i - values.len() as AtomId, var_type)
             }
-            AcornValue::Constant(_, _, _, _) => self.clone(),
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.bind_values(
                     first_binding_index,
@@ -470,7 +474,9 @@ impl AcornValue {
                     Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
-            AcornValue::Specialized(_, _, _, _) => self,
+            AcornValue::Constant(_, _, _, _)
+            | AcornValue::Specialized(_, _, _, _)
+            | AcornValue::Bool(_) => self,
         }
     }
 
@@ -515,7 +521,9 @@ impl AcornValue {
             AcornValue::Exists(quants, value) => {
                 AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
             }
-            AcornValue::Constant(_, _, _, _) | AcornValue::Specialized(_, _, _, _) => self,
+            AcornValue::Constant(_, _, _, _)
+            | AcornValue::Specialized(_, _, _, _)
+            | AcornValue::Bool(_) => self,
         }
     }
 
@@ -622,7 +630,8 @@ impl AcornValue {
             }
             AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
-            | AcornValue::Specialized(_, _, _, _) => self.clone(),
+            | AcornValue::Specialized(_, _, _, _)
+            | AcornValue::Bool(_) => self.clone(),
         }
     }
 
@@ -673,7 +682,8 @@ impl AcornValue {
             }
             AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
-            | AcornValue::Specialized(_, _, _, _) => self,
+            | AcornValue::Specialized(_, _, _, _)
+            | AcornValue::Bool(_) => self,
         }
     }
 
@@ -726,7 +736,7 @@ impl AcornValue {
                 }
                 self.clone()
             }
-            AcornValue::Variable(_, _) => self.clone(),
+            AcornValue::Variable(_, _) | AcornValue::Bool(_) => self.clone(),
             AcornValue::Application(fa) => {
                 let new_function = fa
                     .function
@@ -830,6 +840,7 @@ impl AcornValue {
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
             AcornValue::Specialized(_, _, _, _) => panic!("can this happen?"),
+            AcornValue::Bool(_) => self.clone(),
         }
     }
 
@@ -883,7 +894,7 @@ impl AcornValue {
                 right.validate_against_stack(stack)
             }
             AcornValue::Not(x) => x.validate_against_stack(stack),
-            AcornValue::Specialized(_, _, _, _) => Ok(()),
+            AcornValue::Specialized(_, _, _, _) | AcornValue::Bool(_) => Ok(()),
         }
     }
 
@@ -932,6 +943,7 @@ impl AcornValue {
                     .collect();
                 AcornValue::Specialized(*namespace, name.clone(), base_type.clone(), out_params)
             }
+            AcornValue::Bool(_) => self.clone(),
         }
     }
 
@@ -988,6 +1000,7 @@ impl AcornValue {
                 }
                 AcornValue::Specialized(*c_namespace, c_name.clone(), c_type.clone(), out_params)
             }
+            AcornValue::Bool(_) => self.clone(),
         }
     }
 
@@ -1009,13 +1022,14 @@ impl AcornValue {
             AcornValue::Specialized(_, _, _, params) => {
                 params.iter().any(|(_, t)| t.is_parametric())
             }
+            AcornValue::Bool(_) => false,
         }
     }
 
     // Finds all specialized constants used in this value that still have parameters in them.
     pub fn find_parametric(&self, output: &mut Vec<(ConstantKey, Vec<(String, AcornType)>)>) {
         match self {
-            AcornValue::Variable(_, _) => {}
+            AcornValue::Variable(_, _) | AcornValue::Bool(_) => {}
             AcornValue::Constant(_, _, _, params) => {
                 assert!(params.is_empty());
             }
@@ -1079,6 +1093,7 @@ impl AcornValue {
                 };
                 output.push((key, params.clone()));
             }
+            AcornValue::Bool(_) => {}
         }
     }
 
@@ -1113,7 +1128,7 @@ impl AcornValue {
                 Box::new(right.to_placeholder()),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.to_placeholder())),
-            AcornValue::Specialized(_, _, _, _) => self.clone(),
+            AcornValue::Specialized(_, _, _, _) | AcornValue::Bool(_) => self.clone(),
         }
     }
 }

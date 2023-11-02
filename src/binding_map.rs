@@ -783,7 +783,7 @@ impl BindingMap {
         answer: &mut HashMap<String, AcornType>,
     ) {
         match value {
-            AcornValue::Variable(_, _) => {}
+            AcornValue::Variable(_, _) | AcornValue::Bool(_) => {}
             AcornValue::Constant(namespace, name, t, _)
             | AcornValue::Specialized(namespace, name, t, _) => {
                 if *namespace == self.namespace && !self.constants.contains_key(name) {

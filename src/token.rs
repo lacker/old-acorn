@@ -42,6 +42,8 @@ pub enum TokenType {
     Function,
     Struct,
     Import,
+    True,
+    False,
 }
 
 pub const MAX_PRECEDENCE: i8 = 100;
@@ -266,29 +268,36 @@ impl Token {
     pub fn lsp_type(&self) -> Option<SemanticTokenType> {
         match self.token_type {
             TokenType::Identifier => Some(SemanticTokenType::VARIABLE),
-            TokenType::RightArrow => Some(SemanticTokenType::OPERATOR),
-            TokenType::Exclam => Some(SemanticTokenType::OPERATOR),
-            TokenType::Pipe => Some(SemanticTokenType::OPERATOR),
-            TokenType::Ampersand => Some(SemanticTokenType::OPERATOR),
-            TokenType::LeftRightArrow => Some(SemanticTokenType::OPERATOR),
-            TokenType::Equals => Some(SemanticTokenType::OPERATOR),
-            TokenType::NotEquals => Some(SemanticTokenType::OPERATOR),
-            TokenType::GreaterThan => Some(SemanticTokenType::OPERATOR),
-            TokenType::LessThan => Some(SemanticTokenType::OPERATOR),
-            TokenType::GreaterThanOrEquals => Some(SemanticTokenType::OPERATOR),
-            TokenType::LessThanOrEquals => Some(SemanticTokenType::OPERATOR),
-            TokenType::Plus => Some(SemanticTokenType::OPERATOR),
-            TokenType::Minus => Some(SemanticTokenType::OPERATOR),
-            TokenType::Let => Some(SemanticTokenType::KEYWORD),
-            TokenType::Axiom => Some(SemanticTokenType::KEYWORD),
-            TokenType::Define => Some(SemanticTokenType::KEYWORD),
-            TokenType::Theorem => Some(SemanticTokenType::KEYWORD),
-            TokenType::Type => Some(SemanticTokenType::KEYWORD),
-            TokenType::ForAll => Some(SemanticTokenType::KEYWORD),
-            TokenType::Exists => Some(SemanticTokenType::KEYWORD),
-            TokenType::If => Some(SemanticTokenType::KEYWORD),
-            TokenType::By => Some(SemanticTokenType::KEYWORD),
-            TokenType::Function => Some(SemanticTokenType::KEYWORD),
+
+            TokenType::RightArrow
+            | TokenType::Exclam
+            | TokenType::Pipe
+            | TokenType::Ampersand
+            | TokenType::LeftRightArrow
+            | TokenType::Equals
+            | TokenType::NotEquals
+            | TokenType::GreaterThan
+            | TokenType::LessThan
+            | TokenType::GreaterThanOrEquals
+            | TokenType::LessThanOrEquals
+            | TokenType::Plus
+            | TokenType::Minus => Some(SemanticTokenType::OPERATOR),
+
+            TokenType::Let
+            | TokenType::Axiom
+            | TokenType::Define
+            | TokenType::Theorem
+            | TokenType::Type
+            | TokenType::ForAll
+            | TokenType::Exists
+            | TokenType::If
+            | TokenType::By
+            | TokenType::Function
+            | TokenType::Struct
+            | TokenType::Import
+            | TokenType::True
+            | TokenType::False => Some(SemanticTokenType::KEYWORD),
+
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
                 if self.len > 1 {
@@ -391,6 +400,8 @@ impl Token {
                             "function" => TokenType::Function,
                             "struct" => TokenType::Struct,
                             "import" => TokenType::Import,
+                            "true" => TokenType::True,
+                            "false" => TokenType::False,
                             _ => TokenType::Identifier,
                         }
                     }
