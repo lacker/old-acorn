@@ -409,41 +409,52 @@ impl BindingMap {
     ) -> Result<AcornValue> {
         match expression {
             Expression::Identifier(token) => {
-                if token.token_type == TokenType::Axiom {
-                    panic!("axiomatic values should be handled elsewhere");
-                }
+                match token.token_type {
+                    TokenType::Axiom => panic!("axiomatic values should be handled elsewhere"),
 
-                if token.token_type.is_binder() {
-                    return Err(Error::new(
-                        token,
-                        "binder keywords cannot be used as values",
-                    ));
-                }
-
-                // Check the type for this identifier
-                let return_type = match self.identifier_types.get(token.text()) {
-                    Some(t) => {
-                        self.check_type(token, expected_type, t)?;
-                        t.clone()
-                    }
-                    None => {
+                    TokenType::ForAll | TokenType::Exists | TokenType::Function => {
                         return Err(Error::new(
                             token,
-                            &format!("the name {} is unbound", token.text()),
+                            "binder keywords cannot be used as values",
                         ));
                     }
-                };
 
-                // Figure out the value for this identifier
-                if let Some(acorn_value) = self.get_constant_value(token.text()) {
-                    Ok(acorn_value)
-                } else if let Some(stack_index) = self.stack.get(token.text()) {
-                    Ok(AcornValue::Variable(*stack_index, return_type.clone()))
-                } else {
-                    Err(Error::new(
+                    TokenType::True | TokenType::False => {
+                        self.check_type(token, expected_type, &AcornType::Bool)?;
+                        Ok(AcornValue::Bool(token.token_type == TokenType::True))
+                    }
+
+                    TokenType::Identifier => {
+                        // Check the type for this identifier
+                        let return_type = match self.identifier_types.get(token.text()) {
+                            Some(t) => {
+                                self.check_type(token, expected_type, t)?;
+                                t.clone()
+                            }
+                            None => {
+                                return Err(Error::new(
+                                    token,
+                                    &format!("the name {} is unbound", token.text()),
+                                ));
+                            }
+                        };
+
+                        // Figure out the value for this identifier
+                        if let Some(acorn_value) = self.get_constant_value(token.text()) {
+                            Ok(acorn_value)
+                        } else if let Some(stack_index) = self.stack.get(token.text()) {
+                            Ok(AcornValue::Variable(*stack_index, return_type.clone()))
+                        } else {
+                            Err(Error::new(
+                                token,
+                                "interpreter bug: name has a type but we lost track of it",
+                            ))
+                        }
+                    }
+                    _ => Err(Error::new(
                         token,
-                        "interpreter bug: name is bound but it has no value and is not on the stack",
-                    ))
+                        "unexpected identifier in value expression",
+                    )),
                 }
             }
             Expression::Unary(token, expr) => match token.token_type {

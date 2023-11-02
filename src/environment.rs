@@ -1443,4 +1443,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("type Nat: axiom");
         env.bad("let f: (bool, bool) -> bool = function(x: bool, Nat: bool) { x = x }");
     }
+
+    #[test]
+    fn test_parsing_true_false_keywords() {
+        let mut env = Environment::new_test();
+        env.add("let b: bool = true | false");
+    }
 }

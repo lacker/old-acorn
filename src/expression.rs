@@ -275,7 +275,9 @@ fn parse_partial_expressions(
             | TokenType::Axiom
             | TokenType::ForAll
             | TokenType::Exists
-            | TokenType::Function => {
+            | TokenType::Function
+            | TokenType::True
+            | TokenType::False => {
                 partial_expressions
                     .push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
