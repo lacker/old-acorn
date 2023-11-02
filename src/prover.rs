@@ -531,8 +531,8 @@ impl Prover {
             } else if self.is_tracing(&c) {
                 self.print_proof_step("", &c, &ps);
             }
-            if let Some(c) = self.active_set.old_simplify(&c, clause_type) {
-                let info = self.new_clause_info(c, generated_type, ps);
+            let info = self.new_clause_info(c, generated_type, ps);
+            if let Some(info) = self.active_set.simplify(info) {
                 self.passive.push(info);
             }
         }
