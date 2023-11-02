@@ -494,6 +494,8 @@ impl Prover {
         self.activate(info, verbose, tracing)
     }
 
+    // Generates clauses, then simplifies them, then adds them to the passive set.
+    // Clauses will get simplified again when they are activated.
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
         let clause_type = info.clause_type;
         let generated_clauses = self.active_set.generate(info);
@@ -504,40 +506,32 @@ impl Prover {
             ClauseType::Impure
         };
 
-        // Simplify the generated clauses
-        let mut new_clauses = vec![];
-        for (clause, step) in generated_clauses {
-            if clause_type == ClauseType::Fact && step.proof_size > 2 {
+        let print_limit = 30;
+        let len = generated_clauses.len();
+        if verbose && len > 0 {
+            cprintln!(
+                self,
+                "generated {} new clauses{}:",
+                len,
+                if len > print_limit { ", eg" } else { "" }
+            );
+        }
+        for (i, (c, ps)) in generated_clauses.into_iter().enumerate() {
+            if clause_type == ClauseType::Fact && ps.proof_size > 2 {
                 // Limit fact-fact inference
                 continue;
             }
-            if let Some(clause) = self.active_set.old_simplify(&clause, clause_type) {
-                new_clauses.push((clause, step));
+            if c.is_impossible() {
+                return self.report_contradiction(ps);
             }
-        }
-
-        let print_limit = 30;
-        if !new_clauses.is_empty() {
-            let len = new_clauses.len();
-            if verbose {
-                cprintln!(
-                    self,
-                    "generated {} new clauses{}:",
-                    len,
-                    if len > print_limit { ", eg" } else { "" }
-                );
+            if tracing {
+                self.print_proof_step("", &c, &ps);
+            } else if verbose && (i < print_limit) {
+                cprintln!(self, "  {}", self.display(&c));
+            } else if self.is_tracing(&c) {
+                self.print_proof_step("", &c, &ps);
             }
-            for (i, (c, ps)) in new_clauses.into_iter().enumerate() {
-                if c.is_impossible() {
-                    return self.report_contradiction(ps);
-                }
-                if tracing {
-                    self.print_proof_step("", &c, &ps);
-                } else if verbose && (i < print_limit) {
-                    cprintln!(self, "  {}", self.display(&c));
-                } else if self.is_tracing(&c) {
-                    self.print_proof_step("", &c, &ps);
-                }
+            if let Some(c) = self.active_set.old_simplify(&c, clause_type) {
                 let info = self.new_clause_info(c, generated_type, ps);
                 self.passive.push(info);
             }
