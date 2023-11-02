@@ -34,6 +34,9 @@ pub struct Environment {
 
     // The region in the source document where a name was defined
     definition_ranges: HashMap<String, Range>,
+
+    // Whether the facts in this environment include assumptions.
+    pub includes_assumptions: bool,
 }
 
 pub struct Proposition {
@@ -153,6 +156,7 @@ impl Environment {
             bindings: BindingMap::new(namespace),
             propositions: Vec::new(),
             definition_ranges: HashMap::new(),
+            includes_assumptions: false,
         }
     }
 
@@ -185,6 +189,7 @@ impl Environment {
             bindings: self.bindings.clone(),
             propositions: Vec::new(),
             definition_ranges: self.definition_ranges.clone(),
+            includes_assumptions: self.includes_assumptions,
         };
 
         // Inside the block, the type parameters are opaque data types.
@@ -210,6 +215,7 @@ impl Environment {
                     block: None,
                     range,
                 });
+                subenv.includes_assumptions = true;
                 None
             }
             BlockParams::Theorem(theorem_name) => {
