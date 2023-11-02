@@ -134,7 +134,7 @@ impl Prover {
 
         // Get facts both from the goal context and from the overall project
         let mut polymorphic_facts = vec![];
-        for dependency in project.all_dependencies(goal_context.env.namespace) {
+        for dependency in project.all_dependencies(goal_context.namespace()) {
             let env = project.get_env(dependency).unwrap();
             polymorphic_facts.extend(env.get_facts(project));
         }

@@ -130,7 +130,7 @@ impl Document {
                 Outcome::Success => continue,
                 Outcome::Exhausted => "is unprovable",
                 Outcome::Inconsistent => {
-                    if goal_context.env.includes_assumptions {
+                    if goal_context.inconsistent_ok() {
                         "is unneeded, the environment is contradictory"
                     } else {
                         "- prover found an inconsistency"

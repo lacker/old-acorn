@@ -27,7 +27,7 @@ fn main() {
             Outcome::Success => {
                 // println!("{} proved", goal_context.name);
             }
-            Outcome::Inconsistent if goal_context.env.includes_assumptions => {
+            Outcome::Inconsistent if goal_context.inconsistent_ok() => {
                 // Basically as good as success
                 // println!("{}: env already contradictory", goal_context.name);
             }

@@ -919,26 +919,26 @@ impl Environment {
                     } else {
                         panic!("expected a claim at path {:?}", path);
                     };
-                    return GoalContext {
-                        env: &block.env,
+                    return GoalContext::new(
+                        &block.env,
                         facts,
-                        name: env.get_proposition_name(&prop),
-                        goal: block.env.inline_theorems(project, claim),
-                        range: prop.range,
-                    };
+                        env.get_proposition_name(&prop),
+                        block.env.inline_theorems(project, claim),
+                        prop.range,
+                    );
                 }
                 env = &block.env;
             } else {
                 // If there's no block on this prop, this must be the last element of the path
                 assert!(it.peek().is_none());
 
-                return GoalContext {
-                    env: &env,
+                return GoalContext::new(
+                    &env,
                     facts,
-                    name: env.get_proposition_name(&prop),
-                    goal: env.inline_theorems(project, &prop.claim),
-                    range: prop.range,
-                };
+                    env.get_proposition_name(&prop),
+                    env.inline_theorems(project, &prop.claim),
+                    prop.range,
+                );
             }
         }
         panic!("control should not get here");

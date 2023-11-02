@@ -7,10 +7,11 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
 use crate::environment::Environment;
+use crate::namespace::NamespaceId;
 
 // A goal and the information used to prove it.
 pub struct GoalContext<'a> {
-    pub env: &'a Environment,
+    env: &'a Environment,
 
     // The facts that can be used to prove the goal.
     pub facts: Vec<AcornValue>,
@@ -23,6 +24,37 @@ pub struct GoalContext<'a> {
 
     // The range in the source document corresponding to this goal.
     pub range: Range,
+}
+
+impl GoalContext<'_> {
+    pub fn new(
+        env: &Environment,
+        facts: Vec<AcornValue>,
+        name: String,
+        goal: AcornValue,
+        range: Range,
+    ) -> GoalContext {
+        GoalContext {
+            env,
+            facts,
+            name,
+            goal,
+            range,
+        }
+    }
+
+    // If our facts include assumptions, then an inconsistency doesn't indicate a flaw in our
+    // mathematics somewhere, it just means one of the assumptions is false.
+    // If our facts don't include an assumption, then an inconsistency means there's a bug somewhere.
+    // Either sort of inconsistency is kind of bad, but it's the difference between a needlessly
+    // long proof, versus a bug in the core theorem proving logic.
+    pub fn inconsistent_ok(&self) -> bool {
+        self.env.includes_assumptions
+    }
+
+    pub fn namespace(&self) -> NamespaceId {
+        self.env.namespace
+    }
 }
 
 // Given a bunch of polymorphic facts and goal, return a list of monomorphs just of the facts.
