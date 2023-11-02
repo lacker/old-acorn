@@ -549,49 +549,6 @@ impl ActiveSet {
         })
     }
 
-    pub fn old_simplify(&self, clause: &Clause, clause_type: ClauseType) -> Option<Clause> {
-        if clause.is_tautology() {
-            return None;
-        }
-        if self.contains(&clause) {
-            return None;
-        }
-
-        // Filter out any literals that are known to be true
-        let mut rewritten_literals = vec![];
-        for literal in &clause.literals {
-            let rewritten_literal = self.rewrite_literal(literal);
-            match self.evaluate_literal(&rewritten_literal) {
-                Some(true) => {
-                    // This literal is already known to be true.
-                    // Thus, the whole clause is a tautology.
-                    return None;
-                }
-                Some(false) => {
-                    // This literal is already known to be false.
-                    // Thus, we can just omit it from the disjunction.
-                    continue;
-                }
-                None => {
-                    if clause_type == ClauseType::NegatedGoal {
-                        // Don't automatically simplify the goal.
-                        rewritten_literals.push(literal.clone());
-                    } else {
-                        rewritten_literals.push(rewritten_literal);
-                    }
-                }
-            }
-        }
-        let clause = Clause::new(rewritten_literals);
-        if clause.is_tautology() {
-            return None;
-        }
-        if self.contains(&clause) {
-            return None;
-        }
-        Some(clause)
-    }
-
     // Add all the resolution targets for a given literal.
     fn add_resolution_targets(
         &mut self,
