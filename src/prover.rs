@@ -1030,6 +1030,15 @@ mod tests {
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
 
+    #[test]
+    fn test_finding_mildly_nontrivial_inconsistency() {
+        let text = r#"
+            axiom bad: true = false
+            theorem goal(b: bool): b
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Inconsistent);
+    }
+
     // These tests are like integration tests. See the files in the `tests` directory.
 
     fn test_mono(name: &str) {
