@@ -751,18 +751,20 @@ impl ActiveSet {
             ))
         }
 
+        let clause_type = info.clause_type;
+        self.insert(info);
+
         // Simplify the generated clauses
         let mut simp_clauses = vec![];
         for (clause, step) in generated_clauses {
-            if info.clause_type == ClauseType::Fact && step.proof_size > 2 {
+            if clause_type == ClauseType::Fact && step.proof_size > 2 {
                 // Limit fact-fact inference
                 continue;
             }
-            if let Some(clause) = self.old_simplify(&clause, info.clause_type) {
+            if let Some(clause) = self.old_simplify(&clause, clause_type) {
                 simp_clauses.push((clause, step));
             }
         }
-        self.insert(info);
 
         simp_clauses
     }
