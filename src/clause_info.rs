@@ -7,9 +7,20 @@ use crate::clause::Clause;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum ClauseType {
+    // The facts include both the normalized facts the prover was initialized with, and any
+    // deduction that comes from other facts.
+    // In general, facts should be true. If not, there's an inconsistency.
     Fact,
+
+    // The negated goal clauses come directly from the negated goal.
+    // Our strategy is to add the negated goal then find a contradiction.
+    // Typically, a negated goal is false. If not, it could either be an unprovable goal,
+    // or a goal that has been normalized into multiple contradictory clauses.
     NegatedGoal,
-    Other,
+
+    // Impure clauses is anything generated from other clauses that aren't all facts.
+    // An impure clause might be true or it might be false.
+    Impure,
 }
 
 impl ClauseType {
@@ -18,7 +29,7 @@ impl ClauseType {
         match self {
             ClauseType::Fact => 2,
             ClauseType::NegatedGoal => 1,
-            ClauseType::Other => 0,
+            ClauseType::Impure => 0,
         }
     }
 }
@@ -121,7 +132,7 @@ impl Ord for ClauseInfo {
             return by_type;
         }
 
-        if self.clause_type == ClauseType::Other {
+        if self.clause_type == ClauseType::Impure {
             // Use the simplicity heuristic
             let by_simplicity = other.simplicity().cmp(&self.simplicity());
             if by_simplicity != Ordering::Equal {
@@ -157,7 +168,7 @@ impl ClauseInfo {
         let atom_count = clause.atom_count();
         ClauseInfo {
             clause,
-            clause_type: ClauseType::Other,
+            clause_type: ClauseType::Impure,
             proof_step: ProofStep::assumption(),
             atom_count,
             generation_order: 0,

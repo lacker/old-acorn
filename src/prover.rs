@@ -62,6 +62,10 @@ pub struct Prover {
 
     // Setting any of these flags to true externally will stop the prover.
     pub stop_flags: Vec<Arc<AtomicBool>>,
+
+    // A Prover is "pure" when only facts have been activated.
+    // Discovering a contradiction while the prover is still pure indicates an inconsistency.
+    pure: bool,
 }
 
 macro_rules! cprintln {
@@ -125,6 +129,7 @@ impl Prover {
             final_step: None,
             num_generated: 0,
             stop_flags: Vec::new(),
+            pure: true,
         };
 
         // Get facts both from the goal context and from the overall project
@@ -392,6 +397,16 @@ impl Prover {
         ))
     }
 
+    // Handle the case when we found a contradiction
+    fn report_contradiction(&mut self, ps: ProofStep) -> Outcome {
+        self.final_step = Some(ps);
+        if self.pure {
+            Outcome::Inconsistent
+        } else {
+            Outcome::Success
+        }
+    }
+
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
         let info = match self.passive.pop() {
@@ -401,6 +416,10 @@ impl Prover {
                 return Outcome::Exhausted;
             }
         };
+
+        if info.clause_type != ClauseType::Fact {
+            self.pure = false;
+        }
 
         let tracing = self.is_tracing(&info.clause);
         let verbose = self.verbose || tracing;
@@ -435,8 +454,7 @@ impl Prover {
         }
 
         if clause.is_impossible() {
-            self.final_step = Some(info.proof_step);
-            return Outcome::Success;
+            return self.report_contradiction(info.proof_step);
         }
         self.synthesizer.observe_types(clause);
 
@@ -465,7 +483,7 @@ impl Prover {
             let prefix = match info.clause_type {
                 ClauseType::Fact => " fact",
                 ClauseType::NegatedGoal => " negated goal",
-                ClauseType::Other => "",
+                ClauseType::Impure => "",
             };
             cprintln!(self, "activating{}: {}", prefix, simplified_clause_string);
         }
@@ -479,7 +497,7 @@ impl Prover {
         let generated_type = if clause_type == ClauseType::Fact {
             ClauseType::Fact
         } else {
-            ClauseType::Other
+            ClauseType::Impure
         };
 
         let print_limit = 30;
@@ -495,8 +513,7 @@ impl Prover {
             }
             for (i, (c, ps)) in new_clauses.into_iter().enumerate() {
                 if c.is_impossible() {
-                    self.final_step = Some(ps);
-                    return Outcome::Success;
+                    return self.report_contradiction(ps);
                 }
                 if tracing {
                     self.print_proof_step("", &c, ps);

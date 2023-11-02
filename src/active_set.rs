@@ -733,7 +733,7 @@ mod tests {
         let pm_left = Term::parse("c1");
         let pm_right = Term::parse("c3");
         let pm_clause = Clause::new(vec![Literal::equals(pm_left.clone(), pm_right.clone())]);
-        let result = set.activate_paramodulator(&pm_clause, ClauseType::Other);
+        let result = set.activate_paramodulator(&pm_clause, ClauseType::Impure);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
@@ -754,7 +754,7 @@ mod tests {
         let res_left = Term::parse("c0(c3)");
         let res_right = Term::parse("c2");
         let res_clause = Clause::new(vec![Literal::equals(res_left, res_right)]);
-        let result = set.activate_resolver(&res_clause, ClauseType::Other);
+        let result = set.activate_resolver(&res_clause, ClauseType::Impure);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
@@ -789,7 +789,7 @@ mod tests {
         info.clause_type = ClauseType::Fact;
         set.insert(info);
         let resolver = Clause::parse("c2 != c3");
-        let result = set.activate_resolver(&resolver, ClauseType::Other);
+        let result = set.activate_resolver(&resolver, ClauseType::Impure);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0.to_string(), "c1 != c0(x0)".to_string());
     }
