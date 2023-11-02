@@ -422,9 +422,13 @@ impl ActiveSet {
 
     // Rewrites subterms as well.
     // Only returns a new term if there is something to rewrite.
-    fn rewrite_once(&self, term: &Term) -> Option<Term> {
+    fn rewrite_once(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
         // Check if some args can be rewritten
-        let rewritten_args: Vec<_> = term.args.iter().map(|arg| self.rewrite_once(arg)).collect();
+        let rewritten_args: Vec<_> = term
+            .args
+            .iter()
+            .map(|arg| self.rewrite_once(arg, rules))
+            .collect();
         if rewritten_args.iter().any(|arg| arg.is_some()) {
             let mut new_args = vec![];
             for (original, rewritten) in term.args.iter().zip(rewritten_args) {
@@ -446,6 +450,7 @@ impl ActiveSet {
             let mut s = Specializer::new();
 
             if s.match_terms(&rule.left, term) {
+                rules.push(*i);
                 let new_term = s.specialize(&rule.right);
                 return Some(new_term);
             }
@@ -455,33 +460,39 @@ impl ActiveSet {
     }
 
     // Rewrites up to limit times.
-    fn rewrite_term_limited(&self, term: &Term, limit: u32) -> Option<Term> {
+    fn rewrite_term_limited(
+        &self,
+        term: &Term,
+        limit: u32,
+        rules: &mut Vec<usize>,
+    ) -> Option<Term> {
         if limit == 0 {
             panic!("error: ran out of rewrite stack");
         }
-        if let Some(new_term) = self.rewrite_once(term) {
-            self.rewrite_term_limited(&new_term, limit - 1)
+        if let Some(new_term) = self.rewrite_once(term, rules) {
+            self.rewrite_term_limited(&new_term, limit - 1, rules)
                 .or(Some(new_term))
         } else {
             None
         }
     }
 
-    pub fn rewrite_term(&self, term: &Term) -> Option<Term> {
-        self.rewrite_term_limited(term, 10)
+    pub fn rewrite_term(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
+        self.rewrite_term_limited(term, 10, rules)
     }
 
-    fn rewrite_term_or_clone(&self, term: &Term) -> Term {
-        if let Some(term) = self.rewrite_term(term) {
+    fn rewrite_term_or_clone(&self, term: &Term, rules: &mut Vec<usize>) -> Term {
+        if let Some(term) = self.rewrite_term(term, rules) {
             term
         } else {
             term.clone()
         }
     }
 
-    pub fn rewrite_literal(&self, literal: &Literal) -> Literal {
-        let left = self.rewrite_term_or_clone(&literal.left);
-        let right = self.rewrite_term_or_clone(&literal.right);
+    // Rewrites this literal, appending a list of the rewrite rules used.
+    pub fn rewrite_literal(&self, literal: &Literal, rules: &mut Vec<usize>) -> Literal {
+        let left = self.rewrite_term_or_clone(&literal.left, rules);
+        let right = self.rewrite_term_or_clone(&literal.right, rules);
         Literal::new(literal.positive, left, right)
     }
 
@@ -507,10 +518,12 @@ impl ActiveSet {
             return None;
         }
 
+        let mut proof_step = info.proof_step;
+
         // Filter out any literals that are known to be true
         let mut rewritten_literals = vec![];
         for literal in &info.clause.literals {
-            let rewritten_literal = self.rewrite_literal(literal);
+            let rewritten_literal = self.rewrite_literal(literal, &mut proof_step.rewrites);
             match self.evaluate_literal(&rewritten_literal) {
                 Some(true) => {
                     // This literal is already known to be true.
@@ -543,7 +556,7 @@ impl ActiveSet {
         Some(ClauseInfo {
             clause: simplified_clause,
             clause_type: info.clause_type,
-            proof_step: info.proof_step,
+            proof_step,
             generation_order: info.generation_order,
             atom_count,
         })
