@@ -63,9 +63,10 @@ pub struct Prover {
     // Setting any of these flags to true externally will stop the prover.
     pub stop_flags: Vec<Arc<AtomicBool>>,
 
-    // A Prover is "pure" when only facts have been activated.
-    // Discovering a contradiction while the prover is still pure indicates an inconsistency.
-    pure: bool,
+    // The prover adds a bunch of facts, then a negated goal, and then looks for a contradiction.
+    // When we find a contradiction before we add a negated goal, that's unexpected.
+    // In this case we want to report an inconsistency, rather than a success.
+    expect_contradiction: bool,
 }
 
 macro_rules! cprintln {
@@ -129,7 +130,7 @@ impl Prover {
             final_step: None,
             num_generated: 0,
             stop_flags: Vec::new(),
-            pure: true,
+            expect_contradiction: false,
         };
 
         // Get facts both from the goal context and from the overall project
@@ -215,7 +216,9 @@ impl Prover {
         let clauses = match self.normalize_proposition(proposition.to_placeholder().negate()) {
             Some(clauses) => clauses,
             None => {
-                // When we have an impossible goal, I guess just don't add it.
+                // When we have a structurally impossible goal, we expect the contradiction to come
+                // from the facts.
+                self.expect_contradiction = true;
                 return;
             }
         };
@@ -415,10 +418,10 @@ impl Prover {
     // Handle the case when we found a contradiction
     fn report_contradiction(&mut self, ps: ProofStep) -> Outcome {
         self.final_step = Some(ps);
-        if self.pure {
-            Outcome::Inconsistent
-        } else {
+        if self.expect_contradiction {
             Outcome::Success
+        } else {
+            Outcome::Inconsistent
         }
     }
 
@@ -438,7 +441,8 @@ impl Prover {
         };
 
         if info.clause_type != ClauseType::Fact {
-            self.pure = false;
+            // Now that we're adding some counterfactuals, we do expect a contradiction
+            self.expect_contradiction = true;
         }
 
         let tracing = self.is_tracing(&info.clause);
@@ -1054,7 +1058,8 @@ mod tests {
     fn test_finding_mildly_nontrivial_inconsistency() {
         let text = r#"
             axiom bad: true = false
-            theorem goal(b: bool): b
+            let b: bool = axiom
+            theorem goal: b
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Inconsistent);
     }
