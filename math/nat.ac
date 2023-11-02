@@ -322,10 +322,6 @@ theorem divisor_lt(a: Nat, b: Nat, c: Nat):
         mul(a, add(1, d)) = c
         add(a, mul(a, d)) = c
         mul(a, d) != 0
-        if a = c {
-            add(a, mul(a, d)) = a
-            mul(a, d) = 0
-        }
         a != c
         lt(a, c)
     }
