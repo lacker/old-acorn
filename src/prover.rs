@@ -172,17 +172,10 @@ impl Prover {
         clause: Clause,
         clause_type: ClauseType,
         proof_step: ProofStep,
-        generation_order: Option<usize>,
     ) -> ClauseInfo {
         let atom_count = clause.atom_count();
-        let generation_order = match generation_order {
-            Some(i) => i,
-            None => {
-                let answer = self.num_generated;
-                self.num_generated += 1;
-                answer
-            }
-        };
+        let generation_order = self.num_generated;
+        self.num_generated += 1;
         ClauseInfo {
             clause,
             clause_type,
@@ -203,8 +196,7 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let info =
-                self.new_clause_info(clause, ClauseType::Fact, ProofStep::assumption(), None);
+            let info = self.new_clause_info(clause, ClauseType::Fact, ProofStep::assumption());
             self.passive.push(info);
         }
     }
@@ -227,12 +219,8 @@ impl Prover {
             self.expect_contradiction = true;
         }
         for clause in clauses {
-            let info = self.new_clause_info(
-                clause,
-                ClauseType::NegatedGoal,
-                ProofStep::assumption(),
-                None,
-            );
+            let info =
+                self.new_clause_info(clause, ClauseType::NegatedGoal, ProofStep::assumption());
             self.passive.push(info);
         }
     }
@@ -408,17 +396,6 @@ impl Prover {
         self.print_proof_step("final step: ", &Clause::impossible(), final_step);
     }
 
-    // Returns None if the clause is redundant.
-    fn simplify(&mut self, info: ClauseInfo) -> Option<ClauseInfo> {
-        let new_clause = self.active_set.simplify(&info.clause, info.clause_type)?;
-        Some(self.new_clause_info(
-            new_clause,
-            info.clause_type,
-            info.proof_step,
-            Some(info.generation_order),
-        ))
-    }
-
     // Handle the case when we found a contradiction
     fn report_contradiction(&mut self, ps: ProofStep) -> Outcome {
         self.final_step = Some(ps);
@@ -458,7 +435,7 @@ impl Prover {
             original_clause_string = self.display(&info.clause).to_string();
         }
 
-        let info = match self.simplify(info) {
+        let info = match self.active_set.simplify(info) {
             Some(i) => i,
             None => {
                 // The clause is redundant, so skip it.
@@ -500,7 +477,6 @@ impl Prover {
                         synth_clause,
                         ClauseType::Fact,
                         ProofStep::definition(),
-                        None,
                     );
                     self.activate(synth_info, verbose, tracing);
                 }
@@ -550,7 +526,7 @@ impl Prover {
                 } else if self.is_tracing(&c) {
                     self.print_proof_step("", &c, &ps);
                 }
-                let info = self.new_clause_info(c, generated_type, ps, None);
+                let info = self.new_clause_info(c, generated_type, ps);
                 self.passive.push(info);
             }
         }

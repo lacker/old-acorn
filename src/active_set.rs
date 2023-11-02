@@ -499,7 +499,57 @@ impl ActiveSet {
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
-    pub fn simplify(&self, clause: &Clause, clause_type: ClauseType) -> Option<Clause> {
+    pub fn simplify(&self, info: ClauseInfo) -> Option<ClauseInfo> {
+        if info.clause.is_tautology() {
+            return None;
+        }
+        if self.contains(&info.clause) {
+            return None;
+        }
+
+        // Filter out any literals that are known to be true
+        let mut rewritten_literals = vec![];
+        for literal in &info.clause.literals {
+            let rewritten_literal = self.rewrite_literal(literal);
+            match self.evaluate_literal(&rewritten_literal) {
+                Some(true) => {
+                    // This literal is already known to be true.
+                    // Thus, the whole clause is a tautology.
+                    return None;
+                }
+                Some(false) => {
+                    // This literal is already known to be false.
+                    // Thus, we can just omit it from the disjunction.
+                    continue;
+                }
+                None => {
+                    if info.clause_type == ClauseType::NegatedGoal {
+                        // Don't automatically simplify the goal.
+                        rewritten_literals.push(literal.clone());
+                    } else {
+                        rewritten_literals.push(rewritten_literal);
+                    }
+                }
+            }
+        }
+        let simplified_clause = Clause::new(rewritten_literals);
+        if simplified_clause.is_tautology() {
+            return None;
+        }
+        if self.contains(&simplified_clause) {
+            return None;
+        }
+        let atom_count = simplified_clause.atom_count();
+        Some(ClauseInfo {
+            clause: simplified_clause,
+            clause_type: info.clause_type,
+            proof_step: info.proof_step,
+            generation_order: info.generation_order,
+            atom_count,
+        })
+    }
+
+    pub fn old_simplify(&self, clause: &Clause, clause_type: ClauseType) -> Option<Clause> {
         if clause.is_tautology() {
             return None;
         }
@@ -708,7 +758,7 @@ impl ActiveSet {
                 // Limit fact-fact inference
                 continue;
             }
-            if let Some(clause) = self.simplify(&clause, info.clause_type) {
+            if let Some(clause) = self.old_simplify(&clause, info.clause_type) {
                 simp_clauses.push((clause, step));
             }
         }
