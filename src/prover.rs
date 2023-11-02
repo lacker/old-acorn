@@ -143,7 +143,10 @@ impl Prover {
 
         // Load facts into the prover
         for fact in monomorphic_facts {
-            p.add_fact(fact);
+            if p.add_fact(fact) == Outcome::Inconsistent {
+                p.final_step = Some(ProofStep::assumption());
+                return p;
+            }
         }
         p.add_goal(goal_context.goal.clone());
         p
@@ -157,13 +160,12 @@ impl Prover {
         self.trace = None;
     }
 
-    fn normalize_proposition(&mut self, proposition: AcornValue) -> Vec<Clause> {
+    fn normalize_proposition(&mut self, proposition: AcornValue) -> Option<Vec<Clause>> {
         proposition.validate().unwrap_or_else(|e| {
             panic!("validation error: {} while normalizing: {}", e, proposition);
         });
         assert_eq!(proposition.get_type(), AcornType::Bool);
-        let answer = self.normalizer.normalize(proposition);
-        answer
+        self.normalizer.normalize(proposition)
     }
 
     // Create a new ClauseInfo object.
@@ -192,19 +194,32 @@ impl Prover {
         }
     }
 
-    pub fn add_fact(&mut self, proposition: AcornValue) {
+    // Returns Outcome::Inconsistent if this fact is inconsistent.
+    pub fn add_fact(&mut self, proposition: AcornValue) -> Outcome {
         self.facts.push(proposition.clone());
-        for clause in self.normalize_proposition(proposition) {
+        let clauses = match self.normalize_proposition(proposition) {
+            Some(clauses) => clauses,
+            None => return Outcome::Inconsistent,
+        };
+        for clause in clauses {
             let info =
                 self.new_clause_info(clause, ClauseType::Fact, ProofStep::assumption(), None);
             self.passive.push(info);
         }
+        Outcome::Unknown
     }
 
     pub fn add_goal(&mut self, proposition: AcornValue) {
         assert!(self.goal.is_none());
         self.goal = Some(proposition.clone());
-        for clause in self.normalize_proposition(proposition.to_placeholder().negate()) {
+        let clauses = match self.normalize_proposition(proposition.to_placeholder().negate()) {
+            Some(clauses) => clauses,
+            None => {
+                // When we have an impossible goal, I guess just don't add it.
+                return;
+            }
+        };
+        for clause in clauses {
             let info = self.new_clause_info(
                 clause,
                 ClauseType::NegatedGoal,
@@ -409,6 +424,11 @@ impl Prover {
 
     // Activates the next clause from the queue.
     pub fn activate_next(&mut self) -> Outcome {
+        if let Some(ps) = self.final_step {
+            // We already found a contradiction, so we're done.
+            return self.report_contradiction(ps);
+        }
+
         let info = match self.passive.pop() {
             Some(info) => info,
             None => {

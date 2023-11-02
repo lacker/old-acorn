@@ -273,7 +273,9 @@ impl Normalizer {
         }
     }
 
-    pub fn normalize(&mut self, value: AcornValue) -> Vec<Clause> {
+    // Converts a value to CNF. If value is true, then all the returned clauses are true.
+    // If the value is impossible to satify, returns None.
+    pub fn normalize(&mut self, value: AcornValue) -> Option<Vec<Clause>> {
         // println!("\nnormalizing: {}", value);
         let value = value.replace_function_equality(0);
         let value = value.expand_lambdas(0);
@@ -285,7 +287,7 @@ impl Normalizer {
         let value = value.remove_forall(&mut universal);
         let literal_lists = match self.into_cnf(&value) {
             Ok(Some(lists)) => lists,
-            Ok(None) => todo!("handle normalizing an impossible value"),
+            Ok(None) => return None,
             Err(e) => panic!("\nerror converting {} to CNF:\n{}", value, e),
         };
 
@@ -296,7 +298,7 @@ impl Normalizer {
             // println!("clause: {}", clause);
             clauses.push(clause);
         }
-        clauses
+        Some(clauses)
     }
 
     pub fn atom_str(&self, atom: &Atom) -> String {
@@ -317,7 +319,7 @@ impl Normalizer {
     }
 
     fn check_value(&mut self, value: AcornValue, expected: &[&str]) {
-        let actual = self.normalize(value);
+        let actual = self.normalize(value).unwrap();
         if actual.len() != expected.len() {
             panic!(
                 "expected {} clauses, got {}:\n{}",
