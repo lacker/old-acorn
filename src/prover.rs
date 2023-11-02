@@ -1022,6 +1022,14 @@ mod tests {
         assert_eq!(prove_text(text, "goal"), Outcome::Inconsistent);
     }
 
+    #[test]
+    fn test_using_true_and_false_in_a_proof() {
+        let text = r#"
+        theorem goal(b: bool): b = true | b = false
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
+
     // These tests are like integration tests. See the files in the `tests` directory.
 
     fn test_mono(name: &str) {

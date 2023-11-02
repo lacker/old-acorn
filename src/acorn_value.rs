@@ -265,6 +265,7 @@ impl AcornValue {
             AcornValue::Binary(BinaryOp::NotEquals, x, y) => {
                 AcornValue::Binary(BinaryOp::Equals, x, y)
             }
+            AcornValue::Bool(b) => AcornValue::Bool(!b),
             _ => AcornValue::Not(Box::new(self)),
         }
     }

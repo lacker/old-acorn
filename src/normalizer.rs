@@ -13,6 +13,7 @@ use crate::term::Term;
 use crate::type_map::TypeMap;
 
 pub enum Error {
+    // Failure during normalization
     Normalization(String),
 }
 
@@ -129,7 +130,8 @@ impl Normalizer {
             | AcornValue::Not(_)
             | AcornValue::Binary(_, _, _)
             | AcornValue::Variable(_, _)
-            | AcornValue::Constant(_, _, _, _) => value,
+            | AcornValue::Constant(_, _, _, _)
+            | AcornValue::Bool(_) => value,
 
             _ => panic!(
                 "moving negation inwards should have eliminated this node: {:?}",
@@ -219,36 +221,54 @@ impl Normalizer {
         }
     }
 
-    // Converts a value to Clausal Normal Form.
-    // Everything below "and" and "or" nodes must be literals.
-    // Skips any tautologies.
-    // Appends all results found.
-    fn into_cnf(&mut self, value: &AcornValue, results: &mut Vec<Vec<Literal>>) -> Result<()> {
+    // Converts a value to Clausal Normal Form, output in results.
+    // Each Vec<Literal> is a conjunction, an "or" node.
+    // The CNF form is expressing that each of these conjunctions are true.
+    // Returns Ok(Some(cnf)) if it can be turned into CNF.
+    // Returns Ok(None) if it's an impossibility.
+    // Returns an error if we failed in some user-reportable way.
+    fn into_cnf(&mut self, value: &AcornValue) -> Result<Option<Vec<Vec<Literal>>>> {
         match value {
             AcornValue::Binary(BinaryOp::And, left, right) => {
-                self.into_cnf(left, results)?;
-                self.into_cnf(right, results)
+                let mut left = match self.into_cnf(left)? {
+                    Some(left) => left,
+                    None => return Ok(None),
+                };
+                let right = match self.into_cnf(right)? {
+                    Some(right) => right,
+                    None => return Ok(None),
+                };
+                left.extend(right);
+                Ok(Some(left))
             }
             AcornValue::Binary(BinaryOp::Or, left, right) => {
-                let mut left_results = Vec::new();
-                self.into_cnf(left, &mut left_results)?;
-                let mut right_results = Vec::new();
-                self.into_cnf(right, &mut right_results)?;
-                for left_result in left_results {
-                    for right_result in &right_results {
-                        let mut combined = left_result.clone();
-                        combined.extend(right_result.clone());
-                        results.push(combined);
+                let left = self.into_cnf(left)?;
+                let right = self.into_cnf(right)?;
+                match (left, right) {
+                    (None, None) => Ok(None),
+                    (Some(result), None) | (None, Some(result)) => Ok(Some(result)),
+                    (Some(left), Some(right)) => {
+                        let mut results = vec![];
+                        for left_result in &left {
+                            for right_result in &right {
+                                let mut combined = left_result.clone();
+                                combined.extend(right_result.clone());
+                                results.push(combined);
+                            }
+                        }
+                        Ok(Some(results))
                     }
                 }
-                Ok(())
             }
+            AcornValue::Bool(true) => Ok(Some(vec![])),
+            AcornValue::Bool(false) => Ok(None),
             _ => {
                 let literal = self.literal_from_value(&value)?;
-                if !literal.is_tautology() {
-                    results.push(vec![literal]);
+                if literal.is_tautology() {
+                    Ok(Some(vec![]))
+                } else {
+                    Ok(Some(vec![vec![literal]]))
                 }
-                Ok(())
             }
         }
     }
@@ -263,10 +283,11 @@ impl Normalizer {
         // println!("skolemized: {}", value);
         let mut universal = vec![];
         let value = value.remove_forall(&mut universal);
-        let mut literal_lists = vec![];
-        if let Err(e) = self.into_cnf(&value, &mut literal_lists) {
-            panic!("\nerror converting {} to CNF:\n{}", value, e);
-        }
+        let literal_lists = match self.into_cnf(&value) {
+            Ok(Some(lists)) => lists,
+            Ok(None) => todo!("handle normalizing an impossible value"),
+            Err(e) => panic!("\nerror converting {} to CNF:\n{}", value, e),
+        };
 
         let mut clauses = vec![];
         for literals in literal_lists {
