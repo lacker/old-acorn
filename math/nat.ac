@@ -156,7 +156,7 @@ define lt(a: Nat, b: Nat) -> bool = lte(a, b) & a != b
 
 theorem lt_not_ref(a: Nat): !lt(a, a) by {
     if lt(a, a) {
-        a != a
+        false
     }
 }
 
