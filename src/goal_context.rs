@@ -43,13 +43,14 @@ impl GoalContext<'_> {
         }
     }
 
-    // If our facts include assumptions, then an inconsistency doesn't indicate a flaw in our
-    // mathematics somewhere, it just means one of the assumptions is false.
-    // If our facts don't include an assumption, then an inconsistency means there's a bug somewhere.
-    // Either sort of inconsistency is kind of bad, but it's the difference between a needlessly
-    // long proof, versus a bug in the core theorem proving logic.
+    // The prover gets both facts and goals.
+    // It negates the goals, but it still distinguishes between and "inconsistent" state, where
+    // just the facts lead to a contradiction, and a "proof successful" state, where the negated goal
+    // leads to a contradiction.
+    // This method tells you whether the "inconsistent" state is supposed to be reported to the
+    // user as a warning/error, or whether it's expected.
     pub fn inconsistent_ok(&self) -> bool {
-        self.env.includes_assumptions
+        self.env.includes_explicit_false
     }
 
     pub fn namespace(&self) -> NamespaceId {

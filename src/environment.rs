@@ -35,8 +35,9 @@ pub struct Environment {
     // The region in the source document where a name was defined
     definition_ranges: HashMap<String, Range>,
 
-    // Whether the facts in this environment include assumptions.
-    pub includes_assumptions: bool,
+    // Whether a plain "false" is anywhere in this environment.
+    // This indicates that the environment is supposed to have contradictory facts.
+    pub includes_explicit_false: bool,
 }
 
 pub struct Proposition {
@@ -165,7 +166,7 @@ impl Environment {
             bindings: BindingMap::new(namespace),
             propositions: Vec::new(),
             definition_ranges: HashMap::new(),
-            includes_assumptions: false,
+            includes_explicit_false: false,
         }
     }
 
@@ -198,7 +199,7 @@ impl Environment {
             bindings: self.bindings.clone(),
             propositions: Vec::new(),
             definition_ranges: self.definition_ranges.clone(),
-            includes_assumptions: self.includes_assumptions,
+            includes_explicit_false: false,
         };
 
         // Inside the block, the type parameters are opaque data types.
@@ -224,7 +225,6 @@ impl Environment {
                     block: None,
                     range,
                 });
-                subenv.includes_assumptions = true;
                 None
             }
             BlockParams::Theorem(theorem_name) => {
@@ -1448,5 +1448,19 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_parsing_true_false_keywords() {
         let mut env = Environment::new_test();
         env.add("let b: bool = true | false");
+    }
+
+    #[test]
+    fn test_nothing_after_explicit_false() {
+        let mut env = Environment::new_test();
+        env.add("let b: bool = axiom");
+        env.bad(
+            r#"
+            if b = !b {
+                false
+                b
+            }
+        "#,
+        );
     }
 }

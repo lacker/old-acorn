@@ -595,8 +595,8 @@ mod tests {
         prove(&mut project, "main", goal_name)
     }
 
-    // Proves all the goals in the provided text, expecting success for all of them.
-    fn prove_all(text: &str) {
+    // Proves all the goals in the provided text, returning any non-Success outcome.
+    fn prove_all(text: &str) -> Outcome {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
         let namespace = project.load("main").expect("load failed");
@@ -612,8 +612,15 @@ mod tests {
             let mut prover = Prover::new(&project, &goal_context, false, None);
             prover.verbose = true;
             let outcome = prover.search_for_contradiction(2000, 2.0);
-            assert_eq!(outcome, Outcome::Success);
+            if outcome != Outcome::Success {
+                return outcome;
+            }
         }
+        Outcome::Success
+    }
+
+    fn prove_all_ok(text: &str) {
+        assert_eq!(prove_all(text), Outcome::Success);
     }
 
     const THING: &str = r#"
@@ -1056,7 +1063,7 @@ mod tests {
 
     #[test]
     fn test_proving_explicit_false_okay() {
-        prove_all(
+        prove_all_ok(
             r#"
             let b: bool = axiom
             if b != b {
@@ -1064,6 +1071,30 @@ mod tests {
             }
         "#,
         );
+    }
+
+    #[test]
+    fn test_subsequent_explicit_false_ok() {
+        prove_all_ok(
+            r#"
+            let b: bool = axiom
+            if b != b {
+                b | !b
+                false
+            }
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_explicit_false_mandatory() {
+        let text = r#"
+            let b: bool = axiom
+            if b != b {
+                b
+            }
+        "#;
+        assert_eq!(prove_all(text), Outcome::Inconsistent);
     }
 
     #[test]
