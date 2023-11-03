@@ -863,4 +863,20 @@ mod tests {
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(new_clauses[0].0.to_string(), "!c2(c0(c0(c3)))".to_string());
     }
+
+    #[test]
+    fn test_equality_factoring_variable_numbering() {
+        // This is a bug we ran into
+        let mut set = ActiveSet::new();
+
+        // Nonreflexive rule of less-than
+        let mut info = ClauseInfo::mock("!c1(x0, x0)");
+        info.clause_type = ClauseType::Fact;
+        set.insert(info, 1);
+
+        // Trichotomy
+        let clause = Clause::parse("c1(x0, x1) | c1(x1, x0) | x0 = x1");
+        let output = ActiveSet::equality_factoring(&clause);
+        assert!(output.is_empty());
+    }
 }
