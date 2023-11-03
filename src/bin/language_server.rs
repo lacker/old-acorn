@@ -129,13 +129,7 @@ impl Document {
             let description = match outcome {
                 Outcome::Success => continue,
                 Outcome::Exhausted => "is unprovable",
-                Outcome::Inconsistent => {
-                    if goal_context.inconsistent_ok() {
-                        "is unneeded, the environment is contradictory"
-                    } else {
-                        "- prover found an inconsistency"
-                    }
-                }
+                Outcome::Inconsistent => "- prover found an inconsistency",
                 Outcome::Unknown => "timed out",
                 Outcome::Interrupted => "was interrupted",
             };

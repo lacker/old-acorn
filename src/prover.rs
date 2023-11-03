@@ -62,10 +62,11 @@ pub struct Prover {
     // Setting any of these flags to true externally will stop the prover.
     pub stop_flags: Vec<Arc<AtomicBool>>,
 
-    // The prover adds a bunch of facts, then a negated goal, and then looks for a contradiction.
-    // When we find a contradiction before we add a negated goal, that's unexpected.
-    // In this case we want to report an inconsistency, rather than a success.
-    expect_contradiction: bool,
+    // Whether we should report Outcome::Inconsistent or just treat it as a success.
+    report_inconsistency: bool,
+
+    // Whether only facts have been added to the active set.
+    facts_only: bool,
 }
 
 macro_rules! cprintln {
@@ -129,7 +130,8 @@ impl Prover {
             final_step: None,
             num_generated: 0,
             stop_flags: Vec::new(),
-            expect_contradiction: false,
+            report_inconsistency: !goal_context.includes_explicit_false(),
+            facts_only: true,
         };
 
         // Get facts both from the goal context and from the overall project
@@ -207,16 +209,10 @@ impl Prover {
             Some(clauses) => clauses,
             None => {
                 // Our goal is trivially true, so we're done already.
-                self.expect_contradiction = true;
                 self.final_step = Some(ProofStep::assumption());
                 return;
             }
         };
-        if clauses.is_empty() {
-            // This goal is either explicitly "false" or simplifies to it.
-            // The user must intend for there to be a contradiction in the assumptions.
-            self.expect_contradiction = true;
-        }
         for clause in clauses {
             let info =
                 self.new_clause_info(clause, ClauseType::NegatedGoal, ProofStep::assumption());
@@ -382,10 +378,10 @@ impl Prover {
     // Handle the case when we found a contradiction
     fn report_contradiction(&mut self, ps: ProofStep) -> Outcome {
         self.final_step = Some(ps);
-        if self.expect_contradiction {
-            Outcome::Success
-        } else {
+        if self.facts_only && self.report_inconsistency {
             Outcome::Inconsistent
+        } else {
+            Outcome::Success
         }
     }
 
@@ -405,8 +401,7 @@ impl Prover {
         };
 
         if info.clause_type != ClauseType::Fact {
-            // Now that we're adding some counterfactuals, we do expect a contradiction
-            self.expect_contradiction = true;
+            self.facts_only = false;
         }
 
         let tracing = self.is_tracing(&info.clause);

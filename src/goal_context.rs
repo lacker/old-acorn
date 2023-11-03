@@ -43,13 +43,7 @@ impl GoalContext<'_> {
         }
     }
 
-    // The prover gets both facts and goals.
-    // It negates the goals, but it still distinguishes between and "inconsistent" state, where
-    // just the facts lead to a contradiction, and a "proof successful" state, where the negated goal
-    // leads to a contradiction.
-    // This method tells you whether the "inconsistent" state is supposed to be reported to the
-    // user as a warning/error, or whether it's expected.
-    pub fn inconsistent_ok(&self) -> bool {
+    pub fn includes_explicit_false(&self) -> bool {
         self.env.includes_explicit_false
     }
 

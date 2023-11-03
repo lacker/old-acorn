@@ -27,10 +27,6 @@ fn main() {
             Outcome::Success => {
                 // println!("{} proved", goal_context.name);
             }
-            Outcome::Inconsistent if goal_context.inconsistent_ok() => {
-                // Basically as good as success
-                // println!("{}: env already contradictory", goal_context.name);
-            }
             _ => {
                 println!("{}: {}", outcome, goal_context.name);
             }

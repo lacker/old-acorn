@@ -526,6 +526,9 @@ impl Environment {
                 let claim =
                     self.bindings
                         .evaluate_value(project, &ps.claim, Some(&AcornType::Bool))?;
+                if claim == AcornValue::Bool(false) {
+                    self.includes_explicit_false = true;
+                }
                 let prop = Proposition {
                     display_name: None,
                     proven: false,
