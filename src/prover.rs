@@ -434,9 +434,10 @@ impl Prover {
             if simplified_clause_string != original_clause_string {
                 cprintln!(
                     self,
-                    "simplified: {} => {}",
+                    "simplified: {} => {} (XXX {:?})",
                     original_clause_string,
-                    simplified_clause_string
+                    simplified_clause_string,
+                    info.proof_step.rewrites,
                 );
             }
         }

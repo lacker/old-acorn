@@ -496,15 +496,16 @@ impl ActiveSet {
         Literal::new(literal.positive, left, right)
     }
 
-    fn evaluate_literal(&self, literal: &Literal) -> Option<bool> {
+    // Returns (value, id of clause) when this literal's value is known due to some existing clause.
+    // No id is returned if this literal is "expr = expr".
+    fn evaluate_literal(&self, literal: &Literal) -> Option<(bool, Option<usize>)> {
         if literal.left == literal.right {
-            return Some(literal.positive);
+            return Some((literal.positive, None));
         }
-        let answer: Option<bool> = match self.literal_set.lookup(&literal) {
-            Some((positive, _)) => Some(positive),
+        match self.literal_set.lookup(&literal) {
+            Some((positive, _)) => Some((positive, None)), // TODO: return an id here
             None => None,
-        };
-        answer
+        }
     }
 
     // Simplifies the clause based on both structural rules and the active set.
@@ -525,14 +526,17 @@ impl ActiveSet {
         for literal in &info.clause.literals {
             let rewritten_literal = self.rewrite_literal(literal, &mut proof_step.rewrites);
             match self.evaluate_literal(&rewritten_literal) {
-                Some(true) => {
+                Some((true, _)) => {
                     // This literal is already known to be true.
                     // Thus, the whole clause is a tautology.
                     return None;
                 }
-                Some(false) => {
+                Some((false, id)) => {
                     // This literal is already known to be false.
                     // Thus, we can just omit it from the disjunction.
+                    if let Some(id) = id {
+                        proof_step.rewrites.push(id);
+                    }
                     continue;
                 }
                 None => {
