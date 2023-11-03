@@ -397,7 +397,8 @@ impl ActiveSet {
                     literals.push(unifier.apply_to_literal(Scope::Left, literal));
                     for j in 1..clause.literals.len() {
                         if j != i {
-                            literals.push(clause.literals[j].clone());
+                            literals
+                                .push(unifier.apply_to_literal(Scope::Left, &clause.literals[j]));
                         }
                     }
                     let new_clause = Clause::new(literals);
@@ -877,6 +878,6 @@ mod tests {
         // Trichotomy
         let clause = Clause::parse("c1(x0, x1) | c1(x1, x0) | x0 = x1");
         let output = ActiveSet::equality_factoring(&clause);
-        assert!(output.is_empty());
+        assert_eq!(output[0].to_string(), "c1(x0, x0) | x0 = x0");
     }
 }
