@@ -503,7 +503,7 @@ impl ActiveSet {
             return Some((literal.positive, None));
         }
         match self.literal_set.lookup(&literal) {
-            Some((positive, _)) => Some((positive, None)), // TODO: return an id here
+            Some((positive, _, id)) => Some((positive, Some(id))), // TODO: return an id here
             None => None,
         }
     }
@@ -600,7 +600,7 @@ impl ActiveSet {
     // Adds a clause so that it becomes available for resolution and paramodulation.
     // If select_all is set, then every literal can be used as a target for paramodulation.
     // Otherwise, only the first one can be.
-    fn insert(&mut self, info: ClauseInfo) {
+    fn insert(&mut self, info: ClauseInfo, id: usize) {
         let clause = &info.clause;
         let clause_index = self.clause_info.len();
         let leftmost_literal = &clause.literals[0];
@@ -654,7 +654,7 @@ impl ActiveSet {
         self.clause_set.insert(clause.clone());
 
         if clause.literals.len() == 1 {
-            self.literal_set.insert(clause.literals[0].clone());
+            self.literal_set.insert(clause.literals[0].clone(), id);
         }
 
         self.clause_info.push(info);
@@ -666,7 +666,8 @@ impl ActiveSet {
     // Returns pairs describing how the generated clauses were proved.
     pub fn generate(&mut self, info: ClauseInfo) -> Vec<(Clause, ProofStep)> {
         let mut generated_clauses = vec![];
-        let activated = Some(self.clause_info.len());
+        let id = self.clause_info.len();
+        let activated = Some(id);
 
         // First calculate proof size for clauses dependent only on this one
         let activated_size = info.proof_step.proof_size;
@@ -725,7 +726,7 @@ impl ActiveSet {
             ))
         }
 
-        self.insert(info);
+        self.insert(info, id);
         generated_clauses
     }
 
@@ -768,7 +769,7 @@ mod tests {
         // Create an active set that knows c0(c3) = c2
         let mut set = ActiveSet::new();
         let info = ClauseInfo::mock("c0(c3) = c2");
-        set.insert(info);
+        set.insert(info, 0);
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
         let pm_left = Term::parse("c1");
@@ -789,7 +790,7 @@ mod tests {
         // Create an active set that knows c1 = c3
         let mut set = ActiveSet::new();
         let info = ClauseInfo::mock("c1 = c3");
-        set.insert(info);
+        set.insert(info, 0);
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
         let res_left = Term::parse("c0(c3)");
@@ -828,7 +829,7 @@ mod tests {
         let mut set = ActiveSet::new();
         let mut info = ClauseInfo::mock("c1 != c0(x0) | c2 = c3");
         info.clause_type = ClauseType::Fact;
-        set.insert(info);
+        set.insert(info, 0);
         let resolver = Clause::parse("c2 != c3");
         let result = set.activate_resolver(&resolver, ClauseType::Impure);
         assert_eq!(result.len(), 1);
@@ -855,7 +856,7 @@ mod tests {
         let mut set = ActiveSet::new();
         let mut info = ClauseInfo::mock("!c2(c0(c0(x0))) | c1(x0) != x0");
         info.clause_type = ClauseType::Fact;
-        set.insert(info);
+        set.insert(info, 0);
         let mut info = ClauseInfo::mock("c1(c3) = c3");
         info.clause_type = ClauseType::NegatedGoal;
         let new_clauses = set.generate(info);
