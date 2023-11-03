@@ -414,11 +414,46 @@ struct NatPair {
 // Takes (n, n!) -> (n+1, (n+1)!)
 define fac_helper(p: NatPair) -> NatPair = NatPair.new(Suc(NatPair.first(p)), mul(Suc(NatPair.first(p)), NatPair.second(p)))
 
-define factorial(n: Nat) -> Nat = NatPair.second(recursion(fac_helper, NatPair.new(0, 1), n))
+// Seems like a shame this isn't proven automatically.
+// Every step in the proof is a pretty simple rewrite.
+// Really, all the statements about factorials seem like they should be provable automatically.
+theorem fac_helper_alt(a: Nat, b: Nat): fac_helper(NatPair.new(a, b)) = NatPair.new(Suc(a), mul(Suc(a), b)) by {
+    let p: NatPair = NatPair.new(a, b)
+    NatPair.first(p) = a
+    NatPair.second(p) = b
+    fac_helper(p) = NatPair.new(Suc(NatPair.first(p)), mul(Suc(NatPair.first(p)), NatPair.second(p)))
+}
+
+// Takes n -> (n, n!)
+define fac_pair(n: Nat) -> NatPair = recursion(fac_helper, NatPair.new(0, 1), n)
+
+theorem fac_pair_first(n: Nat): NatPair.first(fac_pair(n)) = n by {
+    induction(fac_pair_first)
+    fac_pair_first(0)
+    forall(x: Nat) {
+        if fac_pair_first(x) {
+            exists(a: Nat) { fac_pair(x) = NatPair.new(x, a) }
+            fac_pair(Suc(x)) = fac_helper(fac_pair(x))
+            fac_pair(Suc(x)) = NatPair.new(Suc(x), mul(Suc(x), a))
+            fac_pair_first(Suc(x))
+        }
+    }
+}
+
+define factorial(n: Nat) -> Nat = NatPair.second(fac_pair(n))
 
 theorem factorial_zero: factorial(0) = 1
+theorem factorial_one: factorial(1) = 1 by {
+    fac_pair(0) = NatPair.new(0, 1)
+    fac_pair(1) = NatPair.new(1, 1)
+}
 
-theorem factorial_step(n: Nat): factorial(Suc(n)) = mul(Suc(n), factorial(n))
+theorem factorial_step(n: Nat): factorial(Suc(n)) = mul(Suc(n), factorial(n)) by {
+    fac_pair(n) = NatPair.new(n, factorial(n))
+    fac_pair(Suc(n)) = fac_helper(fac_pair(n))
+
+    fac_pair(Suc(n)) = NatPair.new(Suc(n), mul(Suc(n), factorial(n)))
+}
 
 theorem divides_factorial(k: Nat, n: Nat):
     k != 0 & lte(k, n) -> divides(k, factorial(n)) by {
@@ -492,8 +527,61 @@ theorem lt_compares(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b by {
     }
 }
 
+theorem lte_mul(a: Nat, b: Nat, c: Nat): lte(b, c) -> lte(mul(a, b), mul(a, c)) by {
+    if lte(b, c) {
+        exists(d: Nat) { add(b, d) = c }
+        mul(a, add(b, d)) = mul(a, c)
+        add(mul(a, b), mul(a, d)) = mul(a, c)
+        lte(mul(a, b), mul(a, c))
+    }
+}
+
+theorem lt_mul(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(mul(a, b), mul(a, c)) by {
+    if a != 0 & lt(b, c) {
+        exists(d: Nat) { add(b, d) = c }
+        d != 0
+        mul(a, add(b, d)) = mul(a, c)
+        add(mul(a, b), mul(a, d)) = mul(a, c)
+        mul(a, d) != 0
+        if mul(a, b) = mul(a, c) {
+            add(mul(a, b), mul(a, d)) = mul(a, b)
+            let y: Nat = mul(a, b)
+            let z: Nat = mul(a, d)
+            add(y, z) = y
+            false
+        }
+        lt(mul(a, b), mul(a, c))
+    }
+    a != 0 & lt(b, c) -> lt(mul(a, b), mul(a, c))
+}
+
+theorem lt_cancel_mul(a: Nat, b: Nat, c: Nat): a != 0 & lt(mul(a, b), mul(a, c)) -> lt(b, c) by {
+    if a != 0 & lt(mul(a, b), mul(a, c)) {
+        if lte(c, b) {
+            lte(mul(a, c), mul(a, b))
+            false
+        }
+        lt(b, c)
+    }
+    a != 0 & lt(mul(a, b), mul(a, c)) -> lt(b, c)
+}
+
+theorem mul_to_one(a: Nat, b: Nat): mul(a, b) = 1 -> a = 1 by {
+    if mul(a, b) = 1 {
+        a != 0
+        !lt(a, 1)
+        b != 0
+        if lt(1, a) {
+            lt(mul(b, 1), mul(b, a))
+            false
+        }
+        a = 1
+    }
+}
+
 theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, Suc(b)) -> a = 1 by {
     if divides(a, b) & divides(a, Suc(b)) {
+        a != 0
         exists(c: Nat) { mul(a, c) = b }
         exists(d: Nat) { mul(a, d) = Suc(b) }
         lt(mul(a, c), mul(a, d))
@@ -508,7 +596,7 @@ theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, Suc(b)) -> a = 1
 }
 
 theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
-    lte(n, p) & is_prime(p)
+    lt(n, p) & is_prime(p)
 } by {
     let m: Nat = Suc(factorial(n))
     lt(1, m)
@@ -519,11 +607,9 @@ theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     if lte(p, n) {
         divides_factorial(p, n)
         divides(p, factorial(n))
-        divides(p, Suc(factorial(n)))
-        p = 1
-        // I want to express "contradiction" here. Like, "false".
+        false
     }
     !lte(p, n)
-    lte(n, p)
+    lt(n, p)
 }
 
