@@ -101,7 +101,10 @@ impl ProofStep {
     }
 
     pub fn indices(&self) -> impl Iterator<Item = &usize> {
-        self.activated.iter().chain(self.existing.iter())
+        self.activated
+            .iter()
+            .chain(self.existing.iter())
+            .chain(self.rewrites.iter())
     }
 
     pub fn is_assumption(&self) -> bool {
