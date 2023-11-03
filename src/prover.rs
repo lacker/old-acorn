@@ -323,18 +323,22 @@ impl Prover {
     pub fn print_proof_step(&self, preface: &str, clause: &Clause, ps: &ProofStep) {
         cprintln!(
             self,
-            "{}{:?} generated:\n    {}",
+            "\n{}{:?} generated:\n    {}",
             preface,
             ps.rule,
             self.display(clause)
         );
         if let Some(i) = ps.activated {
             let c = self.display(self.active_set.get_clause(i));
-            cprintln!(self, "  using clause {}:\n    {}", i, c);
+            cprintln!(self, "  when activating clause {}:\n    {}", i, c);
         }
         if let Some(i) = ps.existing {
             let c = self.display(self.active_set.get_clause(i));
-            cprintln!(self, "  with clause {}:\n    {}", i, c);
+            cprintln!(self, "  using clause {}:\n    {}", i, c);
+        }
+        for i in &ps.rewrites {
+            let c = self.display(self.active_set.get_clause(*i));
+            cprintln!(self, "  rewriting with clause {}:\n    {}", i, c);
         }
     }
 
