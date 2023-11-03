@@ -434,10 +434,9 @@ impl Prover {
             if simplified_clause_string != original_clause_string {
                 cprintln!(
                     self,
-                    "simplified: {} => {} (XXX {:?})",
+                    "simplified: {} => {}",
                     original_clause_string,
                     simplified_clause_string,
-                    info.proof_step.rewrites,
                 );
             }
         }
@@ -1065,6 +1064,18 @@ mod tests {
             }
         "#,
         );
+    }
+
+    #[test]
+    fn test_lt_consistent() {
+        let text = r#"
+            type Nat: axiom
+            let lt: (Nat, Nat) -> bool = axiom
+            axiom nonreflexive(a: Nat): !lt(a, a)
+            axiom trichomotomy(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b
+            theorem goal(a: Nat, b: Nat): a = b
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Exhausted);
     }
 
     // These tests are like integration tests. See the files in the `tests` directory.
