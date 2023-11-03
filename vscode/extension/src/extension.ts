@@ -239,46 +239,47 @@ export function activate(context: ExtensionContext) {
   // Start the client. This will also launch the server
   client.start();
 
-  context.subscriptions.push(
-    workspace.onDidSaveTextDocument(async (document: TextDocument) => {
-      if (document.languageId !== "acorn") {
-        return;
-      }
+  let showProgressBar = async (document: TextDocument) => {
+    if (document.languageId !== "acorn") {
+      return;
+    }
 
-      // Wait a bit before showing progress
-      await new Promise((resolve) => setTimeout(resolve, 250));
+    // Wait a bit before showing progress
+    await new Promise((resolve) => setTimeout(resolve, 250));
 
-      let params = { uri: document.uri.toString() };
-      let previousPercent = 0;
-      window.withProgress(
-        {
-          location: ProgressLocation.Notification,
-          title: "Acorn Validation",
-          cancellable: true,
-        },
-        async (progress, token) => {
-          token.onCancellationRequested(() => {
-            console.log("acorn validation progress bar canceled");
-          });
+    let params = { uri: document.uri.toString() };
+    let previousPercent = 0;
+    window.withProgress(
+      {
+        location: ProgressLocation.Notification,
+        title: "Acorn Validation",
+        cancellable: true,
+      },
+      async (progress, token) => {
+        token.onCancellationRequested(() => {
+          console.log("acorn validation progress bar canceled");
+        });
 
-          while (true) {
-            let response: any = await client.sendRequest(
-              "acorn/progress",
-              params
-            );
-            if (response.total === response.done) {
-              return;
-            }
-
-            let percent = Math.floor((100 * response.done) / response.total);
-            let increment = percent - previousPercent;
-            progress.report({ increment });
-            previousPercent = percent;
+        while (true) {
+          let response: any = await client.sendRequest(
+            "acorn/progress",
+            params
+          );
+          if (response.total === response.done) {
+            return;
           }
+
+          let percent = Math.floor((100 * response.done) / response.total);
+          let increment = percent - previousPercent;
+          progress.report({ increment });
+          previousPercent = percent;
         }
-      );
-    })
-  );
+      }
+    );
+  };
+
+  context.subscriptions.push(workspace.onDidSaveTextDocument(showProgressBar));
+  context.subscriptions.push(workspace.onDidOpenTextDocument(showProgressBar));
 }
 
 export function deactivate(): Thenable<void> | undefined {
