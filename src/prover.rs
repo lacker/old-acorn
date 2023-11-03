@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fmt;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -359,33 +358,13 @@ impl Prover {
             cprintln!(self, "we do not have a proof");
             return;
         };
-
-        // Figure out which clause indices were used.
-        let mut todo = Vec::<usize>::new();
-        let mut done = HashSet::new();
-        for i in final_step.indices() {
-            todo.push(*i);
-        }
-        while !todo.is_empty() {
-            let i = todo.pop().unwrap();
-            if done.contains(&i) {
-                continue;
-            }
-            done.insert(i);
-            let step = self.active_set.get_proof_step(i);
-            for j in step.indices() {
-                todo.push(*j);
-            }
-        }
-
-        // Print out the clauses in order.
-        let mut indices = done.into_iter().collect::<Vec<_>>();
-        indices.sort();
         cprintln!(
             self,
             "in total, we activated {} proof steps.",
             self.active_set.len()
         );
+
+        let indices = self.active_set.find_upstream(final_step);
         cprintln!(self, "the proof uses {} steps:", indices.len());
         for i in indices {
             let step = self.active_set.get_proof_step(i);

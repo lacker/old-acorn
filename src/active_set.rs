@@ -202,7 +202,7 @@ impl ActiveSet {
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the
-    // active set.
+    // active set.in total, we activated
     // At a high level, this is when we have just learned that s = t in some circumstances,
     // and we are looking for all the conclusions we can infer by rewriting s -> t
     // in existing formulas.
@@ -727,6 +727,31 @@ impl ActiveSet {
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
         self.clause_info.iter().map(|info| &info.clause)
+    }
+
+    // Find the index of all clauses used to prove the provided step.
+    pub fn find_upstream(&self, step: &ProofStep) -> Vec<usize> {
+        let mut todo = Vec::<usize>::new();
+        let mut done = HashSet::new();
+        for i in step.indices() {
+            todo.push(*i);
+        }
+        while !todo.is_empty() {
+            let i = todo.pop().unwrap();
+            if done.contains(&i) {
+                continue;
+            }
+            done.insert(i);
+            let step = self.get_proof_step(i);
+            for j in step.indices() {
+                todo.push(*j);
+            }
+        }
+
+        // Print out the clauses in order.
+        let mut indices = done.into_iter().collect::<Vec<_>>();
+        indices.sort();
+        indices
     }
 }
 
