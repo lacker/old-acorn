@@ -247,12 +247,14 @@ export function activate(context: ExtensionContext) {
     // Wait a bit before showing progress
     await new Promise((resolve) => setTimeout(resolve, 250));
 
-    let params = { uri: document.uri.toString() };
+    let uri = document.uri.toString();
+    let basename = path.basename(document.uri.fsPath);
+    let params = { uri };
     let previousPercent = 0;
     window.withProgress(
       {
         location: ProgressLocation.Notification,
-        title: "Acorn Validation",
+        title: "Validating " + basename,
         cancellable: true,
       },
       async (progress, token) => {
