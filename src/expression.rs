@@ -349,6 +349,42 @@ fn parse_partial_expressions(
     Err(tokens.error("expected expression but got EOF"))
 }
 
+// Find the index of the operator that should operate last. (Ie, the root of the tree.)
+// If there are no operators, return None.
+fn find_last_operator(
+    partials: &VecDeque<PartialExpression>,
+    is_value: bool,
+) -> Result<Option<usize>> {
+    let operators = partials.iter().enumerate().filter_map(|(i, partial)| {
+        match partial {
+            PartialExpression::Unary(token) => {
+                // Only a unary operator at the beginning of the expression can operate last
+                if i == 0 {
+                    Some((-token.precedence(is_value), i))
+                } else {
+                    None
+                }
+            }
+            PartialExpression::Binary(token) => Some((-token.precedence(is_value), i)),
+            _ => None,
+        }
+    });
+
+    match operators.max() {
+        Some((neg_precedence, index)) => {
+            if neg_precedence == 0 {
+                let token = partials[index].token();
+                return Err(Error::new(
+                    token,
+                    &format!("operator {} has precedence 0", token),
+                ));
+            }
+            Ok(Some(index))
+        }
+        None => Ok(None),
+    }
+}
+
 // Combines partial expressions into a single expression.
 // Operators work in precedence order, and left-to-right within a single precedence.
 // This algorithm is quadratic, so perhaps we should improve it at some point.
@@ -365,55 +401,49 @@ fn combine_partial_expressions(
         if let PartialExpression::Expression(e) = partial {
             return Ok(e);
         }
-        return Err(Error::new(partial.token(), "expected an expression"));
+        return Err(Error::new(partial.token(), "incomplete expression"));
     }
 
-    // Find the index of the operator that should operate last
-    let (neg_precedence, index) = match partials
-        .iter()
-        .enumerate()
-        .filter_map(|(i, partial)| match partial {
-            PartialExpression::Unary(token) => {
-                // Only a unary operator at the beginning of the expression can operate last
-                if i == 0 {
-                    Some((-token.precedence(is_value), i))
-                } else {
-                    None
-                }
+    // If there are operators, find the operator that should operate last,
+    // and recurse on each of the two sides.
+    if let Some(index) = find_last_operator(&partials, is_value)? {
+        if index == 0 {
+            let partial = partials.pop_front().unwrap();
+            if let PartialExpression::Unary(token) = partial {
+                return Ok(Expression::Unary(
+                    token,
+                    Box::new(combine_partial_expressions(partials, is_value, iter)?),
+                ));
             }
-            PartialExpression::Binary(token) => Some((-token.precedence(is_value), i)),
-            _ => None,
-        })
-        .max()
-    {
-        Some((neg_precedence, index)) => (neg_precedence, index),
-        None => {
-            let first_partial = partials.pop_front().unwrap();
+            return Err(Error::new(partial.token(), "expected unary operator"));
+        }
 
-            // Check if this is a binder.
-            if let PartialExpression::Binder(token) = &first_partial {
-                let expect_args = partials.pop_front().unwrap();
-                if let PartialExpression::Expression(args) = expect_args {
-                    let expect_block = partials.pop_back().unwrap();
-                    if let PartialExpression::Block(_, block, right_brace) = expect_block {
-                        return Ok(Expression::Binder(
-                            token.clone(),
-                            Box::new(args),
-                            Box::new(block),
-                            right_brace,
-                        ));
-                    } else {
-                        return Err(Error::new(expect_block.token(), "expected a binder block"));
-                    }
-                }
-                return Err(Error::new(expect_args.token(), "expected binder arguments"));
-            }
+        let mut right_partials = partials.split_off(index);
+        let partial = right_partials.pop_front().unwrap();
 
-            // Otherwise, this must be a sequence of function applications.
-            let mut answer = match first_partial {
-                PartialExpression::Expression(e) => e,
-                _ => return Err(Error::new(first_partial.token(), "expected an expression")),
-            };
+        // If the operator is a colon, then the right side is definitely a type
+        let right_is_value = is_value && partial.token().token_type != TokenType::Colon;
+
+        if let PartialExpression::Binary(token) = partial {
+            return Ok(Expression::Binary(
+                Box::new(combine_partial_expressions(partials, is_value, iter)?),
+                token,
+                Box::new(combine_partial_expressions(
+                    right_partials,
+                    right_is_value,
+                    iter,
+                )?),
+            ));
+        }
+        return Err(Error::new(partial.token(), "expected binary operator"));
+    }
+
+    // When there are no operators, the nature of the first partial expression should
+    // tell us how to handle the rest of them.
+    match partials.pop_front().unwrap() {
+        // When we just have a bunch of expressions next to each other, we expect it
+        // to be a function application.
+        PartialExpression::Expression(mut answer) => {
             for partial in partials.into_iter() {
                 if let PartialExpression::Expression(expr) = partial {
                     match expr {
@@ -426,46 +456,47 @@ fn combine_partial_expressions(
                     return Err(Error::new(partial.token(), "unexpected operator"));
                 }
             }
-            return Ok(answer);
+            Ok(answer)
         }
-    };
-    if neg_precedence == 0 {
-        let token = partials[index].token();
-        return Err(Error::new(
-            token,
-            &format!("operator {} has precedence 0", token),
-        ));
-    }
 
-    if index == 0 {
-        let partial = partials.pop_front().unwrap();
-        if let PartialExpression::Unary(token) = partial {
-            return Ok(Expression::Unary(
-                token,
-                Box::new(combine_partial_expressions(partials, is_value, iter)?),
-            ));
+        // When the first token is a binder, we expect an arg list and a block.
+        PartialExpression::Binder(token) => match partials.pop_front() {
+            Some(PartialExpression::Expression(args)) => match partials.pop_front() {
+                Some(PartialExpression::Block(_, block, right_brace)) => {
+                    if partials.is_empty() {
+                        Ok(Expression::Binder(
+                            token.clone(),
+                            Box::new(args),
+                            Box::new(block),
+                            right_brace,
+                        ))
+                    } else {
+                        Err(Error::new(
+                            partials[0].token(),
+                            "unexpected extra expression after a binder expression",
+                        ))
+                    }
+                }
+                _ => Err(Error::new(&token, "this binder needs a block")),
+            },
+            _ => Err(Error::new(&token, "this binder needs arguments")),
+        },
+
+        PartialExpression::If(_token) => {
+            todo!("handle if expressions");
         }
-        return Err(Error::new(partial.token(), "expected unary operator"));
+
+        PartialExpression::Block(token, _, _) => {
+            Err(Error::new(&token, "invalid location for a block"))
+        }
+
+        PartialExpression::Else(token) => Err(Error::new(&token, "invalid location for an else")),
+
+        e => Err(Error::new(
+            e.token(),
+            "I don't think this can happen, but if it does, this expression is bad.",
+        )),
     }
-
-    let mut right_partials = partials.split_off(index);
-    let partial = right_partials.pop_front().unwrap();
-
-    // If the operator is a colon, then the right side is definitely a type
-    let right_is_value = is_value && partial.token().token_type != TokenType::Colon;
-
-    if let PartialExpression::Binary(token) = partial {
-        return Ok(Expression::Binary(
-            Box::new(combine_partial_expressions(partials, is_value, iter)?),
-            token,
-            Box::new(combine_partial_expressions(
-                right_partials,
-                right_is_value,
-                iter,
-            )?),
-        ));
-    }
-    return Err(Error::new(partial.token(), "expected binary operator"));
 }
 
 #[cfg(test)]
@@ -505,7 +536,7 @@ mod tests {
         let res = Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine);
         match res {
             Err(_) => {}
-            Ok((e, _)) => panic!("unexpected success parsing: {}", e),
+            Ok((e, _)) => panic!("unexpectedly parsed {} => {}", input, e),
         }
     }
 
@@ -642,5 +673,14 @@ mod tests {
         check_not_value("else");
         check_not_value("else { r }");
         check_not_value("if p { q } else { r } else { s }");
+    }
+
+    #[test]
+    fn test_bad_partials() {
+        check_not_value("(1 +)");
+        check_not_value("(!)");
+        check_not_value("{ 1 }");
+        check_not_value("forall(x: Nat)");
+        check_not_value("forall(x: Nat) { x = x } { x }");
     }
 }
