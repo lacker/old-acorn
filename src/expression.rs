@@ -441,19 +441,17 @@ fn combine_partial_expressions(
     // When there are no operators, the nature of the first partial expression should
     // tell us how to handle the rest of them.
     match partials.pop_front().unwrap() {
-        // When we just have a bunch of expressions next to each other, we expect it
-        // to be a function application.
+        // When the first partial is a normal expression, that looks like a function application.
         PartialExpression::Expression(mut answer) => {
             for partial in partials.into_iter() {
-                if let PartialExpression::Expression(expr) = partial {
-                    match expr {
+                match partial {
+                    PartialExpression::Expression(expr) => match expr {
                         Expression::Grouping(_, _, _) => {
                             answer = Expression::Apply(Box::new(answer), Box::new(expr))
                         }
                         _ => return Err(Error::new(expr.token(), "expected a grouping")),
-                    }
-                } else {
-                    return Err(Error::new(partial.token(), "unexpected operator"));
+                    },
+                    _ => return Err(Error::new(partial.token(), "unexpected operator")),
                 }
             }
             Ok(answer)
@@ -482,9 +480,34 @@ fn combine_partial_expressions(
             _ => Err(Error::new(&token, "this binder needs arguments")),
         },
 
-        PartialExpression::If(_token) => {
-            todo!("handle if expressions");
-        }
+        PartialExpression::If(token) => match partials.pop_front() {
+            Some(PartialExpression::Expression(cond)) => match partials.pop_front() {
+                Some(PartialExpression::Block(_, if_value, _)) => match partials.pop_front() {
+                    Some(PartialExpression::Else(else_token)) => match partials.pop_front() {
+                        Some(PartialExpression::Block(_, else_value, right_brace)) => {
+                            if partials.is_empty() {
+                                Ok(Expression::IfThenElse(
+                                    token.clone(),
+                                    Box::new(cond),
+                                    Box::new(if_value),
+                                    Box::new(else_value),
+                                    right_brace,
+                                ))
+                            } else {
+                                Err(Error::new(
+                                    partials[0].token(),
+                                    "unexpected extra expression after an if-then-else expression",
+                                ))
+                            }
+                        }
+                        _ => Err(Error::new(&else_token, "this 'else' needs a block")),
+                    },
+                    _ => Err(Error::new(&token, "this 'if' needs an 'else'")),
+                },
+                _ => Err(Error::new(&token, "this 'if' needs a block")),
+            },
+            _ => Err(Error::new(&token, "this 'if' needs a condition")),
+        },
 
         PartialExpression::Block(token, _, _) => {
             Err(Error::new(&token, "invalid location for a block"))
