@@ -13,19 +13,31 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // And declaration expressions, like
 //   p: bool
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
-// "Apply" is the application of a function. The second expression must be an arg list.
-// "Grouping" is another expression enclosed in parentheses.
-// "Block" is another expression enclosed in braces. Just one for now.
-// "Binder" is an expression that binds variables, like a forall/exists/function.
-//   The second expression must be an arg list.
-//   Binder expressions include the terminating brace as a token.
 #[derive(Debug)]
 pub enum Expression {
+    // The keywords that work like identifiers are treated like identifiers here.
+    // true, false, and axiom.
+    // TODO: "axiom" as identifier is weird, let's change it.
     Identifier(Token),
+
+    // A unary operator applied to another expression.
     Unary(Token, Box<Expression>),
+
+    // An infix binary operator, with the left and right expressions.
     Binary(Box<Expression>, Token, Box<Expression>),
+
+    // The application of a function. The second expression must be an arg list.
     Apply(Box<Expression>, Box<Expression>),
+
+    // A grouping like ( <expr> ) or { <expr> }.
+    // The tokens of the bracey things that delimit the grouping are included.
     Grouping(Token, Box<Expression>, Token),
+
+    // A binder is an expression that binds variables, like a forall/exists/function.
+    // The first token is the binder keyword, like "forall".
+    // The first expression is the argument list, like "(x: Nat, y: Nat)".
+    // The second expression is the body block.
+    // The last token is the closing brace.
     Binder(Token, Box<Expression>, Box<Expression>, Token),
 }
 
@@ -192,6 +204,7 @@ enum PartialExpression {
     Unary(Token),
     Binary(Token),
     Block(Token, Expression, Token),
+    Binder(Token),
 }
 
 impl fmt::Display for PartialExpression {
@@ -201,6 +214,7 @@ impl fmt::Display for PartialExpression {
             PartialExpression::Unary(token) => write!(f, "{}", token),
             PartialExpression::Binary(token) => write!(f, "{}", token),
             PartialExpression::Block(_, e, _) => write!(f, "{{ {} }}", e),
+            PartialExpression::Binder(token) => write!(f, "{}", token),
         }
     }
 }
@@ -212,6 +226,7 @@ impl PartialExpression {
             PartialExpression::Unary(token) => token,
             PartialExpression::Binary(token) => token,
             PartialExpression::Block(token, _, _) => token,
+            PartialExpression::Binder(token) => token,
         }
     }
 }
@@ -224,15 +239,15 @@ fn parse_partial_expressions(
     is_value: bool,
     termination: fn(TokenType) -> bool,
 ) -> Result<(VecDeque<PartialExpression>, Token)> {
-    let mut partial_expressions = VecDeque::<PartialExpression>::new();
+    let mut partials = VecDeque::<PartialExpression>::new();
     while let Some(token) = tokens.next() {
         if termination(token.token_type) {
-            return Ok((partial_expressions, token));
+            return Ok((partials, token));
         }
         if token.token_type == TokenType::Dot {
             // The dot has to be preceded by an expression, and followed by an identifier.
             // Handle it now, because it has the highest priority.
-            let left = match partial_expressions.pop_back() {
+            let left = match partials.pop_back() {
                 Some(PartialExpression::Expression(e)) => e,
                 _ => {
                     return Err(Error::new(&token, "expected expression before dot"));
@@ -249,7 +264,7 @@ fn parse_partial_expressions(
                     return Err(Error::new(&token, "expected identifier after dot"));
                 }
             };
-            partial_expressions.push_back(PartialExpression::Expression(Expression::Binary(
+            partials.push_back(PartialExpression::Expression(Expression::Binary(
                 Box::new(left),
                 token,
                 Box::new(right),
@@ -257,11 +272,11 @@ fn parse_partial_expressions(
             continue;
         }
         if token.token_type.is_binary() {
-            partial_expressions.push_back(PartialExpression::Binary(token));
+            partials.push_back(PartialExpression::Binary(token));
             continue;
         }
         if token.token_type.is_unary() {
-            partial_expressions.push_back(PartialExpression::Unary(token));
+            partials.push_back(PartialExpression::Unary(token));
             continue;
         }
         match token.token_type {
@@ -269,22 +284,18 @@ fn parse_partial_expressions(
                 let (subexpression, last_token) =
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightParen)?;
                 let group = Expression::Grouping(token, Box::new(subexpression), last_token);
-                partial_expressions.push_back(PartialExpression::Expression(group));
+                partials.push_back(PartialExpression::Expression(group));
             }
-            TokenType::Identifier
-            | TokenType::Axiom
-            | TokenType::ForAll
-            | TokenType::Exists
-            | TokenType::Function
-            | TokenType::True
-            | TokenType::False => {
-                partial_expressions
-                    .push_back(PartialExpression::Expression(Expression::Identifier(token)));
+            TokenType::Identifier | TokenType::Axiom | TokenType::True | TokenType::False => {
+                partials.push_back(PartialExpression::Expression(Expression::Identifier(token)));
+            }
+            TokenType::ForAll | TokenType::Exists | TokenType::Function => {
+                partials.push_back(PartialExpression::Binder(token));
             }
             TokenType::LeftBrace => {
                 let (subexp, right_brace) =
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
-                partial_expressions.push_back(PartialExpression::Block(token, subexp, right_brace));
+                partials.push_back(PartialExpression::Block(token, subexp, right_brace));
             }
             TokenType::NewLine => {
                 // Ignore newlines. The case where the newline is a terminator, we already caught.
@@ -325,7 +336,9 @@ fn combine_partial_expressions(
         .iter()
         .enumerate()
         .filter_map(|(i, partial)| match partial {
-            PartialExpression::Expression(_) | PartialExpression::Block(_, _, _) => None,
+            PartialExpression::Binder(_)
+            | PartialExpression::Expression(_)
+            | PartialExpression::Block(_, _, _) => None,
             PartialExpression::Unary(token) => {
                 // Only a unary operator at the beginning of the expression can operate last
                 if i == 0 {
@@ -342,7 +355,7 @@ fn combine_partial_expressions(
         None => {
             let first_partial = partials.pop_front().unwrap();
 
-            // Check if this is a binder.
+            // XXX OLD: Check if this is a binder.
             if let PartialExpression::Expression(Expression::Identifier(token)) = &first_partial {
                 if token.token_type.is_binder() {
                     if partials.len() != 2 {
@@ -367,6 +380,25 @@ fn combine_partial_expressions(
                     }
                     return Err(Error::new(expect_args.token(), "expected binder arguments"));
                 }
+            }
+
+            // Check if this is a binder.
+            if let PartialExpression::Binder(token) = &first_partial {
+                let expect_args = partials.pop_front().unwrap();
+                if let PartialExpression::Expression(args) = expect_args {
+                    let expect_block = partials.pop_back().unwrap();
+                    if let PartialExpression::Block(_, block, right_brace) = expect_block {
+                        return Ok(Expression::Binder(
+                            token.clone(),
+                            Box::new(args),
+                            Box::new(block),
+                            right_brace,
+                        ));
+                    } else {
+                        return Err(Error::new(expect_block.token(), "expected a binder block"));
+                    }
+                }
+                return Err(Error::new(expect_args.token(), "expected binder arguments"));
             }
 
             // Otherwise, this must be a sequence of function applications.
@@ -557,6 +589,10 @@ mod tests {
 
         check_not_value("axiom contraposition: (!p -> !q) -> (q -> p)");
         check_not_value("f x");
+
+        check_not_value("forall");
+        check_not_value("exists");
+        check_not_value("function");
     }
 
     #[test]
