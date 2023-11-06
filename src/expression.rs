@@ -224,21 +224,29 @@ impl Expression {
 // A list of partial expressions can be turned into an expression, according to operator precedence.
 #[derive(Debug)]
 enum PartialExpression {
+    // Already a complete expression
     Expression(Expression),
+    Block(Token, Expression, Token),
+
+    // Tokens that are only part of an expression
     Unary(Token),
     Binary(Token),
-    Block(Token, Expression, Token),
     Binder(Token),
+    If(Token),
+    Else(Token),
 }
 
 impl fmt::Display for PartialExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             PartialExpression::Expression(e) => write!(f, "{}", e),
-            PartialExpression::Unary(token) => write!(f, "{}", token),
-            PartialExpression::Binary(token) => write!(f, "{}", token),
             PartialExpression::Block(_, e, _) => write!(f, "{{ {} }}", e),
-            PartialExpression::Binder(token) => write!(f, "{}", token),
+
+            PartialExpression::Unary(token)
+            | PartialExpression::Binary(token)
+            | PartialExpression::Binder(token)
+            | PartialExpression::If(token)
+            | PartialExpression::Else(token) => write!(f, "{}", token),
         }
     }
 }
@@ -247,10 +255,13 @@ impl PartialExpression {
     fn token(&self) -> &Token {
         match self {
             PartialExpression::Expression(e) => e.token(),
-            PartialExpression::Unary(token) => token,
-            PartialExpression::Binary(token) => token,
             PartialExpression::Block(token, _, _) => token,
-            PartialExpression::Binder(token) => token,
+
+            PartialExpression::Unary(token)
+            | PartialExpression::Binary(token)
+            | PartialExpression::Binder(token)
+            | PartialExpression::If(token)
+            | PartialExpression::Else(token) => token,
         }
     }
 }
@@ -360,9 +371,6 @@ fn combine_partial_expressions(
         .iter()
         .enumerate()
         .filter_map(|(i, partial)| match partial {
-            PartialExpression::Binder(_)
-            | PartialExpression::Expression(_)
-            | PartialExpression::Block(_, _, _) => None,
             PartialExpression::Unary(token) => {
                 // Only a unary operator at the beginning of the expression can operate last
                 if i == 0 {
@@ -372,6 +380,7 @@ fn combine_partial_expressions(
                 }
             }
             PartialExpression::Binary(token) => Some((-token.precedence(is_value), i)),
+            _ => None,
         })
         .max()
     {
