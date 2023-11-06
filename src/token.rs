@@ -44,6 +44,7 @@ pub enum TokenType {
     Import,
     True,
     False,
+    Else,
 }
 
 pub const MAX_PRECEDENCE: i8 = 100;
@@ -296,7 +297,8 @@ impl Token {
             | TokenType::Struct
             | TokenType::Import
             | TokenType::True
-            | TokenType::False => Some(SemanticTokenType::KEYWORD),
+            | TokenType::False
+            | TokenType::Else => Some(SemanticTokenType::KEYWORD),
 
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
@@ -402,6 +404,7 @@ impl Token {
                             "import" => TokenType::Import,
                             "true" => TokenType::True,
                             "false" => TokenType::False,
+                            "else" => TokenType::Else,
                             _ => TokenType::Identifier,
                         }
                     }
