@@ -327,6 +327,8 @@ fn parse_partial_expressions(
             TokenType::ForAll | TokenType::Exists | TokenType::Function => {
                 partials.push_back(PartialExpression::Binder(token));
             }
+            TokenType::If => partials.push_back(PartialExpression::If(token)),
+            TokenType::Else => partials.push_back(PartialExpression::Else(token)),
             TokenType::LeftBrace => {
                 let (subexp, right_brace) =
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
