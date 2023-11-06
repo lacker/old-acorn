@@ -379,33 +379,6 @@ fn combine_partial_expressions(
         None => {
             let first_partial = partials.pop_front().unwrap();
 
-            // XXX OLD: Check if this is a binder.
-            if let PartialExpression::Expression(Expression::Identifier(token)) = &first_partial {
-                if token.token_type.is_binder() {
-                    if partials.len() != 2 {
-                        return Err(Error::new(&token, "binder must have arguments and a block"));
-                    }
-                    let expect_args = partials.pop_front().unwrap();
-                    if let PartialExpression::Expression(args) = expect_args {
-                        let expect_block = partials.pop_back().unwrap();
-                        if let PartialExpression::Block(_, block, right_brace) = expect_block {
-                            return Ok(Expression::Binder(
-                                token.clone(),
-                                Box::new(args),
-                                Box::new(block),
-                                right_brace,
-                            ));
-                        } else {
-                            return Err(Error::new(
-                                expect_block.token(),
-                                "expected a binder block",
-                            ));
-                        }
-                    }
-                    return Err(Error::new(expect_args.token(), "expected binder arguments"));
-                }
-            }
-
             // Check if this is a binder.
             if let PartialExpression::Binder(token) = &first_partial {
                 let expect_args = partials.pop_front().unwrap();
