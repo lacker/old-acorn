@@ -1104,6 +1104,19 @@ mod tests {
         assert_eq!(prove_text(text, "goal"), Outcome::Exhausted);
     }
 
+    #[test]
+    fn test_basic_if_then_else() {
+        prove_all_ok(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            let 1: Nat = axiom
+            define sign(a: Nat) -> Nat = if a = 0 { 0 } else { 1 }
+            theorem goal(a: Nat): sign(a) = 0 | sign(a) = 1
+        "#,
+        );
+    }
+
     // These tests are like integration tests. See the files in the `tests` directory.
 
     fn test_mono(name: &str) {

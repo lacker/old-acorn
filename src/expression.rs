@@ -689,6 +689,9 @@ mod tests {
     #[test]
     fn test_if_then_else_expressions() {
         check_value("if p { q } else { r }");
+        check_value("if a = 0 { 0 } else { 1 }");
+        check_value("if foo(a) { 0 } else { 1 }");
+        check_value("if (a = 0) { 0 } else { 1 }");
 
         check_not_value("if");
         check_not_value("if p");
