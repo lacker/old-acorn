@@ -39,6 +39,20 @@ pub enum Expression {
     // The second expression is the body block.
     // The last token is the closing brace.
     Binder(Token, Box<Expression>, Box<Expression>, Token),
+
+    // If-then-else expressions have to have the else block.
+    // The first token is the "if" keyword.
+    // The first expression is the condition.
+    // The second expression is the "if" block.
+    // The third expression is the "else" block.
+    // The last token is the closing brace.
+    IfThenElse(
+        Token,
+        Box<Expression>,
+        Box<Expression>,
+        Box<Expression>,
+        Token,
+    ),
 }
 
 impl fmt::Display for Expression {
@@ -74,6 +88,13 @@ impl fmt::Display for Expression {
             Expression::Binder(token, args, sub, _) => {
                 write!(f, "{}{} {{ {} }}", token, args, sub)
             }
+            Expression::IfThenElse(_, cond, if_block, else_block, _) => {
+                write!(
+                    f,
+                    "if {} {{ {} }} else {{ {} }}",
+                    cond, if_block, else_block
+                )
+            }
         }
     }
 }
@@ -88,6 +109,7 @@ impl Expression {
             Expression::Apply(left, _) => left.token(),
             Expression::Grouping(left_paren, _, _) => left_paren,
             Expression::Binder(token, _, _, _) => token,
+            Expression::IfThenElse(token, _, _, _, _) => token,
         }
     }
 
@@ -99,6 +121,7 @@ impl Expression {
             Expression::Apply(left, _) => left.first_token(),
             Expression::Grouping(left_paren, _, _) => left_paren,
             Expression::Binder(token, _, _, _) => token,
+            Expression::IfThenElse(token, _, _, _, _) => token,
         }
     }
 
@@ -110,6 +133,7 @@ impl Expression {
             Expression::Apply(_, right) => right.last_token(),
             Expression::Grouping(_, _, right_paren) => right_paren,
             Expression::Binder(_, _, _, right_brace) => right_brace,
+            Expression::IfThenElse(_, _, _, _, right_brace) => right_brace,
         }
     }
 

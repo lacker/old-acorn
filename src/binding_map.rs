@@ -319,8 +319,8 @@ impl BindingMap {
                 "unexpected function application in type expression",
             )),
             Expression::Grouping(_, e, _) => self.evaluate_type(project, e),
-            Expression::Binder(token, _, _, _) => {
-                Err(Error::new(token, "unexpected binder in type expression"))
+            Expression::Binder(token, _, _, _) | Expression::IfThenElse(token, _, _, _, _) => {
+                Err(Error::new(token, "unexpected token in type expression"))
             }
         }
     }
@@ -677,6 +677,9 @@ impl BindingMap {
                 };
                 self.unbind_args(&arg_names);
                 ret_val
+            }
+            Expression::IfThenElse(_, _, _, _, _) => {
+                todo!("evaluate if-then-else");
             }
         }
     }
