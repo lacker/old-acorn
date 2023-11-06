@@ -280,6 +280,7 @@ export function activate(context: ExtensionContext) {
     );
   };
 
+  workspace.textDocuments.forEach(showProgressBar);
   context.subscriptions.push(workspace.onDidSaveTextDocument(showProgressBar));
   context.subscriptions.push(workspace.onDidOpenTextDocument(showProgressBar));
 }
