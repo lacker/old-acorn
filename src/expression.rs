@@ -647,4 +647,16 @@ mod tests {
         }
         panic!("unexpected expression: {:?}", exp);
     }
+
+    #[test]
+    fn test_if_then_else_expressions() {
+        check_value("if p { q } else { r }");
+
+        check_not_value("if");
+        check_not_value("if p");
+        check_not_value("if p { q }");
+        check_not_value("else");
+        check_not_value("else { r }");
+        check_not_value("if p { q } else { r } else { s }");
+    }
 }
