@@ -367,6 +367,12 @@ impl Environment {
     // to that sub-environment.
     // If project is not provided, we won't be able to handle import statements.
     pub fn add_statement(&mut self, project: &mut Project, statement: &Statement) -> Result<()> {
+        if self.includes_explicit_false {
+            return Err(Error::new(
+                &statement.first_token,
+                "an explicit 'false' may not be followed by other statements",
+            ));
+        }
         match &statement.statement {
             StatementInfo::Type(ts) => {
                 if self.bindings.name_in_use(&ts.name) {
