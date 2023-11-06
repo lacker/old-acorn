@@ -677,23 +677,28 @@ impl Environment {
                         "type name already defined in this scope",
                     ));
                 }
-                let struct_type = self.bindings.add_data_type(&ss.name);
 
-                // The member functions take the type itself to a particular member.
+                // Parse the fields before adding the struct type so that we can't have
+                // self-referential structs.
                 let mut member_fn_names = vec![];
-                let mut member_fns = vec![];
                 let mut field_types = vec![];
                 for (field_name_token, field_type_expr) in &ss.fields {
                     let field_type = self.bindings.evaluate_type(project, &field_type_expr)?;
                     field_types.push(field_type.clone());
                     let member_fn_name = format!("{}.{}", ss.name, field_name_token.text());
+                    member_fn_names.push(member_fn_name);
+                }
+
+                // The member functions take the type itself to a particular member.
+                let struct_type = self.bindings.add_data_type(&ss.name);
+                let mut member_fns = vec![];
+                for (member_fn_name, field_type) in member_fn_names.iter().zip(&field_types) {
                     let member_fn_type = AcornType::Function(FunctionType {
                         arg_types: vec![struct_type.clone()],
-                        return_type: Box::new(field_type),
+                        return_type: Box::new(field_type.clone()),
                     });
                     self.bindings
                         .add_constant(&member_fn_name, vec![], member_fn_type, None);
-                    member_fn_names.push(member_fn_name.clone());
                     member_fns.push(self.bindings.get_constant_value(&member_fn_name).unwrap());
                 }
 
@@ -1364,12 +1369,27 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
     #[test]
     fn test_struct_cant_contain_itself() {
+        // It seems like this would be okay, but type theory says it isn't okay, and
+        // there's definitely a paradox if we allow full self-reference in type construction,
+        // so let's ban it.
         let mut env = Environment::new_test();
         env.bad(
             r#"
-        struct MyPair {
-            first: bool
-            second: MyPair
+        struct InfiniteBools {
+            head: bool
+            tail: InfiniteBools
+        }
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_no_russell_paradox() {
+        let mut env = Environment::new_test();
+        env.bad(
+            r#"
+        struct NaiveSet {
+            set: NaiveSet -> bool 
         }
         "#,
         );
