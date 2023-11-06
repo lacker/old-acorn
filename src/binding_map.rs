@@ -819,6 +819,11 @@ impl BindingMap {
                 self.find_unknown_local_constants(left, answer);
                 self.find_unknown_local_constants(right, answer);
             }
+            AcornValue::IfThenElse(cond, then_value, else_value) => {
+                self.find_unknown_local_constants(cond, answer);
+                self.find_unknown_local_constants(then_value, answer);
+                self.find_unknown_local_constants(else_value, answer);
+            }
             AcornValue::Not(value) => {
                 self.find_unknown_local_constants(value, answer);
             }

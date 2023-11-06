@@ -87,6 +87,9 @@ pub enum AcornValue {
 
     // A plain old bool. True or false
     Bool(bool),
+
+    // If-then-else requires all parts: condition, if-value, else-value.
+    IfThenElse(Box<AcornValue>, Box<AcornValue>, Box<AcornValue>),
 }
 
 // An AcornValue has an implicit stack size that determines what index new stack variables
@@ -126,6 +129,13 @@ impl fmt::Display for Subvalue<'_> {
                 write!(f, "{}<{}>", name, types.join(", "))
             }
             AcornValue::Bool(b) => write!(f, "{}", b),
+            AcornValue::IfThenElse(cond, if_value, else_value) => write!(
+                f,
+                "if {} {{ {} }} else {{ {} }}",
+                Subvalue::new(cond, self.stack_size),
+                Subvalue::new(if_value, self.stack_size),
+                Subvalue::new(else_value, self.stack_size)
+            ),
         }
     }
 }
@@ -191,6 +201,7 @@ impl AcornValue {
             AcornValue::Exists(_, _) => AcornType::Bool,
             AcornValue::Specialized(_, _, c_type, params) => c_type.specialize(&params),
             AcornValue::Bool(_) => AcornType::Bool,
+            AcornValue::IfThenElse(_, if_value, _) => if_value.get_type(),
         }
     }
 
@@ -475,6 +486,11 @@ impl AcornValue {
                     Box::new(value.bind_values(first_binding_index, value_stack_size, values)),
                 )
             }
+            AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
+                Box::new(cond.bind_values(first_binding_index, stack_size, values)),
+                Box::new(if_value.bind_values(first_binding_index, stack_size, values)),
+                Box::new(else_value.bind_values(first_binding_index, stack_size, values)),
+            ),
             AcornValue::Constant(_, _, _, _)
             | AcornValue::Specialized(_, _, _, _)
             | AcornValue::Bool(_) => self,
@@ -522,6 +538,11 @@ impl AcornValue {
             AcornValue::Exists(quants, value) => {
                 AcornValue::Exists(quants, Box::new(value.insert_stack(index, increment)))
             }
+            AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
+                Box::new(cond.insert_stack(index, increment)),
+                Box::new(if_value.insert_stack(index, increment)),
+                Box::new(else_value.insert_stack(index, increment)),
+            ),
             AcornValue::Constant(_, _, _, _)
             | AcornValue::Specialized(_, _, _, _)
             | AcornValue::Bool(_) => self,
@@ -629,6 +650,11 @@ impl AcornValue {
                     Box::new(value.replace_function_equality(new_stack_size)),
                 )
             }
+            AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
+                Box::new(cond.replace_function_equality(stack_size)),
+                Box::new(if_value.replace_function_equality(stack_size)),
+                Box::new(else_value.replace_function_equality(stack_size)),
+            ),
             AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
             | AcornValue::Specialized(_, _, _, _)
@@ -681,6 +707,11 @@ impl AcornValue {
                 let new_stack_size = stack_size + args.len() as AtomId;
                 AcornValue::Lambda(args, Box::new(value.expand_lambdas(new_stack_size)))
             }
+            AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
+                Box::new(cond.expand_lambdas(stack_size)),
+                Box::new(if_value.expand_lambdas(stack_size)),
+                Box::new(else_value.expand_lambdas(stack_size)),
+            ),
             AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
             | AcornValue::Specialized(_, _, _, _)
@@ -786,6 +817,11 @@ impl AcornValue {
                     self.clone()
                 }
             }
+            AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
+                Box::new(cond.replace_constants_with_values(stack_size, replacer)),
+                Box::new(if_value.replace_constants_with_values(stack_size, replacer)),
+                Box::new(else_value.replace_constants_with_values(stack_size, replacer)),
+            ),
         }
     }
 
@@ -842,6 +878,11 @@ impl AcornValue {
             }
             AcornValue::Specialized(_, _, _, _) => panic!("can this happen?"),
             AcornValue::Bool(_) => self.clone(),
+            AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
+                Box::new(cond.replace_constants_with_vars(namespace, constants)),
+                Box::new(if_value.replace_constants_with_vars(namespace, constants)),
+                Box::new(else_value.replace_constants_with_vars(namespace, constants)),
+            ),
         }
     }
 
@@ -894,6 +935,11 @@ impl AcornValue {
                 left.validate_against_stack(stack)?;
                 right.validate_against_stack(stack)
             }
+            AcornValue::IfThenElse(cond, if_value, else_value) => {
+                cond.validate_against_stack(stack)?;
+                if_value.validate_against_stack(stack)?;
+                else_value.validate_against_stack(stack)
+            }
             AcornValue::Not(x) => x.validate_against_stack(stack),
             AcornValue::Specialized(_, _, _, _) | AcornValue::Bool(_) => Ok(()),
         }
@@ -935,6 +981,11 @@ impl AcornValue {
                 *op,
                 Box::new(left.specialize(params)),
                 Box::new(right.specialize(params)),
+            ),
+            AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
+                Box::new(cond.specialize(params)),
+                Box::new(if_value.specialize(params)),
+                Box::new(else_value.specialize(params)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.specialize(params))),
             AcornValue::Specialized(namespace, name, base_type, in_params) => {
@@ -992,6 +1043,11 @@ impl AcornValue {
                 Box::new(left.parametrize(namespace, type_names)),
                 Box::new(right.parametrize(namespace, type_names)),
             ),
+            AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
+                Box::new(cond.parametrize(namespace, type_names)),
+                Box::new(if_value.parametrize(namespace, type_names)),
+                Box::new(else_value.parametrize(namespace, type_names)),
+            ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.parametrize(namespace, type_names))),
             AcornValue::Specialized(c_namespace, c_name, c_type, params) => {
                 // New way
@@ -1019,6 +1075,9 @@ impl AcornValue {
                 args.iter().any(|x| x.is_parametric()) || value.is_parametric()
             }
             AcornValue::Binary(_, left, right) => left.is_parametric() || right.is_parametric(),
+            AcornValue::IfThenElse(cond, if_value, else_value) => {
+                cond.is_parametric() || if_value.is_parametric() || else_value.is_parametric()
+            }
             AcornValue::Not(x) => x.is_parametric(),
             AcornValue::Specialized(_, _, _, params) => {
                 params.iter().any(|(_, t)| t.is_parametric())
@@ -1046,6 +1105,11 @@ impl AcornValue {
             AcornValue::Binary(_, left, right) => {
                 left.find_parametric(output);
                 right.find_parametric(output);
+            }
+            AcornValue::IfThenElse(cond, if_value, else_value) => {
+                cond.find_parametric(output);
+                if_value.find_parametric(output);
+                else_value.find_parametric(output);
             }
             AcornValue::Not(x) => x.find_parametric(output),
             AcornValue::Specialized(namespace, name, _, params) => {
@@ -1079,6 +1143,11 @@ impl AcornValue {
             AcornValue::Binary(_, left, right) => {
                 left.find_monomorphs(output);
                 right.find_monomorphs(output);
+            }
+            AcornValue::IfThenElse(cond, if_value, else_value) => {
+                cond.find_monomorphs(output);
+                if_value.find_monomorphs(output);
+                else_value.find_monomorphs(output);
             }
             AcornValue::Not(x) => x.find_monomorphs(output),
             AcornValue::Specialized(namespace, name, _, params) => {
@@ -1127,6 +1196,11 @@ impl AcornValue {
                 *op,
                 Box::new(left.to_placeholder()),
                 Box::new(right.to_placeholder()),
+            ),
+            AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
+                Box::new(cond.to_placeholder()),
+                Box::new(if_value.to_placeholder()),
+                Box::new(else_value.to_placeholder()),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.to_placeholder())),
             AcornValue::Specialized(_, _, _, _) | AcornValue::Bool(_) => self.clone(),
