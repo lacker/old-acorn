@@ -553,6 +553,7 @@ theorem lt_mul(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(mul(a, b), mul(a
         lt(mul(a, b), mul(a, c))
     }
     a != 0 & lt(b, c) -> lt(mul(a, b), mul(a, c))
+    lt_mul(a, b, c)
 }
 
 theorem lt_cancel_mul(a: Nat, b: Nat, c: Nat): a != 0 & lt(mul(a, b), mul(a, c)) -> lt(b, c) by {

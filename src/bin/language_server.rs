@@ -116,7 +116,7 @@ impl Document {
             let goal_context = env.get_goal_context(&project, &path);
             let mut prover = Prover::new(&project, &goal_context, false, None);
             prover.stop_flags.push(self.superseded.clone());
-            let outcome = prover.search_for_contradiction(1000, 1.0);
+            let outcome = prover.search_for_contradiction(5000, 5.0);
 
             // Update progress
             done += 1;
