@@ -614,3 +614,6 @@ theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     lt(n, p)
 }
 
+define choice<T>(f: T -> bool) -> T = axiom
+
+axiom axiom_of_choice<T>(f: T -> bool): exists(x: T) { f(x) } -> f(choice(f))
