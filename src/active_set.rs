@@ -504,7 +504,7 @@ impl ActiveSet {
             return Some((literal.positive, None));
         }
         match self.literal_set.lookup(&literal) {
-            Some((positive, _, id)) => Some((positive, Some(id))), // TODO: return an id here
+            Some((positive, _, id)) => Some((positive, Some(id))),
             None => None,
         }
     }
@@ -737,25 +737,25 @@ impl ActiveSet {
 
     // Find the index of all clauses used to prove the provided step.
     pub fn find_upstream(&self, step: &ProofStep) -> Vec<usize> {
-        let mut todo = Vec::<usize>::new();
-        let mut done = HashSet::new();
+        let mut pending = Vec::<usize>::new();
+        let mut seen = HashSet::new();
         for i in step.indices() {
-            todo.push(*i);
+            pending.push(*i);
         }
-        while !todo.is_empty() {
-            let i = todo.pop().unwrap();
-            if done.contains(&i) {
+        while !pending.is_empty() {
+            let i = pending.pop().unwrap();
+            if seen.contains(&i) {
                 continue;
             }
-            done.insert(i);
+            seen.insert(i);
             let step = self.get_proof_step(i);
             for j in step.indices() {
-                todo.push(*j);
+                pending.push(*j);
             }
         }
 
         // Print out the clauses in order.
-        let mut indices = done.into_iter().collect::<Vec<_>>();
+        let mut indices = seen.into_iter().collect::<Vec<_>>();
         indices.sort();
         indices
     }

@@ -292,16 +292,16 @@ impl Project {
     // Sorts in ascending order.
     pub fn all_dependencies(&self, original_namespace: NamespaceId) -> Vec<NamespaceId> {
         let mut seen = HashSet::new();
-        let mut todo = vec![original_namespace];
-        while !todo.is_empty() {
-            let namespace = todo.pop().unwrap();
+        let mut pending = vec![original_namespace];
+        while !pending.is_empty() {
+            let namespace = pending.pop().unwrap();
             if seen.contains(&namespace) {
                 continue;
             }
             seen.insert(namespace);
             if let Module::Ok(env) = self.get_module(namespace) {
                 for dep in env.bindings.direct_dependencies() {
-                    todo.push(dep);
+                    pending.push(dep);
                 }
             }
         }
