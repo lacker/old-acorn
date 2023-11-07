@@ -252,7 +252,7 @@ impl Token {
         }
     }
 
-    pub fn skip_newlines<'a>(tokens: &mut TokenIter) {
+    pub fn skip_newlines(tokens: &mut TokenIter) {
         while let Some(token) = tokens.peek() {
             if token.token_type == TokenType::NewLine {
                 tokens.next();
