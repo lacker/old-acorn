@@ -181,7 +181,7 @@ impl Expression {
 
     // Parses a single expression from the provided tokens.
     // termination determines what tokens are allowed to be the terminator.
-    // The terminating token is returned.
+    // Consumes the terminating token and returns it.
     pub fn parse(
         tokens: &mut TokenIter,
         is_value: bool,
@@ -232,8 +232,6 @@ enum PartialExpression {
     Unary(Token),
     Binary(Token),
     Binder(Token),
-    If(Token),
-    Else(Token),
 }
 
 impl fmt::Display for PartialExpression {
@@ -244,9 +242,7 @@ impl fmt::Display for PartialExpression {
 
             PartialExpression::Unary(token)
             | PartialExpression::Binary(token)
-            | PartialExpression::Binder(token)
-            | PartialExpression::If(token)
-            | PartialExpression::Else(token) => write!(f, "{}", token),
+            | PartialExpression::Binder(token) => write!(f, "{}", token),
         }
     }
 }
@@ -259,16 +255,14 @@ impl PartialExpression {
 
             PartialExpression::Unary(token)
             | PartialExpression::Binary(token)
-            | PartialExpression::Binder(token)
-            | PartialExpression::If(token)
-            | PartialExpression::Else(token) => token,
+            | PartialExpression::Binder(token) => token,
         }
     }
 }
 
 // Create partial expressions from tokens.
 // termination determines what tokens are allowed to be the terminator.
-// The terminating token is returned.
+// Consumes the terminating token from the iterator and returns it.
 fn parse_partial_expressions(
     tokens: &mut TokenIter,
     is_value: bool,
@@ -327,8 +321,27 @@ fn parse_partial_expressions(
             TokenType::ForAll | TokenType::Exists | TokenType::Function => {
                 partials.push_back(PartialExpression::Binder(token));
             }
-            TokenType::If => partials.push_back(PartialExpression::If(token)),
-            TokenType::Else => partials.push_back(PartialExpression::Else(token)),
+            TokenType::If => {
+                if !is_value {
+                    return Err(Error::new(&token, "if-then-else cannot express a type"));
+                }
+                let (condition, _) =
+                    Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
+                let (if_block, _) =
+                    Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
+                Token::expect_type(tokens, TokenType::Else)?;
+                Token::expect_type(tokens, TokenType::LeftBrace)?;
+                let (else_block, last_right_brace) =
+                    Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
+                let exp = Expression::IfThenElse(
+                    token,
+                    Box::new(condition),
+                    Box::new(if_block),
+                    Box::new(else_block),
+                    last_right_brace,
+                );
+                partials.push_back(PartialExpression::Expression(exp));
+            }
             TokenType::LeftBrace => {
                 let (subexp, right_brace) =
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
@@ -480,40 +493,9 @@ fn combine_partial_expressions(
             _ => Err(Error::new(&token, "this binder needs arguments")),
         },
 
-        PartialExpression::If(token) => match partials.pop_front() {
-            Some(PartialExpression::Expression(cond)) => match partials.pop_front() {
-                Some(PartialExpression::Block(_, if_value, _)) => match partials.pop_front() {
-                    Some(PartialExpression::Else(else_token)) => match partials.pop_front() {
-                        Some(PartialExpression::Block(_, else_value, right_brace)) => {
-                            if partials.is_empty() {
-                                Ok(Expression::IfThenElse(
-                                    token.clone(),
-                                    Box::new(cond),
-                                    Box::new(if_value),
-                                    Box::new(else_value),
-                                    right_brace,
-                                ))
-                            } else {
-                                Err(Error::new(
-                                    partials[0].token(),
-                                    "unexpected extra expression after an if-then-else expression",
-                                ))
-                            }
-                        }
-                        _ => Err(Error::new(&else_token, "this 'else' needs a block")),
-                    },
-                    _ => Err(Error::new(&token, "this 'if' needs an 'else'")),
-                },
-                _ => Err(Error::new(&token, "this 'if' needs a block")),
-            },
-            _ => Err(Error::new(&token, "this 'if' needs a condition")),
-        },
-
         PartialExpression::Block(token, _, _) => {
             Err(Error::new(&token, "invalid location for a block"))
         }
-
-        PartialExpression::Else(token) => Err(Error::new(&token, "invalid location for an else")),
 
         e => Err(Error::new(
             e.token(),
