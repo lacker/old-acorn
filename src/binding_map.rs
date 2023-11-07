@@ -678,8 +678,16 @@ impl BindingMap {
                 self.unbind_args(&arg_names);
                 ret_val
             }
-            Expression::IfThenElse(_, _, _, _, _) => {
-                todo!("evaluate if-then-else");
+            Expression::IfThenElse(_, cond_exp, if_exp, else_exp, _) => {
+                let cond = self.evaluate_value(project, cond_exp, Some(&AcornType::Bool))?;
+                let if_value = self.evaluate_value(project, if_exp, expected_type)?;
+                let else_value =
+                    self.evaluate_value(project, else_exp, Some(&if_value.get_type()))?;
+                Ok(AcornValue::IfThenElse(
+                    Box::new(cond),
+                    Box::new(if_value),
+                    Box::new(else_value),
+                ))
             }
         }
     }
