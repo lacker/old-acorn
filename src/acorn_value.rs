@@ -719,6 +719,96 @@ impl AcornValue {
         }
     }
 
+    // extract_if attempts to rewrite this value with an IfThenElse node at the top level.
+    // The general idea is that "foo(if a then b else c)"" equals "if a then foo(b) else foo(c)".
+    //
+    // If it can rewrite the value as "if a then b else c", returns Some((a, b, c)).
+    // Otherwise returns None.
+    //
+    // This can't pull an IfThenElse node through a quantifier, but any IfThenElse node
+    // that is not below a quantifier should be extracted.
+    // This only extracts once.
+    fn extract_if(&self) -> Option<(AcornValue, AcornValue, AcornValue)> {
+        match self {
+            AcornValue::Application(app) => {
+                if let Some((a, b, c)) = app.function.extract_if() {
+                    // We can extract the if from the function
+                    Some((
+                        a,
+                        AcornValue::Application(FunctionApplication {
+                            function: Box::new(b),
+                            args: app.args.clone(),
+                        }),
+                        AcornValue::Application(FunctionApplication {
+                            function: Box::new(c),
+                            args: app.args.clone(),
+                        }),
+                    ))
+                } else {
+                    // We can't extract the if from the function, but we can extract it from the args
+                    for (i, arg) in app.args.iter().enumerate() {
+                        if let Some((a, b, c)) = arg.extract_if() {
+                            // We can extract the if from this arg
+                            let mut new_args = app.args.clone();
+                            new_args[i] = b;
+                            let b_args = new_args.clone();
+                            new_args[i] = c;
+                            let c_args = new_args;
+                            return Some((
+                                a,
+                                AcornValue::Application(FunctionApplication {
+                                    function: app.function.clone(),
+                                    args: b_args,
+                                }),
+                                AcornValue::Application(FunctionApplication {
+                                    function: app.function.clone(),
+                                    args: c_args,
+                                }),
+                            ));
+                        }
+                    }
+                    None
+                }
+            }
+            AcornValue::Binary(op, left, right) => {
+                if let Some((a, b, c)) = left.extract_if() {
+                    Some((
+                        a,
+                        AcornValue::Binary(*op, Box::new(b), right.clone()),
+                        AcornValue::Binary(*op, Box::new(c), right.clone()),
+                    ))
+                } else if let Some((a, b, c)) = right.extract_if() {
+                    Some((
+                        a,
+                        AcornValue::Binary(*op, left.clone(), Box::new(b)),
+                        AcornValue::Binary(*op, left.clone(), Box::new(c)),
+                    ))
+                } else {
+                    None
+                }
+            }
+            AcornValue::Not(x) => {
+                if let Some((a, b, c)) = x.extract_if() {
+                    Some((
+                        a,
+                        AcornValue::Not(Box::new(b)),
+                        AcornValue::Not(Box::new(c)),
+                    ))
+                } else {
+                    None
+                }
+            }
+            AcornValue::IfThenElse(a, b, c) => Some((*a.clone(), *b.clone(), *c.clone())),
+            AcornValue::ForAll(_, _)
+            | AcornValue::Exists(_, _)
+            | AcornValue::Lambda(_, _)
+            | AcornValue::Variable(_, _)
+            | AcornValue::Constant(_, _, _, _)
+            | AcornValue::Specialized(_, _, _, _)
+            | AcornValue::Bool(_) => None,
+        }
+    }
+
     // Removes all "forall" nodes, collecting the quantified types into quantifiers.
     pub fn remove_forall(self, quantifiers: &mut Vec<AcornType>) -> AcornValue {
         match self {
