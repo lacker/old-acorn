@@ -244,6 +244,22 @@ impl AcornValue {
         }
     }
 
+    pub fn new_implies(left: AcornValue, right: AcornValue) -> AcornValue {
+        AcornValue::Binary(BinaryOp::Implies, Box::new(left), Box::new(right))
+    }
+
+    pub fn new_equals(left: AcornValue, right: AcornValue) -> AcornValue {
+        AcornValue::Binary(BinaryOp::Equals, Box::new(left), Box::new(right))
+    }
+
+    pub fn new_not_equals(left: AcornValue, right: AcornValue) -> AcornValue {
+        AcornValue::Binary(BinaryOp::NotEquals, Box::new(left), Box::new(right))
+    }
+
+    pub fn new_and(left: AcornValue, right: AcornValue) -> AcornValue {
+        AcornValue::Binary(BinaryOp::And, Box::new(left), Box::new(right))
+    }
+
     // Make a Constant or a Specialized depending on whether we have params.
     pub fn new_specialized(
         namespace: NamespaceId,
@@ -719,19 +735,20 @@ impl AcornValue {
         }
     }
 
-    // extract_if attempts to rewrite this value with an IfThenElse node at the top level.
-    // The general idea is that "foo(if a then b else c)"" equals "if a then foo(b) else foo(c)".
+    // The general idea is that these expressions are equivalent:
     //
-    // If it can rewrite the value as "if a then b else c", returns Some((a, b, c)).
-    // Otherwise returns None.
+    //   foo(if a then b else c)
+    //   if a then foo(b) else foo(c)
     //
-    // This can't pull an IfThenElse node through a quantifier, but any IfThenElse node
-    // that is not below a quantifier should be extracted.
-    // This only extracts once.
-    fn extract_if(&self) -> Option<(AcornValue, AcornValue, AcornValue)> {
+    // extract_one_if tries to use this equivalence to extract one "if" statement, and return
+    // Some((condition, if_value, else_value))
+    //
+    // This function is very closely tied to replace_if and only has to work with the sorts of
+    // values it is called on, those at the boundary between boolean and non-boolean values.
+    fn extract_one_if(&self) -> Option<(AcornValue, AcornValue, AcornValue)> {
         match self {
             AcornValue::Application(app) => {
-                if let Some((a, b, c)) = app.function.extract_if() {
+                if let Some((a, b, c)) = app.function.extract_one_if() {
                     // We can extract the if from the function
                     Some((
                         a,
@@ -747,7 +764,7 @@ impl AcornValue {
                 } else {
                     // We can't extract the if from the function, but we can extract it from the args
                     for (i, arg) in app.args.iter().enumerate() {
-                        if let Some((a, b, c)) = arg.extract_if() {
+                        if let Some((a, b, c)) = arg.extract_one_if() {
                             // We can extract the if from this arg
                             let mut new_args = app.args.clone();
                             new_args[i] = b;
@@ -770,14 +787,17 @@ impl AcornValue {
                     None
                 }
             }
+
+            AcornValue::IfThenElse(a, b, c) => Some((*a.clone(), *b.clone(), *c.clone())),
+
             AcornValue::Binary(op, left, right) => {
-                if let Some((a, b, c)) = left.extract_if() {
+                if let Some((a, b, c)) = left.extract_one_if() {
                     Some((
                         a,
                         AcornValue::Binary(*op, Box::new(b), right.clone()),
                         AcornValue::Binary(*op, Box::new(c), right.clone()),
                     ))
-                } else if let Some((a, b, c)) = right.extract_if() {
+                } else if let Some((a, b, c)) = right.extract_one_if() {
                     Some((
                         a,
                         AcornValue::Binary(*op, left.clone(), Box::new(b)),
@@ -787,25 +807,59 @@ impl AcornValue {
                     None
                 }
             }
-            AcornValue::Not(x) => {
-                if let Some((a, b, c)) = x.extract_if() {
-                    Some((
-                        a,
-                        AcornValue::Not(Box::new(b)),
-                        AcornValue::Not(Box::new(c)),
-                    ))
-                } else {
-                    None
-                }
-            }
-            AcornValue::IfThenElse(a, b, c) => Some((*a.clone(), *b.clone(), *c.clone())),
-            AcornValue::ForAll(_, _)
+
+            AcornValue::Not(_)
+            | AcornValue::ForAll(_, _)
             | AcornValue::Exists(_, _)
+            | AcornValue::Bool(_)
             | AcornValue::Lambda(_, _)
             | AcornValue::Variable(_, _)
             | AcornValue::Constant(_, _, _, _)
-            | AcornValue::Specialized(_, _, _, _)
-            | AcornValue::Bool(_) => None,
+            | AcornValue::Specialized(_, _, _, _) => None,
+        }
+    }
+
+    // For an "if" among three boolean values, replace it with an equivalent value that
+    // doesn't use if-then-else nodes.
+    fn new_if_replacement(a: AcornValue, b: AcornValue, c: AcornValue) -> AcornValue {
+        let (a, b, c) = (a.replace_if(), b.replace_if(), c.replace_if());
+        let not_a_imp_c = AcornValue::new_implies(a.clone().negate(), c);
+        let a_imp_b = AcornValue::new_implies(a, b);
+        AcornValue::new_and(a_imp_b, not_a_imp_c)
+    }
+
+    // Replaces all "if" nodes by extracting them into boolean values and then replacing them.
+    // This should only be called on boolean values.
+    pub fn replace_if(self) -> AcornValue {
+        assert_eq!(self.get_type(), AcornType::Bool);
+
+        match self {
+            AcornValue::Binary(op, left, right) if (left.get_type() == AcornType::Bool) => {
+                // The subvalues are still boolean, so we can recurse.
+                let new_left = left.replace_if();
+                let new_right = right.replace_if();
+                return AcornValue::Binary(op, Box::new(new_left), Box::new(new_right));
+            }
+
+            AcornValue::Binary(_, _, _) | AcornValue::Application(_) => match self.extract_one_if()
+            {
+                Some((a, b, c)) => AcornValue::new_if_replacement(a, b, c),
+                None => self,
+            },
+
+            AcornValue::IfThenElse(a, b, c) => AcornValue::new_if_replacement(*a, *b, *c),
+
+            AcornValue::Not(value) => AcornValue::Not(Box::new(value.replace_if())),
+            AcornValue::ForAll(quants, value) => {
+                AcornValue::ForAll(quants, Box::new(value.replace_if()))
+            }
+            AcornValue::Exists(quants, value) => {
+                AcornValue::Exists(quants, Box::new(value.replace_if()))
+            }
+            AcornValue::Lambda(args, value) => {
+                AcornValue::Lambda(args, Box::new(value.replace_if()))
+            }
+            _ => self,
         }
     }
 
