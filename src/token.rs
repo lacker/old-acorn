@@ -448,12 +448,12 @@ impl Token {
     }
 
     // Pops off one token, expecting it to be there.
-    pub fn expect_token<'a>(tokens: &mut TokenIter) -> Result<Token> {
+    pub fn expect_token(tokens: &mut TokenIter) -> Result<Token> {
         tokens.next().ok_or(tokens.error("unexpected end of file"))
     }
 
     // Pops off one token, expecting it to be of a known type.
-    pub fn expect_type<'a>(tokens: &mut TokenIter, expected: TokenType) -> Result<Token> {
+    pub fn expect_type(tokens: &mut TokenIter, expected: TokenType) -> Result<Token> {
         let token = match tokens.next() {
             Some(t) => t,
             None => return Err(tokens.error("unexpected end of file")),
