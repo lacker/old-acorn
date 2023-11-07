@@ -708,5 +708,9 @@ mod tests {
         check_not_value("{ 1 }");
         check_not_value("forall(x: Nat)");
         check_not_value("forall(x: Nat) { x = x } { x }");
+        check_not_value("1 + { 1 }");
+
+        // A block should not be okay where we expect an expression
+        check_not_value("{ x = x }");
     }
 }
