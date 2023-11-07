@@ -231,7 +231,6 @@ enum PartialExpression {
     // Tokens that are only part of an expression
     Unary(Token),
     Binary(Token),
-    Binder(Token),
 }
 
 impl fmt::Display for PartialExpression {
@@ -240,9 +239,9 @@ impl fmt::Display for PartialExpression {
             PartialExpression::Expression(e) => write!(f, "{}", e),
             PartialExpression::Block(_, e, _) => write!(f, "{{ {} }}", e),
 
-            PartialExpression::Unary(token)
-            | PartialExpression::Binary(token)
-            | PartialExpression::Binder(token) => write!(f, "{}", token),
+            PartialExpression::Unary(token) | PartialExpression::Binary(token) => {
+                write!(f, "{}", token)
+            }
         }
     }
 }
@@ -253,9 +252,7 @@ impl PartialExpression {
             PartialExpression::Expression(e) => e.token(),
             PartialExpression::Block(token, _, _) => token,
 
-            PartialExpression::Unary(token)
-            | PartialExpression::Binary(token)
-            | PartialExpression::Binder(token) => token,
+            PartialExpression::Unary(token) | PartialExpression::Binary(token) => token,
         }
     }
 }
@@ -319,7 +316,20 @@ fn parse_partial_expressions(
                 partials.push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
             TokenType::ForAll | TokenType::Exists | TokenType::Function => {
-                partials.push_back(PartialExpression::Binder(token));
+                let left_paren = Token::expect_type(tokens, TokenType::LeftParen)?;
+                let (args, right_paren) =
+                    Expression::parse(tokens, is_value, |t| t == TokenType::RightParen)?;
+                let group = Expression::Grouping(left_paren, Box::new(args), right_paren);
+                Token::expect_type(tokens, TokenType::LeftBrace)?;
+                let (subexpression, right_brace) =
+                    Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
+                let binder = Expression::Binder(
+                    token,
+                    Box::new(group),
+                    Box::new(subexpression),
+                    right_brace,
+                );
+                partials.push_back(PartialExpression::Expression(binder));
             }
             TokenType::If => {
                 if !is_value {
@@ -470,37 +480,7 @@ fn combine_partial_expressions(
             Ok(answer)
         }
 
-        // When the first token is a binder, we expect an arg list and a block.
-        PartialExpression::Binder(token) => match partials.pop_front() {
-            Some(PartialExpression::Expression(args)) => match partials.pop_front() {
-                Some(PartialExpression::Block(_, block, right_brace)) => {
-                    if partials.is_empty() {
-                        Ok(Expression::Binder(
-                            token.clone(),
-                            Box::new(args),
-                            Box::new(block),
-                            right_brace,
-                        ))
-                    } else {
-                        Err(Error::new(
-                            partials[0].token(),
-                            "unexpected extra expression after a binder expression",
-                        ))
-                    }
-                }
-                _ => Err(Error::new(&token, "this binder needs a block")),
-            },
-            _ => Err(Error::new(&token, "this binder needs arguments")),
-        },
-
-        PartialExpression::Block(token, _, _) => {
-            Err(Error::new(&token, "invalid location for a block"))
-        }
-
-        e => Err(Error::new(
-            e.token(),
-            "I don't think this can happen, but if it does, this expression is bad.",
-        )),
+        e => Err(Error::new(e.token(), "expected an expression")),
     }
 }
 
