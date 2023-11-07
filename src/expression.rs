@@ -219,14 +219,13 @@ impl Expression {
     }
 }
 
-// A PartialExpression represents a state in the middle of parsing, where we can have
-// either subexpressions or operators, and we haven't prioritized operators yet.
-// A list of partial expressions can be turned into an expression, according to operator precedence.
+// In most situations we can parse left-to-right. Non-parenthesized operators are the exception.
+// The PartialExpression handles this. Nested expressions and operators are all partial expressions,
+// and we combine them into a single expression using operation priorities.
 #[derive(Debug)]
 enum PartialExpression {
     // Already a complete expression
     Expression(Expression),
-    Block(Token, Expression, Token),
 
     // Tokens that are only part of an expression
     Unary(Token),
@@ -237,8 +236,6 @@ impl fmt::Display for PartialExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             PartialExpression::Expression(e) => write!(f, "{}", e),
-            PartialExpression::Block(_, e, _) => write!(f, "{{ {} }}", e),
-
             PartialExpression::Unary(token) | PartialExpression::Binary(token) => {
                 write!(f, "{}", token)
             }
@@ -250,8 +247,6 @@ impl PartialExpression {
     fn token(&self) -> &Token {
         match self {
             PartialExpression::Expression(e) => e.token(),
-            PartialExpression::Block(token, _, _) => token,
-
             PartialExpression::Unary(token) | PartialExpression::Binary(token) => token,
         }
     }
@@ -312,9 +307,11 @@ fn parse_partial_expressions(
                 let group = Expression::Grouping(token, Box::new(subexpression), last_token);
                 partials.push_back(PartialExpression::Expression(group));
             }
+
             TokenType::Identifier | TokenType::Axiom | TokenType::True | TokenType::False => {
                 partials.push_back(PartialExpression::Expression(Expression::Identifier(token)));
             }
+
             TokenType::ForAll | TokenType::Exists | TokenType::Function => {
                 let left_paren = Token::expect_type(tokens, TokenType::LeftParen)?;
                 let (args, right_paren) =
@@ -331,6 +328,7 @@ fn parse_partial_expressions(
                 );
                 partials.push_back(PartialExpression::Expression(binder));
             }
+
             TokenType::If => {
                 if !is_value {
                     return Err(Error::new(&token, "if-then-else cannot express a type"));
@@ -352,11 +350,7 @@ fn parse_partial_expressions(
                 );
                 partials.push_back(PartialExpression::Expression(exp));
             }
-            TokenType::LeftBrace => {
-                let (subexp, right_brace) =
-                    Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
-                partials.push_back(PartialExpression::Block(token, subexp, right_brace));
-            }
+
             TokenType::NewLine => {
                 // Ignore newlines. The case where the newline is a terminator, we already caught.
             }
