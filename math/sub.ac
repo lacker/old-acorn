@@ -1,0 +1,100 @@
+import nat
+
+// Would be nicer to have a way to import all of these at once.
+type Nat: nat.Nat
+let Suc: Nat -> Nat = nat.Suc
+let 0: Nat = nat.0
+let 1: Nat = nat.1
+let add: (Nat, Nat) -> Nat = nat.add
+let lt: (Nat, Nat) -> bool = nat.lt
+let lte: (Nat, Nat) -> bool = nat.lte
+let mul: (Nat, Nat) -> Nat = nat.mul
+
+define find<T>(f: T -> bool) -> T = axiom
+
+// The axiom of choice.
+// It's simplest to just make this a normal axiom.
+axiom choice<T>(f: T -> bool): exists(x: T) { f(x) } -> f(find(f))
+
+// is_sub(a, b)(x) tells you whether a - b = x.
+// This is a "bounded" version of subtraction that returns 0 instead of negative numbers.
+define is_sub(a: Nat, b: Nat) -> (Nat -> bool) = function(x: Nat) {
+    // Defining sub(a, b) = x
+    if lt(a, b) {
+        x = 0
+    } else {
+        add(x, b) = a
+    }
+}
+
+theorem sub_def(a: Nat, b: Nat): exists(x: Nat) { is_sub(a, b)(x) } by {
+    if lt(a, b) {
+        is_sub(a, b)(0)
+    }
+    if !lt(a, b) {
+        lte(b, a)
+        exists(x: Nat) { add(x, b) = a }
+        is_sub(a, b)(x)
+    }
+}
+
+define sub(a: Nat, b: Nat) -> Nat = find(is_sub(a, b))
+
+theorem sub_is_sub(a: Nat, b: Nat): is_sub(a, b)(sub(a, b))
+
+theorem add_sub(a: Nat, b: Nat): lte(b, a) -> add(sub(a, b), b) = a
+
+theorem sub_add(a: Nat, b: Nat): sub(add(a, b), b) = a by {
+    lte(b, add(a, b))
+    add(sub(add(a, b), b), b) = add(a, b)
+}
+
+// Let's define mod similarly to how we defined sub.
+define is_mod(a: Nat, m: Nat) -> (Nat -> bool) = function(r: Nat) {
+    if m != 0 {
+        lt(r, m) & exists(q: Nat) { add(mul(q, m), r) = a }
+    } else {
+        // It doesn't really matter how we define "mod 0".
+        // We pick a mod 0 = a.
+        r = a
+    }
+}
+
+theorem mod_def(a: Nat, m: Nat): exists(r: Nat) { is_mod(a, m)(r) } by {
+    if m != 0 {
+        lt(0, m)
+        exists(q: Nat, r: Nat) {
+            lt(r, m) & a = add(mul(q, m), r)
+        }
+        is_mod(a, m)(r)
+    }
+    if m = 0 {
+        is_mod(a, m)(a)
+    }
+}
+
+define mod(a: Nat, m: Nat) -> Nat = find(is_mod(a, m))
+
+theorem mod_is_mod(a: Nat, m: Nat): is_mod(a, m)(mod(a, m))
+
+// theorem mod_unique(a: Nat, m: Nat, x: Nat): is_mod(a, m)(x) -> mod(a, m) = x 
+
+// theorem small_mod(a: Nat, m: Nat): lt(a, m) -> mod(a, m) = a
+
+theorem add_mod(a: Nat, m: Nat): exists(q: Nat) { add(mul(q, m), mod(a, m)) = a }
+
+theorem mod_0(a: Nat): mod(a, 0) = a
+
+theorem mod_mod(a: Nat, m: Nat): mod(mod(a, m), m) = mod(a, m) by {
+    if m != 0 {
+        lt(mod(a, m), m)
+        mod(mod(a, m), m) = mod(a, m)
+        mod_mod(a, m)
+    }
+    if m = 0 {
+        mod(mod(a, m), m) = a
+        mod(a, m) = a
+        mod(mod(a, m), m) = mod(a, m)
+        mod_mod(a, m)
+    }
+}
