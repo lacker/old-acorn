@@ -614,6 +614,54 @@ theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     lt(n, p)
 }
 
-define choice<T>(f: T -> bool) -> T = axiom
+// Goes from (0, 0), (0, 1), (1, 2), etc
+define suc_adjacent(p: NatPair) -> NatPair = (
+    if NatPair.second(p) = 0 {
+        NatPair.new(0, 1)
+    } else {
+        NatPair.new(Suc(NatPair.first(p)), Suc(NatPair.second(p)))
+    }
+)
 
-axiom axiom_of_choice<T>(f: T -> bool): exists(x: T) { f(x) } -> f(choice(f))
+// nsa = nth suc_adjacent
+define nsa(n: Nat) -> NatPair = recursion(suc_adjacent, NatPair.new(0, 0), n)
+
+// Subtracts 1, except we define sub1(0) = 0.
+define sub1(n: Nat) -> Nat = NatPair.first(nsa(n))
+
+theorem nsa_second(n: Nat): NatPair.second(nsa(n)) = n by {
+    induction(nsa_second)
+    nsa_second(0)
+    forall(x: Nat) {
+        if nsa_second(x) {
+            if x = 0 {
+                nsa(1) = NatPair.new(0, 1)
+                nsa_second(1)
+                nsa_second(Suc(x))
+            }
+            if x != 0 {
+                nsa(Suc(x)) = suc_adjacent(nsa(x))
+                NatPair.second(nsa(Suc(x))) = Suc(x)
+                nsa_second(Suc(x))
+            }
+        }
+    }
+}
+
+theorem sub1_1: sub1(1) = 0 by {
+    nsa(1) = NatPair.new(0, 1)
+}
+
+theorem sub1_suc(n: Nat): sub1(Suc(n)) = n by {
+    induction(sub1_suc)
+    sub1_suc(0)
+    forall(x: Nat) {
+        if sub1_suc(x) {
+            sub1_suc(Suc(x))
+        }
+    }
+}
+
+theorem suc_sub1(n: Nat): n != 0 -> Suc(sub1(n)) = n
+
+
