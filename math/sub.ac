@@ -9,6 +9,7 @@ let add: (Nat, Nat) -> Nat = nat.add
 let lt: (Nat, Nat) -> bool = nat.lt
 let lte: (Nat, Nat) -> bool = nat.lte
 let mul: (Nat, Nat) -> Nat = nat.mul
+let divides: (Nat, Nat) -> bool = nat.divides
 
 define find<T>(f: T -> bool) -> T = axiom
 
@@ -49,6 +50,8 @@ theorem sub_add(a: Nat, b: Nat): sub(add(a, b), b) = a by {
     add(sub(add(a, b), b), b) = add(a, b)
 }
 
+theorem sub_self(a: Nat): sub(a, a) = 0
+
 // Let's define mod similarly to how we defined sub.
 define is_mod(a: Nat, m: Nat) -> (Nat -> bool) = function(r: Nat) {
     if m != 0 {
@@ -77,24 +80,114 @@ define mod(a: Nat, m: Nat) -> Nat = find(is_mod(a, m))
 
 theorem mod_is_mod(a: Nat, m: Nat): is_mod(a, m)(mod(a, m))
 
-// theorem mod_unique(a: Nat, m: Nat, x: Nat): is_mod(a, m)(x) -> mod(a, m) = x 
-
-// theorem small_mod(a: Nat, m: Nat): lt(a, m) -> mod(a, m) = a
-
 theorem add_mod(a: Nat, m: Nat): exists(q: Nat) { add(mul(q, m), mod(a, m)) = a }
 
 theorem mod_0(a: Nat): mod(a, 0) = a
 
-theorem mod_mod(a: Nat, m: Nat): mod(mod(a, m), m) = mod(a, m) by {
-    if m != 0 {
-        lt(mod(a, m), m)
-        mod(mod(a, m), m) = mod(a, m)
-        mod_mod(a, m)
-    }
-    if m = 0 {
-        mod(mod(a, m), m) = a
-        mod(a, m) = a
-        mod(mod(a, m), m) = mod(a, m)
-        mod_mod(a, m)
+theorem mod_lte(a: Nat, m: Nat): lte(mod(a, m), a)
+
+theorem div_sub_mod(a: Nat, m: Nat): divides(m, sub(a, mod(a, m))) by {
+    exists(q: Nat) { add(mul(q, m), mod(a, m)) = a }
+    sub(a, mod(a, m)) = mul(q, m)
+}
+
+theorem lte_mul(a: Nat, b: Nat): b != 0 -> lte(a, mul(a, b)) by {
+    if b != 0 {
+        lte(1, b)
+        lte(mul(a, 1), mul(a, b))
+        lte(a, mul(a, b))
     }
 }
+
+theorem divides_lte(a: Nat, b: Nat): divides(a, b) -> b = 0 | lte(a, b) by {
+    if divides(a, b) & b != 0 {
+        exists(q: Nat) { mul(q, a) = b }
+        if q = 0 {
+            b = 0
+            false
+        }
+        lte(a, mul(q, a))
+        lte(a, b)
+    }
+}
+
+theorem divides_add(a: Nat, b: Nat, d: Nat):
+    divides(d, a) & divides(d, b) -> divides(d, add(a, b)) by {
+    if divides(d, a) & divides(d, b) {
+        exists(qa: Nat) { mul(qa, d) = a }
+        exists(qb: Nat) { mul(qb, d) = b }
+        mul(add(qa, qb), d) = add(mul(qa, d), mul(qb, d))
+        divides(d, add(a, b))
+    }
+}
+
+theorem sub_left_distrib(a: Nat, b: Nat, c: Nat):
+    mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c)) by {
+    if a = 0 {
+        mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c))
+        sub_left_distrib(a, b, c)
+    }
+    if a != 0 {
+        if lt(b, c) {
+            lt(mul(a, b), mul(a, c))
+            sub(mul(a, b), mul(a, c)) = 0
+            sub(b, c) = 0
+            mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c))
+            sub_left_distrib(a, b, c)
+        }
+        if !lt(b, c) {
+            add(sub(b, c), c) = b
+            mul(a, add(sub(b, c), c)) = add(mul(a, sub(b, c)), mul(a, c))
+            mul(a, b) = add(mul(a, sub(b, c)), mul(a, c))
+            mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c))
+            sub_left_distrib(a, b, c)
+        }
+        sub_left_distrib(a, b, c)
+    }
+    sub_left_distrib(a, b, c)
+}
+
+theorem divides_sub(a: Nat, b: Nat, d: Nat):
+    divides(d, a) & divides(d, b) -> divides(d, sub(a, b)) by {
+    if divides(d, a) & divides(d, b) {
+        exists(qa: Nat) { mul(qa, d) = a }
+        exists(qb: Nat) { mul(qb, d) = b }
+        mul(sub(qa, qb), d) = sub(mul(qa, d), mul(qb, d))
+        divides(d, sub(a, b))
+    }
+}
+
+define diff(a: Nat, b: Nat) -> Nat = if lt(a, b) {
+    sub(b, a)
+} else {
+    sub(a, b)
+}
+
+// theorem div_diff(a: Nat, b: Nat, d: Nat):
+//     divides(d, a) & divides(d, b) -> divides(d, diff(a, b)) by {
+//     if divides(d, a) & divides(d, b) {
+//         exists(q1: Nat) { mul(q1, d) = a }
+//         exists(q2: Nat) { mul(q2, d) = b }
+//         if lt(a, b) {
+//         }
+//         if !lt(a, b) {
+//         }    
+// }
+
+// theorem mod_unique(a: Nat, m: Nat, x: Nat): is_mod(a, m)(x) -> mod(a, m) = x
+
+// theorem small_mod(a: Nat, m: Nat): lt(a, m) -> mod(a, m) = a
+
+// theorem mod_mod(a: Nat, m: Nat): mod(mod(a, m), m) = mod(a, m) by {
+//     if m != 0 {
+//         lt(mod(a, m), m)
+//         mod(mod(a, m), m) = mod(a, m)
+//         mod_mod(a, m)
+//     }
+//     if m = 0 {
+//         mod(mod(a, m), m) = a
+//         mod(a, m) = a
+//         mod(mod(a, m), m) = mod(a, m)
+//         mod_mod(a, m)
+//     }
+// }

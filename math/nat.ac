@@ -114,8 +114,9 @@ theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
 theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
     add(add(a, b), add(c, d)) = add(add(a, c), add(b, d))
 
-theorem left_distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
-    define f(x: Nat) -> bool = left_distrib(x, b, c)
+theorem add_left_distrib(a: Nat, b: Nat, c: Nat):
+    mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
+    define f(x: Nat) -> bool = add_left_distrib(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -131,7 +132,8 @@ theorem left_distrib(a: Nat, b: Nat, c: Nat): mul(a, add(b, c)) = add(mul(a, b),
     }
 }
 
-theorem right_distrib(a: Nat, b: Nat, c: Nat): mul(add(a, b), c) = add(mul(a, c), mul(b, c))
+theorem add_right_distrib(a: Nat, b: Nat, c: Nat):
+    mul(add(a, b), c) = add(mul(a, c), mul(b, c))
 
 theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c)) by {
     define f(x: Nat) -> bool = mul_assoc(x, b, c)
@@ -527,7 +529,7 @@ theorem lt_compares(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b by {
     }
 }
 
-theorem lte_mul(a: Nat, b: Nat, c: Nat): lte(b, c) -> lte(mul(a, b), mul(a, c)) by {
+theorem lte_mul_both(a: Nat, b: Nat, c: Nat): lte(b, c) -> lte(mul(a, b), mul(a, c)) by {
     if lte(b, c) {
         exists(d: Nat) { add(b, d) = c }
         mul(a, add(b, d)) = mul(a, c)
@@ -536,7 +538,7 @@ theorem lte_mul(a: Nat, b: Nat, c: Nat): lte(b, c) -> lte(mul(a, b), mul(a, c)) 
     }
 }
 
-theorem lt_mul(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(mul(a, b), mul(a, c)) by {
+theorem lt_mul_both(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(mul(a, b), mul(a, c)) by {
     if a != 0 & lt(b, c) {
         exists(d: Nat) { add(b, d) = c }
         d != 0
@@ -553,7 +555,7 @@ theorem lt_mul(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(mul(a, b), mul(a
         lt(mul(a, b), mul(a, c))
     }
     a != 0 & lt(b, c) -> lt(mul(a, b), mul(a, c))
-    lt_mul(a, b, c)
+    lt_mul_both(a, b, c)
 }
 
 theorem lt_cancel_mul(a: Nat, b: Nat, c: Nat): a != 0 & lt(mul(a, b), mul(a, c)) -> lt(b, c) by {
