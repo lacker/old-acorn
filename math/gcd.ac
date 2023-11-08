@@ -1,0 +1,16 @@
+import nat
+import subtraction
+
+// Would be nicer to have a way to import all of these at once.
+type Nat: nat.Nat
+let Suc: Nat -> Nat = nat.Suc
+let 0: Nat = nat.0
+let 1: Nat = nat.1
+let add: (Nat, Nat) -> Nat = nat.add
+let lt: (Nat, Nat) -> bool = nat.lt
+let lte: (Nat, Nat) -> bool = nat.lte
+let mul: (Nat, Nat) -> Nat = nat.mul
+let divides: (Nat, Nat) -> bool = nat.divides
+let sub: (Nat, Nat) -> Nat = subtraction.sub
+let mod: (Nat, Nat) -> Nat = subtraction.mod
+
