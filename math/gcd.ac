@@ -11,6 +11,17 @@ let lt: (Nat, Nat) -> bool = nat.lt
 let lte: (Nat, Nat) -> bool = nat.lte
 let mul: (Nat, Nat) -> Nat = nat.mul
 let divides: (Nat, Nat) -> bool = nat.divides
+type NatPair: nat.NatPair
+
 let sub: (Nat, Nat) -> Nat = subtraction.sub
 let mod: (Nat, Nat) -> Nat = subtraction.mod
+
+// One step is taking the pair (a, b) and replacing with (b, a mod b).
+// Stop when b = 0.
+define gcd_step(p: NatPair) -> NatPair = if NatPair.second(0) = 0 {
+    // Stop when b = 0 
+    p
+} else {
+    NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
+}
 
