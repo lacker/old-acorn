@@ -12,20 +12,18 @@ use crate::namespace::SKOLEM;
 use crate::term::Term;
 use crate::type_map::TypeMap;
 
-pub enum Error {
-    // Failure during normalization
-    Normalization(String),
-}
+// A failure during normalization.
+pub struct NormalizationError(pub String);
 
-impl fmt::Display for Error {
+impl fmt::Display for NormalizationError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::Normalization(msg) => write!(f, "Normalization error: {}", msg),
+            NormalizationError(msg) => write!(f, "Normalization error: {}", msg),
         }
     }
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, NormalizationError>;
 
 pub struct Normalizer {
     // Types of the skolem functions produced
@@ -187,7 +185,7 @@ impl Normalizer {
             AcornValue::Specialized(namespace, name, _, parameters) => Ok(self
                 .type_map
                 .term_from_monomorph(*namespace, name, parameters, value.get_type())),
-            _ => Err(Error::Normalization(format!(
+            _ => Err(NormalizationError(format!(
                 "Cannot convert {} to term",
                 value
             ))),
@@ -214,7 +212,7 @@ impl Normalizer {
                 Ok(Literal::not_equals(left_term, right_term))
             }
             AcornValue::Not(subvalue) => Ok(Literal::negative(self.term_from_value(subvalue)?)),
-            _ => Err(Error::Normalization(format!(
+            _ => Err(NormalizationError(format!(
                 "Cannot convert {} to literal",
                 value
             ))),
@@ -274,7 +272,8 @@ impl Normalizer {
     }
 
     // Converts a value to CNF. If value is true, then all the returned clauses are true.
-    // If the value is impossible to satify, returns None.
+    // If the value is always satisfied, like explicit "true", returns an empty list.
+    // If the value is impossible to satify, like explicit "false", returns None.
     pub fn normalize(&mut self, value: AcornValue) -> Option<Vec<Clause>> {
         // println!("\nnormalizing: {}", value);
         let value = value.replace_function_equality(0);
