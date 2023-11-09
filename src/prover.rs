@@ -1117,6 +1117,19 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_normalization_failure_doesnt_crash() {
+        // We can't normalize lambdas inside function calls, but we shouldn't crash on them.
+        prove_all(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            define apply(f: Nat -> Nat, a: Nat) -> Nat = f(a)
+            theorem goal: apply(function(x: Nat) { x }, 0) = 0
+        "#,
+        );
+    }
+
     // These tests are like integration tests. See the files in the `tests` directory.
 
     fn test_mono(name: &str) {
