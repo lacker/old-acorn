@@ -135,6 +135,12 @@ impl Term {
         self.args.iter()
     }
 
+    // This doesn't change the term type, so the caller is responsible for making sure
+    // the type is correct.
+    pub fn push_arg(&mut self, arg: Term) {
+        self.args.push(arg);
+    }
+
     pub fn num_args(&self) -> usize {
         self.args.len()
     }

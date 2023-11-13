@@ -81,16 +81,20 @@ impl Specializer {
                 // Expand the head to a full term.
                 // Its term type isn't correct, though.
                 // Note that the variable must be in the map, or the rewrite doesn't make sense.
-                let mut head = self.get_mapping(*i).unwrap().clone();
-                head.term_type = term.term_type;
-                head
+                let replacement = self.get_mapping(*i).unwrap();
+                Term::new(
+                    term.get_term_type(),
+                    replacement.head_type,
+                    replacement.head,
+                    replacement.args.clone(),
+                )
             }
             head => Term::new(term.get_term_type(), term.head_type, *head, Vec::new()),
         };
 
         // Recurse on the arguments
         for arg in &term.args {
-            answer.args.push(self.specialize(arg));
+            answer.push_arg(self.specialize(arg));
         }
 
         answer
