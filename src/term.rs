@@ -101,6 +101,15 @@ fn dominates(a: &Vec<u8>, b: &Vec<u8>) -> bool {
 }
 
 impl Term {
+    pub fn new(term_type: TypeId, head_type: TypeId, head: Atom, args: Vec<Term>) -> Term {
+        Term {
+            term_type,
+            head_type,
+            head,
+            args,
+        }
+    }
+
     pub fn new_atom(atom: Atom, term_type: TypeId) -> Term {
         Term {
             term_type,

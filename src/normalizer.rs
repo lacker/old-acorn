@@ -149,12 +149,7 @@ impl Normalizer {
         for arg in &application.args {
             args.push(self.term_from_value(arg)?);
         }
-        Ok(Term {
-            term_type,
-            head_type,
-            head,
-            args,
-        })
+        Ok(Term::new(term_type, head_type, head, args))
     }
 
     // Constructs a new term from an AcornValue

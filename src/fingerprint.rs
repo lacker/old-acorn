@@ -36,9 +36,9 @@ impl FingerprintComponent {
 
         match &current_term.head {
             Atom::Variable(_) => {
-                FingerprintComponent::Something(current_term.term_type, Atom::Variable(0))
+                FingerprintComponent::Something(current_term.get_term_type(), Atom::Variable(0))
             }
-            a => FingerprintComponent::Something(current_term.term_type, *a),
+            a => FingerprintComponent::Something(current_term.get_term_type(), *a),
         }
     }
 
