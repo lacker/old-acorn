@@ -2,7 +2,6 @@ use std::{cmp::Ordering, fmt};
 
 use crate::atom::AtomId;
 use crate::literal::Literal;
-use crate::unifier::Unifier;
 
 // A clause is a disjunction (an "or") of literals, universally quantified over some variables.
 // We include the types of the universal variables it is quantified over.
@@ -39,9 +38,13 @@ impl Clause {
         literals.sort();
         literals.dedup();
 
-        Clause {
-            literals: Unifier::normalize_var_ids(&literals),
+        // Normalize the variable ids
+        let mut var_ids = vec![];
+        for literal in &mut literals {
+            literal.left.normalize_var_ids(&mut var_ids);
+            literal.right.normalize_var_ids(&mut var_ids);
         }
+        Clause { literals }
     }
 
     pub fn impossible() -> Clause {

@@ -198,14 +198,6 @@ impl Unifier {
         literal.map(&mut |term| self.apply(scope, term))
     }
 
-    pub fn normalize_var_ids(literals: &Vec<Literal>) -> Vec<Literal> {
-        let mut unifier = Unifier::new();
-        literals
-            .iter()
-            .map(|l| unifier.apply_to_literal(Scope::Left, l))
-            .collect()
-    }
-
     // Replace variable i in the output scope with the given term (which is also in the output scope).
     // If they're both variables, keep the one with the lower id.
     // Returns whether this succeeded.

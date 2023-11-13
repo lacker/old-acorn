@@ -578,6 +578,24 @@ impl Term {
         self.inorder_helper(&mut answer);
         answer
     }
+
+    // var_ids tracks the order each input variable is seen.
+    // Replace each var id with its index in var_ids.
+    pub fn normalize_var_ids(&mut self, var_ids: &mut Vec<AtomId>) {
+        if let Atom::Variable(i) = self.head {
+            let pos = var_ids.iter().position(|&x| x == i);
+            match pos {
+                Some(j) => self.head = Atom::Variable(j as AtomId),
+                None => {
+                    self.head = Atom::Variable(var_ids.len() as AtomId);
+                    var_ids.push(i);
+                }
+            }
+        }
+        for arg in &mut self.args {
+            arg.normalize_var_ids(var_ids);
+        }
+    }
 }
 
 #[cfg(test)]
