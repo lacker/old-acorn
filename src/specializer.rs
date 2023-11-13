@@ -45,7 +45,7 @@ impl Specializer {
     }
 
     pub fn match_terms(&mut self, general: &Term, special: &Term) -> bool {
-        if general.term_type != special.term_type {
+        if general.get_term_type() != special.get_term_type() {
             return false;
         }
 
@@ -85,12 +85,7 @@ impl Specializer {
                 head.term_type = term.term_type;
                 head
             }
-            head => Term {
-                term_type: term.term_type,
-                head_type: term.head_type,
-                head: *head,
-                args: Vec::new(),
-            },
+            head => Term::new(term.get_term_type(), term.head_type, *head, Vec::new()),
         };
 
         // Recurse on the arguments
