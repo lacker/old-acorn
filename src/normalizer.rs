@@ -158,23 +158,13 @@ impl Normalizer {
         match value {
             AcornValue::Variable(i, var_type) => {
                 let type_id = self.type_map.add_type(var_type);
-                Ok(Term {
-                    term_type: type_id,
-                    head_type: type_id,
-                    head: Atom::Variable(*i),
-                    args: vec![],
-                })
+                Ok(Term::new(type_id, type_id, Atom::Variable(*i), vec![]))
             }
             AcornValue::Constant(namespace, name, t, params) => {
                 assert!(params.is_empty());
                 let type_id = self.type_map.add_type(t);
                 let c_id = self.constant_map.add_constant(*namespace, name);
-                Ok(Term {
-                    term_type: type_id,
-                    head_type: type_id,
-                    head: Atom::Constant(c_id),
-                    args: vec![],
-                })
+                Ok(Term::new(type_id, type_id, Atom::Constant(c_id), vec![]))
             }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
             AcornValue::Specialized(namespace, name, _, parameters) => Ok(self
