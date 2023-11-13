@@ -26,8 +26,6 @@ pub struct ActiveSet {
 
     resolution_targets: FingerprintTree<ResolutionTarget>,
 
-    // The only information we need on a paramodulation target is the clause index, because
-    // we use the entire paramodulator, not a subterm.
     paramodulation_targets: FingerprintTree<ParamodulationTarget>,
 
     // The rewrite rules we use.
@@ -36,7 +34,8 @@ pub struct ActiveSet {
     rewrite_rules: FingerprintTree<usize>,
 }
 
-// A ResolutionTarget is a way of specifying one particular term that is "eligible for resolution".
+// A ResolutionTarget represents one a subterm within an active clause.
+// So, in foo(bar(x)) = baz, bar(x) could be a resolution target.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ResolutionTarget {
     // Which clause the resolution target is in.
@@ -58,8 +57,9 @@ struct ResolutionTarget {
     path: Vec<usize>,
 }
 
-// A ParamodulationTarget is a way of specifying one particular term that is
-// "eligible for paramodulation".
+// A ParamodulationTarget represents one side of a literal within an active clause.
+// So, in foo(bar(x)) = baz, bar(x) could *not* be a paramodulation target.
+// Only the whole foo(bar(x)).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ParamodulationTarget {
     // Which clause the paramodulation target is in.

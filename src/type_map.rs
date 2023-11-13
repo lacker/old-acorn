@@ -75,15 +75,15 @@ impl TypeMap {
     pub fn check_term(&self, term: &Term) {
         // The head has type (A -> B) when the term has type B, so the term's type should
         // have been constructed first.
-        assert!(term.term_type <= term.head_type);
+        assert!(term.get_term_type() <= term.get_head_type());
 
         // Make sure the type you get when applying the head to its arguments is the
         // same as the term type
         let mut calculated_type = self.get_type(term.head_type).clone();
         for arg in &term.args {
-            calculated_type = calculated_type.apply(self.get_type(arg.term_type));
+            calculated_type = calculated_type.apply(self.get_type(arg.get_term_type()));
         }
-        assert_eq!(calculated_type, *self.get_type(term.term_type));
+        assert_eq!(calculated_type, *self.get_type(term.get_term_type()));
 
         // Recurse
         for arg in &term.args {

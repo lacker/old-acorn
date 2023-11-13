@@ -101,6 +101,35 @@ fn dominates(a: &Vec<u8>, b: &Vec<u8>) -> bool {
 }
 
 impl Term {
+    pub fn new_atom(atom: Atom, term_type: TypeId) -> Term {
+        Term {
+            term_type,
+            head_type: term_type,
+            head: atom,
+            args: vec![],
+        }
+    }
+
+    pub fn get_term_type(&self) -> TypeId {
+        self.term_type
+    }
+
+    pub fn get_head_type(&self) -> TypeId {
+        self.head_type
+    }
+
+    pub fn get_head(&self) -> &Atom {
+        &self.head
+    }
+
+    pub fn iter_args(&self) -> impl Iterator<Item = &Term> {
+        self.args.iter()
+    }
+
+    pub fn num_args(&self) -> usize {
+        self.args.len()
+    }
+
     // This creates a mistyped term, okay for testing but not for real use.
     // For example, this parses
     //   c0(c1, c2(x0, x1))
