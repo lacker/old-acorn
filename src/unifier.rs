@@ -127,12 +127,12 @@ impl Unifier {
                     // We need to create a new variable to send this one to.
                     let var_id = self.output.len() as AtomId;
                     self.output.push(None);
-                    let new_var = Term {
-                        term_type: term.head_type,
-                        head_type: term.head_type,
-                        head: Atom::Variable(var_id),
-                        args: vec![],
-                    };
+                    let new_var = Term::new(
+                        term.head_type,
+                        term.head_type,
+                        Atom::Variable(var_id),
+                        vec![],
+                    );
                     self.set_mapping(scope, *i, new_var);
                 }
 
@@ -141,7 +141,7 @@ impl Unifier {
                         // The head of our initial term expands to a full term.
                         // Its term type isn't correct, though.
                         let mut head = mapped_head.clone();
-                        head.term_type = term.term_type;
+                        head.term_type = term.get_term_type();
                         head
                     }
                     None => {
