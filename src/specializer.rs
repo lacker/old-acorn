@@ -74,7 +74,7 @@ impl Specializer {
         true
     }
 
-    pub fn specialize(&mut self, term: &Term) -> Term {
+    pub fn specialize(&self, term: &Term) -> Term {
         // First apply to the head
         let mut answer = match &term.head {
             Atom::Variable(i) => {
