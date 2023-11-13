@@ -24,4 +24,3 @@ define gcd_step(p: NatPair) -> NatPair = if NatPair.second(0) = 0 {
 } else {
     NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
 }
-

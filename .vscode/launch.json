@@ -12,7 +12,7 @@
       "outFiles": ["${workspaceFolder}/vscode/extension/out/**/*.js"],
       "preLaunchTask": "build all",
       "env": {
-        "SERVER_PATH": "${workspaceFolder}/target/debug/language_server"
+        "SERVER_PATH": "${workspaceFolder}/target/release/language_server"
       }
     }
   ]
