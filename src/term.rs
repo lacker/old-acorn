@@ -110,15 +110,6 @@ impl Term {
         }
     }
 
-    pub fn new_atom(atom: Atom, term_type: TypeId) -> Term {
-        Term {
-            term_type,
-            head_type: term_type,
-            head: atom,
-            args: vec![],
-        }
-    }
-
     pub fn get_term_type(&self) -> TypeId {
         self.term_type
     }

@@ -18,6 +18,7 @@ pub mod normalizer;
 pub mod passive_set;
 pub mod project;
 pub mod prover;
+pub mod rewrite_tree;
 pub mod specializer;
 pub mod statement;
 pub mod synthesizer;
