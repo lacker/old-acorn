@@ -42,6 +42,7 @@ impl FingerprintComponent {
         }
     }
 
+    // Whether unification could possibly identify terms with these two fingerprints
     pub fn matches(&self, other: &FingerprintComponent) -> bool {
         match (self, other) {
             (FingerprintComponent::Below, _) => true,
