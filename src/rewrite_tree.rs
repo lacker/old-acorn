@@ -8,13 +8,23 @@ use crate::type_map::TypeId;
 
 // The TermComponent is designed so that a &[TermComponent] represents a preorder
 // traversal of the term, and subslices represent subterms.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum TermComponent {
     // The u16 is the number of term components in the term, including this one.
     // Must be at least 3. Otherwise this would just be an atom.
     Composite(TypeId, u16),
 
     Atom(TypeId, Atom),
+}
+
+impl TermComponent {
+    // The number of TermComponents in the component starting with this one
+    fn size(&self) -> usize {
+        match self {
+            TermComponent::Composite(_, size) => *size as usize,
+            TermComponent::Atom(_, _) => 1,
+        }
+    }
 }
 
 fn flatten_next(term: &Term, output: &mut Vec<TermComponent>) {
@@ -81,22 +91,23 @@ fn unflatten_term(components: &[TermComponent]) -> Term {
 // A rewrite tree is a "perfect discrimination tree" specifically designed to rewrite
 // terms into simplified versions.
 // Each path from the root to a leaf is a series of edges that represents a term.
-// The linear representation of a term is:
-// First, the type of the term itself
-// Then, a preorder traversal of the tree.
+// The linear representation of a term is a preorder traversal of the tree.
 // For any non-atomic term, we include the type of its head, then recurse.
 // For any atom, we just include the atom.
 // This doesn't contain enough type information to extract a term from the tree, but it
-// does contain enough type information to match against an existing term.
+// does contain enough type information to match against an existing term, as long as having
+// an atomic variable at the root level is forbidden.
 
 // The possible discriminants.
-// "type" encodes a type, the rest encode atoms.
-const TYPE: u8 = 0;
+// HEAD_TYPE indicates the following id encodes a type, The rest encode atoms.
+const HEAD_TYPE: u8 = 0;
 const TRUE: u8 = 1;
 const CONSTANT: u8 = 2;
 const MONOMORPH: u8 = 3;
 const SYNTHETIC: u8 = 4;
 const VARIABLE: u8 = 5;
+
+const EMPTY: &[u8] = &[];
 
 #[repr(C, packed)]
 struct EdgeBytes {
@@ -119,10 +130,17 @@ impl Borrow<[u8]> for EdgeBytes {
 }
 
 impl EdgeBytes {
-    fn from_type(t: TypeId) -> EdgeBytes {
+    fn from_head_type(t: TypeId) -> EdgeBytes {
         EdgeBytes {
-            discriminant: TYPE,
+            discriminant: HEAD_TYPE,
             id: t,
+        }
+    }
+
+    fn from_variable(i: u16) -> EdgeBytes {
+        EdgeBytes {
+            discriminant: VARIABLE,
+            id: i,
         }
     }
 
@@ -144,10 +162,7 @@ impl EdgeBytes {
                 discriminant: SYNTHETIC,
                 id: i,
             },
-            Atom::Variable(i) => EdgeBytes {
-                discriminant: VARIABLE,
-                id: i,
-            },
+            Atom::Variable(i) => EdgeBytes::from_variable(i),
         }
     }
 
@@ -163,7 +178,7 @@ fn path_from_term_helper(term: &Term, path: &mut Vec<u8>) {
     if term.args.is_empty() {
         EdgeBytes::from_atom(term.head).append_to(path);
     } else {
-        EdgeBytes::from_type(term.head_type).append_to(path);
+        EdgeBytes::from_head_type(term.head_type).append_to(path);
         EdgeBytes::from_atom(term.head).append_to(path);
         for arg in &term.args {
             path_from_term_helper(arg, path);
@@ -174,36 +189,152 @@ fn path_from_term_helper(term: &Term, path: &mut Vec<u8>) {
 // Appends the path to the term, prefixing with the top-level type
 fn path_from_term(term: &Term) -> Vec<u8> {
     let mut path = Vec::new();
-    EdgeBytes::from_type(term.get_term_type()).append_to(&mut path);
     path_from_term_helper(term, &mut path);
     path
 }
 
+// Replace the variable x_i with the contents of replacements[i].
+// The "size" indices have to be updated as well.
+fn replace_components(
+    components: &[TermComponent],
+    replacements: &[&[TermComponent]],
+) -> Vec<TermComponent> {
+    todo!();
+}
+
 // Information stored in each trie leaf.
+#[derive(Debug, Clone, Copy)]
 struct Leaf {
     // The rewrite tree just sees an opaque id for each rewrite rule.
     // When we do a rewrite, we want to know which rule was used.
     rule_id: usize,
 
-    // The rewritten form of the term
-    rewritten: Vec<TermComponent>,
+    // An id for the rewritten form of the term.
+    rewritten_id: usize,
+}
+
+// Finds a leaf in the trie that matches the given term components.
+// These term components could represent a single term, or they could represent a
+// sequence of terms that are a suffix of a subterm. The "right part" of a subterm cut by a path.
+// Kind of confusing, just be aware that it does not correspond to a single term.
+//
+// Returns None if there is no matching leaf.
+// A "match" can replace any variable i in the trie with replacements[i].
+// If this does not find a match, it returns replacements to their initial state.
+fn find_leaf<'a>(
+    trie: &SubTrie<Vec<u8>, Leaf>,
+    components: &'a [TermComponent],
+    replacements: &mut Vec<&'a [TermComponent]>,
+) -> Option<Leaf> {
+    if trie.is_empty() {
+        return None;
+    }
+
+    if components.is_empty() {
+        match trie.get(EMPTY) {
+            Some(leaf) => return Some(*leaf),
+            None => {
+                panic!("type mismatch. components are exhausted but subtrie is not");
+            }
+        }
+    }
+
+    // Case 1: the first term in the components could match an existing replacement
+    let size = components[0].size();
+    let first = &components[..size];
+    let rest = &components[size..];
+    for i in 0..replacements.len() {
+        if first == replacements[i] {
+            // This term could match x_i as a backreference.
+            let bytes = EdgeBytes::from_variable(i as u16);
+            let subtrie = trie.subtrie(bytes);
+            if let Some(leaf) = find_leaf(&subtrie, rest, replacements) {
+                return Some(leaf);
+            }
+        }
+    }
+
+    // Case 2: the first term could match an entirely new variable
+    let bytes = EdgeBytes::from_variable(replacements.len() as u16);
+    let subtrie = trie.subtrie(bytes);
+    if !subtrie.is_empty() {
+        replacements.push(first);
+        if let Some(leaf) = find_leaf(&subtrie, rest, replacements) {
+            return Some(leaf);
+        }
+        replacements.pop();
+    }
+
+    // Case 3: we could exactly match just the first component
+    let bytes = match components[0] {
+        TermComponent::Composite(_, _) => {
+            if let TermComponent::Atom(head_type, _) = components[1] {
+                EdgeBytes::from_head_type(head_type)
+            } else {
+                panic!("Composite term must have an atom as its head");
+            }
+        }
+        TermComponent::Atom(_, a) => EdgeBytes::from_atom(a),
+    };
+    let subtrie = trie.subtrie(bytes);
+    find_leaf(&subtrie, &components[1..], replacements)
 }
 
 pub struct RewriteTree {
     trie: Trie<Vec<u8>, Leaf>,
+
+    // Indexed by rewritten_id.
+    rewritten: Vec<Vec<TermComponent>>,
 }
 
 impl RewriteTree {
     pub fn new() -> RewriteTree {
-        RewriteTree { trie: Trie::new() }
+        RewriteTree {
+            trie: Trie::new(),
+            rewritten: vec![],
+        }
     }
 
-    pub fn add_rule(&mut self, rule_id: usize, term: &Term) {
-        let path = path_from_term(term);
+    pub fn add_rule(&mut self, rule_id: usize, input_term: &Term, output_term: &Term) {
+        if input_term.atomic_variable().is_some() {
+            panic!("cannot rewrite atomic variables to something else");
+        }
+        let path = path_from_term(input_term);
+        let rewritten_id = self.rewritten.len();
+        self.rewritten.push(flatten_term(output_term));
         let leaf = Leaf {
             rule_id,
-            rewritten: flatten_term(term),
+            rewritten_id,
         };
         self.trie.insert(path, leaf);
+    }
+
+    // Rewrites repeatedly.
+    // Returns a list of the rewrite rules used, and the final term.
+    pub fn rewrite(&self, term: &Term) -> Option<(Vec<usize>, Term)> {
+        let mut components = flatten_term(term);
+        let mut rules = vec![];
+
+        // Infinite loops are hard to debug. Large numbers are close to infinity so they probably also
+        // indicate a bug.
+        for _ in 0..100 {
+            let subtrie = self.trie.subtrie(EMPTY);
+            let mut replacements = vec![];
+            let leaf = match find_leaf(&subtrie, &components, &mut replacements) {
+                Some(leaf) => leaf,
+                None => {
+                    if rules.is_empty() {
+                        return None;
+                    } else {
+                        return Some((rules, unflatten_term(&components)));
+                    }
+                }
+            };
+
+            rules.push(leaf.rule_id);
+            components = replace_components(&self.rewritten[leaf.rewritten_id], &replacements);
+        }
+
+        panic!("rewrite looped too many times");
     }
 }
