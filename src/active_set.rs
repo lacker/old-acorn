@@ -7,7 +7,6 @@ use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
 use crate::rewrite_tree::RewriteTree;
-use crate::specializer::Specializer;
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
 
@@ -29,14 +28,9 @@ pub struct ActiveSet {
 
     paramodulation_targets: FingerprintTree<ParamodulationTarget>,
 
-    use_new_rewrite_algorithm: bool,
-
-    // The rewrite rules we use.
+    // Represents each rewrite rule as an index into clause_info.
     // A clause can only be a rewrite if it's a single foo = bar literal, and foo > bar by the KBO.
     // So we only need to store the clause index of the rewrite rule.
-    rewrite_rules: FingerprintTree<usize>,
-
-    // Represents each rewrite rule as an index into clause_info.
     rewrite_tree: RewriteTree,
 }
 
@@ -87,9 +81,7 @@ impl ActiveSet {
             literal_set: LiteralSet::new(),
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
-            rewrite_rules: FingerprintTree::new(),
             rewrite_tree: RewriteTree::new(),
-            use_new_rewrite_algorithm: true,
         }
     }
 
@@ -429,87 +421,11 @@ impl ActiveSet {
         self.clause_set.contains(clause)
     }
 
-    // Rewrites subterms as well.
-    // Only returns a new term if there is something to rewrite.
-    fn rewrite_once(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
-        // Check if some args can be rewritten
-        let rewritten_args: Vec<_> = term
-            .args
-            .iter()
-            .map(|arg| self.rewrite_once(arg, rules))
-            .collect();
-        if rewritten_args.iter().any(|arg| arg.is_some()) {
-            let mut new_args = vec![];
-            for (original, rewritten) in term.args.iter().zip(rewritten_args) {
-                if let Some(rewritten) = rewritten {
-                    new_args.push(rewritten);
-                } else {
-                    new_args.push(original.clone());
-                }
-            }
-            let new_term = term.replace_args(new_args);
-            return Some(new_term);
-        }
-
-        // Check if we can rewrite this term at the root
-        let clause_indexes = self.rewrite_rules.get_generalizing(&term);
-        for i in clause_indexes {
-            let clause = self.get_clause(*i);
-            let rule = &clause.literals[0];
-            let mut s = Specializer::new();
-
-            if s.match_terms(&rule.left, term) {
-                rules.push(*i);
-                let new_term = s.specialize(&rule.right);
-                return Some(new_term);
-            }
-        }
-
-        None
-    }
-
-    // Rewrites up to limit times.
-    fn rewrite_term_limited(
-        &self,
-        term: &Term,
-        limit: u32,
-        rules: &mut Vec<usize>,
-    ) -> Option<Term> {
-        if limit == 0 {
-            panic!("error: ran out of rewrite stack");
-        }
-        if let Some(new_term) = self.rewrite_once(term, rules) {
-            self.rewrite_term_limited(&new_term, limit - 1, rules)
-                .or(Some(new_term))
-        } else {
-            None
-        }
-    }
-
-    fn rewrite_term(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
-        self.rewrite_term_limited(term, 10, rules)
-    }
-
-    fn rewrite_term_or_clone(&self, term: &Term, rules: &mut Vec<usize>) -> Term {
-        if let Some(term) = self.rewrite_term(term, rules) {
-            term
-        } else {
-            term.clone()
-        }
-    }
-
     // Rewrites this literal, appending a list of the rewrite rules used.
     fn rewrite_literal(&self, literal: &Literal, rules: &mut Vec<usize>) -> Literal {
-        if self.use_new_rewrite_algorithm {
-            let left = self.rewrite_tree.rewrite_or_clone(&literal.left, rules);
-            let right = self.rewrite_tree.rewrite_or_clone(&literal.right, rules);
-            let answer = Literal::new(literal.positive, left, right);
-            answer
-        } else {
-            let left = self.rewrite_term_or_clone(&literal.left, rules);
-            let right = self.rewrite_term_or_clone(&literal.right, rules);
-            Literal::new(literal.positive, left, right)
-        }
+        let left = self.rewrite_tree.rewrite_or_clone(&literal.left, rules);
+        let right = self.rewrite_tree.rewrite_or_clone(&literal.right, rules);
+        Literal::new(literal.positive, left, right)
     }
 
     // Returns (value, id of clause) when this literal's value is known due to some existing clause.
@@ -663,16 +579,8 @@ impl ActiveSet {
 
         if clause.is_rewrite_rule() {
             let rewrite_literal = &clause.literals[0];
-            if self.use_new_rewrite_algorithm {
-                self.rewrite_tree.add_rule(
-                    clause_index,
-                    &rewrite_literal.left,
-                    &rewrite_literal.right,
-                );
-            } else {
-                self.rewrite_rules
-                    .insert(&rewrite_literal.left, clause_index);
-            }
+            self.rewrite_tree
+                .add_rule(clause_index, &rewrite_literal.left, &rewrite_literal.right);
         }
 
         self.clause_set.insert(clause.clone());
