@@ -177,10 +177,6 @@ fn replace_components(
     replacements: &[&[TermComponent]],
 ) -> Vec<TermComponent> {
     let mut output: Vec<TermComponent> = vec![];
-    println!(
-        "XXX replace_components: {:?} with {:?}",
-        components, replacements
-    );
 
     // path contains all the indices of composite parents, in *output*, of the current node
     let mut path: Vec<usize> = vec![];
@@ -245,7 +241,6 @@ fn find_leaf<'a>(
     components: &'a [TermComponent],
     replacements: &mut Vec<&'a [TermComponent]>,
 ) -> Option<Leaf> {
-    println!("XXX find_leaf: {:?}", key);
     if subtrie.is_empty() {
         return None;
     }
@@ -261,9 +256,7 @@ fn find_leaf<'a>(
     let initial_key_len = key.len();
 
     // Case 1: the first term in the components could match an existing replacement
-    println!("XXX components: {:?}", components);
     let size = components[0].size();
-    println!("XXX size = {}", size);
     let first = &components[..size];
     let rest = &components[size..];
     for i in 0..replacements.len() {
@@ -387,12 +380,11 @@ impl RewriteTree {
         let mut rules = vec![];
 
         // Infinite loops are hard to debug, so cap this loop.
-        for _ in 0..5 {
+        for _ in 0..100 {
             match self.rewrite_once(&components) {
                 Some((rule_id, new_components)) => {
                     rules.push(rule_id);
                     components = new_components;
-                    println!("XXX new components: {:?}", components);
                     continue;
                 }
                 None => {
@@ -439,5 +431,26 @@ mod tests {
         let (rules, term) = tree.rewrite(&Term::parse("c1(c2)")).unwrap();
         assert_eq!(rules, vec![0, 1]);
         assert_eq!(term, Term::parse("c3"));
+    }
+
+    #[test]
+    fn test_rewriting_tail_subterms() {
+        let mut tree = RewriteTree::new();
+        tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
+        tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
+        let (rules, term) = tree.rewrite(&Term::parse("c4(c1(c2))")).unwrap();
+        assert_eq!(rules, vec![0, 1]);
+        assert_eq!(term, Term::parse("c4(c3)"));
+    }
+
+    #[test]
+    fn test_rewriting_non_tail_subterms() {
+        let mut tree = RewriteTree::new();
+        tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
+        tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
+        tree.add_rule(2, &Term::parse("c4(x0, x0)"), &Term::parse("c1(x0)"));
+        let (rules, term) = tree.rewrite(&Term::parse("c4(c1(c2), c3)")).unwrap();
+        assert_eq!(rules, vec![0, 1, 2, 0]);
+        assert_eq!(term, Term::parse("c0(c3)"));
     }
 }
