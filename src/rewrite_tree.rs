@@ -160,6 +160,7 @@ const MONOMORPH: u8 = 3;
 const SYNTHETIC: u8 = 4;
 const VARIABLE: u8 = 5;
 
+#[derive(Debug)]
 enum Edge {
     HeadType(TypeId),
     Atom(Atom),
@@ -192,6 +193,35 @@ impl Edge {
             },
         };
         v.extend_from_slice(&id.to_ne_bytes());
+    }
+
+    fn from_bytes(byte1: u8, byte2: u8, byte3: u8) -> Edge {
+        let id = u16::from_ne_bytes([byte2, byte3]);
+        match byte1 {
+            HEAD_TYPE => Edge::HeadType(id),
+            TRUE => Edge::Atom(Atom::True),
+            CONSTANT => Edge::Atom(Atom::Constant(id)),
+            MONOMORPH => Edge::Atom(Atom::Monomorph(id)),
+            SYNTHETIC => Edge::Atom(Atom::Synthetic(id)),
+            VARIABLE => Edge::Atom(Atom::Variable(id)),
+            _ => panic!("invalid discriminant byte"),
+        }
+    }
+
+    fn debug_bytes(bytes: &[u8]) -> String {
+        let mut i = 0;
+        let mut parts: Vec<String> = vec![];
+        while i < bytes.len() {
+            if i + 3 <= bytes.len() {
+                let edge = Edge::from_bytes(bytes[i], bytes[i + 1], bytes[i + 2]);
+                parts.push(format!("{:?}", edge));
+            } else {
+                parts.push(format!("plus extra bytes {:?}", &bytes[i..]));
+            }
+            i += 3;
+        }
+
+        parts.join(", ")
     }
 }
 
@@ -296,7 +326,17 @@ fn find_leaf<'a>(
         match subtrie.get(key as &[u8]) {
             Some(leaf) => return Some(*leaf),
             None => {
-                panic!("type mismatch. components are exhausted but subtrie is not");
+                // The entire term is matched, but we are not yet at the leaf.
+                // The key format is supposed to ensure that two different valid
+                // keys don't have a prefix relationship.
+                // This indicates some sort of problem, like that some atom
+                // is being used with an inconsistent number of args.
+                let (sample, _) = subtrie.iter().next().unwrap();
+                panic!(
+                    "\nkey mismatch.\nquerying: {}\nexisting: {}\n",
+                    Edge::debug_bytes(key),
+                    Edge::debug_bytes(sample)
+                );
             }
         }
     }
