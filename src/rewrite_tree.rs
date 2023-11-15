@@ -7,8 +7,8 @@ use crate::term::Term;
 use crate::type_map::TypeId;
 
 // The TermComponent is designed so that a &[TermComponent] represents a preorder
-// traversal of the term, and subslices represent subterms.
-#[derive(Debug, PartialEq, Eq)]
+// traversal of the term, and each subterm is represented by a subslice.
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum TermComponent {
     // The u16 is the number of term components in the term, including this one.
     // Must be at least 3. Otherwise this would just be an atom.
@@ -23,6 +23,13 @@ impl TermComponent {
         match self {
             TermComponent::Composite(_, size) => *size as usize,
             TermComponent::Atom(_, _) => 1,
+        }
+    }
+
+    fn increase_size(&mut self, delta: u16) {
+        match self {
+            TermComponent::Composite(_, size) => *size += delta,
+            TermComponent::Atom(_, _) => panic!("cannot increase size of atom"),
         }
     }
 }
@@ -199,7 +206,43 @@ fn replace_components(
     components: &[TermComponent],
     replacements: &[&[TermComponent]],
 ) -> Vec<TermComponent> {
-    todo!();
+    // path contains all the indices of composite parents, in *output*, of the current node
+    let mut path: Vec<usize> = vec![];
+
+    let mut output: Vec<TermComponent> = vec![];
+
+    for component in components {
+        // Pop any elements of the path that are no longer parents
+        while path.len() > 0 {
+            let j = path[path.len() - 1];
+            if j + output[j].size() <= output.len() {
+                path.pop();
+            } else {
+                break;
+            }
+        }
+
+        match component {
+            TermComponent::Composite(_, _) => {
+                path.push(output.len());
+                output.push(component.clone());
+            }
+            TermComponent::Atom(_, a) => {
+                if let Atom::Variable(i) = a {
+                    let replacement = replacements[*i as usize];
+
+                    // Every parent of this node, its size is getting bigger by delta
+                    let delta = (replacement.len() - 1) as u16;
+                    for j in &path {
+                        output[*j].increase_size(delta);
+                    }
+                } else {
+                    output.push(component.clone());
+                }
+            }
+        }
+    }
+    output
 }
 
 // Information stored in each trie leaf.
@@ -336,5 +379,19 @@ impl RewriteTree {
         }
 
         panic!("rewrite looped too many times");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_rewriting() {
+        let mut tree = RewriteTree::new();
+        tree.add_rule(0, &Term::parse("c1(c2)"), &Term::parse("c0"));
+        let (rules, term) = tree.rewrite(&Term::parse("c1(c2)")).unwrap();
+        assert_eq!(rules, vec![0]);
+        assert_eq!(term, Term::parse("c0"));
     }
 }
