@@ -6,6 +6,7 @@ use crate::clause_info::{ClauseInfo, ClauseType, ProofRule, ProofStep};
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
+use crate::rewrite_tree::RewriteTree;
 use crate::specializer::Specializer;
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
@@ -28,10 +29,15 @@ pub struct ActiveSet {
 
     paramodulation_targets: FingerprintTree<ParamodulationTarget>,
 
+    use_new_rewrite_algorithm: bool,
+
     // The rewrite rules we use.
     // A clause can only be a rewrite if it's a single foo = bar literal, and foo > bar by the KBO.
     // So we only need to store the clause index of the rewrite rule.
     rewrite_rules: FingerprintTree<usize>,
+
+    // Represents each rewrite rule as an index into clause_info.
+    rewrite_tree: RewriteTree,
 }
 
 // A ResolutionTarget represents one a subterm within an active clause.
@@ -82,6 +88,8 @@ impl ActiveSet {
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
             rewrite_rules: FingerprintTree::new(),
+            rewrite_tree: RewriteTree::new(),
+            use_new_rewrite_algorithm: false,
         }
     }
 
@@ -478,7 +486,7 @@ impl ActiveSet {
         }
     }
 
-    pub fn rewrite_term(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
+    fn rewrite_term(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
         self.rewrite_term_limited(term, 10, rules)
     }
 
@@ -491,7 +499,7 @@ impl ActiveSet {
     }
 
     // Rewrites this literal, appending a list of the rewrite rules used.
-    pub fn rewrite_literal(&self, literal: &Literal, rules: &mut Vec<usize>) -> Literal {
+    fn rewrite_literal(&self, literal: &Literal, rules: &mut Vec<usize>) -> Literal {
         let left = self.rewrite_term_or_clone(&literal.left, rules);
         let right = self.rewrite_term_or_clone(&literal.right, rules);
         Literal::new(literal.positive, left, right)
@@ -648,8 +656,16 @@ impl ActiveSet {
 
         if clause.is_rewrite_rule() {
             let rewrite_literal = &clause.literals[0];
-            self.rewrite_rules
-                .insert(&rewrite_literal.left, clause_index);
+            if self.use_new_rewrite_algorithm {
+                self.rewrite_tree.add_rule(
+                    clause_index,
+                    &rewrite_literal.left,
+                    &rewrite_literal.right,
+                );
+            } else {
+                self.rewrite_rules
+                    .insert(&rewrite_literal.left, clause_index);
+            }
         }
 
         self.clause_set.insert(clause.clone());

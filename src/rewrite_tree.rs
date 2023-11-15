@@ -336,8 +336,13 @@ impl RewriteTree {
 
     // Does one rewrite.
     // Checks all subterms.
-    // Returns the rewrite rule used, and the new sequence of components, if there is a rewrite.
-    fn rewrite_once(&self, components: &Vec<TermComponent>) -> Option<(usize, Vec<TermComponent>)> {
+    // Returns the new sequence of components, if there is a rewrite.
+    // Appends any rule used to rules.
+    fn rewrite_once(
+        &self,
+        components: &Vec<TermComponent>,
+        rules: &mut Vec<usize>,
+    ) -> Option<Vec<TermComponent>> {
         for i in 0..components.len() {
             let subterm_size = components[i].size();
             let subterm = &components[i..i + subterm_size];
@@ -346,11 +351,12 @@ impl RewriteTree {
             let mut key = vec![];
 
             if let Some(leaf) = find_leaf(&subtrie, &mut key, subterm, &mut replacements) {
+                rules.push(leaf.rule_id);
                 let rewritten = &self.rewritten[leaf.rewritten_id];
                 let new_subterm = replace_components(rewritten, &replacements);
                 if i == 0 {
                     // We just replaced the whole term
-                    return Some((leaf.rule_id, new_subterm));
+                    return Some(new_subterm);
                 }
 
                 // It's important that delta can be negative, if a rewrite shrinks the term.
@@ -367,31 +373,30 @@ impl RewriteTree {
                 }
                 new_components.extend_from_slice(&new_subterm);
                 new_components.extend_from_slice(&components[i + subterm_size..]);
-                return Some((leaf.rule_id, new_components));
+                return Some(new_components);
             }
         }
         None
     }
 
     // Rewrites repeatedly.
-    // Returns a list of the rewrite rules used, and the final term.
-    pub fn rewrite(&self, term: &Term) -> Option<(Vec<usize>, Term)> {
+    // Returns the final term, if any rewrites happen.
+    // Appends the rules used to rules.
+    pub fn rewrite(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
         let mut components = flatten_term(term);
-        let mut rules = vec![];
 
         // Infinite loops are hard to debug, so cap this loop.
-        for _ in 0..100 {
-            match self.rewrite_once(&components) {
-                Some((rule_id, new_components)) => {
-                    rules.push(rule_id);
+        for i in 0..100 {
+            match self.rewrite_once(&components, rules) {
+                Some(new_components) => {
                     components = new_components;
                     continue;
                 }
                 None => {
-                    if rules.is_empty() {
+                    if i == 0 {
                         return None;
                     } else {
-                        return Some((rules, unflatten_term(&components)));
+                        return Some(unflatten_term(&components));
                     }
                 }
             }
@@ -408,8 +413,9 @@ mod tests {
     #[test]
     fn test_rewriting_an_atom() {
         let mut tree = RewriteTree::new();
+        let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1"), &Term::parse("c0"));
-        let (rules, term) = tree.rewrite(&Term::parse("c1")).unwrap();
+        let term = tree.rewrite(&Term::parse("c1"), &mut rules).unwrap();
         assert_eq!(rules, vec![0]);
         assert_eq!(term, Term::parse("c0"));
     }
@@ -417,8 +423,9 @@ mod tests {
     #[test]
     fn test_rewriting_a_function() {
         let mut tree = RewriteTree::new();
+        let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
-        let (rules, term) = tree.rewrite(&Term::parse("c1(c2)")).unwrap();
+        let term = tree.rewrite(&Term::parse("c1(c2)"), &mut rules).unwrap();
         assert_eq!(rules, vec![0]);
         assert_eq!(term, Term::parse("c0(c2)"));
     }
@@ -426,9 +433,10 @@ mod tests {
     #[test]
     fn test_multiple_rewrites() {
         let mut tree = RewriteTree::new();
+        let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
         tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
-        let (rules, term) = tree.rewrite(&Term::parse("c1(c2)")).unwrap();
+        let term = tree.rewrite(&Term::parse("c1(c2)"), &mut rules).unwrap();
         assert_eq!(rules, vec![0, 1]);
         assert_eq!(term, Term::parse("c3"));
     }
@@ -436,9 +444,12 @@ mod tests {
     #[test]
     fn test_rewriting_tail_subterms() {
         let mut tree = RewriteTree::new();
+        let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
         tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
-        let (rules, term) = tree.rewrite(&Term::parse("c4(c1(c2))")).unwrap();
+        let term = tree
+            .rewrite(&Term::parse("c4(c1(c2))"), &mut rules)
+            .unwrap();
         assert_eq!(rules, vec![0, 1]);
         assert_eq!(term, Term::parse("c4(c3)"));
     }
@@ -446,10 +457,13 @@ mod tests {
     #[test]
     fn test_rewriting_non_tail_subterms() {
         let mut tree = RewriteTree::new();
+        let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
         tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
         tree.add_rule(2, &Term::parse("c4(x0, x0)"), &Term::parse("c1(x0)"));
-        let (rules, term) = tree.rewrite(&Term::parse("c4(c1(c2), c3)")).unwrap();
+        let term = tree
+            .rewrite(&Term::parse("c4(c1(c2), c3)"), &mut rules)
+            .unwrap();
         assert_eq!(rules, vec![0, 1, 2, 0]);
         assert_eq!(term, Term::parse("c0(c3)"));
     }
