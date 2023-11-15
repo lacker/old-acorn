@@ -48,8 +48,9 @@ fn flatten_next(term: &Term, output: &mut Vec<TermComponent>) {
     }
 
     // Now we can fill in the real size
-    output[initial_size] =
-        TermComponent::Composite(term.term_type, (output.len() - initial_size) as u16);
+    let real_size = output.len() - initial_size;
+    println!("XXX real size = {}", real_size);
+    output[initial_size] = TermComponent::Composite(term.term_type, real_size as u16);
 }
 
 fn flatten_term(term: &Term) -> Vec<TermComponent> {
@@ -167,15 +168,21 @@ fn path_from_term(term: &Term) -> Vec<u8> {
 }
 
 // Replace the variable x_i with the contents of replacements[i].
-// The "size" indices have to be updated as well.
+// Appends the result to output.
+// We only update the size indices for components we add to the output, not
+// components that are already in the output.
 fn replace_components(
     components: &[TermComponent],
     replacements: &[&[TermComponent]],
-) -> Vec<TermComponent> {
+    output: &mut Vec<TermComponent>,
+) {
+    println!(
+        "XXX replace_components: {:?} with {:?}",
+        components, replacements
+    );
+
     // path contains all the indices of composite parents, in *output*, of the current node
     let mut path: Vec<usize> = vec![];
-
-    let mut output: Vec<TermComponent> = vec![];
 
     for component in components {
         // Pop any elements of the path that are no longer parents
@@ -202,13 +209,13 @@ fn replace_components(
                     for j in &path {
                         output[*j].increase_size(delta);
                     }
+                    output.extend_from_slice(replacement);
                 } else {
                     output.push(component.clone());
                 }
             }
         }
     }
-    output
 }
 
 // Information stored in each trie leaf.
@@ -230,7 +237,7 @@ struct Leaf {
 // Returns None if there is no matching leaf.
 // A "match" can replace any variable i in the trie with replacements[i].
 // If this does not find a match, it returns key and replacements to their initial state.
-fn find_leaf<'a>(
+fn match_term_to_leaf<'a>(
     subtrie: &SubTrie<Vec<u8>, Leaf>,
     key: &mut Vec<u8>,
     components: &'a [TermComponent],
@@ -252,7 +259,9 @@ fn find_leaf<'a>(
     let initial_key_len = key.len();
 
     // Case 1: the first term in the components could match an existing replacement
+    println!("XXX components: {:?}", components);
     let size = components[0].size();
+    println!("XXX size = {}", size);
     let first = &components[..size];
     let rest = &components[size..];
     for i in 0..replacements.len() {
@@ -260,7 +269,7 @@ fn find_leaf<'a>(
             // This term could match x_i as a backreference.
             Edge::Atom(Atom::Variable(i as u16)).append_to(key);
             let new_subtrie = subtrie.subtrie(key as &[u8]);
-            if let Some(leaf) = find_leaf(&new_subtrie, key, rest, replacements) {
+            if let Some(leaf) = match_term_to_leaf(&new_subtrie, key, rest, replacements) {
                 return Some(leaf);
             }
             key.truncate(initial_key_len);
@@ -272,7 +281,7 @@ fn find_leaf<'a>(
     let new_subtrie = subtrie.subtrie(key as &[u8]);
     if !new_subtrie.is_empty() {
         replacements.push(first);
-        if let Some(leaf) = find_leaf(&new_subtrie, key, rest, replacements) {
+        if let Some(leaf) = match_term_to_leaf(&new_subtrie, key, rest, replacements) {
             return Some(leaf);
         }
         replacements.pop();
@@ -292,7 +301,7 @@ fn find_leaf<'a>(
     };
     bytes.append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
-    if let Some(leaf) = find_leaf(&new_subtrie, key, &components[1..], replacements) {
+    if let Some(leaf) = match_term_to_leaf(&new_subtrie, key, &components[1..], replacements) {
         return Some(leaf);
     }
     key.truncate(initial_key_len);
@@ -305,6 +314,8 @@ pub struct RewriteTree {
     // Indexed by rewritten_id.
     rewritten: Vec<Vec<TermComponent>>,
 }
+
+const EMPTY_SLICE: &[u8] = &[];
 
 impl RewriteTree {
     pub fn new() -> RewriteTree {
@@ -329,19 +340,25 @@ impl RewriteTree {
         self.trie.insert(path, leaf);
     }
 
+    // Does one rewrite.
+    // Checks all subterms.
+    // Returns the rewrite rule used, and the new sequence of components, if there is a rewrite.
+    fn rewrite_once(&self, components: &Vec<TermComponent>) -> Option<(usize, Vec<TermComponent>)> {
+        todo!();
+    }
+
     // Rewrites repeatedly.
     // Returns a list of the rewrite rules used, and the final term.
     pub fn rewrite(&self, term: &Term) -> Option<(Vec<usize>, Term)> {
         let mut components = flatten_term(term);
         let mut rules = vec![];
-        let empty: &[u8] = &[];
-        // Infinite loops are hard to debug. Large numbers are close to infinity so they probably also
-        // indicate a bug.
+        // Infinite loops are hard to debug, so cap this loop.
         for _ in 0..100 {
-            let subtrie = self.trie.subtrie(empty);
+            let subtrie = self.trie.subtrie(EMPTY_SLICE);
             let mut replacements = vec![];
             let mut key = vec![];
-            let leaf = match find_leaf(&subtrie, &mut key, &components, &mut replacements) {
+            let leaf = match match_term_to_leaf(&subtrie, &mut key, &components, &mut replacements)
+            {
                 Some(leaf) => leaf,
                 None => {
                     if rules.is_empty() {
@@ -353,7 +370,14 @@ impl RewriteTree {
             };
 
             rules.push(leaf.rule_id);
-            components = replace_components(&self.rewritten[leaf.rewritten_id], &replacements);
+            let mut new_components = vec![];
+            replace_components(
+                &self.rewritten[leaf.rewritten_id],
+                &replacements,
+                &mut new_components,
+            );
+            components = new_components;
+            println!("XXX new components: {:?}", components);
         }
 
         panic!("rewrite looped too many times");
@@ -380,5 +404,15 @@ mod tests {
         let (rules, term) = tree.rewrite(&Term::parse("c1(c2)")).unwrap();
         assert_eq!(rules, vec![0]);
         assert_eq!(term, Term::parse("c0(c2)"));
+    }
+
+    #[test]
+    fn test_multiple_rewrites() {
+        let mut tree = RewriteTree::new();
+        tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
+        tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
+        let (rules, term) = tree.rewrite(&Term::parse("c1(c2)")).unwrap();
+        assert_eq!(rules, vec![0, 1]);
+        assert_eq!(term, Term::parse("c3"));
     }
 }
