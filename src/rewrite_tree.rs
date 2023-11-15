@@ -573,4 +573,12 @@ mod tests {
         assert_eq!(rules, vec![0, 1, 2, 0]);
         assert_eq!(term, Term::parse("c0(c3)"));
     }
+
+    #[test]
+    fn test_rewriting_same_head_different_num_args() {
+        let mut tree = RewriteTree::new();
+        let mut rules = vec![];
+        tree.add_rule(0, &Term::parse("c1(x0, x1)"), &Term::parse("c0(x0, x1)"));
+        assert!(tree.rewrite(&Term::parse("c1(x0)"), &mut rules).is_none());
+    }
 }
