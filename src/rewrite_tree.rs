@@ -49,7 +49,6 @@ fn flatten_next(term: &Term, output: &mut Vec<TermComponent>) {
 
     // Now we can fill in the real size
     let real_size = output.len() - initial_size;
-    println!("XXX real size = {}", real_size);
     output[initial_size] = TermComponent::Composite(term.term_type, real_size as u16);
 }
 
@@ -331,7 +330,6 @@ impl RewriteTree {
             panic!("cannot rewrite atomic variables to something else");
         }
         let path = path_from_term(input_term);
-        println!("XXX inserting path: {:?}", path);
         let rewritten_id = self.rewritten.len();
         self.rewritten.push(flatten_term(output_term));
         let leaf = Leaf {
@@ -353,7 +351,8 @@ impl RewriteTree {
             let mut key = vec![];
 
             if let Some(leaf) = find_leaf(&subtrie, &mut key, subterm, &mut replacements) {
-                let new_subterm = replace_components(subterm, &replacements);
+                let rewritten = &self.rewritten[leaf.rewritten_id];
+                let new_subterm = replace_components(rewritten, &replacements);
                 if i == 0 {
                     // We just replaced the whole term
                     return Some((leaf.rule_id, new_subterm));
@@ -372,13 +371,14 @@ impl RewriteTree {
         let mut rules = vec![];
 
         // Infinite loops are hard to debug, so cap this loop.
-        for _ in 0..100 {
-            let subtrie = self.trie.subtrie(EMPTY_SLICE);
-            let mut replacements = vec![];
-            let mut key = vec![];
-
-            let leaf = match find_leaf(&subtrie, &mut key, &components, &mut replacements) {
-                Some(leaf) => leaf,
+        for _ in 0..5 {
+            match self.rewrite_once(&components) {
+                Some((rule_id, new_components)) => {
+                    rules.push(rule_id);
+                    components = new_components;
+                    println!("XXX new components: {:?}", components);
+                    continue;
+                }
                 None => {
                     if rules.is_empty() {
                         return None;
@@ -386,11 +386,7 @@ impl RewriteTree {
                         return Some((rules, unflatten_term(&components)));
                     }
                 }
-            };
-
-            rules.push(leaf.rule_id);
-            components = replace_components(&self.rewritten[leaf.rewritten_id], &replacements);
-            println!("XXX new components: {:?}", components);
+            }
         }
 
         panic!("rewrite looped too many times");
