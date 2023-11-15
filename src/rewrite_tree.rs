@@ -237,7 +237,7 @@ struct Leaf {
 // Returns None if there is no matching leaf.
 // A "match" can replace any variable i in the trie with replacements[i].
 // If this does not find a match, it returns key and replacements to their initial state.
-fn match_term_to_leaf<'a>(
+fn find_leaf<'a>(
     subtrie: &SubTrie<Vec<u8>, Leaf>,
     key: &mut Vec<u8>,
     components: &'a [TermComponent],
@@ -269,7 +269,7 @@ fn match_term_to_leaf<'a>(
             // This term could match x_i as a backreference.
             Edge::Atom(Atom::Variable(i as u16)).append_to(key);
             let new_subtrie = subtrie.subtrie(key as &[u8]);
-            if let Some(leaf) = match_term_to_leaf(&new_subtrie, key, rest, replacements) {
+            if let Some(leaf) = find_leaf(&new_subtrie, key, rest, replacements) {
                 return Some(leaf);
             }
             key.truncate(initial_key_len);
@@ -281,7 +281,7 @@ fn match_term_to_leaf<'a>(
     let new_subtrie = subtrie.subtrie(key as &[u8]);
     if !new_subtrie.is_empty() {
         replacements.push(first);
-        if let Some(leaf) = match_term_to_leaf(&new_subtrie, key, rest, replacements) {
+        if let Some(leaf) = find_leaf(&new_subtrie, key, rest, replacements) {
             return Some(leaf);
         }
         replacements.pop();
@@ -301,7 +301,7 @@ fn match_term_to_leaf<'a>(
     };
     bytes.append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
-    if let Some(leaf) = match_term_to_leaf(&new_subtrie, key, &components[1..], replacements) {
+    if let Some(leaf) = find_leaf(&new_subtrie, key, &components[1..], replacements) {
         return Some(leaf);
     }
     key.truncate(initial_key_len);
@@ -344,7 +344,18 @@ impl RewriteTree {
     // Checks all subterms.
     // Returns the rewrite rule used, and the new sequence of components, if there is a rewrite.
     fn rewrite_once(&self, components: &Vec<TermComponent>) -> Option<(usize, Vec<TermComponent>)> {
-        todo!();
+        for i in 0..components.len() {
+            let subterm_size = components[i].size();
+            let subterm = &components[i..i + subterm_size];
+            let subtrie = self.trie.subtrie(EMPTY_SLICE);
+            let mut replacements = vec![];
+            let mut key = vec![];
+
+            if let Some(leaf) = find_leaf(&subtrie, &mut key, subterm, &mut replacements) {
+                todo!("do the replacement");
+            }
+        }
+        None
     }
 
     // Rewrites repeatedly.
@@ -352,13 +363,14 @@ impl RewriteTree {
     pub fn rewrite(&self, term: &Term) -> Option<(Vec<usize>, Term)> {
         let mut components = flatten_term(term);
         let mut rules = vec![];
+
         // Infinite loops are hard to debug, so cap this loop.
         for _ in 0..100 {
             let subtrie = self.trie.subtrie(EMPTY_SLICE);
             let mut replacements = vec![];
             let mut key = vec![];
-            let leaf = match match_term_to_leaf(&subtrie, &mut key, &components, &mut replacements)
-            {
+
+            let leaf = match find_leaf(&subtrie, &mut key, &components, &mut replacements) {
                 Some(leaf) => leaf,
                 None => {
                     if rules.is_empty() {
