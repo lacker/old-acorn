@@ -112,6 +112,11 @@ fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, 
             if size < 3 {
                 return Err(format!("composite terms must have size at least 3"));
             }
+            if position + 1 >= components.len() {
+                return Err(format!(
+                    "composite terms must have a head, but we ran off the end"
+                ));
+            }
             if let TermComponent::Composite(..) = components[position + 1] {
                 return Err(format!("composite terms must have an atom as their head"));
             }
@@ -299,7 +304,27 @@ fn replace_components(
             }
             TermComponent::Atom(_, a) => {
                 if let Atom::Variable(i) = a {
-                    let replacement = replacements[*i as usize];
+                    let mut replacement = replacements[*i as usize];
+
+                    // If the replacement is a composite, and this is the head of a term,
+                    // we need to flatten the two terms together.
+                    if replacement.len() > 1 && output.len() > 0 {
+                        let last_index = output.len() - 1;
+                        if let TermComponent::Composite(t, num_args, size) = output[last_index] {
+                            match replacement[0] {
+                                TermComponent::Composite(_, replacement_num_args, _) => {
+                                    // This composite now has more args, both old and new ones.
+                                    let new_num_args = num_args + replacement_num_args;
+                                    output[last_index] =
+                                        TermComponent::Composite(t, new_num_args, size);
+
+                                    // We don't need the replacement head any more.
+                                    replacement = &replacement[1..];
+                                }
+                                _ => panic!("replacement has length > 1 but is not composite"),
+                            }
+                        }
+                    }
 
                     // Every parent of this node, its size is changing by delta
                     let delta = (replacement.len() - 1) as i32;
@@ -313,8 +338,6 @@ fn replace_components(
             }
         }
     }
-    // XXX
-    validate_components(&output);
     output
 }
 
@@ -327,10 +350,6 @@ struct Leaf {
 
     // An id for the rewritten form of the term.
     rewritten_id: usize,
-
-    // XXX debugging
-    input_term: Term,
-    output_term: Term,
 }
 
 // Finds a leaf in the trie that matches the given term components.
@@ -438,7 +457,6 @@ const EMPTY_SLICE: &[u8] = &[];
 
 impl RewriteTree {
     pub fn new() -> RewriteTree {
-        println!("XXX new\n\n\n****************\n\n\n");
         RewriteTree {
             trie: Trie::new(),
             rewritten: vec![],
@@ -453,15 +471,9 @@ impl RewriteTree {
         let path = path_from_term(input_term);
         let rewritten_id = self.rewritten.len();
         self.rewritten.push(flatten_term(output_term));
-        println!(
-            "XXX adding rule {}: {} -> {}",
-            rule_id, input_term, output_term
-        );
         let leaf = Leaf {
             rule_id,
             rewritten_id,
-            input_term: input_term.clone(),
-            output_term: output_term.clone(),
         };
         self.trie.insert(path, leaf);
     }
@@ -483,10 +495,6 @@ impl RewriteTree {
             let mut key = vec![];
 
             if let Some(leaf) = find_leaf(&subtrie, &mut key, subterm, &mut replacements) {
-                println!(
-                    "XXX rewriting with rule {}: {} -> {}",
-                    leaf.rule_id, leaf.input_term, leaf.output_term
-                );
                 rules.push(leaf.rule_id);
                 let rewritten = &self.rewritten[leaf.rewritten_id];
                 let new_subterm = replace_components(rewritten, &replacements);
@@ -512,7 +520,6 @@ impl RewriteTree {
                 }
                 new_components.extend_from_slice(&new_subterm);
                 new_components.extend_from_slice(&components[i + subterm_size..]);
-                println!("XXX new term: {}", unflatten_term(&new_components));
                 return Some(new_components);
             }
         }
@@ -523,7 +530,6 @@ impl RewriteTree {
     // Returns the final term, if any rewrites happen.
     // Appends the rules used to rules.
     pub fn rewrite(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
-        println!("\nXXX initial term: {}", term);
         let mut components = flatten_term(term);
 
         // Infinite loops are hard to debug, so cap this loop.
@@ -538,7 +544,6 @@ impl RewriteTree {
                         return None;
                     } else {
                         let term = unflatten_term(&components);
-                        println!("XXX final term: {}", term);
                         return Some(term);
                     }
                 }
@@ -650,9 +655,9 @@ mod tests {
         let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0, x1)"), &Term::parse("x0(x1)"));
         let term = tree
-            .rewrite(&Term::parse("c1(c1(c2, c3), c4)"), &mut rules)
+            .rewrite(&Term::parse("c1(c2(c3), c4)"), &mut rules)
             .unwrap();
-        assert_eq!(rules, vec![0, 0]);
+        assert_eq!(rules, vec![0]);
         assert_eq!(term, Term::parse("c2(c3, c4)"));
     }
 }
