@@ -174,8 +174,8 @@ fn path_from_term(term: &Term) -> Vec<u8> {
 fn replace_components(
     components: &[TermComponent],
     replacements: &[&[TermComponent]],
-    output: &mut Vec<TermComponent>,
-) {
+) -> Vec<TermComponent> {
+    let mut output: Vec<TermComponent> = vec![];
     println!(
         "XXX replace_components: {:?} with {:?}",
         components, replacements
@@ -216,6 +216,7 @@ fn replace_components(
             }
         }
     }
+    output
 }
 
 // Information stored in each trie leaf.
@@ -352,7 +353,13 @@ impl RewriteTree {
             let mut key = vec![];
 
             if let Some(leaf) = find_leaf(&subtrie, &mut key, subterm, &mut replacements) {
-                todo!("do the replacement");
+                let new_subterm = replace_components(subterm, &replacements);
+                if i == 0 {
+                    // We just replaced the whole term
+                    return Some((leaf.rule_id, new_subterm));
+                }
+
+                todo!("handle proper subterms");
             }
         }
         None
@@ -382,13 +389,7 @@ impl RewriteTree {
             };
 
             rules.push(leaf.rule_id);
-            let mut new_components = vec![];
-            replace_components(
-                &self.rewritten[leaf.rewritten_id],
-                &replacements,
-                &mut new_components,
-            );
-            components = new_components;
+            components = replace_components(&self.rewritten[leaf.rewritten_id], &replacements);
             println!("XXX new components: {:?}", components);
         }
 
