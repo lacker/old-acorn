@@ -112,6 +112,9 @@ fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, 
             if size < 3 {
                 return Err(format!("composite terms must have size at least 3"));
             }
+            if let TermComponent::Composite(..) = components[position + 1] {
+                return Err(format!("composite terms must have an atom as their head"));
+            }
             // The position we expect to end up in after parsing
             let final_pos = position + size as usize;
             let mut next_pos = position + 1;
@@ -290,7 +293,7 @@ fn replace_components(
                 if let Atom::Variable(i) = a {
                     let replacement = replacements[*i as usize];
 
-                    // Every parent of this node, its size is getting bigger by delta
+                    // Every parent of this node, its size is changing by delta
                     let delta = (replacement.len() - 1) as i32;
                     for j in &path {
                         output[*j] = output[*j].alter_size(delta);
@@ -302,6 +305,8 @@ fn replace_components(
             }
         }
     }
+    // XXX
+    validate_components(&output);
     output
 }
 
@@ -417,6 +422,8 @@ pub struct RewriteTree {
 
     // Indexed by rewritten_id.
     rewritten: Vec<Vec<TermComponent>>,
+
+    validate: bool,
 }
 
 const EMPTY_SLICE: &[u8] = &[];
@@ -427,6 +434,7 @@ impl RewriteTree {
         RewriteTree {
             trie: Trie::new(),
             rewritten: vec![],
+            validate: false,
         }
     }
 
@@ -474,6 +482,9 @@ impl RewriteTree {
                 rules.push(leaf.rule_id);
                 let rewritten = &self.rewritten[leaf.rewritten_id];
                 let new_subterm = replace_components(rewritten, &replacements);
+                if self.validate {
+                    validate_components(&new_subterm);
+                }
                 if i == 0 {
                     // We just replaced the whole term
                     return Some(new_subterm);
@@ -544,6 +555,7 @@ mod tests {
     #[test]
     fn test_rewriting_an_atom() {
         let mut tree = RewriteTree::new();
+        tree.validate = true;
         let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1"), &Term::parse("c0"));
         let term = tree.rewrite(&Term::parse("c1"), &mut rules).unwrap();
@@ -554,6 +566,7 @@ mod tests {
     #[test]
     fn test_rewriting_a_function() {
         let mut tree = RewriteTree::new();
+        tree.validate = true;
         let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
         let term = tree.rewrite(&Term::parse("c1(c2)"), &mut rules).unwrap();
@@ -564,6 +577,7 @@ mod tests {
     #[test]
     fn test_multiple_rewrites() {
         let mut tree = RewriteTree::new();
+        tree.validate = true;
         let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
         tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
@@ -575,6 +589,7 @@ mod tests {
     #[test]
     fn test_rewriting_tail_subterms() {
         let mut tree = RewriteTree::new();
+        tree.validate = true;
         let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
         tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
@@ -588,6 +603,7 @@ mod tests {
     #[test]
     fn test_rewriting_non_tail_subterms() {
         let mut tree = RewriteTree::new();
+        tree.validate = true;
         let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
         tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
@@ -602,6 +618,7 @@ mod tests {
     #[test]
     fn test_rewriting_same_head_different_num_args() {
         let mut tree = RewriteTree::new();
+        tree.validate = true;
         let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0, x1)"), &Term::parse("c0(x0, x1)"));
         assert!(tree.rewrite(&Term::parse("c1(x0)"), &mut rules).is_none());
@@ -610,10 +627,24 @@ mod tests {
     #[test]
     fn test_variables_cant_just_match_themselves() {
         let mut tree = RewriteTree::new();
+        tree.validate = true;
         let mut rules = vec![];
         tree.add_rule(0, &Term::parse("c1(x0, x0)"), &Term::parse("c2"));
         assert!(tree
             .rewrite(&Term::parse("c1(x0, c3)"), &mut rules)
             .is_none());
+    }
+
+    #[test]
+    fn test_rewriting_function_variables() {
+        let mut tree = RewriteTree::new();
+        tree.validate = true;
+        let mut rules = vec![];
+        tree.add_rule(0, &Term::parse("c1(x0, x1)"), &Term::parse("x0(x1)"));
+        let term = tree
+            .rewrite(&Term::parse("c1(c1(c2, c3), c4)"), &mut rules)
+            .unwrap();
+        assert_eq!(rules, vec![0, 0]);
+        assert_eq!(term, Term::parse("c2(c3, c4)"));
     }
 }
