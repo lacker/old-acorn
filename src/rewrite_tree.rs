@@ -95,6 +95,53 @@ fn unflatten_term(components: &[TermComponent]) -> Term {
     term
 }
 
+// Validates the subterm starting at the given position.
+// Returns the position the next subterm should start at.
+#[allow(dead_code)]
+fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, String> {
+    if position > components.len() {
+        return Err(format!("ran off the end, position {}", position));
+    }
+    match components[position] {
+        TermComponent::Composite(_, size) => {
+            if size < 3 {
+                return Err(format!("composite terms must have size at least 3"));
+            }
+            // The position we expect to end up in after parsing
+            let final_pos = position + size as usize;
+            let mut next_pos = position + 1;
+            while next_pos < final_pos {
+                next_pos = validate_one(components, next_pos)?;
+            }
+            if next_pos > final_pos {
+                return Err(format!(
+                    "expected term at {} to end by {} but it went until {}",
+                    position, final_pos, next_pos
+                ));
+            }
+            Ok(final_pos)
+        }
+        TermComponent::Atom(_, _) => Ok(position + 1),
+    }
+}
+
+#[allow(dead_code)]
+fn validate_components(components: &[TermComponent]) {
+    match validate_one(components, 0) {
+        Ok(final_pos) => {
+            if final_pos != components.len() {
+                panic!(
+                    "validation fail in {:?}. we have {} components but parsing used {}",
+                    components,
+                    components.len(),
+                    final_pos
+                );
+            }
+        }
+        Err(e) => panic!("validation fail in {:?}. error: {}", components, e),
+    }
+}
+
 // A rewrite tree is a "perfect discrimination tree" specifically designed to rewrite
 // terms into simplified versions.
 // Each path from the root to a leaf is a series of edges that represents a term.
