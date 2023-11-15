@@ -404,6 +404,13 @@ impl RewriteTree {
 
         panic!("rewrite looped too many times");
     }
+
+    pub fn rewrite_or_clone(&self, term: &Term, rules: &mut Vec<usize>) -> Term {
+        match self.rewrite(term, rules) {
+            Some(t) => t,
+            None => term.clone(),
+        }
+    }
 }
 
 #[cfg(test)]

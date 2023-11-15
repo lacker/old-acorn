@@ -500,9 +500,15 @@ impl ActiveSet {
 
     // Rewrites this literal, appending a list of the rewrite rules used.
     fn rewrite_literal(&self, literal: &Literal, rules: &mut Vec<usize>) -> Literal {
-        let left = self.rewrite_term_or_clone(&literal.left, rules);
-        let right = self.rewrite_term_or_clone(&literal.right, rules);
-        Literal::new(literal.positive, left, right)
+        if self.use_new_rewrite_algorithm {
+            let left = self.rewrite_tree.rewrite_or_clone(&literal.left, rules);
+            let right = self.rewrite_tree.rewrite_or_clone(&literal.right, rules);
+            Literal::new(literal.positive, left, right)
+        } else {
+            let left = self.rewrite_term_or_clone(&literal.left, rules);
+            let right = self.rewrite_term_or_clone(&literal.right, rules);
+            Literal::new(literal.positive, left, right)
+        }
     }
 
     // Returns (value, id of clause) when this literal's value is known due to some existing clause.
