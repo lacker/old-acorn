@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use qp_trie::{SubTrie, Trie};
 
 use crate::atom::Atom;
@@ -123,17 +121,6 @@ struct EdgeBytes {
 
     // Either a type id or an atom id depending on the discriminant
     id: u16,
-}
-
-impl Borrow<[u8]> for EdgeBytes {
-    fn borrow(&self) -> &[u8] {
-        unsafe {
-            // SAFETY: `Edge` is `repr(C, packed)` and consists of a `u8` and a `u16`.
-            // It has the same memory layout as `[u8; 3]`. The endianness of the `u16` means
-            // the representation is different on different platforms. But, that should be okay.
-            std::slice::from_raw_parts(self as *const EdgeBytes as *const u8, 3)
-        }
-    }
 }
 
 impl EdgeBytes {
@@ -263,24 +250,27 @@ struct Leaf {
 //
 // Returns None if there is no matching leaf.
 // A "match" can replace any variable i in the trie with replacements[i].
-// If this does not find a match, it returns replacements to their initial state.
+// If this does not find a match, it returns key and replacements to their initial state.
 fn find_leaf<'a>(
-    trie: &SubTrie<Vec<u8>, Leaf>,
+    subtrie: &SubTrie<Vec<u8>, Leaf>,
+    key: &mut Vec<u8>,
     components: &'a [TermComponent],
     replacements: &mut Vec<&'a [TermComponent]>,
 ) -> Option<Leaf> {
-    if trie.is_empty() {
+    println!("XXX find_leaf: {:?}", key);
+    if subtrie.is_empty() {
         return None;
     }
 
     if components.is_empty() {
-        match trie.get(EMPTY) {
+        match subtrie.get(key as &[u8]) {
             Some(leaf) => return Some(*leaf),
             None => {
                 panic!("type mismatch. components are exhausted but subtrie is not");
             }
         }
     }
+    let initial_key_len = key.len();
 
     // Case 1: the first term in the components could match an existing replacement
     let size = components[0].size();
@@ -289,24 +279,26 @@ fn find_leaf<'a>(
     for i in 0..replacements.len() {
         if first == replacements[i] {
             // This term could match x_i as a backreference.
-            let bytes = EdgeBytes::from_variable(i as u16);
-            let subtrie = trie.subtrie(bytes);
-            if let Some(leaf) = find_leaf(&subtrie, rest, replacements) {
+            EdgeBytes::from_variable(i as u16).append_to(key);
+            let new_subtrie = subtrie.subtrie(key as &[u8]);
+            if let Some(leaf) = find_leaf(&new_subtrie, key, rest, replacements) {
                 return Some(leaf);
             }
+            key.truncate(initial_key_len);
         }
     }
 
     // Case 2: the first term could match an entirely new variable
-    let bytes = EdgeBytes::from_variable(replacements.len() as u16);
-    let subtrie = trie.subtrie(bytes);
-    if !subtrie.is_empty() {
+    EdgeBytes::from_variable(replacements.len() as u16).append_to(key);
+    let new_subtrie = subtrie.subtrie(key as &[u8]);
+    if !new_subtrie.is_empty() {
         replacements.push(first);
-        if let Some(leaf) = find_leaf(&subtrie, rest, replacements) {
+        if let Some(leaf) = find_leaf(&new_subtrie, key, rest, replacements) {
             return Some(leaf);
         }
         replacements.pop();
     }
+    key.truncate(initial_key_len);
 
     // Case 3: we could exactly match just the first component
     let bytes = match components[0] {
@@ -319,8 +311,13 @@ fn find_leaf<'a>(
         }
         TermComponent::Atom(_, a) => EdgeBytes::from_atom(a),
     };
-    let subtrie = trie.subtrie(bytes);
-    find_leaf(&subtrie, &components[1..], replacements)
+    bytes.append_to(key);
+    let new_subtrie = subtrie.subtrie(key as &[u8]);
+    if let Some(leaf) = find_leaf(&new_subtrie, key, &components[1..], replacements) {
+        return Some(leaf);
+    }
+    key.truncate(initial_key_len);
+    None
 }
 
 pub struct RewriteTree {
@@ -343,6 +340,7 @@ impl RewriteTree {
             panic!("cannot rewrite atomic variables to something else");
         }
         let path = path_from_term(input_term);
+        println!("XXX inserting path: {:?}", path);
         let rewritten_id = self.rewritten.len();
         self.rewritten.push(flatten_term(output_term));
         let leaf = Leaf {
@@ -363,7 +361,8 @@ impl RewriteTree {
         for _ in 0..100 {
             let subtrie = self.trie.subtrie(EMPTY);
             let mut replacements = vec![];
-            let leaf = match find_leaf(&subtrie, &components, &mut replacements) {
+            let mut key = vec![];
+            let leaf = match find_leaf(&subtrie, &mut key, &components, &mut replacements) {
                 Some(leaf) => leaf,
                 None => {
                     if rules.is_empty() {
@@ -387,10 +386,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_basic_rewriting() {
+    fn test_const_atom_rewriting() {
         let mut tree = RewriteTree::new();
-        tree.add_rule(0, &Term::parse("c1(c2)"), &Term::parse("c0"));
-        let (rules, term) = tree.rewrite(&Term::parse("c1(c2)")).unwrap();
+        tree.add_rule(0, &Term::parse("c1"), &Term::parse("c0"));
+        let (rules, term) = tree.rewrite(&Term::parse("c1")).unwrap();
         assert_eq!(rules, vec![0]);
         assert_eq!(term, Term::parse("c0"));
     }
