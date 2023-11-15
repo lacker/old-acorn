@@ -27,6 +27,11 @@ fn main() {
             Outcome::Success => {
                 // println!("{} proved", goal_context.name);
             }
+            Outcome::Inconsistent => {
+                println!("Inconsistent: {}", goal_context.name);
+                prover.print_proof();
+                return;
+            }
             _ => {
                 println!("{}: {}", outcome, goal_context.name);
             }

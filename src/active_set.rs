@@ -503,7 +503,8 @@ impl ActiveSet {
         if self.use_new_rewrite_algorithm {
             let left = self.rewrite_tree.rewrite_or_clone(&literal.left, rules);
             let right = self.rewrite_tree.rewrite_or_clone(&literal.right, rules);
-            Literal::new(literal.positive, left, right)
+            let answer = Literal::new(literal.positive, left, right);
+            answer
         } else {
             let left = self.rewrite_term_or_clone(&literal.left, rules);
             let right = self.rewrite_term_or_clone(&literal.right, rules);

@@ -511,6 +511,9 @@ impl Prover {
             }
             let info = self.new_clause_info(c, generated_type, ps);
             if let Some(info) = self.active_set.simplify(info) {
+                if info.clause.is_impossible() {
+                    return self.report_contradiction(info.proof_step);
+                }
                 self.passive.push(info);
             }
         }
@@ -1113,6 +1116,24 @@ mod tests {
             let 1: Nat = axiom
             define sign(a: Nat) -> Nat = if a = 0 { 0 } else { 1 }
             theorem goal(a: Nat): sign(a) = 0 | sign(a) = 1
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_rewrite_consistency() {
+        // In practice this caught an inconsistency that came from bad rewrite logic.
+        prove_all_ok(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            let Suc: Nat -> Nat = axiom
+            let add: (Nat, Nat) -> Nat = axiom
+            let mul: (Nat, Nat) -> Nat = axiom
+            axiom add_suc(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))
+            axiom suc_ne(a: Nat): Suc(a) != a
+            axiom mul_suc(a: Nat, b: Nat): add(a, mul(a, b)) = mul(a, Suc(b))
+            theorem goal(a: Nat): Suc(a) != a
         "#,
         );
     }
