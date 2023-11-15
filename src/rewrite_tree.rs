@@ -8,9 +8,10 @@ use crate::type_map::TypeId;
 // traversal of the term, and each subterm is represented by a subslice.
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum TermComponent {
+    // The u8 is the number of args in the term.
     // The u16 is the number of term components in the term, including this one.
     // Must be at least 3. Otherwise this would just be an atom.
-    Composite(TypeId, u16),
+    Composite(TypeId, u8, u16),
 
     Atom(TypeId, Atom),
 }
@@ -19,15 +20,15 @@ impl TermComponent {
     // The number of TermComponents in the component starting with this one
     fn size(&self) -> usize {
         match self {
-            TermComponent::Composite(_, size) => *size as usize,
+            TermComponent::Composite(_, _, size) => *size as usize,
             TermComponent::Atom(_, _) => 1,
         }
     }
 
     fn alter_size(&self, delta: i32) -> TermComponent {
         match self {
-            TermComponent::Composite(term_type, size) => {
-                TermComponent::Composite(*term_type, (*size as i32 + delta) as u16)
+            TermComponent::Composite(term_type, num_args, size) => {
+                TermComponent::Composite(*term_type, *num_args, (*size as i32 + delta) as u16)
             }
             TermComponent::Atom(_, _) => panic!("cannot increase size of atom"),
         }
@@ -43,7 +44,7 @@ fn flatten_next(term: &Term, output: &mut Vec<TermComponent>) {
     let initial_size = output.len();
 
     // The zero is a placeholder. We'll fill in the real size later.
-    output.push(TermComponent::Composite(term.term_type, 0));
+    output.push(TermComponent::Composite(0, 0, 0));
     output.push(TermComponent::Atom(term.head_type, term.head));
     for arg in &term.args {
         flatten_next(arg, output);
@@ -51,7 +52,8 @@ fn flatten_next(term: &Term, output: &mut Vec<TermComponent>) {
 
     // Now we can fill in the real size
     let real_size = output.len() - initial_size;
-    output[initial_size] = TermComponent::Composite(term.term_type, real_size as u16);
+    output[initial_size] =
+        TermComponent::Composite(term.term_type, term.args.len() as u8, real_size as u16);
 }
 
 fn flatten_term(term: &Term) -> Vec<TermComponent> {
@@ -64,7 +66,7 @@ fn flatten_term(term: &Term) -> Vec<TermComponent> {
 // Returns the next unused index and the term.
 fn unflatten_next(components: &[TermComponent], i: usize) -> (usize, Term) {
     match components[i] {
-        TermComponent::Composite(term_type, size) => {
+        TermComponent::Composite(term_type, num_args, size) => {
             let size = size as usize;
             let (head_type, head) = match components[i + 1] {
                 TermComponent::Atom(head_type, head) => (head_type, head),
@@ -80,6 +82,9 @@ fn unflatten_next(components: &[TermComponent], i: usize) -> (usize, Term) {
             }
             if j != i + size {
                 panic!("Composite term has wrong size");
+            }
+            if args.len() != num_args as usize {
+                panic!("Composite term has wrong number of args");
             }
             (j, Term::new(term_type, head_type, head, args))
         }
@@ -103,7 +108,7 @@ fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, 
         return Err(format!("ran off the end, position {}", position));
     }
     match components[position] {
-        TermComponent::Composite(_, size) => {
+        TermComponent::Composite(_, _, size) => {
             if size < 3 {
                 return Err(format!("composite terms must have size at least 3"));
             }
@@ -153,23 +158,26 @@ fn validate_components(components: &[TermComponent]) {
 // an atomic variable at the root level is forbidden.
 
 // Used for converting Edges into byte sequences.
-const HEAD_TYPE: u8 = 0;
-const TRUE: u8 = 1;
-const CONSTANT: u8 = 2;
-const MONOMORPH: u8 = 3;
-const SYNTHETIC: u8 = 4;
-const VARIABLE: u8 = 5;
+// Any byte below MAX_ARGS indicates a composite term with that number of arguments.
+const MAX_ARGS: u8 = 100;
+const TRUE: u8 = 101;
+const CONSTANT: u8 = 102;
+const MONOMORPH: u8 = 103;
+const SYNTHETIC: u8 = 104;
+const VARIABLE: u8 = 105;
 
 #[derive(Debug)]
 enum Edge {
-    HeadType(TypeId),
+    // Number of args, and the type.
+    HeadType(u8, TypeId),
+
     Atom(Atom),
 }
 
 impl Edge {
-    fn discriminant_byte(&self) -> u8 {
+    fn first_byte(&self) -> u8 {
         match self {
-            Edge::HeadType(_) => HEAD_TYPE,
+            Edge::HeadType(num_args, _) => *num_args,
             Edge::Atom(a) => match a {
                 Atom::True => TRUE,
                 Atom::Constant(_) => CONSTANT,
@@ -181,9 +189,9 @@ impl Edge {
     }
 
     fn append_to(&self, v: &mut Vec<u8>) {
-        v.push(self.discriminant_byte());
+        v.push(self.first_byte());
         let id: u16 = match self {
-            Edge::HeadType(t) => *t,
+            Edge::HeadType(_, t) => *t,
             Edge::Atom(a) => match a {
                 Atom::True => 0,
                 Atom::Constant(c) => *c,
@@ -198,13 +206,17 @@ impl Edge {
     fn from_bytes(byte1: u8, byte2: u8, byte3: u8) -> Edge {
         let id = u16::from_ne_bytes([byte2, byte3]);
         match byte1 {
-            HEAD_TYPE => Edge::HeadType(id),
             TRUE => Edge::Atom(Atom::True),
             CONSTANT => Edge::Atom(Atom::Constant(id)),
             MONOMORPH => Edge::Atom(Atom::Monomorph(id)),
             SYNTHETIC => Edge::Atom(Atom::Synthetic(id)),
             VARIABLE => Edge::Atom(Atom::Variable(id)),
-            _ => panic!("invalid discriminant byte"),
+            num_args => {
+                if num_args > MAX_ARGS {
+                    panic!("invalid discriminant byte");
+                }
+                Edge::HeadType(num_args, id)
+            }
         }
     }
 
@@ -230,7 +242,7 @@ fn path_from_term_helper(term: &Term, path: &mut Vec<u8>) {
     if term.args.is_empty() {
         Edge::Atom(term.head).append_to(path);
     } else {
-        Edge::HeadType(term.head_type).append_to(path);
+        Edge::HeadType(term.args.len() as u8, term.head_type).append_to(path);
         Edge::Atom(term.head).append_to(path);
         for arg in &term.args {
             path_from_term_helper(arg, path);
@@ -270,7 +282,7 @@ fn replace_components(
         }
 
         match component {
-            TermComponent::Composite(_, _) => {
+            TermComponent::Composite(..) => {
                 path.push(output.len());
                 output.push(component.clone());
             }
@@ -372,9 +384,9 @@ fn find_leaf<'a>(
 
     // Case 3: we could exactly match just the first component
     let bytes = match components[0] {
-        TermComponent::Composite(_, _) => {
+        TermComponent::Composite(_, num_args, _) => {
             if let TermComponent::Atom(head_type, _) = components[1] {
-                Edge::HeadType(head_type)
+                Edge::HeadType(num_args, head_type)
             } else {
                 panic!("Composite term must have an atom as its head");
             }

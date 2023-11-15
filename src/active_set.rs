@@ -89,7 +89,7 @@ impl ActiveSet {
             paramodulation_targets: FingerprintTree::new(),
             rewrite_rules: FingerprintTree::new(),
             rewrite_tree: RewriteTree::new(),
-            use_new_rewrite_algorithm: true,
+            use_new_rewrite_algorithm: false,
         }
     }
 

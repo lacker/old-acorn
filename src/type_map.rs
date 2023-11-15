@@ -94,6 +94,7 @@ impl TypeMap {
     pub fn check_literal(&self, literal: &Literal) {
         self.check_term(&literal.left);
         self.check_term(&literal.right);
+        assert_eq!(literal.left.get_term_type(), literal.right.get_term_type());
     }
 
     pub fn check_clause(&self, clause: &Clause) {
