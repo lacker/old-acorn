@@ -103,8 +103,7 @@ fn unflatten_term(components: &[TermComponent]) -> Term {
 // does contain enough type information to match against an existing term, as long as having
 // an atomic variable at the root level is forbidden.
 
-// The possible discriminants.
-// HEAD_TYPE indicates the following id encodes a type, The rest encode atoms.
+// Used for converting Edges into byte sequences.
 const HEAD_TYPE: u8 = 0;
 const TRUE: u8 = 1;
 const CONSTANT: u8 = 2;
@@ -112,68 +111,48 @@ const MONOMORPH: u8 = 3;
 const SYNTHETIC: u8 = 4;
 const VARIABLE: u8 = 5;
 
-const EMPTY: &[u8] = &[];
-
-#[repr(C, packed)]
-struct EdgeBytes {
-    // Which type of edge it is
-    discriminant: u8,
-
-    // Either a type id or an atom id depending on the discriminant
-    id: u16,
+enum Edge {
+    HeadType(TypeId),
+    Atom(Atom),
 }
 
-impl EdgeBytes {
-    fn from_head_type(t: TypeId) -> EdgeBytes {
-        EdgeBytes {
-            discriminant: HEAD_TYPE,
-            id: t,
-        }
-    }
-
-    fn from_variable(i: u16) -> EdgeBytes {
-        EdgeBytes {
-            discriminant: VARIABLE,
-            id: i,
-        }
-    }
-
-    fn from_atom(a: Atom) -> EdgeBytes {
-        match a {
-            Atom::True => EdgeBytes {
-                discriminant: TRUE,
-                id: 0,
+impl Edge {
+    fn discriminant_byte(&self) -> u8 {
+        match self {
+            Edge::HeadType(_) => HEAD_TYPE,
+            Edge::Atom(a) => match a {
+                Atom::True => TRUE,
+                Atom::Constant(_) => CONSTANT,
+                Atom::Monomorph(_) => MONOMORPH,
+                Atom::Synthetic(_) => SYNTHETIC,
+                Atom::Variable(_) => VARIABLE,
             },
-            Atom::Constant(i) => EdgeBytes {
-                discriminant: CONSTANT,
-                id: i,
-            },
-            Atom::Monomorph(i) => EdgeBytes {
-                discriminant: MONOMORPH,
-                id: i,
-            },
-            Atom::Synthetic(i) => EdgeBytes {
-                discriminant: SYNTHETIC,
-                id: i,
-            },
-            Atom::Variable(i) => EdgeBytes::from_variable(i),
         }
     }
 
     fn append_to(&self, v: &mut Vec<u8>) {
-        v.push(self.discriminant);
-        // Native-endian for consistency with the borrowing
-        v.extend_from_slice(&self.id.to_ne_bytes());
+        v.push(self.discriminant_byte());
+        let id: u16 = match self {
+            Edge::HeadType(t) => *t,
+            Edge::Atom(a) => match a {
+                Atom::True => 0,
+                Atom::Constant(c) => *c,
+                Atom::Monomorph(m) => *m,
+                Atom::Synthetic(s) => *s,
+                Atom::Variable(i) => *i,
+            },
+        };
+        v.extend_from_slice(&id.to_ne_bytes());
     }
 }
 
 // Appends the path to the term, but does not add the top-level type
 fn path_from_term_helper(term: &Term, path: &mut Vec<u8>) {
     if term.args.is_empty() {
-        EdgeBytes::from_atom(term.head).append_to(path);
+        Edge::Atom(term.head).append_to(path);
     } else {
-        EdgeBytes::from_head_type(term.head_type).append_to(path);
-        EdgeBytes::from_atom(term.head).append_to(path);
+        Edge::HeadType(term.head_type).append_to(path);
+        Edge::Atom(term.head).append_to(path);
         for arg in &term.args {
             path_from_term_helper(arg, path);
         }
@@ -279,7 +258,7 @@ fn find_leaf<'a>(
     for i in 0..replacements.len() {
         if first == replacements[i] {
             // This term could match x_i as a backreference.
-            EdgeBytes::from_variable(i as u16).append_to(key);
+            Edge::Atom(Atom::Variable(i as u16)).append_to(key);
             let new_subtrie = subtrie.subtrie(key as &[u8]);
             if let Some(leaf) = find_leaf(&new_subtrie, key, rest, replacements) {
                 return Some(leaf);
@@ -289,7 +268,7 @@ fn find_leaf<'a>(
     }
 
     // Case 2: the first term could match an entirely new variable
-    EdgeBytes::from_variable(replacements.len() as u16).append_to(key);
+    Edge::Atom(Atom::Variable(replacements.len() as u16)).append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
     if !new_subtrie.is_empty() {
         replacements.push(first);
@@ -304,12 +283,12 @@ fn find_leaf<'a>(
     let bytes = match components[0] {
         TermComponent::Composite(_, _) => {
             if let TermComponent::Atom(head_type, _) = components[1] {
-                EdgeBytes::from_head_type(head_type)
+                Edge::HeadType(head_type)
             } else {
                 panic!("Composite term must have an atom as its head");
             }
         }
-        TermComponent::Atom(_, a) => EdgeBytes::from_atom(a),
+        TermComponent::Atom(_, a) => Edge::Atom(a),
     };
     bytes.append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
@@ -355,11 +334,11 @@ impl RewriteTree {
     pub fn rewrite(&self, term: &Term) -> Option<(Vec<usize>, Term)> {
         let mut components = flatten_term(term);
         let mut rules = vec![];
-
+        let empty: &[u8] = &[];
         // Infinite loops are hard to debug. Large numbers are close to infinity so they probably also
         // indicate a bug.
         for _ in 0..100 {
-            let subtrie = self.trie.subtrie(EMPTY);
+            let subtrie = self.trie.subtrie(empty);
             let mut replacements = vec![];
             let mut key = vec![];
             let leaf = match find_leaf(&subtrie, &mut key, &components, &mut replacements) {
@@ -386,11 +365,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_const_atom_rewriting() {
+    fn test_rewriting_an_atom() {
         let mut tree = RewriteTree::new();
         tree.add_rule(0, &Term::parse("c1"), &Term::parse("c0"));
         let (rules, term) = tree.rewrite(&Term::parse("c1")).unwrap();
         assert_eq!(rules, vec![0]);
         assert_eq!(term, Term::parse("c0"));
+    }
+
+    #[test]
+    fn test_rewriting_a_function() {
+        let mut tree = RewriteTree::new();
+        tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
+        let (rules, term) = tree.rewrite(&Term::parse("c1(c2)")).unwrap();
+        assert_eq!(rules, vec![0]);
+        assert_eq!(term, Term::parse("c0(c2)"));
     }
 }
