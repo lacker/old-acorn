@@ -108,7 +108,7 @@ fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, 
         return Err(format!("ran off the end, position {}", position));
     }
     match components[position] {
-        TermComponent::Composite(_, _, size) => {
+        TermComponent::Composite(_, num_args, size) => {
             if size < 3 {
                 return Err(format!("composite terms must have size at least 3"));
             }
@@ -117,14 +117,22 @@ fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, 
             }
             // The position we expect to end up in after parsing
             let final_pos = position + size as usize;
-            let mut next_pos = position + 1;
+            let mut next_pos = position + 2;
+            let mut args_seen = 0;
             while next_pos < final_pos {
                 next_pos = validate_one(components, next_pos)?;
+                args_seen += 1;
             }
             if next_pos > final_pos {
                 return Err(format!(
                     "expected term at {} to end by {} but it went until {}",
                     position, final_pos, next_pos
+                ));
+            }
+            if args_seen != num_args as usize {
+                return Err(format!(
+                    "expected term at {} to have {} args but it had {}",
+                    position, num_args, args_seen
                 ));
             }
             Ok(final_pos)
