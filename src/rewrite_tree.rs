@@ -24,9 +24,11 @@ impl TermComponent {
         }
     }
 
-    fn increase_size(&mut self, delta: u16) {
+    fn alter_size(&self, delta: i32) -> TermComponent {
         match self {
-            TermComponent::Composite(_, size) => *size += delta,
+            TermComponent::Composite(term_type, size) => {
+                TermComponent::Composite(*term_type, (*size as i32 + delta) as u16)
+            }
             TermComponent::Atom(_, _) => panic!("cannot increase size of atom"),
         }
     }
@@ -204,9 +206,9 @@ fn replace_components(
                     let replacement = replacements[*i as usize];
 
                     // Every parent of this node, its size is getting bigger by delta
-                    let delta = (replacement.len() - 1) as u16;
+                    let delta = (replacement.len() - 1) as i32;
                     for j in &path {
-                        output[*j].increase_size(delta);
+                        output[*j] = output[*j].alter_size(delta);
                     }
                     output.extend_from_slice(replacement);
                 } else {
@@ -358,7 +360,21 @@ impl RewriteTree {
                     return Some((leaf.rule_id, new_subterm));
                 }
 
-                todo!("handle proper subterms");
+                // It's important that delta can be negative, if a rewrite shrinks the term.
+                let delta: i32 = (new_subterm.len() as i32) - (subterm_size as i32);
+                let mut new_components = vec![];
+                for (j, component) in components[..i].iter().enumerate() {
+                    if j + component.size() <= i {
+                        // This component doesn't contain the new subterm
+                        new_components.push(component.clone());
+                    } else {
+                        // This component does contain the new subterm, so alter its size
+                        new_components.push(component.alter_size(delta));
+                    }
+                }
+                new_components.extend_from_slice(&new_subterm);
+                new_components.extend_from_slice(&components[i + subterm_size..]);
+                return Some((leaf.rule_id, new_components));
             }
         }
         None
