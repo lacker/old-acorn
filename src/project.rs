@@ -1,11 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::{fmt, io};
 
-use tower_lsp::lsp_types::{Range, Url};
+use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Range, Url};
 
 use crate::environment::Environment;
 use crate::namespace::{NamespaceId, FIRST_NORMAL};
+use crate::prover::{Outcome, Prover};
 use crate::token::{self, Token};
 
 // The Module represents a module that can be in different states of being loaded.
@@ -42,8 +45,11 @@ pub struct Project {
     // modules[namespace] is the Module for the given namespace id
     modules: Vec<Module>,
 
-    // namespaces maps from a file specified in Acorn (like "foo.bar") to the namespace id
+    // namespaces maps from a module name specified in Acorn (like "foo.bar") to the namespace id
     namespaces: HashMap<String, NamespaceId>,
+
+    // Used as a flag to stop a build in progress.
+    build_stopped: Arc<AtomicBool>,
 }
 
 // An error found while importing a module.
@@ -89,6 +95,19 @@ impl fmt::Display for UserError {
     }
 }
 
+// The build process generates a number of build events
+pub struct BuildEvent {
+    // Current progress is done / total.
+    // This is across all modules.
+    pub progress: Option<(i32, i32)>,
+
+    // Human-readable
+    pub log_message: Option<String>,
+
+    // Whenever we run into a problem, report the module name, plus the diagnostic itself.
+    pub diagnostic: Option<(String, Diagnostic)>,
+}
+
 fn new_modules() -> Vec<Module> {
     let mut modules = vec![];
     while modules.len() < FIRST_NORMAL as usize {
@@ -121,6 +140,7 @@ impl Project {
             file_content: HashMap::new(),
             modules: new_modules(),
             namespaces: HashMap::new(),
+            build_stopped: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -138,8 +158,132 @@ impl Project {
         self.namespaces = HashMap::new();
     }
 
+    // You only need read access to an RwLock<Project> to stop the build.
+    // When the build is stopped, threads that didn't stop the build themselves should
+    // finish any long-running process with an "interrupted" behavior, and give up their
+    // locks on the project.
+    pub fn stop_build(&self) {
+        self.build_stopped
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    // You need to have write access to a RwLock<Project> to re-allow the build.
+    //
+    // To change the project, acquire a read lock, stop the build, acquire a write lock, mess
+    // around with the project state however you wanted, then re-allow the build.
+    //
+    // This asymmetry ensures that when we quickly stop and re-allow the build, any build in
+    // progress will in fact stop.
+    pub fn allow_build(&mut self) {
+        self.build_stopped = Arc::new(AtomicBool::new(false));
+    }
+
     pub fn set_file_content(&mut self, path: PathBuf, content: &str) {
         self.file_content.insert(path, content.to_string());
+    }
+
+    pub fn build(&self, handler: &mut impl FnMut(BuildEvent)) {
+        // Build in alphabetical order for consistency
+        let mut namespaces: Vec<(&String, &NamespaceId)> = self.namespaces.iter().collect();
+        namespaces.sort();
+
+        // On the first pass we just look for errors.
+        // If there are errors, we won't even try to do proving.
+        // But, we will still go through and look for any other errors.
+        let mut module_errors = false;
+        let mut total: i32 = 0;
+        for (name, namespace) in &namespaces {
+            let module = self.get_module(**namespace);
+            match module {
+                Module::Ok(env) => {
+                    total += env.goal_paths().len() as i32;
+                }
+                Module::Error(e) => {
+                    let diagnostic = Diagnostic {
+                        range: e.token.range(),
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        message: e.to_string(),
+                        ..Diagnostic::default()
+                    };
+                    handler(BuildEvent {
+                        progress: None,
+                        log_message: None,
+                        diagnostic: Some((name.to_string(), diagnostic)),
+                    });
+                    module_errors = true;
+                }
+                Module::None => {
+                    // I'm not sure in what situations this might happen.
+                    handler(BuildEvent {
+                        progress: None,
+                        log_message: Some(format!("error: module {} is not loaded", name)),
+                        diagnostic: None,
+                    });
+                    module_errors = true;
+                }
+                Module::Loading => {
+                    // Happens if there's a circular import. A more localized error should
+                    // show up elsewhere, so let's just log.
+                    handler(BuildEvent {
+                        progress: None,
+                        log_message: Some(format!("error: module {} stuck in loading", name)),
+                        diagnostic: None,
+                    });
+                    module_errors = true;
+                }
+            }
+        }
+
+        if module_errors {
+            return;
+        }
+
+        // On the second pass we do the actual proving.
+        let mut done: i32 = 0;
+        for (name, namespace) in &namespaces {
+            let env = self.get_env(**namespace).unwrap();
+            let paths = env.goal_paths();
+            for path in paths {
+                let goal_context = env.get_goal_context(&self, &path);
+                let mut prover = Prover::new(&self, &goal_context, false, None);
+                prover.stop_flags.push(self.build_stopped.clone());
+                let outcome = prover.search_for_contradiction(5000, 5.0);
+
+                done += 1;
+                let description = match outcome {
+                    Outcome::Success => "",
+                    Outcome::Exhausted => " is unprovable",
+                    Outcome::Inconsistent => " - prover found an inconsistency",
+                    Outcome::Unknown => " timed out",
+                    Outcome::Interrupted => {
+                        done = total;
+                        " was interrupted"
+                    }
+                };
+                let (diagnostic, log_message) = if outcome == Outcome::Success {
+                    (None, None)
+                } else {
+                    let message = format!("{} {}", goal_context.name, description);
+                    let diagnostic = Diagnostic {
+                        range: goal_context.range,
+                        severity: Some(DiagnosticSeverity::WARNING),
+                        message: message.clone(),
+                        ..Diagnostic::default()
+                    };
+                    (Some((name.to_string(), diagnostic)), Some(message))
+                };
+
+                handler(BuildEvent {
+                    progress: Some((done, total)),
+                    log_message,
+                    diagnostic,
+                });
+
+                if outcome == Outcome::Interrupted {
+                    return;
+                }
+            }
+        }
     }
 
     // Set the file content. This has priority over the actual filesystem.
@@ -353,6 +497,8 @@ impl Project {
         self.set_file_content(path, content);
         Ok(self.load(&module_name)?)
     }
+
+    // pub fn build(&self, )
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
     #[cfg(test)]
