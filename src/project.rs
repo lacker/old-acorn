@@ -96,6 +96,7 @@ impl fmt::Display for UserError {
 }
 
 // The build process generates a number of build events
+#[derive(Debug)]
 pub struct BuildEvent {
     // Current progress is done / total.
     // This is across all modules.
@@ -652,5 +653,31 @@ mod tests {
         "#,
         );
         p.expect_ok("main");
+    }
+
+    #[test]
+    fn test_building_project() {
+        let mut p = Project::new_mock();
+        p.mock("/mock/foo.ac", FOO_AC);
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            import foo
+            let new_foo: foo.Foo = axiom
+            theorem goal: foo.fooify(new_foo) = foo.foo
+        "#,
+        );
+        p.load("foo").expect("loading foo failed");
+        p.load("main").expect("loading main failed");
+        let mut events = vec![];
+        p.build(&mut |event| {
+            println!("XXX {:?}", event);
+            events.push(event);
+        });
+
+        // We should just get a single success event.
+        assert!(events.len() > 0);
+        assert!(events[0].diagnostic.is_none());
+        assert!(events.len() == 1);
     }
 }
