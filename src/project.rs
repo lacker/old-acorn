@@ -671,7 +671,6 @@ mod tests {
         p.load("main").expect("loading main failed");
         let mut events = vec![];
         p.build(&mut |event| {
-            println!("XXX {:?}", event);
             events.push(event);
         });
 
