@@ -14,12 +14,16 @@ fn main() {
     let mut project = Project::new("math");
     project.load(&module_name, true).unwrap();
 
-    let success = project.build(&mut |event| {
+    let mut all_ok = true;
+    project.build(&mut |event| {
         if let Some(m) = event.log_message {
             println!("{}", m);
+            all_ok = false;
+        }
+        if let Some((d, t)) = event.progress {
+            if d == t {
+                println!("{}/{} OK", d, t);
+            }
         }
     });
-    if success {
-        println!("OK");
-    }
 }
