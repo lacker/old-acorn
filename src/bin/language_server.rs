@@ -255,22 +255,14 @@ impl Backend {
         // Spawn a thread to run the build.
         let project = self.project.clone();
         tokio::spawn(async move {
-            log("running build");
             let project = project.read().await;
-
-            let keys: Vec<_> = project.open_files.keys().collect();
-            log(&format!("open files: {:?}", keys));
-
-            if project.build(&mut |event| {
-                log("creating build event");
+            let success = project.build(&mut |event| {
                 tx.send(event).unwrap();
-            }) {
-                let duration = chrono::Local::now() - start_time;
-                let seconds = duration.num_milliseconds() as f64 / 1000.0;
-                log(&format!("build succeeded after {:.2}s", seconds));
-            } else {
-                log("build failed");
-            }
+            });
+            let duration = chrono::Local::now() - start_time;
+            let seconds = duration.num_milliseconds() as f64 / 1000.0;
+            let verb = if success { "succeeded" } else { "failed" };
+            log(&format!("build {} after {:.2}s", verb, seconds));
         });
 
         // Spawn a thread to process the build events.
@@ -278,11 +270,9 @@ impl Backend {
         let progress = self.progress.clone();
         let client = self.client.clone();
         tokio::spawn(async move {
-            log("handling build events");
             let project = project.read().await;
             let mut diagnostic_map: HashMap<Url, Vec<Diagnostic>> = HashMap::new();
             while let Some(event) = rx.recv().await {
-                log("handling build event");
                 if let Some((done, total)) = event.progress {
                     let mut locked_progress = progress.lock().await;
                     *locked_progress = ProgressResponse { done, total };
@@ -302,7 +292,9 @@ impl Backend {
                     };
                     let url = Url::from_file_path(path).unwrap();
                     let diagnostics = diagnostic_map.entry(url.clone()).or_default();
-                    diagnostics.push(diagnostic);
+                    if let Some(d) = diagnostic {
+                        diagnostics.push(d);
+                    }
                     client
                         .publish_diagnostics(url, diagnostics.clone(), None)
                         .await;
@@ -334,7 +326,10 @@ impl Backend {
             let project = self.project.read().await;
             project.stop_build();
         }
-        self.project.write().await
+        // Reallow the build once we acquire the write lock
+        let mut project = self.project.write().await;
+        project.allow_build();
+        project
     }
 
     // This updates a document in the project, based on the state in the backend.

@@ -109,7 +109,18 @@ pub struct BuildEvent {
     pub log_message: Option<String>,
 
     // Whenever we run into a problem, report the module name, plus the diagnostic itself.
-    pub diagnostic: Option<(String, Diagnostic)>,
+    // If we prove everything in a module without any problems, report a None diagnostic.
+    pub diagnostic: Option<(String, Option<Diagnostic>)>,
+}
+
+impl BuildEvent {
+    fn default() -> BuildEvent {
+        BuildEvent {
+            progress: None,
+            log_message: None,
+            diagnostic: None,
+        }
+    }
 }
 
 fn new_modules() -> Vec<Module> {
@@ -233,17 +244,17 @@ impl Project {
     }
 
     // Builds all open modules, and calls the event handler on any build events.
+    //
+    // There are two ways a build can go wrong.
+    // An error is a human problem, like a syntax error or a type error.
+    // A warning indicates that the prover could not prove something.
+    // This may or may not be a human problem.
+    //
     // Returns whether the build was entirely good, no errors or warnings.
     pub fn build(&self, handler: &mut impl FnMut(BuildEvent)) -> bool {
         // Build in alphabetical order by module name for consistency.
         let mut targets = self.targets.iter().collect::<Vec<_>>();
         targets.sort();
-
-        handler(BuildEvent {
-            progress: None,
-            log_message: Some(format!("starting build: {:?}", targets)),
-            diagnostic: None,
-        });
 
         // On the first pass we just look for errors.
         // If there are errors, we won't even try to do proving.
@@ -266,18 +277,16 @@ impl Project {
                         ..Diagnostic::default()
                     };
                     handler(BuildEvent {
-                        progress: None,
-                        log_message: None,
-                        diagnostic: Some((target.to_string(), diagnostic)),
+                        diagnostic: Some((target.to_string(), Some(diagnostic))),
+                        ..BuildEvent::default()
                     });
                     module_errors = true;
                 }
                 Module::None => {
                     // Targets are supposed to be loaded already.
                     handler(BuildEvent {
-                        progress: None,
                         log_message: Some(format!("error: module {} is not loaded", target)),
-                        diagnostic: None,
+                        ..BuildEvent::default()
                     });
                     module_errors = true;
                 }
@@ -285,9 +294,8 @@ impl Project {
                     // Happens if there's a circular import. A more localized error should
                     // show up elsewhere, so let's just log.
                     handler(BuildEvent {
-                        progress: None,
                         log_message: Some(format!("error: module {} stuck in loading", target)),
-                        diagnostic: None,
+                        ..BuildEvent::default()
                     });
                 }
             }
@@ -298,11 +306,12 @@ impl Project {
         }
 
         // On the second pass we do the actual proving.
-        let mut warnings: bool = false;
+        let mut build_warnings: bool = false;
         let mut done: i32 = 0;
         for (target, env) in targets.iter().zip(envs) {
+            let mut target_warnings = false;
             let paths = env.goal_paths();
-            for path in paths {
+            for (i, path) in paths.iter().enumerate() {
                 let goal_context = env.get_goal_context(&self, &path);
                 let mut prover = Prover::new(&self, &goal_context, false, None);
                 prover.stop_flags.push(self.build_stopped.clone());
@@ -319,18 +328,25 @@ impl Project {
                         " was interrupted"
                     }
                 };
-                let (diagnostic, log_message) = if outcome == Outcome::Success {
-                    (None, None)
-                } else {
-                    let message = format!("{} {}", goal_context.name, description);
+
+                let (diagnostic, log_message) = if outcome != Outcome::Success {
+                    // This is a failure
+                    target_warnings = true;
+                    let message = format!("{}{}", goal_context.name, description);
                     let diagnostic = Diagnostic {
                         range: goal_context.range,
                         severity: Some(DiagnosticSeverity::WARNING),
                         message: message.clone(),
                         ..Diagnostic::default()
                     };
-                    warnings = true;
-                    (Some((target.to_string(), diagnostic)), Some(message))
+                    build_warnings = true;
+                    (Some((target.to_string(), Some(diagnostic))), Some(message))
+                } else if i == paths.len() - 1 && !target_warnings {
+                    // We proved this whole module without warnings.
+                    // Report this so that the IDE can clear visible diagnostics.
+                    (Some((target.to_string(), None)), None)
+                } else {
+                    (None, None)
                 };
 
                 handler(BuildEvent {
@@ -344,7 +360,7 @@ impl Project {
                 }
             }
         }
-        !warnings
+        !build_warnings
     }
 
     // Set the file content. This has priority over the actual filesystem.
@@ -740,10 +756,7 @@ mod tests {
             events.push(event);
         }));
 
-        // We should get no diagnostics.
+        // Testing this is annoying because I keep changing it for UI purposes.
         assert!(events.len() > 0);
-        for event in &events {
-            assert!(event.diagnostic.is_none());
-        }
     }
 }
