@@ -12,7 +12,7 @@ fn main() {
     let module_name = args.next().expect(USAGE);
 
     let mut project = Project::new("math");
-    project.load(&module_name, true).unwrap();
+    project.add_target(&module_name);
 
     let mut all_ok = true;
     project.build(&mut |event| {

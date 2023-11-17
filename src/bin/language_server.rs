@@ -1,14 +1,15 @@
+use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use acorn::project::{Module, Project, UserError};
+use acorn::project::{Module, Project};
 use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
 use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{mpsc, Mutex, RwLock, RwLockWriteGuard};
 use tower_lsp::jsonrpc;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -61,108 +62,6 @@ impl Document {
         let filename = self.url.path_segments().unwrap().last().unwrap();
         let versioned = format!("{} v{}: {}", filename, self.version, message);
         log(&versioned);
-    }
-
-    async fn log_error(&self, client: Client, e: UserError) {
-        match e {
-            UserError::Global(s) => {
-                self.log(&s);
-            }
-            UserError::Local(url, range, s) => {
-                let diagnostic = Diagnostic {
-                    range,
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    message: s,
-                    ..Diagnostic::default()
-                };
-                client
-                    .publish_diagnostics(url, vec![diagnostic], None)
-                    .await;
-            }
-        }
-    }
-
-    // Create diagnostics based on the cached data for the given url.
-    // Publishes them incrementally as each new diagnostic is found.
-    // The task completes when all diagnostics are created.
-    async fn run_diagnostics(&self, project: Arc<RwLock<Project>>, client: Client) {
-        let start_time = chrono::Local::now();
-        self.log("running diagnostics");
-
-        {
-            let mut mut_project = project.write().await;
-            if let Err(e) = mut_project.update_url_content(&self.url, &self.text) {
-                self.log(&format!("update_url_content failed: {}", e));
-                return;
-            }
-        }
-
-        // Load the module for this document
-        let project = project.read().await;
-        let env = match project.get_url_env(&self.url) {
-            Ok(env) => env,
-            Err(e) => {
-                self.log_error(client, e).await;
-                return;
-            }
-        };
-
-        // Prove everything in this module
-        let mut diagnostics = vec![];
-        let paths = env.goal_paths();
-        let mut done = 0;
-        let total = paths.len() as i32;
-        for path in paths {
-            let goal_context = env.get_goal_context(&project, &path);
-            let mut prover = Prover::new(&project, &goal_context, false, None);
-            prover.stop_flags.push(self.superseded.clone());
-            let outcome = prover.search_for_contradiction(5000, 5.0);
-
-            // Update progress
-            done += 1;
-            let new_progress = ProgressResponse { done, total };
-            {
-                let mut locked_progress = self.progress.lock().await;
-                *locked_progress = new_progress;
-            }
-
-            let description = match outcome {
-                Outcome::Success => continue,
-                Outcome::Exhausted => "is unprovable",
-                Outcome::Inconsistent => "- prover found an inconsistency",
-                Outcome::Unknown => "timed out",
-                Outcome::Interrupted => "was interrupted",
-            };
-            let message = format!("{} {}", goal_context.name, description);
-            self.log(&message);
-            if outcome == Outcome::Interrupted {
-                return;
-            }
-
-            diagnostics.push(Diagnostic {
-                range: goal_context.range,
-                severity: Some(DiagnosticSeverity::WARNING),
-                message,
-                ..Diagnostic::default()
-            });
-            client
-                .publish_diagnostics(self.url.clone(), diagnostics.clone(), None)
-                .await;
-        }
-
-        if diagnostics.is_empty() {
-            client
-                .publish_diagnostics(self.url.clone(), diagnostics.clone(), None)
-                .await;
-        }
-        let duration = chrono::Local::now() - start_time;
-        let seconds = duration.num_milliseconds() as f64 / 1000.0;
-        self.log(&format!(
-            "diagnostics complete after {:.2}s. {} issue{} found",
-            seconds,
-            diagnostics.len(),
-            if diagnostics.len() == 1 { "" } else { "s" }
-        ));
     }
 }
 
@@ -321,6 +220,10 @@ struct Backend {
     // The project we're working on
     project: Arc<RwLock<Project>>,
 
+    // Progress requests share this value with the client.
+    // Long-running tasks update it as they go.
+    progress: Arc<Mutex<ProgressResponse>>,
+
     // Maps uri to the most recent version of a document
     documents: DashMap<Url, Arc<Document>>,
 
@@ -333,28 +236,85 @@ impl Backend {
         Backend {
             project: Arc::new(RwLock::new(Project::new("math"))),
             client,
+            progress: Arc::new(Mutex::new(ProgressResponse::default())),
             documents: DashMap::new(),
             debug_task: Arc::new(RwLock::new(None)),
         }
     }
 
-    // Spawn a background task to create diagnostics for the given url
-    fn spawn_diagnostics(&self, uri: Url) {
-        let doc: Arc<Document> = match self.documents.get(&uri) {
-            Some(doc) => doc.clone(),
-            None => {
-                log("no text available for diagnostics");
-                return;
-            }
-        };
-        let client = self.client.clone();
+    // Run a build in a background thread, proving the goals in all open documents.
+    // Both spawned threads hold a read lock on the project while doing their work.
+    // This ensures that the project doesn't change for the duration of the build.
+    fn spawn_build(&self) {
+        log("spawning build");
+        let start_time = chrono::Local::now();
+
+        // This channel passes the build events
+        let (tx, mut rx) = mpsc::unbounded_channel();
+
+        // Spawn a thread to run the build.
         let project = self.project.clone();
         tokio::spawn(async move {
-            doc.run_diagnostics(project, client).await;
+            log("running build");
+            let project = project.read().await;
+
+            let keys: Vec<_> = project.open_files.keys().collect();
+            log(&format!("open files: {:?}", keys));
+
+            if project.build(&mut |event| {
+                log("creating build event");
+                tx.send(event).unwrap();
+            }) {
+                let duration = chrono::Local::now() - start_time;
+                let seconds = duration.num_milliseconds() as f64 / 1000.0;
+                log(&format!("build succeeded after {:.2}s", seconds));
+            } else {
+                log("build failed");
+            }
+        });
+
+        // Spawn a thread to process the build events.
+        let project = self.project.clone();
+        let progress = self.progress.clone();
+        let client = self.client.clone();
+        tokio::spawn(async move {
+            log("handling build events");
+            let project = project.read().await;
+            let mut diagnostic_map: HashMap<Url, Vec<Diagnostic>> = HashMap::new();
+            while let Some(event) = rx.recv().await {
+                log("handling build event");
+                if let Some((done, total)) = event.progress {
+                    let mut locked_progress = progress.lock().await;
+                    *locked_progress = ProgressResponse { done, total };
+                }
+
+                if let Some(message) = event.log_message {
+                    log(&message);
+                }
+
+                if let Some((module_name, diagnostic)) = event.diagnostic {
+                    let path = match project.path_from_module_name(&module_name) {
+                        Ok(path) => path,
+                        Err(_) => {
+                            log(&format!("no path available for {}", module_name));
+                            return;
+                        }
+                    };
+                    let url = Url::from_file_path(path).unwrap();
+                    let diagnostics = diagnostic_map.entry(url.clone()).or_default();
+                    diagnostics.push(diagnostic);
+                    client
+                        .publish_diagnostics(url, diagnostics.clone(), None)
+                        .await;
+                }
+            }
         });
     }
 
-    fn update_document(&self, url: Url, text: String, version: i32, tag: &str) {
+    // This updates a document in the backend, but not in the project.
+    // The backend tracks every single change; the project only gets them when we want it to use them.
+    // This means that typing a little bit won't cancel an ongoing build.
+    fn update_doc_in_backend(&self, url: Url, text: String, version: i32, tag: &str) {
         let new_doc = Document::new(url.clone(), text, version);
         new_doc.log(&format!("did_{}; updating document", tag));
         if let Some(old_doc) = self.documents.get(&url) {
@@ -364,6 +324,45 @@ impl Backend {
                 .store(true, std::sync::atomic::Ordering::Relaxed);
         }
         self.documents.insert(url.clone(), Arc::new(new_doc));
+    }
+
+    // If there is a build happening, stops it.
+    // Acquires the write lock on the project.
+    // Returns a writable reference to the project.
+    async fn stop_build_and_get_project(&self) -> RwLockWriteGuard<Project> {
+        {
+            let project = self.project.read().await;
+            project.stop_build();
+        }
+        self.project.write().await
+    }
+
+    // This updates a document in the project, based on the state in the backend.
+    async fn update_doc_in_project(&self, url: &Url) {
+        let content = self.documents.get(url);
+        if content.is_none() {
+            log("no text available for update_doc_in_project");
+            return;
+        }
+        let content = &content.unwrap().text;
+        let path = match url.to_file_path() {
+            Ok(path) => path,
+            Err(_) => {
+                log(format!("no path available for {} in update_doc_in_project", url).as_str());
+                return;
+            }
+        };
+        {
+            // Check if the project already has this document state.
+            // If the update is a no-op, there's no need to stop the build.
+            let project = self.project.read().await;
+            if project.matches_open_file(&path, content) {
+                return;
+            }
+        }
+        let mut project = self.stop_build_and_get_project().await;
+        log(format!("updating {} with {} bytes", path.display(), content.len()).as_str());
+        project.update_file(path, content);
     }
 
     fn fail(&self, message: &str) -> jsonrpc::Result<DebugResponse> {
@@ -514,22 +513,24 @@ impl LanguageServer for Backend {
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         log("did_save");
-        self.spawn_diagnostics(params.text_document.uri);
+        self.update_doc_in_project(&params.text_document.uri).await;
+        self.spawn_build();
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri;
         let text = params.text_document.text;
         let version = params.text_document.version;
-        self.update_document(uri.clone(), text, version, "open");
-        self.spawn_diagnostics(uri);
+        self.update_doc_in_backend(uri.clone(), text, version, "open");
+        self.update_doc_in_project(&uri).await;
+        self.spawn_build();
     }
 
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
         let text = std::mem::take(&mut params.content_changes[0].text);
         let version = params.text_document.version;
-        self.update_document(uri, text, version, "change");
+        self.update_doc_in_backend(uri, text, version, "change");
     }
 
     async fn shutdown(&self) -> jsonrpc::Result<()> {

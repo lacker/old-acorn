@@ -40,13 +40,16 @@ pub struct Project {
     // This can store either test data that doesn't exist on the filesystem at all, or
     // work in progress whose state is "owned" by an IDE via the language server protocol.
     // Maps filename -> contents.
-    open_files: HashMap<PathBuf, String>,
+    pub open_files: HashMap<PathBuf, String>,
 
     // modules[namespace] is the Module for the given namespace id
     modules: Vec<Module>,
 
     // namespaces maps from a module name specified in Acorn (like "foo.bar") to the namespace id
     namespaces: HashMap<String, NamespaceId>,
+
+    // The module names that we want to build.
+    targets: HashSet<String>,
 
     // Used as a flag to stop a build in progress.
     build_stopped: Arc<AtomicBool>,
@@ -141,6 +144,7 @@ impl Project {
             open_files: HashMap::new(),
             modules: new_modules(),
             namespaces: HashMap::new(),
+            targets: HashSet::new(),
             build_stopped: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -154,7 +158,7 @@ impl Project {
 
     // Dropping existing modules lets you update the project for new data.
     // TODO: do this incrementally instead of dropping everything.
-    pub fn drop_modules(&mut self) {
+    fn drop_modules(&mut self) {
         self.modules = new_modules();
         self.namespaces = HashMap::new();
     }
@@ -179,36 +183,80 @@ impl Project {
         self.build_stopped = Arc::new(AtomicBool::new(false));
     }
 
-    fn set_file_content(&mut self, path: PathBuf, content: &str) {
+    // Returns whether it loaded okay.
+    // Either way, it's still added as a target.
+    pub fn add_target(&mut self, module_name: &str) -> bool {
+        let answer = self.load(module_name).is_ok();
+        self.targets.insert(module_name.to_string());
+        answer
+    }
+
+    pub fn add_target_file(&mut self, path: &Path) -> bool {
+        let module_name = self.module_name_from_path(path).unwrap();
+        self.add_target(&module_name)
+    }
+
+    // Whether the provided content matches what we already have for an open file.
+    pub fn matches_open_file(&self, path: &PathBuf, content: &str) -> bool {
+        if let Some(existing) = self.open_files.get(path) {
+            existing == content
+        } else {
+            false
+        }
+    }
+
+    // Updating a file makes us treat it as "open". When a file is open, we use the
+    // content in memory for it, rather than the content on disk.
+    // Updated files are also added as build targets.
+    pub fn update_file(&mut self, path: PathBuf, content: &str) {
+        if self.matches_open_file(&path, content) {
+            // No need to do anything
+            return;
+        }
+        // TODO: handle files that are opened outside of the project
+        let module_name = self.module_name_from_path(&path).unwrap();
+        let mut reload_modules = vec![module_name];
+        if self.open_files.contains_key(&path) {
+            // We're changing the value of an existing file. This could invalidate
+            // current modules.
+            // For now, we just drop everything and reload the targets.
+            // TODO: figure out precisely which ones are invalidated.
+            self.drop_modules();
+            for target in &self.targets {
+                reload_modules.push(target.clone());
+            }
+        }
         self.open_files.insert(path, content.to_string());
+        for module_name in &reload_modules {
+            self.add_target(module_name);
+        }
     }
 
     // Builds all open modules, and calls the event handler on any build events.
     // Returns whether the build was entirely good, no errors or warnings.
     pub fn build(&self, handler: &mut impl FnMut(BuildEvent)) -> bool {
-        let mut namespaces: Vec<(String, NamespaceId)> = vec![];
-        for (name, namespace) in &self.namespaces {
-            let path = self.path_from_module_name(&name).unwrap();
-            if self.open_files.contains_key(&path) {
-                // For now, we only build modules that are "open".
-                // In the future we will want more ways to control this.
-                namespaces.push((name.to_string(), *namespace));
-            }
-        }
+        // Build in alphabetical order by module name for consistency.
+        let mut targets = self.targets.iter().collect::<Vec<_>>();
+        targets.sort();
 
-        // Build in alphabetical order for consistency.
-        namespaces.sort();
+        handler(BuildEvent {
+            progress: None,
+            log_message: Some(format!("starting build: {:?}", targets)),
+            diagnostic: None,
+        });
 
         // On the first pass we just look for errors.
         // If there are errors, we won't even try to do proving.
         // But, we will still go through and look for any other errors.
         let mut module_errors = false;
         let mut total: i32 = 0;
-        for (name, namespace) in &namespaces {
-            let module = self.get_module(*namespace);
+        let mut envs = vec![];
+        for target in &targets {
+            let module = self.get_module_by_name(target);
             match module {
                 Module::Ok(env) => {
                     total += env.goal_paths().len() as i32;
+                    envs.push(env);
                 }
                 Module::Error(e) => {
                     let diagnostic = Diagnostic {
@@ -220,15 +268,15 @@ impl Project {
                     handler(BuildEvent {
                         progress: None,
                         log_message: None,
-                        diagnostic: Some((name.to_string(), diagnostic)),
+                        diagnostic: Some((target.to_string(), diagnostic)),
                     });
                     module_errors = true;
                 }
                 Module::None => {
-                    // I'm not sure in what situations this might happen.
+                    // Targets are supposed to be loaded already.
                     handler(BuildEvent {
                         progress: None,
-                        log_message: Some(format!("error: module {} is not loaded", name)),
+                        log_message: Some(format!("error: module {} is not loaded", target)),
                         diagnostic: None,
                     });
                     module_errors = true;
@@ -238,10 +286,9 @@ impl Project {
                     // show up elsewhere, so let's just log.
                     handler(BuildEvent {
                         progress: None,
-                        log_message: Some(format!("error: module {} stuck in loading", name)),
+                        log_message: Some(format!("error: module {} stuck in loading", target)),
                         diagnostic: None,
                     });
-                    module_errors = true;
                 }
             }
         }
@@ -253,8 +300,7 @@ impl Project {
         // On the second pass we do the actual proving.
         let mut warnings: bool = false;
         let mut done: i32 = 0;
-        for (name, namespace) in &namespaces {
-            let env = self.get_env(*namespace).unwrap();
+        for (target, env) in targets.iter().zip(envs) {
             let paths = env.goal_paths();
             for path in paths {
                 let goal_context = env.get_goal_context(&self, &path);
@@ -284,7 +330,7 @@ impl Project {
                         ..Diagnostic::default()
                     };
                     warnings = true;
-                    (Some((name.to_string(), diagnostic)), Some(message))
+                    (Some((target.to_string(), diagnostic)), Some(message))
                 };
 
                 handler(BuildEvent {
@@ -305,7 +351,7 @@ impl Project {
     #[cfg(test)]
     pub fn mock(&mut self, filename: &str, content: &str) {
         assert!(!self.use_filesystem);
-        self.set_file_content(PathBuf::from(filename), content);
+        self.update_file(PathBuf::from(filename), content);
     }
 
     pub fn get_module(&self, namespace: NamespaceId) -> &Module {
@@ -340,8 +386,7 @@ impl Project {
         errors
     }
 
-    // If "open" is provided, cache the contents in open_files.
-    fn read_file(&mut self, path: &PathBuf, open: bool) -> Result<String, LoadError> {
+    fn read_file(&mut self, path: &PathBuf) -> Result<String, LoadError> {
         if let Some(content) = self.open_files.get(path) {
             return Ok(content.clone());
         }
@@ -349,12 +394,7 @@ impl Project {
             return Err(LoadError(format!("no mocked file for: {}", path.display())));
         }
         match std::fs::read_to_string(&path) {
-            Ok(s) => {
-                if open {
-                    self.set_file_content(path.clone(), &s);
-                }
-                Ok(s)
-            }
+            Ok(s) => Ok(s),
             Err(e) => Err(LoadError(format!(
                 "error loading {}: {}",
                 path.display(),
@@ -398,7 +438,7 @@ impl Project {
         Ok(answer)
     }
 
-    fn path_from_module_name(&self, module_name: &str) -> Result<PathBuf, LoadError> {
+    pub fn path_from_module_name(&self, module_name: &str) -> Result<PathBuf, LoadError> {
         let mut path = self.root.clone();
         let parts: Vec<&str> = module_name.split('.').collect();
 
@@ -424,7 +464,7 @@ impl Project {
     // If there is an error in the file, the load will return a namespace id, but the module
     // for this namespace id will have an error.
     // If "open" is passed, then we cache this file's content in open files.
-    pub fn load(&mut self, module_name: &str, open: bool) -> Result<NamespaceId, LoadError> {
+    pub fn load(&mut self, module_name: &str) -> Result<NamespaceId, LoadError> {
         if let Some(namespace) = self.namespaces.get(module_name) {
             if *namespace < FIRST_NORMAL {
                 panic!("namespace {} should not be loadable", namespace);
@@ -436,7 +476,7 @@ impl Project {
         }
 
         let path = self.path_from_module_name(module_name)?;
-        let text = self.read_file(&path, open)?;
+        let text = self.read_file(&path)?;
 
         // Give this module a namespace id before parsing it, so that we can catch
         // circular imports.
@@ -521,14 +561,14 @@ impl Project {
         // them whenever one of them changes.
         self.drop_modules();
 
-        self.set_file_content(path, content);
-        Ok(self.load(&module_name, false)?)
+        self.update_file(path, content);
+        Ok(self.load(&module_name)?)
     }
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
     #[cfg(test)]
     pub fn expect_ok(&mut self, module_name: &str) -> NamespaceId {
-        let namespace = self.load(module_name, false).expect("load failed");
+        let namespace = self.load(module_name).expect("load failed");
         if let Module::Ok(_) = self.get_module(namespace) {
             // Success
             namespace
@@ -540,13 +580,13 @@ impl Project {
     // This expects there to be an error during loading itself.
     #[cfg(test)]
     fn expect_load_err(&mut self, module_name: &str) {
-        assert!(self.load(module_name, false).is_err());
+        assert!(self.load(module_name).is_err());
     }
 
     // This expects the module to load, but for there to be an error in the loaded module.
     #[cfg(test)]
     fn expect_module_err(&mut self, module_name: &str) {
-        let namespace = self.load(module_name, false).expect("load failed");
+        let namespace = self.load(module_name).expect("load failed");
         if let Module::Error(_) = self.get_module(namespace) {
             // What we expected
         } else {
@@ -609,7 +649,7 @@ mod tests {
         p.mock("/mock/a.ac", "import b");
         p.mock("/mock/b.ac", "import c");
         p.mock("/mock/c.ac", "import a");
-        p.expect_ok("a");
+        p.expect_module_err("a");
         // The error should show up in c.ac, not in a.ac
         assert!(p.errors().len() > 0);
     }
@@ -691,16 +731,19 @@ mod tests {
             theorem goal: foo.fooify(new_foo) = foo.foo
         "#,
         );
-        p.load("foo", false).expect("loading foo failed");
-        p.load("main", false).expect("loading main failed");
+        p.load("foo").expect("loading foo failed");
+        p.load("main").expect("loading main failed");
+        p.add_target("foo");
+        p.add_target("main");
         let mut events = vec![];
         assert!(p.build(&mut |event| {
             events.push(event);
         }));
 
-        // We should just get a single success event.
+        // We should get no diagnostics.
         assert!(events.len() > 0);
-        assert!(events[0].diagnostic.is_none());
-        assert!(events.len() == 1);
+        for event in &events {
+            assert!(event.diagnostic.is_none());
+        }
     }
 }
