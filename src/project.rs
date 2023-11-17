@@ -256,6 +256,11 @@ impl Project {
         let mut targets = self.targets.iter().collect::<Vec<_>>();
         targets.sort();
 
+        handler(BuildEvent {
+            log_message: Some(format!("building targets: {:?}", targets)),
+            ..BuildEvent::default()
+        });
+
         // On the first pass we just look for errors.
         // If there are errors, we won't even try to do proving.
         // But, we will still go through and look for any other errors.
@@ -311,7 +316,7 @@ impl Project {
         for (target, env) in targets.iter().zip(envs) {
             let mut target_warnings = false;
             let paths = env.goal_paths();
-            for (i, path) in paths.iter().enumerate() {
+            for path in paths.iter() {
                 let goal_context = env.get_goal_context(&self, &path);
                 let mut prover = Prover::new(&self, &goal_context, false, None);
                 prover.stop_flags.push(self.build_stopped.clone());
@@ -341,10 +346,6 @@ impl Project {
                     };
                     build_warnings = true;
                     (Some((target.to_string(), Some(diagnostic))), Some(message))
-                } else if i == paths.len() - 1 && !target_warnings {
-                    // We proved this whole module without warnings.
-                    // Report this so that the IDE can clear visible diagnostics.
-                    (Some((target.to_string(), None)), None)
                 } else {
                     (None, None)
                 };
@@ -358,6 +359,13 @@ impl Project {
                 if outcome == Outcome::Interrupted {
                     return false;
                 }
+            }
+            if !target_warnings {
+                // Report a None diagnostic to indicate that this file is okay
+                handler(BuildEvent {
+                    diagnostic: Some((target.to_string(), None)),
+                    ..BuildEvent::default()
+                });
             }
         }
         !build_warnings

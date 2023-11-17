@@ -40,8 +40,6 @@ struct Document {
     text: String,
     version: i32,
 
-    progress: Arc<Mutex<ProgressResponse>>,
-
     // superseded is set to true when there is a newer version of the document.
     superseded: Arc<AtomicBool>,
 }
@@ -52,7 +50,6 @@ impl Document {
             url,
             text,
             version,
-            progress: Arc::new(Mutex::new(ProgressResponse::default())),
             superseded: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -367,15 +364,9 @@ impl Backend {
 
     async fn handle_progress_request(
         &self,
-        params: ProgressParams,
+        _params: ProgressParams,
     ) -> jsonrpc::Result<ProgressResponse> {
-        let doc = match self.documents.get(&params.uri) {
-            Some(doc) => doc,
-            None => {
-                return Ok(ProgressResponse::default());
-            }
-        };
-        let locked_progress = doc.progress.lock().await;
+        let locked_progress = self.progress.lock().await;
         Ok(locked_progress.clone())
     }
 
