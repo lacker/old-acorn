@@ -185,6 +185,57 @@ class Debugger implements Disposable {
   }
 }
 
+async function getProgress() {
+  return await client.sendRequest("acorn/progress", {});
+}
+
+// Automatically hides it when we are done.
+async function showProgressBar() {
+  let startTime = Date.now();
+
+  let response: any = await getProgress();
+
+  while (response.done === response.total) {
+    console.log(
+      `XXX progress appears to be ${response.done}/${response.total}`
+    );
+    // Maybe progress just hasn't started yet.
+    // Let's wait a bit and try again.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    response = await getProgress();
+
+    let elapsed = Date.now() - startTime;
+    if (elapsed > 2000) {
+      // It's been a while. Let's give up.
+      console.log("giving up on progress bar");
+      return;
+    }
+  }
+
+  let previousPercent = 0;
+  window.withProgress(
+    {
+      location: ProgressLocation.Notification,
+      title: "Acorn Validation",
+      cancellable: true,
+    },
+    async (progress, token) => {
+      token.onCancellationRequested(() => {
+        console.log("acorn validation progress bar canceled");
+      });
+
+      while (response.total !== response.done) {
+        let percent = Math.floor((100 * response.done) / response.total);
+        let increment = percent - previousPercent;
+        progress.report({ increment });
+        previousPercent = percent;
+        response = await getProgress();
+      }
+      console.log(`progress done, ${response.total}/${response.done}`);
+    }
+  );
+}
+
 export function activate(context: ExtensionContext) {
   let timestamp = new Date().toLocaleTimeString();
   console.log("activating acorn language extension at", timestamp);
@@ -239,50 +290,26 @@ export function activate(context: ExtensionContext) {
   // Start the client. This will also launch the server
   client.start();
 
-  let showProgressBar = async (document: TextDocument) => {
+  let onDocumentChange = async (document: TextDocument) => {
     if (document.languageId !== "acorn") {
       return;
     }
-
-    // Wait a bit before showing progress
-    await new Promise((resolve) => setTimeout(resolve, 250));
-
-    let uri = document.uri.toString();
-    let basename = path.basename(document.uri.fsPath);
-    let params = { uri };
-    let previousPercent = 0;
-    window.withProgress(
-      {
-        location: ProgressLocation.Notification,
-        title: "Validating " + basename,
-        cancellable: true,
-      },
-      async (progress, token) => {
-        token.onCancellationRequested(() => {
-          console.log("acorn validation progress bar canceled");
-        });
-
-        while (true) {
-          let response: any = await client.sendRequest(
-            "acorn/progress",
-            params
-          );
-          if (response.total === response.done) {
-            return;
-          }
-
-          let percent = Math.floor((100 * response.done) / response.total);
-          let increment = percent - previousPercent;
-          progress.report({ increment });
-          previousPercent = percent;
-        }
-      }
-    );
+    await showProgressBar();
   };
 
-  workspace.textDocuments.forEach(showProgressBar);
-  context.subscriptions.push(workspace.onDidSaveTextDocument(showProgressBar));
-  context.subscriptions.push(workspace.onDidOpenTextDocument(showProgressBar));
+  let hasAcornDocs = false;
+  for (let doc of workspace.textDocuments) {
+    if (doc.languageId === "acorn") {
+      hasAcornDocs = true;
+      break;
+    }
+  }
+  if (hasAcornDocs) {
+    showProgressBar();
+  }
+
+  context.subscriptions.push(workspace.onDidSaveTextDocument(onDocumentChange));
+  context.subscriptions.push(workspace.onDidOpenTextDocument(onDocumentChange));
 }
 
 export function deactivate(): Thenable<void> | undefined {

@@ -20,6 +20,10 @@ fn log(message: &str) {
     eprintln!("{}", stamped);
 }
 
+// The language server stores one progress struct, and returns it at any time.
+// 0/0 only occurs at initialization. It means "there have never been any progress bars".
+// Once we ever show a progress bar, we leave it at the previous finished state.
+// When progress is cancelled or interrupted, we should update this so that done = total.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ProgressResponse {
@@ -64,10 +68,7 @@ impl Document {
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ProgressParams {
-    // Which document
-    pub uri: Url,
-}
+pub struct ProgressParams {}
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -252,10 +253,13 @@ impl Backend {
         // Spawn a thread to run the build.
         let project = self.project.clone();
         tokio::spawn(async move {
+            log("XXX build thread begin");
             let project = project.read().await;
-            let success = project.build(&mut |event| {
-                tx.send(event).unwrap();
-            });
+            let success = project
+                .build(&mut |event| {
+                    tx.send(event).unwrap();
+                })
+                .await;
             let duration = chrono::Local::now() - start_time;
             let seconds = duration.num_milliseconds() as f64 / 1000.0;
             let verb = if success { "succeeded" } else { "failed" };
@@ -267,12 +271,18 @@ impl Backend {
         let progress = self.progress.clone();
         let client = self.client.clone();
         tokio::spawn(async move {
+            log("XXX process thread begin");
             let project = project.read().await;
+            log("XXX process thread got project read lock");
             let mut diagnostic_map: HashMap<Url, Vec<Diagnostic>> = HashMap::new();
             while let Some(event) = rx.recv().await {
+                log("XXX process thread received event");
                 if let Some((done, total)) = event.progress {
-                    let mut locked_progress = progress.lock().await;
-                    *locked_progress = ProgressResponse { done, total };
+                    if total > 0 {
+                        log(&format!("XXX setting progress: {}/{}", done, total));
+                        let mut locked_progress = progress.lock().await;
+                        *locked_progress = ProgressResponse { done, total };
+                    }
                 }
 
                 if let Some(message) = event.log_message {
@@ -296,6 +306,7 @@ impl Backend {
                         .publish_diagnostics(url, diagnostics.clone(), None)
                         .await;
                 }
+                log("XXX process thread handled event");
             }
         });
     }
@@ -367,6 +378,10 @@ impl Backend {
         _params: ProgressParams,
     ) -> jsonrpc::Result<ProgressResponse> {
         let locked_progress = self.progress.lock().await;
+        log(&format!(
+            "XXX reporting progress: {}/{}",
+            locked_progress.done, locked_progress.total
+        ));
         Ok(locked_progress.clone())
     }
 
