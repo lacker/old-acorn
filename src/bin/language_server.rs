@@ -110,8 +110,10 @@ impl DebugResponse {
 #[derive(Clone)]
 struct DebugTask {
     project: Arc<RwLock<Project>>,
-
     document: Arc<Document>,
+
+    // The module that we're debugging a proof in
+    module_name: String,
 
     // The range in the document corresponding to the goal we're debugging
     range: Range,
@@ -131,7 +133,7 @@ struct DebugTask {
     // Set this flag to true when the task is completed successfully
     completed: Arc<AtomicBool>,
 
-    // Set this flag to true when a subsequent task has been created
+    // Set this flag to true when a subsequent debug task has been created
     superseded: Arc<AtomicBool>,
 }
 
@@ -160,25 +162,26 @@ impl DebugTask {
 
     // Runs the debug task.
     async fn run(&self) {
-        // Get the environment for this document
+        // Get the environment for this module
         let project = self.project.read().await;
-        let env = match project.get_url_env(&self.document.url) {
-            Ok(env) => env,
-            Err(e) => {
-                self.document.log(&e.to_string());
+        let env = match project.get_env_by_name(&self.module_name) {
+            Some(env) => env,
+            None => {
+                log(&format!("no environment for {}", self.module_name));
                 return;
             }
         };
 
         log(&format!("running debug task for {}", self.goal_name));
 
-        // Get the environment for this specific goal
+        // Get the specific goal to debug
         let goal_context = env.get_goal_context(&project, &self.path);
         let mut prover = Prover::new(&project, &goal_context, true, Some(self.queue.clone()));
 
-        // Stop the prover if either this task or this document version is superseded
+        // By default, the prover will stop if the build is stopped.
+        // We also want to stop it if we get a subsequent debug request, to debug something else.
         prover.stop_flags.push(self.superseded.clone());
-        prover.stop_flags.push(self.document.superseded.clone());
+
         let outcome = prover.search_for_contradiction(3000, 3.0);
         self.queue.push("".to_string());
 
@@ -202,6 +205,7 @@ impl DebugTask {
                 prover.print_passive(None);
             }
             Outcome::Interrupted => {
+                self.queue.push("Interrupted.".to_string());
                 return;
             }
         }
@@ -425,6 +429,7 @@ impl Backend {
         let new_task = DebugTask {
             project: self.project.clone(),
             document: doc.clone(),
+            module_name,
             range: goal_context.range,
             path,
             goal_name: goal_context.name.clone(),

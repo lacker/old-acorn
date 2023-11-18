@@ -129,7 +129,7 @@ impl Prover {
             hit_trace: false,
             final_step: None,
             num_generated: 0,
-            stop_flags: Vec::new(),
+            stop_flags: vec![project.build_stopped.clone()],
             report_inconsistency: !goal_context.includes_explicit_false(),
             facts_only: true,
         };

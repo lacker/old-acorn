@@ -52,7 +52,7 @@ pub struct Project {
     targets: HashSet<String>,
 
     // Used as a flag to stop a build in progress.
-    build_stopped: Arc<AtomicBool>,
+    pub build_stopped: Arc<AtomicBool>,
 }
 
 // An error found while importing a module.
@@ -324,7 +324,6 @@ impl Project {
             for path in paths.iter() {
                 let goal_context = env.get_goal_context(&self, &path);
                 let mut prover = Prover::new(&self, &goal_context, false, None);
-                prover.stop_flags.push(self.build_stopped.clone());
                 let outcome = prover.search_for_contradiction(5000, 5.0);
 
                 done += 1;
@@ -400,6 +399,14 @@ impl Project {
     pub fn get_env(&self, namespace: NamespaceId) -> Option<&Environment> {
         if let Module::Ok(env) = self.get_module(namespace) {
             Some(env)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_env_by_name(&self, module_name: &str) -> Option<&Environment> {
+        if let Some(namespace) = self.namespaces.get(module_name) {
+            self.get_env(*namespace)
         } else {
             None
         }
