@@ -16,17 +16,15 @@ async fn main() {
     project.add_target(&module_name);
 
     let mut all_ok = true;
-    project
-        .build(&mut |event| {
-            if let Some(m) = event.log_message {
-                println!("{}", m);
-                all_ok = false;
+    project.build(&mut |event| {
+        if let Some(m) = event.log_message {
+            println!("{}", m);
+            all_ok = false;
+        }
+        if let Some((d, t)) = event.progress {
+            if d == t {
+                println!("{}/{} OK", d, t);
             }
-            if let Some((d, t)) = event.progress {
-                if d == t {
-                    println!("{}/{} OK", d, t);
-                }
-            }
-        })
-        .await;
+        }
+    });
 }

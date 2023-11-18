@@ -250,18 +250,21 @@ impl Backend {
         let (tx, mut rx) = mpsc::unbounded_channel();
 
         // Spawn a thread to run the build.
+
         let project = self.project.clone();
         tokio::spawn(async move {
             let project = project.read().await;
-            let success = project
-                .build(&mut |event| {
+
+            tokio::task::block_in_place(move || {
+                let success = project.build(&mut |event| {
                     tx.send(event).unwrap();
-                })
-                .await;
-            let duration = chrono::Local::now() - start_time;
-            let seconds = duration.num_milliseconds() as f64 / 1000.0;
-            let verb = if success { "succeeded" } else { "failed" };
-            log(&format!("build {} after {:.2}s", verb, seconds));
+                });
+
+                let duration = chrono::Local::now() - start_time;
+                let seconds = duration.num_milliseconds() as f64 / 1000.0;
+                let verb = if success { "succeeded" } else { "failed" };
+                log(&format!("build {} after {:.2}s", verb, seconds));
+            });
         });
 
         // Spawn a thread to process the build events.

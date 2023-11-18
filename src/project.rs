@@ -251,7 +251,7 @@ impl Project {
     // This may or may not be a human problem.
     //
     // Returns whether the build was entirely good, no errors or warnings.
-    pub async fn build(&self, handler: &mut impl FnMut(BuildEvent)) -> bool {
+    pub fn build(&self, handler: &mut impl FnMut(BuildEvent)) -> bool {
         // Build in alphabetical order by module name for consistency.
         let mut targets = self.targets.iter().collect::<Vec<_>>();
         targets.sort();
@@ -304,7 +304,6 @@ impl Project {
                     });
                 }
             }
-            tokio::task::yield_now().await;
         }
 
         if module_errors {
@@ -361,7 +360,6 @@ impl Project {
                     log_message,
                     diagnostic,
                 });
-                tokio::task::yield_now().await;
 
                 if outcome == Outcome::Interrupted {
                     return false;
@@ -767,12 +765,9 @@ mod tests {
         p.add_target("foo");
         p.add_target("main");
         let mut events = vec![];
-        assert!(
-            p.build(&mut |event| {
-                events.push(event);
-            })
-            .await
-        );
+        assert!(p.build(&mut |event| {
+            events.push(event);
+        }));
 
         // Testing this is annoying because I keep changing it for UI purposes.
         assert!(events.len() > 0);
