@@ -196,9 +196,6 @@ async function showProgressBar() {
   let response: any = await getProgress();
 
   while (response.done === response.total) {
-    console.log(
-      `XXX progress appears to be ${response.done}/${response.total}`
-    );
     // Maybe progress just hasn't started yet.
     // Let's wait a bit and try again.
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -229,9 +226,11 @@ async function showProgressBar() {
         let increment = percent - previousPercent;
         progress.report({ increment });
         previousPercent = percent;
+
+        // We have something to show, so we can wait a bit before updating.
+        await new Promise((resolve) => setTimeout(resolve, 100));
         response = await getProgress();
       }
-      console.log(`progress done, ${response.total}/${response.done}`);
     }
   );
 }

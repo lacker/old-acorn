@@ -311,6 +311,11 @@ impl Project {
             return false;
         }
 
+        handler(BuildEvent {
+            progress: Some((0, total)),
+            ..BuildEvent::default()
+        });
+
         // On the second pass we do the actual proving.
         let mut build_warnings: bool = false;
         let mut done: i32 = 0;

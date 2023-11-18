@@ -244,7 +244,6 @@ impl Backend {
     // Both spawned threads hold a read lock on the project while doing their work.
     // This ensures that the project doesn't change for the duration of the build.
     fn spawn_build(&self) {
-        log("spawning build");
         let start_time = chrono::Local::now();
 
         // This channel passes the build events
@@ -253,7 +252,6 @@ impl Backend {
         // Spawn a thread to run the build.
         let project = self.project.clone();
         tokio::spawn(async move {
-            log("XXX build thread begin");
             let project = project.read().await;
             let success = project
                 .build(&mut |event| {
@@ -271,15 +269,11 @@ impl Backend {
         let progress = self.progress.clone();
         let client = self.client.clone();
         tokio::spawn(async move {
-            log("XXX process thread begin");
             let project = project.read().await;
-            log("XXX process thread got project read lock");
             let mut diagnostic_map: HashMap<Url, Vec<Diagnostic>> = HashMap::new();
             while let Some(event) = rx.recv().await {
-                log("XXX process thread received event");
                 if let Some((done, total)) = event.progress {
                     if total > 0 {
-                        log(&format!("XXX setting progress: {}/{}", done, total));
                         let mut locked_progress = progress.lock().await;
                         *locked_progress = ProgressResponse { done, total };
                     }
@@ -306,7 +300,6 @@ impl Backend {
                         .publish_diagnostics(url, diagnostics.clone(), None)
                         .await;
                 }
-                log("XXX process thread handled event");
             }
         });
     }
@@ -378,10 +371,6 @@ impl Backend {
         _params: ProgressParams,
     ) -> jsonrpc::Result<ProgressResponse> {
         let locked_progress = self.progress.lock().await;
-        log(&format!(
-            "XXX reporting progress: {}/{}",
-            locked_progress.done, locked_progress.total
-        ));
         Ok(locked_progress.clone())
     }
 
