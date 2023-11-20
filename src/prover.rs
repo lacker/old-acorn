@@ -12,7 +12,7 @@ use crate::clause::Clause;
 use crate::clause_info::{ClauseInfo, ClauseType, ProofStep};
 use crate::display::DisplayClause;
 use crate::goal_context::{monomorphize_facts, GoalContext};
-use crate::normalizer::Normalizer;
+use crate::normalizer::{NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
 use crate::synthesizer::Synthesizer;
@@ -145,9 +145,9 @@ impl Prover {
 
         // Load facts into the prover
         for fact in monomorphic_facts {
-            p.add_fact(fact);
+            p.add_fact(fact).expect("XXX");
         }
-        p.add_goal(goal_context.goal.clone());
+        p.add_goal(goal_context.goal.clone()).expect("XXX");
         p
     }
 
@@ -159,10 +159,16 @@ impl Prover {
         self.trace = None;
     }
 
-    fn normalize_proposition(&mut self, proposition: AcornValue) -> Option<Vec<Clause>> {
-        proposition.validate().unwrap_or_else(|e| {
-            panic!("validation error: {} while normalizing: {}", e, proposition);
-        });
+    fn normalize_proposition(
+        &mut self,
+        proposition: AcornValue,
+    ) -> Result<Option<Vec<Clause>>, NormalizationError> {
+        if let Err(e) = proposition.validate() {
+            return Err(NormalizationError(format!(
+                "validation error: {} while normalizing: {}",
+                e, proposition
+            )));
+        }
         assert_eq!(proposition.get_type(), AcornType::Bool);
         self.normalizer.normalize(proposition)
     }
@@ -186,31 +192,32 @@ impl Prover {
         }
     }
 
-    pub fn add_fact(&mut self, proposition: AcornValue) {
+    pub fn add_fact(&mut self, proposition: AcornValue) -> Result<(), NormalizationError> {
         self.facts.push(proposition.clone());
-        let clauses = match self.normalize_proposition(proposition) {
+        let clauses = match self.normalize_proposition(proposition)? {
             Some(clauses) => clauses,
             None => {
                 // We have a false assumption, so we're done already.
                 self.final_step = Some(ProofStep::assumption());
-                return;
+                return Ok(());
             }
         };
         for clause in clauses {
             let info = self.new_clause_info(clause, ClauseType::Fact, ProofStep::assumption());
             self.passive.push(info);
         }
+        Ok(())
     }
 
-    pub fn add_goal(&mut self, proposition: AcornValue) {
+    pub fn add_goal(&mut self, proposition: AcornValue) -> Result<(), NormalizationError> {
         assert!(self.goal.is_none());
         self.goal = Some(proposition.clone());
-        let clauses = match self.normalize_proposition(proposition.to_placeholder().negate()) {
+        let clauses = match self.normalize_proposition(proposition.to_placeholder().negate())? {
             Some(clauses) => clauses,
             None => {
                 // Our goal is trivially true, so we're done already.
                 self.final_step = Some(ProofStep::assumption());
-                return;
+                return Ok(());
             }
         };
         for clause in clauses {
@@ -218,6 +225,7 @@ impl Prover {
                 self.new_clause_info(clause, ClauseType::NegatedGoal, ProofStep::assumption());
             self.passive.push(info);
         }
+        Ok(())
     }
 
     fn is_tracing(&mut self, clause: &Clause) -> bool {
@@ -1138,18 +1146,18 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_normalization_failure_doesnt_crash() {
-    //     // We can't normalize lambdas inside function calls, but we shouldn't crash on them.
-    //     prove_all(
-    //         r#"
-    //         type Nat: axiom
-    //         let 0: Nat = axiom
-    //         define apply(f: Nat -> Nat, a: Nat) -> Nat = f(a)
-    //         theorem goal: apply(function(x: Nat) { x }, 0) = 0
-    //     "#,
-    //     );
-    // }
+    #[test]
+    fn test_normalization_failure_doesnt_crash() {
+        // We can't normalize lambdas inside function calls, but we shouldn't crash on them.
+        prove_all(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            define apply(f: Nat -> Nat, a: Nat) -> Nat = f(a)
+            theorem goal: apply(function(x: Nat) { x }, 0) = 0
+        "#,
+        );
+    }
 
     // These tests are like integration tests. See the files in the `tests` directory.
 

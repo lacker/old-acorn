@@ -159,6 +159,7 @@ mod tests {
 
         let clauses = norm
             .normalize(env.get_theorem_claim("t_implies_all").unwrap())
+            .unwrap()
             .unwrap();
         for clause in &clauses {
             synth.observe_types(clause);
@@ -166,6 +167,7 @@ mod tests {
 
         let neg_goal_clauses = norm
             .normalize(env.get_theorem_claim("goal").unwrap().negate())
+            .unwrap()
             .unwrap();
         assert_eq!(neg_goal_clauses.len(), 1);
         let synthesized = synth.synthesize(&norm, &neg_goal_clauses[0]);

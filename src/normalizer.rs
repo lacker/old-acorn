@@ -13,6 +13,7 @@ use crate::term::Term;
 use crate::type_map::TypeMap;
 
 // A failure during normalization.
+#[derive(Debug)]
 pub struct NormalizationError(pub String);
 
 impl fmt::Display for NormalizationError {
@@ -256,10 +257,15 @@ impl Normalizer {
         }
     }
 
-    // Converts a value to CNF. If value is true, then all the returned clauses are true.
+    // Converts a value to CNF.
+    // Logically, this is an "and of ors". Each Clause is an "or" of its literals.
+    // The return value is an "and" of the clauses.
+    // Thus, value is true iff all the returned clauses are true.
+    //
     // If the value is always satisfied, like explicit "true", returns an empty list.
     // If the value is impossible to satify, like explicit "false", returns None.
-    pub fn normalize(&mut self, value: AcornValue) -> Option<Vec<Clause>> {
+    // IF we cannot normalzie it, return an error.
+    pub fn normalize(&mut self, value: AcornValue) -> Result<Option<Vec<Clause>>> {
         // println!("\nnormalizing: {}", value);
         let value = value.replace_function_equality(0);
         let value = value.expand_lambdas(0);
@@ -272,8 +278,13 @@ impl Normalizer {
         let value = value.remove_forall(&mut universal);
         let literal_lists = match self.into_cnf(&value) {
             Ok(Some(lists)) => lists,
-            Ok(None) => return None,
-            Err(e) => panic!("\nerror converting {} to CNF:\n{}", value, e),
+            Ok(None) => return Ok(None),
+            Err(e) => {
+                return Err(NormalizationError(format!(
+                    "\nerror converting {} to CNF:\n{}",
+                    value, e
+                )))
+            }
         };
 
         let mut clauses = vec![];
@@ -283,7 +294,7 @@ impl Normalizer {
             // println!("clause: {}", clause);
             clauses.push(clause);
         }
-        Some(clauses)
+        Ok(Some(clauses))
     }
 
     pub fn atom_str(&self, atom: &Atom) -> String {
@@ -304,7 +315,7 @@ impl Normalizer {
     }
 
     fn check_value(&mut self, value: AcornValue, expected: &[&str]) {
-        let actual = self.normalize(value).unwrap();
+        let actual = self.normalize(value).unwrap().unwrap();
         if actual.len() != expected.len() {
             panic!(
                 "expected {} clauses, got {}:\n{}",
