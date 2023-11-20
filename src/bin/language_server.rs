@@ -208,6 +208,10 @@ impl DebugTask {
                 self.queue.push("Interrupted.".to_string());
                 return;
             }
+            Outcome::Error => {
+                self.queue.push("Error.".to_string());
+                return;
+            }
         }
         log(&format!("debug task for {} completed", self.goal_name));
 

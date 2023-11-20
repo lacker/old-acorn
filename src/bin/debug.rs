@@ -148,6 +148,9 @@ fn main() {
                         Outcome::Interrupted => {
                             panic!("Interrupted!");
                         }
+                        Outcome::Error => {
+                            panic!("Error!");
+                        }
                     }
                     if start_time.elapsed().as_secs_f32() > 10.0 {
                         println!("Timeout!");

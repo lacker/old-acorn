@@ -310,6 +310,7 @@ impl Project {
                         done = total;
                         " was interrupted"
                     }
+                    Outcome::Error => " had an error",
                 };
 
                 let (diagnostic, log_message) = if outcome != Outcome::Success {

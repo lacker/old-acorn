@@ -88,6 +88,7 @@ macro_rules! cprintln {
 // "Inconsistent" means that we found a contradiction just in our initial assumptions.
 // "Interrupted" means that the prover was explicitly stopped.
 // "Unknown" means that we could keep working longer at it.
+// "Errir" means that we found a problem in the code that needs to be fixed by the user.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     Success,
@@ -95,6 +96,7 @@ pub enum Outcome {
     Inconsistent,
     Interrupted,
     Unknown,
+    Error,
 }
 
 impl fmt::Display for Outcome {
@@ -105,6 +107,7 @@ impl fmt::Display for Outcome {
             Outcome::Inconsistent => write!(f, "Inconsistent"),
             Outcome::Interrupted => write!(f, "Interrupted"),
             Outcome::Unknown => write!(f, "Unknown"),
+            Outcome::Error => write!(f, "Error"),
         }
     }
 }
