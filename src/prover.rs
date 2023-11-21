@@ -67,6 +67,12 @@ pub struct Prover {
 
     // Whether only facts have been added to the active set.
     facts_only: bool,
+
+    // When this error message is set, it indicates a problem that needs to be reported upstream
+    // to the user.
+    // It's better to catch errors before proving, and maybe in the ideal world we always would,
+    // but right now we don't.
+    pub error: Option<String>,
 }
 
 macro_rules! cprintln {
@@ -135,6 +141,7 @@ impl Prover {
             stop_flags: vec![project.build_stopped.clone()],
             report_inconsistency: !goal_context.includes_explicit_false(),
             facts_only: true,
+            error: None,
         };
 
         // Get facts both from the goal context and from the overall project
@@ -148,9 +155,9 @@ impl Prover {
 
         // Load facts into the prover
         for fact in monomorphic_facts {
-            p.add_fact(fact).expect("XXX");
+            p.add_fact(fact);
         }
-        p.add_goal(goal_context.goal.clone()).expect("XXX");
+        p.add_goal(goal_context.goal.clone());
         p
     }
 
@@ -195,32 +202,39 @@ impl Prover {
         }
     }
 
-    pub fn add_fact(&mut self, proposition: AcornValue) -> Result<(), NormalizationError> {
+    pub fn add_fact(&mut self, proposition: AcornValue) {
         self.facts.push(proposition.clone());
-        let clauses = match self.normalize_proposition(proposition)? {
-            Some(clauses) => clauses,
-            None => {
+        let clauses = match self.normalize_proposition(proposition) {
+            Ok(Some(clauses)) => clauses,
+            Ok(None) => {
                 // We have a false assumption, so we're done already.
                 self.final_step = Some(ProofStep::assumption());
-                return Ok(());
+                return;
+            }
+            Err(e) => {
+                self.error = Some(e.to_string());
+                return;
             }
         };
         for clause in clauses {
             let info = self.new_clause_info(clause, ClauseType::Fact, ProofStep::assumption());
             self.passive.push(info);
         }
-        Ok(())
     }
 
-    pub fn add_goal(&mut self, proposition: AcornValue) -> Result<(), NormalizationError> {
+    pub fn add_goal(&mut self, proposition: AcornValue) {
         assert!(self.goal.is_none());
         self.goal = Some(proposition.clone());
-        let clauses = match self.normalize_proposition(proposition.to_placeholder().negate())? {
-            Some(clauses) => clauses,
-            None => {
+        let clauses = match self.normalize_proposition(proposition.to_placeholder().negate()) {
+            Ok(Some(clauses)) => clauses,
+            Ok(None) => {
                 // Our goal is trivially true, so we're done already.
                 self.final_step = Some(ProofStep::assumption());
-                return Ok(());
+                return;
+            }
+            Err(e) => {
+                self.error = Some(e.to_string());
+                return;
             }
         };
         for clause in clauses {
@@ -228,7 +242,6 @@ impl Prover {
                 self.new_clause_info(clause, ClauseType::NegatedGoal, ProofStep::assumption());
             self.passive.push(info);
         }
-        Ok(())
     }
 
     fn is_tracing(&mut self, clause: &Clause) -> bool {
@@ -532,6 +545,9 @@ impl Prover {
     }
 
     pub fn search_for_contradiction(&mut self, size: i32, seconds: f32) -> Outcome {
+        if self.error.is_some() {
+            return Outcome::Error;
+        }
         let start_time = std::time::Instant::now();
         loop {
             let outcome = self.activate_next();
