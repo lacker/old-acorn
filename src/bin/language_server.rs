@@ -209,7 +209,11 @@ impl DebugTask {
                 return;
             }
             Outcome::Error => {
-                self.queue.push("Error.".to_string());
+                self.queue.push(format!(
+                    "Error: {}",
+                    prover.error.unwrap_or("?".to_string())
+                ));
+
                 return;
             }
         }
