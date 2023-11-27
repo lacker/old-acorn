@@ -325,7 +325,10 @@ impl Project {
                         DiagnosticSeverity::WARNING
                     });
                     target_warnings = true;
-                    let message = format!("{}{}", goal_context.name, description);
+                    let mut message = format!("{}{}", goal_context.name, description);
+                    if let Some(e) = prover.error {
+                        message.push_str(&format!(": {}", e));
+                    }
                     let diagnostic = Diagnostic {
                         range: goal_context.range,
                         severity,
