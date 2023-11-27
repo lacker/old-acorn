@@ -615,3 +615,9 @@ theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     !lte(p, n)
     lt(n, p)
 }
+
+theorem foo(a: Nat): a = 0 by {
+    forall (f: (Nat, bool) -> bool) {
+        induction(function(x: Nat) { f(x, true) })
+    }
+}

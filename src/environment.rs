@@ -1505,4 +1505,25 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         "#,
         );
     }
+
+    #[test]
+    fn test_normalizing_nested_functions() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.add("let 0: Nat = axiom");
+        env.add("let Suc: Nat -> Nat = axiom");
+        env.add(
+            r#"
+            axiom induction(f: Nat -> bool):
+                f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
+            "#,
+        );
+        env.add(
+            r#"
+            forall(f: (Nat, bool) -> bool) {
+                induction(function(x: Nat) { f(x, true) })
+            }
+        "#,
+        );
+    }
 }
