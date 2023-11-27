@@ -1507,7 +1507,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     }
 
     #[test]
-    fn test_normalizing_nested_functions() {
+    fn test_inline_function_in_if_block() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
