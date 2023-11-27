@@ -128,6 +128,9 @@ impl Block {
             exists_types.push(t);
         }
 
+        // Internal variables need to be shifted over
+        let shift_amount = (forall_names.len() + exists_names.len()) as AtomId;
+
         // The forall must be outside the exists, so order stack variables appropriately
         let mut map: HashMap<String, AtomId> = HashMap::new();
         for (i, name) in forall_names
@@ -139,7 +142,8 @@ impl Block {
         }
 
         // Replace all of the constants that only exist in the inside environment
-        let replaced = inner_value.replace_constants_with_vars(outer_env.namespace, &map);
+        let replaced = inner_value.clone().insert_stack(0, shift_amount);
+        let replaced = replaced.replace_constants_with_vars(outer_env.namespace, &map);
         let replaced = replaced.parametrize(self.env.namespace, &self.type_params);
         AcornValue::new_forall(forall_types, AcornValue::new_exists(exists_types, replaced))
     }
@@ -573,6 +577,9 @@ impl Environment {
                     }
                 };
                 let outer_claim = block.export_bool(&self, inner_claim);
+
+                // XXX
+                outer_claim.validate().unwrap();
 
                 let prop = Proposition {
                     display_name: None,
