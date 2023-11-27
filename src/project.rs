@@ -301,25 +301,34 @@ impl Project {
                 let outcome = prover.search_for_contradiction(5000, 5.0);
 
                 done += 1;
+                let mut exit_early = false;
                 let description = match outcome {
                     Outcome::Success => "",
                     Outcome::Exhausted => " is unprovable",
                     Outcome::Inconsistent => " - prover found an inconsistency",
                     Outcome::Unknown => " timed out",
                     Outcome::Interrupted => {
-                        done = total;
+                        exit_early = true;
                         " was interrupted"
                     }
-                    Outcome::Error => " had an error",
+                    Outcome::Error => {
+                        exit_early = true;
+                        " had an error"
+                    }
                 };
 
                 let (diagnostic, log_message) = if outcome != Outcome::Success {
                     // This is a failure
+                    let severity = Some(if exit_early {
+                        DiagnosticSeverity::ERROR
+                    } else {
+                        DiagnosticSeverity::WARNING
+                    });
                     target_warnings = true;
                     let message = format!("{}{}", goal_context.name, description);
                     let diagnostic = Diagnostic {
                         range: goal_context.range,
-                        severity: Some(DiagnosticSeverity::WARNING),
+                        severity,
                         message: message.clone(),
                         ..Diagnostic::default()
                     };
@@ -329,15 +338,20 @@ impl Project {
                     (None, None)
                 };
 
+                if exit_early {
+                    handler(BuildEvent {
+                        progress: Some((total, total)),
+                        log_message,
+                        diagnostic,
+                    });
+                    return false;
+                }
+
                 handler(BuildEvent {
                     progress: Some((done, total)),
                     log_message,
                     diagnostic,
                 });
-
-                if outcome == Outcome::Interrupted {
-                    return false;
-                }
             }
             if !target_warnings {
                 // Report a None diagnostic to indicate that this file is okay
