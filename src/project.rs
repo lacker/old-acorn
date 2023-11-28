@@ -537,11 +537,10 @@ impl Project {
     #[cfg(test)]
     pub fn expect_ok(&mut self, module_name: &str) -> ModuleId {
         let module_id = self.load_module(module_name).expect("load failed");
-        if let Module::Ok(_) = self.get_module(module_id) {
-            // Success
-            module_id
-        } else {
-            panic!("module had an error");
+        match self.get_module(module_id) {
+            Module::Ok(_) => module_id,
+            Module::Error(e) => panic!("error in {}: {}", module_name, e),
+            _ => panic!("logic error"),
         }
     }
 
@@ -727,7 +726,7 @@ mod tests {
         p.mock(
             "/mock/main.ac",
             r#"
-            import boolpair.BoolPair
+            import boolpair
             type BoolPair: boolpair.BoolPair
             let first: BoolPair -> bool = BoolPair.first
         "#,
