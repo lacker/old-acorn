@@ -382,6 +382,13 @@ impl Environment {
         }
         match &statement.statement {
             StatementInfo::Type(ts) => {
+                if !Token::is_valid_type_name(&ts.name) {
+                    return Err(Error::new(
+                        &ts.type_expr.token(),
+                        &format!("invalid type name '{}'", ts.name),
+                    ));
+                }
+
                 if self.bindings.name_in_use(&ts.name) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
@@ -1543,5 +1550,11 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             }
         "#,
         );
+    }
+
+    #[test]
+    fn test_axiomatic_types_must_be_capitalized() {
+        let mut env = Environment::new_test();
+        env.bad("type foo: axiom");
     }
 }
