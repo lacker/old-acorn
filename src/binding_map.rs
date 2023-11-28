@@ -15,8 +15,8 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // It does not have to be efficient enough to run in the inner loop of the prover.
 #[derive(Clone)]
 pub struct BindingMap {
-    // The namespace all these names are in.
-    namespace: ModuleId,
+    // The module all these names are in.
+    module: ModuleId,
 
     // Maps the name of a type to the type object.
     type_names: HashMap<String, AcornType>,
@@ -32,7 +32,8 @@ pub struct BindingMap {
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, AtomId>,
 
-    // Names that refer to modules. For example after "import foo.bar.baz", "baz" refers to a module.
+    // Names that refer to other modules.
+    // For example after "import foo", "foo" refers to a module.
     modules: HashMap<String, ModuleId>,
 }
 
@@ -52,10 +53,10 @@ struct ConstantInfo {
 }
 
 impl BindingMap {
-    pub fn new(namespace: ModuleId) -> Self {
-        assert!(namespace >= FIRST_NORMAL);
+    pub fn new(module: ModuleId) -> Self {
+        assert!(module >= FIRST_NORMAL);
         BindingMap {
-            namespace,
+            module,
             type_names: HashMap::from([("bool".to_string(), AcornType::Bool)]),
             identifier_types: HashMap::new(),
             constants: HashMap::new(),
@@ -89,7 +90,7 @@ impl BindingMap {
         if self.name_in_use(name) {
             panic!("type name {} already bound", name);
         }
-        let data_type = AcornType::Data(self.namespace, name.to_string());
+        let data_type = AcornType::Data(self.module, name.to_string());
         self.type_names.insert(name.to_string(), data_type.clone());
         data_type
     }
@@ -107,7 +108,7 @@ impl BindingMap {
     pub fn get_constant_value(&self, name: &str) -> Option<AcornValue> {
         let info = self.constants.get(name)?;
         Some(AcornValue::Constant(
-            self.namespace,
+            self.module,
             name.to_string(),
             self.identifier_types[name].clone(),
             info.params.clone(),
@@ -147,7 +148,7 @@ impl BindingMap {
         self.constants.get(name)?.definition.as_ref()
     }
 
-    // All other namespaces that we depend on, besides this one.
+    // All other modules that we directly depend on, besides this one.
     // In no particular order.
     pub fn direct_dependencies(&self) -> Vec<ModuleId> {
         self.modules.values().copied().collect()
@@ -196,11 +197,11 @@ impl BindingMap {
         self.type_names.remove(name);
     }
 
-    pub fn add_module(&mut self, name: &str, namespace: ModuleId) {
+    pub fn add_module(&mut self, name: &str, module: ModuleId) {
         if self.name_in_use(name) {
             panic!("module name {} already bound", name);
         }
-        self.modules.insert(name.to_string(), namespace);
+        self.modules.insert(name.to_string(), module);
     }
 
     pub fn is_module(&self, name: &str) -> bool {
@@ -240,8 +241,8 @@ impl BindingMap {
         token: &Token,
         module_name: &str,
     ) -> Result<&'a BindingMap> {
-        let namespace = match self.modules.get(module_name) {
-            Some(namespace) => *namespace,
+        let module = match self.modules.get(module_name) {
+            Some(module) => *module,
             None => {
                 return Err(Error::new(
                     token,
@@ -249,7 +250,7 @@ impl BindingMap {
                 ));
             }
         };
-        match project.get_module(namespace) {
+        match project.get_module(module) {
             Module::Ok(env) => Ok(&env.bindings),
             _ => Err(Error::new(
                 token,
@@ -616,9 +617,9 @@ impl BindingMap {
                 }
 
                 // Templated functions have to just be constants
-                let (c_namespace, c_name, c_type, c_params) =
-                    if let AcornValue::Constant(c_namespace, c_name, c_type, c_params) = function {
-                        (c_namespace, c_name, c_type, c_params)
+                let (c_module, c_name, c_type, c_params) =
+                    if let AcornValue::Constant(c_module, c_name, c_type, c_params) = function {
+                        (c_module, c_name, c_type, c_params)
                     } else {
                         return Err(Error::new(
                             function_expr.token(),
@@ -645,7 +646,7 @@ impl BindingMap {
                     self.check_type(function_expr.token(), expected_type, &return_type)?;
                 }
 
-                let specialized = AcornValue::Specialized(c_namespace, c_name, c_type, params);
+                let specialized = AcornValue::Specialized(c_module, c_name, c_type, params);
                 Ok(AcornValue::Application(FunctionApplication {
                     function: Box::new(specialized),
                     args,
@@ -749,7 +750,7 @@ impl BindingMap {
         for (i, type_param_name) in type_param_names.iter().enumerate() {
             if !specific_arg_types
                 .iter()
-                .any(|a| a.refers_to(self.namespace, &type_param_name))
+                .any(|a| a.refers_to(self.module, &type_param_name))
             {
                 return Err(Error::new(
                     &type_param_tokens[i],
@@ -771,15 +772,15 @@ impl BindingMap {
         } else {
             let specific_value =
                 self.evaluate_value(project, value_expr, Some(&specific_value_type))?;
-            let generic_value = specific_value.parametrize(self.namespace, &type_param_names);
+            let generic_value = specific_value.parametrize(self.module, &type_param_names);
             Some(generic_value)
         };
 
         // Parametrize everything before returning it
-        let generic_value_type = specific_value_type.parametrize(self.namespace, &type_param_names);
+        let generic_value_type = specific_value_type.parametrize(self.module, &type_param_names);
         let generic_arg_types = specific_arg_types
             .into_iter()
-            .map(|t| t.parametrize(self.namespace, &type_param_names))
+            .map(|t| t.parametrize(self.module, &type_param_names))
             .collect();
 
         // Reset the bindings
@@ -797,7 +798,7 @@ impl BindingMap {
         ))
     }
 
-    // Finds the names of all constants that are in this namespace but unknown to this binding map.
+    // Finds the names of all constants that are in this module but unknown to this binding map.
     // Does not deduplicate
     pub fn find_unknown_local_constants(
         &self,
@@ -806,9 +807,9 @@ impl BindingMap {
     ) {
         match value {
             AcornValue::Variable(_, _) | AcornValue::Bool(_) => {}
-            AcornValue::Constant(namespace, name, t, _)
-            | AcornValue::Specialized(namespace, name, t, _) => {
-                if *namespace == self.namespace && !self.constants.contains_key(name) {
+            AcornValue::Constant(module, name, t, _)
+            | AcornValue::Specialized(module, name, t, _) => {
+                if *module == self.module && !self.constants.contains_key(name) {
                     answer.insert(name.to_string(), t.clone());
                 }
             }

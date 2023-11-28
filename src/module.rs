@@ -15,7 +15,7 @@ pub const FIRST_NORMAL: ModuleId = 1;
 
 // The Module represents a module that can be in different states of being loaded.
 pub enum Module {
-    // There is no such module, not even a namespace id for it
+    // There is no such module, not even an id for it
     None,
 
     // The module is in the process of being loaded.

@@ -10,7 +10,7 @@ pub struct ConstantKey {
     pub name: String,
 }
 
-// In the Acorn language a constant is specified by its namespace and name.
+// In the Acorn language a constant is uniquely identified by its module id and name.
 // The low-level prover, on the other hand, just wants each constant to have a
 // numerical id.
 // The ConstantMap is a mapping between the two.
