@@ -5,7 +5,7 @@ use crate::acorn_type::AcornType;
 use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
 use crate::literal::Literal;
-use crate::namespace::NamespaceId;
+use crate::module::NamespaceId;
 use crate::term::Term;
 
 pub type TypeId = u16;

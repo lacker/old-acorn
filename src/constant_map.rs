@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::atom::AtomId;
-use crate::namespace::NamespaceId;
+use crate::module::NamespaceId;
 
 // The ConstantKey identifies a constant in the Acorn language.
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]

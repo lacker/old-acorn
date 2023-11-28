@@ -4,7 +4,7 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::expression::Expression;
-use crate::namespace::{NamespaceId, FIRST_NORMAL};
+use crate::module::{NamespaceId, FIRST_NORMAL};
 use crate::project::{Module, Project};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt};
 
-use crate::namespace::NamespaceId;
+use crate::module::NamespaceId;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub struct FunctionType {

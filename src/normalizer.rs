@@ -8,7 +8,7 @@ use crate::constant_map::ConstantMap;
 use crate::display::DisplayClause;
 use crate::environment::Environment;
 use crate::literal::Literal;
-use crate::namespace::SKOLEM;
+use crate::module::SKOLEM;
 use crate::term::Term;
 use crate::type_map::TypeMap;
 

@@ -4,7 +4,7 @@ use std::fmt;
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::atom::AtomId;
 use crate::constant_map::ConstantKey;
-use crate::namespace::NamespaceId;
+use crate::module::NamespaceId;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FunctionApplication {

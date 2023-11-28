@@ -7,7 +7,7 @@ use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
-use crate::namespace::NamespaceId;
+use crate::module::NamespaceId;
 use crate::project::{LoadError, Project};
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
@@ -177,7 +177,7 @@ impl Environment {
     // Create a test version of the environment.
     #[cfg(test)]
     pub fn new_test() -> Self {
-        use crate::namespace::FIRST_NORMAL;
+        use crate::module::FIRST_NORMAL;
         Environment::new(FIRST_NORMAL)
     }
 

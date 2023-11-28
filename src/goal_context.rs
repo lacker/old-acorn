@@ -7,7 +7,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
 use crate::environment::Environment;
-use crate::namespace::NamespaceId;
+use crate::module::NamespaceId;
 
 // A goal and the information used to prove it.
 pub struct GoalContext<'a> {

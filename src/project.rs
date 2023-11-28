@@ -7,7 +7,7 @@ use std::{fmt, io};
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
 use crate::environment::Environment;
-use crate::namespace::{NamespaceId, FIRST_NORMAL};
+use crate::module::{NamespaceId, FIRST_NORMAL};
 use crate::prover::{Outcome, Prover};
 use crate::token::{self, Token};
 
