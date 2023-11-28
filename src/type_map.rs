@@ -15,7 +15,7 @@ pub const BOOL: TypeId = 1;
 
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
 struct MonomorphKey {
-    namespace: ModuleId,
+    module: ModuleId,
     name: String,
     parameters: Vec<(String, AcornType)>,
 }
@@ -105,13 +105,13 @@ impl TypeMap {
 
     pub fn term_from_monomorph(
         &mut self,
-        namespace: ModuleId,
+        module: ModuleId,
         name: &str,
         parameters: &Vec<(String, AcornType)>,
         monomorph_type: AcornType,
     ) -> Term {
         let key = MonomorphKey {
-            namespace,
+            module,
             name: name.to_string(),
             parameters: parameters.clone(),
         };
@@ -137,7 +137,7 @@ impl TypeMap {
 
     pub fn get_monomorph_info(&self, id: AtomId) -> (ModuleId, &str, &Vec<(String, AcornType)>) {
         let (key, _) = &self.monomorph_info[id as usize];
-        (key.namespace, &key.name, &key.parameters)
+        (key.module, &key.name, &key.parameters)
     }
 }
 

@@ -47,8 +47,8 @@ impl GoalContext<'_> {
         self.env.includes_explicit_false
     }
 
-    pub fn namespace(&self) -> ModuleId {
-        self.env.namespace
+    pub fn module_id(&self) -> ModuleId {
+        self.env.module_id
     }
 }
 

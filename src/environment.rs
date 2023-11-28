@@ -18,7 +18,7 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // It creates subenvironments for nested blocks.
 // It does not have to be efficient enough to run in the inner loop of the prover.
 pub struct Environment {
-    pub namespace: ModuleId,
+    pub module_id: ModuleId,
 
     // What all the names mean in this environment
     pub bindings: BindingMap,
@@ -143,8 +143,8 @@ impl Block {
 
         // Replace all of the constants that only exist in the inside environment
         let replaced = inner_value.clone().insert_stack(0, shift_amount);
-        let replaced = replaced.replace_constants_with_vars(outer_env.namespace, &map);
-        let replaced = replaced.parametrize(self.env.namespace, &self.type_params);
+        let replaced = replaced.replace_constants_with_vars(outer_env.module_id, &map);
+        let replaced = replaced.parametrize(self.env.module_id, &self.type_params);
         AcornValue::new_forall(forall_types, AcornValue::new_exists(exists_types, replaced))
     }
 }
@@ -166,7 +166,7 @@ enum BlockParams<'a> {
 impl Environment {
     pub fn new(namespace: ModuleId) -> Self {
         Environment {
-            namespace,
+            module_id: namespace,
             bindings: BindingMap::new(namespace),
             propositions: Vec::new(),
             definition_ranges: HashMap::new(),
@@ -199,7 +199,7 @@ impl Environment {
             return Ok(None);
         }
         let mut subenv = Environment {
-            namespace: self.namespace,
+            module_id: self.module_id,
             bindings: self.bindings.clone(),
             propositions: Vec::new(),
             definition_ranges: self.definition_ranges.clone(),
@@ -234,7 +234,7 @@ impl Environment {
             BlockParams::Theorem(theorem_name) => {
                 let theorem_type = self.bindings.get_type(theorem_name).unwrap().clone();
                 let unbound_claim = AcornValue::new_specialized(
-                    self.namespace,
+                    self.module_id,
                     theorem_name.to_string(),
                     theorem_type,
                     param_pairs,
@@ -291,7 +291,7 @@ impl Environment {
 
         let constant = if param_names.is_empty() {
             AcornValue::Constant(
-                self.namespace,
+                self.module_id,
                 name.to_string(),
                 constant_type_clone,
                 vec![],
@@ -302,7 +302,7 @@ impl Environment {
                 .map(|n| (n.clone(), AcornType::Parameter(n)))
                 .collect();
             AcornValue::Specialized(
-                self.namespace,
+                self.module_id,
                 name.to_string(),
                 constant_type_clone,
                 params,
@@ -404,7 +404,7 @@ impl Environment {
                 let acorn_type = self.bindings.evaluate_type(project, &ls.type_expr)?;
                 let value = if ls.value.token().token_type == TokenType::Axiom {
                     AcornValue::Constant(
-                        self.namespace,
+                        self.module_id,
                         ls.name.clone(),
                         acorn_type.clone(),
                         vec![],
@@ -893,7 +893,7 @@ impl Environment {
     fn inline_theorems(&self, project: &Project, value: &AcornValue) -> AcornValue {
         // Replaces each theorem with its definition.
         value.replace_constants_with_values(0, &|namespace, name| {
-            let bindings = if self.namespace == namespace {
+            let bindings = if self.module_id == namespace {
                 &self.bindings
             } else {
                 &project
