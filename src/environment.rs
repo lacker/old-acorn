@@ -799,7 +799,7 @@ impl Environment {
                     ));
                 }
                 let full_name = is.components.join(".");
-                let namespace = match project.load(&full_name) {
+                let namespace = match project.load_module(&full_name) {
                     Ok(namespace) => namespace,
                     Err(LoadError(s)) => {
                         return Err(Error::new(

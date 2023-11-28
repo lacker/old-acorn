@@ -25,7 +25,7 @@ fn main() {
 
     // Find all the goals in the file
     let mut project = Project::new("math");
-    let namespace = project.load(&module_name).unwrap();
+    let namespace = project.load_module(&module_name).unwrap();
     let env = project.get_env(namespace).unwrap();
     let goal_paths = env.goal_paths();
     let goals = goal_paths

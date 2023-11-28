@@ -7,8 +7,8 @@ use acorn::prover::Prover;
 
 fn main() {
     let mut project = Project::new("math");
-    let namespace = project.load("nat").unwrap();
-    let env = project.get_env(namespace).unwrap();
+    let module = project.load_module("nat").unwrap();
+    let env = project.get_env(module).unwrap();
     let paths = env.goal_paths();
     for path in paths {
         let goal_context = env.get_goal_context(&project, &path);

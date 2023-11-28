@@ -155,7 +155,7 @@ impl Project {
     // Returns whether it loaded okay.
     // Either way, it's still added as a target.
     pub fn add_target(&mut self, module_name: &str) -> bool {
-        let answer = self.load(module_name).is_ok();
+        let answer = self.load_module(module_name).is_ok();
         self.targets.insert(module_name.to_string());
         answer
     }
@@ -476,7 +476,7 @@ impl Project {
     // If there is an error in the file, the load will return a namespace id, but the module
     // for this namespace id will have an error.
     // If "open" is passed, then we cache this file's content in open files.
-    pub fn load(&mut self, module_name: &str) -> Result<ModuleId, LoadError> {
+    pub fn load_module(&mut self, module_name: &str) -> Result<ModuleId, LoadError> {
         if let Some(namespace) = self.namespaces.get(module_name) {
             if *namespace < FIRST_NORMAL {
                 panic!("namespace {} should not be loadable", namespace);
@@ -537,7 +537,7 @@ impl Project {
     // Expects the module to load successfully and for there to be no errors in the loaded module.
     #[cfg(test)]
     pub fn expect_ok(&mut self, module_name: &str) -> ModuleId {
-        let namespace = self.load(module_name).expect("load failed");
+        let namespace = self.load_module(module_name).expect("load failed");
         if let Module::Ok(_) = self.get_module(namespace) {
             // Success
             namespace
@@ -549,13 +549,13 @@ impl Project {
     // This expects there to be an error during loading itself.
     #[cfg(test)]
     fn expect_load_err(&mut self, module_name: &str) {
-        assert!(self.load(module_name).is_err());
+        assert!(self.load_module(module_name).is_err());
     }
 
     // This expects the module to load, but for there to be an error in the loaded module.
     #[cfg(test)]
     fn expect_module_err(&mut self, module_name: &str) {
-        let namespace = self.load(module_name).expect("load failed");
+        let namespace = self.load_module(module_name).expect("load failed");
         if let Module::Error(_) = self.get_module(namespace) {
             // What we expected
         } else {
@@ -700,8 +700,8 @@ mod tests {
             theorem goal: foo.fooify(new_foo) = foo.foo
         "#,
         );
-        p.load("foo").expect("loading foo failed");
-        p.load("main").expect("loading main failed");
+        p.load_module("foo").expect("loading foo failed");
+        p.load_module("main").expect("loading main failed");
         p.add_target("foo");
         p.add_target("main");
         let mut events = vec![];
