@@ -1532,4 +1532,16 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         "#,
         );
     }
+
+    #[test]
+    fn test_structs_must_be_capitalized() {
+        let mut env = Environment::new_test();
+        env.bad(
+            r#"
+            struct foo {
+                bar: bool
+            }
+        "#,
+        );
+    }
 }

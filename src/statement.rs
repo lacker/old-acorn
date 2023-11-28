@@ -374,6 +374,9 @@ fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = name_token.text().to_string();
+    if !Token::is_valid_type_name(&name) {
+        return Err(Error::new(&name_token, "invalid struct name"));
+    }
     Token::expect_type(tokens, TokenType::LeftBrace)?;
     let mut fields = Vec::new();
     loop {

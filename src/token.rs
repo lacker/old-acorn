@@ -463,6 +463,19 @@ impl Token {
         }
         Ok(token)
     }
+
+    pub fn is_valid_type_name(name: &str) -> bool {
+        // Get the first character
+        match name.chars().next() {
+            None => return false,
+            Some(c) => {
+                if !c.is_ascii_uppercase() {
+                    return false;
+                }
+            }
+        }
+        name.chars().all(|c| c.is_alphanumeric())
+    }
 }
 
 #[derive(Debug)]
