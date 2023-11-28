@@ -373,7 +373,6 @@ impl Environment {
     // Adds a statement to the environment.
     // If the statement has a body, this call creates a sub-environment and adds the body
     // to that sub-environment.
-    // If project is not provided, we won't be able to handle import statements.
     pub fn add_statement(&mut self, project: &mut Project, statement: &Statement) -> Result<()> {
         if self.includes_explicit_false {
             return Err(Error::new(
