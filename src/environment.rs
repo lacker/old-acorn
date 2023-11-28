@@ -232,7 +232,11 @@ impl Environment {
                 None
             }
             BlockParams::Theorem(theorem_name) => {
-                let theorem_type = self.bindings.get_type(theorem_name).unwrap().clone();
+                let theorem_type = self
+                    .bindings
+                    .get_type_for_identifier(theorem_name)
+                    .unwrap()
+                    .clone();
                 let unbound_claim = AcornValue::new_specialized(
                     self.module_id,
                     theorem_name.to_string(),
@@ -286,7 +290,7 @@ impl Environment {
             return;
         };
 
-        let constant_type_clone = self.bindings.get_type(name).unwrap().clone();
+        let constant_type_clone = self.bindings.get_type_for_identifier(name).unwrap().clone();
         let param_names = self.bindings.get_params(name);
 
         let constant = if param_names.is_empty() {
@@ -577,10 +581,6 @@ impl Environment {
                     }
                 };
                 let outer_claim = block.export_bool(&self, inner_claim);
-
-                // XXX
-                outer_claim.validate().unwrap();
-
                 let prop = Proposition {
                     display_name: None,
                     proven: false,

@@ -121,7 +121,7 @@ impl BindingMap {
 
     // Gets the type for an identifier, not for a type name.
     // E.g. if let x: Nat = 0, then get_type("x") will give you Nat.
-    pub fn get_type(&self, identifier: &str) -> Option<&AcornType> {
+    pub fn get_type_for_identifier(&self, identifier: &str) -> Option<&AcornType> {
         self.identifier_types.get(identifier)
     }
 
@@ -538,12 +538,11 @@ impl BindingMap {
                     let components = expression.flatten_dots()?;
 
                     if components.len() == 2 {
-                        // Check for imported constants
-                        let module_name = &components[0];
-                        if self.is_module(module_name) {
-                            let constant_name = &components[1];
-                            let bindings =
-                                self.get_imported_bindings(project, token, module_name)?;
+                        let namespace = &components[0];
+                        let constant_name = &components[1];
+
+                        if self.is_module(namespace) {
+                            let bindings = self.get_imported_bindings(project, token, namespace)?;
                             return match bindings.get_constant_value(constant_name) {
                                 Some(acorn_value) => {
                                     self.check_type(token, expected_type, &acorn_value.get_type())?;
@@ -551,9 +550,43 @@ impl BindingMap {
                                 }
                                 None => Err(Error::new(
                                     token,
-                                    &format!("unknown constant {}.{}", module_name, constant_name),
+                                    &format!("unknown constant {}.{}", namespace, constant_name),
                                 )),
                             };
+                        }
+
+                        if self.is_type(namespace) {
+                            match self.get_type_for_name(namespace) {
+                                Some(AcornType::Data(module, type_name)) => {
+                                    let constant_name = &components[1];
+                                    let bindings = if *module == self.module {
+                                        &self
+                                    } else {
+                                        project.get_bindings(*module).unwrap()
+                                    };
+                                    let member_name = format!("{}.{}", type_name, constant_name);
+                                    return match bindings.get_constant_value(&member_name) {
+                                        Some(acorn_value) => {
+                                            self.check_type(
+                                                token,
+                                                expected_type,
+                                                &acorn_value.get_type(),
+                                            )?;
+                                            Ok(acorn_value)
+                                        }
+                                        None => Err(Error::new(
+                                            token,
+                                            &format!("unknown constant {}", member_name),
+                                        )),
+                                    };
+                                }
+                                t => {
+                                    return Err(Error::new(
+                                        token,
+                                        &format!("type {:?} does not have members", t),
+                                    ))
+                                }
+                            }
                         }
                     }
 

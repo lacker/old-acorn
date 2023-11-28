@@ -6,6 +6,7 @@ use std::{fmt, io};
 
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
+use crate::binding_map::BindingMap;
 use crate::environment::Environment;
 use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::prover::{Outcome, Prover};
@@ -531,6 +532,14 @@ impl Project {
         let mut answer: Vec<_> = seen.into_iter().collect();
         answer.sort();
         answer
+    }
+
+    pub fn get_bindings(&self, module_id: ModuleId) -> Option<&BindingMap> {
+        if let Module::Ok(env) = self.get_module(module_id) {
+            Some(&env.bindings)
+        } else {
+            None
+        }
     }
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
