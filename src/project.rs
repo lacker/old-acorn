@@ -711,4 +711,27 @@ mod tests {
         // Testing this is annoying because I keep changing it for UI purposes.
         assert!(events.len() > 0);
     }
+
+    #[test]
+    fn test_imported_member_functions() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/boolpair.ac",
+            r#"
+            struct BoolPair {
+                first: bool
+                second: bool
+            }
+        "#,
+        );
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            import boolpair.BoolPair
+            type BoolPair: boolpair.BoolPair
+            let first: BoolPair -> bool = BoolPair.first
+        "#,
+        );
+        p.expect_ok("main");
+    }
 }
