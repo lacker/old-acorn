@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use acorn::project::{Module, Project};
+use acorn::module::Module;
+use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;

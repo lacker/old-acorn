@@ -595,7 +595,8 @@ impl Prover {
 
 #[cfg(test)]
 mod tests {
-    use crate::project::{Module, Project};
+    use crate::module::Module;
+    use crate::project::Project;
 
     use super::*;
 

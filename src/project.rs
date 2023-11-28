@@ -7,25 +7,9 @@ use std::{fmt, io};
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
 use crate::environment::Environment;
-use crate::module::{ModuleId, FIRST_NORMAL};
+use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::prover::{Outcome, Prover};
 use crate::token::{self, Token};
-
-// The Module represents a module that can be in different states of being loaded.
-pub enum Module {
-    // There is no such module, not even a namespace id for it
-    None,
-
-    // The module is in the process of being loaded.
-    // Modules that fail on circular import will be in this state forever.
-    Loading,
-
-    // The module has been loaded, but there is an error in its code
-    Error(token::Error),
-
-    // The module has been loaded successfully and we have its environment
-    Ok(Environment),
-}
 
 // The Project is responsible for importing different files and assigning them namespace ids.
 pub struct Project {

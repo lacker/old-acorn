@@ -4,8 +4,8 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::expression::Expression;
-use crate::module::{ModuleId, FIRST_NORMAL};
-use crate::project::{Module, Project};
+use crate::module::{Module, ModuleId, FIRST_NORMAL};
+use crate::project::Project;
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 // In order to convert an Expression to an AcornValue, we need to convert the string representation
