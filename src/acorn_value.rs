@@ -56,8 +56,8 @@ pub enum AcornValue {
     // Represented by (stack index, type).
     Variable(AtomId, AcornType),
 
-    // A constant, defined in a particular namespace.
-    // (namespace, constant name, type, type parameters)
+    // A constant, defined in a particular module.
+    // (module, constant name, type, type parameters)
     // The type parameters can be empty.
     // When the type parameters are not empty, this indicates a polymorphic constant
     // whose type can still be inferred.
@@ -79,7 +79,7 @@ pub enum AcornValue {
     Exists(Vec<AcornType>, Box<AcornValue>),
 
     // The specialized version of a polymorphic constant.
-    // (namespace, constant name, type, (type parameter, type) mapping)
+    // (module, constant name, type, (type parameter, type) mapping)
     // The type is the polymorphic type of the constant.
     // The vector parameter maps parameter names to types they were replaced with.
     // The parameters cannot be empty - that should just be a Constant.
@@ -262,15 +262,15 @@ impl AcornValue {
 
     // Make a Constant or a Specialized depending on whether we have params.
     pub fn new_specialized(
-        namespace: ModuleId,
+        module: ModuleId,
         name: String,
         constant_type: AcornType,
         params: Vec<(String, AcornType)>,
     ) -> AcornValue {
         if params.is_empty() {
-            AcornValue::Constant(namespace, name, constant_type, vec![])
+            AcornValue::Constant(module, name, constant_type, vec![])
         } else {
-            AcornValue::Specialized(namespace, name, constant_type, params)
+            AcornValue::Specialized(module, name, constant_type, params)
         }
     }
 
@@ -902,8 +902,8 @@ impl AcornValue {
         replacer: &impl Fn(ModuleId, &str) -> Option<&'a AcornValue>,
     ) -> AcornValue {
         match self {
-            AcornValue::Constant(namespace, name, _, params) => {
-                if let Some(replacement) = replacer(*namespace, name) {
+            AcornValue::Constant(module, name, _, params) => {
+                if let Some(replacement) = replacer(*module, name) {
                     assert!(params.is_empty());
                     // First we need to make the replacement use the correct stack variables
                     let shifted = replacement.clone().insert_stack(0, stack_size);
@@ -952,8 +952,8 @@ impl AcornValue {
                     .replace_constants_with_values(stack_size + quants.len() as AtomId, replacer);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
-            AcornValue::Specialized(namespace, name, _, params) => {
-                if let Some(replacement) = replacer(*namespace, name) {
+            AcornValue::Specialized(module, name, _, params) => {
+                if let Some(replacement) = replacer(*module, name) {
                     // We do need to replace this
                     replacement.specialize(params)
                 } else {
@@ -969,16 +969,16 @@ impl AcornValue {
         }
     }
 
-    // For constants in this namespace, replace them with a variable id if they are in the constants map.
+    // For constants in this module, replace them with a variable id if they are in the constants map.
     pub fn replace_constants_with_vars(
         &self,
-        namespace: ModuleId,
+        module: ModuleId,
         constants: &HashMap<String, AtomId>,
     ) -> AcornValue {
         match self {
             AcornValue::Variable(_, _) => self.clone(),
-            AcornValue::Constant(n, name, t, params) => {
-                if *n == namespace {
+            AcornValue::Constant(m, name, t, params) => {
+                if *m == module {
                     if let Some(i) = constants.get(name) {
                         assert!(params.is_empty());
                         return AcornValue::Variable(*i, t.clone());
@@ -987,13 +987,11 @@ impl AcornValue {
                 self.clone()
             }
             AcornValue::Application(fa) => {
-                let new_function = fa
-                    .function
-                    .replace_constants_with_vars(namespace, constants);
+                let new_function = fa.function.replace_constants_with_vars(module, constants);
                 let new_args = fa
                     .args
                     .iter()
-                    .map(|x| x.replace_constants_with_vars(namespace, constants))
+                    .map(|x| x.replace_constants_with_vars(module, constants))
                     .collect();
                 AcornValue::Application(FunctionApplication {
                     function: Box::new(new_function),
@@ -1001,31 +999,31 @@ impl AcornValue {
                 })
             }
             AcornValue::Lambda(arg_types, value) => {
-                let new_value = value.replace_constants_with_vars(namespace, constants);
+                let new_value = value.replace_constants_with_vars(module, constants);
                 AcornValue::Lambda(arg_types.clone(), Box::new(new_value))
             }
             AcornValue::Binary(op, left, right) => {
-                let new_left = left.replace_constants_with_vars(namespace, constants);
-                let new_right = right.replace_constants_with_vars(namespace, constants);
+                let new_left = left.replace_constants_with_vars(module, constants);
+                let new_right = right.replace_constants_with_vars(module, constants);
                 AcornValue::Binary(*op, Box::new(new_left), Box::new(new_right))
             }
-            AcornValue::Not(x) => AcornValue::Not(Box::new(
-                x.replace_constants_with_vars(namespace, constants),
-            )),
+            AcornValue::Not(x) => {
+                AcornValue::Not(Box::new(x.replace_constants_with_vars(module, constants)))
+            }
             AcornValue::ForAll(quants, value) => {
-                let new_value = value.replace_constants_with_vars(namespace, constants);
+                let new_value = value.replace_constants_with_vars(module, constants);
                 AcornValue::ForAll(quants.clone(), Box::new(new_value))
             }
             AcornValue::Exists(quants, value) => {
-                let new_value = value.replace_constants_with_vars(namespace, constants);
+                let new_value = value.replace_constants_with_vars(module, constants);
                 AcornValue::Exists(quants.clone(), Box::new(new_value))
             }
             AcornValue::Specialized(_, _, _, _) => panic!("can this happen?"),
             AcornValue::Bool(_) => self.clone(),
             AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
-                Box::new(cond.replace_constants_with_vars(namespace, constants)),
-                Box::new(if_value.replace_constants_with_vars(namespace, constants)),
-                Box::new(else_value.replace_constants_with_vars(namespace, constants)),
+                Box::new(cond.replace_constants_with_vars(module, constants)),
+                Box::new(if_value.replace_constants_with_vars(module, constants)),
+                Box::new(else_value.replace_constants_with_vars(module, constants)),
             ),
         }
     }
@@ -1132,23 +1130,23 @@ impl AcornValue {
                 Box::new(else_value.specialize(params)),
             ),
             AcornValue::Not(x) => AcornValue::Not(Box::new(x.specialize(params))),
-            AcornValue::Specialized(namespace, name, base_type, in_params) => {
+            AcornValue::Specialized(module, name, base_type, in_params) => {
                 let out_params: Vec<_> = in_params
                     .iter()
                     .map(|(name, t)| (name.clone(), t.specialize(params)))
                     .collect();
-                AcornValue::Specialized(*namespace, name.clone(), base_type.clone(), out_params)
+                AcornValue::Specialized(*module, name.clone(), base_type.clone(), out_params)
             }
             AcornValue::Bool(_) => self.clone(),
         }
     }
 
     // parametrize should only be called on concrete types.
-    // It replaces every data type with the given namespace and name with a type parameter.
-    pub fn parametrize(&self, namespace: ModuleId, type_names: &[String]) -> AcornValue {
+    // It replaces every data type with the given module and name with a type parameter.
+    pub fn parametrize(&self, module: ModuleId, type_names: &[String]) -> AcornValue {
         match self {
             AcornValue::Variable(i, var_type) => {
-                AcornValue::Variable(*i, var_type.parametrize(namespace, type_names))
+                AcornValue::Variable(*i, var_type.parametrize(module, type_names))
             }
             AcornValue::Constant(_, _, _, params) => {
                 if !params.is_empty() {
@@ -1157,49 +1155,49 @@ impl AcornValue {
                 self.clone()
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
-                function: Box::new(app.function.parametrize(namespace, type_names)),
+                function: Box::new(app.function.parametrize(module, type_names)),
                 args: app
                     .args
                     .iter()
-                    .map(|x| x.parametrize(namespace, type_names))
+                    .map(|x| x.parametrize(module, type_names))
                     .collect(),
             }),
             AcornValue::Lambda(args, value) => AcornValue::Lambda(
                 args.iter()
-                    .map(|x| x.parametrize(namespace, type_names))
+                    .map(|x| x.parametrize(module, type_names))
                     .collect(),
-                Box::new(value.parametrize(namespace, type_names)),
+                Box::new(value.parametrize(module, type_names)),
             ),
             AcornValue::ForAll(args, value) => AcornValue::ForAll(
                 args.iter()
-                    .map(|x| x.parametrize(namespace, type_names))
+                    .map(|x| x.parametrize(module, type_names))
                     .collect(),
-                Box::new(value.parametrize(namespace, type_names)),
+                Box::new(value.parametrize(module, type_names)),
             ),
             AcornValue::Exists(args, value) => AcornValue::Exists(
                 args.iter()
-                    .map(|x| x.parametrize(namespace, type_names))
+                    .map(|x| x.parametrize(module, type_names))
                     .collect(),
-                Box::new(value.parametrize(namespace, type_names)),
+                Box::new(value.parametrize(module, type_names)),
             ),
             AcornValue::Binary(op, left, right) => AcornValue::Binary(
                 *op,
-                Box::new(left.parametrize(namespace, type_names)),
-                Box::new(right.parametrize(namespace, type_names)),
+                Box::new(left.parametrize(module, type_names)),
+                Box::new(right.parametrize(module, type_names)),
             ),
             AcornValue::IfThenElse(cond, if_value, else_value) => AcornValue::IfThenElse(
-                Box::new(cond.parametrize(namespace, type_names)),
-                Box::new(if_value.parametrize(namespace, type_names)),
-                Box::new(else_value.parametrize(namespace, type_names)),
+                Box::new(cond.parametrize(module, type_names)),
+                Box::new(if_value.parametrize(module, type_names)),
+                Box::new(else_value.parametrize(module, type_names)),
             ),
-            AcornValue::Not(x) => AcornValue::Not(Box::new(x.parametrize(namespace, type_names))),
-            AcornValue::Specialized(c_namespace, c_name, c_type, params) => {
+            AcornValue::Not(x) => AcornValue::Not(Box::new(x.parametrize(module, type_names))),
+            AcornValue::Specialized(c_module, c_name, c_type, params) => {
                 // New way
                 let mut out_params = vec![];
                 for (param_name, t) in params {
-                    out_params.push((param_name.clone(), t.parametrize(namespace, type_names)));
+                    out_params.push((param_name.clone(), t.parametrize(module, type_names)));
                 }
-                AcornValue::Specialized(*c_namespace, c_name.clone(), c_type.clone(), out_params)
+                AcornValue::Specialized(*c_module, c_name.clone(), c_type.clone(), out_params)
             }
             AcornValue::Bool(_) => self.clone(),
         }
@@ -1256,11 +1254,11 @@ impl AcornValue {
                 else_value.find_parametric(output);
             }
             AcornValue::Not(x) => x.find_parametric(output),
-            AcornValue::Specialized(namespace, name, _, params) => {
+            AcornValue::Specialized(module, name, _, params) => {
                 for (_, t) in params {
                     if t.is_parametric() {
                         let key = ConstantKey {
-                            module: *namespace,
+                            module: *module,
                             name: name.clone(),
                         };
                         output.push((key, params.clone()));
@@ -1294,7 +1292,7 @@ impl AcornValue {
                 else_value.find_monomorphs(output);
             }
             AcornValue::Not(x) => x.find_monomorphs(output),
-            AcornValue::Specialized(namespace, name, _, params) => {
+            AcornValue::Specialized(module, name, _, params) => {
                 for (_, t) in params {
                     if t.is_parametric() {
                         // This is not a monomorphization
@@ -1302,7 +1300,7 @@ impl AcornValue {
                     }
                 }
                 let key = ConstantKey {
-                    module: *namespace,
+                    module: *module,
                     name: name.clone(),
                 };
                 output.push((key, params.clone()));
@@ -1317,8 +1315,8 @@ impl AcornValue {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.to_placeholder())
             }
-            AcornValue::Constant(namespace, name, t, params) => {
-                AcornValue::Constant(*namespace, name.clone(), t.to_placeholder(), params.clone())
+            AcornValue::Constant(module, name, t, params) => {
+                AcornValue::Constant(*module, name.clone(), t.to_placeholder(), params.clone())
             }
             AcornValue::Application(app) => AcornValue::Application(FunctionApplication {
                 function: Box::new(app.function.to_placeholder()),
