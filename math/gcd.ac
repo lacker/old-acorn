@@ -17,12 +17,35 @@ let sub: (Nat, Nat) -> Nat = subtraction.sub
 let mod: (Nat, Nat) -> Nat = subtraction.mod
 
 // One step is taking the pair (a, b) and replacing with (b, a mod b).
-// Stop when b = 0.
-define gcd_step(p: NatPair) -> NatPair = if NatPair.second(0) = 0 {
-    // Stop when b = 0 
+define gcd_step(p: NatPair) -> NatPair = if NatPair.second(p) = 0 {
     p
 } else {
     NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
 }
+
+// n steps of the gcd algorithm.
+define gcd_step_n(p: NatPair, n: Nat) -> NatPair = nat.recursion(gcd_step, p, n)
+
+// is_min(f)(x) tells you whether x is the smallest value for which f is true.
+define is_min(f: Nat -> bool) -> (Nat -> bool) = function(x: Nat) {
+    f(x) & forall(y: Nat) { lt(y, x) -> !f(y) }
+}
+
+theorem has_min(f: Nat -> bool): exists(x: Nat) { f(x) } -> exists(x: Nat) { is_min(f)(x) }
+
+// A decreasing_to_zero function strictly decreases until it hits zero.
+// No, I made a mistake - this should have a type error.
+define decreasing_to_zero(f: Nat -> Nat) -> bool = function(x: Nat) {
+    f(x) = 0 | lt(f(Suc(x)), f(x))
+}
+
+// Should be an error.
+define foo(f: Nat -> Nat) -> bool = function(x: Nat) {
+    true
+}
+
+theorem decreasing_terminates(f: Nat -> Nat): decreasing_to_zero(f) -> exists(n: Nat) { f(n) = 0 }
+
+theorem gcd_terminates(p: NatPair): exists(n: Nat) { NatPair.second(gcd_step_n(p, n)) = 0 }
 
 // theorem goal: divides = lte
