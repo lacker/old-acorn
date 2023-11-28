@@ -4,7 +4,7 @@ use crate::acorn_type::{AcornType, FunctionType};
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::expression::Expression;
-use crate::module::{NamespaceId, FIRST_NORMAL};
+use crate::module::{ModuleId, FIRST_NORMAL};
 use crate::project::{Module, Project};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
@@ -16,7 +16,7 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 #[derive(Clone)]
 pub struct BindingMap {
     // The namespace all these names are in.
-    namespace: NamespaceId,
+    namespace: ModuleId,
 
     // Maps the name of a type to the type object.
     type_names: HashMap<String, AcornType>,
@@ -33,7 +33,7 @@ pub struct BindingMap {
     stack: HashMap<String, AtomId>,
 
     // Names that refer to modules. For example after "import foo.bar.baz", "baz" refers to a module.
-    modules: HashMap<String, NamespaceId>,
+    modules: HashMap<String, ModuleId>,
 }
 
 #[derive(Clone)]
@@ -52,7 +52,7 @@ struct ConstantInfo {
 }
 
 impl BindingMap {
-    pub fn new(namespace: NamespaceId) -> Self {
+    pub fn new(namespace: ModuleId) -> Self {
         assert!(namespace >= FIRST_NORMAL);
         BindingMap {
             namespace,
@@ -149,7 +149,7 @@ impl BindingMap {
 
     // All other namespaces that we depend on, besides this one.
     // In no particular order.
-    pub fn direct_dependencies(&self) -> Vec<NamespaceId> {
+    pub fn direct_dependencies(&self) -> Vec<ModuleId> {
         self.modules.values().copied().collect()
     }
 
@@ -196,7 +196,7 @@ impl BindingMap {
         self.type_names.remove(name);
     }
 
-    pub fn add_module(&mut self, name: &str, namespace: NamespaceId) {
+    pub fn add_module(&mut self, name: &str, namespace: ModuleId) {
         if self.name_in_use(name) {
             panic!("module name {} already bound", name);
         }

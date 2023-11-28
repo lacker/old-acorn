@@ -7,7 +7,7 @@ use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
-use crate::module::NamespaceId;
+use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
@@ -18,7 +18,7 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // It creates subenvironments for nested blocks.
 // It does not have to be efficient enough to run in the inner loop of the prover.
 pub struct Environment {
-    pub namespace: NamespaceId,
+    pub namespace: ModuleId,
 
     // What all the names mean in this environment
     pub bindings: BindingMap,
@@ -164,7 +164,7 @@ enum BlockParams<'a> {
 }
 
 impl Environment {
-    pub fn new(namespace: NamespaceId) -> Self {
+    pub fn new(namespace: ModuleId) -> Self {
         Environment {
             namespace,
             bindings: BindingMap::new(namespace),

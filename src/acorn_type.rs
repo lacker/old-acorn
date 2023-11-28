@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt};
 
-use crate::module::NamespaceId;
+use crate::module::ModuleId;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub struct FunctionType {
@@ -31,7 +31,7 @@ pub enum AcornType {
 
     // Data types are structs or axiomatic types.
     // For their canonical representation, we track the namespace they were initially defined in.
-    Data(NamespaceId, String),
+    Data(ModuleId, String),
 
     // Function types are defined by their inputs and output.
     Function(FunctionType),
@@ -90,7 +90,7 @@ impl AcornType {
 
     // Whether this type refers to the other type.
     // For example, (Nat, Int) -> Rat refers to all of Nat, Int, and Rat.
-    pub fn refers_to(&self, namespace: NamespaceId, name: &str) -> bool {
+    pub fn refers_to(&self, namespace: ModuleId, name: &str) -> bool {
         if self.equals_data_type(namespace, name) {
             return true;
         }
@@ -154,7 +154,7 @@ impl AcornType {
         }
     }
 
-    pub fn equals_data_type(&self, data_type_namespace: NamespaceId, data_type_name: &str) -> bool {
+    pub fn equals_data_type(&self, data_type_namespace: ModuleId, data_type_name: &str) -> bool {
         match self {
             AcornType::Data(namespace, name) => {
                 *namespace == data_type_namespace && name == data_type_name
@@ -187,7 +187,7 @@ impl AcornType {
 
     // parametrize should only be called on concrete types.
     // It replaces every data type with the given namespace and name with a type parameter.
-    pub fn parametrize(&self, namespace: NamespaceId, type_names: &[String]) -> AcornType {
+    pub fn parametrize(&self, namespace: ModuleId, type_names: &[String]) -> AcornType {
         match self {
             AcornType::Function(function_type) => AcornType::Function(FunctionType {
                 arg_types: function_type

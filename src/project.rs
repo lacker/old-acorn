@@ -7,7 +7,7 @@ use std::{fmt, io};
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
 use crate::environment::Environment;
-use crate::module::{NamespaceId, FIRST_NORMAL};
+use crate::module::{ModuleId, FIRST_NORMAL};
 use crate::prover::{Outcome, Prover};
 use crate::token::{self, Token};
 
@@ -46,7 +46,7 @@ pub struct Project {
     modules: Vec<Module>,
 
     // namespaces maps from a module name specified in Acorn (like "foo.bar") to the namespace id
-    namespaces: HashMap<String, NamespaceId>,
+    namespaces: HashMap<String, ModuleId>,
 
     // The module names that we want to build.
     targets: HashSet<String>,
@@ -374,7 +374,7 @@ impl Project {
         self.update_file(PathBuf::from(filename), content);
     }
 
-    pub fn get_module(&self, namespace: NamespaceId) -> &Module {
+    pub fn get_module(&self, namespace: ModuleId) -> &Module {
         self.modules
             .get(namespace as usize)
             .unwrap_or(&Module::None)
@@ -388,7 +388,7 @@ impl Project {
         }
     }
 
-    pub fn get_env(&self, namespace: NamespaceId) -> Option<&Environment> {
+    pub fn get_env(&self, namespace: ModuleId) -> Option<&Environment> {
         if let Module::Ok(env) = self.get_module(namespace) {
             Some(env)
         } else {
@@ -404,11 +404,11 @@ impl Project {
         }
     }
 
-    pub fn errors(&self) -> Vec<(NamespaceId, &token::Error)> {
+    pub fn errors(&self) -> Vec<(ModuleId, &token::Error)> {
         let mut errors = vec![];
         for (namespace, module) in self.modules.iter().enumerate() {
             if let Module::Error(e) = module {
-                errors.push((namespace as NamespaceId, e));
+                errors.push((namespace as ModuleId, e));
             }
         }
         errors
@@ -492,7 +492,7 @@ impl Project {
     // If there is an error in the file, the load will return a namespace id, but the module
     // for this namespace id will have an error.
     // If "open" is passed, then we cache this file's content in open files.
-    pub fn load(&mut self, module_name: &str) -> Result<NamespaceId, LoadError> {
+    pub fn load(&mut self, module_name: &str) -> Result<ModuleId, LoadError> {
         if let Some(namespace) = self.namespaces.get(module_name) {
             if *namespace < FIRST_NORMAL {
                 panic!("namespace {} should not be loadable", namespace);
@@ -508,7 +508,7 @@ impl Project {
 
         // Give this module a namespace id before parsing it, so that we can catch
         // circular imports.
-        let namespace = self.modules.len() as NamespaceId;
+        let namespace = self.modules.len() as ModuleId;
         self.modules.push(Module::Loading);
         self.namespaces.insert(module_name.to_string(), namespace);
 
@@ -529,7 +529,7 @@ impl Project {
     // Does not count this namespace itself.
     // Includes modules with errors, but doesn't follow their dependencies.
     // Sorts in ascending order.
-    pub fn all_dependencies(&self, original_namespace: NamespaceId) -> Vec<NamespaceId> {
+    pub fn all_dependencies(&self, original_namespace: ModuleId) -> Vec<ModuleId> {
         let mut seen = HashSet::new();
         let mut pending = vec![original_namespace];
         while !pending.is_empty() {
@@ -552,7 +552,7 @@ impl Project {
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
     #[cfg(test)]
-    pub fn expect_ok(&mut self, module_name: &str) -> NamespaceId {
+    pub fn expect_ok(&mut self, module_name: &str) -> ModuleId {
         let namespace = self.load(module_name).expect("load failed");
         if let Module::Ok(_) = self.get_module(namespace) {
             // Success

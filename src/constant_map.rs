@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use crate::atom::AtomId;
-use crate::module::NamespaceId;
+use crate::module::ModuleId;
 
 // The ConstantKey identifies a constant in the Acorn language.
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
 pub struct ConstantKey {
-    pub namespace: NamespaceId,
+    pub module: ModuleId,
     pub name: String,
 }
 
@@ -32,10 +32,10 @@ impl ConstantMap {
         }
     }
 
-    // Assigns an id to this (namespace, name) pair if it doesn't already have one.
-    pub fn add_constant(&mut self, namespace: NamespaceId, name: &str) -> AtomId {
+    // Assigns an id to this (module, name) pair if it doesn't already have one.
+    pub fn add_constant(&mut self, module: ModuleId, name: &str) -> AtomId {
         let key = ConstantKey {
-            namespace,
+            module,
             name: name.to_string(),
         };
         if let Some(&atom_id) = self.keymap.get(&key) {
@@ -47,8 +47,8 @@ impl ConstantMap {
         atom_id
     }
 
-    pub fn get_info(&self, atom_id: AtomId) -> (NamespaceId, &str) {
+    pub fn get_info(&self, atom_id: AtomId) -> (ModuleId, &str) {
         let key = &self.constants[atom_id as usize].as_ref().unwrap();
-        (key.namespace, &key.name)
+        (key.module, &key.name)
     }
 }

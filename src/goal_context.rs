@@ -7,7 +7,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
 use crate::environment::Environment;
-use crate::module::NamespaceId;
+use crate::module::ModuleId;
 
 // A goal and the information used to prove it.
 pub struct GoalContext<'a> {
@@ -47,7 +47,7 @@ impl GoalContext<'_> {
         self.env.includes_explicit_false
     }
 
-    pub fn namespace(&self) -> NamespaceId {
+    pub fn namespace(&self) -> ModuleId {
         self.env.namespace
     }
 }

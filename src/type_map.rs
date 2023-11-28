@@ -5,7 +5,7 @@ use crate::acorn_type::AcornType;
 use crate::atom::{Atom, AtomId};
 use crate::clause::Clause;
 use crate::literal::Literal;
-use crate::module::NamespaceId;
+use crate::module::ModuleId;
 use crate::term::Term;
 
 pub type TypeId = u16;
@@ -15,7 +15,7 @@ pub const BOOL: TypeId = 1;
 
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
 struct MonomorphKey {
-    namespace: NamespaceId,
+    namespace: ModuleId,
     name: String,
     parameters: Vec<(String, AcornType)>,
 }
@@ -105,7 +105,7 @@ impl TypeMap {
 
     pub fn term_from_monomorph(
         &mut self,
-        namespace: NamespaceId,
+        namespace: ModuleId,
         name: &str,
         parameters: &Vec<(String, AcornType)>,
         monomorph_type: AcornType,
@@ -135,7 +135,7 @@ impl TypeMap {
         }
     }
 
-    pub fn get_monomorph_info(&self, id: AtomId) -> (NamespaceId, &str, &Vec<(String, AcornType)>) {
+    pub fn get_monomorph_info(&self, id: AtomId) -> (ModuleId, &str, &Vec<(String, AcornType)>) {
         let (key, _) = &self.monomorph_info[id as usize];
         (key.namespace, &key.name, &key.parameters)
     }

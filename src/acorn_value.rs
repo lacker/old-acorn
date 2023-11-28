@@ -4,7 +4,7 @@ use std::fmt;
 use crate::acorn_type::{AcornType, FunctionType};
 use crate::atom::AtomId;
 use crate::constant_map::ConstantKey;
-use crate::module::NamespaceId;
+use crate::module::ModuleId;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FunctionApplication {
@@ -62,7 +62,7 @@ pub enum AcornValue {
     // When the type parameters are not empty, this indicates a polymorphic constant
     // whose type can still be inferred.
     // This sort of pre-type-inference value should only exist during parsing.
-    Constant(NamespaceId, String, AcornType, Vec<String>),
+    Constant(ModuleId, String, AcornType, Vec<String>),
 
     Application(FunctionApplication),
 
@@ -83,7 +83,7 @@ pub enum AcornValue {
     // The type is the polymorphic type of the constant.
     // The vector parameter maps parameter names to types they were replaced with.
     // The parameters cannot be empty - that should just be a Constant.
-    Specialized(NamespaceId, String, AcornType, Vec<(String, AcornType)>),
+    Specialized(ModuleId, String, AcornType, Vec<(String, AcornType)>),
 
     // A plain old bool. True or false
     Bool(bool),
@@ -262,7 +262,7 @@ impl AcornValue {
 
     // Make a Constant or a Specialized depending on whether we have params.
     pub fn new_specialized(
-        namespace: NamespaceId,
+        namespace: ModuleId,
         name: String,
         constant_type: AcornType,
         params: Vec<(String, AcornType)>,
@@ -899,7 +899,7 @@ impl AcornValue {
     pub fn replace_constants_with_values<'a>(
         &self,
         stack_size: AtomId,
-        replacer: &impl Fn(NamespaceId, &str) -> Option<&'a AcornValue>,
+        replacer: &impl Fn(ModuleId, &str) -> Option<&'a AcornValue>,
     ) -> AcornValue {
         match self {
             AcornValue::Constant(namespace, name, _, params) => {
@@ -972,7 +972,7 @@ impl AcornValue {
     // For constants in this namespace, replace them with a variable id if they are in the constants map.
     pub fn replace_constants_with_vars(
         &self,
-        namespace: NamespaceId,
+        namespace: ModuleId,
         constants: &HashMap<String, AtomId>,
     ) -> AcornValue {
         match self {
@@ -1145,7 +1145,7 @@ impl AcornValue {
 
     // parametrize should only be called on concrete types.
     // It replaces every data type with the given namespace and name with a type parameter.
-    pub fn parametrize(&self, namespace: NamespaceId, type_names: &[String]) -> AcornValue {
+    pub fn parametrize(&self, namespace: ModuleId, type_names: &[String]) -> AcornValue {
         match self {
             AcornValue::Variable(i, var_type) => {
                 AcornValue::Variable(*i, var_type.parametrize(namespace, type_names))
@@ -1260,7 +1260,7 @@ impl AcornValue {
                 for (_, t) in params {
                     if t.is_parametric() {
                         let key = ConstantKey {
-                            namespace: *namespace,
+                            module: *namespace,
                             name: name.clone(),
                         };
                         output.push((key, params.clone()));
@@ -1302,7 +1302,7 @@ impl AcornValue {
                     }
                 }
                 let key = ConstantKey {
-                    namespace: *namespace,
+                    module: *namespace,
                     name: name.clone(),
                 };
                 output.push((key, params.clone()));
