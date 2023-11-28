@@ -18,11 +18,11 @@ let mod: (Nat, Nat) -> Nat = subtraction.mod
 
 // One step is taking the pair (a, b) and replacing with (b, a mod b).
 // Stop when b = 0.
-// define gcd_step(p: NatPair) -> NatPair = if NatPair.second(0) = 0 {
-//     // Stop when b = 0 
-//     p
-// } else {
-//     NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
-// }
+define gcd_step(p: NatPair) -> NatPair = if NatPair.second(0) = 0 {
+    // Stop when b = 0 
+    p
+} else {
+    NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
+}
 
 // theorem goal: divides = lte
