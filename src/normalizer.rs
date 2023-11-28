@@ -54,8 +54,8 @@ impl Normalizer {
 
     pub fn is_skolem(&self, atom: &Atom) -> bool {
         if let Atom::Constant(id) = atom {
-            let (namespace, _) = self.constant_map.get_info(*id);
-            namespace == SKOLEM
+            let (module, _) = self.constant_map.get_info(*id);
+            module == SKOLEM
         } else {
             false
         }
@@ -161,16 +161,16 @@ impl Normalizer {
                 let type_id = self.type_map.add_type(var_type);
                 Ok(Term::new(type_id, type_id, Atom::Variable(*i), vec![]))
             }
-            AcornValue::Constant(namespace, name, t, params) => {
+            AcornValue::Constant(module, name, t, params) => {
                 assert!(params.is_empty());
                 let type_id = self.type_map.add_type(t);
-                let c_id = self.constant_map.add_constant(*namespace, name);
+                let c_id = self.constant_map.add_constant(*module, name);
                 Ok(Term::new(type_id, type_id, Atom::Constant(c_id), vec![]))
             }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
-            AcornValue::Specialized(namespace, name, _, parameters) => Ok(self
+            AcornValue::Specialized(module, name, _, parameters) => Ok(self
                 .type_map
-                .term_from_monomorph(*namespace, name, parameters, value.get_type())),
+                .term_from_monomorph(*module, name, parameters, value.get_type())),
             _ => Err(NormalizationError(format!(
                 "Cannot convert {} to term",
                 value

@@ -11,7 +11,7 @@ use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::prover::{Outcome, Prover};
 use crate::token::{self, Token};
 
-// The Project is responsible for importing different files and assigning them namespace ids.
+// The Project is responsible for importing different files and assigning them module ids.
 pub struct Project {
     // The root directory of the project
     // Set to "/mock" for mock projects.
@@ -26,11 +26,11 @@ pub struct Project {
     // Maps filename -> contents.
     pub open_files: HashMap<PathBuf, String>,
 
-    // modules[namespace] is the Module for the given namespace id
+    // modules[module_id] is the Module for the given module id
     modules: Vec<Module>,
 
-    // namespaces maps from a module name specified in Acorn (like "foo.bar") to the namespace id
-    namespaces: HashMap<String, ModuleId>,
+    // module_map maps from a module name specified in Acorn to its id
+    module_map: HashMap<String, ModuleId>,
 
     // The module names that we want to build.
     targets: HashSet<String>,
@@ -112,7 +112,7 @@ impl Project {
             use_filesystem: true,
             open_files: HashMap::new(),
             modules: new_modules(),
-            namespaces: HashMap::new(),
+            module_map: HashMap::new(),
             targets: HashSet::new(),
             build_stopped: Arc::new(AtomicBool::new(false)),
         }
@@ -129,7 +129,7 @@ impl Project {
     // TODO: do this incrementally instead of dropping everything.
     fn drop_modules(&mut self) {
         self.modules = new_modules();
-        self.namespaces = HashMap::new();
+        self.module_map = HashMap::new();
     }
 
     // You only need read access to an RwLock<Project> to stop the build.
@@ -358,22 +358,22 @@ impl Project {
         self.update_file(PathBuf::from(filename), content);
     }
 
-    pub fn get_module(&self, namespace: ModuleId) -> &Module {
+    pub fn get_module(&self, module_id: ModuleId) -> &Module {
         self.modules
-            .get(namespace as usize)
+            .get(module_id as usize)
             .unwrap_or(&Module::None)
     }
 
     pub fn get_module_by_name(&self, module_name: &str) -> &Module {
-        if let Some(namespace) = self.namespaces.get(module_name) {
-            self.get_module(*namespace)
+        if let Some(module) = self.module_map.get(module_name) {
+            self.get_module(*module)
         } else {
             &Module::None
         }
     }
 
-    pub fn get_env(&self, namespace: ModuleId) -> Option<&Environment> {
-        if let Module::Ok(env) = self.get_module(namespace) {
+    pub fn get_env(&self, module_id: ModuleId) -> Option<&Environment> {
+        if let Module::Ok(env) = self.get_module(module_id) {
             Some(env)
         } else {
             None
@@ -381,8 +381,8 @@ impl Project {
     }
 
     pub fn get_env_by_name(&self, module_name: &str) -> Option<&Environment> {
-        if let Some(namespace) = self.namespaces.get(module_name) {
-            self.get_env(*namespace)
+        if let Some(module_id) = self.module_map.get(module_name) {
+            self.get_env(*module_id)
         } else {
             None
         }
@@ -390,9 +390,9 @@ impl Project {
 
     pub fn errors(&self) -> Vec<(ModuleId, &token::Error)> {
         let mut errors = vec![];
-        for (namespace, module) in self.modules.iter().enumerate() {
+        for (module_id, module) in self.modules.iter().enumerate() {
             if let Module::Error(e) = module {
-                errors.push((namespace as ModuleId, e));
+                errors.push((module_id as ModuleId, e));
             }
         }
         errors
@@ -473,62 +473,61 @@ impl Project {
     // load returns an error if the module-loading process itself has an error.
     // For example, we might have an invalid name, the file might not exist, or this
     // might be a circular import.
-    // If there is an error in the file, the load will return a namespace id, but the module
-    // for this namespace id will have an error.
+    // If there is an error in the file, the load will return a module id, but the module
+    // for the id will have an error.
     // If "open" is passed, then we cache this file's content in open files.
     pub fn load_module(&mut self, module_name: &str) -> Result<ModuleId, LoadError> {
-        if let Some(namespace) = self.namespaces.get(module_name) {
-            if *namespace < FIRST_NORMAL {
-                panic!("namespace {} should not be loadable", namespace);
+        if let Some(module_id) = self.module_map.get(module_name) {
+            if *module_id < FIRST_NORMAL {
+                panic!("module {} should not be loadable", module_id);
             }
-            if let Module::Loading = self.get_module(*namespace) {
+            if let Module::Loading = self.get_module(*module_id) {
                 return Err(LoadError(format!("circular import of {}", module_name)));
             }
-            return Ok(*namespace);
+            return Ok(*module_id);
         }
 
         let path = self.path_from_module_name(module_name)?;
         let text = self.read_file(&path)?;
 
-        // Give this module a namespace id before parsing it, so that we can catch
-        // circular imports.
-        let namespace = self.modules.len() as ModuleId;
+        // Give this module an id before parsing it, so that we can catch circular imports.
+        let module_id = self.modules.len() as ModuleId;
         self.modules.push(Module::Loading);
-        self.namespaces.insert(module_name.to_string(), namespace);
+        self.module_map.insert(module_name.to_string(), module_id);
 
-        let mut env = Environment::new(namespace);
+        let mut env = Environment::new(module_id);
         let tokens = Token::scan(&text);
         let module = if let Err(e) = env.add_tokens(self, tokens) {
             Module::Error(e)
         } else {
             Module::Ok(env)
         };
-        self.modules[namespace as usize] = module;
+        self.modules[module_id as usize] = module;
 
-        Ok(namespace)
+        Ok(module_id)
     }
 
     // All dependencies, including chains of direct depedencies.
     // Ie, if A imports B and B imports C, then A depends on B and C.
-    // Does not count this namespace itself.
+    // Does not count this module itself.
     // Includes modules with errors, but doesn't follow their dependencies.
     // Sorts in ascending order.
-    pub fn all_dependencies(&self, original_namespace: ModuleId) -> Vec<ModuleId> {
+    pub fn all_dependencies(&self, original_module_id: ModuleId) -> Vec<ModuleId> {
         let mut seen = HashSet::new();
-        let mut pending = vec![original_namespace];
+        let mut pending = vec![original_module_id];
         while !pending.is_empty() {
-            let namespace = pending.pop().unwrap();
-            if seen.contains(&namespace) {
+            let module_id = pending.pop().unwrap();
+            if seen.contains(&module_id) {
                 continue;
             }
-            seen.insert(namespace);
-            if let Module::Ok(env) = self.get_module(namespace) {
+            seen.insert(module_id);
+            if let Module::Ok(env) = self.get_module(module_id) {
                 for dep in env.bindings.direct_dependencies() {
                     pending.push(dep);
                 }
             }
         }
-        seen.remove(&original_namespace);
+        seen.remove(&original_module_id);
         let mut answer: Vec<_> = seen.into_iter().collect();
         answer.sort();
         answer
@@ -537,10 +536,10 @@ impl Project {
     // Expects the module to load successfully and for there to be no errors in the loaded module.
     #[cfg(test)]
     pub fn expect_ok(&mut self, module_name: &str) -> ModuleId {
-        let namespace = self.load_module(module_name).expect("load failed");
-        if let Module::Ok(_) = self.get_module(namespace) {
+        let module_id = self.load_module(module_name).expect("load failed");
+        if let Module::Ok(_) = self.get_module(module_id) {
             // Success
-            namespace
+            module_id
         } else {
             panic!("module had an error");
         }
@@ -555,8 +554,8 @@ impl Project {
     // This expects the module to load, but for there to be an error in the loaded module.
     #[cfg(test)]
     fn expect_module_err(&mut self, module_name: &str) {
-        let namespace = self.load_module(module_name).expect("load failed");
-        if let Module::Error(_) = self.get_module(namespace) {
+        let module_id = self.load_module(module_name).expect("load failed");
+        if let Module::Error(_) = self.get_module(module_id) {
             // What we expected
         } else {
             panic!("expected error");
