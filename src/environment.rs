@@ -164,10 +164,10 @@ enum BlockParams<'a> {
 }
 
 impl Environment {
-    pub fn new(namespace: ModuleId) -> Self {
+    pub fn new(module_id: ModuleId) -> Self {
         Environment {
-            module_id: namespace,
-            bindings: BindingMap::new(namespace),
+            module_id,
+            bindings: BindingMap::new(module_id),
             propositions: Vec::new(),
             definition_ranges: HashMap::new(),
             includes_explicit_false: false,
@@ -799,8 +799,8 @@ impl Environment {
                     ));
                 }
                 let full_name = is.components.join(".");
-                let namespace = match project.load_module(&full_name) {
-                    Ok(namespace) => namespace,
+                let module_id = match project.load_module(&full_name) {
+                    Ok(module_id) => module_id,
                     Err(LoadError(s)) => {
                         return Err(Error::new(
                             &statement.first_token,
@@ -808,7 +808,7 @@ impl Environment {
                         ));
                     }
                 };
-                self.bindings.add_module(local_name, namespace);
+                self.bindings.add_module(local_name, module_id);
                 Ok(())
             }
         }
@@ -888,17 +888,17 @@ impl Environment {
         paths
     }
 
-    // Uses our own binding to inline theorems when the namespace matches.
-    // Falls back to project-level when the namespace doesn't match.
+    // Uses our own binding to inline theorems when the module matches.
+    // Falls back to project-level when the module doesn't match.
     fn inline_theorems(&self, project: &Project, value: &AcornValue) -> AcornValue {
         // Replaces each theorem with its definition.
-        value.replace_constants_with_values(0, &|namespace, name| {
-            let bindings = if self.module_id == namespace {
+        value.replace_constants_with_values(0, &|module_id, name| {
+            let bindings = if self.module_id == module_id {
                 &self.bindings
             } else {
                 &project
-                    .get_env(namespace)
-                    .expect("missing namespace in inline_theorems")
+                    .get_env(module_id)
+                    .expect("missing module in inline_theorems")
                     .bindings
             };
             if bindings.is_theorem(name) {
@@ -1332,8 +1332,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             }
             "#,
         );
-        let namespace = p.expect_ok("main");
-        let env = p.get_env(namespace).unwrap();
+        let module = p.expect_ok("main");
+        let env = p.get_env(module).unwrap();
         for path in env.goal_paths() {
             env.get_goal_context(&p, &path);
         }
@@ -1353,8 +1353,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             }
             "#,
         );
-        let namespace = p.expect_ok("main");
-        let env = p.get_env(namespace).unwrap();
+        let module = p.expect_ok("main");
+        let env = p.get_env(module).unwrap();
         for path in env.goal_paths() {
             env.get_goal_context(&p, &path);
         }

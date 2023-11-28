@@ -602,8 +602,8 @@ mod tests {
 
     // Tries to prove one thing from the project.
     fn prove(project: &mut Project, module_name: &str, goal_name: &str) -> Outcome {
-        let namespace = project.load_module(module_name).expect("load failed");
-        let env = match project.get_module(namespace) {
+        let module_id = project.load_module(module_name).expect("load failed");
+        let env = match project.get_module(module_id) {
             Module::Ok(env) => env,
             Module::Error(e) => panic!("get_module error: {}", e),
             _ => panic!("unexpected get_module result"),
@@ -625,8 +625,8 @@ mod tests {
     fn prove_all(text: &str) -> Outcome {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
-        let namespace = project.load_module("main").expect("load failed");
-        let env = match project.get_module(namespace) {
+        let module_id = project.load_module("main").expect("load failed");
+        let env = match project.get_module(module_id) {
             Module::Ok(env) => env,
             Module::Error(e) => panic!("get_module error: {}", e),
             _ => panic!("unexpected get_module result"),

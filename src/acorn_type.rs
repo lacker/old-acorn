@@ -30,7 +30,7 @@ pub enum AcornType {
     Bool,
 
     // Data types are structs or axiomatic types.
-    // For their canonical representation, we track the namespace they were initially defined in.
+    // For their canonical representation, we track the module they were initially defined in.
     Data(ModuleId, String),
 
     // Function types are defined by their inputs and output.
@@ -90,18 +90,18 @@ impl AcornType {
 
     // Whether this type refers to the other type.
     // For example, (Nat, Int) -> Rat refers to all of Nat, Int, and Rat.
-    pub fn refers_to(&self, namespace: ModuleId, name: &str) -> bool {
-        if self.equals_data_type(namespace, name) {
+    pub fn refers_to(&self, module_id: ModuleId, name: &str) -> bool {
+        if self.equals_data_type(module_id, name) {
             return true;
         }
         match self {
             AcornType::Function(function_type) => {
                 for arg_type in &function_type.arg_types {
-                    if arg_type.refers_to(namespace, name) {
+                    if arg_type.refers_to(module_id, name) {
                         return true;
                     }
                 }
-                function_type.return_type.refers_to(namespace, name)
+                function_type.return_type.refers_to(module_id, name)
             }
             _ => false,
         }
@@ -154,10 +154,10 @@ impl AcornType {
         }
     }
 
-    pub fn equals_data_type(&self, data_type_namespace: ModuleId, data_type_name: &str) -> bool {
+    pub fn equals_data_type(&self, data_type_module_id: ModuleId, data_type_name: &str) -> bool {
         match self {
-            AcornType::Data(namespace, name) => {
-                *namespace == data_type_namespace && name == data_type_name
+            AcornType::Data(module_id, name) => {
+                *module_id == data_type_module_id && name == data_type_name
             }
             _ => false,
         }
@@ -186,19 +186,19 @@ impl AcornType {
     }
 
     // parametrize should only be called on concrete types.
-    // It replaces every data type with the given namespace and name with a type parameter.
-    pub fn parametrize(&self, namespace: ModuleId, type_names: &[String]) -> AcornType {
+    // It replaces every data type with the given module and name with a type parameter.
+    pub fn parametrize(&self, module_id: ModuleId, type_names: &[String]) -> AcornType {
         match self {
             AcornType::Function(function_type) => AcornType::Function(FunctionType {
                 arg_types: function_type
                     .arg_types
                     .iter()
-                    .map(|t| t.parametrize(namespace, type_names))
+                    .map(|t| t.parametrize(module_id, type_names))
                     .collect(),
-                return_type: Box::new(function_type.return_type.parametrize(namespace, type_names)),
+                return_type: Box::new(function_type.return_type.parametrize(module_id, type_names)),
             }),
             AcornType::Data(ns, name) => {
-                if *ns == namespace && type_names.contains(name) {
+                if *ns == module_id && type_names.contains(name) {
                     AcornType::Parameter(name.clone())
                 } else {
                     self.clone()
