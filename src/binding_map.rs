@@ -95,6 +95,10 @@ impl BindingMap {
         data_type
     }
 
+    pub fn is_type(&self, name: &str) -> bool {
+        self.type_names.contains_key(name)
+    }
+
     // Adds a new type name that's an alias for an existing type
     pub fn add_type_alias(&mut self, name: &str, acorn_type: AcornType) {
         if self.name_in_use(name) {
@@ -173,6 +177,10 @@ impl BindingMap {
         self.identifier_types
             .insert(name.to_string(), constant_type);
         self.constants.insert(name.to_string(), info);
+    }
+
+    pub fn is_constant(&self, name: &str) -> bool {
+        self.constants.contains_key(name)
     }
 
     pub fn mark_as_theorem(&mut self, name: &str) {
@@ -435,7 +443,7 @@ impl BindingMap {
                             None => {
                                 return Err(Error::new(
                                     token,
-                                    &format!("the name {} is unbound", token.text()),
+                                    &format!("the identifier {} is unbound", token.text()),
                                 ));
                             }
                         };
