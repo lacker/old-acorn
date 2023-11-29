@@ -232,4 +232,13 @@ theorem mod_mul(m: Nat, q: Nat): mod(mul(q, m), m) = 0 by {
     divides(m, mul(q, m))
 }
 
+theorem divides_unmod(d: Nat, a: Nat, m: Nat): divides(d, m) & divides(d, mod(a, m)) -> divides(d, a) by {
+    exists(q: Nat) { add(mul(q, m), mod(a, m)) = a }
+    if divides(d, m) & divides(d, mod(a, m)) {
+        divides(d, mul(q, m))
+        divides(d, add(mul(q, m), mod(a, m)))
+        divides(d, a)
+    }
+}
+
 // theorem mod_unique(q: Nat, m: Nat, r: Nat): lt(r, m) -> mod(add(mul(q, m), r), m) = r

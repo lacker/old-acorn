@@ -283,6 +283,16 @@ theorem lt_suc_left(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
 
 theorem lt_suc_right(a: Nat, b: Nat): lt(a, Suc(b)) -> a = b | lt(a, b)
 
+theorem lt_add_left(a: Nat, b: Nat, c: Nat): lt(b, c) -> lt(add(a, b), add(a, c)) by {
+    if lt(b, c) {
+        exists(d: Nat) { add(b, d) = c }
+        add(add(a, b), d) = add(a, c)
+        add(a, add(b, d)) = add(a, c)
+        add(a, c) = add(a, c)
+        lt(add(a, b), add(a, c))
+    }
+}
+
 theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
     lt(r, n) & m = add(mul(q, n), r)
 } by {
