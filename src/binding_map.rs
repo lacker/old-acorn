@@ -706,10 +706,7 @@ impl BindingMap {
                 let body_type = match token.token_type {
                     TokenType::ForAll => Some(&AcornType::Bool),
                     TokenType::Exists => Some(&AcornType::Bool),
-                    _ => {
-                        // Check types for functions after we have the body
-                        None
-                    }
+                    _ => None,
                 };
                 let ret_val = match self.evaluate_value(project, body, body_type) {
                     Ok(value) => match token.token_type {
@@ -722,6 +719,8 @@ impl BindingMap {
                 };
                 self.unbind_args(&arg_names);
                 if token.token_type == TokenType::Function && expected_type.is_some() {
+                    // We could check this before creating the value rather than afterwards.
+                    // It seems theoretically faster but I'm not sure if there's any reason to.
                     self.check_type(token, expected_type, &ret_val.as_ref().unwrap().get_type())?;
                 }
                 ret_val
