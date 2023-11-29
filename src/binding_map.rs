@@ -703,12 +703,15 @@ impl BindingMap {
                     ));
                 }
                 let (arg_names, arg_types) = self.bind_args(project, binder_args)?;
-                let expected_type = match token.token_type {
+                let body_type = match token.token_type {
                     TokenType::ForAll => Some(&AcornType::Bool),
                     TokenType::Exists => Some(&AcornType::Bool),
-                    _ => None,
+                    _ => {
+                        // Check types for functions after we have the body
+                        None
+                    }
                 };
-                let ret_val = match self.evaluate_value(project, body, expected_type) {
+                let ret_val = match self.evaluate_value(project, body, body_type) {
                     Ok(value) => match token.token_type {
                         TokenType::ForAll => Ok(AcornValue::ForAll(arg_types, Box::new(value))),
                         TokenType::Exists => Ok(AcornValue::Exists(arg_types, Box::new(value))),
@@ -718,6 +721,9 @@ impl BindingMap {
                     Err(e) => Err(e),
                 };
                 self.unbind_args(&arg_names);
+                if token.token_type == TokenType::Function && expected_type.is_some() {
+                    self.check_type(token, expected_type, &ret_val.as_ref().unwrap().get_type())?;
+                }
                 ret_val
             }
             Expression::IfThenElse(_, cond_exp, if_exp, else_exp, _) => {
