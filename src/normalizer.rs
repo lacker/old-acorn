@@ -264,7 +264,7 @@ impl Normalizer {
     //
     // If the value is always satisfied, like explicit "true", returns an empty list.
     // If the value is impossible to satify, like explicit "false", returns None.
-    // IF we cannot normalzie it, return an error.
+    // If we cannot normalize it, return an error.
     pub fn normalize(&mut self, value: AcornValue) -> Result<Option<Vec<Clause>>> {
         // println!("\nnormalizing: {}", value);
         let value = value.replace_function_equality(0);

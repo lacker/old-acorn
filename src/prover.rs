@@ -611,7 +611,11 @@ mod tests {
         let goal_context = env.get_goal_context_by_name(project, goal_name);
         let mut prover = Prover::new(&project, &goal_context, false, None);
         prover.verbose = true;
-        prover.search_for_contradiction(2000, 2.0)
+        let outcome = prover.search_for_contradiction(2000, 2.0);
+        if outcome == Outcome::Error {
+            panic!("prover error: {}", prover.error.unwrap());
+        }
+        outcome
     }
 
     // Does one proof on the provided text.
@@ -1191,6 +1195,21 @@ mod tests {
             let f: Nat -> bool = is_min(gcd_term(p))
                 
             theorem goal: find(is_min(gcd_term(p))) = find(f)
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_functional_definition() {
+        prove_all_succeeds(
+            r#"
+            type Nat: axiom
+            define is_min(f: Nat -> bool) -> (Nat -> bool) = axiom
+            define gcd_term(p: Nat) -> (Nat -> bool) = axiom
+            let p: Nat = axiom
+            let f: Nat -> bool = is_min(gcd_term(p))
+
+            theorem goal: is_min(gcd_term(p)) = f
         "#,
         );
     }

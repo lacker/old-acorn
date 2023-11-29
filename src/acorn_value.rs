@@ -274,6 +274,13 @@ impl AcornValue {
         }
     }
 
+    pub fn is_lambda(&self) -> bool {
+        match self {
+            AcornValue::Lambda(_, _) => true,
+            _ => false,
+        }
+    }
+
     pub fn negate(self) -> AcornValue {
         self.maybe_negate(true)
     }
@@ -605,6 +612,14 @@ impl AcornValue {
                     .collect(),
             }),
             AcornValue::Binary(BinaryOp::Equals, left, right) => {
+                // TODO: if we uncomment this block, test_functional_definition fails.
+                // if !left.is_lambda() && !right.is_lambda() {
+                //     return AcornValue::Binary(
+                //         BinaryOp::Equals,
+                //         Box::new(left.replace_function_equality(stack_size)),
+                //         Box::new(right.replace_function_equality(stack_size)),
+                //     );
+                // }
                 let (left_quants, left) = left
                     .replace_function_equality(stack_size)
                     .apply_to_free_variables(stack_size);
