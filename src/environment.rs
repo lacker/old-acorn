@@ -1557,4 +1557,11 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new_test();
         env.bad("type foo: axiom");
     }
+
+    #[test]
+    fn test_functional_definition_typechecking() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("define foo(f: Nat -> Nat) -> bool = function(x: Nat) { true }");
+    }
 }
