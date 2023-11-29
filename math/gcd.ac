@@ -102,8 +102,8 @@ define num_gcd_steps(p: NatPair) -> Nat = subtraction.find(is_min(gcd_terminatio
 theorem num_gcd_steps_terminates(p: NatPair): NatPair.second(gcd_step_n(p, num_gcd_steps(p))) = 0 by {
     let f: Nat -> bool = is_min(gcd_termination(p))
     f = is_min(gcd_termination(p))
-    num_gcd_steps(p) = subtraction.find(is_min(gcd_termination(p)))
     subtraction.find(is_min(gcd_termination(p))) = subtraction.find(f)
+    num_gcd_steps(p) = subtraction.find(is_min(gcd_termination(p)))
     num_gcd_steps(p) = subtraction.find(f)
     exists(n: Nat) { f(n) }
     f(subtraction.find(f))
@@ -155,7 +155,7 @@ theorem divides_both_unstep(a: Nat, p: NatPair): divides_both(a, gcd_step(p)) ->
             gcd_step(p) = NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
             divides(a, NatPair.second(p))
             divides(a, mod(NatPair.first(p), NatPair.second(p)))
-            divides(a, NatPair.second(p)) & divides(a, mod(NatPair.first(p), NatPair.second(p))) -> divides(a, NatPair.first(p))
+            subtraction.divides_unmod(a, NatPair.first(p), NatPair.second(p))
             divides(a, NatPair.first(p))
             divides_both(a, p)
         }

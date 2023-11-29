@@ -622,7 +622,7 @@ mod tests {
     }
 
     // Proves all the goals in the provided text, returning any non-Success outcome.
-    fn prove_all(text: &str) -> Outcome {
+    fn prove_all_no_crash(text: &str) -> Outcome {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
         let module_id = project.load_module("main").expect("load failed");
@@ -645,8 +645,8 @@ mod tests {
         Outcome::Success
     }
 
-    fn prove_all_ok(text: &str) {
-        assert_eq!(prove_all(text), Outcome::Success);
+    fn prove_all_succeeds(text: &str) {
+        assert_eq!(prove_all_no_crash(text), Outcome::Success);
     }
 
     const THING: &str = r#"
@@ -1089,7 +1089,7 @@ mod tests {
 
     #[test]
     fn test_proving_explicit_false_okay() {
-        prove_all_ok(
+        prove_all_succeeds(
             r#"
             let b: bool = axiom
             if b != b {
@@ -1101,7 +1101,7 @@ mod tests {
 
     #[test]
     fn test_subsequent_explicit_false_ok() {
-        prove_all_ok(
+        prove_all_succeeds(
             r#"
             let b: bool = axiom
             if b != b {
@@ -1120,7 +1120,7 @@ mod tests {
                 b
             }
         "#;
-        assert_eq!(prove_all(text), Outcome::Inconsistent);
+        assert_eq!(prove_all_no_crash(text), Outcome::Inconsistent);
     }
 
     #[test]
@@ -1137,7 +1137,7 @@ mod tests {
 
     #[test]
     fn test_basic_if_then_else() {
-        prove_all_ok(
+        prove_all_succeeds(
             r#"
             type Nat: axiom
             let 0: Nat = axiom
@@ -1151,7 +1151,7 @@ mod tests {
     #[test]
     fn test_rewrite_consistency() {
         // In practice this caught an inconsistency that came from bad rewrite logic.
-        prove_all_ok(
+        prove_all_succeeds(
             r#"
             type Nat: axiom
             let 0: Nat = axiom
@@ -1169,12 +1169,28 @@ mod tests {
     #[test]
     fn test_normalization_failure_doesnt_crash() {
         // We can't normalize lambdas inside function calls, but we shouldn't crash on them.
-        prove_all(
+        prove_all_no_crash(
             r#"
             type Nat: axiom
             let 0: Nat = axiom
             define apply(f: Nat -> Nat, a: Nat) -> Nat = f(a)
             theorem goal: apply(function(x: Nat) { x }, 0) = 0
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_functional_substitution() {
+        prove_all_succeeds(
+            r#"
+            type Nat: axiom
+            define find(f: Nat -> bool) -> Nat = axiom
+            define is_min(f: Nat -> bool) -> (Nat -> bool) = axiom
+            define gcd_term(p: Nat) -> (Nat -> bool) = axiom
+            let p: Nat = axiom
+            let f: Nat -> bool = is_min(gcd_term(p))
+                
+            theorem goal: find(is_min(gcd_term(p))) = find(f)
         "#,
         );
     }
