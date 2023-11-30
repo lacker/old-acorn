@@ -280,10 +280,13 @@ impl Normalizer {
             Ok(Some(lists)) => lists,
             Ok(None) => return Ok(None),
             Err(e) => {
+                // value is essentially a subvalue with the universal quantifiers removed,
+                // so reconstruct it to display it nicely.
+                let reconstructed = AcornValue::new_forall(universal, value);
                 return Err(NormalizationError(format!(
                     "\nerror converting {} to CNF:\n{}",
-                    value, e
-                )))
+                    reconstructed, e
+                )));
             }
         };
 
