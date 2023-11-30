@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::acorn_type::{AcornType, FunctionType};
+use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::expression::Expression;
@@ -295,11 +295,7 @@ impl BindingMap {
                         arg_types.push(self.evaluate_type(project, arg_expr)?);
                     }
                     let return_type = self.evaluate_type(project, right)?;
-                    let function_type = FunctionType {
-                        arg_types,
-                        return_type: Box::new(return_type),
-                    };
-                    Ok(AcornType::Function(function_type))
+                    Ok(AcornType::new_functional(arg_types, return_type))
                 }
                 TokenType::Dot => {
                     let components = expression.flatten_dots()?;

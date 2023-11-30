@@ -458,10 +458,7 @@ impl Environment {
                         Some(fn_value),
                     );
                 } else {
-                    let new_axiom_type = AcornType::Function(FunctionType {
-                        arg_types,
-                        return_type: Box::new(value_type),
-                    });
+                    let new_axiom_type = AcornType::new_functional(arg_types, value_type);
                     self.bindings
                         .add_constant(&ds.name, param_names, new_axiom_type, None);
                 };
