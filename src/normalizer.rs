@@ -98,7 +98,7 @@ impl Normalizer {
                 // Each one will be a skolem function applied to the current stack.
                 let mut replacements = vec![];
                 for quant in quants {
-                    let skolem_type = AcornType::functional(stack.clone(), quant);
+                    let skolem_type = AcornType::new_functional(stack.clone(), quant);
                     let skolem_fn = self.new_skolem_value(skolem_type);
                     let replacement = AcornValue::new_apply(skolem_fn, args.clone());
                     replacements.push(replacement);

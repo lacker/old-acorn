@@ -20,6 +20,21 @@ impl fmt::Display for FunctionType {
 }
 
 impl FunctionType {
+    // arg_types must be nonempty
+    pub fn new(arg_types: Vec<AcornType>, return_type: AcornType) -> FunctionType {
+        FunctionType {
+            arg_types,
+            return_type: Box::new(return_type),
+        }
+    }
+
+    fn new_partial(&self, remove_args: usize) -> FunctionType {
+        FunctionType {
+            arg_types: self.arg_types[remove_args..].to_vec(),
+            return_type: self.return_type.clone(),
+        }
+    }
+
     // The type after applying this function to a certain number of arguments.
     // Panics if the application is invalid.
     pub fn applied_type(&self, num_args: usize) -> AcornType {
@@ -34,10 +49,7 @@ impl FunctionType {
         if num_args == self.arg_types.len() {
             *self.return_type.clone()
         } else {
-            AcornType::Function(FunctionType {
-                arg_types: self.arg_types[num_args..].to_vec(),
-                return_type: self.return_type.clone(),
-            })
+            AcornType::Function(self.new_partial(num_args))
         }
     }
 }
@@ -69,14 +81,12 @@ pub enum AcornType {
 
 impl AcornType {
     // Create the type, in non-curried form, for a function with the given arguments and return type.
-    pub fn functional(arg_types: Vec<AcornType>, return_type: AcornType) -> AcornType {
+    // arg_types can be empty.
+    pub fn new_functional(arg_types: Vec<AcornType>, return_type: AcornType) -> AcornType {
         if arg_types.is_empty() {
             return_type
         } else {
-            AcornType::Function(FunctionType {
-                arg_types,
-                return_type: Box::new(return_type),
-            })
+            AcornType::Function(FunctionType::new(arg_types, return_type))
         }
     }
 
