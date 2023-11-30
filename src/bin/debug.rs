@@ -68,11 +68,6 @@ fn main() {
             continue;
         }
 
-        if let Some(atom_str) = trim_command("atom", &line) {
-            prover.print_atom_info(atom_str);
-            continue;
-        }
-
         if let Some(term_str) = trim_command("term", &line) {
             prover.print_term_info(term_str);
             continue;

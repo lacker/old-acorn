@@ -7,7 +7,6 @@ use crossbeam::queue::SegQueue;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
-use crate::atom::Atom;
 use crate::clause::Clause;
 use crate::clause_info::{ClauseInfo, ClauseType, ProofStep};
 use crate::display::DisplayClause;
@@ -15,17 +14,11 @@ use crate::goal_context::{monomorphize_facts, GoalContext};
 use crate::normalizer::{NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
-use crate::synthesizer::Synthesizer;
 
 pub struct Prover {
     // The normalizer is used when we are turning the facts and goals from the environment into
     // clauses that we can use internally.
     normalizer: Normalizer,
-
-    // The synthesizer creates new functions during the proof.
-    // This is probably a bad idea - it's a lot of complexity and does not really do a good job
-    // of solving the problem of how to do induction.
-    synthesizer: Synthesizer,
 
     // The facts we start out with.
     facts: Vec<AcornValue>,
@@ -127,7 +120,6 @@ impl Prover {
     ) -> Prover {
         let mut p = Prover {
             normalizer: Normalizer::new(),
-            synthesizer: Synthesizer::new(),
             facts: Vec::new(),
             goal: None,
             active_set: ActiveSet::new(),
@@ -299,26 +291,6 @@ impl Prover {
             cprintln!(self, "{} passive clauses matched {}", count, substr);
         } else {
             cprintln!(self, "{} clauses total in the passive set", count);
-        }
-    }
-
-    // Prints out information for a specific atom
-    pub fn print_atom_info(&self, s: &str) {
-        if let Some(atom) = Atom::parse(s) {
-            match atom {
-                Atom::Synthetic(i) => {
-                    if let Some(lit) = self.synthesizer.get_definition(i) {
-                        cprintln!(self, "{} := {}", atom, lit);
-                    } else {
-                        cprintln!(self, "no definition for {}", atom);
-                    }
-                }
-                _ => {
-                    cprintln!(self, "we have no way to print info for {}", atom);
-                }
-            }
-        } else {
-            cprintln!(self, "not an atom: {}", s);
         }
     }
 

@@ -21,7 +21,6 @@ pub mod prover;
 pub mod rewrite_tree;
 pub mod specializer;
 pub mod statement;
-pub mod synthesizer;
 pub mod term;
 pub mod token;
 pub mod type_map;
