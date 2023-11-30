@@ -115,16 +115,7 @@ impl AcornType {
     pub fn apply(&self, arg_type: &AcornType) -> AcornType {
         if let AcornType::Function(function_type) = self {
             assert_eq!(function_type.arg_types[0], *arg_type);
-            if function_type.arg_types.len() == 1 {
-                *function_type.return_type.clone()
-            } else {
-                let mut new_arg_types = function_type.arg_types.clone();
-                new_arg_types.remove(0);
-                AcornType::Function(FunctionType {
-                    arg_types: new_arg_types,
-                    return_type: function_type.return_type.clone(),
-                })
-            }
+            function_type.applied_type(1)
         } else {
             panic!("Can't apply {:?} to {:?}", self, arg_type);
         }
@@ -191,14 +182,14 @@ impl AcornType {
     // It replaces every data type with the given module and name with a type parameter.
     pub fn parametrize(&self, module_id: ModuleId, type_names: &[String]) -> AcornType {
         match self {
-            AcornType::Function(function_type) => AcornType::Function(FunctionType {
-                arg_types: function_type
+            AcornType::Function(function_type) => AcornType::new_functional(
+                function_type
                     .arg_types
                     .iter()
                     .map(|t| t.parametrize(module_id, type_names))
                     .collect(),
-                return_type: Box::new(function_type.return_type.parametrize(module_id, type_names)),
-            }),
+                function_type.return_type.parametrize(module_id, type_names),
+            ),
             AcornType::Data(ns, name) => {
                 if *ns == module_id && type_names.contains(name) {
                     AcornType::Parameter(name.clone())
