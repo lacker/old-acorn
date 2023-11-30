@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::acorn_type::{AcornType, FunctionType};
+use crate::acorn_type::AcornType;
 use crate::atom::AtomId;
 use crate::constant_map::ConstantKey;
 use crate::module::ModuleId;
@@ -191,10 +191,9 @@ impl AcornValue {
             AcornValue::Variable(_, t) => t.clone(),
             AcornValue::Constant(_, _, t, _) => t.clone(),
             AcornValue::Application(t) => t.get_type(),
-            AcornValue::Lambda(args, return_value) => AcornType::Function(FunctionType {
-                arg_types: args.clone(),
-                return_type: Box::new(return_value.get_type()),
-            }),
+            AcornValue::Lambda(args, return_value) => {
+                AcornType::new_functional(args.clone(), return_value.get_type())
+            }
             AcornValue::Binary(_, _, _) => AcornType::Bool,
             AcornValue::Not(_) => AcornType::Bool,
             AcornValue::ForAll(_, _) => AcornType::Bool,
