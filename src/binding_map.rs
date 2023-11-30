@@ -615,11 +615,11 @@ impl BindingMap {
 
                 let arg_exprs = args_expr.flatten_list(false)?;
 
-                if function_type.arg_types.len() != arg_exprs.len() {
+                if function_type.arg_types.len() < arg_exprs.len() {
                     return Err(Error::new(
                         args_expr.token(),
                         &format!(
-                            "expected {} arguments, but got {}",
+                            "expected <= {} arguments, but got {}",
                             function_type.arg_types.len(),
                             arg_exprs.len()
                         ),
@@ -643,14 +643,11 @@ impl BindingMap {
                     }
                     args.push(arg_value);
                 }
+                let applied_type = function_type.applied_type(arg_exprs.len());
 
                 // For non-polymorphic functions we are done
                 if mapping.is_empty() {
-                    self.check_type(
-                        function_expr.token(),
-                        expected_type,
-                        &*function_type.return_type,
-                    )?;
+                    self.check_type(function_expr.token(), expected_type, &applied_type)?;
                     return Ok(AcornValue::Application(FunctionApplication {
                         function: Box::new(function),
                         args,
@@ -682,9 +679,9 @@ impl BindingMap {
                 }
 
                 if expected_type.is_some() {
-                    // Check the return type
-                    let return_type = function_type.return_type.specialize(&params);
-                    self.check_type(function_expr.token(), expected_type, &return_type)?;
+                    // Check the applied type
+                    let specialized_type = applied_type.specialize(&params);
+                    self.check_type(function_expr.token(), expected_type, &specialized_type)?;
                 }
 
                 let specialized = AcornValue::Specialized(c_module, c_name, c_type, params);
