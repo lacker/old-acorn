@@ -22,9 +22,21 @@ impl fmt::Display for FunctionType {
 impl FunctionType {
     fn new(arg_types: Vec<AcornType>, return_type: AcornType) -> FunctionType {
         assert!(arg_types.len() > 0);
-        FunctionType {
-            arg_types,
-            return_type: Box::new(return_type),
+        if let AcornType::Function(ftype) = return_type {
+            // Normalize function types by un-currying.
+            let combined_args = arg_types
+                .into_iter()
+                .chain(ftype.arg_types.into_iter())
+                .collect();
+            FunctionType {
+                arg_types: combined_args,
+                return_type: ftype.return_type,
+            }
+        } else {
+            FunctionType {
+                arg_types,
+                return_type: Box::new(return_type),
+            }
         }
     }
 
