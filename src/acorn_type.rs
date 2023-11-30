@@ -20,8 +20,8 @@ impl fmt::Display for FunctionType {
 }
 
 impl FunctionType {
-    // arg_types must be nonempty
     fn new(arg_types: Vec<AcornType>, return_type: AcornType) -> FunctionType {
+        assert!(arg_types.len() > 0);
         FunctionType {
             arg_types,
             return_type: Box::new(return_type),
@@ -29,6 +29,7 @@ impl FunctionType {
     }
 
     fn new_partial(&self, remove_args: usize) -> FunctionType {
+        assert!(remove_args < self.arg_types.len());
         FunctionType {
             arg_types: self.arg_types[remove_args..].to_vec(),
             return_type: self.return_type.clone(),
