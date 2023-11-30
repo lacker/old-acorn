@@ -21,9 +21,6 @@ pub enum Atom {
     // A monomorphization is when every parametric type has been replaced with a concrete type.
     Monomorph(AtomId),
 
-    // Functions created by the synthesizer
-    Synthetic(AtomId),
-
     // A Variable can be a reference to a variable on the stack, or its meaning can be implicit,
     // depending on the context.
     // We drop the variable name. Instead we track an id.
@@ -37,7 +34,6 @@ impl fmt::Display for Atom {
             Atom::True => write!(f, "true"),
             Atom::Constant(i) => write!(f, "c{}", i),
             Atom::Monomorph(i) => write!(f, "m{}", i),
-            Atom::Synthetic(i) => write!(f, "p{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
         }
     }
@@ -54,7 +50,6 @@ impl Atom {
         let rest = chars.as_str();
         match first {
             'c' => Some(Atom::Constant(rest.parse().unwrap())),
-            'p' => Some(Atom::Synthetic(rest.parse().unwrap())),
             'x' => Some(Atom::Variable(rest.parse().unwrap())),
             _ => None,
         }

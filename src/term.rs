@@ -228,18 +228,6 @@ impl Term {
         false
     }
 
-    pub fn has_synthetic(&self) -> bool {
-        if let Atom::Synthetic(_) = self.head {
-            return true;
-        }
-        for arg in &self.args {
-            if arg.has_synthetic() {
-                return true;
-            }
-        }
-        false
-    }
-
     // If this term is a variable with the given index, return that index.
     pub fn atomic_variable(&self) -> Option<AtomId> {
         if self.args.len() > 0 {
@@ -388,10 +376,6 @@ impl Term {
             Atom::Monomorph(i) => {
                 weight1 += 1;
                 weight2 += 2 + 4 * i as u32;
-            }
-            Atom::Synthetic(i) => {
-                weight1 += 1;
-                weight2 += 3 + 4 * i as u32;
             }
         }
         for arg in &self.args {

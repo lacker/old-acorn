@@ -312,7 +312,6 @@ impl Normalizer {
                 let param_names: Vec<_> = params.iter().map(|(name, _)| name.clone()).collect();
                 format!("{}<{}>", name, param_names.join(", "))
             }
-            Atom::Synthetic(i) => format!("p{}", i),
             Atom::Variable(i) => format!("x{}", i),
         }
     }

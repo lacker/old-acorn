@@ -97,10 +97,6 @@ impl Literal {
         }
     }
 
-    pub fn has_synthetic(&self) -> bool {
-        self.left.has_synthetic() || self.right.has_synthetic()
-    }
-
     // Returns true if this literal is a tautology, i.e. foo = foo
     pub fn is_tautology(&self) -> bool {
         self.positive && self.left == self.right

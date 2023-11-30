@@ -179,8 +179,7 @@ const MAX_ARGS: u8 = 100;
 const TRUE: u8 = 101;
 const CONSTANT: u8 = 102;
 const MONOMORPH: u8 = 103;
-const SYNTHETIC: u8 = 104;
-const VARIABLE: u8 = 105;
+const VARIABLE: u8 = 104;
 
 #[derive(Debug)]
 enum Edge {
@@ -198,7 +197,6 @@ impl Edge {
                 Atom::True => TRUE,
                 Atom::Constant(_) => CONSTANT,
                 Atom::Monomorph(_) => MONOMORPH,
-                Atom::Synthetic(_) => SYNTHETIC,
                 Atom::Variable(_) => VARIABLE,
             },
         }
@@ -212,7 +210,6 @@ impl Edge {
                 Atom::True => 0,
                 Atom::Constant(c) => *c,
                 Atom::Monomorph(m) => *m,
-                Atom::Synthetic(s) => *s,
                 Atom::Variable(i) => *i,
             },
         };
@@ -225,7 +222,6 @@ impl Edge {
             TRUE => Edge::Atom(Atom::True),
             CONSTANT => Edge::Atom(Atom::Constant(id)),
             MONOMORPH => Edge::Atom(Atom::Monomorph(id)),
-            SYNTHETIC => Edge::Atom(Atom::Synthetic(id)),
             VARIABLE => Edge::Atom(Atom::Variable(id)),
             num_args => {
                 if num_args > MAX_ARGS {
