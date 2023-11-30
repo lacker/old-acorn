@@ -147,7 +147,7 @@ impl AcornType {
                         return false;
                     }
                 }
-                if let AcornType::Function(_) = *function_type.return_type {
+                if function_type.return_type.is_functional() {
                     // A function type with a function return type, not normal
                     return false;
                 }
@@ -306,6 +306,13 @@ impl AcornType {
                 ftype.return_type.to_placeholder(),
             ),
             _ => self.clone(),
+        }
+    }
+
+    pub fn is_functional(&self) -> bool {
+        match self {
+            AcornType::Function(_) => true,
+            _ => false,
         }
     }
 }
