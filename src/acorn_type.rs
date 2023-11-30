@@ -45,37 +45,6 @@ pub enum AcornType {
 }
 
 impl AcornType {
-    // Constructs a type nested into x -> y -> z form.
-    fn curry(mut arg_types: Vec<AcornType>, return_type: AcornType) -> AcornType {
-        if arg_types.len() == 0 {
-            return_type
-        } else {
-            let first_arg = arg_types.remove(0);
-            AcornType::Function(FunctionType {
-                arg_types: vec![first_arg],
-                return_type: Box::new(AcornType::curry(arg_types, return_type)),
-            })
-        }
-    }
-
-    // Curries all the way down.
-    pub fn curry_all(&self) -> AcornType {
-        match self {
-            AcornType::Function(function_type) => {
-                let args = function_type
-                    .arg_types
-                    .iter()
-                    .map(|t| t.curry_all())
-                    .collect();
-                let return_type = function_type.return_type.curry_all();
-                AcornType::curry(args, return_type)
-            }
-            AcornType::Bool => AcornType::Bool,
-            AcornType::Data(_, _) => self.clone(),
-            _ => panic!("Can't curry {:?}", self),
-        }
-    }
-
     // Create the type, in non-curried form, for a function with the given arguments and return type.
     pub fn functional(arg_types: Vec<AcornType>, return_type: AcornType) -> AcornType {
         if arg_types.is_empty() {
