@@ -212,14 +212,14 @@ impl AcornType {
                 }
                 self.clone()
             }
-            AcornType::Function(function_type) => AcornType::Function(FunctionType {
-                arg_types: function_type
+            AcornType::Function(function_type) => AcornType::new_functional(
+                function_type
                     .arg_types
                     .iter()
                     .map(|t| t.specialize(params))
                     .collect(),
-                return_type: Box::new(function_type.return_type.specialize(params)),
-            }),
+                function_type.return_type.specialize(params),
+            ),
             _ => self.clone(),
         }
     }
