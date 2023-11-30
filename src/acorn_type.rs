@@ -284,10 +284,10 @@ impl AcornType {
     pub fn to_placeholder(&self) -> AcornType {
         match self {
             AcornType::Parameter(name) => AcornType::Placeholder(name.to_string()),
-            AcornType::Function(ftype) => AcornType::Function(FunctionType {
-                arg_types: ftype.arg_types.iter().map(|t| t.to_placeholder()).collect(),
-                return_type: Box::new(ftype.return_type.to_placeholder()),
-            }),
+            AcornType::Function(ftype) => AcornType::new_functional(
+                ftype.arg_types.iter().map(|t| t.to_placeholder()).collect(),
+                ftype.return_type.to_placeholder(),
+            ),
             _ => self.clone(),
         }
     }
