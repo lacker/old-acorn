@@ -147,6 +147,10 @@ impl AcornType {
                         return false;
                     }
                 }
+                if let AcornType::Function(_) = *function_type.return_type {
+                    // A function type with a function return type, not normal
+                    return false;
+                }
                 function_type.return_type.is_normalized()
             }
             AcornType::Bool => true,
