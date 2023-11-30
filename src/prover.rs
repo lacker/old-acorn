@@ -1238,6 +1238,18 @@ mod tests {
     //     );
     // }
 
+    #[test]
+    fn test_proving_with_partial_application() {
+        prove_all_succeeds(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            let add: (Nat, Nat) -> Nat = axiom
+            theorem goal(f: Nat -> Nat): f = add(0) -> f(0) = add(0, 0)
+        "#,
+        );
+    }
+
     // These tests are like integration tests. See the files in the `tests` directory.
 
     fn test_mono(name: &str) {
