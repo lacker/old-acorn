@@ -463,27 +463,6 @@ impl Prover {
         if clause.is_impossible() {
             return self.report_contradiction(info.proof_step);
         }
-        self.synthesizer.observe_types(clause);
-
-        // Synthesize predicates if this is the negated goal.
-        if info.clause_type == ClauseType::NegatedGoal {
-            let synth_clauses = self.synthesizer.synthesize(&self.normalizer, clause);
-            if !synth_clauses.is_empty() {
-                for synth_clause in synth_clauses {
-                    if verbose {
-                        cprintln!(self, "synthesizing: {}", self.display(&synth_clause));
-                    }
-
-                    // Treat the definition of synthesized predicates like extra facts.
-                    let synth_info = self.new_clause_info(
-                        synth_clause,
-                        ClauseType::Fact,
-                        ProofStep::definition(),
-                    );
-                    self.activate(synth_info, verbose, tracing);
-                }
-            }
-        }
 
         if verbose {
             let prefix = match info.clause_type {
@@ -868,18 +847,6 @@ mod tests {
     }
 
     #[test]
-    fn test_matching_newly_synthesized_goal() {
-        let text = r#"
-        type Nat: axiom
-        let 0: Nat = axiom
-        axiom everything(x0: Nat -> bool, x1: Nat): x0(x1)
-        let add: (Nat, Nat) -> Nat = axiom
-        theorem goal(a: Nat): add(a, 0) = a
-        "#;
-        assert_eq!(prove_text(text, "goal"), Outcome::Success);
-    }
-
-    #[test]
     fn test_closure_proof() {
         let text = r#"
             type Nat: axiom
@@ -1248,102 +1215,6 @@ mod tests {
             theorem goal(f: Nat -> Nat): f = add(0) -> f(0) = add(0, 0)
         "#,
         );
-    }
-
-    // These tests are like integration tests. See the files in the `tests` directory.
-
-    fn test_mono(name: &str) {
-        assert_eq!(
-            prove(&mut Project::new("test"), "mono_nat", name),
-            Outcome::Success
-        );
-    }
-
-    #[test]
-    fn test_mono_add_zero_right() {
-        test_mono("add_zero_right");
-    }
-
-    #[test]
-    fn test_mono_one_plus_one() {
-        test_mono("one_plus_one");
-    }
-
-    #[test]
-    fn test_mono_add_zero_left() {
-        test_mono("add_zero_left");
-    }
-
-    #[test]
-    fn test_mono_add_suc_right() {
-        test_mono("add_suc_right");
-    }
-
-    #[test]
-    fn test_mono_add_suc_left() {
-        test_mono("add_suc_left");
-    }
-
-    #[test]
-    fn test_mono_suc_ne() {
-        test_mono("suc_ne");
-    }
-
-    #[test]
-    fn test_mono_suc_suc_ne() {
-        test_mono("suc_suc_ne");
-    }
-
-    #[test]
-    fn test_mono_add_comm() {
-        test_mono("add_comm");
-    }
-
-    fn test_poly(name: &str) {
-        assert_eq!(
-            prove(&mut Project::new("test"), "poly_nat", name),
-            Outcome::Success
-        );
-    }
-
-    #[test]
-    fn test_poly_add_zero_right() {
-        test_poly("add_zero_right");
-    }
-
-    #[test]
-    fn test_poly_one_plus_one() {
-        test_poly("one_plus_one");
-    }
-
-    #[test]
-    fn test_poly_add_zero_left() {
-        test_poly("add_zero_left");
-    }
-
-    #[test]
-    fn test_poly_add_suc_right() {
-        test_poly("add_suc_right");
-    }
-
-    #[test]
-    fn test_poly_add_suc_left() {
-        test_poly("add_suc_left");
-    }
-
-    #[test]
-    fn test_poly_suc_ne() {
-        test_poly("suc_ne");
-    }
-
-    #[test]
-    fn test_poly_suc_suc_ne() {
-        test_poly("suc_suc_ne");
-    }
-
-    #[test]
-    fn test_poly_add_comm() {
-        test_poly("add_comm");
     }
 
     #[test]

@@ -29,19 +29,29 @@ let 2: Nat = Suc(1)
 
 theorem one_plus_one: add(1, 1) = 2
 
-theorem add_zero_left(a: Nat): add(0, a) = a
+theorem add_zero_left(a: Nat): add(0, a) = a by {
+    induction(add_zero_left)
+}
 
 theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
 
-theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))
+theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b)) by {
+    define f(x: Nat) -> bool = add_suc_left(a, x)
+    induction(f)
+}
 
 theorem suc_ne(a: Nat): Suc(a) != a by {
     induction(suc_ne)
 }
 
-theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a
+theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a by {
+    induction(suc_suc_ne)
+}
 
-theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
+theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a) by {
+    define f(x: Nat) -> bool = add_comm(x, b)
+    induction(f)
+}
 
 theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c)) by {
     define f(x: Nat) -> bool = add_assoc(x, b, c) 
@@ -64,9 +74,13 @@ define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
 
 define mul(a: Nat, b: Nat) -> Nat = recursion(adder(a), 0, b)
 
-theorem mul_zero_right(a: Nat): mul(a, 0) = 0
+theorem mul_zero_right(a: Nat): mul(a, 0) = 0 by {
+    induction(mul_zero_right)
+}
 
-theorem mul_zero_left(a: Nat): mul(0, a) = 0
+theorem mul_zero_left(a: Nat): mul(0, a) = 0 by {
+    induction(mul_zero_left)
+}
 
 theorem mul_suc_right(a: Nat, b: Nat): mul(a, Suc(b)) = add(a, mul(a, b))
 
@@ -162,7 +176,10 @@ theorem lt_not_ref(a: Nat): !lt(a, a) by {
     }
 }
 
-theorem add_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0
+theorem add_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0 by {
+    define f(x: Nat) -> bool = add_to_zero(x, b)
+    induction(f)
+}
 
 theorem only_zero_lte_zero(a: Nat): lte(a, 0) -> a = 0
 

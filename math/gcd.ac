@@ -26,12 +26,20 @@ define gcd_step(p: NatPair) -> NatPair = if NatPair.second(p) = 0 {
 // n steps of the gcd algorithm.
 define gcd_step_n(p: NatPair, n: Nat) -> NatPair = nat.recursion(gcd_step, p, n)
 
+define false_below(f: Nat -> bool, n: Nat) -> bool = forall(x: Nat) { lt(x, n) -> !f(x) }
+
+theorem all_false_below(f: Nat -> bool):
+    forall(x: Nat) { false_below(f, x) } -> forall(x: Nat) { !f(x) }
+
 // is_min(f)(x) tells you whether x is the smallest value for which f is true.
 define is_min(f: Nat -> bool) -> (Nat -> bool) = function(x: Nat) {
-    f(x) & forall(y: Nat) { lt(y, x) -> !f(y) }
+    f(x) & false_below(f, x)
 }
 
-theorem has_min(f: Nat -> bool): exists(x: Nat) { f(x) } -> exists(x: Nat) { is_min(f)(x) }
+theorem has_min(f: Nat -> bool, n: Nat): f(n) -> exists(m: Nat) { is_min(f)(m) } by {
+    define g(x: Nat) -> bool = has_min(f, x)
+    nat.strong_induction(g)
+}
 
 // A decreasing_to_zero function strictly decreases until it hits zero.
 // No, I made a mistake - this should have a type error.
