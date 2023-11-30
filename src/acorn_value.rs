@@ -15,32 +15,7 @@ pub struct FunctionApplication {
 impl FunctionApplication {
     pub fn get_type(&self) -> AcornType {
         match self.function.get_type() {
-            AcornType::Function(ftype) => {
-                if ftype.arg_types.len() < self.args.len() {
-                    panic!(
-                        "application has {} args but function type only takes {} args",
-                        self.args.len(),
-                        ftype.arg_types.len()
-                    );
-                }
-                if ftype.arg_types.len() == self.args.len() {
-                    // This is a function application with the typical number of args
-                    *ftype.return_type
-                } else {
-                    // This is a partial application.
-                    // Figure out which args are left over.
-                    let remaining: Vec<_> = ftype
-                        .arg_types
-                        .iter()
-                        .skip(self.args.len())
-                        .cloned()
-                        .collect();
-                    AcornType::Function(FunctionType {
-                        arg_types: remaining,
-                        return_type: ftype.return_type.clone(),
-                    })
-                }
-            }
+            AcornType::Function(ftype) => ftype.applied_type(self.args.len()),
             _ => panic!("FunctionApplication's function is not a function type"),
         }
     }

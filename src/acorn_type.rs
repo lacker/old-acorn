@@ -19,6 +19,29 @@ impl fmt::Display for FunctionType {
     }
 }
 
+impl FunctionType {
+    // The type after applying this function to a certain number of arguments.
+    // Panics if the application is invalid.
+    pub fn applied_type(&self, num_args: usize) -> AcornType {
+        if num_args > self.arg_types.len() {
+            panic!(
+                "Can't apply function type {:?} taking {} args to {} args",
+                self,
+                self.arg_types.len(),
+                num_args
+            );
+        }
+        if num_args == self.arg_types.len() {
+            *self.return_type.clone()
+        } else {
+            AcornType::Function(FunctionType {
+                arg_types: self.arg_types[num_args..].to_vec(),
+                return_type: self.return_type.clone(),
+            })
+        }
+    }
+}
+
 // Every AcornValue has an AcornType.
 // This is the "richer" form of a type. The environment uses these types; the prover uses ids.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
