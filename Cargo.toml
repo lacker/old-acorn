@@ -17,6 +17,7 @@ qp-trie = "0.8.2"
 serde = "1.0.188"
 tokio = { version = "1.32.0", features = ["full"] }
 tower-lsp = "0.20.0"
+walkdir = "2.4.0"
 
 [profile.release]
 debug = true

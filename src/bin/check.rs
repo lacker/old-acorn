@@ -4,16 +4,27 @@
 
 use acorn::project::Project;
 
-const USAGE: &str = "Usage: cargo run --bin=check <module name>";
+const USAGE: &str = "Usage: cargo run --bin=check [module name]";
 
 #[tokio::main]
 async fn main() {
-    // Parse command line arguments
-    let mut args = std::env::args().skip(1);
-    let module_name = args.next().expect(USAGE);
-
     let mut project = Project::new("math");
-    project.add_target(&module_name);
+
+    // Parse command line arguments
+    let args = std::env::args();
+    match args.len() {
+        1 => {
+            project.add_all_targets();
+        }
+        2 => {
+            let module_name = args.skip(1).next().unwrap();
+            project.add_target(&module_name);
+        }
+        _ => {
+            eprintln!("{}", USAGE);
+            return;
+        }
+    }
 
     let mut all_ok = true;
     project.build(&mut |event| {

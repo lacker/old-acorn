@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::{fmt, io};
 
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
+use walkdir::WalkDir;
 
 use crate::binding_map::BindingMap;
 use crate::environment::Environment;
@@ -164,6 +165,21 @@ impl Project {
     pub fn add_target_file(&mut self, path: &Path) -> bool {
         let module_name = self.module_name_from_path(path).unwrap();
         self.add_target(&module_name)
+    }
+
+    // Adds a target for all files in this directory.
+    pub fn add_all_targets(&mut self) {
+        if !self.use_filesystem {
+            panic!("cannot add all targets without filesystem access")
+        }
+        for entry in WalkDir::new(&self.root).into_iter().filter_map(|e| e.ok()) {
+            if entry.file_type().is_file() {
+                let path = entry.path();
+                if path.extension() == Some(std::ffi::OsStr::new("ac")) {
+                    self.add_target_file(path);
+                }
+            }
+        }
     }
 
     // Whether the provided content matches what we already have for an open file.
@@ -416,6 +432,7 @@ impl Project {
         }
     }
 
+    // Returns a load error if the path doesn't correspond to a module.
     pub fn module_name_from_path(&self, path: &Path) -> Result<String, LoadError> {
         let relative = path.strip_prefix(&self.root).map_err(|_| {
             LoadError(format!(
