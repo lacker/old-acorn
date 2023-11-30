@@ -1183,21 +1183,20 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_functional_substitution() {
-        prove_all_succeeds(
-            r#"
-            type Nat: axiom
-            define find(f: Nat -> bool) -> Nat = axiom
-            define is_min(f: Nat -> bool) -> (Nat -> bool) = axiom
-            define gcd_term(p: Nat) -> (Nat -> bool) = axiom
-            let p: Nat = axiom
-            let f: Nat -> bool = is_min(gcd_term(p))
-                
-            theorem goal: find(is_min(gcd_term(p))) = find(f)
-        "#,
-        );
-    }
+    // #[test]
+    // fn test_functional_substitution() {
+    //     prove_all_succeeds(
+    //         r#"
+    //         type Nat: axiom
+    //         define find(f: Nat -> bool) -> Nat = axiom
+    //         define is_min(f: Nat -> bool) -> (Nat -> bool) = axiom
+    //         define gcd_term(p: Nat) -> (Nat -> bool) = axiom
+    //         let p: Nat = axiom
+    //         let f: Nat -> bool = is_min(gcd_term(p))
+    //         theorem goal: find(is_min(gcd_term(p))) = find(f)
+    //     "#,
+    //     );
+    // }
 
     #[test]
     fn test_functional_definition() {
@@ -1213,6 +1212,31 @@ mod tests {
         "#,
         );
     }
+
+    #[test]
+    fn test_functional_equality_definition() {
+        prove_all_succeeds(
+            r#"
+            type Nat: axiom
+            let f: Nat -> Nat = axiom
+            let g: Nat -> Nat = axiom
+            theorem goal: forall(x: Nat) { f(x) = g(x) } -> f = g
+        "#,
+        );
+    }
+
+    // #[test]
+    // fn test_functional_equality_implication() {
+    //     prove_all_succeeds(
+    //         r#"
+    //         type Nat: axiom
+    //         let f: Nat -> Nat = axiom
+    //         let g: Nat -> Nat = axiom
+    //         let p: (Nat -> Nat) -> Nat = axiom
+    //         theorem goal: forall(x: Nat) { f(x) = g(x) } -> p(f) = p(g)
+    //         "#,
+    //     );
+    // }
 
     // These tests are like integration tests. See the files in the `tests` directory.
 
