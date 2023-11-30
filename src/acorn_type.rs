@@ -21,7 +21,7 @@ impl fmt::Display for FunctionType {
 
 impl FunctionType {
     // arg_types must be nonempty
-    pub fn new(arg_types: Vec<AcornType>, return_type: AcornType) -> FunctionType {
+    fn new(arg_types: Vec<AcornType>, return_type: AcornType) -> FunctionType {
         FunctionType {
             arg_types,
             return_type: Box::new(return_type),

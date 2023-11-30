@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use tower_lsp::lsp_types::{Position, Range};
 
-use crate::acorn_type::{AcornType, FunctionType};
+use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::BindingMap;
@@ -703,10 +703,8 @@ impl Environment {
                 let struct_type = self.bindings.add_data_type(&ss.name);
                 let mut member_fns = vec![];
                 for (member_fn_name, field_type) in member_fn_names.iter().zip(&field_types) {
-                    let member_fn_type = AcornType::Function(FunctionType {
-                        arg_types: vec![struct_type.clone()],
-                        return_type: Box::new(field_type.clone()),
-                    });
+                    let member_fn_type =
+                        AcornType::new_functional(vec![struct_type.clone()], field_type.clone());
                     self.bindings
                         .add_constant(&member_fn_name, vec![], member_fn_type, None);
                     member_fns.push(self.bindings.get_constant_value(&member_fn_name).unwrap());
@@ -714,10 +712,8 @@ impl Environment {
 
                 // A "new" function to create one of these struct types.
                 let new_fn_name = format!("{}.new", ss.name);
-                let new_fn_type = AcornType::Function(FunctionType {
-                    arg_types: field_types.clone(),
-                    return_type: Box::new(struct_type.clone()),
-                });
+                let new_fn_type =
+                    AcornType::new_functional(field_types.clone(), struct_type.clone());
                 self.bindings
                     .add_constant(&new_fn_name, vec![], new_fn_type, None);
                 let new_fn = self.bindings.get_constant_value(&new_fn_name).unwrap();
