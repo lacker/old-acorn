@@ -1570,7 +1570,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
-        env.add("define add(a: Nat, b: Nat) -> Nat = axiom");
-        env.add("let add0: Nat -> Nat = add(0)");
+        env.add("define add3(a: Nat, b: Nat, c: Nat) -> Nat = axiom");
+        env.add("let add0: (Nat, Nat) -> Nat = add3(0)");
+        env.add("let add00: Nat -> Nat = add3(0, 0)");
+        env.add("let add00_alt: Nat -> Nat = add0(0)");
     }
 }
