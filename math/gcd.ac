@@ -194,10 +194,38 @@ theorem gcd_divides_right(a: Nat, b: Nat): divides(gcd(a, b), b) by {
     divides(gcd(a, b), gcd(a, b))
 }
 
-theorem gcd_is_gcd(a: Nat, b: Nat, d: Nat): a != 0 & b != 0 & divides(d, a) & divides(d, b) -> lte(d, gcd(a, b)) by {
+theorem gcd_is_gcd(a: Nat, b: Nat, d: Nat):
+    a != 0 & b != 0 & divides(d, a) & divides(d, b) -> lte(d, gcd(a, b)) by {
     if a != 0 & b != 0 & divides(d, a) & divides(d, b) {
         gcd(a, b) != 0
         divides(d, gcd(a, b))
         lte(d, gcd(a, b))
     }
 }
+
+theorem gcd_nonzero_left(a: Nat, b: Nat): a != 0 -> gcd(a, b) != 0 by {
+    if a != 0 {
+        if gcd(a, b) = 0 {
+            divides(0, a)
+            a = 0
+            false
+        }
+    }
+}
+
+theorem gcd_zero_right(a: Nat): gcd(a, 0) = a by {
+    divides(a, gcd(a, 0))
+    divides(gcd(a, 0), a)
+}
+
+theorem gcd_zero_left(a: Nat): gcd(0, a) = a by {
+    divides(a, gcd(0, a))
+    divides(gcd(0, a), a)
+}
+
+theorem gcd_comm(a: Nat, b: Nat): gcd(a, b) = gcd(b, a) by {
+    divides(gcd(b, a), gcd(a, b))
+    divides(gcd(a, b), gcd(b, a))
+}
+
+theorem gcd_nonzero_right(a: Nat, b: Nat): b != 0 -> gcd(a, b) != 0

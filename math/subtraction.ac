@@ -161,19 +161,6 @@ theorem divides_sub(a: Nat, b: Nat, d: Nat):
     }
 }
 
-theorem divides_zero(a: Nat): divides(a, 0)
-
-theorem zero_divides(a: Nat): divides(0, a) -> a = 0
-
-theorem divides_mul(a: Nat, b: Nat, d: Nat): divides(d, a) -> divides(d, mul(a, b)) by {
-    if divides(d, a) {
-        exists(q: Nat) { mul(q, d) = a }
-        mul(mul(q, d), b) = mul(a, b)
-        mul(d, mul(q, b)) = mul(a, b)
-        divides(d, mul(a, b))
-    }
-}
-
 theorem divides_mod(a: Nat, m: Nat, d: Nat):
     divides(d, a) & divides(d, m) -> divides(d, mod(a, m)) by {
     if divides(d, a) & divides(d, m) {

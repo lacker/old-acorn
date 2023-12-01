@@ -642,3 +642,31 @@ theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     !lte(p, n)
     lt(n, p)
 }
+
+theorem divides_zero(a: Nat): divides(a, 0)
+
+theorem zero_divides(a: Nat): divides(0, a) -> a = 0
+
+theorem divides_mul(a: Nat, b: Nat, d: Nat): divides(d, a) -> divides(d, mul(a, b)) by {
+    if divides(d, a) {
+        exists(q: Nat) { mul(q, d) = a }
+        mul(mul(q, d), b) = mul(a, b)
+        mul(d, mul(q, b)) = mul(a, b)
+        divides(d, mul(a, b))
+    }
+}
+
+theorem divides_symm(a: Nat, b: Nat): divides(a, b) & divides(b, a) -> a = b by {
+    if divides(a, b) & divides(b, a) {
+        if a = 0 {
+            b = 0
+            a = b
+        }
+        if a != 0 {
+            b != 0
+            lte(a, b)
+            lte(b, a)
+            a = b
+        }
+    }
+}
