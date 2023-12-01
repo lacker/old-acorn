@@ -108,17 +108,9 @@ define gcd_termination(p: NatPair) -> (Nat -> bool) = function(n: Nat) {
 define num_gcd_steps(p: NatPair) -> Nat = subtraction.find(is_min(gcd_termination(p)))
 
 theorem num_gcd_steps_terminates(p: NatPair): NatPair.second(gcd_step_n(p, num_gcd_steps(p))) = 0 by {
-    let f: Nat -> bool = is_min(gcd_termination(p))
-    f = is_min(gcd_termination(p))
-    subtraction.find(is_min(gcd_termination(p))) = subtraction.find(f)
-    num_gcd_steps(p) = subtraction.find(is_min(gcd_termination(p)))
-    num_gcd_steps(p) = subtraction.find(f)
-    exists(n: Nat) { f(n) }
-    f(subtraction.find(f))
-    f(num_gcd_steps(p))
+    exists(n: Nat) { is_min(gcd_termination(p))(n) }
     is_min(gcd_termination(p))(num_gcd_steps(p))
     gcd_termination(p)(num_gcd_steps(p))
-    NatPair.second(gcd_step_n(p, num_gcd_steps(p))) = 0
 }
 
 define gcd_pair(p: NatPair) -> Nat = NatPair.first(gcd_step_n(p, num_gcd_steps(p)))
