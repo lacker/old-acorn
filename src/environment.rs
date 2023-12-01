@@ -25,8 +25,7 @@ pub struct Environment {
 
     // The propositions in this environment.
     // This includes every sort of thing that we need to know is true, specific to this environment.
-    // This includes theorems, anonymous propositions, and the implicit equalities of
-    // definitions.
+    // This includes theorems, anonymous propositions, and definitions.
     // Does not include propositions from parent or child environments.
     // The propositions are fundamentally linear; each may depend on the previous propositions
     // but not on later ones.
@@ -41,15 +40,14 @@ pub struct Environment {
 }
 
 pub struct Proposition {
-    // For a named theorem, this is the name of the theorem.
-    // Otherwise, we generate a human-readable best effort.
-    pub display_name: Option<String>,
+    // Only set when this proposition is a named theorem.
+    theorem_name: Option<String>,
 
     // Whether this theorem has already been proved structurally.
     // For example, this could be an axiom, or a definition.
-    pub proven: bool,
+    proven: bool,
 
-    // A boolean expressing the claim of the proposition.
+    // A boolean value expressing the claim of the proposition.
     // If this proposition has a block, this represents the "external claim".
     // It is the value we can assume is true, in the outer environment, when everything
     // in the inner environment has been proven.
@@ -68,8 +66,9 @@ pub struct Proposition {
 }
 
 impl Proposition {
+    // A human-readable name for this proposition.
     pub fn name(&self) -> String {
-        match &self.display_name {
+        match &self.theorem_name {
             Some(name) => name.clone(),
             None => self.claim.to_string(),
         }
@@ -223,7 +222,7 @@ impl Environment {
         let claim = match params {
             BlockParams::If(fact, range) => {
                 subenv.add_proposition(Proposition {
-                    display_name: None,
+                    theorem_name: None,
                     proven: true,
                     claim: fact.clone(),
                     block: None,
@@ -336,7 +335,7 @@ impl Environment {
         let range = self.definition_ranges.get(name).unwrap().clone();
 
         self.add_proposition(Proposition {
-            display_name: None,
+            theorem_name: None,
             proven: true,
             claim,
             block: None,
@@ -350,7 +349,7 @@ impl Environment {
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {
         for prop in &self.propositions {
-            if let Some(claim_name) = &prop.display_name {
+            if let Some(claim_name) = &prop.theorem_name {
                 if claim_name == name {
                     return Some(prop.claim.clone());
                 }
@@ -361,7 +360,7 @@ impl Environment {
 
     pub fn get_proposition(&self, name: &str) -> &Proposition {
         for prop in &self.propositions {
-            if let Some(claim_name) = &prop.display_name {
+            if let Some(claim_name) = &prop.theorem_name {
                 if claim_name == name {
                     return prop;
                 }
@@ -527,7 +526,7 @@ impl Environment {
                 )?;
 
                 let prop = Proposition {
-                    display_name: Some(ts.name.to_string()),
+                    theorem_name: Some(ts.name.to_string()),
                     proven: ts.axiomatic,
                     claim: forall_claim,
                     block,
@@ -547,7 +546,7 @@ impl Environment {
                     self.includes_explicit_false = true;
                 }
                 let prop = Proposition {
-                    display_name: None,
+                    theorem_name: None,
                     proven: false,
                     claim,
                     block: None,
@@ -585,7 +584,7 @@ impl Environment {
                 };
                 let outer_claim = block.export_bool(&self, inner_claim);
                 let prop = Proposition {
-                    display_name: None,
+                    theorem_name: None,
                     proven: false,
                     claim: outer_claim,
                     block: Some(block),
@@ -629,7 +628,7 @@ impl Environment {
                 );
 
                 let prop = Proposition {
-                    display_name: None,
+                    theorem_name: None,
                     proven: false,
                     claim,
                     block: Some(block),
@@ -650,7 +649,7 @@ impl Environment {
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
                 self.bindings.unbind_args(&quant_names);
                 let general_prop = Proposition {
-                    display_name: None,
+                    theorem_name: None,
                     proven: false,
                     claim: general_claim,
                     block: None,
@@ -669,7 +668,7 @@ impl Environment {
                     self.bindings
                         .evaluate_value(project, &es.claim, Some(&AcornType::Bool))?;
                 let specific_prop = Proposition {
-                    display_name: None,
+                    theorem_name: None,
                     proven: true,
                     claim: specific_claim,
                     block: None,
@@ -739,7 +738,7 @@ impl Environment {
                     AcornValue::Binary(BinaryOp::Equals, Box::new(recreated), Box::new(new_eq_var));
                 let new_claim = AcornValue::ForAll(vec![struct_type], Box::new(new_eq));
                 self.add_proposition(Proposition {
-                    display_name: None,
+                    theorem_name: None,
                     proven: true,
                     claim: new_claim,
                     block: None,
@@ -772,7 +771,7 @@ impl Environment {
                     );
                     let member_claim = AcornValue::ForAll(field_types.clone(), Box::new(member_eq));
                     self.add_proposition(Proposition {
-                        display_name: None,
+                        theorem_name: None,
                         proven: true,
                         claim: member_claim,
                         block: None,
@@ -843,7 +842,7 @@ impl Environment {
     // Will return a context for a subenvironment if this theorem has a block
     pub fn get_theorem_context(&self, project: &Project, theorem_name: &str) -> GoalContext {
         for (i, p) in self.propositions.iter().enumerate() {
-            if let Some(name) = &p.display_name {
+            if let Some(name) = &p.theorem_name {
                 if name == theorem_name {
                     return self.get_goal_context(project, &vec![i]);
                 }
