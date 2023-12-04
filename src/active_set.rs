@@ -545,6 +545,7 @@ impl ActiveSet {
             }
         } else {
             // Use only the leftmost literal for resolution.
+            // NOTE: these resolution targets don't end up being used!
             self.add_resolution_targets(clause_index, 0, leftmost_literal);
         }
 
