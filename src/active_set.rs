@@ -577,10 +577,12 @@ impl ActiveSet {
             }
         }
 
-        if clause.is_rewrite_rule() {
-            let rewrite_literal = &clause.literals[0];
-            self.rewrite_tree
-                .add_rule(clause_index, &rewrite_literal.left, &rewrite_literal.right);
+        if clause.is_rewrite_rule() && info.clause_type == ClauseType::Fact {
+            self.rewrite_tree.add_rule(
+                clause_index,
+                &leftmost_literal.left,
+                &leftmost_literal.right,
+            );
         }
 
         self.clause_set.insert(clause.clone());
