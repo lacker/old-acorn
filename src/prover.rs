@@ -88,7 +88,7 @@ macro_rules! cprintln {
 // "Inconsistent" means that we found a contradiction just in our initial assumptions.
 // "Interrupted" means that the prover was explicitly stopped.
 // "Unknown" means that we could keep working longer at it.
-// "Errir" means that we found a problem in the code that needs to be fixed by the user.
+// "Error" means that we found a problem in the code that needs to be fixed by the user.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     Success,
@@ -363,10 +363,16 @@ impl Prover {
 
         let indices = self.active_set.find_upstream(final_step);
         cprintln!(self, "the proof uses {} steps:", indices.len());
+        let mut pending_negagoal = self.impure_start.is_some();
         for i in indices {
             let step = self.active_set.get_proof_step(i);
             let clause = self.active_set.get_clause(i);
-            let preface = format!("clause {}: ", i);
+            let preface = if pending_negagoal && self.impure_start.unwrap() <= i {
+                pending_negagoal = false;
+                format!("clause {} (negating goal): ", i)
+            } else {
+                format!("clause {}: ", i)
+            };
             self.print_proof_step(&preface, clause, step);
         }
         self.print_proof_step("final step: ", &Clause::impossible(), final_step);
