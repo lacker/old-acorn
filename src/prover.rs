@@ -58,8 +58,9 @@ pub struct Prover {
     // Whether we should report Outcome::Inconsistent or just treat it as a success.
     report_inconsistency: bool,
 
-    // Whether only facts have been added to the active set.
-    facts_only: bool,
+    // Clauses under this id are facts, clauses equal to or above this are impure.
+    // None before there are any impure clauses.
+    impure_start: Option<usize>,
 
     // When this error message is set, it indicates a problem that needs to be reported upstream
     // to the user.
@@ -132,7 +133,7 @@ impl Prover {
             num_generated: 0,
             stop_flags: vec![project.build_stopped.clone()],
             report_inconsistency: !goal_context.includes_explicit_false(),
-            facts_only: true,
+            impure_start: None,
             error: None,
         };
 
@@ -374,7 +375,7 @@ impl Prover {
     // Handle the case when we found a contradiction
     fn report_contradiction(&mut self, ps: ProofStep) -> Outcome {
         self.final_step = Some(ps);
-        if self.facts_only && self.report_inconsistency {
+        if self.impure_start.is_none() && self.report_inconsistency {
             Outcome::Inconsistent
         } else {
             Outcome::Success
@@ -396,8 +397,8 @@ impl Prover {
             }
         };
 
-        if info.clause_type != ClauseType::Fact {
-            self.facts_only = false;
+        if info.clause_type != ClauseType::Fact && self.impure_start.is_none() {
+            self.impure_start = Some(self.active_set.len());
         }
 
         let tracing = self.is_tracing(&info.clause);
