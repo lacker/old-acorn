@@ -146,6 +146,10 @@ impl Literal {
     pub fn atom_count(&self) -> u32 {
         self.left.atom_count() + self.right.atom_count()
     }
+
+    pub fn has_any_variable(&self) -> bool {
+        self.left.has_any_variable() || self.right.has_any_variable()
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.

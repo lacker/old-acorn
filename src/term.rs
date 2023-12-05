@@ -228,6 +228,18 @@ impl Term {
         false
     }
 
+    pub fn has_any_variable(&self) -> bool {
+        if self.is_variable() {
+            return true;
+        }
+        for arg in &self.args {
+            if arg.has_any_variable() {
+                return true;
+            }
+        }
+        false
+    }
+
     // If this term is a variable with the given index, return that index.
     pub fn atomic_variable(&self) -> Option<AtomId> {
         if self.args.len() > 0 {

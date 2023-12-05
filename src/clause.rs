@@ -107,6 +107,10 @@ impl Clause {
     pub fn len(&self) -> usize {
         self.literals.len()
     }
+
+    pub fn has_any_variable(&self) -> bool {
+        self.literals.iter().any(|x| x.has_any_variable())
+    }
 }
 
 #[cfg(test)]
