@@ -127,8 +127,9 @@ pub struct ClauseInfo {
     // Cached for simplicity
     pub atom_count: u32,
 
-    // When the clause was generated.
-    pub generation_order: usize,
+    // A unique id for this clause, specific to this proof.
+    // Should be generated in increasing order.
+    pub id: usize,
 }
 
 impl Ord for ClauseInfo {
@@ -150,7 +151,7 @@ impl Ord for ClauseInfo {
         }
 
         // Prefer clauses that were added earlier
-        other.generation_order.cmp(&self.generation_order)
+        other.id.cmp(&self.id)
     }
 }
 
@@ -171,17 +172,27 @@ impl fmt::Display for ClauseInfo {
 }
 
 impl ClauseInfo {
-    // Construct a ClauseInfo with fake heuristic data for testing
-    pub fn mock(s: &str) -> ClauseInfo {
-        let clause = Clause::parse(s);
+    pub fn new(
+        clause: Clause,
+        clause_type: ClauseType,
+        proof_step: ProofStep,
+        id: usize,
+    ) -> ClauseInfo {
         let atom_count = clause.atom_count();
         ClauseInfo {
             clause,
-            clause_type: ClauseType::Impure,
-            proof_step: ProofStep::assumption(),
+            clause_type,
+            proof_step,
             atom_count,
-            generation_order: 0,
+            id,
         }
+    }
+
+    // Construct a ClauseInfo with fake heuristic data for testing
+    pub fn mock(s: &str) -> ClauseInfo {
+        let clause = Clause::parse(s);
+
+        ClauseInfo::new(clause, ClauseType::Impure, ProofStep::assumption(), 0)
     }
 
     // A heuristic for how simple this clause is.

@@ -493,7 +493,7 @@ impl ActiveSet {
             clause: simplified_clause,
             clause_type: info.clause_type,
             proof_step,
-            generation_order: info.generation_order,
+            id: info.id,
             atom_count,
         })
     }

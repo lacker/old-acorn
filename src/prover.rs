@@ -191,7 +191,7 @@ impl Prover {
             clause_type,
             proof_step,
             atom_count,
-            generation_order,
+            id: generation_order,
         }
     }
 
