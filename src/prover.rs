@@ -47,7 +47,7 @@ pub struct Prover {
     pub hit_trace: bool,
 
     // The final step that proves a contradiction, if we have one.
-    final_step: Option<ProofStep>,
+    final_step: Option<ClauseInfo>,
 
     // Setting any of these flags to true externally will stop the prover.
     pub stop_flags: Vec<Arc<AtomicBool>>,
@@ -178,7 +178,10 @@ impl Prover {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
                 // We have a false assumption, so we're done already.
-                self.final_step = Some(ProofStep::assumption());
+                self.final_step = Some(ClauseInfo::new_initial_fact(
+                    Clause::impossible(),
+                    self.active_set.next_generation_ordinal(),
+                ));
                 return;
             }
             Err(e) => {
@@ -200,7 +203,10 @@ impl Prover {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
                 // Our goal is trivially true, so we're done already.
-                self.final_step = Some(ProofStep::assumption());
+                self.final_step = Some(ClauseInfo::new_negated_goal(
+                    Clause::impossible(),
+                    self.active_set.next_generation_ordinal(),
+                ));
                 return;
             }
             Err(e) => {
@@ -343,7 +349,7 @@ impl Prover {
             self.active_set.len()
         );
 
-        let indices = self.active_set.find_upstream(final_step);
+        let indices = self.active_set.find_upstream(&final_step.proof_step);
         cprintln!(self, "the proof uses {} steps:", indices.len());
         let mut pending_negagoal = self.impure_start.is_some();
         for i in indices {
@@ -355,11 +361,11 @@ impl Prover {
             };
             self.print_clause_info(&preface, self.active_set.get_clause_info(i));
         }
-        self.print_proof_step("final step: ", &Clause::impossible(), final_step);
+        self.print_clause_info("final step: ", final_step);
     }
 
     // Handle the case when we found a contradiction
-    fn report_contradiction(&mut self, ps: ProofStep) -> Outcome {
+    fn report_contradiction(&mut self, ps: ClauseInfo) -> Outcome {
         self.final_step = Some(ps);
         if self.impure_start.is_none() && self.report_inconsistency {
             Outcome::Inconsistent
@@ -420,7 +426,7 @@ impl Prover {
         }
 
         if clause.is_impossible() {
-            return self.report_contradiction(info.proof_step);
+            return self.report_contradiction(info);
         }
 
         if verbose {
@@ -451,7 +457,7 @@ impl Prover {
         }
         for (i, info) in generated_clauses.into_iter().enumerate() {
             if info.finishes_proof() {
-                return self.report_contradiction(info.proof_step);
+                return self.report_contradiction(info);
             }
 
             if info.heuristic_reject() {
@@ -468,7 +474,7 @@ impl Prover {
 
             if let Some(info) = self.active_set.simplify(info) {
                 if info.clause.is_impossible() {
-                    return self.report_contradiction(info.proof_step);
+                    return self.report_contradiction(info);
                 }
                 self.passive.push(info);
             }
