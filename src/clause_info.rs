@@ -217,7 +217,7 @@ impl ClauseInfo {
 
     // A heuristic for how simple this clause is.
     // The lower the simplicity, the more likely we are to select it.
-    pub fn simplicity(&self) -> u32 {
+    fn simplicity(&self) -> u32 {
         self.atom_count + self.proof_step.proof_size
     }
 
@@ -228,5 +228,15 @@ impl ClauseInfo {
     // The ids of the other clauses that this clause depends on.
     pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
         self.proof_step.indices()
+    }
+
+    // Whether this is the last step of the proof
+    pub fn finishes_proof(&self) -> bool {
+        self.clause.is_impossible()
+    }
+
+    // A heuristic for whether this clause is so bad, it should be rejected immediately.
+    pub fn heuristic_reject(&self) -> bool {
+        self.clause_type == ClauseType::Fact && self.proof_size() > 2
     }
 }

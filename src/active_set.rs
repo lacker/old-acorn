@@ -608,10 +608,17 @@ impl ActiveSet {
     // Does not simplify.
     // After generation, adds this clause to the active set.
     // Returns pairs describing how the generated clauses were proved.
-    pub fn generate(&mut self, info: ClauseInfo) -> Vec<(Clause, ProofStep)> {
+    pub fn generate(&mut self, info: ClauseInfo) -> Vec<ClauseInfo> {
         let mut generated_clauses = vec![];
         let id = self.clause_info.len();
         let activated = Some(id);
+
+        // TODO: make this not rely on doing all the fact-fact inference first
+        let generated_type = if info.clause_type == ClauseType::Fact {
+            ClauseType::Fact
+        } else {
+            ClauseType::Impure
+        };
 
         // First calculate proof size for clauses dependent only on this one
         let activated_size = info.proof_step.proof_size;
@@ -619,8 +626,9 @@ impl ActiveSet {
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
         if let Some(new_clause) = ActiveSet::equality_resolution(&info.clause) {
-            generated_clauses.push((
+            generated_clauses.push(ClauseInfo::new(
                 new_clause,
+                generated_type,
                 ProofStep {
                     rule: ProofRule::EqualityResolution,
                     activated,
@@ -628,11 +636,13 @@ impl ActiveSet {
                     rewrites: vec![],
                     proof_size: activated_size + 1,
                 },
+                self.next_generation_ordinal(),
             ));
         }
         for clause in ActiveSet::equality_factoring(&info.clause) {
-            generated_clauses.push((
+            generated_clauses.push(ClauseInfo::new(
                 clause,
+                generated_type,
                 ProofStep {
                     rule: ProofRule::EqualityFactoring,
                     activated,
@@ -640,13 +650,15 @@ impl ActiveSet {
                     rewrites: vec![],
                     proof_size: activated_size + 1,
                 },
+                self.next_generation_ordinal(),
             ));
         }
 
         for (new_clause, i) in self.activate_paramodulator(&info.clause, info.clause_type) {
             let existing_size = self.get_clause_info(i).proof_step.proof_size;
-            generated_clauses.push((
+            generated_clauses.push(ClauseInfo::new(
                 new_clause,
+                generated_type,
                 ProofStep {
                     rule: ProofRule::ActivatingParamodulator,
                     activated,
@@ -654,12 +666,14 @@ impl ActiveSet {
                     rewrites: vec![],
                     proof_size: activated_size + existing_size + 1,
                 },
+                self.next_generation_ordinal(),
             ))
         }
         for (new_clause, i) in self.activate_resolver(&info.clause, info.clause_type) {
             let existing_size = self.get_clause_info(i).proof_step.proof_size;
-            generated_clauses.push((
+            generated_clauses.push(ClauseInfo::new(
                 new_clause,
+                generated_type,
                 ProofStep {
                     rule: ProofRule::ActivatingResolver,
                     activated,
@@ -667,6 +681,7 @@ impl ActiveSet {
                     rewrites: vec![],
                     proof_size: activated_size + existing_size + 1,
                 },
+                self.next_generation_ordinal(),
             ))
         }
 
@@ -804,7 +819,10 @@ mod tests {
         info.clause_type = ClauseType::NegatedGoal;
         let new_clauses = set.generate(info);
         assert_eq!(new_clauses.len(), 1);
-        assert_eq!(new_clauses[0].0.to_string(), "!c2(c0(c0(c3)))".to_string());
+        assert_eq!(
+            new_clauses[0].clause.to_string(),
+            "!c2(c0(c0(c3)))".to_string()
+        );
     }
 
     #[test]

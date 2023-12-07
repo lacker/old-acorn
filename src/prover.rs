@@ -437,14 +437,7 @@ impl Prover {
     // Generates clauses, then simplifies them, then adds them to the passive set.
     // Clauses will get simplified again when they are activated.
     fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
-        let clause_type = info.clause_type;
         let generated_clauses = self.active_set.generate(info);
-
-        let generated_type = if clause_type == ClauseType::Fact {
-            ClauseType::Fact
-        } else {
-            ClauseType::Impure
-        };
 
         let print_limit = 30;
         let len = generated_clauses.len();
@@ -456,27 +449,23 @@ impl Prover {
                 if len > print_limit { ", eg" } else { "" }
             );
         }
-        for (i, (c, ps)) in generated_clauses.into_iter().enumerate() {
-            if clause_type == ClauseType::Fact && ps.proof_size > 2 {
-                // Limit fact-fact inference
+        for (i, info) in generated_clauses.into_iter().enumerate() {
+            if info.finishes_proof() {
+                return self.report_contradiction(info.proof_step);
+            }
+
+            if info.heuristic_reject() {
                 continue;
             }
-            if c.is_impossible() {
-                return self.report_contradiction(ps);
-            }
+
             if tracing {
-                self.print_proof_step("", &c, &ps);
+                self.print_clause_info("", &info);
             } else if verbose && (i < print_limit) {
-                cprintln!(self, "  {}", self.display(&c));
-            } else if self.is_tracing(&c) {
-                self.print_proof_step("", &c, &ps);
+                cprintln!(self, "  {}", self.display(&info.clause));
+            } else if self.is_tracing(&info.clause) {
+                self.print_clause_info("", &info);
             }
-            let info = ClauseInfo::new(
-                c,
-                generated_type,
-                ps,
-                self.active_set.next_generation_ordinal(),
-            );
+
             if let Some(info) = self.active_set.simplify(info) {
                 if info.clause.is_impossible() {
                     return self.report_contradiction(info.proof_step);
