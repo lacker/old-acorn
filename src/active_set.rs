@@ -32,6 +32,9 @@ pub struct ActiveSet {
     // A clause can only be a rewrite if it's a single foo = bar literal, and foo > bar by the KBO.
     // So we only need to store the clause index of the rewrite rule.
     rewrite_tree: RewriteTree,
+
+    // How many ClauseInfo have been generated during this proof.
+    num_generated: usize,
 }
 
 // A ResolutionTarget represents one a subterm within an active clause.
@@ -82,7 +85,15 @@ impl ActiveSet {
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
             rewrite_tree: RewriteTree::new(),
+            num_generated: 0,
         }
+    }
+
+    // Get a number representing the order in which a clause was generated.
+    pub fn next_generation_ordinal(&mut self) -> usize {
+        let ordinal = self.num_generated;
+        self.num_generated += 1;
+        ordinal
     }
 
     pub fn len(&self) -> usize {
@@ -492,7 +503,7 @@ impl ActiveSet {
             simplified_clause,
             info.clause_type,
             proof_step,
-            info.generation_order,
+            info.generation_ordinal,
         ))
     }
 

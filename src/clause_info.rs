@@ -127,9 +127,9 @@ pub struct ClauseInfo {
     // Cached for simplicity
     pub atom_count: u32,
 
-    // The order in which the ClauseInfo was created.
+    // The order in which this ClauseInfo was created.
     // This is different from the order in which the ClauseInfo was activated.
-    pub generation_order: usize,
+    pub generation_ordinal: usize,
 }
 
 impl Ord for ClauseInfo {
@@ -151,7 +151,7 @@ impl Ord for ClauseInfo {
         }
 
         // Prefer clauses that were added earlier
-        other.generation_order.cmp(&self.generation_order)
+        other.generation_ordinal.cmp(&self.generation_ordinal)
     }
 }
 
@@ -176,7 +176,7 @@ impl ClauseInfo {
         clause: Clause,
         clause_type: ClauseType,
         proof_step: ProofStep,
-        generation_order: usize,
+        generation_ordinal: usize,
     ) -> ClauseInfo {
         let atom_count = clause.atom_count();
         ClauseInfo {
@@ -184,8 +184,28 @@ impl ClauseInfo {
             clause_type,
             proof_step,
             atom_count,
-            generation_order,
+            generation_ordinal,
         }
+    }
+
+    // Construct a ClauseInfo for one of the facts from the initial set of facts.
+    pub fn new_initial_fact(clause: Clause, generation_ordinal: usize) -> ClauseInfo {
+        ClauseInfo::new(
+            clause,
+            ClauseType::Fact,
+            ProofStep::assumption(),
+            generation_ordinal,
+        )
+    }
+
+    // Construct a ClauseInfo for the negated goal that we are trying to prove.
+    pub fn new_negated_goal(clause: Clause, generation_ordinal: usize) -> ClauseInfo {
+        ClauseInfo::new(
+            clause,
+            ClauseType::NegatedGoal,
+            ProofStep::assumption(),
+            generation_ordinal,
+        )
     }
 
     // Construct a ClauseInfo with fake heuristic data for testing
