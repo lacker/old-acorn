@@ -345,7 +345,7 @@ impl Prover {
             self.active_set.len()
         );
 
-        let indices = self.active_set.find_upstream(&final_step.proof_step);
+        let indices = self.active_set.find_upstream(&final_step);
         cprintln!(self, "the proof uses {} steps:", indices.len());
         let mut pending_negagoal = self.impure_start.is_some();
         for i in indices {

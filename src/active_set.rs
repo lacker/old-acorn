@@ -694,10 +694,10 @@ impl ActiveSet {
     }
 
     // Find the index of all clauses used to prove the provided step.
-    pub fn find_upstream(&self, step: &ProofStep) -> Vec<usize> {
+    pub fn find_upstream(&self, step: &ClauseInfo) -> Vec<usize> {
         let mut pending = Vec::<usize>::new();
         let mut seen = HashSet::new();
-        for i in step.indices() {
+        for i in step.dependencies() {
             pending.push(*i);
         }
         while !pending.is_empty() {
