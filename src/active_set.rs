@@ -488,14 +488,12 @@ impl ActiveSet {
         if self.contains(&simplified_clause) {
             return None;
         }
-        let atom_count = simplified_clause.atom_count();
-        Some(ClauseInfo {
-            clause: simplified_clause,
-            clause_type: info.clause_type,
+        Some(ClauseInfo::new(
+            simplified_clause,
+            info.clause_type,
             proof_step,
-            id: info.id,
-            atom_count,
-        })
+            info.id,
+        ))
     }
 
     // Add all the resolution targets for a given literal.
