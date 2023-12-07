@@ -183,16 +183,9 @@ impl Prover {
         clause_type: ClauseType,
         proof_step: ProofStep,
     ) -> ClauseInfo {
-        let atom_count = clause.atom_count();
-        let generation_order = self.num_generated;
+        let id = self.num_generated;
         self.num_generated += 1;
-        ClauseInfo {
-            clause,
-            clause_type,
-            proof_step,
-            atom_count,
-            id: generation_order,
-        }
+        ClauseInfo::new(clause, clause_type, proof_step, id)
     }
 
     pub fn add_fact(&mut self, proposition: AcornValue) {
