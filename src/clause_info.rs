@@ -127,9 +127,9 @@ pub struct ClauseInfo {
     // Cached for simplicity
     pub atom_count: u32,
 
-    // A unique id for this clause, specific to this proof.
-    // Should be generated in increasing order.
-    pub id: usize,
+    // The order in which the ClauseInfo was created.
+    // This is different from the order in which the ClauseInfo was activated.
+    pub generation_order: usize,
 }
 
 impl Ord for ClauseInfo {
@@ -151,7 +151,7 @@ impl Ord for ClauseInfo {
         }
 
         // Prefer clauses that were added earlier
-        other.id.cmp(&self.id)
+        other.generation_order.cmp(&self.generation_order)
     }
 }
 
@@ -176,7 +176,7 @@ impl ClauseInfo {
         clause: Clause,
         clause_type: ClauseType,
         proof_step: ProofStep,
-        id: usize,
+        generation_order: usize,
     ) -> ClauseInfo {
         let atom_count = clause.atom_count();
         ClauseInfo {
@@ -184,7 +184,7 @@ impl ClauseInfo {
             clause_type,
             proof_step,
             atom_count,
-            id,
+            generation_order,
         }
     }
 

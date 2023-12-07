@@ -492,7 +492,7 @@ impl ActiveSet {
             simplified_clause,
             info.clause_type,
             proof_step,
-            info.id,
+            info.generation_order,
         ))
     }
 
