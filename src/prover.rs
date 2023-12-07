@@ -291,7 +291,7 @@ impl Prover {
         );
     }
 
-    pub fn print_proof_step(&self, preface: &str, clause: &Clause, ps: &ProofStep) {
+    fn print_proof_step(&self, preface: &str, clause: &Clause, ps: &ProofStep) {
         cprintln!(
             self,
             "\n{}{:?} generated:\n    {}",
