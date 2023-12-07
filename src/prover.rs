@@ -8,7 +8,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
 use crate::clause::Clause;
-use crate::clause_info::{ClauseInfo, ClauseType, ProofStep};
+use crate::clause_info::{ClauseInfo, ClauseType};
 use crate::display::DisplayClause;
 use crate::goal_context::{monomorphize_facts, GoalContext};
 use crate::normalizer::{NormalizationError, Normalizer};
@@ -297,30 +297,26 @@ impl Prover {
         );
     }
 
-    fn print_proof_step(&self, preface: &str, clause: &Clause, ps: &ProofStep) {
+    fn print_clause_info(&self, preface: &str, info: &ClauseInfo) {
         cprintln!(
             self,
             "\n{}{:?} generated:\n    {}",
             preface,
-            ps.rule,
-            self.display(clause)
+            info.proof_step.rule,
+            self.display(&info.clause)
         );
-        if let Some(i) = ps.activated {
+        if let Some(i) = info.proof_step.activated {
             let c = self.display(self.active_set.get_clause(i));
             cprintln!(self, "  when activating clause {}:\n    {}", i, c);
         }
-        if let Some(i) = ps.existing {
+        if let Some(i) = info.proof_step.existing {
             let c = self.display(self.active_set.get_clause(i));
             cprintln!(self, "  using clause {}:\n    {}", i, c);
         }
-        for i in &ps.rewrites {
+        for i in &info.proof_step.rewrites {
             let c = self.display(self.active_set.get_clause(*i));
             cprintln!(self, "  rewriting with clause {}:\n    {}", i, c);
         }
-    }
-
-    pub fn print_clause_info(&self, preface: &str, info: &ClauseInfo) {
-        self.print_proof_step(preface, &info.clause, &info.proof_step)
     }
 
     pub fn print_env(&self) {
