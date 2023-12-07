@@ -424,8 +424,8 @@ impl ActiveSet {
         &self.clause_info[index].clause
     }
 
-    pub fn get_proof_step(&self, index: usize) -> &ProofStep {
-        &self.clause_info[index].proof_step
+    pub fn get_clause_info(&self, index: usize) -> &ClauseInfo {
+        &self.clause_info[index]
     }
 
     pub fn contains(&self, clause: &Clause) -> bool {
@@ -644,7 +644,7 @@ impl ActiveSet {
         }
 
         for (new_clause, i) in self.activate_paramodulator(&info.clause, info.clause_type) {
-            let existing_size = self.get_proof_step(i).proof_size;
+            let existing_size = self.get_clause_info(i).proof_step.proof_size;
             generated_clauses.push((
                 new_clause,
                 ProofStep {
@@ -657,7 +657,7 @@ impl ActiveSet {
             ))
         }
         for (new_clause, i) in self.activate_resolver(&info.clause, info.clause_type) {
-            let existing_size = self.get_proof_step(i).proof_size;
+            let existing_size = self.get_clause_info(i).proof_step.proof_size;
             generated_clauses.push((
                 new_clause,
                 ProofStep {
@@ -691,8 +691,7 @@ impl ActiveSet {
                 continue;
             }
             seen.insert(i);
-            let step = self.get_proof_step(i);
-            for j in step.indices() {
+            for j in self.get_clause_info(i).dependencies() {
                 pending.push(*j);
             }
         }

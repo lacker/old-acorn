@@ -75,7 +75,7 @@ pub struct ProofStep {
     // The size includes this proof step itself, but does not count assumptions and definitions.
     // So the size for any assumption or definition is zero.
     // This does not deduplicate among different branches, so it may be an overestimate.
-    // This also ignores rewrites, which doesn't really seem right, does it.
+    // This also ignores rewrites, which may or may not be the ideal behavior.
     pub proof_size: u32,
 }
 
@@ -219,5 +219,14 @@ impl ClauseInfo {
     // The lower the simplicity, the more likely we are to select it.
     pub fn simplicity(&self) -> u32 {
         self.atom_count + self.proof_step.proof_size
+    }
+
+    pub fn proof_size(&self) -> u32 {
+        self.proof_step.proof_size
+    }
+
+    // The ids of the other clauses that this clause depends on.
+    pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
+        self.proof_step.indices()
     }
 }

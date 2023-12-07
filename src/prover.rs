@@ -313,6 +313,10 @@ impl Prover {
         }
     }
 
+    pub fn print_clause_info(&self, preface: &str, info: &ClauseInfo) {
+        self.print_proof_step(preface, &info.clause, &info.proof_step)
+    }
+
     pub fn print_env(&self) {
         cprintln!(self, "facts:");
         for fact in &self.facts {
@@ -343,15 +347,13 @@ impl Prover {
         cprintln!(self, "the proof uses {} steps:", indices.len());
         let mut pending_negagoal = self.impure_start.is_some();
         for i in indices {
-            let step = self.active_set.get_proof_step(i);
-            let clause = self.active_set.get_clause(i);
             let preface = if pending_negagoal && self.impure_start.unwrap() <= i {
                 pending_negagoal = false;
                 format!("clause {} (negating goal): ", i)
             } else {
                 format!("clause {}: ", i)
             };
-            self.print_proof_step(&preface, clause, step);
+            self.print_clause_info(&preface, self.active_set.get_clause_info(i));
         }
         self.print_proof_step("final step: ", &Clause::impossible(), final_step);
     }
