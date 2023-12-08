@@ -625,7 +625,7 @@ impl ActiveSet {
                 &activated_step,
                 i,
                 self.get_step(i),
-                Rule::ActivatingParamodulator,
+                Rule::Superposition,
                 new_clause,
                 generation_ordinal,
             ));
@@ -639,7 +639,7 @@ impl ActiveSet {
                 &activated_step,
                 i,
                 self.get_step(i),
-                Rule::ActivatingResolver,
+                Rule::Superposition,
                 new_clause,
                 generation_ordinal,
             ));

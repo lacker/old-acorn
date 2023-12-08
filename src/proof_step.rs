@@ -51,8 +51,7 @@ impl PartialOrd for Truthiness {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Rule {
     Assumption,
-    ActivatingParamodulator,
-    ActivatingResolver,
+    Superposition,
     EqualityFactoring,
     EqualityResolution,
 }
