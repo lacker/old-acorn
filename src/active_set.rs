@@ -606,7 +606,7 @@ impl ActiveSet {
     // After generation, adds this clause to the active set.
     // Returns pairs describing how the generated clauses were proved.
     pub fn generate(&mut self, step: ProofStep) -> Vec<ProofStep> {
-        let mut generated_clauses = vec![];
+        let mut generated_steps = vec![];
         let activated = self.steps.len();
 
         // First calculate proof size for clauses dependent only on this one
@@ -615,7 +615,7 @@ impl ActiveSet {
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
         if let Some(new_clause) = ActiveSet::equality_resolution(&step.output) {
-            generated_clauses.push(step.generate(
+            generated_steps.push(step.generate(
                 new_clause,
                 Rule::EqualityResolution,
                 activated,
@@ -625,7 +625,7 @@ impl ActiveSet {
             ));
         }
         for clause in ActiveSet::equality_factoring(&step.output) {
-            generated_clauses.push(step.generate(
+            generated_steps.push(step.generate(
                 clause,
                 Rule::EqualityFactoring,
                 activated,
@@ -637,7 +637,7 @@ impl ActiveSet {
 
         for (new_clause, i) in self.activate_paramodulator(&step.output, step.truthiness) {
             let existing_size = self.get_step(i).proof_size;
-            generated_clauses.push(step.generate(
+            generated_steps.push(step.generate(
                 new_clause,
                 Rule::ActivatingParamodulator,
                 activated,
@@ -648,7 +648,7 @@ impl ActiveSet {
         }
         for (new_clause, i) in self.activate_resolver(&step.output, step.truthiness) {
             let existing_size = self.get_step(i).proof_size;
-            generated_clauses.push(step.generate(
+            generated_steps.push(step.generate(
                 new_clause,
                 Rule::ActivatingResolver,
                 activated,
@@ -659,7 +659,7 @@ impl ActiveSet {
         }
 
         self.insert(step, activated);
-        generated_clauses
+        generated_steps
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
