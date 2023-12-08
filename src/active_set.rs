@@ -595,7 +595,7 @@ impl ActiveSet {
         let mut generated_steps = vec![];
         let activated_id = self.steps.len();
 
-        // We always allow ER/EF. Since they reduce the number of literals in a clause,
+        // We always allow ER/EF. Since they reduce (total literals + positive literals) in a clause,
         // they won't lead to infinite loops on the fact library.
         if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
             generated_steps.push(ProofStep::new_direct(
