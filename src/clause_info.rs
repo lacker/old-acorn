@@ -6,42 +6,41 @@ use std::{cmp::Ordering, fmt};
 use crate::clause::Clause;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum ClauseType {
+pub enum Truthiness {
     // The facts include both the normalized facts the prover was initialized with, and any
     // deduction that comes from other facts.
     // In general, facts should be true. If not, there's an inconsistency.
     Fact,
 
-    // The negated goal clauses come directly from the negated goal.
-    // Our strategy is to add the negated goal then find a contradiction.
-    // Typically, a negated goal is false. If not, it could either be an unprovable goal,
-    // or a goal that has been normalized into multiple contradictory clauses.
+    // TODO: eliminate
     NegatedGoal,
 
-    // Impure clauses is anything generated from other clauses that aren't all facts.
-    // An impure clause might be true or it might be false.
-    Impure,
+    // The basic operation of the prover is that we give it many true facts as assumptions,
+    // and we also give it some negated goals, and it tries to find a contradiction.
+    // Clauses that are based in part on the negated goals are thus hypothetical.
+    // We hope to discover that they are actually false - that would conclude the proof.
+    Hypothetical,
 }
 
-impl ClauseType {
+impl Truthiness {
     // Highest priority should be processed first
     fn priority(&self) -> u8 {
         match self {
-            ClauseType::Fact => 2,
-            ClauseType::NegatedGoal => 1,
-            ClauseType::Impure => 0,
+            Truthiness::Fact => 2,
+            Truthiness::NegatedGoal => 1,
+            Truthiness::Hypothetical => 0,
         }
     }
 }
 
-impl Ord for ClauseType {
-    fn cmp(&self, other: &ClauseType) -> Ordering {
+impl Ord for Truthiness {
+    fn cmp(&self, other: &Truthiness) -> Ordering {
         self.priority().cmp(&other.priority())
     }
 }
 
-impl PartialOrd for ClauseType {
-    fn partial_cmp(&self, other: &ClauseType) -> Option<Ordering> {
+impl PartialOrd for Truthiness {
+    fn partial_cmp(&self, other: &Truthiness) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -57,11 +56,17 @@ pub enum Rule {
     EqualityResolution,
 }
 
-// The ClauseInfo contains a bunch of heuristic information about the clause.
+// A proof is made up of ProofSteps.
+// Each ProofStep contains an output clause, plus a bunch of heuristic information about it, to
+// decide if we should "activate" the proof step or not.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ClauseInfo {
-    pub clause: Clause,
-    pub clause_type: ClauseType,
+pub struct ProofStep {
+    // Semantically, the output clause is implied by the input clauses (activated and existing).
+    pub output: Clause,
+
+    // Whether this clause is the normal sort of true, or just something we're hypothesizing for
+    // the sake of the proof.
+    pub truthiness: Truthiness,
 
     // How this clause was generated.
     pub rule: Rule,
@@ -90,17 +95,17 @@ pub struct ClauseInfo {
     pub generation_ordinal: usize,
 }
 
-impl Ord for ClauseInfo {
+impl Ord for ProofStep {
     // The heuristic used to decide which clause is the most promising.
     // The passive set is a "max heap", so we want the best clause to compare as the largest.
-    fn cmp(&self, other: &ClauseInfo) -> Ordering {
+    fn cmp(&self, other: &ProofStep) -> Ordering {
         // Do facts, then negated goal, then others
-        let by_type = self.clause_type.cmp(&other.clause_type);
+        let by_type = self.truthiness.cmp(&other.truthiness);
         if by_type != Ordering::Equal {
             return by_type;
         }
 
-        if self.clause_type == ClauseType::Impure {
+        if self.truthiness == Truthiness::Hypothetical {
             // Use the simplicity heuristic
             let by_simplicity = other.simplicity().cmp(&self.simplicity());
             if by_simplicity != Ordering::Equal {
@@ -113,13 +118,13 @@ impl Ord for ClauseInfo {
     }
 }
 
-impl PartialOrd for ClauseInfo {
-    fn partial_cmp(&self, other: &ClauseInfo) -> Option<Ordering> {
+impl PartialOrd for ProofStep {
+    fn partial_cmp(&self, other: &ProofStep) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl fmt::Display for ClauseInfo {
+impl fmt::Display for ProofStep {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -129,21 +134,21 @@ impl fmt::Display for ClauseInfo {
     }
 }
 
-impl ClauseInfo {
+impl ProofStep {
     fn new(
         clause: Clause,
-        clause_type: ClauseType,
+        clause_type: Truthiness,
         rule: Rule,
         activated: Option<usize>,
         existing: Option<usize>,
         rewrites: Vec<usize>,
         proof_size: u32,
         generation_ordinal: usize,
-    ) -> ClauseInfo {
+    ) -> ProofStep {
         let atom_count = clause.atom_count();
-        ClauseInfo {
-            clause,
-            clause_type,
+        ProofStep {
+            output: clause,
+            truthiness: clause_type,
             rule,
             activated,
             existing,
@@ -155,10 +160,10 @@ impl ClauseInfo {
     }
 
     // Construct a ClauseInfo for one of the facts from the initial set of facts.
-    pub fn new_initial_fact(clause: Clause, generation_ordinal: usize) -> ClauseInfo {
-        ClauseInfo::new(
+    pub fn new_initial_fact(clause: Clause, generation_ordinal: usize) -> ProofStep {
+        ProofStep::new(
             clause,
-            ClauseType::Fact,
+            Truthiness::Fact,
             Rule::Assumption,
             None,
             None,
@@ -169,10 +174,10 @@ impl ClauseInfo {
     }
 
     // Construct a ClauseInfo for the negated goal that we are trying to prove.
-    pub fn new_negated_goal(clause: Clause, generation_ordinal: usize) -> ClauseInfo {
-        ClauseInfo::new(
+    pub fn new_negated_goal(clause: Clause, generation_ordinal: usize) -> ProofStep {
+        ProofStep::new(
             clause,
-            ClauseType::NegatedGoal,
+            Truthiness::NegatedGoal,
             Rule::Assumption,
             None,
             None,
@@ -191,15 +196,15 @@ impl ClauseInfo {
         existing: Option<usize>,
         proof_size: u32,
         generation_ordinal: usize,
-    ) -> ClauseInfo {
+    ) -> ProofStep {
         // TODO: make this not rely on doing all the fact-fact inference first
-        let generated_type = if self.clause_type == ClauseType::Fact {
-            ClauseType::Fact
+        let generated_type = if self.truthiness == Truthiness::Fact {
+            Truthiness::Fact
         } else {
-            ClauseType::Impure
+            Truthiness::Hypothetical
         };
 
-        ClauseInfo::new(
+        ProofStep::new(
             clause,
             generated_type,
             rule,
@@ -212,16 +217,16 @@ impl ClauseInfo {
     }
 
     // Create a replacement for this clause that has extra rewrites
-    pub fn rewrite(&self, clause: Clause, new_rewrites: Vec<usize>) -> ClauseInfo {
+    pub fn rewrite(&self, clause: Clause, new_rewrites: Vec<usize>) -> ProofStep {
         let rewrites = self
             .rewrites
             .iter()
             .chain(new_rewrites.iter())
             .cloned()
             .collect();
-        ClauseInfo::new(
+        ProofStep::new(
             clause,
-            self.clause_type,
+            self.truthiness,
             self.rule,
             self.activated,
             self.existing,
@@ -232,10 +237,10 @@ impl ClauseInfo {
     }
 
     // Construct a ClauseInfo with fake heuristic data for testing
-    pub fn mock(s: &str) -> ClauseInfo {
+    pub fn mock(s: &str) -> ProofStep {
         let clause = Clause::parse(s);
 
-        ClauseInfo::new_initial_fact(clause, 0)
+        ProofStep::new_initial_fact(clause, 0)
     }
 
     // A heuristic for how simple this clause is.
@@ -274,11 +279,11 @@ impl ClauseInfo {
 
     // Whether this is the last step of the proof
     pub fn finishes_proof(&self) -> bool {
-        self.clause.is_impossible()
+        self.output.is_impossible()
     }
 
     // A heuristic for whether this clause is so bad, it should be rejected immediately.
     pub fn heuristic_reject(&self) -> bool {
-        self.clause_type == ClauseType::Fact && self.get_proof_size() > 2
+        self.truthiness == Truthiness::Fact && self.get_proof_size() > 2
     }
 }

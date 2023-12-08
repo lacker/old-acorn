@@ -8,7 +8,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
 use crate::clause::Clause;
-use crate::clause_info::{ClauseInfo, ClauseType};
+use crate::clause_info::{ProofStep, Truthiness};
 use crate::display::DisplayClause;
 use crate::goal_context::{monomorphize_facts, GoalContext};
 use crate::normalizer::{NormalizationError, Normalizer};
@@ -47,7 +47,7 @@ pub struct Prover {
     pub hit_trace: bool,
 
     // The final step that proves a contradiction, if we have one.
-    final_step: Option<ClauseInfo>,
+    final_step: Option<ProofStep>,
 
     // Setting any of these flags to true externally will stop the prover.
     pub stop_flags: Vec<Arc<AtomicBool>>,
@@ -178,7 +178,7 @@ impl Prover {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
                 // We have a false assumption, so we're done already.
-                self.final_step = Some(ClauseInfo::new_initial_fact(
+                self.final_step = Some(ProofStep::new_initial_fact(
                     Clause::impossible(),
                     self.active_set.next_generation_ordinal(),
                 ));
@@ -191,7 +191,7 @@ impl Prover {
         };
         for clause in clauses {
             let info =
-                ClauseInfo::new_initial_fact(clause, self.active_set.next_generation_ordinal());
+                ProofStep::new_initial_fact(clause, self.active_set.next_generation_ordinal());
             self.passive.push(info);
         }
     }
@@ -203,7 +203,7 @@ impl Prover {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
                 // Our goal is trivially true, so we're done already.
-                self.final_step = Some(ClauseInfo::new_negated_goal(
+                self.final_step = Some(ProofStep::new_negated_goal(
                     Clause::impossible(),
                     self.active_set.next_generation_ordinal(),
                 ));
@@ -216,7 +216,7 @@ impl Prover {
         };
         for clause in clauses {
             let info =
-                ClauseInfo::new_negated_goal(clause, self.active_set.next_generation_ordinal());
+                ProofStep::new_negated_goal(clause, self.active_set.next_generation_ordinal());
             self.passive.push(info);
         }
     }
@@ -262,7 +262,7 @@ impl Prover {
         let mut count = 0;
         let clause_infos = self.passive.all_clause_info();
         for clause_info in clause_infos {
-            let clause = self.display(&clause_info.clause);
+            let clause = self.display(&clause_info.output);
             if let Some(substr) = substr {
                 if !clause.to_string().contains(substr) {
                     continue;
@@ -297,13 +297,13 @@ impl Prover {
         );
     }
 
-    fn print_clause_info(&self, preface: &str, info: &ClauseInfo) {
+    fn print_clause_info(&self, preface: &str, info: &ProofStep) {
         cprintln!(
             self,
             "\n{}{:?} generated:\n    {}",
             preface,
             info.get_rule(),
-            self.display(&info.clause)
+            self.display(&info.output)
         );
         if let Some(i) = info.get_activated() {
             let c = self.display(self.active_set.get_clause(i));
@@ -361,7 +361,7 @@ impl Prover {
     }
 
     // Handle the case when we found a contradiction
-    fn report_contradiction(&mut self, ps: ClauseInfo) -> Outcome {
+    fn report_contradiction(&mut self, ps: ProofStep) -> Outcome {
         self.final_step = Some(ps);
         if self.impure_start.is_none() && self.report_inconsistency {
             Outcome::Inconsistent
@@ -385,17 +385,17 @@ impl Prover {
             }
         };
 
-        if info.clause_type != ClauseType::Fact && self.impure_start.is_none() {
+        if info.truthiness != Truthiness::Fact && self.impure_start.is_none() {
             self.impure_start = Some(self.active_set.len());
         }
 
-        let tracing = self.is_tracing(&info.clause);
+        let tracing = self.is_tracing(&info.output);
         let verbose = self.verbose || tracing;
 
         let mut original_clause_string = "".to_string();
         let mut simplified_clause_string = "".to_string();
         if verbose {
-            original_clause_string = self.display(&info.clause).to_string();
+            original_clause_string = self.display(&info.output).to_string();
         }
 
         let info = match self.active_set.simplify(info) {
@@ -408,7 +408,7 @@ impl Prover {
                 return Outcome::Unknown;
             }
         };
-        let clause = &info.clause;
+        let clause = &info.output;
         if verbose {
             simplified_clause_string = self.display(clause).to_string();
             if simplified_clause_string != original_clause_string {
@@ -426,10 +426,10 @@ impl Prover {
         }
 
         if verbose {
-            let prefix = match info.clause_type {
-                ClauseType::Fact => " fact",
-                ClauseType::NegatedGoal => " negated goal",
-                ClauseType::Impure => "",
+            let prefix = match info.truthiness {
+                Truthiness::Fact => " fact",
+                Truthiness::NegatedGoal => " negated goal",
+                Truthiness::Hypothetical => "",
             };
             cprintln!(self, "activating{}: {}", prefix, simplified_clause_string);
         }
@@ -438,7 +438,7 @@ impl Prover {
 
     // Generates clauses, then simplifies them, then adds them to the passive set.
     // Clauses will get simplified again when they are activated.
-    fn activate(&mut self, info: ClauseInfo, verbose: bool, tracing: bool) -> Outcome {
+    fn activate(&mut self, info: ProofStep, verbose: bool, tracing: bool) -> Outcome {
         let generated_clauses = self.active_set.generate(info);
 
         let print_limit = 30;
@@ -463,13 +463,13 @@ impl Prover {
             if tracing {
                 self.print_clause_info("", &info);
             } else if verbose && (i < print_limit) {
-                cprintln!(self, "  {}", self.display(&info.clause));
-            } else if self.is_tracing(&info.clause) {
+                cprintln!(self, "  {}", self.display(&info.output));
+            } else if self.is_tracing(&info.output) {
                 self.print_clause_info("", &info);
             }
 
             if let Some(info) = self.active_set.simplify(info) {
-                if info.clause.is_impossible() {
+                if info.output.is_impossible() {
                     return self.report_contradiction(info);
                 }
                 self.passive.push(info);
@@ -523,7 +523,7 @@ impl Prover {
     }
 
     pub fn done_with_facts(&self) -> bool {
-        self.passive.next_clause_type() != Some(ClauseType::Fact)
+        self.passive.next_clause_type() != Some(Truthiness::Fact)
     }
 }
 

@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 
 use crate::clause::Clause;
-use crate::clause_info::{ClauseInfo, ClauseType};
+use crate::clause_info::{ProofStep, Truthiness};
 
 // The PassiveSet stores a bunch of clauses.
 // It does not assist in generating new clauses.
@@ -9,7 +9,7 @@ use crate::clause_info::{ClauseInfo, ClauseType};
 // The main operations of the passive set are adding new clauses, and
 // picking the "most promising" clause to add to the active set.
 pub struct PassiveSet {
-    clauses: BinaryHeap<ClauseInfo>,
+    clauses: BinaryHeap<ProofStep>,
 }
 
 impl PassiveSet {
@@ -19,11 +19,11 @@ impl PassiveSet {
         }
     }
 
-    pub fn push(&mut self, info: ClauseInfo) {
+    pub fn push(&mut self, info: ProofStep) {
         self.clauses.push(info);
     }
 
-    pub fn pop(&mut self) -> Option<ClauseInfo> {
+    pub fn pop(&mut self) -> Option<ProofStep> {
         self.clauses.pop()
     }
 
@@ -32,18 +32,18 @@ impl PassiveSet {
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
-        self.clauses.iter().map(|pc| &pc.clause)
+        self.clauses.iter().map(|pc| &pc.output)
     }
 
     // Sort "highest" to "lowest" which is best to worst
-    pub fn all_clause_info(&self) -> Vec<ClauseInfo> {
-        let mut infos: Vec<ClauseInfo> = self.clauses.iter().cloned().collect();
+    pub fn all_clause_info(&self) -> Vec<ProofStep> {
+        let mut infos: Vec<ProofStep> = self.clauses.iter().cloned().collect();
         infos.sort();
         infos.reverse();
         infos
     }
 
-    pub fn next_clause_type(&self) -> Option<ClauseType> {
-        self.clauses.peek().map(|pc| pc.clause_type)
+    pub fn next_clause_type(&self) -> Option<Truthiness> {
+        self.clauses.peek().map(|pc| pc.truthiness)
     }
 }
