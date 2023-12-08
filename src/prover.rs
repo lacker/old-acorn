@@ -260,7 +260,7 @@ impl Prover {
 
     pub fn print_passive(&self, substr: Option<&str>) {
         let mut count = 0;
-        let clause_infos = self.passive.all_clause_info();
+        let clause_infos = self.passive.all_steps();
         for clause_info in clause_infos {
             let clause = self.display(&clause_info.output);
             if let Some(substr) = substr {
@@ -355,7 +355,7 @@ impl Prover {
             } else {
                 format!("clause {}: ", i)
             };
-            self.print_proof_step(&preface, self.active_set.get_clause_info(i));
+            self.print_proof_step(&preface, self.active_set.get_step(i));
         }
         self.print_proof_step("final step: ", final_step);
     }

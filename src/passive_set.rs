@@ -36,11 +36,11 @@ impl PassiveSet {
     }
 
     // Sort "highest" to "lowest" which is best to worst
-    pub fn all_clause_info(&self) -> Vec<ProofStep> {
-        let mut infos: Vec<ProofStep> = self.clauses.iter().cloned().collect();
-        infos.sort();
-        infos.reverse();
-        infos
+    pub fn all_steps(&self) -> Vec<ProofStep> {
+        let mut steps: Vec<ProofStep> = self.clauses.iter().cloned().collect();
+        steps.sort();
+        steps.reverse();
+        steps
     }
 
     pub fn next_clause_type(&self) -> Option<Truthiness> {

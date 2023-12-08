@@ -16,7 +16,7 @@ use crate::unifier::{Scope, Unifier};
 // "Efficient" is relative - this still may take time roughly linear to the size of the active set.
 pub struct ActiveSet {
     // A vector for indexed reference
-    clause_info: Vec<ProofStep>,
+    steps: Vec<ProofStep>,
 
     // A HashSet for checking what complete clauses we already know
     clause_set: HashSet<Clause>,
@@ -28,12 +28,12 @@ pub struct ActiveSet {
 
     paramodulation_targets: FingerprintTree<ParamodulationTarget>,
 
-    // Represents each rewrite rule as an index into clause_info.
+    // Represents each rewrite rule as an index into steps.
     // A clause can only be a rewrite if it's a single foo = bar literal, and foo > bar by the KBO.
     // So we only need to store the clause index of the rewrite rule.
     rewrite_tree: RewriteTree,
 
-    // How many ClauseInfo have been generated during this proof.
+    // How many ProofSteps have been generated (not activated) during this proof.
     num_generated: usize,
 }
 
@@ -41,9 +41,9 @@ pub struct ActiveSet {
 // So, in foo(bar(x)) = baz, bar(x) could be a resolution target.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ResolutionTarget {
-    // Which clause the resolution target is in.
+    // Which proof step the resolution target is in.
     // For resolution, the literal can be either positive or negative.
-    clause_index: usize,
+    step_index: usize,
 
     // Which literal within the clause the resolution target is in.
     // We assume the resolution target is the first term in the literal. (Is that okay?)
@@ -65,8 +65,8 @@ struct ResolutionTarget {
 // Only the whole foo(bar(x)).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ParamodulationTarget {
-    // Which clause the paramodulation target is in.
-    clause_index: usize,
+    // Which proof step the paramodulation target is in.
+    step_index: usize,
 
     // Which literal within the clause the paramodulation target is in.
     literal_index: usize,
@@ -79,7 +79,7 @@ struct ParamodulationTarget {
 impl ActiveSet {
     pub fn new() -> ActiveSet {
         ActiveSet {
-            clause_info: vec![],
+            steps: vec![],
             clause_set: HashSet::new(),
             literal_set: LiteralSet::new(),
             resolution_targets: FingerprintTree::new(),
@@ -97,11 +97,11 @@ impl ActiveSet {
     }
 
     pub fn len(&self) -> usize {
-        self.clause_info.len()
+        self.steps.len()
     }
 
     fn get_resolution_term(&self, target: &ResolutionTarget) -> &Term {
-        let clause = self.get_clause(target.clause_index);
+        let clause = self.get_clause(target.step_index);
         let literal = &clause.literals[target.literal_index];
         let mut term = if target.forwards {
             &literal.left
@@ -255,12 +255,12 @@ impl ActiveSet {
                     0,
                     u_subterm,
                     &target.path,
-                    self.get_clause(target.clause_index),
+                    self.get_clause(target.step_index),
                     target.literal_index,
                     target.forwards,
                     clause_type == Truthiness::Fact,
                 ) {
-                    result.push((new_clause, target.clause_index));
+                    result.push((new_clause, target.step_index));
                 }
             }
         }
@@ -303,7 +303,7 @@ impl ActiveSet {
                 // Look for paramodulation targets that match u_subterm
                 let targets = self.paramodulation_targets.get_unifying(u_subterm);
                 for target in targets {
-                    let pm_clause = self.get_clause(target.clause_index);
+                    let pm_clause = self.get_clause(target.step_index);
                     let pm_literal = &pm_clause.literals[target.literal_index];
                     let (s, t) = if target.forwards {
                         (&pm_literal.left, &pm_literal.right)
@@ -328,7 +328,7 @@ impl ActiveSet {
                         res_forwards,
                         clause_type == Truthiness::Fact,
                     ) {
-                        result.push((new_clause, target.clause_index));
+                        result.push((new_clause, target.step_index));
                     }
                 }
             }
@@ -421,11 +421,11 @@ impl ActiveSet {
     }
 
     pub fn get_clause(&self, index: usize) -> &Clause {
-        &self.clause_info[index].output
+        &self.steps[index].output
     }
 
-    pub fn get_clause_info(&self, index: usize) -> &ProofStep {
-        &self.clause_info[index]
+    pub fn get_step(&self, index: usize) -> &ProofStep {
+        &self.steps[index]
     }
 
     pub fn contains(&self, clause: &Clause) -> bool {
@@ -454,11 +454,11 @@ impl ActiveSet {
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
-    pub fn simplify(&self, info: ProofStep) -> Option<ProofStep> {
-        if info.output.is_tautology() {
+    pub fn simplify(&self, step: ProofStep) -> Option<ProofStep> {
+        if step.output.is_tautology() {
             return None;
         }
-        if self.contains(&info.output) {
+        if self.contains(&step.output) {
             return None;
         }
 
@@ -466,7 +466,7 @@ impl ActiveSet {
 
         // Filter out any literals that are known to be true
         let mut rewritten_literals = vec![];
-        for literal in &info.output.literals {
+        for literal in &step.output.literals {
             let rewritten_literal = self.rewrite_literal(literal, &mut new_rewrites);
             match self.evaluate_literal(&rewritten_literal) {
                 Some((true, _)) => {
@@ -483,7 +483,7 @@ impl ActiveSet {
                     continue;
                 }
                 None => {
-                    if info.truthiness == Truthiness::NegatedGoal {
+                    if step.truthiness == Truthiness::NegatedGoal {
                         // Don't automatically simplify the goal.
                         rewritten_literals.push(literal.clone());
                     } else {
@@ -499,7 +499,7 @@ impl ActiveSet {
         if self.contains(&simplified_clause) {
             return None;
         }
-        Some(info.rewrite(simplified_clause, new_rewrites))
+        Some(step.rewrite(simplified_clause, new_rewrites))
     }
 
     // Add all the resolution targets for a given literal.
@@ -513,7 +513,7 @@ impl ActiveSet {
             self.resolution_targets.insert(
                 subterm,
                 ResolutionTarget {
-                    clause_index,
+                    step_index: clause_index,
                     literal_index,
                     forwards: true,
                     path,
@@ -524,7 +524,7 @@ impl ActiveSet {
             self.resolution_targets.insert(
                 subterm,
                 ResolutionTarget {
-                    clause_index,
+                    step_index: clause_index,
                     literal_index,
                     forwards: false,
                     path,
@@ -536,32 +536,32 @@ impl ActiveSet {
     // Adds a clause so that it becomes available for resolution and paramodulation.
     // If select_all is set, then every literal can be used as a target for paramodulation.
     // Otherwise, only the first one can be.
-    fn insert(&mut self, info: ProofStep, id: usize) {
-        let clause = &info.output;
-        let clause_index = self.clause_info.len();
+    fn insert(&mut self, step: ProofStep, id: usize) {
+        let clause = &step.output;
+        let step_index = self.steps.len();
         let leftmost_literal = &clause.literals[0];
 
         // Add resolution targets for the new clause.
-        if info.truthiness == Truthiness::Fact {
+        if step.truthiness == Truthiness::Fact {
             // Use any literal for resolution
             for (i, literal) in clause.literals.iter().enumerate() {
-                self.add_resolution_targets(clause_index, i, literal);
+                self.add_resolution_targets(step_index, i, literal);
             }
         } else {
             // Use only the leftmost literal for resolution.
             // NOTE: these resolution targets don't end up being used!
-            self.add_resolution_targets(clause_index, 0, leftmost_literal);
+            self.add_resolution_targets(step_index, 0, leftmost_literal);
         }
 
         // Add paramodulation targets for the new clause.
-        if info.truthiness == Truthiness::Fact {
+        if step.truthiness == Truthiness::Fact {
             // Use any literal for paramodulation
             for (i, literal) in clause.literals.iter().enumerate() {
                 for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
                     self.paramodulation_targets.insert(
                         from,
                         ParamodulationTarget {
-                            clause_index,
+                            step_index,
                             literal_index: i,
                             forwards,
                         },
@@ -574,7 +574,7 @@ impl ActiveSet {
                 self.paramodulation_targets.insert(
                     from,
                     ParamodulationTarget {
-                        clause_index,
+                        step_index,
                         literal_index: 0,
                         forwards,
                     },
@@ -582,12 +582,9 @@ impl ActiveSet {
             }
         }
 
-        if clause.is_rewrite_rule() && info.truthiness == Truthiness::Fact {
-            self.rewrite_tree.add_rule(
-                clause_index,
-                &leftmost_literal.left,
-                &leftmost_literal.right,
-            );
+        if clause.is_rewrite_rule() && step.truthiness == Truthiness::Fact {
+            self.rewrite_tree
+                .add_rule(step_index, &leftmost_literal.left, &leftmost_literal.right);
         }
 
         self.clause_set.insert(clause.clone());
@@ -596,24 +593,24 @@ impl ActiveSet {
             self.literal_set.insert(clause.literals[0].clone(), id);
         }
 
-        self.clause_info.push(info);
+        self.steps.push(step);
     }
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
     // Does not simplify.
     // After generation, adds this clause to the active set.
     // Returns pairs describing how the generated clauses were proved.
-    pub fn generate(&mut self, info: ProofStep) -> Vec<ProofStep> {
+    pub fn generate(&mut self, step: ProofStep) -> Vec<ProofStep> {
         let mut generated_clauses = vec![];
-        let activated = self.clause_info.len();
+        let activated = self.steps.len();
 
         // First calculate proof size for clauses dependent only on this one
-        let activated_size = info.get_proof_size();
+        let activated_size = step.get_proof_size();
 
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
-        if let Some(new_clause) = ActiveSet::equality_resolution(&info.output) {
-            generated_clauses.push(info.generate(
+        if let Some(new_clause) = ActiveSet::equality_resolution(&step.output) {
+            generated_clauses.push(step.generate(
                 new_clause,
                 Rule::EqualityResolution,
                 activated,
@@ -622,8 +619,8 @@ impl ActiveSet {
                 self.next_generation_ordinal(),
             ));
         }
-        for clause in ActiveSet::equality_factoring(&info.output) {
-            generated_clauses.push(info.generate(
+        for clause in ActiveSet::equality_factoring(&step.output) {
+            generated_clauses.push(step.generate(
                 clause,
                 Rule::EqualityFactoring,
                 activated,
@@ -633,9 +630,9 @@ impl ActiveSet {
             ));
         }
 
-        for (new_clause, i) in self.activate_paramodulator(&info.output, info.truthiness) {
-            let existing_size = self.get_clause_info(i).get_proof_size();
-            generated_clauses.push(info.generate(
+        for (new_clause, i) in self.activate_paramodulator(&step.output, step.truthiness) {
+            let existing_size = self.get_step(i).get_proof_size();
+            generated_clauses.push(step.generate(
                 new_clause,
                 Rule::ActivatingParamodulator,
                 activated,
@@ -644,9 +641,9 @@ impl ActiveSet {
                 self.next_generation_ordinal(),
             ))
         }
-        for (new_clause, i) in self.activate_resolver(&info.output, info.truthiness) {
-            let existing_size = self.get_clause_info(i).get_proof_size();
-            generated_clauses.push(info.generate(
+        for (new_clause, i) in self.activate_resolver(&step.output, step.truthiness) {
+            let existing_size = self.get_step(i).get_proof_size();
+            generated_clauses.push(step.generate(
                 new_clause,
                 Rule::ActivatingResolver,
                 activated,
@@ -656,12 +653,12 @@ impl ActiveSet {
             ))
         }
 
-        self.insert(info, activated);
+        self.insert(step, activated);
         generated_clauses
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
-        self.clause_info.iter().map(|info| &info.output)
+        self.steps.iter().map(|step| &step.output)
     }
 
     // Find the index of all clauses used to prove the provided step.
@@ -677,7 +674,7 @@ impl ActiveSet {
                 continue;
             }
             seen.insert(i);
-            for j in self.get_clause_info(i).dependencies() {
+            for j in self.get_step(i).dependencies() {
                 pending.push(*j);
             }
         }
@@ -697,8 +694,8 @@ mod tests {
     fn test_activate_paramodulator() {
         // Create an active set that knows c0(c3) = c2
         let mut set = ActiveSet::new();
-        let info = ProofStep::mock("c0(c3) = c2");
-        set.insert(info, 0);
+        let step = ProofStep::mock("c0(c3) = c2");
+        set.insert(step, 0);
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
         let pm_left = Term::parse("c1");
@@ -718,8 +715,8 @@ mod tests {
     fn test_activate_resolver() {
         // Create an active set that knows c1 = c3
         let mut set = ActiveSet::new();
-        let info = ProofStep::mock("c1 = c3");
-        set.insert(info, 0);
+        let step = ProofStep::mock("c1 = c3");
+        set.insert(step, 0);
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
         let res_left = Term::parse("c0(c3)");
@@ -756,9 +753,9 @@ mod tests {
     #[test]
     fn test_select_all_literals_for_paramodulation() {
         let mut set = ActiveSet::new();
-        let mut info = ProofStep::mock("c1 != c0(x0) | c2 = c3");
-        info.truthiness = Truthiness::Fact;
-        set.insert(info, 0);
+        let mut step = ProofStep::mock("c1 != c0(x0) | c2 = c3");
+        step.truthiness = Truthiness::Fact;
+        set.insert(step, 0);
         let resolver = Clause::parse("c2 != c3");
         let result = set.activate_resolver(&resolver, Truthiness::Hypothetical);
         assert_eq!(result.len(), 1);
@@ -783,12 +780,12 @@ mod tests {
     #[test]
     fn test_matching_entire_literal() {
         let mut set = ActiveSet::new();
-        let mut info = ProofStep::mock("!c2(c0(c0(x0))) | c1(x0) != x0");
-        info.truthiness = Truthiness::Fact;
-        set.insert(info, 0);
-        let mut info = ProofStep::mock("c1(c3) = c3");
-        info.truthiness = Truthiness::NegatedGoal;
-        let new_clauses = set.generate(info);
+        let mut step = ProofStep::mock("!c2(c0(c0(x0))) | c1(x0) != x0");
+        step.truthiness = Truthiness::Fact;
+        set.insert(step, 0);
+        let mut step = ProofStep::mock("c1(c3) = c3");
+        step.truthiness = Truthiness::NegatedGoal;
+        let new_clauses = set.generate(step);
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(
             new_clauses[0].output.to_string(),
@@ -802,9 +799,9 @@ mod tests {
         let mut set = ActiveSet::new();
 
         // Nonreflexive rule of less-than
-        let mut info = ProofStep::mock("!c1(x0, x0)");
-        info.truthiness = Truthiness::Fact;
-        set.insert(info, 1);
+        let mut step = ProofStep::mock("!c1(x0, x0)");
+        step.truthiness = Truthiness::Fact;
+        set.insert(step, 1);
 
         // Trichotomy
         let clause = Clause::parse("c1(x0, x1) | c1(x1, x0) | x0 = x1");
