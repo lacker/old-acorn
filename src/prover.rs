@@ -360,13 +360,14 @@ impl Prover {
     }
 
     // Handle the case when we found a contradiction
-    fn report_contradiction(&mut self, ps: ProofStep) -> Outcome {
-        self.final_step = Some(ps);
-        if self.impure_start.is_none() && self.report_inconsistency {
+    fn report_contradiction(&mut self, step: ProofStep) -> Outcome {
+        let outcome = if step.truthiness == Truthiness::Factual && self.report_inconsistency {
             Outcome::Inconsistent
         } else {
             Outcome::Success
-        }
+        };
+        self.final_step = Some(step);
+        outcome
     }
 
     // Activates the next clause from the queue.
