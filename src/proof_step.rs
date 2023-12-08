@@ -101,22 +101,7 @@ impl Ord for ProofStep {
     // The heuristic used to decide which clause is the most promising.
     // The passive set is a "max heap", so we want the best clause to compare as the largest.
     fn cmp(&self, other: &ProofStep) -> Ordering {
-        // Do facts, then negated goal, then others
-        let by_type = self.truthiness.cmp(&other.truthiness);
-        if by_type != Ordering::Equal {
-            return by_type;
-        }
-
-        if self.truthiness == Truthiness::Hypothetical {
-            // Use the simplicity heuristic
-            let by_simplicity = other.simplicity().cmp(&self.simplicity());
-            if by_simplicity != Ordering::Equal {
-                return by_simplicity;
-            }
-        }
-
-        // Prefer clauses that were added earlier
-        other.generation_ordinal.cmp(&self.generation_ordinal)
+        self.heuristic_score().cmp(&other.heuristic_score())
     }
 }
 
@@ -259,12 +244,6 @@ impl ProofStep {
         ProofStep::new_initial_fact(clause, 0)
     }
 
-    // A heuristic for how simple this clause is.
-    // The lower the simplicity, the more likely we are to select it.
-    fn simplicity(&self) -> u32 {
-        self.atom_count + self.proof_size
-    }
-
     // The ids of the other clauses that this clause depends on.
     pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
         self.activated
@@ -281,6 +260,18 @@ impl ProofStep {
     // Whether this step is just the direct normalization of the negated goal
     pub fn is_negated_goal(&self) -> bool {
         self.rule == Rule::Assumption && self.truthiness != Truthiness::Factual
+    }
+
+    // The better the score, the more we want to activate this proof step.
+    pub fn heuristic_score(&self) -> i32 {
+        let base_score = if self.truthiness == Truthiness::Hypothetical {
+            -1 * (self.atom_count + self.proof_size) as i32
+        } else {
+            1
+        };
+
+        // Use fifo as a tiebreaker
+        1000000 * base_score - self.generation_ordinal as i32
     }
 
     // A heuristic for whether this clause is so bad, it should be rejected immediately.
