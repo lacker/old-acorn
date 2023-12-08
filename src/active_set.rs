@@ -239,7 +239,7 @@ impl ActiveSet {
         }
         let mut result = vec![];
         for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
-            if clause_type == Truthiness::Fact && !self.allow_fact_combining(pm_clause, s, t) {
+            if clause_type == Truthiness::Factual && !self.allow_fact_combining(pm_clause, s, t) {
                 continue;
             }
 
@@ -258,7 +258,7 @@ impl ActiveSet {
                     self.get_clause(target.step_index),
                     target.literal_index,
                     target.forwards,
-                    clause_type == Truthiness::Fact,
+                    clause_type == Truthiness::Factual,
                 ) {
                     result.push((new_clause, target.step_index));
                 }
@@ -310,7 +310,7 @@ impl ActiveSet {
                     } else {
                         (&pm_literal.right, &pm_literal.left)
                     };
-                    if clause_type == Truthiness::Fact
+                    if clause_type == Truthiness::Factual
                         && !self.allow_fact_combining(pm_clause, s, t)
                     {
                         continue;
@@ -326,7 +326,7 @@ impl ActiveSet {
                         res_clause,
                         0,
                         res_forwards,
-                        clause_type == Truthiness::Fact,
+                        clause_type == Truthiness::Factual,
                     ) {
                         result.push((new_clause, target.step_index));
                     }
@@ -547,7 +547,7 @@ impl ActiveSet {
         let leftmost_literal = &clause.literals[0];
 
         // Add resolution targets for the new clause.
-        if step.truthiness == Truthiness::Fact {
+        if step.truthiness == Truthiness::Factual {
             // Use any literal for resolution
             for (i, literal) in clause.literals.iter().enumerate() {
                 self.add_resolution_targets(step_index, i, literal);
@@ -559,7 +559,7 @@ impl ActiveSet {
         }
 
         // Add paramodulation targets for the new clause.
-        if step.truthiness == Truthiness::Fact {
+        if step.truthiness == Truthiness::Factual {
             // Use any literal for paramodulation
             for (i, literal) in clause.literals.iter().enumerate() {
                 for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
@@ -587,7 +587,7 @@ impl ActiveSet {
             }
         }
 
-        if clause.is_rewrite_rule() && step.truthiness == Truthiness::Fact {
+        if clause.is_rewrite_rule() && step.truthiness == Truthiness::Factual {
             self.rewrite_tree
                 .add_rule(step_index, &leftmost_literal.left, &leftmost_literal.right);
         }
@@ -759,7 +759,7 @@ mod tests {
     fn test_select_all_literals_for_paramodulation() {
         let mut set = ActiveSet::new();
         let mut step = ProofStep::mock("c1 != c0(x0) | c2 = c3");
-        step.truthiness = Truthiness::Fact;
+        step.truthiness = Truthiness::Factual;
         set.insert(step, 0);
         let resolver = Clause::parse("c2 != c3");
         let result = set.activate_resolver(&resolver, Truthiness::Hypothetical);
@@ -786,10 +786,10 @@ mod tests {
     fn test_matching_entire_literal() {
         let mut set = ActiveSet::new();
         let mut step = ProofStep::mock("!c2(c0(c0(x0))) | c1(x0) != x0");
-        step.truthiness = Truthiness::Fact;
+        step.truthiness = Truthiness::Factual;
         set.insert(step, 0);
         let mut step = ProofStep::mock("c1(c3) = c3");
-        step.truthiness = Truthiness::NegatedGoal;
+        step.truthiness = Truthiness::Hypothetical;
         let new_clauses = set.generate(step);
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(
@@ -805,7 +805,7 @@ mod tests {
 
         // Nonreflexive rule of less-than
         let mut step = ProofStep::mock("!c1(x0, x0)");
-        step.truthiness = Truthiness::Fact;
+        step.truthiness = Truthiness::Factual;
         set.insert(step, 1);
 
         // Trichotomy

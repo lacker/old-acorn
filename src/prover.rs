@@ -385,7 +385,7 @@ impl Prover {
             }
         };
 
-        if step.truthiness != Truthiness::Fact && self.impure_start.is_none() {
+        if step.truthiness != Truthiness::Factual && self.impure_start.is_none() {
             self.impure_start = Some(self.active_set.len());
         }
 
@@ -427,9 +427,14 @@ impl Prover {
 
         if verbose {
             let prefix = match step.truthiness {
-                Truthiness::Fact => " fact",
-                Truthiness::NegatedGoal => " negated goal",
-                Truthiness::Hypothetical => "",
+                Truthiness::Factual => " fact",
+                Truthiness::Hypothetical => {
+                    if step.is_negated_goal() {
+                        " negated goal"
+                    } else {
+                        ""
+                    }
+                }
             };
             cprintln!(self, "activating{}: {}", prefix, simplified_clause_string);
         }
@@ -523,7 +528,7 @@ impl Prover {
     }
 
     pub fn done_with_facts(&self) -> bool {
-        self.passive.next_clause_type() != Some(Truthiness::Fact)
+        self.passive.next_clause_type() != Some(Truthiness::Factual)
     }
 }
 

@@ -7,10 +7,7 @@ pub enum Truthiness {
     // The facts include both the normalized facts the prover was initialized with, and any
     // deduction that comes from other facts.
     // In general, facts should be true. If not, there's an inconsistency.
-    Fact,
-
-    // TODO: eliminate
-    NegatedGoal,
+    Factual,
 
     // The basic operation of the prover is that we give it many true facts as assumptions,
     // and we also give it some negated goals, and it tries to find a contradiction.
@@ -23,8 +20,7 @@ impl Truthiness {
     // Highest priority should be processed first
     fn priority(&self) -> u8 {
         match self {
-            Truthiness::Fact => 2,
-            Truthiness::NegatedGoal => 1,
+            Truthiness::Factual => 2,
             Truthiness::Hypothetical => 0,
         }
     }
@@ -46,7 +42,6 @@ impl PartialOrd for Truthiness {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Rule {
     Assumption,
-    Definition,
     ActivatingParamodulator,
     ActivatingResolver,
     EqualityFactoring,
@@ -160,7 +155,7 @@ impl ProofStep {
     pub fn new_initial_fact(clause: Clause, generation_ordinal: usize) -> ProofStep {
         ProofStep::new(
             clause,
-            Truthiness::Fact,
+            Truthiness::Factual,
             Rule::Assumption,
             None,
             None,
@@ -174,7 +169,7 @@ impl ProofStep {
     pub fn new_negated_goal(clause: Clause, generation_ordinal: usize) -> ProofStep {
         ProofStep::new(
             clause,
-            Truthiness::NegatedGoal,
+            Truthiness::Hypothetical,
             Rule::Assumption,
             None,
             None,
@@ -195,8 +190,8 @@ impl ProofStep {
         generation_ordinal: usize,
     ) -> ProofStep {
         // TODO: make this not rely on doing all the fact-fact inference first
-        let generated_type = if self.truthiness == Truthiness::Fact {
-            Truthiness::Fact
+        let generated_type = if self.truthiness == Truthiness::Factual {
+            Truthiness::Factual
         } else {
             Truthiness::Hypothetical
         };
@@ -261,11 +256,11 @@ impl ProofStep {
 
     // Whether this step is just the direct normalization of the negated goal
     pub fn is_negated_goal(&self) -> bool {
-        self.rule == Rule::Assumption && self.truthiness != Truthiness::Fact
+        self.rule == Rule::Assumption && self.truthiness != Truthiness::Factual
     }
 
     // A heuristic for whether this clause is so bad, it should be rejected immediately.
     pub fn heuristic_reject(&self) -> bool {
-        self.truthiness == Truthiness::Fact && self.proof_size > 2
+        self.truthiness == Truthiness::Factual && self.proof_size > 2
     }
 }
