@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 
 use crate::clause::Clause;
-use crate::proof_step::{ProofStep, Truthiness};
+use crate::proof_step::ProofStep;
 
 // The PassiveSet stores a bunch of clauses.
 // It does not assist in generating new clauses.
@@ -41,9 +41,5 @@ impl PassiveSet {
         steps.sort();
         steps.reverse();
         steps
-    }
-
-    pub fn next_clause_type(&self) -> Option<Truthiness> {
-        self.clauses.peek().map(|pc| pc.truthiness)
     }
 }

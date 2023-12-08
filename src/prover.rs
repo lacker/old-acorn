@@ -526,10 +526,6 @@ impl Prover {
             normalizer: &self.normalizer,
         }
     }
-
-    pub fn done_with_facts(&self) -> bool {
-        self.passive.next_clause_type() != Some(Truthiness::Factual)
-    }
 }
 
 #[cfg(test)]

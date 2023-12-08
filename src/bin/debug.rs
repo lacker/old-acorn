@@ -154,22 +154,6 @@ fn main() {
                 }
             }
 
-            "ff" => {
-                // "ff" runs to the end of the fact-fact inference stage.
-                prover.verbose = true;
-                while !prover.done_with_facts() {
-                    let outcome = prover.activate_next();
-                    match outcome {
-                        Outcome::Unknown => (),
-                        _ => {
-                            println!("{}!", outcome);
-                            break;
-                        }
-                    }
-                }
-                prover.verbose = false;
-            }
-
             "" => {
                 // Hitting enter does one step of proving.
                 prover.verbose = true;
