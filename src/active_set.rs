@@ -462,9 +462,8 @@ impl ActiveSet {
             return None;
         }
 
-        let mut new_rewrites = vec![];
-
         // Filter out any literals that are known to be true
+        let mut new_rewrites = vec![];
         let mut rewritten_literals = vec![];
         for literal in &step.output.literals {
             let rewritten_literal = self.rewrite_literal(literal, &mut new_rewrites);
@@ -492,6 +491,12 @@ impl ActiveSet {
                 }
             }
         }
+
+        if new_rewrites.is_empty() {
+            // This proof step hasn't changed.
+            return Some(step);
+        }
+
         let simplified_clause = Clause::new(rewritten_literals);
         if simplified_clause.is_tautology() {
             return None;
