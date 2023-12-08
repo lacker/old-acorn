@@ -19,8 +19,8 @@ impl PassiveSet {
         }
     }
 
-    pub fn push(&mut self, info: ProofStep) {
-        self.clauses.push(info);
+    pub fn push(&mut self, step: ProofStep) {
+        self.clauses.push(step);
     }
 
     pub fn pop(&mut self) -> Option<ProofStep> {

@@ -1,6 +1,3 @@
-// ClauseInfo contains information about a Clause that we use for both heuristically guiding proof
-// search and satisfying human curiosity.
-
 use std::{cmp::Ordering, fmt};
 
 use crate::clause::Clause;
@@ -90,8 +87,8 @@ pub struct ProofStep {
     // Cached for simplicity
     pub atom_count: u32,
 
-    // The order in which this ClauseInfo was created.
-    // This is different from the order in which the ClauseInfo was activated.
+    // The order in which this ProofStep was created.
+    // This is different from the order in which the ProofStep was activated.
     pub generation_ordinal: usize,
 }
 
@@ -159,7 +156,7 @@ impl ProofStep {
         }
     }
 
-    // Construct a ClauseInfo for one of the facts from the initial set of facts.
+    // Construct a ProofStep for one of the facts from the initial set of facts.
     pub fn new_initial_fact(clause: Clause, generation_ordinal: usize) -> ProofStep {
         ProofStep::new(
             clause,
@@ -173,7 +170,7 @@ impl ProofStep {
         )
     }
 
-    // Construct a ClauseInfo for the negated goal that we are trying to prove.
+    // Construct a ProofStep for the negated goal that we are trying to prove.
     pub fn new_negated_goal(clause: Clause, generation_ordinal: usize) -> ProofStep {
         ProofStep::new(
             clause,
@@ -187,7 +184,7 @@ impl ProofStep {
         )
     }
 
-    // Construct a ClauseInfo that was generated via rule.
+    // Construct a ProofStep that was generated via rule.
     pub fn generate(
         &self,
         clause: Clause,
@@ -236,7 +233,7 @@ impl ProofStep {
         )
     }
 
-    // Construct a ClauseInfo with fake heuristic data for testing
+    // Construct a ProofStep with fake heuristic data for testing
     pub fn mock(s: &str) -> ProofStep {
         let clause = Clause::parse(s);
 

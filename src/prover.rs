@@ -190,9 +190,9 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let info =
+            let step =
                 ProofStep::new_initial_fact(clause, self.active_set.next_generation_ordinal());
-            self.passive.push(info);
+            self.passive.push(step);
         }
     }
 
@@ -215,9 +215,9 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let info =
+            let step =
                 ProofStep::new_negated_goal(clause, self.active_set.next_generation_ordinal());
-            self.passive.push(info);
+            self.passive.push(step);
         }
     }
 
@@ -260,9 +260,9 @@ impl Prover {
 
     pub fn print_passive(&self, substr: Option<&str>) {
         let mut count = 0;
-        let clause_infos = self.passive.all_steps();
-        for clause_info in clause_infos {
-            let clause = self.display(&clause_info.output);
+        let steps = self.passive.all_steps();
+        for step in steps {
+            let clause = self.display(&step.output);
             if let Some(substr) = substr {
                 if !clause.to_string().contains(substr) {
                     continue;
@@ -270,7 +270,7 @@ impl Prover {
             }
             count += 1;
             cprintln!(self, "{}", clause);
-            cprintln!(self, "  {}", clause_info);
+            cprintln!(self, "  {}", step);
         }
         if let Some(substr) = substr {
             cprintln!(self, "{} passive clauses matched {}", count, substr);
