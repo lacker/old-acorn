@@ -55,10 +55,6 @@ pub struct Prover {
     // Whether we should report Outcome::Inconsistent or just treat it as a success.
     report_inconsistency: bool,
 
-    // Clauses under this id are facts, clauses equal to or above this are impure.
-    // None before there are any impure clauses.
-    impure_start: Option<usize>,
-
     // When this error message is set, it indicates a problem that needs to be reported upstream
     // to the user.
     // It's better to catch errors before proving, and maybe in the ideal world we always would,
@@ -129,7 +125,6 @@ impl Prover {
             final_step: None,
             stop_flags: vec![project.build_stopped.clone()],
             report_inconsistency: !goal_context.includes_explicit_false(),
-            impure_start: None,
             error: None,
         };
 
@@ -384,10 +379,6 @@ impl Prover {
                 return Outcome::Exhausted;
             }
         };
-
-        if step.truthiness != Truthiness::Factual && self.impure_start.is_none() {
-            self.impure_start = Some(self.active_set.len());
-        }
 
         let tracing = self.is_tracing(&step.clause);
         let verbose = self.verbose || tracing;
