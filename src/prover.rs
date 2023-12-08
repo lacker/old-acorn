@@ -347,15 +347,14 @@ impl Prover {
 
         let indices = self.active_set.find_upstream(&final_step);
         cprintln!(self, "the proof uses {} steps:", indices.len());
-        let mut pending_negagoal = self.impure_start.is_some();
         for i in indices {
-            let preface = if pending_negagoal && self.impure_start.unwrap() <= i {
-                pending_negagoal = false;
+            let step = self.active_set.get_step(i);
+            let preface = if step.is_negated_goal() {
                 format!("clause {} (negating goal): ", i)
             } else {
                 format!("clause {}: ", i)
             };
-            self.print_proof_step(&preface, self.active_set.get_step(i));
+            self.print_proof_step(&preface, step);
         }
         self.print_proof_step("final step: ", final_step);
     }
