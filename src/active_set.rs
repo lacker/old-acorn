@@ -145,18 +145,6 @@ impl ActiveSet {
         ActiveSet::quasiordered_term_pairs(literal)
     }
 
-    // Considers an inference that rewrites s -> t, based on pm_clause, in a known fact.
-    // Returns whether this inference is allowed.
-    // We are more restrictive on fact-fact inference than goal-based inference
-    // because we have many more facts, thus we want to limit non-goal-related inference.
-    fn allow_fact_combining(&self, pm_clause: &Clause, s: &Term, t: &Term) -> bool {
-        if pm_clause.len() > 1 {
-            return false;
-        }
-
-        s.kbo(t) == Ordering::Greater
-    }
-
     // Tries to do superposition, but uses heuristics to not do the inference sometimes.
     //
     // The pm clause is:
@@ -239,7 +227,7 @@ impl ActiveSet {
         }
         let mut result = vec![];
         for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
-            if clause_type == Truthiness::Factual && !self.allow_fact_combining(pm_clause, s, t) {
+            if clause_type == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
                 continue;
             }
 
@@ -310,9 +298,7 @@ impl ActiveSet {
                     } else {
                         (&pm_literal.right, &pm_literal.left)
                     };
-                    if clause_type == Truthiness::Factual
-                        && !self.allow_fact_combining(pm_clause, s, t)
-                    {
+                    if clause_type == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
                         continue;
                     }
 
