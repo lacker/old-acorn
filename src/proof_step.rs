@@ -87,14 +87,14 @@ pub struct ProofStep {
     // So the size for any assumption or definition is zero.
     // This does not deduplicate among different branches, so it may be an overestimate.
     // This also ignores rewrites, which may or may not be the ideal behavior.
-    pub proof_size: u32,
+    proof_size: u32,
 
     // Cached for simplicity
-    pub atom_count: u32,
+    atom_count: u32,
 
     // The order in which this ProofStep was created.
     // This is different from the order in which the ProofStep was activated.
-    pub generation_ordinal: usize,
+    generation_ordinal: usize,
 }
 
 impl Ord for ProofStep {
