@@ -48,7 +48,7 @@ impl PartialOrd for ClauseType {
 
 // The rules that can generate new clauses.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ProofRule {
+pub enum Rule {
     Assumption,
     Definition,
     ActivatingParamodulator,
@@ -60,7 +60,7 @@ pub enum ProofRule {
 // The ProofStep records how one clause was generated from other clauses.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProofStep {
-    pub rule: ProofRule,
+    pub rule: Rule,
 
     // The clause index in the active set that was activated to generate this clause.
     pub activated: Option<usize>,
@@ -82,7 +82,7 @@ pub struct ProofStep {
 impl ProofStep {
     pub fn assumption() -> ProofStep {
         ProofStep {
-            rule: ProofRule::Assumption,
+            rule: Rule::Assumption,
             activated: None,
             existing: None,
             rewrites: vec![],
@@ -92,7 +92,7 @@ impl ProofStep {
 
     pub fn definition() -> ProofStep {
         ProofStep {
-            rule: ProofRule::Definition,
+            rule: Rule::Definition,
             activated: None,
             existing: None,
             rewrites: vec![],
@@ -109,7 +109,7 @@ impl ProofStep {
 
     pub fn is_assumption(&self) -> bool {
         match self.rule {
-            ProofRule::Assumption => true,
+            Rule::Assumption => true,
             _ => false,
         }
     }
@@ -122,7 +122,7 @@ pub struct ClauseInfo {
     pub clause_type: ClauseType,
 
     // How this clause was generated.
-    pub proof_step: ProofStep,
+    proof_step: ProofStep,
 
     // Cached for simplicity
     pub atom_count: u32,
@@ -208,6 +208,60 @@ impl ClauseInfo {
         )
     }
 
+    // Construct a ClauseInfo that was generated via rule.
+    pub fn generate(
+        &self,
+        clause: Clause,
+        rule: Rule,
+        activated: usize,
+        existing: Option<usize>,
+        proof_size: u32,
+        generation_ordinal: usize,
+    ) -> ClauseInfo {
+        // TODO: make this not rely on doing all the fact-fact inference first
+        let generated_type = if self.clause_type == ClauseType::Fact {
+            ClauseType::Fact
+        } else {
+            ClauseType::Impure
+        };
+
+        ClauseInfo::new(
+            clause,
+            generated_type,
+            ProofStep {
+                rule,
+                activated: Some(activated),
+                existing,
+                rewrites: vec![],
+                proof_size,
+            },
+            generation_ordinal,
+        )
+    }
+
+    // Create a replacement for this clause that has extra rewrites
+    pub fn rewrite(&self, clause: Clause, new_rewrites: Vec<usize>) -> ClauseInfo {
+        let rewrites = self
+            .proof_step
+            .rewrites
+            .iter()
+            .chain(new_rewrites.iter())
+            .cloned()
+            .collect();
+        ClauseInfo::new(
+            clause,
+            self.clause_type,
+            ProofStep {
+                rule: Rule::Definition,
+                activated: None,
+                existing: None,
+                rewrites,
+                proof_size: 0,
+            },
+            self.generation_ordinal,
+        )
+    }
+
     // Construct a ClauseInfo with fake heuristic data for testing
     pub fn mock(s: &str) -> ClauseInfo {
         let clause = Clause::parse(s);
@@ -221,8 +275,24 @@ impl ClauseInfo {
         self.atom_count + self.proof_step.proof_size
     }
 
-    pub fn proof_size(&self) -> u32 {
+    pub fn get_proof_size(&self) -> u32 {
         self.proof_step.proof_size
+    }
+
+    pub fn get_rule(&self) -> Rule {
+        self.proof_step.rule
+    }
+
+    pub fn get_activated(&self) -> Option<usize> {
+        self.proof_step.activated
+    }
+
+    pub fn get_existing(&self) -> Option<usize> {
+        self.proof_step.existing
+    }
+
+    pub fn get_rewrites(&self) -> &Vec<usize> {
+        &self.proof_step.rewrites
     }
 
     // The ids of the other clauses that this clause depends on.
@@ -237,6 +307,6 @@ impl ClauseInfo {
 
     // A heuristic for whether this clause is so bad, it should be rejected immediately.
     pub fn heuristic_reject(&self) -> bool {
-        self.clause_type == ClauseType::Fact && self.proof_size() > 2
+        self.clause_type == ClauseType::Fact && self.get_proof_size() > 2
     }
 }

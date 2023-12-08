@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use crate::clause::Clause;
-use crate::clause_info::{ClauseInfo, ClauseType, ProofRule, ProofStep};
+use crate::clause_info::{ClauseInfo, ClauseType, Rule};
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
@@ -462,12 +462,12 @@ impl ActiveSet {
             return None;
         }
 
-        let mut proof_step = info.proof_step;
+        let mut new_rewrites = vec![];
 
         // Filter out any literals that are known to be true
         let mut rewritten_literals = vec![];
         for literal in &info.clause.literals {
-            let rewritten_literal = self.rewrite_literal(literal, &mut proof_step.rewrites);
+            let rewritten_literal = self.rewrite_literal(literal, &mut new_rewrites);
             match self.evaluate_literal(&rewritten_literal) {
                 Some((true, _)) => {
                     // This literal is already known to be true.
@@ -478,7 +478,7 @@ impl ActiveSet {
                     // This literal is already known to be false.
                     // Thus, we can just omit it from the disjunction.
                     if let Some(id) = id {
-                        proof_step.rewrites.push(id);
+                        new_rewrites.push(id);
                     }
                     continue;
                 }
@@ -499,12 +499,7 @@ impl ActiveSet {
         if self.contains(&simplified_clause) {
             return None;
         }
-        Some(ClauseInfo::new(
-            simplified_clause,
-            info.clause_type,
-            proof_step,
-            info.generation_ordinal,
-        ))
+        Some(info.rewrite(simplified_clause, new_rewrites))
     }
 
     // Add all the resolution targets for a given literal.
@@ -610,82 +605,58 @@ impl ActiveSet {
     // Returns pairs describing how the generated clauses were proved.
     pub fn generate(&mut self, info: ClauseInfo) -> Vec<ClauseInfo> {
         let mut generated_clauses = vec![];
-        let id = self.clause_info.len();
-        let activated = Some(id);
-
-        // TODO: make this not rely on doing all the fact-fact inference first
-        let generated_type = if info.clause_type == ClauseType::Fact {
-            ClauseType::Fact
-        } else {
-            ClauseType::Impure
-        };
+        let activated = self.clause_info.len();
 
         // First calculate proof size for clauses dependent only on this one
-        let activated_size = info.proof_step.proof_size;
+        let activated_size = info.get_proof_size();
 
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
         if let Some(new_clause) = ActiveSet::equality_resolution(&info.clause) {
-            generated_clauses.push(ClauseInfo::new(
+            generated_clauses.push(info.generate(
                 new_clause,
-                generated_type,
-                ProofStep {
-                    rule: ProofRule::EqualityResolution,
-                    activated,
-                    existing: None,
-                    rewrites: vec![],
-                    proof_size: activated_size + 1,
-                },
+                Rule::EqualityResolution,
+                activated,
+                None,
+                activated_size + 1,
                 self.next_generation_ordinal(),
             ));
         }
         for clause in ActiveSet::equality_factoring(&info.clause) {
-            generated_clauses.push(ClauseInfo::new(
+            generated_clauses.push(info.generate(
                 clause,
-                generated_type,
-                ProofStep {
-                    rule: ProofRule::EqualityFactoring,
-                    activated,
-                    existing: None,
-                    rewrites: vec![],
-                    proof_size: activated_size + 1,
-                },
+                Rule::EqualityFactoring,
+                activated,
+                None,
+                activated_size + 1,
                 self.next_generation_ordinal(),
             ));
         }
 
         for (new_clause, i) in self.activate_paramodulator(&info.clause, info.clause_type) {
-            let existing_size = self.get_clause_info(i).proof_step.proof_size;
-            generated_clauses.push(ClauseInfo::new(
+            let existing_size = self.get_clause_info(i).get_proof_size();
+            generated_clauses.push(info.generate(
                 new_clause,
-                generated_type,
-                ProofStep {
-                    rule: ProofRule::ActivatingParamodulator,
-                    activated,
-                    existing: Some(i),
-                    rewrites: vec![],
-                    proof_size: activated_size + existing_size + 1,
-                },
+                Rule::ActivatingParamodulator,
+                activated,
+                Some(i),
+                activated_size + existing_size + 1,
                 self.next_generation_ordinal(),
             ))
         }
         for (new_clause, i) in self.activate_resolver(&info.clause, info.clause_type) {
-            let existing_size = self.get_clause_info(i).proof_step.proof_size;
-            generated_clauses.push(ClauseInfo::new(
+            let existing_size = self.get_clause_info(i).get_proof_size();
+            generated_clauses.push(info.generate(
                 new_clause,
-                generated_type,
-                ProofStep {
-                    rule: ProofRule::ActivatingResolver,
-                    activated,
-                    existing: Some(i),
-                    rewrites: vec![],
-                    proof_size: activated_size + existing_size + 1,
-                },
+                Rule::ActivatingResolver,
+                activated,
+                Some(i),
+                activated_size + existing_size + 1,
                 self.next_generation_ordinal(),
             ))
         }
 
-        self.insert(info, id);
+        self.insert(info, activated);
         generated_clauses
     }
 
