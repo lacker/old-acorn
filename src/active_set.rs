@@ -610,7 +610,7 @@ impl ActiveSet {
         let activated = self.steps.len();
 
         // First calculate proof size for clauses dependent only on this one
-        let activated_size = step.get_proof_size();
+        let activated_size = step.proof_size;
 
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
@@ -636,7 +636,7 @@ impl ActiveSet {
         }
 
         for (new_clause, i) in self.activate_paramodulator(&step.output, step.truthiness) {
-            let existing_size = self.get_step(i).get_proof_size();
+            let existing_size = self.get_step(i).proof_size;
             generated_clauses.push(step.generate(
                 new_clause,
                 Rule::ActivatingParamodulator,
@@ -647,7 +647,7 @@ impl ActiveSet {
             ))
         }
         for (new_clause, i) in self.activate_resolver(&step.output, step.truthiness) {
-            let existing_size = self.get_step(i).get_proof_size();
+            let existing_size = self.get_step(i).proof_size;
             generated_clauses.push(step.generate(
                 new_clause,
                 Rule::ActivatingResolver,

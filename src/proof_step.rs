@@ -246,26 +246,6 @@ impl ProofStep {
         self.atom_count + self.proof_size
     }
 
-    pub fn get_proof_size(&self) -> u32 {
-        self.proof_size
-    }
-
-    pub fn get_rule(&self) -> Rule {
-        self.rule
-    }
-
-    pub fn get_activated(&self) -> Option<usize> {
-        self.activated
-    }
-
-    pub fn get_existing(&self) -> Option<usize> {
-        self.existing
-    }
-
-    pub fn get_rewrites(&self) -> &Vec<usize> {
-        &self.rewrites
-    }
-
     // The ids of the other clauses that this clause depends on.
     pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
         self.activated
@@ -281,6 +261,6 @@ impl ProofStep {
 
     // A heuristic for whether this clause is so bad, it should be rejected immediately.
     pub fn heuristic_reject(&self) -> bool {
-        self.truthiness == Truthiness::Fact && self.get_proof_size() > 2
+        self.truthiness == Truthiness::Fact && self.proof_size > 2
     }
 }

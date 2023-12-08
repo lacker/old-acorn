@@ -302,18 +302,18 @@ impl Prover {
             self,
             "\n{}{:?} generated:\n    {}",
             preface,
-            step.get_rule(),
+            step.rule,
             self.display(&step.output)
         );
-        if let Some(i) = step.get_activated() {
+        if let Some(i) = step.activated {
             let c = self.display(self.active_set.get_clause(i));
             cprintln!(self, "  when activating clause {}:\n    {}", i, c);
         }
-        if let Some(i) = step.get_existing() {
+        if let Some(i) = step.existing {
             let c = self.display(self.active_set.get_clause(i));
             cprintln!(self, "  using clause {}:\n    {}", i, c);
         }
-        for i in step.get_rewrites() {
+        for i in &step.rewrites {
             let c = self.display(self.active_set.get_clause(*i));
             cprintln!(self, "  rewriting with clause {}:\n    {}", i, c);
         }
