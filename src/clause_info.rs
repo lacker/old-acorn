@@ -57,9 +57,13 @@ pub enum Rule {
     EqualityResolution,
 }
 
-// The ProofStep records how one clause was generated from other clauses.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProofStep {
+// The ClauseInfo contains a bunch of heuristic information about the clause.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ClauseInfo {
+    pub clause: Clause,
+    pub clause_type: ClauseType,
+
+    // How this clause was generated.
     pub rule: Rule,
 
     // The clause index in the active set that was activated to generate this clause.
@@ -77,52 +81,6 @@ pub struct ProofStep {
     // This does not deduplicate among different branches, so it may be an overestimate.
     // This also ignores rewrites, which may or may not be the ideal behavior.
     pub proof_size: u32,
-}
-
-impl ProofStep {
-    pub fn assumption() -> ProofStep {
-        ProofStep {
-            rule: Rule::Assumption,
-            activated: None,
-            existing: None,
-            rewrites: vec![],
-            proof_size: 0,
-        }
-    }
-
-    pub fn definition() -> ProofStep {
-        ProofStep {
-            rule: Rule::Definition,
-            activated: None,
-            existing: None,
-            rewrites: vec![],
-            proof_size: 0,
-        }
-    }
-
-    pub fn indices(&self) -> impl Iterator<Item = &usize> {
-        self.activated
-            .iter()
-            .chain(self.existing.iter())
-            .chain(self.rewrites.iter())
-    }
-
-    pub fn is_assumption(&self) -> bool {
-        match self.rule {
-            Rule::Assumption => true,
-            _ => false,
-        }
-    }
-}
-
-// The ClauseInfo contains a bunch of heuristic information about the clause.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ClauseInfo {
-    pub clause: Clause,
-    pub clause_type: ClauseType,
-
-    // How this clause was generated.
-    proof_step: ProofStep,
 
     // Cached for simplicity
     pub atom_count: u32,
@@ -166,23 +124,31 @@ impl fmt::Display for ClauseInfo {
         write!(
             f,
             "{} atoms, {} proof size",
-            self.atom_count, self.proof_step.proof_size
+            self.atom_count, self.proof_size
         )
     }
 }
 
 impl ClauseInfo {
-    pub fn new(
+    fn new(
         clause: Clause,
         clause_type: ClauseType,
-        proof_step: ProofStep,
+        rule: Rule,
+        activated: Option<usize>,
+        existing: Option<usize>,
+        rewrites: Vec<usize>,
+        proof_size: u32,
         generation_ordinal: usize,
     ) -> ClauseInfo {
         let atom_count = clause.atom_count();
         ClauseInfo {
             clause,
             clause_type,
-            proof_step,
+            rule,
+            activated,
+            existing,
+            rewrites,
+            proof_size,
             atom_count,
             generation_ordinal,
         }
@@ -193,7 +159,11 @@ impl ClauseInfo {
         ClauseInfo::new(
             clause,
             ClauseType::Fact,
-            ProofStep::assumption(),
+            Rule::Assumption,
+            None,
+            None,
+            vec![],
+            0,
             generation_ordinal,
         )
     }
@@ -203,7 +173,11 @@ impl ClauseInfo {
         ClauseInfo::new(
             clause,
             ClauseType::NegatedGoal,
-            ProofStep::assumption(),
+            Rule::Assumption,
+            None,
+            None,
+            vec![],
+            0,
             generation_ordinal,
         )
     }
@@ -228,13 +202,11 @@ impl ClauseInfo {
         ClauseInfo::new(
             clause,
             generated_type,
-            ProofStep {
-                rule,
-                activated: Some(activated),
-                existing,
-                rewrites: vec![],
-                proof_size,
-            },
+            rule,
+            Some(activated),
+            existing,
+            vec![],
+            proof_size,
             generation_ordinal,
         )
     }
@@ -242,7 +214,6 @@ impl ClauseInfo {
     // Create a replacement for this clause that has extra rewrites
     pub fn rewrite(&self, clause: Clause, new_rewrites: Vec<usize>) -> ClauseInfo {
         let rewrites = self
-            .proof_step
             .rewrites
             .iter()
             .chain(new_rewrites.iter())
@@ -251,13 +222,11 @@ impl ClauseInfo {
         ClauseInfo::new(
             clause,
             self.clause_type,
-            ProofStep {
-                rule: Rule::Definition,
-                activated: None,
-                existing: None,
-                rewrites,
-                proof_size: 0,
-            },
+            self.rule,
+            self.activated,
+            self.existing,
+            rewrites,
+            self.proof_size,
             self.generation_ordinal,
         )
     }
@@ -266,38 +235,41 @@ impl ClauseInfo {
     pub fn mock(s: &str) -> ClauseInfo {
         let clause = Clause::parse(s);
 
-        ClauseInfo::new(clause, ClauseType::Impure, ProofStep::assumption(), 0)
+        ClauseInfo::new_initial_fact(clause, 0)
     }
 
     // A heuristic for how simple this clause is.
     // The lower the simplicity, the more likely we are to select it.
     fn simplicity(&self) -> u32 {
-        self.atom_count + self.proof_step.proof_size
+        self.atom_count + self.proof_size
     }
 
     pub fn get_proof_size(&self) -> u32 {
-        self.proof_step.proof_size
+        self.proof_size
     }
 
     pub fn get_rule(&self) -> Rule {
-        self.proof_step.rule
+        self.rule
     }
 
     pub fn get_activated(&self) -> Option<usize> {
-        self.proof_step.activated
+        self.activated
     }
 
     pub fn get_existing(&self) -> Option<usize> {
-        self.proof_step.existing
+        self.existing
     }
 
     pub fn get_rewrites(&self) -> &Vec<usize> {
-        &self.proof_step.rewrites
+        &self.rewrites
     }
 
     // The ids of the other clauses that this clause depends on.
     pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
-        self.proof_step.indices()
+        self.activated
+            .iter()
+            .chain(self.existing.iter())
+            .chain(self.rewrites.iter())
     }
 
     // Whether this is the last step of the proof
