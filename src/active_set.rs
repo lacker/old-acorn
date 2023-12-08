@@ -609,9 +609,6 @@ impl ActiveSet {
         let mut generated_steps = vec![];
         let activated_id = self.steps.len();
 
-        // First calculate proof size for clauses dependent only on this one
-        let activated_size = activated_step.proof_size;
-
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
         if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
@@ -624,12 +621,11 @@ impl ActiveSet {
             ));
         }
         for clause in ActiveSet::equality_factoring(&activated_step.clause) {
-            generated_steps.push(activated_step.generate(
-                clause,
-                Rule::EqualityFactoring,
+            generated_steps.push(ProofStep::new_direct(
                 activated_id,
-                None,
-                activated_size + 1,
+                &activated_step,
+                Rule::EqualityFactoring,
+                clause,
                 self.next_generation_ordinal(),
             ));
         }
@@ -637,28 +633,30 @@ impl ActiveSet {
         for (new_clause, i) in
             self.activate_paramodulator(&activated_step.clause, activated_step.truthiness)
         {
-            let existing_size = self.get_step(i).proof_size;
-            generated_steps.push(activated_step.generate(
-                new_clause,
-                Rule::ActivatingParamodulator,
+            let generation_ordinal = self.next_generation_ordinal();
+            generated_steps.push(ProofStep::new_combined(
                 activated_id,
-                Some(i),
-                activated_size + existing_size + 1,
-                self.next_generation_ordinal(),
-            ))
+                &activated_step,
+                i,
+                self.get_step(i),
+                Rule::ActivatingParamodulator,
+                new_clause,
+                generation_ordinal,
+            ));
         }
         for (new_clause, i) in
             self.activate_resolver(&activated_step.clause, activated_step.truthiness)
         {
-            let existing_size = self.get_step(i).proof_size;
-            generated_steps.push(activated_step.generate(
-                new_clause,
-                Rule::ActivatingResolver,
+            let generation_ordinal = self.next_generation_ordinal();
+            generated_steps.push(ProofStep::new_combined(
                 activated_id,
-                Some(i),
-                activated_size + existing_size + 1,
-                self.next_generation_ordinal(),
-            ))
+                &activated_step,
+                i,
+                self.get_step(i),
+                Rule::ActivatingResolver,
+                new_clause,
+                generation_ordinal,
+            ));
         }
 
         self.insert(activated_step, activated_id);

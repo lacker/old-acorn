@@ -201,31 +201,24 @@ impl ProofStep {
         )
     }
 
-    // Construct a ProofStep that was generated via rule.
-    pub fn generate(
-        &self,
-        clause: Clause,
+    // Construct a new ProofStep that is a combined implication of an activated step and an existing step.
+    pub fn new_combined(
+        activated_id: usize,
+        activated_step: &ProofStep,
+        existing_id: usize,
+        existing_step: &ProofStep,
         rule: Rule,
-        activated: usize,
-        existing: Option<usize>,
-        proof_size: u32,
+        clause: Clause,
         generation_ordinal: usize,
     ) -> ProofStep {
-        // TODO: make this not rely on doing all the fact-fact inference first
-        let generated_type = if self.truthiness == Truthiness::Factual {
-            Truthiness::Factual
-        } else {
-            Truthiness::Hypothetical
-        };
-
         ProofStep::new(
             clause,
-            generated_type,
+            activated_step.truthiness,
             rule,
-            Some(activated),
-            existing,
+            Some(activated_id),
+            Some(existing_id),
             vec![],
-            proof_size,
+            activated_step.proof_size + existing_step.proof_size + 1,
             generation_ordinal,
         )
     }
