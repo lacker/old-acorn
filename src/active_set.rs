@@ -194,15 +194,15 @@ impl ActiveSet {
             res_forwards,
         );
 
-        let eliminated_clauses = pm_clause.len() + res_clause.len() - new_clause.len();
-        assert!(eliminated_clauses > 0);
+        let eliminated_literals = pm_clause.len() + res_clause.len() - new_clause.len();
+        assert!(eliminated_literals > 0);
 
         // Restrict single elimination.
-        if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_clauses == 1 {
+        if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_literals == 1 {
             return None;
         }
 
-        if fact_fact && eliminated_clauses == 1 {
+        if fact_fact && eliminated_literals == 1 {
             // Heuristic limit for fact-fact inference.
             if new_clause.atom_count() > 12 {
                 return None;
