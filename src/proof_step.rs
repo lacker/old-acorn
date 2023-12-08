@@ -53,8 +53,9 @@ pub enum Rule {
 // decide if we should "activate" the proof step or not.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ProofStep {
-    // Semantically, the output clause is implied by the input clauses (activated and existing).
-    pub output: Clause,
+    // The proof step is primarily defined by a clause that it proves.
+    // Semantically, this clause is implied by the input clauses (activated and existing).
+    pub clause: Clause,
 
     // Whether this clause is the normal sort of true, or just something we're hypothesizing for
     // the sake of the proof.
@@ -129,7 +130,7 @@ impl fmt::Display for ProofStep {
 impl ProofStep {
     fn new(
         clause: Clause,
-        clause_type: Truthiness,
+        truthiness: Truthiness,
         rule: Rule,
         activated: Option<usize>,
         existing: Option<usize>,
@@ -139,8 +140,8 @@ impl ProofStep {
     ) -> ProofStep {
         let atom_count = clause.atom_count();
         ProofStep {
-            output: clause,
-            truthiness: clause_type,
+            clause,
+            truthiness,
             rule,
             activated,
             existing,
@@ -251,7 +252,7 @@ impl ProofStep {
 
     // Whether this is the last step of the proof
     pub fn finishes_proof(&self) -> bool {
-        self.output.is_impossible()
+        self.clause.is_impossible()
     }
 
     // Whether this step is just the direct normalization of the negated goal

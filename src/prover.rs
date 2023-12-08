@@ -262,7 +262,7 @@ impl Prover {
         let mut count = 0;
         let steps = self.passive.all_steps();
         for step in steps {
-            let clause = self.display(&step.output);
+            let clause = self.display(&step.clause);
             if let Some(substr) = substr {
                 if !clause.to_string().contains(substr) {
                     continue;
@@ -303,7 +303,7 @@ impl Prover {
             "\n{}{:?} generated:\n    {}",
             preface,
             step.rule,
-            self.display(&step.output)
+            self.display(&step.clause)
         );
         if let Some(i) = step.activated {
             let c = self.display(self.active_set.get_clause(i));
@@ -389,13 +389,13 @@ impl Prover {
             self.impure_start = Some(self.active_set.len());
         }
 
-        let tracing = self.is_tracing(&step.output);
+        let tracing = self.is_tracing(&step.clause);
         let verbose = self.verbose || tracing;
 
         let mut original_clause_string = "".to_string();
         let mut simplified_clause_string = "".to_string();
         if verbose {
-            original_clause_string = self.display(&step.output).to_string();
+            original_clause_string = self.display(&step.clause).to_string();
         }
 
         let step = match self.active_set.simplify(step) {
@@ -408,7 +408,7 @@ impl Prover {
                 return Outcome::Unknown;
             }
         };
-        let clause = &step.output;
+        let clause = &step.clause;
         if verbose {
             simplified_clause_string = self.display(clause).to_string();
             if simplified_clause_string != original_clause_string {
@@ -468,13 +468,13 @@ impl Prover {
             if tracing {
                 self.print_proof_step("", &step);
             } else if verbose && (i < print_limit) {
-                cprintln!(self, "  {}", self.display(&step.output));
-            } else if self.is_tracing(&step.output) {
+                cprintln!(self, "  {}", self.display(&step.clause));
+            } else if self.is_tracing(&step.clause) {
                 self.print_proof_step("", &step);
             }
 
             if let Some(simple_step) = self.active_set.simplify(step) {
-                if simple_step.output.is_impossible() {
+                if simple_step.clause.is_impossible() {
                     return self.report_contradiction(simple_step);
                 }
                 self.passive.push(simple_step);

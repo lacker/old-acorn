@@ -421,7 +421,7 @@ impl ActiveSet {
     }
 
     pub fn get_clause(&self, index: usize) -> &Clause {
-        &self.steps[index].output
+        &self.steps[index].clause
     }
 
     pub fn get_step(&self, index: usize) -> &ProofStep {
@@ -455,17 +455,17 @@ impl ActiveSet {
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
     pub fn simplify(&self, step: ProofStep) -> Option<ProofStep> {
-        if step.output.is_tautology() {
+        if step.clause.is_tautology() {
             return None;
         }
-        if self.contains(&step.output) {
+        if self.contains(&step.clause) {
             return None;
         }
 
         // Filter out any literals that are known to be true
         let mut new_rewrites = vec![];
         let mut rewritten_literals = vec![];
-        for literal in &step.output.literals {
+        for literal in &step.clause.literals {
             let rewritten_literal = self.rewrite_literal(literal, &mut new_rewrites);
             match self.evaluate_literal(&rewritten_literal) {
                 Some((true, _)) => {
@@ -542,7 +542,7 @@ impl ActiveSet {
     // If select_all is set, then every literal can be used as a target for paramodulation.
     // Otherwise, only the first one can be.
     fn insert(&mut self, step: ProofStep, id: usize) {
-        let clause = &step.output;
+        let clause = &step.clause;
         let step_index = self.steps.len();
         let leftmost_literal = &clause.literals[0];
 
@@ -614,7 +614,7 @@ impl ActiveSet {
 
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
-        if let Some(new_clause) = ActiveSet::equality_resolution(&step.output) {
+        if let Some(new_clause) = ActiveSet::equality_resolution(&step.clause) {
             generated_steps.push(step.generate(
                 new_clause,
                 Rule::EqualityResolution,
@@ -624,7 +624,7 @@ impl ActiveSet {
                 self.next_generation_ordinal(),
             ));
         }
-        for clause in ActiveSet::equality_factoring(&step.output) {
+        for clause in ActiveSet::equality_factoring(&step.clause) {
             generated_steps.push(step.generate(
                 clause,
                 Rule::EqualityFactoring,
@@ -635,7 +635,7 @@ impl ActiveSet {
             ));
         }
 
-        for (new_clause, i) in self.activate_paramodulator(&step.output, step.truthiness) {
+        for (new_clause, i) in self.activate_paramodulator(&step.clause, step.truthiness) {
             let existing_size = self.get_step(i).proof_size;
             generated_steps.push(step.generate(
                 new_clause,
@@ -646,7 +646,7 @@ impl ActiveSet {
                 self.next_generation_ordinal(),
             ))
         }
-        for (new_clause, i) in self.activate_resolver(&step.output, step.truthiness) {
+        for (new_clause, i) in self.activate_resolver(&step.clause, step.truthiness) {
             let existing_size = self.get_step(i).proof_size;
             generated_steps.push(step.generate(
                 new_clause,
@@ -663,7 +663,7 @@ impl ActiveSet {
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
-        self.steps.iter().map(|step| &step.output)
+        self.steps.iter().map(|step| &step.clause)
     }
 
     // Find the index of all clauses used to prove the provided step.
@@ -793,7 +793,7 @@ mod tests {
         let new_clauses = set.generate(step);
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(
-            new_clauses[0].output.to_string(),
+            new_clauses[0].clause.to_string(),
             "!c2(c0(c0(c3)))".to_string()
         );
     }

@@ -32,7 +32,7 @@ impl PassiveSet {
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
-        self.clauses.iter().map(|pc| &pc.output)
+        self.clauses.iter().map(|pc| &pc.clause)
     }
 
     // Sort "highest" to "lowest" which is best to worst
