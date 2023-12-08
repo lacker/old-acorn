@@ -259,6 +259,11 @@ impl ProofStep {
         self.output.is_impossible()
     }
 
+    // Whether this step is just the direct normalization of the negated goal
+    pub fn is_negated_goal(&self) -> bool {
+        self.rule == Rule::Assumption && self.truthiness != Truthiness::Fact
+    }
+
     // A heuristic for whether this clause is so bad, it should be rejected immediately.
     pub fn heuristic_reject(&self) -> bool {
         self.truthiness == Truthiness::Fact && self.proof_size > 2

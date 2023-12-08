@@ -482,7 +482,7 @@ impl ActiveSet {
                     continue;
                 }
                 None => {
-                    if step.truthiness == Truthiness::NegatedGoal {
+                    if step.is_negated_goal() {
                         // Don't automatically simplify the goal.
                         rewritten_literals.push(literal.clone());
                     } else {
