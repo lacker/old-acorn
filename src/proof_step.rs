@@ -24,6 +24,15 @@ impl Truthiness {
             Truthiness::Hypothetical => 0,
         }
     }
+
+    // Two facts combine to form a fact.
+    // Once any hypothetical is involved, the result is hypothetical.
+    fn combine(&self, other: Truthiness) -> Truthiness {
+        match (self, other) {
+            (Truthiness::Factual, Truthiness::Factual) => Truthiness::Factual,
+            _ => Truthiness::Hypothetical,
+        }
+    }
 }
 
 impl Ord for Truthiness {
@@ -213,7 +222,7 @@ impl ProofStep {
     ) -> ProofStep {
         ProofStep::new(
             clause,
-            activated_step.truthiness,
+            activated_step.truthiness.combine(existing_step.truthiness),
             rule,
             Some(activated_id),
             Some(existing_id),
