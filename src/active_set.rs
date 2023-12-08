@@ -605,60 +605,63 @@ impl ActiveSet {
     // Does not simplify.
     // After generation, adds this clause to the active set.
     // Returns pairs describing how the generated clauses were proved.
-    pub fn generate(&mut self, step: ProofStep) -> Vec<ProofStep> {
+    pub fn generate(&mut self, activated_step: ProofStep) -> Vec<ProofStep> {
         let mut generated_steps = vec![];
-        let activated = self.steps.len();
+        let activated_id = self.steps.len();
 
         // First calculate proof size for clauses dependent only on this one
-        let activated_size = step.proof_size;
+        let activated_size = activated_step.proof_size;
 
         // We always allow ER/EF. Since they reduce the number of literals in a clause,
         // they won't lead to infinite loops on the fact library.
-        if let Some(new_clause) = ActiveSet::equality_resolution(&step.clause) {
-            generated_steps.push(step.generate(
-                new_clause,
+        if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
+            generated_steps.push(ProofStep::new_direct(
+                activated_id,
+                &activated_step,
                 Rule::EqualityResolution,
-                activated,
-                None,
-                activated_size + 1,
+                new_clause,
                 self.next_generation_ordinal(),
             ));
         }
-        for clause in ActiveSet::equality_factoring(&step.clause) {
-            generated_steps.push(step.generate(
+        for clause in ActiveSet::equality_factoring(&activated_step.clause) {
+            generated_steps.push(activated_step.generate(
                 clause,
                 Rule::EqualityFactoring,
-                activated,
+                activated_id,
                 None,
                 activated_size + 1,
                 self.next_generation_ordinal(),
             ));
         }
 
-        for (new_clause, i) in self.activate_paramodulator(&step.clause, step.truthiness) {
+        for (new_clause, i) in
+            self.activate_paramodulator(&activated_step.clause, activated_step.truthiness)
+        {
             let existing_size = self.get_step(i).proof_size;
-            generated_steps.push(step.generate(
+            generated_steps.push(activated_step.generate(
                 new_clause,
                 Rule::ActivatingParamodulator,
-                activated,
+                activated_id,
                 Some(i),
                 activated_size + existing_size + 1,
                 self.next_generation_ordinal(),
             ))
         }
-        for (new_clause, i) in self.activate_resolver(&step.clause, step.truthiness) {
+        for (new_clause, i) in
+            self.activate_resolver(&activated_step.clause, activated_step.truthiness)
+        {
             let existing_size = self.get_step(i).proof_size;
-            generated_steps.push(step.generate(
+            generated_steps.push(activated_step.generate(
                 new_clause,
                 Rule::ActivatingResolver,
-                activated,
+                activated_id,
                 Some(i),
                 activated_size + existing_size + 1,
                 self.next_generation_ordinal(),
             ))
         }
 
-        self.insert(step, activated);
+        self.insert(activated_step, activated_id);
         generated_steps
     }
 

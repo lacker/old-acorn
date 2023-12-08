@@ -180,6 +180,27 @@ impl ProofStep {
         )
     }
 
+    // Construct a new ProofStep that is a direct implication of a single activated step,
+    // not requiring any other clauses.
+    pub fn new_direct(
+        activated_id: usize,
+        activated_step: &ProofStep,
+        rule: Rule,
+        clause: Clause,
+        generation_ordinal: usize,
+    ) -> ProofStep {
+        ProofStep::new(
+            clause,
+            activated_step.truthiness,
+            rule,
+            Some(activated_id),
+            None,
+            vec![],
+            activated_step.proof_size + 1,
+            generation_ordinal,
+        )
+    }
+
     // Construct a ProofStep that was generated via rule.
     pub fn generate(
         &self,
