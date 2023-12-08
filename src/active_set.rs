@@ -2,10 +2,10 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use crate::clause::Clause;
-use crate::clause_info::{ProofStep, Rule, Truthiness};
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};

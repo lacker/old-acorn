@@ -8,12 +8,12 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
 use crate::clause::Clause;
-use crate::clause_info::{ProofStep, Truthiness};
 use crate::display::DisplayClause;
 use crate::goal_context::{monomorphize_facts, GoalContext};
 use crate::normalizer::{NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
+use crate::proof_step::{ProofStep, Truthiness};
 
 pub struct Prover {
     // The normalizer is used when we are turning the facts and goals from the environment into
@@ -297,23 +297,23 @@ impl Prover {
         );
     }
 
-    fn print_clause_info(&self, preface: &str, info: &ProofStep) {
+    fn print_proof_step(&self, preface: &str, step: &ProofStep) {
         cprintln!(
             self,
             "\n{}{:?} generated:\n    {}",
             preface,
-            info.get_rule(),
-            self.display(&info.output)
+            step.get_rule(),
+            self.display(&step.output)
         );
-        if let Some(i) = info.get_activated() {
+        if let Some(i) = step.get_activated() {
             let c = self.display(self.active_set.get_clause(i));
             cprintln!(self, "  when activating clause {}:\n    {}", i, c);
         }
-        if let Some(i) = info.get_existing() {
+        if let Some(i) = step.get_existing() {
             let c = self.display(self.active_set.get_clause(i));
             cprintln!(self, "  using clause {}:\n    {}", i, c);
         }
-        for i in info.get_rewrites() {
+        for i in step.get_rewrites() {
             let c = self.display(self.active_set.get_clause(*i));
             cprintln!(self, "  rewriting with clause {}:\n    {}", i, c);
         }
@@ -355,9 +355,9 @@ impl Prover {
             } else {
                 format!("clause {}: ", i)
             };
-            self.print_clause_info(&preface, self.active_set.get_clause_info(i));
+            self.print_proof_step(&preface, self.active_set.get_clause_info(i));
         }
-        self.print_clause_info("final step: ", final_step);
+        self.print_proof_step("final step: ", final_step);
     }
 
     // Handle the case when we found a contradiction
@@ -377,28 +377,28 @@ impl Prover {
             return self.report_contradiction(ps);
         }
 
-        let info = match self.passive.pop() {
-            Some(info) => info,
+        let step = match self.passive.pop() {
+            Some(step) => step,
             None => {
                 // We're out of clauses to process, so we can't make any more progress.
                 return Outcome::Exhausted;
             }
         };
 
-        if info.truthiness != Truthiness::Fact && self.impure_start.is_none() {
+        if step.truthiness != Truthiness::Fact && self.impure_start.is_none() {
             self.impure_start = Some(self.active_set.len());
         }
 
-        let tracing = self.is_tracing(&info.output);
+        let tracing = self.is_tracing(&step.output);
         let verbose = self.verbose || tracing;
 
         let mut original_clause_string = "".to_string();
         let mut simplified_clause_string = "".to_string();
         if verbose {
-            original_clause_string = self.display(&info.output).to_string();
+            original_clause_string = self.display(&step.output).to_string();
         }
 
-        let info = match self.active_set.simplify(info) {
+        let step = match self.active_set.simplify(step) {
             Some(i) => i,
             None => {
                 // The clause is redundant, so skip it.
@@ -408,7 +408,7 @@ impl Prover {
                 return Outcome::Unknown;
             }
         };
-        let clause = &info.output;
+        let clause = &step.output;
         if verbose {
             simplified_clause_string = self.display(clause).to_string();
             if simplified_clause_string != original_clause_string {
@@ -422,24 +422,24 @@ impl Prover {
         }
 
         if clause.is_impossible() {
-            return self.report_contradiction(info);
+            return self.report_contradiction(step);
         }
 
         if verbose {
-            let prefix = match info.truthiness {
+            let prefix = match step.truthiness {
                 Truthiness::Fact => " fact",
                 Truthiness::NegatedGoal => " negated goal",
                 Truthiness::Hypothetical => "",
             };
             cprintln!(self, "activating{}: {}", prefix, simplified_clause_string);
         }
-        self.activate(info, verbose, tracing)
+        self.activate(step, verbose, tracing)
     }
 
     // Generates clauses, then simplifies them, then adds them to the passive set.
     // Clauses will get simplified again when they are activated.
-    fn activate(&mut self, info: ProofStep, verbose: bool, tracing: bool) -> Outcome {
-        let generated_clauses = self.active_set.generate(info);
+    fn activate(&mut self, activated_step: ProofStep, verbose: bool, tracing: bool) -> Outcome {
+        let generated_clauses = self.active_set.generate(activated_step);
 
         let print_limit = 30;
         let len = generated_clauses.len();
@@ -451,28 +451,28 @@ impl Prover {
                 if len > print_limit { ", eg" } else { "" }
             );
         }
-        for (i, info) in generated_clauses.into_iter().enumerate() {
-            if info.finishes_proof() {
-                return self.report_contradiction(info);
+        for (i, step) in generated_clauses.into_iter().enumerate() {
+            if step.finishes_proof() {
+                return self.report_contradiction(step);
             }
 
-            if info.heuristic_reject() {
+            if step.heuristic_reject() {
                 continue;
             }
 
             if tracing {
-                self.print_clause_info("", &info);
+                self.print_proof_step("", &step);
             } else if verbose && (i < print_limit) {
-                cprintln!(self, "  {}", self.display(&info.output));
-            } else if self.is_tracing(&info.output) {
-                self.print_clause_info("", &info);
+                cprintln!(self, "  {}", self.display(&step.output));
+            } else if self.is_tracing(&step.output) {
+                self.print_proof_step("", &step);
             }
 
-            if let Some(info) = self.active_set.simplify(info) {
-                if info.output.is_impossible() {
-                    return self.report_contradiction(info);
+            if let Some(simple_step) = self.active_set.simplify(step) {
+                if simple_step.output.is_impossible() {
+                    return self.report_contradiction(simple_step);
                 }
-                self.passive.push(info);
+                self.passive.push(simple_step);
             }
         }
         Outcome::Unknown

@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 
 use crate::clause::Clause;
-use crate::clause_info::{ProofStep, Truthiness};
+use crate::proof_step::{ProofStep, Truthiness};
 
 // The PassiveSet stores a bunch of clauses.
 // It does not assist in generating new clauses.
