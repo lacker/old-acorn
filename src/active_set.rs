@@ -185,7 +185,7 @@ impl ActiveSet {
         let eliminated_literals = pm_clause.len() + res_clause.len() - new_clause.len();
         assert!(eliminated_literals > 0);
 
-        // Restrict single elimination.
+        // Heuristic restriction of single elimination.
         if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_literals == 1 {
             return None;
         }
@@ -228,6 +228,7 @@ impl ActiveSet {
         let mut result = vec![];
         for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
             if clause_type == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
+                // Heuristic restriction of non-rewrite inference.
                 continue;
             }
 
@@ -299,6 +300,7 @@ impl ActiveSet {
                         (&pm_literal.right, &pm_literal.left)
                     };
                     if clause_type == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
+                        // Heuristic restriction of non-rewrite inference.
                         continue;
                     }
 
