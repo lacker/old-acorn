@@ -8,6 +8,7 @@ use crate::proof_step::ProofStep;
 // So the PassiveSet is faster than the ActiveSet, but less powerful.
 // The main operations of the passive set are adding new clauses, and
 // picking the "most promising" clause to add to the active set.
+// This is not stable, but it is deterministic.
 pub struct PassiveSet {
     clauses: BinaryHeap<ProofStep>,
 }

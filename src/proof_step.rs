@@ -273,15 +273,20 @@ impl ProofStep {
             Truthiness::Factual => 1,
         };
 
-        // This would be a more convenient heuristic, if it worked.
-        // if self.rule == Rule::Assumption {
-        //     // We don't want to skip assumptions
-        //     return base_score + 100;
-        // }
-        // base_score
-
-        // Use fifo as a tiebreaker
-        1000000 * base_score - self.generation_ordinal as i32
+        if false {
+            // This is an alternate heuristic.
+            // Unit tests should pass with any heuristic.
+            // We need some way to debug differences on our regular codebase.
+            if self.rule == Rule::Assumption {
+                // We don't want to skip assumptions
+                base_score + 100 + self.generation_ordinal as i32
+            } else {
+                base_score
+            }
+        } else {
+            // Use fifo as a tiebreaker
+            1000000 * base_score - self.generation_ordinal as i32
+        }
     }
 
     // A heuristic for whether this clause is so bad, it should be rejected immediately.

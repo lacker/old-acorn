@@ -705,6 +705,18 @@ mod tests {
     }
 
     #[test]
+    fn test_existence_of_nonequality() {
+        // After normalization, this is the same problem as the equality
+        // factoring test above. So if one of them works and one doesn't,
+        // it's likely to be a prioritization dependency problem.
+        let text = r#"
+            axiom foo: exists(x: Thing) { x != t2 }
+            theorem goal: exists(x: Thing) { x != t }
+            "#;
+        assert_eq!(prove_thing(text, "goal"), Outcome::Success);
+    }
+
+    #[test]
     fn test_prover_avoids_loops() {
         let text = r#"
             axiom trivial(x: Thing): !f(h(x)) | f(h(x))
