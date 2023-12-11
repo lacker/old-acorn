@@ -47,13 +47,16 @@ impl PartialOrd for Truthiness {
     }
 }
 
-// The rules that can generate new clauses.
+// The rules that can generate new clauses, along with the clause ids used to generate.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Rule {
     Assumption,
-    Superposition,
-    EqualityFactoring,
-    EqualityResolution,
+
+    // (paramodulator, resolver)
+    Superposition(usize, usize),
+
+    EqualityFactoring(usize),
+    EqualityResolution(usize),
 }
 
 // A proof is made up of ProofSteps.

@@ -608,7 +608,7 @@ impl ActiveSet {
             generated_steps.push(ProofStep::new_direct(
                 activated_id,
                 &activated_step,
-                Rule::EqualityResolution,
+                Rule::EqualityResolution(activated_id),
                 new_clause,
                 self.next_generation_ordinal(),
             ));
@@ -617,7 +617,7 @@ impl ActiveSet {
             generated_steps.push(ProofStep::new_direct(
                 activated_id,
                 &activated_step,
-                Rule::EqualityFactoring,
+                Rule::EqualityFactoring(activated_id),
                 clause,
                 self.next_generation_ordinal(),
             ));
@@ -632,7 +632,7 @@ impl ActiveSet {
                 &activated_step,
                 i,
                 self.get_step(i),
-                Rule::Superposition,
+                Rule::Superposition(activated_id, i),
                 new_clause,
                 generation_ordinal,
             ));
@@ -646,7 +646,7 @@ impl ActiveSet {
                 &activated_step,
                 i,
                 self.get_step(i),
-                Rule::Superposition,
+                Rule::Superposition(i, activated_id),
                 new_clause,
                 generation_ordinal,
             ));
