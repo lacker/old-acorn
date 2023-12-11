@@ -490,7 +490,12 @@ impl ActiveSet {
         if self.contains(&simplified_clause) {
             return None;
         }
-        Some(step.rewrite(simplified_clause, new_rewrites))
+        let mut new_truthiness = step.truthiness;
+        for i in &new_rewrites {
+            let rewrite_step = self.get_step(*i);
+            new_truthiness = new_truthiness.combine(rewrite_step.truthiness);
+        }
+        Some(step.rewrite(simplified_clause, new_rewrites, new_truthiness))
     }
 
     // Add all the resolution targets for a given literal.

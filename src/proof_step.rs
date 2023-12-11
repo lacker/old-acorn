@@ -27,7 +27,7 @@ impl Truthiness {
 
     // Two facts combine to form a fact.
     // Once any hypothetical is involved, the result is hypothetical.
-    fn combine(&self, other: Truthiness) -> Truthiness {
+    pub fn combine(&self, other: Truthiness) -> Truthiness {
         match (self, other) {
             (Truthiness::Factual, Truthiness::Factual) => Truthiness::Factual,
             _ => Truthiness::Hypothetical,
@@ -217,7 +217,12 @@ impl ProofStep {
     }
 
     // Create a replacement for this clause that has extra rewrites
-    pub fn rewrite(&self, clause: Clause, new_rewrites: Vec<usize>) -> ProofStep {
+    pub fn rewrite(
+        &self,
+        clause: Clause,
+        new_rewrites: Vec<usize>,
+        new_truthiness: Truthiness,
+    ) -> ProofStep {
         let rewrites = self
             .rewrites
             .iter()
@@ -226,7 +231,7 @@ impl ProofStep {
             .collect();
         ProofStep::new(
             clause,
-            self.truthiness,
+            new_truthiness,
             self.rule,
             self.activated,
             self.existing,
@@ -271,7 +276,7 @@ impl ProofStep {
         // This would be a more convenient heuristic, if it worked.
         // if self.rule == Rule::Assumption {
         //     // We don't want to skip assumptions
-        //     base_score += 100;
+        //     return base_score + 100;
         // }
         // base_score
 
