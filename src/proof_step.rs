@@ -263,11 +263,17 @@ impl ProofStep {
 
     // The better the score, the more we want to activate this proof step.
     pub fn heuristic_score(&self) -> i32 {
-        let base_score = if self.truthiness == Truthiness::Hypothetical {
-            -1 * (self.atom_count + self.proof_size) as i32
-        } else {
-            1
+        let base_score = match self.truthiness {
+            Truthiness::Hypothetical => -1 * (self.atom_count + self.proof_size) as i32,
+            Truthiness::Factual => 1,
         };
+
+        // This would be a more convenient heuristic, if it worked.
+        // if self.rule == Rule::Assumption {
+        //     // We don't want to skip assumptions
+        //     base_score += 100;
+        // }
+        // base_score
 
         // Use fifo as a tiebreaker
         1000000 * base_score - self.generation_ordinal as i32

@@ -46,8 +46,8 @@ pub struct Prover {
     // Whether we have hit the trace
     pub hit_trace: bool,
 
-    // The final step that proves a contradiction, if we have one.
-    final_step: Option<ProofStep>,
+    // The result of the proof search, if there is one.
+    result: Option<(ProofStep, Outcome)>,
 
     // Setting any of these flags to true externally will stop the prover.
     pub stop_flags: Vec<Arc<AtomicBool>>,
@@ -82,7 +82,7 @@ macro_rules! cprintln {
 // "Interrupted" means that the prover was explicitly stopped.
 // "Unknown" means that we could keep working longer at it.
 // "Error" means that we found a problem in the code that needs to be fixed by the user.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Outcome {
     Success,
     Exhausted,
@@ -122,7 +122,7 @@ impl Prover {
             print_queue,
             trace: None,
             hit_trace: false,
-            final_step: None,
+            result: None,
             stop_flags: vec![project.build_stopped.clone()],
             report_inconsistency: !goal_context.includes_explicit_false(),
             error: None,
@@ -173,10 +173,11 @@ impl Prover {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
                 // We have a false assumption, so we're done already.
-                self.final_step = Some(ProofStep::new_initial_fact(
+                let final_step = ProofStep::new_initial_fact(
                     Clause::impossible(),
                     self.active_set.next_generation_ordinal(),
-                ));
+                );
+                self.result = Some((final_step, Outcome::Inconsistent));
                 return;
             }
             Err(e) => {
@@ -198,10 +199,11 @@ impl Prover {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
                 // Our goal is trivially true, so we're done already.
-                self.final_step = Some(ProofStep::new_negated_goal(
+                let final_step = ProofStep::new_negated_goal(
                     Clause::impossible(),
                     self.active_set.next_generation_ordinal(),
-                ));
+                );
+                self.result = Some((final_step, Outcome::Success));
                 return;
             }
             Err(e) => {
@@ -328,7 +330,7 @@ impl Prover {
     }
 
     pub fn print_proof(&self) {
-        let final_step = if let Some(final_step) = &self.final_step {
+        let final_step = if let Some((final_step, _)) = &self.result {
             final_step
         } else {
             cprintln!(self, "we do not have a proof");
@@ -356,20 +358,20 @@ impl Prover {
 
     // Handle the case when we found a contradiction
     fn report_contradiction(&mut self, step: ProofStep) -> Outcome {
+        assert!(self.result.is_none());
         let outcome = if step.truthiness == Truthiness::Factual && self.report_inconsistency {
             Outcome::Inconsistent
         } else {
             Outcome::Success
         };
-        self.final_step = Some(step);
+        self.result = Some((step, outcome));
         outcome
     }
 
-    // Activates the next clause from the queue.
+    // Activates the next clause from the queue, unless we're already done.
     pub fn activate_next(&mut self) -> Outcome {
-        if let Some(ps) = self.final_step.take() {
-            // We already found a contradiction, so we're done.
-            return self.report_contradiction(ps);
+        if let Some((_, outcome)) = &self.result {
+            return *outcome;
         }
 
         let step = match self.passive.pop() {
