@@ -59,6 +59,20 @@ pub enum Rule {
     EqualityResolution(usize),
 }
 
+impl Rule {
+    // The ids of the clauses that this rule depends on.
+    fn dependencies(&self) -> impl Iterator<Item = &usize> {
+        match self {
+            Rule::Assumption => vec![].into_iter(),
+            Rule::Superposition(paramodulator, resolver) => {
+                vec![paramodulator, resolver].into_iter()
+            }
+            Rule::EqualityFactoring(rewritten) => vec![rewritten].into_iter(),
+            Rule::EqualityResolution(rewritten) => vec![rewritten].into_iter(),
+        }
+    }
+}
+
 // A proof is made up of ProofSteps.
 // Each ProofStep contains an output clause, plus a bunch of heuristic information about it, to
 // decide if we should "activate" the proof step or not.
@@ -253,10 +267,7 @@ impl ProofStep {
 
     // The ids of the other clauses that this clause depends on.
     pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
-        self.activated
-            .iter()
-            .chain(self.existing.iter())
-            .chain(self.rewrites.iter())
+        self.rule.dependencies().chain(self.rewrites.iter())
     }
 
     // Whether this is the last step of the proof
