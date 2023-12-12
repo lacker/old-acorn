@@ -166,6 +166,11 @@ impl ActiveSet {
         res_forwards: bool,
         fact_fact: bool,
     ) -> Option<Clause> {
+        if fact_fact && !pm_clause.is_rewrite_rule() {
+            // Heuristic restriction of fact-fact inference.
+            return None;
+        }
+
         let mut unifier = Unifier::new();
         // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
         // the actual left or right of their normalized literals.
@@ -191,7 +196,7 @@ impl ActiveSet {
         }
 
         if fact_fact && eliminated_literals == 1 {
-            // Heuristic limit for fact-fact inference.
+            // Heuristic restriction of fact-fact inference.
             if new_clause.atom_count() > 12 {
                 return None;
             }
@@ -217,10 +222,6 @@ impl ActiveSet {
     // in the superposition formula.
     // Returns the clauses we generated along with the index of the clause we used to generate them.
     pub fn activate_paramodulator(&self, pm_step: &ProofStep) -> Vec<(Clause, usize)> {
-        if pm_step.truthiness == Truthiness::Factual && !pm_step.clause.is_rewrite_rule() {
-            // Heuristic restriction of non-rewrite inference.
-            return vec![];
-        }
         let pm_literal = &pm_step.clause.literals[0];
         if !pm_literal.positive {
             return vec![];
