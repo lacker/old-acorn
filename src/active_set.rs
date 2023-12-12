@@ -269,13 +269,9 @@ impl ActiveSet {
     //
     // in the superposition formula.
     // Returns the clauses we generated along with the index of the clause we used to generate them.
-    pub fn activate_resolver(
-        &self,
-        res_clause: &Clause,
-        clause_type: Truthiness,
-    ) -> Vec<(Clause, usize)> {
+    pub fn activate_resolver(&self, res_step: &ProofStep) -> Vec<(Clause, usize)> {
         let mut result = vec![];
-        let res_literal = &res_clause.literals[0];
+        let res_literal = &res_step.clause.literals[0];
 
         for (res_forwards, u, _) in ActiveSet::quasiordered_term_pairs(res_literal) {
             let u_subterms = u.non_variable_subterms();
@@ -296,7 +292,7 @@ impl ActiveSet {
                     } else {
                         (&pm_literal.right, &pm_literal.left)
                     };
-                    if clause_type == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
+                    if res_step.truthiness == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
                         // Heuristic restriction of non-rewrite inference.
                         continue;
                     }
@@ -308,10 +304,10 @@ impl ActiveSet {
                         target.literal_index,
                         u_subterm,
                         &path,
-                        res_clause,
+                        &res_step.clause,
                         0,
                         res_forwards,
-                        clause_type == Truthiness::Factual,
+                        res_step.truthiness == Truthiness::Factual,
                     ) {
                         result.push((new_clause, target.step_index));
                     }
@@ -629,9 +625,7 @@ impl ActiveSet {
                 generation_ordinal,
             ));
         }
-        for (new_clause, paramodulator_id) in
-            self.activate_resolver(&activated_step.clause, activated_step.truthiness)
-        {
+        for (new_clause, paramodulator_id) in self.activate_resolver(&activated_step) {
             let generation_ordinal = self.next_generation_ordinal();
             generated_steps.push(ProofStep::new_superposition(
                 paramodulator_id,
@@ -707,10 +701,8 @@ mod tests {
         set.insert(step, 0);
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
-        let res_left = Term::parse("c0(c3)");
-        let res_right = Term::parse("c2");
-        let res_clause = Clause::new(vec![Literal::equals(res_left, res_right)]);
-        let result = set.activate_resolver(&res_clause, Truthiness::Hypothetical);
+        let res_step = ProofStep::mock("c0(c3) = c2");
+        let result = set.activate_resolver(&res_step);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
@@ -744,8 +736,9 @@ mod tests {
         let mut step = ProofStep::mock("c1 != c0(x0) | c2 = c3");
         step.truthiness = Truthiness::Factual;
         set.insert(step, 0);
-        let resolver = Clause::parse("c2 != c3");
-        let result = set.activate_resolver(&resolver, Truthiness::Hypothetical);
+        let mut res_step = ProofStep::mock("c2 != c3");
+        res_step.truthiness = Truthiness::Hypothetical;
+        let result = set.activate_resolver(&res_step);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0.to_string(), "c1 != c0(x0)".to_string());
     }
