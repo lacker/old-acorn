@@ -47,13 +47,28 @@ impl PartialOrd for Truthiness {
     }
 }
 
+// Information about a superposition.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SuperpositionInfo {
+    // Which clauses were used as the sources.
+    paramodulator_id: usize,
+    resolver_id: usize,
+
+    // The truthiness of the source clauses.
+    paramodulator_truthiness: Truthiness,
+    resolver_truthiness: Truthiness,
+
+    // Whether the paramodulator is a "rewrite" clause - just a single positive literal.
+    pm_rewrite: bool,
+}
+
 // The rules that can generate new clauses, along with the clause ids used to generate.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Rule {
     Assumption,
 
     // (paramodulator, resolver)
-    Superposition(usize, usize),
+    Superposition(SuperpositionInfo),
 
     // The equality rules only have one source clause
     EqualityFactoring(usize),
@@ -65,8 +80,8 @@ impl Rule {
     fn dependencies(&self) -> impl Iterator<Item = &usize> {
         match self {
             Rule::Assumption => vec![].into_iter(),
-            Rule::Superposition(paramodulator, resolver) => {
-                vec![paramodulator, resolver].into_iter()
+            Rule::Superposition(info) => {
+                vec![&info.paramodulator_id, &info.resolver_id].into_iter()
             }
             Rule::EqualityFactoring(rewritten) => vec![rewritten].into_iter(),
             Rule::EqualityResolution(rewritten) => vec![rewritten].into_iter(),
@@ -78,9 +93,9 @@ impl Rule {
         let mut answer = vec![];
         match self {
             Rule::Assumption => {}
-            Rule::Superposition(paramodulator, resolver) => {
-                answer.push(("paramodulator".to_string(), *paramodulator));
-                answer.push(("resolver".to_string(), *resolver));
+            Rule::Superposition(info) => {
+                answer.push(("paramodulator".to_string(), info.paramodulator_id));
+                answer.push(("resolver".to_string(), info.resolver_id));
             }
             Rule::EqualityFactoring(source) => {
                 answer.push(("source".to_string(), *source));
@@ -214,27 +229,37 @@ impl ProofStep {
         )
     }
 
-    // Construct a new ProofStep that is a combined implication of an activated step and an existing step.
-    pub fn new_combined(
-        activated_step: &ProofStep,
-        existing_step: &ProofStep,
-        rule: Rule,
+    // Construct a new ProofStep via superposition.
+    pub fn new_superposition(
+        paramodulator_id: usize,
+        paramodulator_step: &ProofStep,
+        resolver_id: usize,
+        resolver_step: &ProofStep,
         clause: Clause,
         generation_ordinal: usize,
     ) -> ProofStep {
+        let rule = Rule::Superposition(SuperpositionInfo {
+            paramodulator_id,
+            resolver_id,
+            paramodulator_truthiness: paramodulator_step.truthiness,
+            resolver_truthiness: resolver_step.truthiness,
+            pm_rewrite: paramodulator_step.clause.is_rewrite_rule(),
+        });
         ProofStep::new(
             clause,
-            activated_step.truthiness.combine(existing_step.truthiness),
+            paramodulator_step
+                .truthiness
+                .combine(resolver_step.truthiness),
             rule,
             vec![],
-            activated_step.proof_size + existing_step.proof_size + 1,
+            paramodulator_step.proof_size + resolver_step.proof_size + 1,
             generation_ordinal,
         )
     }
 
     // Create a replacement for this clause that has extra rewrites
     pub fn rewrite(
-        &self,
+        self,
         clause: Clause,
         new_rewrites: Vec<usize>,
         new_truthiness: Truthiness,

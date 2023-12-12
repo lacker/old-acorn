@@ -621,26 +621,28 @@ impl ActiveSet {
             ));
         }
 
-        for (new_clause, i) in
+        for (new_clause, resolver_id) in
             self.activate_paramodulator(&activated_step.clause, activated_step.truthiness)
         {
             let generation_ordinal = self.next_generation_ordinal();
-            generated_steps.push(ProofStep::new_combined(
+            generated_steps.push(ProofStep::new_superposition(
+                activated_id,
                 &activated_step,
-                self.get_step(i),
-                Rule::Superposition(activated_id, i),
+                resolver_id,
+                self.get_step(resolver_id),
                 new_clause,
                 generation_ordinal,
             ));
         }
-        for (new_clause, i) in
+        for (new_clause, paramodulator_id) in
             self.activate_resolver(&activated_step.clause, activated_step.truthiness)
         {
             let generation_ordinal = self.next_generation_ordinal();
-            generated_steps.push(ProofStep::new_combined(
+            generated_steps.push(ProofStep::new_superposition(
+                paramodulator_id,
+                self.get_step(paramodulator_id),
+                activated_id,
                 &activated_step,
-                self.get_step(i),
-                Rule::Superposition(i, activated_id),
                 new_clause,
                 generation_ordinal,
             ));
