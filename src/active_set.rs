@@ -227,11 +227,6 @@ impl ActiveSet {
         }
         let mut result = vec![];
         for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
-            if clause_type == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
-                // Heuristic restriction of non-rewrite inference.
-                continue;
-            }
-
             // Look for resolution targets that match pm_left
             let targets = self.resolution_targets.get_unifying(s);
             for target in targets {

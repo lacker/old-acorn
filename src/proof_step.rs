@@ -59,7 +59,7 @@ pub struct SuperpositionInfo {
     resolver_truthiness: Truthiness,
 
     // Whether the paramodulator is a "rewrite" clause - just a single positive literal.
-    pm_rewrite: bool,
+    paramodulator_is_rewrite: bool,
 }
 
 // The rules that can generate new clauses, along with the clause ids used to generate.
@@ -243,7 +243,7 @@ impl ProofStep {
             resolver_id,
             paramodulator_truthiness: paramodulator_step.truthiness,
             resolver_truthiness: resolver_step.truthiness,
-            pm_rewrite: paramodulator_step.clause.is_rewrite_rule(),
+            paramodulator_is_rewrite: paramodulator_step.clause.is_rewrite_rule(),
         });
         ProofStep::new(
             clause,
@@ -334,8 +334,28 @@ impl ProofStep {
         }
     }
 
-    // A heuristic for whether this clause is so bad, it should be rejected immediately.
+    // A heuristic for whether this clause should be rejected without scoring.
     pub fn heuristic_reject(&self) -> bool {
-        self.truthiness == Truthiness::Factual && self.proof_size > 2
+        if self.truthiness != Truthiness::Factual {
+            // We only want to reject things that are doing fact-fact inference.
+            // The rationale is that if we ever run into any seemingly promising fact-fact inference
+            // that doesn't go anywhere, it will torch everything else.
+            // So we need to be very strict about it.
+            return false;
+        }
+
+        if self.proof_size > 2 {
+            // Reject long proofs
+            return true;
+        }
+
+        if let Rule::Superposition(info) = &self.rule {
+            if !info.paramodulator_is_rewrite {
+                // Reject non-rewrites
+                return true;
+            }
+        }
+
+        return false;
     }
 }
