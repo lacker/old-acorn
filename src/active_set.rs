@@ -185,7 +185,7 @@ impl ActiveSet {
         let eliminated_literals = pm_clause.len() + res_clause.len() - new_clause.len();
         assert!(eliminated_literals > 0);
 
-        // Heuristic restriction of single elimination.
+        // Heuristic restriction of superpositions that lengthen clauses.
         if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_literals == 1 {
             return None;
         }

@@ -58,6 +58,10 @@ pub struct SuperpositionInfo {
     paramodulator_truthiness: Truthiness,
     resolver_truthiness: Truthiness,
 
+    // How many literals were in the source clauses
+    paramodulator_literals: usize,
+    resolver_literals: usize,
+
     // Whether the paramodulator is a "rewrite" clause - just a single positive literal.
     paramodulator_is_rewrite: bool,
 }
@@ -243,6 +247,8 @@ impl ProofStep {
             resolver_id,
             paramodulator_truthiness: paramodulator_step.truthiness,
             resolver_truthiness: resolver_step.truthiness,
+            paramodulator_literals: paramodulator_step.clause.len(),
+            resolver_literals: resolver_step.clause.len(),
             paramodulator_is_rewrite: paramodulator_step.clause.is_rewrite_rule(),
         });
         ProofStep::new(
