@@ -221,6 +221,10 @@ impl ActiveSet {
         pm_clause: &Clause,
         clause_type: Truthiness,
     ) -> Vec<(Clause, usize)> {
+        if clause_type == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
+            // Heuristic restriction of non-rewrite inference.
+            return vec![];
+        }
         let pm_literal = &pm_clause.literals[0];
         if !pm_literal.positive {
             return vec![];

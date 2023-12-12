@@ -344,18 +344,7 @@ impl ProofStep {
             return false;
         }
 
-        if self.proof_size > 2 {
-            // Reject long proofs
-            return true;
-        }
-
-        if let Rule::Superposition(info) = &self.rule {
-            if !info.paramodulator_is_rewrite {
-                // Reject non-rewrites
-                return true;
-            }
-        }
-
-        return false;
+        // Reject long proofs
+        self.proof_size > 2
     }
 }
