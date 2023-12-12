@@ -286,29 +286,26 @@ impl ActiveSet {
                 // Look for paramodulation targets that match u_subterm
                 let targets = self.paramodulation_targets.get_unifying(u_subterm);
                 for target in targets {
-                    let pm_clause = self.get_clause(target.step_index);
-                    let pm_literal = &pm_clause.literals[target.literal_index];
+                    let pm_step = self.get_step(target.step_index);
+                    let pm_literal = &pm_step.clause.literals[target.literal_index];
                     let (s, t) = if target.forwards {
                         (&pm_literal.left, &pm_literal.right)
                     } else {
                         (&pm_literal.right, &pm_literal.left)
                     };
-                    if res_step.truthiness == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
-                        // Heuristic restriction of non-rewrite inference.
-                        continue;
-                    }
-
+                    let fact_fact = pm_step.truthiness == Truthiness::Factual
+                        && res_step.truthiness == Truthiness::Factual;
                     if let Some(new_clause) = self.maybe_superpose(
                         s,
                         t,
-                        pm_clause,
+                        &pm_step.clause,
                         target.literal_index,
                         u_subterm,
                         &path,
                         &res_step.clause,
                         0,
                         res_forwards,
-                        res_step.truthiness == Truthiness::Factual,
+                        fact_fact,
                     ) {
                         result.push((new_clause, target.step_index));
                     }
