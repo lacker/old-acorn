@@ -216,16 +216,12 @@ impl ActiveSet {
     //
     // in the superposition formula.
     // Returns the clauses we generated along with the index of the clause we used to generate them.
-    pub fn activate_paramodulator(
-        &self,
-        pm_clause: &Clause,
-        clause_type: Truthiness,
-    ) -> Vec<(Clause, usize)> {
-        if clause_type == Truthiness::Factual && !pm_clause.is_rewrite_rule() {
+    pub fn activate_paramodulator(&self, pm_step: &ProofStep) -> Vec<(Clause, usize)> {
+        if pm_step.truthiness == Truthiness::Factual && !pm_step.clause.is_rewrite_rule() {
             // Heuristic restriction of non-rewrite inference.
             return vec![];
         }
-        let pm_literal = &pm_clause.literals[0];
+        let pm_literal = &pm_step.clause.literals[0];
         if !pm_literal.positive {
             return vec![];
         }
@@ -239,14 +235,14 @@ impl ActiveSet {
                 if let Some(new_clause) = self.maybe_superpose(
                     s,
                     t,
-                    pm_clause,
+                    &pm_step.clause,
                     0,
                     u_subterm,
                     &target.path,
                     self.get_clause(target.step_index),
                     target.literal_index,
                     target.forwards,
-                    clause_type == Truthiness::Factual,
+                    pm_step.truthiness == Truthiness::Factual,
                 ) {
                     result.push((new_clause, target.step_index));
                 }
@@ -620,9 +616,7 @@ impl ActiveSet {
             ));
         }
 
-        for (new_clause, resolver_id) in
-            self.activate_paramodulator(&activated_step.clause, activated_step.truthiness)
-        {
+        for (new_clause, resolver_id) in self.activate_paramodulator(&activated_step) {
             let generation_ordinal = self.next_generation_ordinal();
             generated_steps.push(ProofStep::new_superposition(
                 activated_id,
@@ -692,10 +686,8 @@ mod tests {
         set.insert(step, 0);
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
-        let pm_left = Term::parse("c1");
-        let pm_right = Term::parse("c3");
-        let pm_clause = Clause::new(vec![Literal::equals(pm_left.clone(), pm_right.clone())]);
-        let result = set.activate_paramodulator(&pm_clause, Truthiness::Hypothetical);
+        let pm_step = ProofStep::mock("c1 = c3");
+        let result = set.activate_paramodulator(&pm_step);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
