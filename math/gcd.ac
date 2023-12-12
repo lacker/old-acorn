@@ -56,6 +56,7 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(Suc(
         forall(x: Nat) {
             if h(x) {
                 lte(add(x, f(x)), f(0))
+                !lte(f(x), f(Suc(x)))
                 lt(f(Suc(x)), f(x))
                 lt(add(x, f(Suc(x))), add(x, f(x)))
                 lte(Suc(add(x, f(Suc(x)))), add(x, f(x)))
@@ -130,8 +131,17 @@ theorem divides_both_step(a: Nat, p: NatPair): divides_both(a, p) -> divides_bot
 
 theorem divides_gcd_step_n(d: Nat, p: NatPair, n: Nat):
     divides_both(d, p) -> divides_both(d, gcd_step_n(p, n)) by {
-    let f: Nat -> bool = function(x: Nat) { divides_both(d, gcd_step_n(p, x)) }
-    nat.induction(f)
+    if divides_both(d, p) {
+        let f: Nat -> bool = function(x: Nat) { divides_both(d, gcd_step_n(p, x)) }
+        nat.induction(f)
+        f(0)
+        forall(x: Nat) {
+            if f(x) {
+                f(Suc(x))
+            }
+        }
+        divides_both(d, gcd_step_n(p, n))
+    }
 }
 
 theorem divides_gcd_pair(d: Nat, p: NatPair): divides_both(d, p) -> divides(d, gcd_pair(p))

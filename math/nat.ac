@@ -176,6 +176,8 @@ theorem lt_not_ref(a: Nat): !lt(a, a) by {
     }
 }
 
+theorem lte_ref(a: Nat): lte(a, a)
+
 theorem add_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0 by {
     define f(x: Nat) -> bool = add_to_zero(x, b)
     induction(f)
@@ -307,6 +309,27 @@ theorem lt_add_left(a: Nat, b: Nat, c: Nat): lt(b, c) -> lt(add(a, b), add(a, c)
         add(a, add(b, d)) = add(a, c)
         add(a, c) = add(a, c)
         lt(add(a, b), add(a, c))
+    }
+}
+
+theorem trichotomy(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b by {
+    define f(x: Nat) -> bool = trichotomy(a, x)
+    induction(f)
+    f(0)
+    forall(x: Nat) {
+        if f(x) {
+            lt(a, x) | lt(x, a) | a = x
+            if lt(a, x) {
+                lt(a, Suc(x))
+            }
+            if lt(x, a) {
+                Suc(x) = a | lt(Suc(x), a)
+            }
+            if a = x {
+                lt(a, Suc(x))
+            }
+            f(Suc(x))
+        }
     }
 }
 

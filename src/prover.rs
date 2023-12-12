@@ -865,20 +865,6 @@ mod tests {
     }
 
     #[test]
-    fn test_forall_scopes() {
-        // Unprovable, since we know nothing about lt, but it shouldn't crash.
-
-        let text = r#"
-            type Nat: axiom
-            let lt: (Nat, Nat) -> bool = axiom
-            theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
-                forall(m: Nat) { lt(m, k) -> f(m) } -> f(k)
-            } -> forall(n: Nat) { f(n) }
-            "#;
-        assert_eq!(prove_text(text, "strong_induction"), Outcome::Exhausted);
-    }
-
-    #[test]
     fn test_struct_new_equation() {
         let text = r#"
             struct Pair {

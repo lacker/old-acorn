@@ -222,36 +222,36 @@ impl ActiveSet {
     // in the superposition formula.
     // Returns the clauses we generated along with the index of the clause we used to generate them.
     pub fn activate_paramodulator(&self, pm_step: &ProofStep) -> Vec<(Clause, usize)> {
-        let pm_literal = &pm_step.clause.literals[0];
-        if !pm_literal.positive {
-            return vec![];
-        }
         let mut result = vec![];
-        for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
-            // Look for resolution targets that match pm_left
-            let targets = self.resolution_targets.get_unifying(s);
-            for target in targets {
-                let u_subterm = self.get_resolution_term(target);
-                let res_step = self.get_step(target.step_index);
-                let fact_fact = pm_step.truthiness == Truthiness::Factual
-                    && res_step.truthiness == Truthiness::Factual;
-                if let Some(new_clause) = self.maybe_superpose(
-                    s,
-                    t,
-                    &pm_step.clause,
-                    0,
-                    u_subterm,
-                    &target.path,
-                    &res_step.clause,
-                    target.literal_index,
-                    target.forwards,
-                    fact_fact,
-                ) {
-                    result.push((new_clause, target.step_index));
+        for (i, pm_literal) in pm_step.clause.literals.iter().enumerate() {
+            if !pm_literal.positive {
+                continue;
+            }
+            for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
+                // Look for resolution targets that match pm_left
+                let targets = self.resolution_targets.get_unifying(s);
+                for target in targets {
+                    let u_subterm = self.get_resolution_term(target);
+                    let res_step = self.get_step(target.step_index);
+                    let fact_fact = pm_step.truthiness == Truthiness::Factual
+                        && res_step.truthiness == Truthiness::Factual;
+                    if let Some(new_clause) = self.maybe_superpose(
+                        s,
+                        t,
+                        &pm_step.clause,
+                        i,
+                        u_subterm,
+                        &target.path,
+                        &res_step.clause,
+                        target.literal_index,
+                        target.forwards,
+                        fact_fact,
+                    ) {
+                        result.push((new_clause, target.step_index));
+                    }
                 }
             }
         }
-
         result
     }
 
