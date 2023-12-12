@@ -55,6 +55,7 @@ pub enum Rule {
     // (paramodulator, resolver)
     Superposition(usize, usize),
 
+    // The equality rules only have one source clause
     EqualityFactoring(usize),
     EqualityResolution(usize),
 }
@@ -70,6 +71,25 @@ impl Rule {
             Rule::EqualityFactoring(rewritten) => vec![rewritten].into_iter(),
             Rule::EqualityResolution(rewritten) => vec![rewritten].into_iter(),
         }
+    }
+
+    // (description, id) for every clause this rule depends on.
+    pub fn descriptive_dependencies(&self) -> Vec<(String, usize)> {
+        let mut answer = vec![];
+        match self {
+            Rule::Assumption => {}
+            Rule::Superposition(paramodulator, resolver) => {
+                answer.push(("paramodulator".to_string(), *paramodulator));
+                answer.push(("resolver".to_string(), *resolver));
+            }
+            Rule::EqualityFactoring(source) => {
+                answer.push(("source".to_string(), *source));
+            }
+            Rule::EqualityResolution(source) => {
+                answer.push(("source".to_string(), *source));
+            }
+        }
+        answer
     }
 }
 
@@ -90,10 +110,10 @@ pub struct ProofStep {
     pub rule: Rule,
 
     // The clause index in the active set that was activated to generate this clause.
-    pub activated: Option<usize>,
+    activated: Option<usize>,
 
     // The index of the already-activated clause in the active set we used, if there was any.
-    pub existing: Option<usize>,
+    existing: Option<usize>,
 
     // The clauses that we used for rewrites.
     pub rewrites: Vec<usize>,
@@ -268,6 +288,15 @@ impl ProofStep {
     // The ids of the other clauses that this clause depends on.
     pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
         self.rule.dependencies().chain(self.rewrites.iter())
+    }
+
+    // (description, id) for every clause this rule depends on.
+    pub fn descriptive_dependencies(&self) -> Vec<(String, usize)> {
+        let mut answer = self.rule.descriptive_dependencies();
+        for rewrite in &self.rewrites {
+            answer.push(("rewrite".to_string(), *rewrite));
+        }
+        answer
     }
 
     // Whether this is the last step of the proof

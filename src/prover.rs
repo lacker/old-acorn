@@ -302,17 +302,10 @@ impl Prover {
             step.rule,
             self.display(&step.clause)
         );
-        if let Some(i) = step.activated {
+
+        for (description, i) in step.descriptive_dependencies() {
             let c = self.display(self.active_set.get_clause(i));
-            cprintln!(self, "  when activating clause {}:\n    {}", i, c);
-        }
-        if let Some(i) = step.existing {
-            let c = self.display(self.active_set.get_clause(i));
-            cprintln!(self, "  using clause {}:\n    {}", i, c);
-        }
-        for i in &step.rewrites {
-            let c = self.display(self.active_set.get_clause(*i));
-            cprintln!(self, "  rewriting with clause {}:\n    {}", i, c);
+            cprintln!(self, "  using {} {}:\n    {}", description, i, c);
         }
     }
 
