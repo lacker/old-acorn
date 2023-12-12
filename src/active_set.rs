@@ -231,7 +231,9 @@ impl ActiveSet {
             let targets = self.resolution_targets.get_unifying(s);
             for target in targets {
                 let u_subterm = self.get_resolution_term(target);
-
+                let res_step = self.get_step(target.step_index);
+                let fact_fact = pm_step.truthiness == Truthiness::Factual
+                    && res_step.truthiness == Truthiness::Factual;
                 if let Some(new_clause) = self.maybe_superpose(
                     s,
                     t,
@@ -239,10 +241,10 @@ impl ActiveSet {
                     0,
                     u_subterm,
                     &target.path,
-                    self.get_clause(target.step_index),
+                    &res_step.clause,
                     target.literal_index,
                     target.forwards,
-                    pm_step.truthiness == Truthiness::Factual,
+                    fact_fact,
                 ) {
                     result.push((new_clause, target.step_index));
                 }
