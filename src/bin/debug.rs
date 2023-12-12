@@ -45,7 +45,7 @@ fn main() {
             return;
         }
     };
-    let mut prover = Prover::new(&project, &goals[current], false, None);
+    let mut prover = Prover::new(&project, &goals[current], true, None);
     println!("loaded {}", goals[current].name);
 
     loop {

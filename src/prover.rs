@@ -297,9 +297,9 @@ impl Prover {
     fn print_proof_step(&self, preface: &str, step: &ProofStep) {
         cprintln!(
             self,
-            "\n{}{:?} generated:\n    {}",
+            "\n{}{} generated:\n    {}",
             preface,
-            step.rule,
+            step.rule.name(),
             self.display(&step.clause)
         );
 

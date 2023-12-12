@@ -110,6 +110,15 @@ impl Rule {
         }
         answer
     }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Rule::Assumption => "Assumption",
+            Rule::Superposition(_) => "Superposition",
+            Rule::EqualityFactoring(_) => "EqualityFactoring",
+            Rule::EqualityResolution(_) => "EqualityResolution",
+        }
+    }
 }
 
 // A proof is made up of ProofSteps.
