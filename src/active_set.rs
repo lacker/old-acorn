@@ -606,7 +606,6 @@ impl ActiveSet {
         // they won't lead to infinite loops on the fact library.
         if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
             generated_steps.push(ProofStep::new_direct(
-                activated_id,
                 &activated_step,
                 Rule::EqualityResolution(activated_id),
                 new_clause,
@@ -615,7 +614,6 @@ impl ActiveSet {
         }
         for clause in ActiveSet::equality_factoring(&activated_step.clause) {
             generated_steps.push(ProofStep::new_direct(
-                activated_id,
                 &activated_step,
                 Rule::EqualityFactoring(activated_id),
                 clause,
@@ -628,9 +626,7 @@ impl ActiveSet {
         {
             let generation_ordinal = self.next_generation_ordinal();
             generated_steps.push(ProofStep::new_combined(
-                activated_id,
                 &activated_step,
-                i,
                 self.get_step(i),
                 Rule::Superposition(activated_id, i),
                 new_clause,
@@ -642,9 +638,7 @@ impl ActiveSet {
         {
             let generation_ordinal = self.next_generation_ordinal();
             generated_steps.push(ProofStep::new_combined(
-                activated_id,
                 &activated_step,
-                i,
                 self.get_step(i),
                 Rule::Superposition(i, activated_id),
                 new_clause,

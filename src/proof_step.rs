@@ -109,12 +109,6 @@ pub struct ProofStep {
     // How this clause was generated.
     pub rule: Rule,
 
-    // The clause index in the active set that was activated to generate this clause.
-    activated: Option<usize>,
-
-    // The index of the already-activated clause in the active set we used, if there was any.
-    existing: Option<usize>,
-
     // The clauses that we used for rewrites.
     pub rewrites: Vec<usize>,
 
@@ -162,8 +156,6 @@ impl ProofStep {
         clause: Clause,
         truthiness: Truthiness,
         rule: Rule,
-        activated: Option<usize>,
-        existing: Option<usize>,
         rewrites: Vec<usize>,
         proof_size: u32,
         generation_ordinal: usize,
@@ -173,8 +165,6 @@ impl ProofStep {
             clause,
             truthiness,
             rule,
-            activated,
-            existing,
             rewrites,
             proof_size,
             atom_count,
@@ -188,8 +178,6 @@ impl ProofStep {
             clause,
             Truthiness::Factual,
             Rule::Assumption,
-            None,
-            None,
             vec![],
             0,
             generation_ordinal,
@@ -202,8 +190,6 @@ impl ProofStep {
             clause,
             Truthiness::Hypothetical,
             Rule::Assumption,
-            None,
-            None,
             vec![],
             0,
             generation_ordinal,
@@ -213,7 +199,6 @@ impl ProofStep {
     // Construct a new ProofStep that is a direct implication of a single activated step,
     // not requiring any other clauses.
     pub fn new_direct(
-        activated_id: usize,
         activated_step: &ProofStep,
         rule: Rule,
         clause: Clause,
@@ -223,8 +208,6 @@ impl ProofStep {
             clause,
             activated_step.truthiness,
             rule,
-            Some(activated_id),
-            None,
             vec![],
             activated_step.proof_size + 1,
             generation_ordinal,
@@ -233,9 +216,7 @@ impl ProofStep {
 
     // Construct a new ProofStep that is a combined implication of an activated step and an existing step.
     pub fn new_combined(
-        activated_id: usize,
         activated_step: &ProofStep,
-        existing_id: usize,
         existing_step: &ProofStep,
         rule: Rule,
         clause: Clause,
@@ -245,8 +226,6 @@ impl ProofStep {
             clause,
             activated_step.truthiness.combine(existing_step.truthiness),
             rule,
-            Some(activated_id),
-            Some(existing_id),
             vec![],
             activated_step.proof_size + existing_step.proof_size + 1,
             generation_ordinal,
@@ -270,8 +249,6 @@ impl ProofStep {
             clause,
             new_truthiness,
             self.rule,
-            self.activated,
-            self.existing,
             rewrites,
             self.proof_size,
             self.generation_ordinal,
