@@ -222,7 +222,7 @@ impl ActiveSet {
     // in the superposition formula.
     // Returns the clauses we generated along with the index of the clause we used to generate them.
     pub fn activate_paramodulator(&self, pm_step: &ProofStep) -> Vec<(Clause, usize)> {
-        let mut result = vec![];
+        let mut results = vec![];
         for (i, pm_literal) in pm_step.clause.literals.iter().enumerate() {
             if !pm_literal.positive {
                 continue;
@@ -247,12 +247,12 @@ impl ActiveSet {
                         target.forwards,
                         fact_fact,
                     ) {
-                        result.push((new_clause, target.step_index));
+                        results.push((new_clause, target.step_index));
                     }
                 }
             }
         }
-        result
+        results
     }
 
     // Look for superposition inferences using a resolver which is not yet in the active set.
@@ -271,49 +271,53 @@ impl ActiveSet {
     // in the superposition formula.
     // Returns the clauses we generated along with the index of the clause we used to generate them.
     pub fn activate_resolver(&self, res_step: &ProofStep) -> Vec<(Clause, usize)> {
-        let mut result = vec![];
-        let res_literal = &res_step.clause.literals[0];
+        let mut results = vec![];
+        for (i, res_literal) in res_step.clause.literals.iter().enumerate() {
+            if true && i != 0 {
+                // TODO: permatoggle to false
+                continue;
+            }
+            for (res_forwards, u, _) in ActiveSet::quasiordered_term_pairs(res_literal) {
+                let u_subterms = u.non_variable_subterms();
 
-        for (res_forwards, u, _) in ActiveSet::quasiordered_term_pairs(res_literal) {
-            let u_subterms = u.non_variable_subterms();
+                for (path, u_subterm) in u_subterms {
+                    if res_literal.positive && path.is_empty() {
+                        // We already handle the u = s case in activate_paramodulator.
+                        continue;
+                    }
 
-            for (path, u_subterm) in u_subterms {
-                if res_literal.positive && path.is_empty() {
-                    // We already handle the u = s case in activate_paramodulator.
-                    continue;
-                }
-
-                // Look for paramodulation targets that match u_subterm
-                let targets = self.paramodulation_targets.get_unifying(u_subterm);
-                for target in targets {
-                    let pm_step = self.get_step(target.step_index);
-                    let pm_literal = &pm_step.clause.literals[target.literal_index];
-                    let (s, t) = if target.forwards {
-                        (&pm_literal.left, &pm_literal.right)
-                    } else {
-                        (&pm_literal.right, &pm_literal.left)
-                    };
-                    let fact_fact = pm_step.truthiness == Truthiness::Factual
-                        && res_step.truthiness == Truthiness::Factual;
-                    if let Some(new_clause) = self.maybe_superpose(
-                        s,
-                        t,
-                        &pm_step.clause,
-                        target.literal_index,
-                        u_subterm,
-                        &path,
-                        &res_step.clause,
-                        0,
-                        res_forwards,
-                        fact_fact,
-                    ) {
-                        result.push((new_clause, target.step_index));
+                    // Look for paramodulation targets that match u_subterm
+                    let targets = self.paramodulation_targets.get_unifying(u_subterm);
+                    for target in targets {
+                        let pm_step = self.get_step(target.step_index);
+                        let pm_literal = &pm_step.clause.literals[target.literal_index];
+                        let (s, t) = if target.forwards {
+                            (&pm_literal.left, &pm_literal.right)
+                        } else {
+                            (&pm_literal.right, &pm_literal.left)
+                        };
+                        let fact_fact = pm_step.truthiness == Truthiness::Factual
+                            && res_step.truthiness == Truthiness::Factual;
+                        if let Some(new_clause) = self.maybe_superpose(
+                            s,
+                            t,
+                            &pm_step.clause,
+                            target.literal_index,
+                            u_subterm,
+                            &path,
+                            &res_step.clause,
+                            i,
+                            res_forwards,
+                            fact_fact,
+                        ) {
+                            results.push((new_clause, target.step_index));
+                        }
                     }
                 }
             }
         }
 
-        result
+        results
     }
 
     // Tries to do inference using the equality resolution (ER) rule.
