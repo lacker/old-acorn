@@ -919,20 +919,28 @@ impl Environment {
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
     pub fn get_goal_context(&self, project: &Project, path: &Vec<usize>) -> GoalContext {
-        let mut facts = Vec::new();
+        let mut global_facts = vec![];
+        let mut local_facts = vec![];
         let mut env = self;
         let mut it = path.iter().peekable();
+        let mut global = true;
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
-                facts.push(env.inline_theorems(project, &previous_prop.claim));
+                let fact = env.inline_theorems(project, &previous_prop.claim);
+                if global {
+                    global_facts.push(fact);
+                } else {
+                    local_facts.push(fact);
+                }
             }
+            global = false;
             let prop = &env.propositions[*i];
             if let Some(block) = &prop.block {
                 if it.peek().is_none() {
                     // This is the last element of the path. It has a block, so we can use the
                     // contents of the block to help prove it.
                     for p in &block.env.propositions {
-                        facts.push(block.env.inline_theorems(project, &p.claim));
+                        local_facts.push(block.env.inline_theorems(project, &p.claim));
                     }
                     let claim = if let Some(claim) = &block.claim {
                         claim
@@ -941,7 +949,8 @@ impl Environment {
                     };
                     return GoalContext::new(
                         &block.env,
-                        facts,
+                        global_facts,
+                        local_facts,
                         prop.name(),
                         block.env.inline_theorems(project, claim),
                         prop.range,
@@ -954,7 +963,8 @@ impl Environment {
 
                 return GoalContext::new(
                     &env,
-                    facts,
+                    global_facts,
+                    local_facts,
                     prop.name(),
                     env.inline_theorems(project, &prop.claim),
                     prop.range,

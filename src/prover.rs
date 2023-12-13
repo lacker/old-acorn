@@ -9,7 +9,7 @@ use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
-use crate::goal_context::{monomorphize_facts, GoalContext};
+use crate::goal_context::GoalContext;
 use crate::normalizer::{NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
@@ -128,14 +128,14 @@ impl Prover {
             error: None,
         };
 
-        // Get facts both from the goal context and from the overall project
-        let mut polymorphic_facts = vec![];
+        // Find the relevant facts that should be imported into this environment
+        let mut imported_facts = vec![];
         for dependency in project.all_dependencies(goal_context.module_id()) {
             let env = project.get_env(dependency).unwrap();
-            polymorphic_facts.extend(env.get_facts(project));
+            imported_facts.extend(env.get_facts(project));
         }
-        polymorphic_facts.extend(goal_context.facts.iter().cloned());
-        let monomorphic_facts = monomorphize_facts(&polymorphic_facts, &goal_context.goal);
+
+        let monomorphic_facts = goal_context.monomorphize_facts(imported_facts);
 
         // Load facts into the prover
         for fact in monomorphic_facts {

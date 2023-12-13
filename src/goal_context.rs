@@ -13,8 +13,11 @@ use crate::module::ModuleId;
 pub struct GoalContext<'a> {
     env: &'a Environment,
 
-    // The facts that can be used to prove the goal.
-    pub facts: Vec<AcornValue>,
+    // Facts that occur outside any block, before this goal.
+    global_facts: Vec<AcornValue>,
+
+    // Facts that are in a block containing this goal.
+    local_facts: Vec<AcornValue>,
 
     // A printable name for this goal.
     pub name: String,
@@ -29,14 +32,16 @@ pub struct GoalContext<'a> {
 impl GoalContext<'_> {
     pub fn new(
         env: &Environment,
-        facts: Vec<AcornValue>,
+        global_facts: Vec<AcornValue>,
+        local_facts: Vec<AcornValue>,
         name: String,
         goal: AcornValue,
         range: Range,
     ) -> GoalContext {
         GoalContext {
             env,
-            facts,
+            global_facts,
+            local_facts,
             name,
             goal,
             range,
@@ -50,37 +55,41 @@ impl GoalContext<'_> {
     pub fn module_id(&self) -> ModuleId {
         self.env.module_id
     }
-}
 
-// Given a bunch of polymorphic facts and goal, return a list of monomorphs just of the facts.
-pub fn monomorphize_facts(facts: &[AcornValue], goal: &AcornValue) -> Vec<AcornValue> {
-    let mut graph = DependencyGraph::new(facts);
+    // Finds all relevant monomorphizations and a list of monomorphic facts.
+    // Sometimes we need to monomorphize an imported fact, so those need to be provided.
+    pub fn monomorphize_facts(&self, imported_facts: Vec<AcornValue>) -> Vec<AcornValue> {
+        let mut facts = imported_facts;
+        facts.extend(self.global_facts.iter().cloned());
+        facts.extend(self.local_facts.iter().cloned());
+        let mut graph = DependencyGraph::new(&facts);
 
-    for fact in facts {
-        fact.validate().unwrap_or_else(|e| {
-            panic!("bad fact: {} ({})", fact, e);
-        });
-        graph.inspect_value(facts, fact);
-    }
-    graph.inspect_value(facts, &goal);
-
-    assert!(facts.len() == graph.monomorphs_for_fact.len());
-
-    let mut answer = vec![];
-    for (fact, monomorph_keys) in facts.iter().zip(graph.monomorphs_for_fact) {
-        if monomorph_keys.is_none() {
-            answer.push(fact.clone());
-            continue;
+        for fact in &facts {
+            fact.validate().unwrap_or_else(|e| {
+                panic!("bad fact: {} ({})", fact, e);
+            });
+            graph.inspect_value(&facts, fact);
         }
-        for monomorph_key in monomorph_keys.unwrap() {
-            let monomorph = fact.specialize(&monomorph_key.params);
-            if monomorph.is_parametric() {
-                panic!("monomorph {} is still parametric", monomorph);
+        graph.inspect_value(&facts, &self.goal);
+
+        assert!(facts.len() == graph.monomorphs_for_fact.len());
+
+        let mut answer = vec![];
+        for (fact, monomorph_keys) in facts.iter().zip(graph.monomorphs_for_fact) {
+            if monomorph_keys.is_none() {
+                answer.push(fact.clone());
+                continue;
             }
-            answer.push(monomorph);
+            for monomorph_key in monomorph_keys.unwrap() {
+                let monomorph = fact.specialize(&monomorph_key.params);
+                if monomorph.is_parametric() {
+                    panic!("monomorph {} is still parametric", monomorph);
+                }
+                answer.push(monomorph);
+            }
         }
+        answer
     }
-    answer
 }
 
 // For the purposes of the goal context, we store parameter lists that correspond to
