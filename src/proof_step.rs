@@ -328,6 +328,10 @@ impl ProofStep {
 
     // The better the score, the more we want to activate this proof step.
     pub fn heuristic_score(&self) -> i32 {
+        if self.is_negated_goal() {
+            // We want to activate the negated goal first.
+            return i32::max_value();
+        }
         let base_score = match self.truthiness {
             Truthiness::Hypothetical => -1 * (self.atom_count + self.proof_size) as i32,
             Truthiness::Factual => 1,

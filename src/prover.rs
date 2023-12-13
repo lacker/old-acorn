@@ -1027,8 +1027,9 @@ mod tests {
     fn test_explicit_false_mandatory() {
         let text = r#"
             let b: bool = axiom
+            let c: bool = axiom
             if b != b {
-                b
+                c
             }
         "#;
         assert_eq!(prove_all_no_crash(text), Outcome::Inconsistent);

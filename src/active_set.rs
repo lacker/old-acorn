@@ -273,7 +273,7 @@ impl ActiveSet {
     pub fn activate_resolver(&self, res_step: &ProofStep) -> Vec<(Clause, usize)> {
         let mut results = vec![];
         for (i, res_literal) in res_step.clause.literals.iter().enumerate() {
-            if true && i != 0 {
+            if false && i != 0 {
                 // TODO: permatoggle to false
                 continue;
             }

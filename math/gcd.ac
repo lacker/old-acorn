@@ -125,7 +125,16 @@ theorem divides_both_step(a: Nat, p: NatPair): divides_both(a, p) -> divides_bot
         divides(a, NatPair.first(p))
         divides(a, NatPair.second(p))
         divides(a, mod(NatPair.first(p), NatPair.second(p)))
-        divides_both(a, gcd_step(p))
+        if NatPair.second(p) = 0 {
+            divides_both(a, gcd_step(p))
+        }
+        if NatPair.second(p) != 0 {
+            gcd_step(p) = NatPair.new(NatPair.second(p),
+                                      mod(NatPair.first(p), NatPair.second(p)))
+            NatPair.second(gcd_step(p)) = mod(NatPair.first(p), NatPair.second(p))
+            divides(a, NatPair.second(gcd_step(p)))
+            divides_both(a, gcd_step(p))
+        }
     }
 }
 

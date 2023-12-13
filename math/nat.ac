@@ -602,6 +602,7 @@ theorem lt_mul_both(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(mul(a, b), 
             add(y, z) = y
             false
         }
+        lte(mul(a, b), mul(a, c))
         lt(mul(a, b), mul(a, c))
     }
     a != 0 & lt(b, c) -> lt(mul(a, b), mul(a, c))
