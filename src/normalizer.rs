@@ -308,7 +308,10 @@ impl Normalizer {
                 let (_, name) = self.constant_map.get_global_info(*i);
                 name.to_string()
             }
-            Atom::LocalConstant(_) => todo!(),
+            Atom::LocalConstant(i) => {
+                let (_, name) = self.constant_map.get_local_info(*i);
+                name.to_string()
+            }
             Atom::Monomorph(i) => {
                 let (_, name, params) = self.type_map.get_monomorph_info(*i);
                 let param_names: Vec<_> = params.iter().map(|(name, _)| name.clone()).collect();
