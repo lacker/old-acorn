@@ -135,10 +135,13 @@ impl Prover {
             imported_facts.extend(env.get_facts(project));
         }
 
-        let monomorphic_facts = goal_context.monomorphize_facts(imported_facts);
+        let (global_facts, local_facts) = goal_context.monomorphize_facts(imported_facts);
 
         // Load facts into the prover
-        for fact in monomorphic_facts {
+        for fact in global_facts {
+            p.add_fact(fact);
+        }
+        for fact in local_facts {
             p.add_fact(fact);
         }
         p.add_goal(goal_context.goal.clone());

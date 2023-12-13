@@ -57,10 +57,15 @@ impl GoalContext<'_> {
     }
 
     // Finds all relevant monomorphizations and a list of monomorphic facts.
+    // Returns (global_facts, local_facts).
     // Sometimes we need to monomorphize an imported fact, so those need to be provided.
-    pub fn monomorphize_facts(&self, imported_facts: Vec<AcornValue>) -> Vec<AcornValue> {
+    pub fn monomorphize_facts(
+        &self,
+        imported_facts: Vec<AcornValue>,
+    ) -> (Vec<AcornValue>, Vec<AcornValue>) {
         let mut facts = imported_facts;
         facts.extend(self.global_facts.iter().cloned());
+        let num_global = facts.len();
         facts.extend(self.local_facts.iter().cloned());
         let mut graph = DependencyGraph::new(&facts);
 
@@ -74,10 +79,15 @@ impl GoalContext<'_> {
 
         assert!(facts.len() == graph.monomorphs_for_fact.len());
 
-        let mut answer = vec![];
-        for (fact, monomorph_keys) in facts.iter().zip(graph.monomorphs_for_fact) {
+        let mut global_out = vec![];
+        let mut local_out = vec![];
+        for (i, (fact, monomorph_keys)) in facts.iter().zip(graph.monomorphs_for_fact).enumerate() {
             if monomorph_keys.is_none() {
-                answer.push(fact.clone());
+                if i < num_global {
+                    global_out.push(fact.clone());
+                } else {
+                    local_out.push(fact.clone());
+                }
                 continue;
             }
             for monomorph_key in monomorph_keys.unwrap() {
@@ -85,10 +95,14 @@ impl GoalContext<'_> {
                 if monomorph.is_parametric() {
                     panic!("monomorph {} is still parametric", monomorph);
                 }
-                answer.push(monomorph);
+                if i < num_global {
+                    global_out.push(monomorph);
+                } else {
+                    local_out.push(monomorph);
+                }
             }
         }
-        answer
+        (global_out, local_out)
     }
 }
 
