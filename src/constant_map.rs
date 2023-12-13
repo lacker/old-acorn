@@ -15,9 +15,13 @@ pub struct ConstantKey {
 // numerical id.
 // The ConstantMap is a mapping between the two.
 pub struct ConstantMap {
-    // For global constant i in the prover, constants[i] is the corresponding ConstantKey.
+    // For global constant i in the prover, global_constants[i] is the corresponding ConstantKey.
     // The AtomId -> ConstantKey lookup direction.
     global_constants: Vec<Option<ConstantKey>>,
+
+    // For lobal constant i in the prover, local_constants[i] is the corresponding ConstantKey.
+    // The AtomId -> ConstantKey lookup direction.
+    local_constants: Vec<Option<ConstantKey>>,
 
     // Inverse map of constants.
     // The ConstantKey -> AtomId lookup direction.
@@ -28,6 +32,7 @@ impl ConstantMap {
     pub fn new() -> ConstantMap {
         ConstantMap {
             global_constants: vec![],
+            local_constants: vec![],
             keymap: HashMap::new(),
         }
     }
@@ -47,8 +52,15 @@ impl ConstantMap {
         Atom::GlobalConstant(atom_id)
     }
 
+    // Get information about a global constant.
     pub fn get_global_info(&self, atom_id: AtomId) -> (ModuleId, &str) {
         let key = &self.global_constants[atom_id as usize].as_ref().unwrap();
+        (key.module, &key.name)
+    }
+
+    // Get information about a local constant.
+    pub fn get_local_info(&self, atom_id: AtomId) -> (ModuleId, &str) {
+        let key = &self.local_constants[atom_id as usize].as_ref().unwrap();
         (key.module, &key.name)
     }
 }

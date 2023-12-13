@@ -53,11 +53,12 @@ impl Normalizer {
     }
 
     pub fn is_skolem(&self, atom: &Atom) -> bool {
-        if let Atom::GlobalConstant(id) = atom {
-            let (module, _) = self.constant_map.get_global_info(*id);
-            module == SKOLEM
-        } else {
-            false
+        match atom {
+            Atom::GlobalConstant(id) => {
+                let (module, _) = self.constant_map.get_global_info(*id);
+                module == SKOLEM
+            }
+            _ => false,
         }
     }
 
