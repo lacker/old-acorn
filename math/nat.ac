@@ -627,6 +627,9 @@ theorem mul_to_one(a: Nat, b: Nat): mul(a, b) = 1 -> a = 1 by {
         b != 0
         if lt(1, a) {
             lt(mul(b, 1), mul(b, a))
+            lt(mul(b, 1), 1)
+            mul(b, 1) = 0
+            b = 0
             false
         }
         a = 1
