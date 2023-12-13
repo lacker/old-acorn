@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::atom::AtomId;
+use crate::atom::{Atom, AtomId};
 use crate::module::ModuleId;
 
 // The ConstantKey identifies a constant in the Acorn language.
@@ -15,9 +15,9 @@ pub struct ConstantKey {
 // numerical id.
 // The ConstantMap is a mapping between the two.
 pub struct ConstantMap {
-    // For c_i in the prover, constants[i] is the corresponding ConstantKey.
+    // For global constant i in the prover, constants[i] is the corresponding ConstantKey.
     // The AtomId -> ConstantKey lookup direction.
-    constants: Vec<Option<ConstantKey>>,
+    global_constants: Vec<Option<ConstantKey>>,
 
     // Inverse map of constants.
     // The ConstantKey -> AtomId lookup direction.
@@ -27,28 +27,28 @@ pub struct ConstantMap {
 impl ConstantMap {
     pub fn new() -> ConstantMap {
         ConstantMap {
-            constants: vec![],
+            global_constants: vec![],
             keymap: HashMap::new(),
         }
     }
 
     // Assigns an id to this (module, name) pair if it doesn't already have one.
-    pub fn add_constant(&mut self, module: ModuleId, name: &str) -> AtomId {
+    pub fn add_constant(&mut self, module: ModuleId, name: &str) -> Atom {
         let key = ConstantKey {
             module,
             name: name.to_string(),
         };
         if let Some(&atom_id) = self.keymap.get(&key) {
-            return atom_id;
+            return Atom::GlobalConstant(atom_id);
         }
-        let atom_id = self.constants.len() as AtomId;
-        self.constants.push(Some(key.clone()));
+        let atom_id = self.global_constants.len() as AtomId;
+        self.global_constants.push(Some(key.clone()));
         self.keymap.insert(key, atom_id);
-        atom_id
+        Atom::GlobalConstant(atom_id)
     }
 
-    pub fn get_info(&self, atom_id: AtomId) -> (ModuleId, &str) {
-        let key = &self.constants[atom_id as usize].as_ref().unwrap();
+    pub fn get_global_info(&self, atom_id: AtomId) -> (ModuleId, &str) {
+        let key = &self.global_constants[atom_id as usize].as_ref().unwrap();
         (key.module, &key.name)
     }
 }
