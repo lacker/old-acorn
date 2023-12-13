@@ -38,7 +38,7 @@ impl ConstantMap {
     }
 
     // Assigns an id to this (module, name) pair if it doesn't already have one.
-    pub fn add_constant(&mut self, module: ModuleId, name: &str) -> Atom {
+    pub fn add_constant(&mut self, module: ModuleId, name: &str, local: bool) -> Atom {
         let key = ConstantKey {
             module,
             name: name.to_string(),
@@ -46,9 +46,15 @@ impl ConstantMap {
         if let Some(&atom) = self.keymap.get(&key) {
             return atom;
         }
-        let atom_id = self.global_constants.len() as AtomId;
-        self.global_constants.push(Some(key.clone()));
-        let atom = Atom::GlobalConstant(atom_id);
+        let atom = if local {
+            let atom_id = self.local_constants.len() as AtomId;
+            self.local_constants.push(Some(key.clone()));
+            Atom::LocalConstant(atom_id)
+        } else {
+            let atom_id = self.global_constants.len() as AtomId;
+            self.global_constants.push(Some(key.clone()));
+            Atom::GlobalConstant(atom_id)
+        };
         self.keymap.insert(key, atom);
         atom
     }

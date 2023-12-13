@@ -92,7 +92,9 @@ theorem gcd_terminates(p: NatPair): exists(n: Nat) { NatPair.second(gcd_step_n(p
             f(Suc(x)) = NatPair.second(gcd_step_n(p, Suc(x)))
             f(Suc(x)) = NatPair.second(gcd_step(q))
             NatPair.second(q) != 0
-            gcd_step(q) = NatPair.new(NatPair.second(q), mod(NatPair.first(q), NatPair.second(q)))
+            let a: Nat = NatPair.first(q)
+            let b: Nat = NatPair.second(q)
+            gcd_step(q) = NatPair.new(b, mod(a, b))
             f(Suc(x)) = mod(NatPair.first(q), NatPair.second(q))
             f(Suc(x)) = mod(NatPair.first(q), f(x))
             lt(f(Suc(x)), f(x))

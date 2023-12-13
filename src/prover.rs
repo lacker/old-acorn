@@ -141,6 +141,7 @@ impl Prover {
         for fact in global_facts {
             p.add_fact(fact);
         }
+        p.normalizer.global_done = true;
         for fact in local_facts {
             p.add_fact(fact);
         }
@@ -170,7 +171,7 @@ impl Prover {
         self.normalizer.normalize(proposition)
     }
 
-    pub fn add_fact(&mut self, proposition: AcornValue) {
+    fn add_fact(&mut self, proposition: AcornValue) {
         self.facts.push(proposition.clone());
         let clauses = match self.normalize_proposition(proposition) {
             Ok(Some(clauses)) => clauses,
@@ -195,7 +196,7 @@ impl Prover {
         }
     }
 
-    pub fn add_goal(&mut self, proposition: AcornValue) {
+    fn add_goal(&mut self, proposition: AcornValue) {
         assert!(self.goal.is_none());
         self.goal = Some(proposition.clone());
         let clauses = match self.normalize_proposition(proposition.to_placeholder().negate()) {

@@ -34,6 +34,10 @@ pub struct Normalizer {
     pub type_map: TypeMap,
 
     constant_map: ConstantMap,
+
+    // Whether we are done entering global constants.
+    // After global is done, any later constants that we see for the first time are local ones.
+    pub global_done: bool,
 }
 
 impl Normalizer {
@@ -42,6 +46,7 @@ impl Normalizer {
             skolem_types: vec![],
             type_map: TypeMap::new(),
             constant_map: ConstantMap::new(),
+            global_done: false,
         }
     }
 
@@ -165,7 +170,9 @@ impl Normalizer {
             AcornValue::Constant(module, name, t, params) => {
                 assert!(params.is_empty());
                 let type_id = self.type_map.add_type(t);
-                let constant_atom = self.constant_map.add_constant(*module, name);
+                let constant_atom = self
+                    .constant_map
+                    .add_constant(*module, name, self.global_done);
                 Ok(Term::new(type_id, type_id, constant_atom, vec![]))
             }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
