@@ -25,7 +25,7 @@ pub struct ConstantMap {
 
     // Inverse map of constants.
     // The ConstantKey -> AtomId lookup direction.
-    keymap: HashMap<ConstantKey, AtomId>,
+    keymap: HashMap<ConstantKey, Atom>,
 }
 
 impl ConstantMap {
@@ -43,13 +43,14 @@ impl ConstantMap {
             module,
             name: name.to_string(),
         };
-        if let Some(&atom_id) = self.keymap.get(&key) {
-            return Atom::GlobalConstant(atom_id);
+        if let Some(&atom) = self.keymap.get(&key) {
+            return atom;
         }
         let atom_id = self.global_constants.len() as AtomId;
         self.global_constants.push(Some(key.clone()));
-        self.keymap.insert(key, atom_id);
-        Atom::GlobalConstant(atom_id)
+        let atom = Atom::GlobalConstant(atom_id);
+        self.keymap.insert(key, atom);
+        atom
     }
 
     // Get information about a global constant.
