@@ -381,9 +381,13 @@ impl Term {
                 }
                 refcounts[i as usize] += 1;
             }
-            Atom::Constant(i) => {
+            Atom::GlobalConstant(i) => {
                 weight1 += 1;
                 weight2 += 4 * i as u32;
+            }
+            Atom::LocalConstant(i) => {
+                weight1 += 1;
+                weight2 += 1 + 4 * i as u32;
             }
             Atom::Monomorph(i) => {
                 weight1 += 1;

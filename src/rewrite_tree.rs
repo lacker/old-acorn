@@ -177,9 +177,10 @@ fn validate_components(components: &[TermComponent]) {
 // Any byte below MAX_ARGS indicates a composite term with that number of arguments.
 const MAX_ARGS: u8 = 100;
 const TRUE: u8 = 101;
-const CONSTANT: u8 = 102;
-const MONOMORPH: u8 = 103;
-const VARIABLE: u8 = 104;
+const GLOBAL_CONSTANT: u8 = 102;
+const LOCAL_CONSTANT: u8 = 103;
+const MONOMORPH: u8 = 104;
+const VARIABLE: u8 = 105;
 
 #[derive(Debug)]
 enum Edge {
@@ -195,7 +196,8 @@ impl Edge {
             Edge::HeadType(num_args, _) => *num_args,
             Edge::Atom(a) => match a {
                 Atom::True => TRUE,
-                Atom::Constant(_) => CONSTANT,
+                Atom::GlobalConstant(_) => GLOBAL_CONSTANT,
+                Atom::LocalConstant(_) => LOCAL_CONSTANT,
                 Atom::Monomorph(_) => MONOMORPH,
                 Atom::Variable(_) => VARIABLE,
             },
@@ -208,7 +210,8 @@ impl Edge {
             Edge::HeadType(_, t) => *t,
             Edge::Atom(a) => match a {
                 Atom::True => 0,
-                Atom::Constant(c) => *c,
+                Atom::GlobalConstant(c) => *c,
+                Atom::LocalConstant(c) => *c,
                 Atom::Monomorph(m) => *m,
                 Atom::Variable(i) => *i,
             },
@@ -220,7 +223,8 @@ impl Edge {
         let id = u16::from_ne_bytes([byte2, byte3]);
         match byte1 {
             TRUE => Edge::Atom(Atom::True),
-            CONSTANT => Edge::Atom(Atom::Constant(id)),
+            GLOBAL_CONSTANT => Edge::Atom(Atom::GlobalConstant(id)),
+            LOCAL_CONSTANT => Edge::Atom(Atom::LocalConstant(id)),
             MONOMORPH => Edge::Atom(Atom::Monomorph(id)),
             VARIABLE => Edge::Atom(Atom::Variable(id)),
             num_args => {

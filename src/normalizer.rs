@@ -53,7 +53,7 @@ impl Normalizer {
     }
 
     pub fn is_skolem(&self, atom: &Atom) -> bool {
-        if let Atom::Constant(id) = atom {
+        if let Atom::GlobalConstant(id) = atom {
             let (module, _) = self.constant_map.get_info(*id);
             module == SKOLEM
         } else {
@@ -165,7 +165,12 @@ impl Normalizer {
                 assert!(params.is_empty());
                 let type_id = self.type_map.add_type(t);
                 let c_id = self.constant_map.add_constant(*module, name);
-                Ok(Term::new(type_id, type_id, Atom::Constant(c_id), vec![]))
+                Ok(Term::new(
+                    type_id,
+                    type_id,
+                    Atom::GlobalConstant(c_id),
+                    vec![],
+                ))
             }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
             AcornValue::Specialized(module, name, _, parameters) => Ok(self
@@ -303,10 +308,11 @@ impl Normalizer {
     pub fn atom_str(&self, atom: &Atom) -> String {
         match atom {
             Atom::True => "true".to_string(),
-            Atom::Constant(i) => {
+            Atom::GlobalConstant(i) => {
                 let (_, name) = self.constant_map.get_info(*i);
                 name.to_string()
             }
+            Atom::LocalConstant(_) => todo!(),
             Atom::Monomorph(i) => {
                 let (_, name, params) = self.type_map.get_monomorph_info(*i);
                 let param_names: Vec<_> = params.iter().map(|(name, _)| name.clone()).collect();

@@ -12,10 +12,12 @@ pub const INVALID_ATOM_ID: AtomId = 0xffff;
 pub enum Atom {
     True,
 
-    // Constant values that are user-visible.
-    // These could be axioms, imported things, named functions, named variables.
-    // Not types, types are their own thing.
-    Constant(AtomId),
+    // Constant values that are accessible anywhere in the code.
+    // This includes concepts like addition, zero, and the axioms.
+    GlobalConstant(AtomId),
+
+    // Constant values that are only accessible inside a particular block.
+    LocalConstant(AtomId),
 
     // Monomorphizations of polymorphic functions.
     // A monomorphization is when every parametric type has been replaced with a concrete type.
@@ -32,7 +34,8 @@ impl fmt::Display for Atom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Atom::True => write!(f, "true"),
-            Atom::Constant(i) => write!(f, "c{}", i),
+            Atom::GlobalConstant(i) => write!(f, "g{}", i),
+            Atom::LocalConstant(i) => write!(f, "c{}", i),
             Atom::Monomorph(i) => write!(f, "m{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
         }
@@ -49,7 +52,8 @@ impl Atom {
         let first = chars.next()?;
         let rest = chars.as_str();
         match first {
-            'c' => Some(Atom::Constant(rest.parse().unwrap())),
+            'g' => Some(Atom::GlobalConstant(rest.parse().unwrap())),
+            'c' => Some(Atom::LocalConstant(rest.parse().unwrap())),
             'x' => Some(Atom::Variable(rest.parse().unwrap())),
             _ => None,
         }
@@ -57,7 +61,7 @@ impl Atom {
 
     pub fn is_constant(&self) -> bool {
         match self {
-            Atom::Constant(_) => true,
+            Atom::GlobalConstant(_) => true,
             _ => false,
         }
     }
@@ -100,14 +104,14 @@ mod tests {
 
     #[test]
     fn test_atom_ordering() {
-        assert!(Atom::True < Atom::Constant(0));
-        assert!(Atom::Constant(0) < Atom::Constant(1));
+        assert!(Atom::True < Atom::GlobalConstant(0));
+        assert!(Atom::GlobalConstant(0) < Atom::GlobalConstant(1));
     }
 
     #[test]
     fn test_atom_stable_partial_ordering() {
         assert_eq!(
-            Atom::Constant(0).stable_partial_order(&Atom::Constant(1)),
+            Atom::GlobalConstant(0).stable_partial_order(&Atom::GlobalConstant(1)),
             Ordering::Less
         );
         assert_eq!(
