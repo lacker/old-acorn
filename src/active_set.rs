@@ -273,10 +273,6 @@ impl ActiveSet {
     pub fn activate_resolver(&self, res_step: &ProofStep) -> Vec<(Clause, usize)> {
         let mut results = vec![];
         for (i, res_literal) in res_step.clause.literals.iter().enumerate() {
-            if false && i != 0 {
-                // TODO: permatoggle to false
-                continue;
-            }
             for (res_forwards, u, _) in ActiveSet::quasiordered_term_pairs(res_literal) {
                 let u_subterms = u.non_variable_subterms();
 
