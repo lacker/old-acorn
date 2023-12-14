@@ -127,15 +127,16 @@ impl Prover {
             imported_facts.extend(env.get_facts(project));
         }
 
-        let (global_facts, local_facts) = goal_context.monomorphize_facts(imported_facts);
+        let (global_facts, local_facts) = goal_context.monomorphize(imported_facts);
 
         // Load facts into the prover
         for fact in global_facts {
-            p.add_fact(fact);
+            p.add_assumption(fact, Truthiness::Factual);
         }
         p.normalizer.global_done = true;
         for fact in local_facts {
-            p.add_fact(fact);
+            // TODO: should be Hypothetical
+            p.add_assumption(fact, Truthiness::Factual);
         }
         p.add_goal(goal_context.goal.clone());
         p
@@ -163,7 +164,7 @@ impl Prover {
         self.normalizer.normalize(proposition)
     }
 
-    fn add_fact(&mut self, proposition: AcornValue) {
+    fn add_assumption(&mut self, proposition: AcornValue, truthiness: Truthiness) {
         let clauses = match self.normalize_proposition(proposition) {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
@@ -184,7 +185,7 @@ impl Prover {
         for clause in clauses {
             let step = ProofStep::new_assumption(
                 clause,
-                Truthiness::Factual,
+                truthiness,
                 self.active_set.next_generation_ordinal(),
             );
             self.passive.push(step);

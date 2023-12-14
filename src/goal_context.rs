@@ -57,9 +57,9 @@ impl GoalContext<'_> {
     }
 
     // Finds all relevant monomorphizations and a list of monomorphic facts.
-    // Returns (global_facts, local_facts).
+    // Returns (global facts, local facts).
     // Sometimes we need to monomorphize an imported fact, so those need to be provided.
-    pub fn monomorphize_facts(
+    pub fn monomorphize(
         &self,
         imported_facts: Vec<AcornValue>,
     ) -> (Vec<AcornValue>, Vec<AcornValue>) {
