@@ -29,14 +29,14 @@ impl Truthiness {
         }
     }
 
-    // Two facts combine to form a fact.
-    // Once any counterfactual is involved, the result is counterfactual.
+    // When combining truthinesses, the result is the "most untruthy" of the two.
     pub fn combine(&self, other: Truthiness) -> Truthiness {
         match (self, other) {
-            (Truthiness::Factual, Truthiness::Factual) => Truthiness::Factual,
+            (Truthiness::Counterfactual, _) => Truthiness::Counterfactual,
+            (_, Truthiness::Counterfactual) => Truthiness::Counterfactual,
             (Truthiness::Hypothetical, _) => Truthiness::Hypothetical,
             (_, Truthiness::Hypothetical) => Truthiness::Hypothetical,
-            _ => Truthiness::Counterfactual,
+            (Truthiness::Factual, Truthiness::Factual) => Truthiness::Factual,
         }
     }
 }

@@ -136,7 +136,7 @@ impl Prover {
         p.normalizer.global_done = true;
         for fact in local_facts {
             // TODO: should be Hypothetical
-            p.add_assumption(fact, Truthiness::Factual);
+            p.add_assumption(fact, Truthiness::Hypothetical);
         }
         let negated_goal = goal_context.goal.to_placeholder().negate();
         p.add_assumption(negated_goal, Truthiness::Counterfactual);
