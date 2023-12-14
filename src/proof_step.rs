@@ -362,6 +362,11 @@ impl ProofStep {
 
     // A heuristic for whether this clause should be rejected without scoring.
     pub fn heuristic_reject(&self) -> bool {
+        if false && !self.clause.has_local_constant() && self.truthiness == Truthiness::Factual {
+            // Don't do inferences that are just between "global facts".
+            return true;
+        }
+
         if self.truthiness != Truthiness::Factual {
             // We only want to reject things that are doing fact-fact inference.
             // The rationale is that if we ever run into any seemingly promising fact-fact inference

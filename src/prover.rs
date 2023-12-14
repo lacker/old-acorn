@@ -782,6 +782,11 @@ mod tests {
 
     #[test]
     fn test_multi_hop_rewriting() {
+        // The facts given by "axiom recursion_base" and "define add" are
+        // each rewrite rules.
+        // To prove add_zero_right, the naive way applies one backward and one
+        // forward rewrite.
+        // We need to be able to handle this somehow.
         let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
