@@ -492,6 +492,8 @@ impl ActiveSet {
     }
 
     // Add all the resolution targets for a given literal.
+    // TODO: this is the only place we add both directions of a literal without checking
+    // the kbo ordering ahead of time. Is that necessary? Why?
     fn add_resolution_targets(
         &mut self,
         clause_index: usize,
@@ -523,8 +525,6 @@ impl ActiveSet {
     }
 
     // Adds a clause so that it becomes available for resolution and paramodulation.
-    // If select_all is set, then every literal can be used as a target for paramodulation.
-    // Otherwise, only the first one can be.
     fn insert(&mut self, step: ProofStep, id: usize) {
         let clause = &step.clause;
         let step_index = self.steps.len();
