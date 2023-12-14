@@ -213,23 +213,15 @@ impl ProofStep {
         }
     }
 
-    // Construct a ProofStep for one of the facts from the initial set of facts.
-    pub fn new_initial_fact(clause: Clause, generation_ordinal: usize) -> ProofStep {
+    // Construct a ProofStep for an assumption that the prover starts with.
+    pub fn new_assumption(
+        clause: Clause,
+        truthiness: Truthiness,
+        generation_ordinal: usize,
+    ) -> ProofStep {
         ProofStep::new(
             clause,
-            Truthiness::Factual,
-            Rule::Assumption,
-            vec![],
-            0,
-            generation_ordinal,
-        )
-    }
-
-    // Construct a ProofStep for the negated goal that we are trying to prove.
-    pub fn new_negated_goal(clause: Clause, generation_ordinal: usize) -> ProofStep {
-        ProofStep::new(
-            clause,
-            Truthiness::Counterfactual,
+            truthiness,
             Rule::Assumption,
             vec![],
             0,
@@ -312,7 +304,7 @@ impl ProofStep {
     pub fn mock(s: &str) -> ProofStep {
         let clause = Clause::parse(s);
 
-        ProofStep::new_initial_fact(clause, 0)
+        ProofStep::new_assumption(clause, Truthiness::Factual, 0)
     }
 
     // The ids of the other clauses that this clause depends on.

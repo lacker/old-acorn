@@ -177,8 +177,9 @@ impl Prover {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
                 // We have a false assumption, so we're done already.
-                let final_step = ProofStep::new_initial_fact(
+                let final_step = ProofStep::new_assumption(
                     Clause::impossible(),
+                    Truthiness::Factual,
                     self.active_set.next_generation_ordinal(),
                 );
                 self.result = Some((final_step, Outcome::Inconsistent));
@@ -190,8 +191,11 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let step =
-                ProofStep::new_initial_fact(clause, self.active_set.next_generation_ordinal());
+            let step = ProofStep::new_assumption(
+                clause,
+                Truthiness::Factual,
+                self.active_set.next_generation_ordinal(),
+            );
             self.passive.push(step);
         }
     }
@@ -203,8 +207,9 @@ impl Prover {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
                 // Our goal is trivially true, so we're done already.
-                let final_step = ProofStep::new_negated_goal(
+                let final_step = ProofStep::new_assumption(
                     Clause::impossible(),
+                    Truthiness::Counterfactual,
                     self.active_set.next_generation_ordinal(),
                 );
                 self.result = Some((final_step, Outcome::Success));
@@ -216,8 +221,11 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let step =
-                ProofStep::new_negated_goal(clause, self.active_set.next_generation_ordinal());
+            let step = ProofStep::new_assumption(
+                clause,
+                Truthiness::Counterfactual,
+                self.active_set.next_generation_ordinal(),
+            );
             self.passive.push(step);
         }
     }
