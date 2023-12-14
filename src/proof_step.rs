@@ -334,7 +334,7 @@ impl ProofStep {
 
     // Whether this step is just the direct normalization of the negated goal
     pub fn is_negated_goal(&self) -> bool {
-        self.rule == Rule::Assumption && self.truthiness != Truthiness::Factual
+        self.rule == Rule::Assumption && self.truthiness == Truthiness::Counterfactual
     }
 
     // The better the score, the more we want to activate this proof step.
@@ -366,20 +366,12 @@ impl ProofStep {
 
     // A heuristic for whether this clause should be rejected without scoring.
     pub fn heuristic_reject(&self) -> bool {
-        if false && !self.clause.has_local_constant() && self.truthiness == Truthiness::Factual {
-            // Don't do inferences that are just between "global facts".
+        if self.truthiness != Truthiness::Counterfactual && self.proof_size > 2 {
+            // Don't do long deductions between established facts.
+            // TODO: can we limit this heuristic to just Factual proofs?
             return true;
         }
 
-        if self.truthiness != Truthiness::Factual {
-            // We only want to reject things that are doing fact-fact inference.
-            // The rationale is that if we ever run into any seemingly promising fact-fact inference
-            // that doesn't go anywhere, it will torch everything else.
-            // So we need to be very strict about it.
-            return false;
-        }
-
-        // Reject long proofs
-        self.proof_size > 2
+        false
     }
 }
