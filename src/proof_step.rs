@@ -119,6 +119,13 @@ impl Rule {
             Rule::EqualityResolution(_) => "EqualityResolution",
         }
     }
+
+    pub fn is_superposition(&self) -> bool {
+        match self {
+            Rule::Superposition(_) => true,
+            _ => false,
+        }
+    }
 }
 
 // A proof is made up of ProofSteps.
