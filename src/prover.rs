@@ -781,7 +781,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_hop_rewriting() {
+    fn test_rewriting_confluence_indirectly() {
         // The facts given by "axiom recursion_base" and "define add" are
         // each rewrite rules.
         // To prove add_zero_right, the naive way applies one backward and one
