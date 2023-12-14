@@ -47,8 +47,9 @@ pub struct SuperpositionInfo {
     paramodulator_literals: usize,
     resolver_literals: usize,
 
-    // Whether the paramodulator is a "rewrite" clause - just a single positive literal.
+    // Whether the sources are "rewrites" clauses - a single positive literal with strict kbo ordering.
     paramodulator_is_rewrite: bool,
+    resolver_is_rewrite: bool,
 }
 
 // The rules that can generate new clauses, along with the clause ids used to generate.
@@ -243,6 +244,7 @@ impl ProofStep {
             paramodulator_literals: paramodulator_step.clause.len(),
             resolver_literals: resolver_step.clause.len(),
             paramodulator_is_rewrite: paramodulator_step.clause.is_rewrite_rule(),
+            resolver_is_rewrite: resolver_step.clause.is_rewrite_rule(),
         });
         ProofStep::new(
             clause,
