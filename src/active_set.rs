@@ -723,7 +723,7 @@ mod tests {
         step.truthiness = Truthiness::Factual;
         set.insert(step, 0);
         let mut res_step = ProofStep::mock("c2 != c3");
-        res_step.truthiness = Truthiness::Hypothetical;
+        res_step.truthiness = Truthiness::Counterfactual;
         let result = set.activate_resolver(&res_step);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0.to_string(), "c1 != c0(x0)".to_string());
@@ -751,7 +751,7 @@ mod tests {
         step.truthiness = Truthiness::Factual;
         set.insert(step, 0);
         let mut step = ProofStep::mock("c1(c3) = c3");
-        step.truthiness = Truthiness::Hypothetical;
+        step.truthiness = Truthiness::Counterfactual;
         let new_clauses = set.generate(step);
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(

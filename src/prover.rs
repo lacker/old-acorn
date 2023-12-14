@@ -418,7 +418,8 @@ impl Prover {
         if verbose {
             let prefix = match step.truthiness {
                 Truthiness::Factual => " fact",
-                Truthiness::Hypothetical => {
+                Truthiness::Hypothetical => " hypothesis",
+                Truthiness::Counterfactual => {
                     if step.is_negated_goal() {
                         " negated goal"
                     } else {

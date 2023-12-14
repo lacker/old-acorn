@@ -2,18 +2,21 @@ use std::{cmp::Ordering, fmt};
 
 use crate::clause::Clause;
 
+// The "truthiness" categorizes the different types of true statements, relative to a proof.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Truthiness {
-    // The facts include both the normalized facts the prover was initialized with, and any
-    // deduction that comes from other facts.
-    // In general, facts should be true. If not, there's an inconsistency.
+    // A "factual" truth is true globally, regardless of this particular proof.
     Factual,
 
-    // The basic operation of the prover is that we give it many true facts as assumptions,
-    // and we also give it some negated goals, and it tries to find a contradiction.
-    // Clauses that are based in part on the negated goals are thus hypothetical.
-    // We hope to discover that they are actually false - that would conclude the proof.
+    // A "hypothetical" truth is something that we are assuming true in the context of this proof.
+    // For example, we might assume that a and b are nonzero, and then prove that a * b != 0.
     Hypothetical,
+
+    // When we want to prove a goal G, we tell the prover that !G is true, and search
+    // for contradictions.
+    // A "counterfactual" truth is this negated goal, or something derived from it, that we expect
+    // to lead to a contradiction.
+    Counterfactual,
 }
 
 impl Truthiness {
@@ -21,16 +24,17 @@ impl Truthiness {
     fn priority(&self) -> u8 {
         match self {
             Truthiness::Factual => 2,
-            Truthiness::Hypothetical => 0,
+            Truthiness::Hypothetical => 1,
+            Truthiness::Counterfactual => 0,
         }
     }
 
     // Two facts combine to form a fact.
-    // Once any hypothetical is involved, the result is hypothetical.
+    // Once any counterfactual is involved, the result is counterfactual.
     pub fn combine(&self, other: Truthiness) -> Truthiness {
         match (self, other) {
             (Truthiness::Factual, Truthiness::Factual) => Truthiness::Factual,
-            _ => Truthiness::Hypothetical,
+            _ => Truthiness::Counterfactual,
         }
     }
 }
@@ -223,7 +227,7 @@ impl ProofStep {
     pub fn new_negated_goal(clause: Clause, generation_ordinal: usize) -> ProofStep {
         ProofStep::new(
             clause,
-            Truthiness::Hypothetical,
+            Truthiness::Counterfactual,
             Rule::Assumption,
             vec![],
             0,
@@ -340,8 +344,8 @@ impl ProofStep {
             return i32::max_value();
         }
         let base_score = match self.truthiness {
-            Truthiness::Hypothetical => -1 * (self.atom_count + self.proof_size) as i32,
-            Truthiness::Factual => 1,
+            Truthiness::Counterfactual => -1 * (self.atom_count + self.proof_size) as i32,
+            _ => 1,
         };
 
         if false {
