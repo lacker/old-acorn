@@ -20,9 +20,6 @@ pub struct Prover {
     // clauses that we can use internally.
     normalizer: Normalizer,
 
-    // The goal we are trying to prove.
-    goal: Option<AcornValue>,
-
     // The "active" clauses are the ones we use for reasoning.
     active_set: ActiveSet,
 
@@ -111,7 +108,6 @@ impl Prover {
     ) -> Prover {
         let mut p = Prover {
             normalizer: Normalizer::new(),
-            goal: None,
             active_set: ActiveSet::new(),
             passive: PassiveSet::new(),
             verbose,
@@ -196,8 +192,6 @@ impl Prover {
     }
 
     fn add_goal(&mut self, proposition: AcornValue) {
-        assert!(self.goal.is_none());
-        self.goal = Some(proposition.clone());
         let clauses = match self.normalize_proposition(proposition.to_placeholder().negate()) {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
