@@ -150,6 +150,10 @@ impl Literal {
     pub fn has_any_variable(&self) -> bool {
         self.left.has_any_variable() || self.right.has_any_variable()
     }
+
+    pub fn has_local_constant(&self) -> bool {
+        self.left.has_local_constant() || self.right.has_local_constant()
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.

@@ -59,9 +59,9 @@ impl Atom {
         }
     }
 
-    pub fn is_constant(&self) -> bool {
+    pub fn is_local_constant(&self) -> bool {
         match self {
-            Atom::GlobalConstant(_) => true,
+            Atom::LocalConstant(_) => true,
             _ => false,
         }
     }

@@ -240,6 +240,18 @@ impl Term {
         false
     }
 
+    pub fn has_local_constant(&self) -> bool {
+        if self.head.is_local_constant() {
+            return true;
+        }
+        for arg in &self.args {
+            if arg.has_local_constant() {
+                return true;
+            }
+        }
+        false
+    }
+
     // If this term is a variable with the given index, return that index.
     pub fn atomic_variable(&self) -> Option<AtomId> {
         if self.args.len() > 0 {
