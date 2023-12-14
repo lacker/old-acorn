@@ -95,9 +95,6 @@ fn main() {
             "stats" => {
                 prover.print_stats();
             }
-            "env" => {
-                prover.print_env();
-            }
 
             "next" => {
                 if current == goals.len() - 1 {

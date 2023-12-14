@@ -20,9 +20,6 @@ pub struct Prover {
     // clauses that we can use internally.
     normalizer: Normalizer,
 
-    // The facts we start out with.
-    facts: Vec<AcornValue>,
-
     // The goal we are trying to prove.
     goal: Option<AcornValue>,
 
@@ -114,7 +111,6 @@ impl Prover {
     ) -> Prover {
         let mut p = Prover {
             normalizer: Normalizer::new(),
-            facts: Vec::new(),
             goal: None,
             active_set: ActiveSet::new(),
             passive: PassiveSet::new(),
@@ -172,7 +168,6 @@ impl Prover {
     }
 
     fn add_fact(&mut self, proposition: AcornValue) {
-        self.facts.push(proposition.clone());
         let clauses = match self.normalize_proposition(proposition) {
             Ok(Some(clauses)) => clauses,
             Ok(None) => {
@@ -318,19 +313,6 @@ impl Prover {
         for (description, i) in step.descriptive_dependencies() {
             let c = self.display(self.active_set.get_clause(i));
             cprintln!(self, "  using {} {}:\n    {}", description, i, c);
-        }
-    }
-
-    pub fn print_env(&self) {
-        cprintln!(self, "facts:");
-        for fact in &self.facts {
-            cprintln!(self, "  {}", fact);
-        }
-        cprintln!(self, "goal:");
-        if let Some(goal) = &self.goal {
-            cprintln!(self, "  {}", goal);
-        } else {
-            cprintln!(self, "  none");
         }
     }
 
