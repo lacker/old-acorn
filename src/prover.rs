@@ -138,7 +138,8 @@ impl Prover {
             // TODO: should be Hypothetical
             p.add_assumption(fact, Truthiness::Factual);
         }
-        p.add_goal(goal_context.goal.clone());
+        let negated_goal = goal_context.goal.to_placeholder().negate();
+        p.add_assumption(negated_goal, Truthiness::Counterfactual);
         p
     }
 
@@ -186,34 +187,6 @@ impl Prover {
             let step = ProofStep::new_assumption(
                 clause,
                 truthiness,
-                self.active_set.next_generation_ordinal(),
-            );
-            self.passive.push(step);
-        }
-    }
-
-    fn add_goal(&mut self, proposition: AcornValue) {
-        let clauses = match self.normalize_proposition(proposition.to_placeholder().negate()) {
-            Ok(Some(clauses)) => clauses,
-            Ok(None) => {
-                // Our goal is trivially true, so we're done already.
-                let final_step = ProofStep::new_assumption(
-                    Clause::impossible(),
-                    Truthiness::Counterfactual,
-                    self.active_set.next_generation_ordinal(),
-                );
-                self.report_contradiction(final_step);
-                return;
-            }
-            Err(e) => {
-                self.error = Some(e.to_string());
-                return;
-            }
-        };
-        for clause in clauses {
-            let step = ProofStep::new_assumption(
-                clause,
-                Truthiness::Counterfactual,
                 self.active_set.next_generation_ordinal(),
             );
             self.passive.push(step);
