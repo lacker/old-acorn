@@ -173,7 +173,7 @@ impl Prover {
                     Truthiness::Factual,
                     self.active_set.next_generation_ordinal(),
                 );
-                self.result = Some((final_step, Outcome::Inconsistent));
+                self.report_contradiction(final_step);
                 return;
             }
             Err(e) => {
@@ -201,7 +201,7 @@ impl Prover {
                     Truthiness::Counterfactual,
                     self.active_set.next_generation_ordinal(),
                 );
-                self.result = Some((final_step, Outcome::Success));
+                self.report_contradiction(final_step);
                 return;
             }
             Err(e) => {
