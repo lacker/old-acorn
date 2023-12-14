@@ -492,35 +492,24 @@ impl ActiveSet {
     }
 
     // Add all the resolution targets for a given literal.
-    // TODO: this is the only place we add both directions of a literal without checking
-    // the kbo ordering ahead of time. Is that necessary? Why?
     fn add_resolution_targets(
         &mut self,
-        clause_index: usize,
+        step_index: usize,
         literal_index: usize,
         literal: &Literal,
     ) {
-        for (path, subterm) in literal.left.non_variable_subterms() {
-            self.resolution_targets.insert(
-                subterm,
-                ResolutionTarget {
-                    step_index: clause_index,
-                    literal_index,
-                    forwards: true,
-                    path,
-                },
-            );
-        }
-        for (path, subterm) in literal.right.non_variable_subterms() {
-            self.resolution_targets.insert(
-                subterm,
-                ResolutionTarget {
-                    step_index: clause_index,
-                    literal_index,
-                    forwards: false,
-                    path,
-                },
-            );
+        for (forwards, from, _) in ActiveSet::quasiordered_term_pairs(literal) {
+            for (path, subterm) in from.non_variable_subterms() {
+                self.resolution_targets.insert(
+                    subterm,
+                    ResolutionTarget {
+                        step_index,
+                        literal_index,
+                        forwards,
+                        path,
+                    },
+                );
+            }
         }
     }
 
@@ -538,7 +527,6 @@ impl ActiveSet {
             }
         } else {
             // Use only the leftmost literal for resolution.
-            // NOTE: these resolution targets don't end up being used!
             self.add_resolution_targets(step_index, 0, leftmost_literal);
         }
 
