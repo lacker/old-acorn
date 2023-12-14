@@ -20,15 +20,6 @@ pub enum Truthiness {
 }
 
 impl Truthiness {
-    // Highest priority should be processed first
-    fn priority(&self) -> u8 {
-        match self {
-            Truthiness::Factual => 2,
-            Truthiness::Hypothetical => 1,
-            Truthiness::Counterfactual => 0,
-        }
-    }
-
     // When combining truthinesses, the result is the "most untruthy" of the two.
     pub fn combine(&self, other: Truthiness) -> Truthiness {
         match (self, other) {
@@ -38,18 +29,6 @@ impl Truthiness {
             (_, Truthiness::Hypothetical) => Truthiness::Hypothetical,
             (Truthiness::Factual, Truthiness::Factual) => Truthiness::Factual,
         }
-    }
-}
-
-impl Ord for Truthiness {
-    fn cmp(&self, other: &Truthiness) -> Ordering {
-        self.priority().cmp(&other.priority())
-    }
-}
-
-impl PartialOrd for Truthiness {
-    fn partial_cmp(&self, other: &Truthiness) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 
