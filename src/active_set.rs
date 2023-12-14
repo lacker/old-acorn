@@ -152,7 +152,8 @@ impl ActiveSet {
     // The res clause is:
     //   u ?= v | R
     //
-    // fact_fact is whether both clause are factual, in which case we are more restrictive.
+    // "restrictive" is whether we cap the length of the output.
+    // TODO: avoid the janky "restrictive" heuristic.
     fn maybe_superpose(
         &self,
         s: &Term,
@@ -164,9 +165,9 @@ impl ActiveSet {
         res_clause: &Clause,
         res_literal_index: usize,
         res_forwards: bool,
-        fact_fact: bool,
+        restrictive: bool,
     ) -> Option<Clause> {
-        if fact_fact && !pm_clause.is_rewrite_rule() {
+        if restrictive && !pm_clause.is_rewrite_rule() {
             // Heuristic restriction of fact-fact inference.
             return None;
         }
@@ -195,7 +196,7 @@ impl ActiveSet {
             return None;
         }
 
-        if fact_fact && eliminated_literals == 1 {
+        if restrictive && eliminated_literals == 1 {
             // Heuristic restriction of fact-fact inference.
             if new_clause.atom_count() > 12 {
                 return None;
@@ -233,8 +234,8 @@ impl ActiveSet {
                 for target in targets {
                     let u_subterm = self.get_resolution_term(target);
                     let res_step = self.get_step(target.step_index);
-                    let fact_fact = pm_step.truthiness == Truthiness::Factual
-                        && res_step.truthiness == Truthiness::Factual;
+                    let restrictive = pm_step.truthiness != Truthiness::Counterfactual
+                        && res_step.truthiness != Truthiness::Counterfactual;
                     if let Some(new_clause) = self.maybe_superpose(
                         s,
                         t,
@@ -245,7 +246,7 @@ impl ActiveSet {
                         &res_step.clause,
                         target.literal_index,
                         target.forwards,
-                        fact_fact,
+                        restrictive,
                     ) {
                         results.push((new_clause, target.step_index));
                     }
@@ -292,8 +293,8 @@ impl ActiveSet {
                         } else {
                             (&pm_literal.right, &pm_literal.left)
                         };
-                        let fact_fact = pm_step.truthiness == Truthiness::Factual
-                            && res_step.truthiness == Truthiness::Factual;
+                        let restrictive = pm_step.truthiness != Truthiness::Counterfactual
+                            && res_step.truthiness != Truthiness::Counterfactual;
                         if let Some(new_clause) = self.maybe_superpose(
                             s,
                             t,
@@ -304,7 +305,7 @@ impl ActiveSet {
                             &res_step.clause,
                             i,
                             res_forwards,
-                            fact_fact,
+                            restrictive,
                         ) {
                             results.push((new_clause, target.step_index));
                         }
@@ -520,7 +521,7 @@ impl ActiveSet {
         let leftmost_literal = &clause.literals[0];
 
         // Add resolution targets for the new clause.
-        if step.truthiness == Truthiness::Factual {
+        if step.truthiness != Truthiness::Counterfactual {
             // Use any literal for resolution
             for (i, literal) in clause.literals.iter().enumerate() {
                 self.add_resolution_targets(step_index, i, literal);
@@ -531,7 +532,7 @@ impl ActiveSet {
         }
 
         // Add paramodulation targets for the new clause.
-        if step.truthiness == Truthiness::Factual {
+        if step.truthiness != Truthiness::Counterfactual {
             // Use any literal for paramodulation
             for (i, literal) in clause.literals.iter().enumerate() {
                 for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
@@ -559,7 +560,7 @@ impl ActiveSet {
             }
         }
 
-        if clause.is_rewrite_rule() && step.truthiness == Truthiness::Factual {
+        if clause.is_rewrite_rule() && step.truthiness != Truthiness::Counterfactual {
             self.rewrite_tree
                 .add_rule(step_index, &leftmost_literal.left, &leftmost_literal.right);
         }
