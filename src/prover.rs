@@ -356,7 +356,8 @@ impl Prover {
     // Handle the case when we found a contradiction
     fn report_contradiction(&mut self, step: ProofStep) -> Outcome {
         assert!(self.result.is_none());
-        let outcome = if step.truthiness == Truthiness::Factual && self.report_inconsistency {
+        let outcome = if step.truthiness != Truthiness::Counterfactual && self.report_inconsistency
+        {
             Outcome::Inconsistent
         } else {
             Outcome::Success

@@ -34,6 +34,8 @@ impl Truthiness {
     pub fn combine(&self, other: Truthiness) -> Truthiness {
         match (self, other) {
             (Truthiness::Factual, Truthiness::Factual) => Truthiness::Factual,
+            (Truthiness::Hypothetical, _) => Truthiness::Hypothetical,
+            (_, Truthiness::Hypothetical) => Truthiness::Hypothetical,
             _ => Truthiness::Counterfactual,
         }
     }
