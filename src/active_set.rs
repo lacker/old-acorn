@@ -168,7 +168,7 @@ impl ActiveSet {
         restrictive: bool,
     ) -> Option<Clause> {
         if restrictive && !pm_clause.is_rewrite_rule() {
-            // Heuristic restriction of fact-fact inference.
+            // Only rewrite rules
             return None;
         }
 
@@ -197,7 +197,7 @@ impl ActiveSet {
         }
 
         if restrictive && eliminated_literals == 1 {
-            // Heuristic restriction of fact-fact inference.
+            // Don't let clauses get too long
             if new_clause.atom_count() > 12 {
                 return None;
             }

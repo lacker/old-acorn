@@ -339,6 +339,11 @@ impl ProofStep {
 
     // A heuristic for whether this clause should be rejected without scoring.
     pub fn heuristic_reject(&self) -> bool {
+        if false && self.truthiness == Truthiness::Factual {
+            // Don't do any fact-fact
+            return true;
+        }
+
         if self.truthiness != Truthiness::Counterfactual && self.proof_size > 2 {
             // Don't do long deductions between established facts.
             // TODO: can we limit this heuristic to just Factual proofs?
