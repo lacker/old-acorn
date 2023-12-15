@@ -316,16 +316,18 @@ impl ProofStep {
 
     // The better the score, the more we want to activate this proof step.
     pub fn heuristic_score(&self) -> i32 {
-        if self.is_negated_goal() {
-            // We want to activate the negated goal first.
-            return i32::max_value();
-        }
-        let base_score = match self.truthiness {
-            Truthiness::Counterfactual => -1 * (self.atom_count + self.proof_size) as i32,
+        let base_priority = match self.truthiness {
+            Truthiness::Counterfactual => {
+                if self.is_negated_goal() {
+                    2
+                } else {
+                    -1 * (self.atom_count + self.proof_size) as i32
+                }
+            }
             Truthiness::Hypothetical => 1,
             Truthiness::Factual => {
                 if EXPERIMENT {
-                    2
+                    3
                 } else {
                     1
                 }
@@ -333,7 +335,7 @@ impl ProofStep {
         };
 
         // Use fifo as a tiebreaker
-        1000000 * base_score - self.generation_ordinal as i32
+        1000000 * base_priority - self.generation_ordinal as i32
     }
 
     // A heuristic for whether this clause should be rejected without scoring.
