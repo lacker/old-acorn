@@ -320,7 +320,8 @@ impl ProofStep {
         }
         let base_score = match self.truthiness {
             Truthiness::Counterfactual => -1 * (self.atom_count + self.proof_size) as i32,
-            _ => 1,
+            Truthiness::Hypothetical => 1,
+            Truthiness::Factual => 1,
         };
 
         if false {
