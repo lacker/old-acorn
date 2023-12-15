@@ -342,8 +342,19 @@ impl ProofStep {
     // A heuristic for whether this clause should be rejected without scoring.
     pub fn heuristic_reject(&self) -> bool {
         if false && self.truthiness == Truthiness::Factual {
-            // Don't do any fact-fact
-            return true;
+            return match &self.rule {
+                Rule::Assumption => false,
+                Rule::Superposition(info) => {
+                    // Most superposition between facts, we don't want, because there's an
+                    // infinite number of irrelevant possibilities.
+                    // However, we do want to allow combining rewrites, in order to achieve confluence.
+                    let combining_rewrites =
+                        info.paramodulator_is_rewrite && info.resolver_is_rewrite;
+                    return !combining_rewrites;
+                }
+                Rule::EqualityFactoring(_) => false,
+                Rule::EqualityResolution(_) => false,
+            };
         }
 
         if self.truthiness != Truthiness::Counterfactual && self.proof_size > 2 {
