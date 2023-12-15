@@ -319,7 +319,7 @@ impl ProofStep {
         let base_priority = match self.truthiness {
             Truthiness::Counterfactual => {
                 if self.is_negated_goal() {
-                    2
+                    3
                 } else {
                     -1 * (self.atom_count + self.proof_size) as i32
                 }
@@ -327,7 +327,7 @@ impl ProofStep {
             Truthiness::Hypothetical => 1,
             Truthiness::Factual => {
                 if EXPERIMENT {
-                    3
+                    2
                 } else {
                     1
                 }
@@ -340,22 +340,6 @@ impl ProofStep {
 
     // A heuristic for whether this clause should be rejected without scoring.
     pub fn heuristic_reject(&self) -> bool {
-        if EXPERIMENT && self.truthiness == Truthiness::Factual {
-            return match &self.rule {
-                Rule::Assumption => false,
-                Rule::Superposition(info) => {
-                    // Most superposition between facts, we don't want, because there's an
-                    // infinite number of irrelevant possibilities.
-                    // However, we do want to allow combining rewrites, in order to achieve confluence.
-                    let combining_rewrites =
-                        info.paramodulator_is_rewrite && info.resolver_is_rewrite;
-                    return !combining_rewrites;
-                }
-                Rule::EqualityFactoring(_) => false,
-                Rule::EqualityResolution(_) => false,
-            };
-        }
-
         if self.truthiness != Truthiness::Counterfactual && self.proof_size > 2 {
             // Don't do long deductions between established facts.
             // TODO: can we limit this heuristic to just Factual proofs?
