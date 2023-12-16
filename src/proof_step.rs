@@ -2,7 +2,8 @@ use std::{cmp::Ordering, fmt};
 
 use crate::clause::Clause;
 
-const EXPERIMENT: bool = false;
+// Use this to toggle experimental algorithm mode
+pub const EXPERIMENT: bool = false;
 
 // The "truthiness" categorizes the different types of true statements, relative to a proof.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -319,19 +320,13 @@ impl ProofStep {
         let base_priority = match self.truthiness {
             Truthiness::Counterfactual => {
                 if self.is_negated_goal() {
-                    3
+                    2
                 } else {
                     -1 * (self.atom_count + self.proof_size) as i32
                 }
             }
             Truthiness::Hypothetical => 1,
-            Truthiness::Factual => {
-                if EXPERIMENT {
-                    2
-                } else {
-                    1
-                }
-            }
+            Truthiness::Factual => 3,
         };
 
         // Use fifo as a tiebreaker

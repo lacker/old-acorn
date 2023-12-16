@@ -487,6 +487,10 @@ theorem fac_pair_first(n: Nat): NatPair.first(fac_pair(n)) = n by {
             exists(a: Nat) { fac_pair(x) = NatPair.new(x, a) }
             fac_pair(Suc(x)) = fac_helper(fac_pair(x))
             fac_pair(Suc(x)) = NatPair.new(Suc(x), mul(Suc(x), a))
+            let b: Nat = mul(Suc(x), a)
+            fac_pair(Suc(x)) = NatPair.new(Suc(x), b)
+            NatPair.first(NatPair.new(Suc(x), b)) = Suc(x)
+            NatPair.first(fac_pair(Suc(x))) = Suc(x)
             fac_pair_first(Suc(x))
         }
     }

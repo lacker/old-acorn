@@ -247,6 +247,14 @@ theorem gcd_zero_left(a: Nat): gcd(0, a) = a by {
 theorem gcd_comm(a: Nat, b: Nat): gcd(a, b) = gcd(b, a) by {
     divides(gcd(b, a), gcd(a, b))
     divides(gcd(a, b), gcd(b, a))
+    if gcd(a, b) = 0 {
+        gcd(a, b) = gcd(b, a)
+    }
+    if gcd(a, b) != 0 {
+        lte(gcd(a, b), gcd(b, a))
+        lte(gcd(b, a), gcd(a, b))
+        gcd(a, b) = gcd(b, a)
+    }
 }
 
 theorem gcd_nonzero_right(a: Nat, b: Nat): b != 0 -> gcd(a, b) != 0
