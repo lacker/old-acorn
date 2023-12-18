@@ -159,14 +159,18 @@ impl ActiveSet {
         s: &Term,
         t: &Term,
         pm_clause: &Clause,
+        pm_truthiness: Truthiness,
         pm_literal_index: usize,
         u_subterm: &Term,
         u_subterm_path: &[usize],
         res_clause: &Clause,
+        res_truthiness: Truthiness,
         res_literal_index: usize,
         res_forwards: bool,
-        restrictive: bool,
     ) -> Option<Clause> {
+        let restrictive = pm_truthiness != Truthiness::Counterfactual
+            && res_truthiness != Truthiness::Counterfactual;
+
         if !EXPERIMENT && restrictive && !pm_clause.is_rewrite_rule() {
             // Only rewrite rules
             return None;
@@ -234,19 +238,18 @@ impl ActiveSet {
                 for target in targets {
                     let u_subterm = self.get_resolution_term(target);
                     let res_step = self.get_step(target.step_index);
-                    let restrictive = pm_step.truthiness != Truthiness::Counterfactual
-                        && res_step.truthiness != Truthiness::Counterfactual;
                     if let Some(new_clause) = self.maybe_superpose(
                         s,
                         t,
                         &pm_step.clause,
+                        pm_step.truthiness,
                         i,
                         u_subterm,
                         &target.path,
                         &res_step.clause,
+                        res_step.truthiness,
                         target.literal_index,
                         target.forwards,
-                        restrictive,
                     ) {
                         results.push((new_clause, target.step_index));
                     }
@@ -293,19 +296,18 @@ impl ActiveSet {
                         } else {
                             (&pm_literal.right, &pm_literal.left)
                         };
-                        let restrictive = pm_step.truthiness != Truthiness::Counterfactual
-                            && res_step.truthiness != Truthiness::Counterfactual;
                         if let Some(new_clause) = self.maybe_superpose(
                             s,
                             t,
                             &pm_step.clause,
+                            pm_step.truthiness,
                             target.literal_index,
                             u_subterm,
                             &path,
                             &res_step.clause,
+                            res_step.truthiness,
                             i,
                             res_forwards,
-                            restrictive,
                         ) {
                             results.push((new_clause, target.step_index));
                         }
