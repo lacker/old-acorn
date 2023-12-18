@@ -135,6 +135,9 @@ impl Clause {
         if self.len() < other.len() {
             return true;
         }
+        if self.len() > other.len() {
+            return false;
+        }
         if self.num_positive_literals() < other.num_positive_literals() {
             return true;
         }
