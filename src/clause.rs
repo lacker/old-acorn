@@ -115,6 +115,31 @@ impl Clause {
     pub fn has_local_constant(&self) -> bool {
         self.literals.iter().any(|x| x.has_local_constant())
     }
+
+    pub fn num_positive_literals(&self) -> usize {
+        self.literals.iter().filter(|x| x.positive).count()
+    }
+
+    // This calculates the "reduction ordering" which is a well ordering.
+    //
+    // Reducing the number of literals is a reduction.
+    // If the number of literals is the same, but there are fewer positive literals,
+    // that is also a reduction.
+    //
+    // The idea of the reduction ordering is to limit the total number of reductions that can
+    // be performed on a clause, so that if we have a large library of facts and some deductions
+    // from those facts, we can just add in the facts that are reductions from one of their premises.
+    //
+    // In particular, equality resolution and equality factoring are always reductions.
+    pub fn is_reduction_from(&self, other: &Clause) -> bool {
+        if self.len() < other.len() {
+            return true;
+        }
+        if self.num_positive_literals() < other.num_positive_literals() {
+            return true;
+        }
+        false
+    }
 }
 
 #[cfg(test)]
