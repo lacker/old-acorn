@@ -199,10 +199,8 @@ impl ActiveSet {
         if EXPERIMENT {
             if pm_clause.len() > 1 || res_clause.len() > 1 {
                 // This is a "long clause operation".
-                // Only allow it if it's reductive.
-                if !new_clause.is_reduction_from(&pm_clause)
-                    && !new_clause.is_reduction_from(&res_clause)
-                {
+                // Output must be shorter than one of the inputs.
+                if new_clause.len() >= std::cmp::max(pm_clause.len(), res_clause.len()) {
                     return None;
                 }
             } else {
