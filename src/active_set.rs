@@ -118,7 +118,11 @@ impl ActiveSet {
     // Basically, if our literal is s = t, and s > t in the KBO ordering, only allow (s, t).
     // Otherwise, also allow (t, s).
     fn quasiordered_term_pairs(literal: &Literal) -> Vec<(bool, &Term, &Term)> {
-        let order = literal.left.kbo(&literal.right);
+        let order = if EXPERIMENT {
+            Ordering::Equal
+        } else {
+            literal.left.kbo(&literal.right)
+        };
         match order {
             Ordering::Greater => {
                 // s > t, so we only do forwards
@@ -151,9 +155,6 @@ impl ActiveSet {
     //   s = t | S
     // The res clause is:
     //   u ?= v | R
-    //
-    // "restrictive" is whether we cap the length of the output.
-    // TODO: avoid the janky "restrictive" heuristic.
     fn maybe_superpose(
         &self,
         s: &Term,
@@ -552,7 +553,7 @@ impl ActiveSet {
         }
 
         // Add paramodulation targets for the new clause.
-        if step.truthiness != Truthiness::Counterfactual {
+        if EXPERIMENT || step.truthiness != Truthiness::Counterfactual {
             // Use any literal for paramodulation
             for (i, literal) in clause.literals.iter().enumerate() {
                 for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
@@ -686,7 +687,8 @@ mod tests {
     fn test_activate_paramodulator() {
         // Create an active set that knows c0(c3) = c2
         let mut set = ActiveSet::new();
-        let step = ProofStep::mock("c0(c3) = c2");
+        let mut step = ProofStep::mock("c0(c3) = c2");
+        step.truthiness = Truthiness::Hypothetical;
         set.insert(step, 0);
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
@@ -709,7 +711,8 @@ mod tests {
         set.insert(step, 0);
 
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
-        let res_step = ProofStep::mock("c0(c3) = c2");
+        let mut res_step = ProofStep::mock("c0(c3) = c2");
+        res_step.truthiness = Truthiness::Hypothetical;
         let result = set.activate_resolver(&res_step);
 
         assert_eq!(result.len(), 1);
