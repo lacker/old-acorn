@@ -731,7 +731,7 @@ mod tests {
     }
 
     #[test]
-    fn test_equality_factoring() {
+    fn test_equality_factoring_basic() {
         let old_clause = Clause::new(vec![
             Literal::equals(Term::parse("x0"), Term::parse("c0")),
             Literal::equals(Term::parse("x1"), Term::parse("c0")),
