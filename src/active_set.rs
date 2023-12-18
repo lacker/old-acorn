@@ -737,8 +737,9 @@ mod tests {
             Literal::equals(Term::parse("x1"), Term::parse("c0")),
         ]);
         let new_clauses = ActiveSet::equality_factoring(&old_clause);
+        let expected = Clause::parse("c0 = x0");
         for c in &new_clauses {
-            if format!("{}", c) == "c0 = x0".to_string() {
+            if *c == expected {
                 return;
             }
         }
