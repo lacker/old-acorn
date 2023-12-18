@@ -775,7 +775,6 @@ mod tests {
 
         // Trichotomy
         let clause = Clause::parse("c1(x0, x1) | c1(x1, x0) | x0 = x1");
-        println!("XXX {}", clause);
         let output = ActiveSet::equality_factoring(&clause);
         assert_eq!(output[0].to_string(), "c1(x0, x0) | x0 = x0");
     }
