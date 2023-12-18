@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::atom::{Atom, AtomId};
-use crate::proof_step::EXPERIMENT;
 use crate::type_map::{TypeId, BOOL, EMPTY};
 
 // A term with no args is a plain atom.
@@ -435,10 +434,6 @@ impl Term {
 
     // Lets you extend the KBO ordering to skip the domination check.
     fn kbo_helper(&self, other: &Term, check_domination: bool) -> Ordering {
-        if EXPERIMENT {
-            // Essentially disable rewrites
-            return Ordering::Equal;
-        }
         let mut self_refcounts = vec![];
         let (self_weight1, self_weight2) = self.multi_weight(&mut self_refcounts);
 

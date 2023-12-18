@@ -3,7 +3,7 @@ use std::{cmp::Ordering, fmt};
 use crate::clause::Clause;
 
 // Use this to toggle experimental algorithm mode
-// The current experiment is to disable rewriting.
+// The current experiment is to disable automatic rewriting.
 pub const EXPERIMENT: bool = false;
 
 // The "truthiness" categorizes the different types of true statements, relative to a proof.
