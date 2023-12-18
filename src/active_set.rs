@@ -195,15 +195,33 @@ impl ActiveSet {
         let eliminated_literals = pm_clause.len() + res_clause.len() - new_clause.len();
         assert!(eliminated_literals > 0);
 
-        // Heuristic restriction of superpositions that lengthen clauses.
-        if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_literals == 1 {
-            return None;
-        }
-
-        if restrictive && eliminated_literals == 1 {
-            // Don't let clauses get too long
-            if new_clause.atom_count() > 12 {
+        if EXPERIMENT {
+            if pm_clause.len() > 1 || res_clause.len() > 1 {
+                // This is a "long clause operation".
+                // Only allow it if it's reductive.
+                if !new_clause.is_reduction_from(&pm_clause)
+                    && !new_clause.is_reduction_from(&res_clause)
+                {
+                    return None;
+                }
+            } else {
+                // This is a "short clause operation".
+                if pm_truthiness == Truthiness::Factual && res_truthiness == Truthiness::Factual {
+                    // No global-global rewrites
+                    return None;
+                }
+            }
+        } else {
+            // Heuristic restriction of superpositions that lengthen clauses.
+            if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_literals == 1 {
                 return None;
+            }
+
+            if restrictive && eliminated_literals == 1 {
+                // Don't let clauses get too long
+                if new_clause.atom_count() > 12 {
+                    return None;
+                }
             }
         }
 
