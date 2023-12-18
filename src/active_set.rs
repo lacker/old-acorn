@@ -5,7 +5,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
@@ -167,7 +167,7 @@ impl ActiveSet {
         res_forwards: bool,
         restrictive: bool,
     ) -> Option<Clause> {
-        if restrictive && !pm_clause.is_rewrite_rule() {
+        if !EXPERIMENT && restrictive && !pm_clause.is_rewrite_rule() {
             // Only rewrite rules
             return None;
         }
