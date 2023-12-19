@@ -183,7 +183,7 @@ impl ActiveSet {
         if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
             return None;
         }
-        let new_clause = unifier.superpose(
+        let literals = unifier.superpose(
             t,
             pm_clause,
             pm_literal_index,
@@ -192,6 +192,7 @@ impl ActiveSet {
             res_literal_index,
             res_forwards,
         );
+        let new_clause = Clause::new(literals);
 
         let eliminated_literals = pm_clause.len() + res_clause.len() - new_clause.len();
         assert!(eliminated_literals > 0);

@@ -376,7 +376,7 @@ impl Unifier {
         res_clause: &Clause,
         res_literal_index: usize,
         res_forwards: bool,
-    ) -> Clause {
+    ) -> Vec<Literal> {
         let resolution_literal = &res_clause.literals[res_literal_index];
         let (u, v) = if res_forwards {
             (&resolution_literal.left, &resolution_literal.right)
@@ -417,7 +417,7 @@ impl Unifier {
             literals.push(unified_literal);
         }
 
-        Clause::new(literals)
+        literals
     }
 }
 
@@ -516,7 +516,8 @@ mod tests {
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &s, Scope::Right, &u_subterm);
         u.print();
-        let new_clause = u.superpose(&t, &pm_clause, 0, target_path, &resolution_clause, 0, true);
+        let literals = u.superpose(&t, &pm_clause, 0, target_path, &resolution_clause, 0, true);
+        let new_clause = Clause::new(literals);
         assert!(
             new_clause.to_string()
                 == "c1(c2(c1, x0, c1(c1(c0)))) != c1(x1(x2)) | c1(c1(x0)) = x1(x2)"
