@@ -95,36 +95,6 @@ theorem div_sub_mod(a: Nat, m: Nat): divides(m, sub(a, mod(a, m))) by {
     sub(a, mod(a, m)) = mul(q, m)
 }
 
-theorem lte_mul(a: Nat, b: Nat): b != 0 -> lte(a, mul(a, b)) by {
-    if b != 0 {
-        lte(1, b)
-        lte(mul(a, 1), mul(a, b))
-        lte(a, mul(a, b))
-    }
-}
-
-theorem divides_lte(a: Nat, b: Nat): divides(a, b) -> b = 0 | lte(a, b) by {
-    if divides(a, b) & b != 0 {
-        exists(q: Nat) { mul(q, a) = b }
-        if q = 0 {
-            b = 0
-            false
-        }
-        lte(a, mul(q, a))
-        lte(a, b)
-    }
-}
-
-theorem divides_add(a: Nat, b: Nat, d: Nat):
-    divides(d, a) & divides(d, b) -> divides(d, add(a, b)) by {
-    if divides(d, a) & divides(d, b) {
-        exists(qa: Nat) { mul(qa, d) = a }
-        exists(qb: Nat) { mul(qb, d) = b }
-        mul(add(qa, qb), d) = add(mul(qa, d), mul(qb, d))
-        divides(d, add(a, b))
-    }
-}
-
 theorem sub_left_distrib(a: Nat, b: Nat, c: Nat):
     mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c)) by {
     if a = 0 {
