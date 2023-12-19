@@ -192,36 +192,61 @@ impl ActiveSet {
             res_literal_index,
             res_forwards,
         );
-        let new_clause = Clause::new(literals);
-
-        let eliminated_literals = pm_clause.len() + res_clause.len() - new_clause.len();
-        assert!(eliminated_literals > 0);
 
         if EXPERIMENT {
-            if pm_clause.len() > 1 || res_clause.len() > 1 {
-                // This is a "long clause operation".
-                // Output must be shorter than one of the inputs.
-                if new_clause.len() >= std::cmp::max(pm_clause.len(), res_clause.len()) {
-                    return None;
-                }
-            } else {
+            if pm_clause.len() == 1 && res_clause.len() == 1 {
                 // This is a "short clause operation".
                 if pm_truthiness == Truthiness::Factual && res_truthiness == Truthiness::Factual {
                     // No global-global rewrites
                     return None;
                 }
+                return Some(Clause::new(literals));
             }
-        } else {
-            // Heuristic restriction of superpositions that lengthen clauses.
-            if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_literals == 1 {
+
+            // This is a "long clause operation".
+            // That means the newly created literal must be reducible by equality resolution.
+            if literals[0].positive {
+                return None;
+            }
+            // Only use "left" scope
+            let mut unifier = Unifier::new();
+            if !unifier.unify(
+                Scope::Left,
+                &literals[0].left,
+                Scope::Left,
+                &literals[0].right,
+            ) {
                 return None;
             }
 
-            if restrictive && eliminated_literals == 1 {
-                // Don't let clauses get too long
-                if new_clause.atom_count() > 12 {
-                    return None;
-                }
+            let new_literals = literals
+                .iter()
+                .skip(1)
+                .map(|literal| unifier.apply_to_literal(Scope::Left, literal))
+                .collect();
+            let new_clause = Clause::new(new_literals);
+            if new_clause.len() >= pm_clause.len() && new_clause.len() >= res_clause.len() {
+                // Long clause operations need to be reductive
+                return None;
+            }
+
+            return Some(new_clause);
+        }
+
+        let new_clause = Clause::new(literals);
+
+        let eliminated_literals = pm_clause.len() + res_clause.len() - new_clause.len();
+        assert!(eliminated_literals > 0);
+
+        // Heuristic restriction of superpositions that lengthen clauses.
+        if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_literals == 1 {
+            return None;
+        }
+
+        if restrictive && eliminated_literals == 1 {
+            // Don't let clauses get too long
+            if new_clause.atom_count() > 12 {
+                return None;
             }
         }
 
