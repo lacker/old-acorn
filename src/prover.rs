@@ -1150,7 +1150,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backward_sequential_reasoning() {
+    fn test_backward_nonbranching_reasoning() {
         prove_all_succeeds(
             r#"
             type Nat: axiom
