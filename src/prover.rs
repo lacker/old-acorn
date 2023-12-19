@@ -1148,4 +1148,18 @@ mod tests {
         );
         assert_eq!(prove(&mut p, "main", "goal"), Outcome::Success);
     }
+
+    #[test]
+    fn test_backward_sequential_reasoning() {
+        prove_all_succeeds(
+            r#"
+            type Nat: axiom
+            let Suc: Nat -> Nat = axiom
+            axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
+            let n: Nat = axiom
+            axiom hyp: Suc(n) != n
+            theorem goal: Suc(Suc(n)) != Suc(n)
+        "#,
+        )
+    }
 }
