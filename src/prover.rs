@@ -496,7 +496,7 @@ mod tests {
         let goal_context = env.get_goal_context_by_name(project, goal_name);
         let mut prover = Prover::new(&project, &goal_context, false, None);
         prover.verbose = true;
-        let outcome = prover.search_for_contradiction(2000, 2.0);
+        let outcome = prover.search_for_contradiction(2000, 0.05);
         if outcome == Outcome::Error {
             panic!("prover error: {}", prover.error.unwrap());
         }
@@ -526,7 +526,7 @@ mod tests {
             println!("proving: {}", goal_context.name);
             let mut prover = Prover::new(&project, &goal_context, false, None);
             prover.verbose = true;
-            let outcome = prover.search_for_contradiction(2000, 2.0);
+            let outcome = prover.search_for_contradiction(2000, 0.05);
             if outcome != Outcome::Success {
                 return outcome;
             }
