@@ -38,10 +38,24 @@ theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
 theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b)) by {
     define f(x: Nat) -> bool = add_suc_left(a, x)
     induction(f)
+    f(0)
+    forall(x: Nat) {
+        if f(x) {
+            f(Suc(x))
+        }
+    }
 }
 
 theorem suc_ne(a: Nat): Suc(a) != a by {
     induction(suc_ne)
+    suc_ne(0)
+    forall(x: Nat) {
+        if suc_ne(x) {
+            Suc(x) != x
+            Suc(Suc(x)) != Suc(x)
+            suc_ne(Suc(x))
+        }
+    }
 }
 
 theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a by {

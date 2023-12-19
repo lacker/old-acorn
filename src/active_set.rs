@@ -250,7 +250,12 @@ impl ActiveSet {
                 continue;
             }
             for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
-                // Look for resolution targets that match pm_left
+                if s.is_true() {
+                    // I don't think we should paramodulate into "true"
+                    continue;
+                }
+
+                // Look for resolution targets that match s
                 let targets = self.resolution_targets.get_unifying(s);
                 for target in targets {
                     let u_subterm = self.get_resolution_term(target);
