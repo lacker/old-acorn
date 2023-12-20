@@ -274,6 +274,26 @@ impl Normalizer {
     // If the value is impossible to satify, like explicit "false", returns None.
     // If we cannot normalize it, return an error.
     pub fn normalize(&mut self, value: AcornValue) -> Result<Option<Vec<Clause>>> {
+        if let AcornValue::Binary(BinaryOp::Equals, left, right) = &value {
+            if let AcornValue::Constant(left_module, left_name, _, _) = left.as_ref() {
+                if let AcornValue::Constant(right_module, right_name, _, _) = right.as_ref() {
+                    if self.constant_map.has_constant(*right_module, &right_name)
+                        && !self.constant_map.has_constant(*left_module, &left_name)
+                    {
+                        // This is defining one constant to be another one.
+                        // We can handle this in the constant map.
+                        self.constant_map.add_alias(
+                            *left_module,
+                            &left_name,
+                            *right_module,
+                            &right_name,
+                        );
+                        return Ok(Some(vec![]));
+                    }
+                }
+            }
+        }
+
         // println!("\nnormalizing: {}", value);
         let value = value.replace_function_equality(0);
         let value = value.expand_lambdas(0);
