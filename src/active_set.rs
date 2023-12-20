@@ -118,9 +118,7 @@ impl ActiveSet {
     // Basically, if our literal is s = t, and s > t in the KBO ordering, only allow (s, t).
     // Otherwise, also allow (t, s).
     fn quasiordered_term_pairs(literal: &Literal) -> Vec<(bool, &Term, &Term)> {
-        let order = if literal.right.is_true() {
-            Ordering::Greater
-        } else if EXPERIMENT {
+        let order = if EXPERIMENT {
             Ordering::Equal
         } else {
             literal.left.kbo(&literal.right)
