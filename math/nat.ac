@@ -443,6 +443,7 @@ theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
     if (forall(k: Nat) { true_below(f, k) -> f(k) }) {
         define g(x: Nat) -> bool = true_below(f, x)
         induction(g)
+        g(0)
         forall(x: Nat) {
             if g(x) {
                 true_below(f, x)
@@ -463,6 +464,7 @@ theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
                 g(Suc(x))
             }
         }
+        forall(x: Nat) { g(x) }
         forall(n: Nat) {
             g(Suc(n))
             true_below(f, Suc(n))
