@@ -47,7 +47,6 @@ theorem sub_is_sub(a: Nat, b: Nat): is_sub(a, b)(sub(a, b)) by {
     f(x)
     f(find(f))
     is_sub(a, b)(find(f))
-    is_sub(a, b)(find(is_sub(a, b)))
     is_sub(a, b)(sub(a, b))
 }
 
