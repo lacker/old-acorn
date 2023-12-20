@@ -233,7 +233,8 @@ impl Prover {
     pub fn print_passive(&self, substr: Option<&str>) {
         let mut count = 0;
         let steps = self.passive.all_steps();
-        for step in steps {
+        // Only print the first ones
+        for step in steps.iter().take(500) {
             let clause = self.display(&step.clause);
             if let Some(substr) = substr {
                 if !clause.to_string().contains(substr) {
@@ -247,7 +248,10 @@ impl Prover {
         if let Some(substr) = substr {
             cprintln!(self, "{} passive clauses matched {}", count, substr);
         } else {
-            cprintln!(self, "{} clauses total in the passive set", count);
+            if steps.len() > count {
+                cprintln!(self, "  ...omitting {} more", steps.len() - count);
+            }
+            cprintln!(self, "{} clauses total in the passive set", steps.len());
         }
     }
 

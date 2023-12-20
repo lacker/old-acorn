@@ -41,7 +41,15 @@ theorem sub_def(a: Nat, b: Nat): exists(x: Nat) { is_sub(a, b)(x) } by {
 
 define sub(a: Nat, b: Nat) -> Nat = find(is_sub(a, b))
 
-theorem sub_is_sub(a: Nat, b: Nat): is_sub(a, b)(sub(a, b))
+theorem sub_is_sub(a: Nat, b: Nat): is_sub(a, b)(sub(a, b)) by {
+    let f: Nat -> bool = is_sub(a, b)
+    exists(x: Nat) { is_sub(a, b)(x) }
+    f(x)
+    f(find(f))
+    is_sub(a, b)(find(f))
+    is_sub(a, b)(find(is_sub(a, b)))
+    is_sub(a, b)(sub(a, b))
+}
 
 theorem add_sub(a: Nat, b: Nat): lte(b, a) -> add(sub(a, b), b) = a
 
@@ -188,6 +196,9 @@ theorem mod_mod(a: Nat, m: Nat): mod(mod(a, m), m) = mod(a, m) by {
 theorem mod_mul(m: Nat, q: Nat): mod(mul(q, m), m) = 0 by {
     divides(m, mul(q, m))
 }
+
+theorem divides_add_copy(a: Nat, b: Nat, d: Nat):
+    divides(d, a) & divides(d, b) -> divides(d, add(a, b))
 
 theorem divides_unmod(d: Nat, a: Nat, m: Nat): divides(d, m) & divides(d, mod(a, m)) -> divides(d, a) by {
     exists(q: Nat) { add(mul(q, m), mod(a, m)) = a }
