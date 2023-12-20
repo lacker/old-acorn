@@ -300,6 +300,11 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by
 
 theorem lt_add_suc(a: Nat, b: Nat): lt(a, add(a, Suc(b)))
 
+theorem lt_suc(a: Nat): lt(a, Suc(a)) by {
+    Suc(a) = add(a, 1)
+    Suc(a) = add(a, Suc(0))
+}
+
 theorem add_cancels_left(a: Nat, b: Nat, c: Nat): add(a, b) = add(a, c) -> b = c by {
     define f(x: Nat) -> bool = add_cancels_left(x, b, c)
     induction(f)
@@ -750,6 +755,7 @@ theorem divides_add(a: Nat, b: Nat, d: Nat):
         exists(qa: Nat) { mul(qa, d) = a }
         exists(qb: Nat) { mul(qb, d) = b }
         mul(add(qa, qb), d) = add(mul(qa, d), mul(qb, d))
+        mul(add(qa, qb), d) = add(a, b)
         divides(d, add(a, b))
     }
 }
