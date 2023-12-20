@@ -86,7 +86,7 @@ theorem add_mod(a: Nat, m: Nat): exists(q: Nat) { add(mul(q, m), mod(a, m)) = a 
 
 theorem mod_by_zero(a: Nat): mod(a, 0) = a
 
-theorem mod_of_zer0(m: Nat): mod(0, m) = 0
+theorem mod_of_zero(m: Nat): mod(0, m) = 0
 
 theorem mod_lte(a: Nat, m: Nat): lte(mod(a, m), a)
 
