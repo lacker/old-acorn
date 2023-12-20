@@ -118,7 +118,9 @@ impl ActiveSet {
     // Basically, if our literal is s = t, and s > t in the KBO ordering, only allow (s, t).
     // Otherwise, also allow (t, s).
     fn quasiordered_term_pairs(literal: &Literal) -> Vec<(bool, &Term, &Term)> {
-        let order = if EXPERIMENT {
+        let order = if literal.right.is_true() {
+            Ordering::Greater
+        } else if EXPERIMENT {
             Ordering::Equal
         } else {
             literal.left.kbo(&literal.right)
@@ -169,6 +171,8 @@ impl ActiveSet {
         res_literal_index: usize,
         res_forwards: bool,
     ) -> Option<Clause> {
+        assert!(!s.is_true(), "no superposing into true");
+
         let restrictive = pm_truthiness != Truthiness::Counterfactual
             && res_truthiness != Truthiness::Counterfactual;
 
@@ -347,6 +351,10 @@ impl ActiveSet {
                         } else {
                             (&pm_literal.right, &pm_literal.left)
                         };
+                        if s.is_true() {
+                            // I don't think we should paramodulate into "true"
+                            continue;
+                        }
                         if let Some(new_clause) = self.maybe_superpose(
                             s,
                             t,
