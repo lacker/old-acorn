@@ -25,6 +25,7 @@ pub struct ConstantMap {
 
     // Inverse map of constants.
     // The ConstantKey -> AtomId lookup direction.
+    // Multiple ConstantKey can map to the same AtomId, when two constants alias to the same thing.
     keymap: HashMap<ConstantKey, Atom>,
 }
 
@@ -57,6 +58,36 @@ impl ConstantMap {
         };
         self.keymap.insert(key, atom);
         atom
+    }
+
+    pub fn has_constant(&self, module: ModuleId, name: &str) -> bool {
+        let key = ConstantKey {
+            module,
+            name: name.to_string(),
+        };
+        self.keymap.contains_key(&key)
+    }
+
+    // Make the new module/name an alias to whatever the old one refers to.
+    pub fn add_alias(
+        &mut self,
+        new_module: ModuleId,
+        new_name: &str,
+        old_module: ModuleId,
+        old_name: &str,
+    ) {
+        assert!(!self.has_constant(new_module, new_name));
+        assert!(self.has_constant(old_module, old_name));
+        let new_key = ConstantKey {
+            module: new_module,
+            name: new_name.to_string(),
+        };
+        let old_key = ConstantKey {
+            module: old_module,
+            name: old_name.to_string(),
+        };
+        let atom = self.keymap[&old_key];
+        self.keymap.insert(new_key, atom);
     }
 
     // Get information about a global constant.
