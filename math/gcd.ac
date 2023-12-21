@@ -39,6 +39,12 @@ define is_min(f: Nat -> bool) -> (Nat -> bool) = function(x: Nat) {
 theorem has_min(f: Nat -> bool, n: Nat): f(n) -> exists(m: Nat) { is_min(f)(m) } by {
     define g(x: Nat) -> bool = has_min(f, x)
     nat.strong_induction(g)
+    forall(k: Nat) {
+        if nat.true_below(g, k) {
+            g(k)
+        }
+    }
+    g(n)
 }
 
 // A decreasing_to_zero function strictly decreases until it hits zero.

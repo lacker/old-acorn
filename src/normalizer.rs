@@ -297,28 +297,19 @@ impl Normalizer {
     fn normalize_cnf(&mut self, value: AcornValue) -> Normalization {
         let mut universal = vec![];
         let value = value.remove_forall(&mut universal);
-        let literal_lists = match self.into_literal_lists(&value) {
-            Ok(Some(lists)) => lists,
-            Ok(None) => return Normalization::Impossible,
+        match self.into_literal_lists(&value) {
+            Ok(Some(lists)) => self.normalize_literal_lists(lists),
+            Ok(None) => Normalization::Impossible,
             Err(NormalizationError(s)) => {
                 // value is essentially a subvalue with the universal quantifiers removed,
                 // so reconstruct it to display it nicely.
                 let reconstructed = AcornValue::new_forall(universal, value);
-                return Normalization::Error(format!(
+                Normalization::Error(format!(
                     "\nerror converting {} to CNF:\n{}",
                     reconstructed, s
-                ));
+                ))
             }
-        };
-
-        let mut clauses = vec![];
-        for literals in literal_lists {
-            assert!(literals.len() > 0);
-            let clause = Clause::new(literals);
-            // println!("clause: {}", clause);
-            clauses.push(clause);
         }
-        Normalization::Clauses(clauses)
     }
 
     fn normalize_literal_lists(&self, literal_lists: Vec<Vec<Literal>>) -> Normalization {
@@ -390,21 +381,7 @@ impl Normalizer {
         let value = self.skolemize(&vec![], value);
         // println!("skolemized: {}", value);
 
-        let mut universal = vec![];
-        let value = value.remove_forall(&mut universal);
-        match self.into_literal_lists(&value) {
-            Ok(Some(lists)) => self.normalize_literal_lists(lists),
-            Ok(None) => Normalization::Impossible,
-            Err(NormalizationError(s)) => {
-                // value is essentially a subvalue with the universal quantifiers removed,
-                // so reconstruct it to display it nicely.
-                let reconstructed = AcornValue::new_forall(universal, value);
-                Normalization::Error(format!(
-                    "\nerror converting {} to CNF:\n{}",
-                    reconstructed, s
-                ))
-            }
-        }
+        self.normalize_cnf(value)
     }
 
     pub fn atom_str(&self, atom: &Atom) -> String {
