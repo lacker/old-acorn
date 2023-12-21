@@ -455,6 +455,10 @@ define any(f: Nat -> bool) -> bool = exists(n: Nat) { f(n) }
 
 define divides(a: Nat, b: Nat) -> bool = exists(c: Nat) { mul(a, c) = b }
 
+theorem divides_self(a: Nat): divides(a, a) by {
+    mul(a, 1) = a
+}
+
 define true_below(f: Nat -> bool, n: Nat) -> bool = forall(x: Nat) { lt(x, n) -> f(x) }
 
 theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
