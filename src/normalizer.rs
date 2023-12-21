@@ -7,6 +7,7 @@ use crate::display::DisplayClause;
 use crate::environment::Environment;
 use crate::literal::Literal;
 use crate::module::SKOLEM;
+use crate::proof_step::EXPERIMENT;
 use crate::term::Term;
 use crate::type_map::TypeMap;
 
@@ -34,6 +35,21 @@ impl Normalization {
         match self {
             Normalization::Clauses(clauses) => clauses,
             _ => panic!("expected clauses but got: {:?}", self),
+        }
+    }
+
+    fn and(self, other: Normalization) -> Normalization {
+        match self {
+            Normalization::Clauses(mut clauses) => match other {
+                Normalization::Clauses(mut other_clauses) => {
+                    clauses.append(&mut other_clauses);
+                    Normalization::Clauses(clauses)
+                }
+                Normalization::Impossible => Normalization::Impossible,
+                Normalization::Error(s) => Normalization::Error(s),
+            },
+            Normalization::Impossible => Normalization::Impossible,
+            Normalization::Error(s) => Normalization::Error(s),
         }
     }
 }
@@ -225,20 +241,20 @@ impl Normalizer {
         }
     }
 
-    // Converts a value to Clausal Normal Form, output in results.
+    // Converts a value that is already in CNF into lists of literals.
     // Each Vec<Literal> is a conjunction, an "or" node.
     // The CNF form is expressing that each of these conjunctions are true.
     // Returns Ok(Some(cnf)) if it can be turned into CNF.
     // Returns Ok(None) if it's an impossibility.
     // Returns an error if we failed in some user-reportable way.
-    fn into_cnf(&mut self, value: &AcornValue) -> Result<Option<Vec<Vec<Literal>>>> {
+    fn into_literal_lists(&mut self, value: &AcornValue) -> Result<Option<Vec<Vec<Literal>>>> {
         match value {
             AcornValue::Binary(BinaryOp::And, left, right) => {
-                let mut left = match self.into_cnf(left)? {
+                let mut left = match self.into_literal_lists(left)? {
                     Some(left) => left,
                     None => return Ok(None),
                 };
-                let right = match self.into_cnf(right)? {
+                let right = match self.into_literal_lists(right)? {
                     Some(right) => right,
                     None => return Ok(None),
                 };
@@ -246,8 +262,8 @@ impl Normalizer {
                 Ok(Some(left))
             }
             AcornValue::Binary(BinaryOp::Or, left, right) => {
-                let left = self.into_cnf(left)?;
-                let right = self.into_cnf(right)?;
+                let left = self.into_literal_lists(left)?;
+                let right = self.into_literal_lists(right)?;
                 match (left, right) {
                     (None, None) => Ok(None),
                     (Some(result), None) | (None, Some(result)) => Ok(Some(result)),
@@ -277,6 +293,49 @@ impl Normalizer {
         }
     }
 
+    // Turns a value that is already in CNF into a Normalization
+    fn normalize_cnf(&mut self, value: AcornValue) -> Normalization {
+        let mut universal = vec![];
+        let value = value.remove_forall(&mut universal);
+        let literal_lists = match self.into_literal_lists(&value) {
+            Ok(Some(lists)) => lists,
+            Ok(None) => return Normalization::Impossible,
+            Err(NormalizationError(s)) => {
+                // value is essentially a subvalue with the universal quantifiers removed,
+                // so reconstruct it to display it nicely.
+                let reconstructed = AcornValue::new_forall(universal, value);
+                return Normalization::Error(format!(
+                    "\nerror converting {} to CNF:\n{}",
+                    reconstructed, s
+                ));
+            }
+        };
+
+        let mut clauses = vec![];
+        for literals in literal_lists {
+            assert!(literals.len() > 0);
+            let clause = Clause::new(literals);
+            // println!("clause: {}", clause);
+            clauses.push(clause);
+        }
+        Normalization::Clauses(clauses)
+    }
+
+    // Converts a value to CNF, then to a Normalization.
+    // Does not handle the "definition" sorts of values.
+    fn convert_then_normalize(&mut self, value: AcornValue) -> Normalization {
+        // println!("\nnormalizing: {}", value);
+        let value = value.replace_function_equality(0);
+        let value = value.expand_lambdas(0);
+        let value = value.replace_if();
+        let value = value.move_negation_inwards(false);
+        // println!("negin'd: {}", value);
+        let value = self.skolemize(&vec![], value);
+        // println!("skolemized: {}", value);
+
+        self.normalize_cnf(value)
+    }
+
     // Converts a value to CNF.
     pub fn normalize(&mut self, value: AcornValue) -> Normalization {
         if let AcornValue::Binary(BinaryOp::Equals, left, right) = &value {
@@ -300,8 +359,14 @@ impl Normalizer {
             }
 
             // Check for the sort of functional equality that can be represented as a literal.
-            if left.get_type().is_functional() && left.is_term() && right.is_term() {
-                // XXX
+            if EXPERIMENT && left.get_type().is_functional() && left.is_term() && right.is_term() {
+                // We want to represent this two ways.
+                // One as an equality between functions, another as an equality between
+                // primitive types, after applying the functions.
+                // If we handled functional types better in unification we might not need this.
+                let functional = self.normalize_cnf(value.clone());
+                let primitive = self.convert_then_normalize(value);
+                return functional.and(primitive);
             }
         }
 
@@ -315,7 +380,7 @@ impl Normalizer {
         // println!("skolemized: {}", value);
         let mut universal = vec![];
         let value = value.remove_forall(&mut universal);
-        let literal_lists = match self.into_cnf(&value) {
+        let literal_lists = match self.into_literal_lists(&value) {
             Ok(Some(lists)) => lists,
             Ok(None) => return Normalization::Impossible,
             Err(NormalizationError(s)) => {
