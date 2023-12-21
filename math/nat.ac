@@ -382,6 +382,21 @@ theorem trichotomy(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b by {
     }
 }
 
+theorem lt_imp_lte_suc(a: Nat, b: Nat): lt(a, b) -> lte(Suc(a), b)
+
+theorem lte_imp_not_lt(a: Nat, b: Nat): lte(a, b) -> !lt(b, a) by {
+    if lte(a, b) {
+        if a = b {
+            !lt(b, a)
+        }
+        if a != b {
+            lt(a, b)
+            !lt(b, a)
+        }
+        !lt(b, a)
+    }
+}
+
 theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
     lt(r, n) & m = add(mul(q, n), r)
 } by {
