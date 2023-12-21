@@ -280,6 +280,29 @@ impl AcornValue {
         }
     }
 
+    // Whether this value can be converted to a term, rather than requiring a literal or clause.
+    // Terms can have no boolean operators, lambdas, etc.
+    pub fn is_term(&self) -> bool {
+        match self {
+            AcornValue::Variable(_, _) => true,
+            AcornValue::Constant(_, _, _, _) => true,
+            AcornValue::Application(app) => {
+                app.args.iter().all(|x| x.is_term()) && app.function.is_term()
+            }
+            AcornValue::Lambda(_, _) => false,
+            AcornValue::Binary(_, _, _) => false,
+            AcornValue::Not(_) => false,
+            AcornValue::ForAll(_, _) => false,
+            AcornValue::Exists(_, _) => false,
+            AcornValue::Specialized(_, _, _, _) => true,
+
+            // Bit of a weird case. "true" is a term but "false" is not.
+            AcornValue::Bool(value) => *value,
+
+            AcornValue::IfThenElse(_, _, _) => false,
+        }
+    }
+
     pub fn negate(self) -> AcornValue {
         self.maybe_negate(true)
     }

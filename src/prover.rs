@@ -10,7 +10,7 @@ use crate::active_set::ActiveSet;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::GoalContext;
-use crate::normalizer::{NormalizationError, Normalizer};
+use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
 use crate::proof_step::{ProofStep, Truthiness};
@@ -151,15 +151,12 @@ impl Prover {
         self.trace = None;
     }
 
-    fn normalize_proposition(
-        &mut self,
-        proposition: AcornValue,
-    ) -> Result<Option<Vec<Clause>>, NormalizationError> {
+    fn normalize_proposition(&mut self, proposition: AcornValue) -> Normalization {
         if let Err(e) = proposition.validate() {
-            return Err(NormalizationError(format!(
+            return Normalization::Error(format!(
                 "validation error: {} while normalizing: {}",
                 e, proposition
-            )));
+            ));
         }
         assert_eq!(proposition.get_type(), AcornType::Bool);
         self.normalizer.normalize(proposition)
@@ -167,8 +164,8 @@ impl Prover {
 
     fn add_assumption(&mut self, proposition: AcornValue, truthiness: Truthiness) {
         let clauses = match self.normalize_proposition(proposition) {
-            Ok(Some(clauses)) => clauses,
-            Ok(None) => {
+            Normalization::Clauses(clauses) => clauses,
+            Normalization::Impossible => {
                 // We have a false assumption, so we're done already.
                 let final_step = ProofStep::new_assumption(
                     Clause::impossible(),
@@ -178,8 +175,8 @@ impl Prover {
                 self.report_contradiction(final_step);
                 return;
             }
-            Err(e) => {
-                self.error = Some(e.to_string());
+            Normalization::Error(s) => {
+                self.error = Some(s);
                 return;
             }
         };

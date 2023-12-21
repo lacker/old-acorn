@@ -1,5 +1,3 @@
-use std::fmt;
-
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::{Atom, AtomId};
@@ -12,19 +10,33 @@ use crate::module::SKOLEM;
 use crate::term::Term;
 use crate::type_map::TypeMap;
 
-// A failure during normalization.
 #[derive(Debug)]
-pub struct NormalizationError(pub String);
+struct NormalizationError(String);
+type Result<T> = std::result::Result<T, NormalizationError>;
 
-impl fmt::Display for NormalizationError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+#[derive(Debug)]
+pub enum Normalization {
+    // A successfully normalized value turns into a bunch of clauses.
+    // Logically, this is an "and of ors". Each Clause is an "or" of its literals.
+    // An empty list indicates a proposition that is always trivially satisfied.
+    Clauses(Vec<Clause>),
+
+    // Sometimes as we normalize we discover a proposition that is impossible to satisfy.
+    // This can't be trivially represented in CNF, so it gets its own variant.
+    Impossible,
+
+    // A user-visible error.
+    Error(String),
+}
+
+impl Normalization {
+    pub fn expect_clauses(self) -> Vec<Clause> {
         match self {
-            NormalizationError(msg) => write!(f, "Normalization error: {}", msg),
+            Normalization::Clauses(clauses) => clauses,
+            _ => panic!("expected clauses but got: {:?}", self),
         }
     }
 }
-
-pub type Result<T> = std::result::Result<T, NormalizationError>;
 
 pub struct Normalizer {
     // Types of the skolem functions produced
@@ -266,21 +278,15 @@ impl Normalizer {
     }
 
     // Converts a value to CNF.
-    // Logically, this is an "and of ors". Each Clause is an "or" of its literals.
-    // The return value is an "and" of the clauses.
-    // Thus, value is true iff all the returned clauses are true.
-    //
-    // If the value is always satisfied, like explicit "true", returns an empty list.
-    // If the value is impossible to satify, like explicit "false", returns None.
-    // If we cannot normalize it, return an error.
-    pub fn normalize(&mut self, value: AcornValue) -> Result<Option<Vec<Clause>>> {
+    pub fn normalize(&mut self, value: AcornValue) -> Normalization {
         if let AcornValue::Binary(BinaryOp::Equals, left, right) = &value {
+            // Check for defining one constant to equal another constant.
             if let AcornValue::Constant(left_module, left_name, _, _) = left.as_ref() {
                 if let AcornValue::Constant(right_module, right_name, _, _) = right.as_ref() {
                     if self.constant_map.has_constant(*right_module, &right_name)
                         && !self.constant_map.has_constant(*left_module, &left_name)
                     {
-                        // This is defining one constant to be another one.
+                        // Yep, this is defining one constant to be another one.
                         // We can handle this in the constant map.
                         self.constant_map.add_alias(
                             *left_module,
@@ -288,9 +294,14 @@ impl Normalizer {
                             *right_module,
                             &right_name,
                         );
-                        return Ok(Some(vec![]));
+                        return Normalization::Clauses(vec![]);
                     }
                 }
+            }
+
+            // Check for the sort of functional equality that can be represented as a literal.
+            if left.get_type().is_functional() && left.is_term() && right.is_term() {
+                // XXX
             }
         }
 
@@ -306,15 +317,15 @@ impl Normalizer {
         let value = value.remove_forall(&mut universal);
         let literal_lists = match self.into_cnf(&value) {
             Ok(Some(lists)) => lists,
-            Ok(None) => return Ok(None),
-            Err(e) => {
+            Ok(None) => return Normalization::Impossible,
+            Err(NormalizationError(s)) => {
                 // value is essentially a subvalue with the universal quantifiers removed,
                 // so reconstruct it to display it nicely.
                 let reconstructed = AcornValue::new_forall(universal, value);
-                return Err(NormalizationError(format!(
+                return Normalization::Error(format!(
                     "\nerror converting {} to CNF:\n{}",
-                    reconstructed, e
-                )));
+                    reconstructed, s
+                ));
             }
         };
 
@@ -325,7 +336,7 @@ impl Normalizer {
             // println!("clause: {}", clause);
             clauses.push(clause);
         }
-        Ok(Some(clauses))
+        Normalization::Clauses(clauses)
     }
 
     pub fn atom_str(&self, atom: &Atom) -> String {
@@ -349,7 +360,7 @@ impl Normalizer {
     }
 
     fn check_value(&mut self, value: AcornValue, expected: &[&str]) {
-        let actual = self.normalize(value).unwrap().unwrap();
+        let actual = self.normalize(value).expect_clauses();
         if actual.len() != expected.len() {
             panic!(
                 "expected {} clauses, got {}:\n{}",
