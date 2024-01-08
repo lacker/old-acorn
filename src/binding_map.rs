@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
@@ -34,7 +34,7 @@ pub struct BindingMap {
 
     // Names that refer to other modules.
     // For example after "import foo", "foo" refers to a module.
-    modules: HashMap<String, ModuleId>,
+    modules: BTreeMap<String, ModuleId>,
 }
 
 #[derive(Clone)]
@@ -61,7 +61,7 @@ impl BindingMap {
             identifier_types: HashMap::new(),
             constants: HashMap::new(),
             stack: HashMap::new(),
-            modules: HashMap::new(),
+            modules: BTreeMap::new(),
         }
     }
 
@@ -153,7 +153,7 @@ impl BindingMap {
     }
 
     // All other modules that we directly depend on, besides this one.
-    // In no particular order.
+    // Sorted by the name of the import, so that the order will be consistent.
     pub fn direct_dependencies(&self) -> Vec<ModuleId> {
         self.modules.values().copied().collect()
     }
