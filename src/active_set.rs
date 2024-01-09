@@ -106,22 +106,12 @@ impl ActiveSet {
         term
     }
 
-    // Get an iterator of (forward?, s, t) for all (s, t) pairs where there could be a s > t rewrite.
-    // Basically, if our literal is s = t, and s > t in the KBO ordering, only allow (s, t).
-    // Otherwise, also allow (t, s).
-    fn quasiordered_term_pairs(literal: &Literal) -> Vec<(bool, &Term, &Term)> {
-        vec![
-            (true, &literal.left, &literal.right),
-            (false, &literal.right, &literal.left),
-        ]
-    }
-
     // Get an iterator of (forward?, s, t) for all s -> t paramodulations allowed for this literal.
     fn paramodulation_terms(literal: &Literal) -> Vec<(bool, &Term, &Term)> {
         if !literal.positive {
             return vec![];
         }
-        ActiveSet::quasiordered_term_pairs(literal)
+        literal.both_term_pairs()
     }
 
     // Tries to do superposition, but uses heuristics to not do the inference sometimes.
@@ -274,7 +264,7 @@ impl ActiveSet {
     pub fn activate_resolver(&self, res_step: &ProofStep) -> Vec<(Clause, usize)> {
         let mut results = vec![];
         for (i, res_literal) in res_step.clause.literals.iter().enumerate() {
-            for (res_forwards, u, _) in ActiveSet::quasiordered_term_pairs(res_literal) {
+            for (res_forwards, u, _) in res_literal.both_term_pairs() {
                 let u_subterms = u.non_variable_subterms();
 
                 for (path, u_subterm) in u_subterms {
@@ -489,7 +479,7 @@ impl ActiveSet {
         literal_index: usize,
         literal: &Literal,
     ) {
-        for (forwards, from, _) in ActiveSet::quasiordered_term_pairs(literal) {
+        for (forwards, from, _) in literal.both_term_pairs() {
             for (path, subterm) in from.non_variable_subterms() {
                 self.resolution_targets.insert(
                     subterm,

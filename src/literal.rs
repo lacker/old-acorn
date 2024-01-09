@@ -154,6 +154,17 @@ impl Literal {
     pub fn has_local_constant(&self) -> bool {
         self.left.has_local_constant() || self.right.has_local_constant()
     }
+
+    // Helper function to treat a literal as two terms.
+    // For a literal s = t, get a vector with:
+    // (true, s, t)
+    // (false, t, s)
+    pub fn both_term_pairs(&self) -> Vec<(bool, &Term, &Term)> {
+        vec![
+            (true, &self.left, &self.right),
+            (false, &self.right, &self.left),
+        ]
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.
