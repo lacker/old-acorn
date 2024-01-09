@@ -5,7 +5,6 @@ use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
-use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
 
@@ -26,11 +25,6 @@ pub struct ActiveSet {
     resolution_targets: FingerprintTree<ResolutionTarget>,
 
     paramodulation_targets: FingerprintTree<ParamodulationTarget>,
-
-    // Represents each rewrite rule as an index into steps.
-    // A clause can only be a rewrite if it's a single foo = bar literal, and foo > bar by the KBO.
-    // So we only need to store the clause index of the rewrite rule.
-    rewrite_tree: RewriteTree,
 
     // How many ProofSteps have been generated (not activated) during this proof.
     num_generated: usize,
@@ -83,7 +77,6 @@ impl ActiveSet {
             literal_set: LiteralSet::new(),
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
-            rewrite_tree: RewriteTree::new(),
             num_generated: 0,
         }
     }
@@ -422,13 +415,6 @@ impl ActiveSet {
         self.clause_set.contains(clause)
     }
 
-    // Rewrites this literal, appending a list of the rewrite rules used.
-    fn rewrite_literal(&self, literal: &Literal, rules: &mut Vec<usize>) -> Literal {
-        let left = self.rewrite_tree.rewrite_or_clone(&literal.left, rules);
-        let right = self.rewrite_tree.rewrite_or_clone(&literal.right, rules);
-        Literal::new(literal.positive, left, right)
-    }
-
     // Returns (value, id of clause) when this literal's value is known due to some existing clause.
     // No id is returned if this literal is "expr = expr".
     fn evaluate_literal(&self, literal: &Literal) -> Option<(bool, Option<usize>)> {
@@ -453,11 +439,10 @@ impl ActiveSet {
         }
 
         // Filter out any literals that are known to be true
-        let mut new_rewrites = vec![];
-        let mut rewritten_literals = vec![];
+        let mut new_rules = vec![];
+        let mut filtered_literals = vec![];
         for literal in &step.clause.literals {
-            let rewritten_literal = self.rewrite_literal(literal, &mut new_rewrites);
-            match self.evaluate_literal(&rewritten_literal) {
+            match self.evaluate_literal(&literal) {
                 Some((true, _)) => {
                     // This literal is already known to be true.
                     // Thus, the whole clause is a tautology.
@@ -467,27 +452,22 @@ impl ActiveSet {
                     // This literal is already known to be false.
                     // Thus, we can just omit it from the disjunction.
                     if let Some(id) = id {
-                        new_rewrites.push(id);
+                        new_rules.push(id);
                     }
                     continue;
                 }
                 None => {
-                    if step.is_negated_goal() {
-                        // Don't automatically simplify the goal.
-                        rewritten_literals.push(literal.clone());
-                    } else {
-                        rewritten_literals.push(rewritten_literal);
-                    }
+                    filtered_literals.push(literal.clone());
                 }
             }
         }
 
-        if new_rewrites.is_empty() {
+        if new_rules.is_empty() {
             // This proof step hasn't changed.
             return Some(step);
         }
 
-        let simplified_clause = Clause::new(rewritten_literals);
+        let simplified_clause = Clause::new(filtered_literals);
         if simplified_clause.is_tautology() {
             return None;
         }
@@ -495,11 +475,11 @@ impl ActiveSet {
             return None;
         }
         let mut new_truthiness = step.truthiness;
-        for i in &new_rewrites {
+        for i in &new_rules {
             let rewrite_step = self.get_step(*i);
             new_truthiness = new_truthiness.combine(rewrite_step.truthiness);
         }
-        Some(step.rewrite(simplified_clause, new_rewrites, new_truthiness))
+        Some(step.rewrite(simplified_clause, new_rules, new_truthiness))
     }
 
     // Add all the resolution targets for a given literal.
