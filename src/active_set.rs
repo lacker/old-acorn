@@ -1,11 +1,10 @@
-use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
@@ -118,27 +117,10 @@ impl ActiveSet {
     // Basically, if our literal is s = t, and s > t in the KBO ordering, only allow (s, t).
     // Otherwise, also allow (t, s).
     fn quasiordered_term_pairs(literal: &Literal) -> Vec<(bool, &Term, &Term)> {
-        let order = if EXPERIMENT {
-            Ordering::Equal
-        } else {
-            literal.left.kbo(&literal.right)
-        };
-        match order {
-            Ordering::Greater => {
-                // s > t, so we only do forwards
-                vec![(true, &literal.left, &literal.right)]
-            }
-            Ordering::Equal => {
-                // s = t, so we do both directions
-                vec![
-                    (true, &literal.left, &literal.right),
-                    (false, &literal.right, &literal.left),
-                ]
-            }
-            Ordering::Less => {
-                panic!("Backwards literal: {:?}", literal);
-            }
-        }
+        vec![
+            (true, &literal.left, &literal.right),
+            (false, &literal.right, &literal.left),
+        ]
     }
 
     // Get an iterator of (forward?, s, t) for all s -> t paramodulations allowed for this literal.
@@ -171,19 +153,9 @@ impl ActiveSet {
     ) -> Option<Clause> {
         assert!(!s.is_true(), "no superposing into true");
 
-        let restrictive = pm_truthiness != Truthiness::Counterfactual
-            && res_truthiness != Truthiness::Counterfactual;
-
-        if !EXPERIMENT && restrictive && !pm_clause.is_rewrite_rule() {
-            // Only rewrite rules
+        if pm_truthiness == Truthiness::Factual && res_truthiness == Truthiness::Factual {
+            // No global-global superposition
             return None;
-        }
-
-        if EXPERIMENT {
-            if pm_truthiness == Truthiness::Factual && res_truthiness == Truthiness::Factual {
-                // No global-global superposition
-                return None;
-            }
         }
 
         let mut unifier = Unifier::new();
@@ -202,60 +174,39 @@ impl ActiveSet {
             res_forwards,
         );
 
-        if EXPERIMENT {
-            if pm_clause.len() == 1 && res_clause.len() == 1 {
-                // This is a "short clause operation". Allow it
-                return Some(Clause::new(literals));
-            }
-
-            // This is a "long clause operation".
-            // That means the newly created literal must be reducible by equality resolution.
-            if literals[0].positive {
-                return None;
-            }
-            // Only use "left" scope
-            let mut unifier = Unifier::new();
-            if !unifier.unify(
-                Scope::Left,
-                &literals[0].left,
-                Scope::Left,
-                &literals[0].right,
-            ) {
-                return None;
-            }
-
-            let new_literals = literals
-                .iter()
-                .skip(1)
-                .map(|literal| unifier.apply_to_literal(Scope::Left, literal))
-                .collect();
-            let new_clause = Clause::new(new_literals);
-            if new_clause.len() >= pm_clause.len() && new_clause.len() >= res_clause.len() {
-                // Long clause operations need to be reductive
-                return None;
-            }
-
-            return Some(new_clause);
+        if pm_clause.len() == 1 && res_clause.len() == 1 {
+            // This is a "short clause operation". Allow it
+            return Some(Clause::new(literals));
         }
 
-        let new_clause = Clause::new(literals);
-
-        let eliminated_literals = pm_clause.len() + res_clause.len() - new_clause.len();
-        assert!(eliminated_literals > 0);
-
-        // Heuristic restriction of superpositions that lengthen clauses.
-        if pm_clause.len() > 1 && res_clause.len() > 1 && eliminated_literals == 1 {
+        // This is a "long clause operation".
+        // That means the newly created literal must be reducible by equality resolution.
+        if literals[0].positive {
+            return None;
+        }
+        // Only use "left" scope
+        let mut unifier = Unifier::new();
+        if !unifier.unify(
+            Scope::Left,
+            &literals[0].left,
+            Scope::Left,
+            &literals[0].right,
+        ) {
             return None;
         }
 
-        if restrictive && eliminated_literals == 1 {
-            // Don't let clauses get too long
-            if new_clause.atom_count() > 12 {
-                return None;
-            }
+        let new_literals = literals
+            .iter()
+            .skip(1)
+            .map(|literal| unifier.apply_to_literal(Scope::Left, literal))
+            .collect();
+        let new_clause = Clause::new(new_literals);
+        if new_clause.len() >= pm_clause.len() && new_clause.len() >= res_clause.len() {
+            // Long clause operations need to be reductive
+            return None;
         }
 
-        Some(new_clause)
+        return Some(new_clause);
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the
@@ -591,38 +542,18 @@ impl ActiveSet {
         }
 
         // Add paramodulation targets for the new clause.
-        if EXPERIMENT || step.truthiness != Truthiness::Counterfactual {
-            // Use any literal for paramodulation
-            for (i, literal) in clause.literals.iter().enumerate() {
-                for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
-                    self.paramodulation_targets.insert(
-                        from,
-                        ParamodulationTarget {
-                            step_index,
-                            literal_index: i,
-                            forwards,
-                        },
-                    );
-                }
-            }
-        } else {
-            // Use only the leftmost literal for paramodulation.
-            for (forwards, from, _) in ActiveSet::paramodulation_terms(leftmost_literal) {
+        // Use any literal for paramodulation.
+        for (i, literal) in clause.literals.iter().enumerate() {
+            for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
                 self.paramodulation_targets.insert(
                     from,
                     ParamodulationTarget {
                         step_index,
-                        literal_index: 0,
+                        literal_index: i,
                         forwards,
                     },
                 );
             }
-        }
-
-        if !EXPERIMENT && clause.is_rewrite_rule() && step.truthiness != Truthiness::Counterfactual
-        {
-            self.rewrite_tree
-                .add_rule(step_index, &leftmost_literal.left, &leftmost_literal.right);
         }
 
         self.clause_set.insert(clause.clone());

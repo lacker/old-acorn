@@ -7,7 +7,6 @@ use crate::display::DisplayClause;
 use crate::environment::Environment;
 use crate::literal::Literal;
 use crate::module::SKOLEM;
-use crate::proof_step::EXPERIMENT;
 use crate::term::Term;
 use crate::type_map::TypeMap;
 
@@ -361,7 +360,7 @@ impl Normalizer {
             }
 
             // Check for the sort of functional equality that can be represented as a literal.
-            if EXPERIMENT && left.get_type().is_functional() && left.is_term() && right.is_term() {
+            if left.get_type().is_functional() && left.is_term() && right.is_term() {
                 // We want to represent this two ways.
                 // One as an equality between functions, another as an equality between
                 // primitive types, after applying the functions.
