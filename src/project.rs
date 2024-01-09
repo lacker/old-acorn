@@ -525,30 +525,37 @@ impl Project {
         Ok(module_id)
     }
 
-    // All dependencies, including chains of direct depedencies.
+    // Appends all dependencies, including chains of direct dependencies.
     // Ie, if A imports B and B imports C, then A depends on B and C.
-    // Does not count this module itself.
-    // Includes modules with errors, but doesn't follow their dependencies.
-    // Sorts in ascending order.
+    // The order will be the "pop order", so that each module is added only
+    // after all of its dependencies are added.
     pub fn all_dependencies(&self, original_module_id: ModuleId) -> Vec<ModuleId> {
+        let mut answer = vec![];
         let mut seen = HashSet::new();
-        let mut pending = vec![original_module_id];
-        while !pending.is_empty() {
-            let module_id = pending.pop().unwrap();
-            if seen.contains(&module_id) {
-                continue;
-            }
-            seen.insert(module_id);
-            if let Module::Ok(env) = self.get_module(module_id) {
-                for dep in env.bindings.direct_dependencies() {
-                    pending.push(dep);
+        self.append_dependencies(&mut seen, &mut answer, original_module_id);
+        answer
+    }
+
+    // Helper function for all_dependencies.
+    // Returns "false" if we have already seen this dependency.
+    // Does not append module_id itself. If we want it, add that in last.
+    fn append_dependencies(
+        &self,
+        seen: &mut HashSet<ModuleId>,
+        output: &mut Vec<ModuleId>,
+        module_id: ModuleId,
+    ) -> bool {
+        if !seen.insert(module_id) {
+            return false;
+        }
+        if let Module::Ok(env) = self.get_module(module_id) {
+            for dep in env.bindings.direct_dependencies() {
+                if self.append_dependencies(seen, output, dep) {
+                    output.push(dep);
                 }
             }
         }
-        seen.remove(&original_module_id);
-        let mut answer: Vec<_> = seen.into_iter().collect();
-        answer.sort();
-        answer
+        true
     }
 
     pub fn get_bindings(&self, module_id: ModuleId) -> Option<&BindingMap> {
