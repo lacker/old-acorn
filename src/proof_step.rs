@@ -134,8 +134,8 @@ pub struct ProofStep {
     // How this clause was generated.
     pub rule: Rule,
 
-    // The clauses that we used for rewrites.
-    pub rewrites: Vec<usize>,
+    // Clauses that we used for additional simplification.
+    pub simplification_rules: Vec<usize>,
 
     // The number of proof steps that this proof step depends on.
     // The size includes this proof step itself, but does not count assumptions and definitions.
@@ -181,7 +181,7 @@ impl ProofStep {
         clause: Clause,
         truthiness: Truthiness,
         rule: Rule,
-        rewrites: Vec<usize>,
+        simplification_rules: Vec<usize>,
         proof_size: u32,
         generation_ordinal: usize,
     ) -> ProofStep {
@@ -190,7 +190,7 @@ impl ProofStep {
             clause,
             truthiness,
             rule,
-            rewrites,
+            simplification_rules,
             proof_size,
             atom_count,
             generation_ordinal,
@@ -262,24 +262,24 @@ impl ProofStep {
         )
     }
 
-    // Create a replacement for this clause that has extra rewrites
-    pub fn rewrite(
+    // Create a replacement for this clause that has extra simplification rules
+    pub fn simplify(
         self,
         clause: Clause,
-        new_rewrites: Vec<usize>,
+        new_rules: Vec<usize>,
         new_truthiness: Truthiness,
     ) -> ProofStep {
-        let rewrites = self
-            .rewrites
+        let rules = self
+            .simplification_rules
             .iter()
-            .chain(new_rewrites.iter())
+            .chain(new_rules.iter())
             .cloned()
             .collect();
         ProofStep::new(
             clause,
             new_truthiness,
             self.rule,
-            rewrites,
+            rules,
             self.proof_size,
             self.generation_ordinal,
         )
@@ -294,14 +294,16 @@ impl ProofStep {
 
     // The ids of the other clauses that this clause depends on.
     pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
-        self.rule.dependencies().chain(self.rewrites.iter())
+        self.rule
+            .dependencies()
+            .chain(self.simplification_rules.iter())
     }
 
     // (description, id) for every clause this rule depends on.
     pub fn descriptive_dependencies(&self) -> Vec<(String, usize)> {
         let mut answer = self.rule.descriptive_dependencies();
-        for rewrite in &self.rewrites {
-            answer.push(("rewrite".to_string(), *rewrite));
+        for rule in &self.simplification_rules {
+            answer.push(("simplification".to_string(), *rule));
         }
         answer
     }

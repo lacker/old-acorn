@@ -469,7 +469,7 @@ impl ActiveSet {
             let rewrite_step = self.get_step(*i);
             new_truthiness = new_truthiness.combine(rewrite_step.truthiness);
         }
-        Some(step.rewrite(simplified_clause, new_rules, new_truthiness))
+        Some(step.simplify(simplified_clause, new_rules, new_truthiness))
     }
 
     // Add all the resolution targets for a given literal.
