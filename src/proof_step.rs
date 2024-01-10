@@ -323,6 +323,24 @@ impl ProofStep {
     // For example, this enforces that facts go first.
     // The second element of the score is heuristic. Any value should work there.
     pub fn heuristic_score(&self) -> (i32, i32) {
+        if EXPERIMENT {
+            let deterministic_tier = match self.truthiness {
+                Truthiness::Counterfactual => {
+                    if self.is_negated_goal() {
+                        2
+                    } else {
+                        1
+                    }
+                }
+                Truthiness::Hypothetical => 1,
+                Truthiness::Factual => 3,
+            };
+
+            let heuristic_score = -1 * (self.atom_count + self.proof_size) as i32;
+
+            return (deterministic_tier, heuristic_score);
+        }
+
         let base_priority = match self.truthiness {
             Truthiness::Counterfactual => {
                 if self.is_negated_goal() {
