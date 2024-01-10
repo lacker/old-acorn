@@ -319,7 +319,10 @@ impl ProofStep {
     }
 
     // The better the score, the more we want to activate this proof step.
-    pub fn heuristic_score(&self) -> i32 {
+    // The first element of the score is the deterministic ordering.
+    // For example, this enforces that facts go first.
+    // The second element of the score is heuristic. Any value should work there.
+    pub fn heuristic_score(&self) -> (i32, i32) {
         let base_priority = match self.truthiness {
             Truthiness::Counterfactual => {
                 if self.is_negated_goal() {
@@ -333,7 +336,7 @@ impl ProofStep {
         };
 
         // Use fifo as a tiebreaker
-        1000000 * base_priority - self.generation_ordinal as i32
+        (1000000 * base_priority - self.generation_ordinal as i32, 0)
     }
 
     // A heuristic for whether this clause should be rejected without scoring.
