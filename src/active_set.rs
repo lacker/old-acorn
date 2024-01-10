@@ -495,20 +495,15 @@ impl ActiveSet {
     }
 
     // Adds a clause so that it becomes available for resolution and paramodulation.
+    // There's nothing heuristic here any more.
     fn insert(&mut self, step: ProofStep, id: usize) {
         let clause = &step.clause;
         let step_index = self.steps.len();
-        let leftmost_literal = &clause.literals[0];
 
         // Add resolution targets for the new clause.
-        if step.truthiness != Truthiness::Counterfactual {
-            // Use any literal for resolution
-            for (i, literal) in clause.literals.iter().enumerate() {
-                self.add_resolution_targets(step_index, i, literal);
-            }
-        } else {
-            // Use only the leftmost literal for resolution.
-            self.add_resolution_targets(step_index, 0, leftmost_literal);
+        // Use any literal for resolution.
+        for (i, literal) in clause.literals.iter().enumerate() {
+            self.add_resolution_targets(step_index, i, literal);
         }
 
         // Add paramodulation targets for the new clause.

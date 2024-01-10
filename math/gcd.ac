@@ -74,6 +74,10 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(Suc(
         forall(x: Nat) { h(x) }
         h(Suc(f(0)))
         lte(add(Suc(f(0)), f(Suc(f(0)))), f(0))
+        lte(Suc(f(0)), add(Suc(f(0)), f(Suc(f(0)))))
+        let z: Nat = add(Suc(f(0)), f(Suc(f(0))))
+        lte(z, f(0))
+        lte(Suc(f(0)), z)
         lte(Suc(f(0)), f(0))
         false
     }

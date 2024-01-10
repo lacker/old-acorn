@@ -4,7 +4,7 @@ use crate::clause::Clause;
 
 // Use this to toggle experimental algorithm mode
 // There is no current experiment.
-pub const EXPERIMENT: bool = true;
+pub const EXPERIMENT: bool = false;
 
 // The "truthiness" categorizes the different types of true statements, relative to a proof.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -323,7 +323,8 @@ impl ProofStep {
     // For example, this enforces that facts go first.
     // The second element of the score is heuristic. Any value should work there.
     pub fn heuristic_score(&self) -> (i32, i32) {
-        if EXPERIMENT {
+        // Alt experiment that we are not ready for.
+        if false {
             let deterministic_tier = match self.truthiness {
                 Truthiness::Counterfactual => {
                     if self.is_negated_goal() {
