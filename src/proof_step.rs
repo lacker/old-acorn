@@ -319,43 +319,39 @@ impl ProofStep {
     }
 
     // The better the score, the more we want to activate this proof step.
-    // The first element of the score is the deterministic ordering.
-    // For example, this enforces that facts go first.
+    // The first element of the score is the deterministic ordering:
+    //
+    //   Global facts
+    //   The negated goal
+    //   Explicit hypotheses
+    //   Deductions purely from hypotheses
+    //   Deductions including the negated goal
+    //
+    // TODO: can we just bucket all deductions together?
+    //
     // The second element of the score is heuristic. Any value should work there.
     pub fn heuristic_score(&self) -> (i32, i32) {
-        // Alt experiment that we are not ready for.
-        if false {
-            let deterministic_tier = match self.truthiness {
-                Truthiness::Counterfactual => {
-                    if self.is_negated_goal() {
-                        3
-                    } else {
-                        1
-                    }
-                }
-                Truthiness::Hypothetical => 2,
-                Truthiness::Factual => 4,
-            };
-
-            let heuristic_score = -1 * (self.atom_count + self.proof_size) as i32;
-
-            return (deterministic_tier, heuristic_score);
-        }
-
-        let base_priority = match self.truthiness {
+        let deterministic_tier = match self.truthiness {
             Truthiness::Counterfactual => {
                 if self.is_negated_goal() {
-                    2
+                    4
                 } else {
-                    -1 * (self.atom_count + self.proof_size) as i32
+                    1
                 }
             }
-            Truthiness::Hypothetical => 1,
-            Truthiness::Factual => 3,
+            Truthiness::Hypothetical => {
+                if self.rule == Rule::Assumption {
+                    3
+                } else {
+                    2
+                }
+            }
+            Truthiness::Factual => 5,
         };
 
-        // Use fifo as a tiebreaker
-        (1000000 * base_priority - self.generation_ordinal as i32, 0)
+        let heuristic_score = -1 * (self.atom_count + self.proof_size) as i32;
+
+        return (deterministic_tier, heuristic_score);
     }
 
     // A heuristic for whether this clause should be rejected without scoring.
