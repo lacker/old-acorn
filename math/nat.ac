@@ -177,6 +177,10 @@ theorem add_left_distrib(a: Nat, b: Nat, c: Nat):
             mul(Suc(x), add(b, c)) = add(add(b, c), add(mul(x, b), mul(x, c)))
             mul(Suc(x), add(b, c)) = add(add(b, c), add(mul(x, b), mul(x, c)))
             mul(Suc(x), add(b, c)) = add(add(b, mul(x, b)), add(c, mul(x, c)))
+            add(b, mul(x, b)) = mul(Suc(x), b)
+            add(c, mul(x, c)) = mul(Suc(x), c)
+            add(add(b, mul(x, b)), add(c, mul(x, c))) = add(mul(Suc(x), b), add(c, mul(x, c)))
+            add(add(b, mul(x, b)), add(c, mul(x, c))) = add(mul(Suc(x), b), mul(Suc(x), c))
             mul(Suc(x), add(b, c)) = add(mul(Suc(x), b), mul(Suc(x), c))
             f(Suc(x))
         }

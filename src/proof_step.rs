@@ -156,7 +156,7 @@ impl Ord for ProofStep {
     // The heuristic used to decide which clause is the most promising.
     // The passive set is a "max heap", so we want the best clause to compare as the largest.
     fn cmp(&self, other: &ProofStep) -> Ordering {
-        self.heuristic_score().cmp(&other.heuristic_score())
+        self.score().cmp(&other.score())
     }
 }
 
@@ -321,37 +321,35 @@ impl ProofStep {
     // The better the score, the more we want to activate this proof step.
     // The first element of the score is the deterministic ordering:
     //
-    //   Global facts
+    //   Global facts, both explicit and deductions
     //   The negated goal
     //   Explicit hypotheses
-    //   Deductions purely from hypotheses
-    //   Deductions including the negated goal
-    //
-    // TODO: can we just bucket all deductions together?
+    //   Local deductions
     //
     // The second element of the score is heuristic. Any value should work there.
-    pub fn heuristic_score(&self) -> (i32, i32) {
+    pub fn score(&self) -> (i32, i32) {
+        // Higher = more important, for the deterministic tier.
         let deterministic_tier = match self.truthiness {
             Truthiness::Counterfactual => {
                 if self.is_negated_goal() {
-                    4
+                    3
                 } else {
                     1
                 }
             }
             Truthiness::Hypothetical => {
                 if self.rule == Rule::Assumption {
-                    3
-                } else {
                     2
+                } else {
+                    1
                 }
             }
-            Truthiness::Factual => 5,
+            Truthiness::Factual => 4,
         };
 
-        let heuristic_score = -1 * (self.atom_count + self.proof_size) as i32;
+        let heuristic = -1 * (self.atom_count + self.proof_size) as i32;
 
-        return (deterministic_tier, heuristic_score);
+        return (deterministic_tier, heuristic);
     }
 
     // A heuristic for whether this clause should be rejected without scoring.
