@@ -50,6 +50,8 @@ theorem sub_is_sub(a: Nat, b: Nat): is_sub(a, b)(sub(a, b)) by {
     is_sub(a, b)(sub(a, b))
 }
 
+theorem sub_lt(a: Nat, b: Nat): lt(a, b) -> sub(a, b) = 0
+
 theorem add_sub(a: Nat, b: Nat): lte(b, a) -> add(sub(a, b), b) = a
 
 theorem sub_add(a: Nat, b: Nat): sub(add(a, b), b) = a by {

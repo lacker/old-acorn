@@ -357,11 +357,11 @@ impl ProofStep {
         return (deterministic_tier, heuristic);
     }
 
-    // A heuristic for whether this clause should be rejected without scoring.
-    pub fn heuristic_reject(&self) -> bool {
-        if self.truthiness != Truthiness::Counterfactual && self.proof_size > 2 {
-            // Don't do long deductions between established facts.
-            // TODO: can we limit this heuristic to just Factual proofs?
+    // We have to strictly limit deduction that happens between two library facts, because
+    // the plan is for the library to grow very large.
+    pub fn automatic_reject(&self) -> bool {
+        if self.truthiness == Truthiness::Factual && self.proof_size > 2 {
+            // Only do one step of deduction with global facts.
             return true;
         }
 

@@ -412,7 +412,7 @@ impl Prover {
                 return self.report_contradiction(step);
             }
 
-            if step.heuristic_reject() {
+            if step.automatic_reject() {
                 continue;
             }
 
