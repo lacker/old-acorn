@@ -347,7 +347,12 @@ impl ProofStep {
             Truthiness::Factual => 4,
         };
 
-        let heuristic = -1 * (self.atom_count + self.proof_size) as i32;
+        let mut heuristic = 0;
+        heuristic -= self.atom_count as i32;
+        heuristic -= 2 * self.proof_size as i32;
+        if self.truthiness == Truthiness::Hypothetical {
+            heuristic -= 3;
+        }
 
         return (deterministic_tier, heuristic);
     }

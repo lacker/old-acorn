@@ -41,6 +41,7 @@ theorem has_min(f: Nat -> bool, n: Nat): f(n) -> exists(m: Nat) { is_min(f)(m) }
     nat.strong_induction(g)
     forall(k: Nat) {
         if nat.true_below(g, k) {
+            has_min(f, k)
             g(k)
         }
     }
