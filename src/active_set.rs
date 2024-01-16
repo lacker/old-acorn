@@ -189,11 +189,33 @@ impl ActiveSet {
             return None;
         }
 
+        if false {
+            // Detect cases where our reduction relies on the last unification.
+            let (shorter_input, shorter_index, longer_input) = if pm_clause.len() < res_clause.len()
+            {
+                (pm_clause, pm_literal_index, res_clause)
+            } else {
+                (res_clause, res_literal_index, pm_clause)
+            };
+            for (i, literal) in shorter_input.literals.iter().enumerate() {
+                if i == shorter_index {
+                    continue;
+                }
+                if longer_input.literals.contains(literal) {
+                    continue;
+                }
+                panic!(
+                    "\npm: {}\nres: {}\nout: {}",
+                    shorter_input, longer_input, new_clause
+                );
+            }
+        }
+
         return Some(new_clause);
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the
-    // active set.in total, we activated
+    // active set.
     // At a high level, this is when we have just learned that s = t in some circumstances,
     // and we are looking for all the conclusions we can infer by rewriting s -> t
     // in existing formulas.
