@@ -204,10 +204,7 @@ impl ActiveSet {
                 if longer_input.literals.contains(literal) {
                     continue;
                 }
-                panic!(
-                    "\npm: {}\nres: {}\nout: {}",
-                    shorter_input, longer_input, new_clause
-                );
+                return None;
             }
         }
 

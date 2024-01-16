@@ -332,9 +332,9 @@ impl AcornValue {
     fn as_simple_boolean_term(&self) -> Option<(bool, AcornValue)> {
         match self {
             AcornValue::Not(x) => Some((true, *x.clone())),
-            AcornValue::Binary(..) => None,
+            AcornValue::Binary(..) | AcornValue::ForAll(..) | AcornValue::Exists(..) => None,
             AcornValue::Bool(b) => Some((*b, AcornValue::Bool(true))),
-            _ => None,
+            _ => Some((false, self.clone())),
         }
     }
 
@@ -345,19 +345,20 @@ impl AcornValue {
     fn boolean_comparison(
         left: AcornValue,
         right: AcornValue,
-        allow_bool_comparison: bool,
+        allow_bool_eq: bool,
         negate: bool,
     ) -> AcornValue {
-        if allow_bool_comparison {
+        if allow_bool_eq {
             if let Some((left_negated, left_term)) = left.as_simple_boolean_term() {
                 if let Some((right_negated, right_term)) = right.as_simple_boolean_term() {
                     let final_negated = negate ^ left_negated ^ right_negated;
-                    let op = if final_negated {
-                        BinaryOp::NotEquals
-                    } else {
-                        BinaryOp::Equals
-                    };
-                    return AcornValue::Binary(op, Box::new(left_term), Box::new(right_term));
+                    if !final_negated {
+                        return AcornValue::Binary(
+                            BinaryOp::Equals,
+                            Box::new(left_term),
+                            Box::new(right_term),
+                        );
+                    }
                 }
             }
         }
@@ -401,14 +402,13 @@ impl AcornValue {
     }
 
     // Normalizes a boolean expression by moving all negations inwards.
-    // If 'allow_bool_comparison' is set then it's okay to return something like
+    // If 'allow_bool_eq' is set then it's okay to return something like
     //   <bool expr> = <bool expr>
-    //   or
-    //   <bool expr> != <bool expr>
+    // This is useful because it allows rewrites.
     // If 'negate' is set then we also negate this expression.
     // See https://www.csd.uwo.ca/~lkari/prenex.pdf
     // page 3, steps 1 and 2.
-    pub fn move_negation_inwards(self, allow_bool_comparison: bool, negate: bool) -> AcornValue {
+    pub fn move_negation_inwards(self, allow_bool_eq: bool, negate: bool) -> AcornValue {
         match self {
             AcornValue::Binary(BinaryOp::Implies, left, right) => {
                 // (left -> right) is equivalent to (!left | right)
@@ -450,18 +450,18 @@ impl AcornValue {
                     )
                 }
             }
-            AcornValue::Not(x) => x.move_negation_inwards(allow_bool_comparison, !negate),
+            AcornValue::Not(x) => x.move_negation_inwards(allow_bool_eq, !negate),
             AcornValue::ForAll(quants, value) => {
                 if negate {
                     // "not forall x, foo(x)" is equivalent to "exists x, not foo(x)"
                     AcornValue::Exists(
                         quants,
-                        Box::new(value.move_negation_inwards(allow_bool_comparison, true)),
+                        Box::new(value.move_negation_inwards(allow_bool_eq, true)),
                     )
                 } else {
                     AcornValue::ForAll(
                         quants,
-                        Box::new(value.move_negation_inwards(allow_bool_comparison, false)),
+                        Box::new(value.move_negation_inwards(allow_bool_eq, false)),
                     )
                 }
             }
@@ -470,25 +470,25 @@ impl AcornValue {
                     // "not exists x, foo(x)" is equivalent to "forall x, not foo(x)"
                     AcornValue::ForAll(
                         quants,
-                        Box::new(value.move_negation_inwards(allow_bool_comparison, true)),
+                        Box::new(value.move_negation_inwards(allow_bool_eq, true)),
                     )
                 } else {
                     AcornValue::Exists(
                         quants,
-                        Box::new(value.move_negation_inwards(allow_bool_comparison, false)),
+                        Box::new(value.move_negation_inwards(allow_bool_eq, false)),
                     )
                 }
             }
             AcornValue::Binary(BinaryOp::Equals, left, right) => {
                 if left.get_type() == AcornType::Bool {
-                    AcornValue::boolean_comparison(*left, *right, allow_bool_comparison, negate)
+                    AcornValue::boolean_comparison(*left, *right, allow_bool_eq, negate)
                 } else {
                     AcornValue::Binary(BinaryOp::Equals, left, right).maybe_negate(negate)
                 }
             }
             AcornValue::Binary(BinaryOp::NotEquals, left, right) => {
                 if left.get_type() == AcornType::Bool {
-                    AcornValue::boolean_comparison(*left, *right, allow_bool_comparison, !negate)
+                    AcornValue::boolean_comparison(*left, *right, allow_bool_eq, !negate)
                 } else {
                     AcornValue::Binary(BinaryOp::NotEquals, left, right).maybe_negate(negate)
                 }

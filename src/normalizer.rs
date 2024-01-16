@@ -51,6 +51,13 @@ impl Normalization {
             Normalization::Error(s) => Normalization::Error(s),
         }
     }
+
+    pub fn clauses(&self) -> Vec<&Clause> {
+        match self {
+            Normalization::Clauses(clauses) => clauses.iter().collect(),
+            _ => vec![],
+        }
+    }
 }
 
 pub struct Normalizer {
