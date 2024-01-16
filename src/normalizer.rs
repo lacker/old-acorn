@@ -206,6 +206,7 @@ impl Normalizer {
             AcornValue::Specialized(module, name, _, parameters) => Ok(self
                 .type_map
                 .term_from_monomorph(*module, name, parameters, value.get_type())),
+            AcornValue::Bool(true) => Ok(Term::new_true()),
             _ => Err(NormalizationError(format!(
                 "Cannot convert {} to term",
                 value
@@ -329,7 +330,7 @@ impl Normalizer {
         let value = value.replace_function_equality(0);
         let value = value.expand_lambdas(0);
         let value = value.replace_if();
-        let value = value.move_negation_inwards(false);
+        let value = value.move_negation_inwards(true, false);
         // println!("negin'd: {}", value);
         let value = self.skolemize(&vec![], value);
         // println!("skolemized: {}", value);
