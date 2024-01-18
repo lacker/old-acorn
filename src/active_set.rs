@@ -141,7 +141,7 @@ impl ActiveSet {
             return None;
         }
 
-        // Short clause operations are where we are doing a rewrite of a term in a negative literal.
+        // Short clause operations are where we are doing a rewrite of a term in a literal.
         let short_clause_op = pm_clause.len() == 1 || res_clause.len() == 1;
 
         let mut unifier = Unifier::new();
