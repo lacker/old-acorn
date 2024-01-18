@@ -142,7 +142,7 @@ impl ActiveSet {
         }
 
         // Short clause operations are where we are doing a rewrite of a term in a literal.
-        let short_clause_op = pm_clause.len() == 1 || res_clause.len() == 1;
+        let short_clause_op = pm_clause.len() == 1 && res_clause.len() == 1;
 
         let mut unifier = Unifier::new();
         // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
