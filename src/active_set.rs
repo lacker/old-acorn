@@ -186,12 +186,15 @@ impl ActiveSet {
             .map(|literal| unifier.apply_to_literal(Scope::Left, literal))
             .collect();
         let new_clause = Clause::new(new_literals);
+
         if new_clause.len() >= pm_clause.len() && new_clause.len() >= res_clause.len() {
             // Long clause operations need to be reductive
             return None;
         }
 
-        // Detect cases where our reduction relies on the last unification.
+        // We want to only use reductive operations that are reductive because all the literals
+        // in the shorter clause are either non-variable dupes or the one that is being canceled.
+        // Let's be sure those are the only ones we are using.
         let (shorter_input, shorter_index, longer_input) = if pm_clause.len() < res_clause.len() {
             (pm_clause, pm_literal_index, res_clause)
         } else {
@@ -200,6 +203,9 @@ impl ActiveSet {
         for (i, literal) in shorter_input.literals.iter().enumerate() {
             if i == shorter_index {
                 continue;
+            }
+            if literal.has_any_variable() {
+                return None;
             }
             if longer_input.literals.contains(literal) {
                 continue;
