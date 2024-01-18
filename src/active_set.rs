@@ -350,6 +350,9 @@ impl ActiveSet {
         if clause.literals.is_empty() {
             return None;
         }
+
+        // We only do the first due to tradition.
+        // Logically it seems like maybe we should allow others.
         let first = &clause.literals[0];
         if first.positive {
             return None;
@@ -373,6 +376,51 @@ impl ActiveSet {
             None
         } else {
             Some(answer)
+        }
+    }
+
+    // Tries to do inference using the function elimination (FE) rule.
+    // Note that I just made up this rule, it isn't part of standard superposition.
+    // It's pretty simple, though.
+    // When f(a) != f(b), that implies that a != b.
+    pub fn function_elimination(clause: &Clause) -> Option<Clause> {
+        if clause.literals.is_empty() {
+            return None;
+        }
+
+        // We only do the first because this is supposed to be an alternative to ER.
+        // Logically it seems like maybe we should allow others.
+        let first = &clause.literals[0];
+        if first.positive {
+            return None;
+        }
+
+        if first.left.head != first.right.head {
+            return None;
+        }
+        if first.left.num_args() != first.right.num_args() {
+            return None;
+        }
+
+        // We can do function elimination when precisely one of the arguments is different.
+        let mut different_index = None;
+        for (i, arg) in first.left.args.iter().enumerate() {
+            if arg != &first.right.args[i] {
+                if different_index.is_some() {
+                    return None;
+                }
+                different_index = Some(i);
+            }
+        }
+
+        if let Some(i) = different_index {
+            let new_literal =
+                Literal::not_equals(first.left.args[i].clone(), first.right.args[i].clone());
+            let mut literals = vec![new_literal];
+            literals.extend(clause.literals.iter().skip(1).cloned());
+            Some(Clause::new(literals))
+        } else {
+            None
         }
     }
 
