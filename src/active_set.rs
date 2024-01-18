@@ -141,6 +141,9 @@ impl ActiveSet {
             return None;
         }
 
+        // Short clause operations are where we are doing a rewrite of a term in a negative literal.
+        let short_clause_op = pm_clause.len() == 1 || res_clause.len() == 1;
+
         let mut unifier = Unifier::new();
         // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
         // the actual left or right of their normalized literals.
@@ -157,8 +160,7 @@ impl ActiveSet {
             res_forwards,
         );
 
-        if pm_clause.len() == 1 && res_clause.len() == 1 {
-            // This is a "short clause operation". Allow it
+        if short_clause_op {
             return Some(Clause::new(literals));
         }
 
