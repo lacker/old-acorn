@@ -144,6 +144,35 @@ impl ActiveSet {
         // Short clause operations are where we are doing a rewrite of a term in a literal.
         let short_clause_op = pm_clause.len() == 1 && res_clause.len() == 1;
 
+        if !short_clause_op {
+            // The newly created literal must be reducible by equality resolution.
+            if res_clause.literals[res_literal_index].positive {
+                return None;
+            }
+
+            // We want to only use reductive operations that are reductive because all the literals
+            // in the shorter clause are either non-variable dupes or the one that is being canceled.
+            // Let's be sure those are the only ones we are using.
+            let (shorter_input, shorter_index, longer_input) = if pm_clause.len() < res_clause.len()
+            {
+                (pm_clause, pm_literal_index, res_clause)
+            } else {
+                (res_clause, res_literal_index, pm_clause)
+            };
+            for (i, literal) in shorter_input.literals.iter().enumerate() {
+                if i == shorter_index {
+                    continue;
+                }
+                if literal.has_any_variable() {
+                    return None;
+                }
+                if longer_input.literals.contains(literal) {
+                    continue;
+                }
+                return None;
+            }
+        }
+
         let mut unifier = Unifier::new();
         // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
         // the actual left or right of their normalized literals.
@@ -165,9 +194,9 @@ impl ActiveSet {
         }
 
         // This is a "long clause operation".
-        // That means the newly created literal must be reducible by equality resolution.
+
         if literals[0].positive {
-            return None;
+            panic!("expected a negative literal");
         }
         // Only use "left" scope
         let mut unifier = Unifier::new();
@@ -188,29 +217,7 @@ impl ActiveSet {
         let new_clause = Clause::new(new_literals);
 
         if new_clause.len() >= pm_clause.len() && new_clause.len() >= res_clause.len() {
-            // Long clause operations need to be reductive
-            return None;
-        }
-
-        // We want to only use reductive operations that are reductive because all the literals
-        // in the shorter clause are either non-variable dupes or the one that is being canceled.
-        // Let's be sure those are the only ones we are using.
-        let (shorter_input, shorter_index, longer_input) = if pm_clause.len() < res_clause.len() {
-            (pm_clause, pm_literal_index, res_clause)
-        } else {
-            (res_clause, res_literal_index, pm_clause)
-        };
-        for (i, literal) in shorter_input.literals.iter().enumerate() {
-            if i == shorter_index {
-                continue;
-            }
-            if literal.has_any_variable() {
-                return None;
-            }
-            if longer_input.literals.contains(literal) {
-                continue;
-            }
-            return None;
+            panic!("the conditions should have ensured reductivity");
         }
 
         return Some(new_clause);
