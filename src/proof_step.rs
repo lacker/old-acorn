@@ -64,9 +64,10 @@ pub enum Rule {
     // (paramodulator, resolver)
     Superposition(SuperpositionInfo),
 
-    // The equality rules only have one source clause
+    // Rules with only one source clause
     EqualityFactoring(usize),
     EqualityResolution(usize),
+    FunctionElimination(usize),
 }
 
 impl Rule {
@@ -77,8 +78,9 @@ impl Rule {
             Rule::Superposition(info) => {
                 vec![&info.paramodulator_id, &info.resolver_id].into_iter()
             }
-            Rule::EqualityFactoring(rewritten) => vec![rewritten].into_iter(),
-            Rule::EqualityResolution(rewritten) => vec![rewritten].into_iter(),
+            Rule::EqualityFactoring(rewritten)
+            | Rule::EqualityResolution(rewritten)
+            | Rule::FunctionElimination(rewritten) => vec![rewritten].into_iter(),
         }
     }
 
@@ -91,10 +93,9 @@ impl Rule {
                 answer.push(("paramodulator".to_string(), info.paramodulator_id));
                 answer.push(("resolver".to_string(), info.resolver_id));
             }
-            Rule::EqualityFactoring(source) => {
-                answer.push(("source".to_string(), *source));
-            }
-            Rule::EqualityResolution(source) => {
+            Rule::EqualityFactoring(source)
+            | Rule::EqualityResolution(source)
+            | Rule::FunctionElimination(source) => {
                 answer.push(("source".to_string(), *source));
             }
         }
@@ -107,6 +108,7 @@ impl Rule {
             Rule::Superposition(_) => "Superposition",
             Rule::EqualityFactoring(_) => "EqualityFactoring",
             Rule::EqualityResolution(_) => "EqualityResolution",
+            Rule::FunctionElimination(_) => "FunctionElimination",
         }
     }
 

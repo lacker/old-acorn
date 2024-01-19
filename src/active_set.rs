@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
 
@@ -617,8 +617,6 @@ impl ActiveSet {
         let mut generated_steps = vec![];
         let activated_id = self.steps.len();
 
-        // We always allow ER/EF. Since they reduce (total literals + positive literals) in a clause,
-        // they won't lead to infinite loops on the fact library.
         if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
             generated_steps.push(ProofStep::new_direct(
                 &activated_step,
@@ -627,6 +625,7 @@ impl ActiveSet {
                 self.next_generation_ordinal(),
             ));
         }
+
         for clause in ActiveSet::equality_factoring(&activated_step.clause) {
             generated_steps.push(ProofStep::new_direct(
                 &activated_step,
@@ -634,6 +633,17 @@ impl ActiveSet {
                 clause,
                 self.next_generation_ordinal(),
             ));
+        }
+
+        if EXPERIMENT {
+            for clause in ActiveSet::function_elimination(&activated_step.clause) {
+                generated_steps.push(ProofStep::new_direct(
+                    &activated_step,
+                    Rule::FunctionElimination(activated_id),
+                    clause,
+                    self.next_generation_ordinal(),
+                ));
+            }
         }
 
         for (new_clause, resolver_id) in self.activate_paramodulator(&activated_step) {
@@ -647,6 +657,7 @@ impl ActiveSet {
                 generation_ordinal,
             ));
         }
+
         for (new_clause, paramodulator_id) in self.activate_resolver(&activated_step) {
             let generation_ordinal = self.next_generation_ordinal();
             generated_steps.push(ProofStep::new_superposition(
