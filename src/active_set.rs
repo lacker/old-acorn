@@ -382,46 +382,46 @@ impl ActiveSet {
     // Tries to do inference using the function elimination (FE) rule.
     // Note that I just made up this rule, it isn't part of standard superposition.
     // It's pretty simple, though.
-    // When f(a) != f(b), that implies that a != b.
-    pub fn function_elimination(clause: &Clause) -> Option<Clause> {
-        if clause.literals.is_empty() {
-            return None;
-        }
+    // When f(a, b, d) != f(a, c, d), that implies that b != c.
+    // We can run this operation on any negative literal in the clause.
+    pub fn function_elimination(clause: &Clause) -> Vec<Clause> {
+        let mut answer = vec![];
 
-        // We only do the first because this is supposed to be an alternative to ER.
-        // Logically it seems like maybe we should allow others.
-        let first = &clause.literals[0];
-        if first.positive {
-            return None;
-        }
+        for (i, target) in clause.literals.iter().enumerate() {
+            // Check if we can eliminate the functions from the ith literal.
+            if target.positive {
+                // Negative literals come before positive ones so we're done
+                break;
+            }
+            if target.left.head != target.right.head {
+                continue;
+            }
+            if target.left.num_args() != target.right.num_args() {
+                continue;
+            }
 
-        if first.left.head != first.right.head {
-            return None;
-        }
-        if first.left.num_args() != first.right.num_args() {
-            return None;
-        }
-
-        // We can do function elimination when precisely one of the arguments is different.
-        let mut different_index = None;
-        for (i, arg) in first.left.args.iter().enumerate() {
-            if arg != &first.right.args[i] {
-                if different_index.is_some() {
-                    return None;
+            // We can do function elimination when precisely one of the arguments is different.
+            let mut different_index = None;
+            for (j, arg) in target.left.args.iter().enumerate() {
+                if arg != &target.right.args[j] {
+                    if different_index.is_some() {
+                        different_index = None;
+                        break;
+                    }
+                    different_index = Some(j);
                 }
-                different_index = Some(i);
+            }
+
+            if let Some(j) = different_index {
+                // Looks like we can eliminate the functions from this literal
+                let mut literals = clause.literals.clone();
+                literals[i] =
+                    Literal::not_equals(target.left.args[j].clone(), target.right.args[j].clone());
+                answer.push(Clause::new(literals))
             }
         }
 
-        if let Some(i) = different_index {
-            let new_literal =
-                Literal::not_equals(first.left.args[i].clone(), first.right.args[i].clone());
-            let mut literals = vec![new_literal];
-            literals.extend(clause.literals.iter().skip(1).cloned());
-            Some(Clause::new(literals))
-        } else {
-            None
-        }
+        answer
     }
 
     // Tries to do inference using the equality factoring (EF) rule.
