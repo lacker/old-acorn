@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
 
@@ -169,6 +169,10 @@ impl ActiveSet {
                 if longer_input.literals.contains(literal) {
                     continue;
                 }
+                return None;
+            }
+
+            if !u_subterm_path.is_empty() {
                 return None;
             }
         }
@@ -635,15 +639,13 @@ impl ActiveSet {
             ));
         }
 
-        if EXPERIMENT {
-            for clause in ActiveSet::function_elimination(&activated_step.clause) {
-                generated_steps.push(ProofStep::new_direct(
-                    &activated_step,
-                    Rule::FunctionElimination(activated_id),
-                    clause,
-                    self.next_generation_ordinal(),
-                ));
-            }
+        for clause in ActiveSet::function_elimination(&activated_step.clause) {
+            generated_steps.push(ProofStep::new_direct(
+                &activated_step,
+                Rule::FunctionElimination(activated_id),
+                clause,
+                self.next_generation_ordinal(),
+            ));
         }
 
         for (new_clause, resolver_id) in self.activate_paramodulator(&activated_step) {
