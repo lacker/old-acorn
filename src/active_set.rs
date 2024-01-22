@@ -114,6 +114,58 @@ impl ActiveSet {
         literal.both_term_pairs()
     }
 
+    // If the two literals unify to a contradiction, return the conclusion of resolution
+    // between the two clauses.
+    //
+    // The indices refer to the literals within the clauses that are being resolved.
+    // This method takes it for granted that all other literals within the short clause (if any)
+    // are contained within the long clause, and that these literals are opposite signs.
+    //
+    // There are two ways that A = B and C != D can be resolved after unification.
+    // When u(A) = u(C) and u(B) = u(D), that is "not flipped".
+    // When u(A) = u(D) and u(B) = u(C), that is "flipped".
+    fn maybe_resolve(
+        short_clause: &Clause,
+        short_index: usize,
+        long_clause: &Clause,
+        long_index: usize,
+        flipped: bool,
+    ) -> Option<Clause> {
+        let mut unifier = Unifier::new();
+
+        // The short clause is "left" scope and the long clause is "right" scope.
+        // This is different from the "left" and "right" of the literals - unfortunately
+        // "left" and "right" are a bit overloaded here.
+        let short_a = &short_clause.literals[short_index].left;
+        let short_b = &short_clause.literals[short_index].right;
+        let (long_a, long_b) = if flipped {
+            (
+                &long_clause.literals[long_index].right,
+                &long_clause.literals[long_index].left,
+            )
+        } else {
+            (
+                &long_clause.literals[long_index].left,
+                &long_clause.literals[long_index].right,
+            )
+        };
+        if !unifier.unify(Scope::Left, short_a, Scope::Right, long_a) {
+            return None;
+        }
+        if !unifier.unify(Scope::Left, short_b, Scope::Right, long_b) {
+            return None;
+        }
+
+        let mut literals = vec![];
+        for (i, literal) in long_clause.literals.iter().enumerate() {
+            if i == long_index {
+                continue;
+            }
+            literals.push(unifier.apply_to_literal(Scope::Right, literal));
+        }
+        Some(Clause::new(literals))
+    }
+
     // Tries to do superposition, but uses heuristics to not do the inference sometimes.
     //
     // The pm clause is:
@@ -125,21 +177,14 @@ impl ActiveSet {
         s: &Term,
         t: &Term,
         pm_clause: &Clause,
-        pm_truthiness: Truthiness,
         pm_literal_index: usize,
         u_subterm: &Term,
         u_subterm_path: &[usize],
         res_clause: &Clause,
-        res_truthiness: Truthiness,
         res_literal_index: usize,
         res_forwards: bool,
     ) -> Option<Clause> {
         assert!(!s.is_true(), "no superposing into true");
-
-        if pm_truthiness == Truthiness::Factual && res_truthiness == Truthiness::Factual {
-            // No global-global superposition
-            return None;
-        }
 
         // Short clause operations are where we are doing a rewrite of a term in a literal.
         let short_clause_op = pm_clause.len() == 1 && res_clause.len() == 1;
@@ -260,16 +305,20 @@ impl ActiveSet {
                 for target in targets {
                     let u_subterm = self.get_resolution_term(target);
                     let res_step = self.get_step(target.step_index);
+                    if pm_step.truthiness == Truthiness::Factual
+                        && res_step.truthiness == Truthiness::Factual
+                    {
+                        // No global-global superposition
+                        continue;
+                    }
                     if let Some(new_clause) = self.maybe_superpose(
                         s,
                         t,
                         &pm_step.clause,
-                        pm_step.truthiness,
                         i,
                         u_subterm,
                         &target.path,
                         &res_step.clause,
-                        res_step.truthiness,
                         target.literal_index,
                         target.forwards,
                     ) {
@@ -312,6 +361,12 @@ impl ActiveSet {
                     let targets = self.paramodulation_targets.get_unifying(u_subterm);
                     for target in targets {
                         let pm_step = self.get_step(target.step_index);
+                        if pm_step.truthiness == Truthiness::Factual
+                            && res_step.truthiness == Truthiness::Factual
+                        {
+                            // No global-global superposition
+                            continue;
+                        }
                         let pm_literal = &pm_step.clause.literals[target.literal_index];
                         let (s, t) = if target.forwards {
                             (&pm_literal.left, &pm_literal.right)
@@ -326,12 +381,10 @@ impl ActiveSet {
                             s,
                             t,
                             &pm_step.clause,
-                            pm_step.truthiness,
                             target.literal_index,
                             u_subterm,
                             &path,
                             &res_step.clause,
-                            res_step.truthiness,
                             i,
                             res_forwards,
                         ) {
