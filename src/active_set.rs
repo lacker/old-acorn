@@ -166,13 +166,13 @@ impl ActiveSet {
         Some(Clause::new(literals))
     }
 
-    // Tries to do superposition, but uses heuristics to not do the inference sometimes.
+    // Tries to do an inference from two clauses, but may fail to unify.
     //
     // The pm clause is:
     //   s = t | S
     // The res clause is:
     //   u ?= v | R
-    fn maybe_superpose(
+    fn try_two_clause_inference(
         &self,
         s: &Term,
         t: &Term,
@@ -187,40 +187,57 @@ impl ActiveSet {
     ) -> Option<Clause> {
         assert!(!s.is_true(), "no superposing into true");
 
-        // Short clause operations are where we are doing a rewrite of a term in a literal.
-        let short_clause_op = pm_clause.len() == 1 && res_clause.len() == 1;
+        if pm_clause.len() == 1 && res_clause.len() == 1 {
+            // This is a "short clause operation".
 
-        if !short_clause_op {
-            // The newly created literal must be reducible by equality resolution.
-            if res_clause.literals[res_literal_index].positive {
+            let mut unifier = Unifier::new();
+            // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
+            // the actual left or right of their normalized literals.
+            if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
                 return None;
             }
+            let literals = unifier.superpose(
+                t,
+                pm_clause,
+                pm_literal_index,
+                u_subterm_path,
+                res_clause,
+                res_literal_index,
+                res_forwards,
+            );
+            return Some(Clause::new(literals));
+        }
 
-            // We want to only use reductive operations that are reductive because all the literals
-            // in the shorter clause are either non-variable dupes or the one that is being canceled.
-            // Let's be sure those are the only ones we are using.
-            let (shorter_input, shorter_index, longer_input) = if pm_clause.len() < res_clause.len()
-            {
-                (pm_clause, pm_literal_index, res_clause)
-            } else {
-                (res_clause, res_literal_index, pm_clause)
-            };
-            for (i, literal) in shorter_input.literals.iter().enumerate() {
-                if i == shorter_index {
-                    continue;
-                }
-                if literal.has_any_variable() {
-                    return None;
-                }
-                if longer_input.literals.contains(literal) {
-                    continue;
-                }
+        // This is a "long clause operation".
+
+        // The newly created literal must be reducible by equality resolution.
+        if res_clause.literals[res_literal_index].positive {
+            return None;
+        }
+
+        // We want to only use reductive operations that are reductive because all the literals
+        // in the shorter clause are either non-variable dupes or the one that is being canceled.
+        // Let's be sure those are the only ones we are using.
+        let (shorter_input, shorter_index, longer_input) = if pm_clause.len() < res_clause.len() {
+            (pm_clause, pm_literal_index, res_clause)
+        } else {
+            (res_clause, res_literal_index, pm_clause)
+        };
+        for (i, literal) in shorter_input.literals.iter().enumerate() {
+            if i == shorter_index {
+                continue;
+            }
+            if literal.has_any_variable() {
                 return None;
             }
-
-            if !u_subterm_path.is_empty() {
-                return None;
+            if longer_input.literals.contains(literal) {
+                continue;
             }
+            return None;
+        }
+
+        if !u_subterm_path.is_empty() {
+            return None;
         }
 
         let mut unifier = Unifier::new();
@@ -238,12 +255,6 @@ impl ActiveSet {
             res_literal_index,
             res_forwards,
         );
-
-        if short_clause_op {
-            return Some(Clause::new(literals));
-        }
-
-        // This is a "long clause operation".
 
         if literals[0].positive {
             panic!("expected a negative literal");
@@ -312,7 +323,7 @@ impl ActiveSet {
                         // No global-global superposition
                         continue;
                     }
-                    if let Some(new_clause) = self.maybe_superpose(
+                    if let Some(new_clause) = self.try_two_clause_inference(
                         s,
                         t,
                         &pm_step.clause,
@@ -379,7 +390,7 @@ impl ActiveSet {
                             // I don't think we should paramodulate into "true"
                             continue;
                         }
-                        if let Some(new_clause) = self.maybe_superpose(
+                        if let Some(new_clause) = self.try_two_clause_inference(
                             s,
                             t,
                             &pm_step.clause,
