@@ -345,43 +345,35 @@ impl Unifier {
     // Handle superposition into either positive or negative literals. The "SP" and "SN" rules.
     //
     // The superposition rule is, given:
-    // s = t | S   (pm_clause, the paramodulator's clause)
-    // u ?= v | R  (res_clause, the resolver's clause)
+    // s = t   (pm_clause, the paramodulator's clause)
+    // u ?= v  (res_clause, the resolver's clause)
     //
     // If 'res_forward' is false, the u ?= v literal is swapped to be v ?= u.
     //
     // If s matches a subterm of u, superposition lets you replace the s with t to infer that:
     //
-    // u[s -> t] ?= v | S | R
+    // u[s -> t] ?= v
     // (after the unifier has been applied to the whole thing)
     //
     // Sometimes we refer to s = t as the "paramodulator" and u ?= v as the "resolver".
     // path describes which subterm of u we're replacing.
-    // s/t/S must be in the "left" scope and u/v/R must be in the "right" scope.
+    // s/t and u/v must be in the "right" scope.
     //
     // If ?= is =, it's "superposition into positive literals".
     // If ?= is !=, it's "superposition into negative literals".
     //
-    // pm_clause.literals[pm_literal_index] is the paramodulator.
-    // res_clause.literals[res_literal_index] is the resolver.
-    // These literals both get dropped in favor of the combined one, in the inferred clause.
-    //
     // Refer to page 3 of "E: A Brainiac Theorem Prover" for more detail.
-    pub fn superpose(
+    pub fn superpose_literals(
         &mut self,
         t: &Term,
-        pm_clause: &Clause,
-        pm_literal_index: usize,
         path: &[usize],
-        res_clause: &Clause,
-        res_literal_index: usize,
+        res_literal: &Literal,
         res_forwards: bool,
-    ) -> Vec<Literal> {
-        let resolution_literal = &res_clause.literals[res_literal_index];
+    ) -> Literal {
         let (u, v) = if res_forwards {
-            (&resolution_literal.left, &resolution_literal.right)
+            (&res_literal.left, &res_literal.right)
         } else {
-            (&resolution_literal.right, &resolution_literal.left)
+            (&res_literal.right, &res_literal.left)
         };
         let unified_u = self.apply_replace(
             Scope::Right,
@@ -393,7 +385,34 @@ impl Unifier {
             }),
         );
         let unified_v = self.apply(Scope::Right, &v);
-        let new_literal = Literal::new(resolution_literal.positive, unified_u, unified_v);
+        Literal::new(res_literal.positive, unified_u, unified_v)
+    }
+
+    // Handle superposition between two entire clauses.
+    //
+    // The superposition rule between clauses is, given:
+    // s = t | S   (pm_clause, the paramodulator's clause)
+    // u ?= v | R  (res_clause, the resolver's clause)
+    //
+    // It's like superposition between literals except we add '| S | R' to the result literal.
+    //
+    // pm_clause.literals[pm_literal_index] is the paramodulator.
+    // res_clause.literals[res_literal_index] is the resolver.
+    // These literals both get dropped in favor of the combined one, in the inferred clause.
+    //
+    // Refer to page 3 of "E: A Brainiac Theorem Prover" for more detail.
+    pub fn superpose_clauses(
+        &mut self,
+        t: &Term,
+        pm_clause: &Clause,
+        pm_literal_index: usize,
+        path: &[usize],
+        res_clause: &Clause,
+        res_literal_index: usize,
+        res_forwards: bool,
+    ) -> Vec<Literal> {
+        let resolution_literal = &res_clause.literals[res_literal_index];
+        let new_literal = self.superpose_literals(t, path, resolution_literal, res_forwards);
 
         // The new clause contains three types of literals.
         // Type 1: the new literal created by superposition
@@ -516,7 +535,8 @@ mod tests {
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &s, Scope::Right, &u_subterm);
         u.print();
-        let literals = u.superpose(&t, &pm_clause, 0, target_path, &resolution_clause, 0, true);
+        let literals =
+            u.superpose_clauses(&t, &pm_clause, 0, target_path, &resolution_clause, 0, true);
         let new_clause = Clause::new(literals);
         assert!(
             new_clause.to_string()

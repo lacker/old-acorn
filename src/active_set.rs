@@ -114,58 +114,6 @@ impl ActiveSet {
         literal.both_term_pairs()
     }
 
-    // If the two literals unify to a contradiction, return the conclusion of resolution
-    // between the two clauses.
-    //
-    // The indices refer to the literals within the clauses that are being resolved.
-    // This method takes it for granted that all other literals within the short clause (if any)
-    // are contained within the long clause, and that these literals are opposite signs.
-    //
-    // There are two ways that A = B and C != D can be resolved after unification.
-    // When u(A) = u(C) and u(B) = u(D), that is "not flipped".
-    // When u(A) = u(D) and u(B) = u(C), that is "flipped".
-    fn maybe_resolve(
-        short_clause: &Clause,
-        short_index: usize,
-        long_clause: &Clause,
-        long_index: usize,
-        flipped: bool,
-    ) -> Option<Clause> {
-        let mut unifier = Unifier::new();
-
-        // The short clause is "left" scope and the long clause is "right" scope.
-        // This is different from the "left" and "right" of the literals - unfortunately
-        // "left" and "right" are a bit overloaded here.
-        let short_a = &short_clause.literals[short_index].left;
-        let short_b = &short_clause.literals[short_index].right;
-        let (long_a, long_b) = if flipped {
-            (
-                &long_clause.literals[long_index].right,
-                &long_clause.literals[long_index].left,
-            )
-        } else {
-            (
-                &long_clause.literals[long_index].left,
-                &long_clause.literals[long_index].right,
-            )
-        };
-        if !unifier.unify(Scope::Left, short_a, Scope::Right, long_a) {
-            return None;
-        }
-        if !unifier.unify(Scope::Left, short_b, Scope::Right, long_b) {
-            return None;
-        }
-
-        let mut literals = vec![];
-        for (i, literal) in long_clause.literals.iter().enumerate() {
-            if i == long_index {
-                continue;
-            }
-            literals.push(unifier.apply_to_literal(Scope::Right, literal));
-        }
-        Some(Clause::new(literals))
-    }
-
     // Tries to do an inference from two clauses, but may fail to unify.
     //
     // The pm clause is:
@@ -173,7 +121,6 @@ impl ActiveSet {
     // The res clause is:
     //   u ?= v | R
     fn try_two_clause_inference(
-        &self,
         s: &Term,
         t: &Term,
         pm_clause: &Clause,
@@ -196,7 +143,8 @@ impl ActiveSet {
             if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
                 return None;
             }
-            let literals = unifier.superpose(
+
+            let literals = unifier.superpose_clauses(
                 t,
                 pm_clause,
                 pm_literal_index,
@@ -242,14 +190,44 @@ impl ActiveSet {
             return None;
         }
 
+        // There are two ways that A = B and C != D can be resolved after unification.
+        // When u(A) = u(C) and u(B) = u(D), that is "not flipped".
+        // When u(A) = u(D) and u(B) = u(C), that is "flipped".
         let flipped = pm_forwards ^ res_forwards;
-        return ActiveSet::maybe_resolve(
-            short_clause,
-            short_index,
-            long_clause,
-            long_index,
-            flipped,
-        );
+
+        let mut unifier = Unifier::new();
+
+        // The short clause is "left" scope and the long clause is "right" scope.
+        // This is different from the "left" and "right" of the literals - unfortunately
+        // "left" and "right" are a bit overloaded here.
+        let short_a = &short_clause.literals[short_index].left;
+        let short_b = &short_clause.literals[short_index].right;
+        let (long_a, long_b) = if flipped {
+            (
+                &long_clause.literals[long_index].right,
+                &long_clause.literals[long_index].left,
+            )
+        } else {
+            (
+                &long_clause.literals[long_index].left,
+                &long_clause.literals[long_index].right,
+            )
+        };
+        if !unifier.unify(Scope::Left, short_a, Scope::Right, long_a) {
+            return None;
+        }
+        if !unifier.unify(Scope::Left, short_b, Scope::Right, long_b) {
+            return None;
+        }
+
+        let mut literals = vec![];
+        for (i, literal) in long_clause.literals.iter().enumerate() {
+            if i == long_index {
+                continue;
+            }
+            literals.push(unifier.apply_to_literal(Scope::Right, literal));
+        }
+        Some(Clause::new(literals))
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the
@@ -291,7 +269,7 @@ impl ActiveSet {
                         // No global-global superposition
                         continue;
                     }
-                    if let Some(new_clause) = self.try_two_clause_inference(
+                    if let Some(new_clause) = ActiveSet::try_two_clause_inference(
                         s,
                         t,
                         &pm_step.clause,
@@ -358,7 +336,7 @@ impl ActiveSet {
                             // I don't think we should paramodulate into "true"
                             continue;
                         }
-                        if let Some(new_clause) = self.try_two_clause_inference(
+                        if let Some(new_clause) = ActiveSet::try_two_clause_inference(
                             s,
                             t,
                             &pm_step.clause,
