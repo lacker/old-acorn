@@ -215,73 +215,41 @@ impl ActiveSet {
             return None;
         }
 
+        // We only resolve on full literals.
+        if !u_subterm_path.is_empty() {
+            return None;
+        }
+
         // We want to only use reductive operations that are reductive because all the literals
         // in the shorter clause are either non-variable dupes or the one that is being canceled.
         // Let's be sure those are the only ones we are using.
-        let (shorter_input, shorter_index, longer_input) = if pm_clause.len() < res_clause.len() {
-            (pm_clause, pm_literal_index, res_clause)
-        } else {
-            (res_clause, res_literal_index, pm_clause)
-        };
-        for (i, literal) in shorter_input.literals.iter().enumerate() {
-            if i == shorter_index {
+        let (short_clause, short_index, long_clause, long_index) =
+            if pm_clause.len() < res_clause.len() {
+                (pm_clause, pm_literal_index, res_clause, res_literal_index)
+            } else {
+                (res_clause, res_literal_index, pm_clause, pm_literal_index)
+            };
+        for (i, literal) in short_clause.literals.iter().enumerate() {
+            if i == short_index {
                 continue;
             }
             if literal.has_any_variable() {
                 return None;
             }
-            if longer_input.literals.contains(literal) {
+            if long_clause.literals.contains(literal) {
                 continue;
             }
             return None;
         }
 
-        if !u_subterm_path.is_empty() {
-            return None;
-        }
-
-        let mut unifier = Unifier::new();
-        // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
-        // the actual left or right of their normalized literals.
-        if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
-            return None;
-        }
-        let literals = unifier.superpose(
-            t,
-            pm_clause,
-            pm_literal_index,
-            u_subterm_path,
-            res_clause,
-            res_literal_index,
-            res_forwards,
+        let flipped = pm_forwards ^ res_forwards;
+        return ActiveSet::maybe_resolve(
+            short_clause,
+            short_index,
+            long_clause,
+            long_index,
+            flipped,
         );
-
-        if literals[0].positive {
-            panic!("expected a negative literal");
-        }
-        // Only use "left" scope
-        let mut unifier = Unifier::new();
-        if !unifier.unify(
-            Scope::Left,
-            &literals[0].left,
-            Scope::Left,
-            &literals[0].right,
-        ) {
-            return None;
-        }
-
-        let new_literals = literals
-            .iter()
-            .skip(1)
-            .map(|literal| unifier.apply_to_literal(Scope::Left, literal))
-            .collect();
-        let new_clause = Clause::new(new_literals);
-
-        if new_clause.len() >= pm_clause.len() && new_clause.len() >= res_clause.len() {
-            panic!("the conditions should have ensured reductivity");
-        }
-
-        return Some(new_clause);
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the
