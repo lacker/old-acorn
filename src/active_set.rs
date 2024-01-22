@@ -178,6 +178,7 @@ impl ActiveSet {
         t: &Term,
         pm_clause: &Clause,
         pm_literal_index: usize,
+        pm_forwards: bool,
         u_subterm: &Term,
         u_subterm_path: &[usize],
         res_clause: &Clause,
@@ -294,7 +295,7 @@ impl ActiveSet {
             if !pm_literal.positive {
                 continue;
             }
-            for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
+            for (pm_forwards, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
                 if s.is_true() {
                     // I don't think we should paramodulate into "true"
                     continue;
@@ -316,6 +317,7 @@ impl ActiveSet {
                         t,
                         &pm_step.clause,
                         i,
+                        pm_forwards,
                         u_subterm,
                         &target.path,
                         &res_step.clause,
@@ -382,6 +384,7 @@ impl ActiveSet {
                             t,
                             &pm_step.clause,
                             target.literal_index,
+                            target.forwards,
                             u_subterm,
                             &path,
                             &res_step.clause,
