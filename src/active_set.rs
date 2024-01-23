@@ -248,7 +248,6 @@ impl ActiveSet {
     //   u ?= v | R
     //
     // in the superposition formula.
-    // Returns the clauses we generated along with the index of the clause we used to generate them.
     pub fn activate_paramodulator(&self, pm_id: usize, pm_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
         for (i, pm_literal) in pm_step.clause.literals.iter().enumerate() {
@@ -326,8 +325,7 @@ impl ActiveSet {
     //   s = t | S
     //
     // in the superposition formula.
-    // Returns the clauses we generated along with the index of the clause we used to generate them.
-    pub fn activate_resolver(&self, res_step: &ProofStep) -> Vec<(Clause, usize)> {
+    pub fn activate_resolver(&self, res_id: usize, res_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
         for (i, res_literal) in res_step.clause.literals.iter().enumerate() {
             for (res_forwards, u, _) in res_literal.both_term_pairs() {
@@ -368,7 +366,13 @@ impl ActiveSet {
                             &res_step.clause,
                             res_forwards,
                         ) {
-                            results.push((new_clause, target.step_index));
+                            results.push(ProofStep::new_superposition(
+                                target.step_index,
+                                &pm_step,
+                                res_id,
+                                &res_step,
+                                new_clause,
+                            ));
                         }
                         if let Some(new_clause) = ActiveSet::try_resolution(
                             &pm_step.clause,
@@ -379,7 +383,13 @@ impl ActiveSet {
                             i,
                             res_forwards,
                         ) {
-                            results.push((new_clause, target.step_index));
+                            results.push(ProofStep::new_superposition(
+                                target.step_index,
+                                &pm_step,
+                                res_id,
+                                &res_step,
+                                new_clause,
+                            ));
                         }
                     }
                 }
@@ -693,14 +703,8 @@ impl ActiveSet {
             generated_steps.push(step);
         }
 
-        for (new_clause, paramodulator_id) in self.activate_resolver(&activated_step) {
-            generated_steps.push(ProofStep::new_superposition(
-                paramodulator_id,
-                self.get_step(paramodulator_id),
-                activated_id,
-                &activated_step,
-                new_clause,
-            ));
+        for step in self.activate_resolver(activated_id, &activated_step) {
+            generated_steps.push(step);
         }
 
         self.insert(activated_step, activated_id);
@@ -770,14 +774,14 @@ mod tests {
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
         let mut res_step = ProofStep::mock("c0(c3) = c2");
         res_step.truthiness = Truthiness::Hypothetical;
-        let result = set.activate_resolver(&res_step);
+        let result = set.activate_resolver(0, &res_step);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
             Term::parse("c0(c1)"),
             Term::parse("c2"),
         )]);
-        assert_eq!(result[0].0, expected);
+        assert_eq!(result[0].clause, expected);
     }
 
     #[test]
@@ -806,10 +810,10 @@ mod tests {
         set.insert(step, 0);
         let mut res_step = ProofStep::mock("c2 != c3");
         res_step.truthiness = Truthiness::Counterfactual;
-        let result = set.activate_resolver(&res_step);
+        let result = set.activate_resolver(0, &res_step);
         // It could be a duplicate if we relax the paramodulation rules.
         // assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0.to_string(), "c1 != c0(x0)".to_string());
+        assert_eq!(result[0].clause.to_string(), "c1 != c0(x0)".to_string());
     }
 
     #[test]
