@@ -249,7 +249,7 @@ impl ActiveSet {
     //
     // in the superposition formula.
     // Returns the clauses we generated along with the index of the clause we used to generate them.
-    pub fn activate_paramodulator(&self, pm_step: &ProofStep) -> Vec<(Clause, usize)> {
+    pub fn activate_paramodulator(&self, pm_id: usize, pm_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
         for (i, pm_literal) in pm_step.clause.literals.iter().enumerate() {
             if !pm_literal.positive {
@@ -281,7 +281,13 @@ impl ActiveSet {
                         &res_step.clause,
                         target.forwards,
                     ) {
-                        results.push((new_clause, target.step_index));
+                        results.push(ProofStep::new_superposition(
+                            pm_id,
+                            &pm_step,
+                            target.step_index,
+                            self.get_step(target.step_index),
+                            new_clause,
+                        ));
                     }
                     if let Some(new_clause) = ActiveSet::try_resolution(
                         &pm_step.clause,
@@ -292,7 +298,13 @@ impl ActiveSet {
                         target.literal_index,
                         target.forwards,
                     ) {
-                        results.push((new_clause, target.step_index));
+                        results.push(ProofStep::new_superposition(
+                            pm_id,
+                            &pm_step,
+                            target.step_index,
+                            self.get_step(target.step_index),
+                            new_clause,
+                        ));
                     }
                 }
             }
@@ -677,14 +689,8 @@ impl ActiveSet {
             ));
         }
 
-        for (new_clause, resolver_id) in self.activate_paramodulator(&activated_step) {
-            generated_steps.push(ProofStep::new_superposition(
-                activated_id,
-                &activated_step,
-                resolver_id,
-                self.get_step(resolver_id),
-                new_clause,
-            ));
+        for step in self.activate_paramodulator(activated_id, &activated_step) {
+            generated_steps.push(step);
         }
 
         for (new_clause, paramodulator_id) in self.activate_resolver(&activated_step) {
@@ -744,14 +750,14 @@ mod tests {
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
         let pm_step = ProofStep::mock("c1 = c3");
-        let result = set.activate_paramodulator(&pm_step);
+        let result = set.activate_paramodulator(0, &pm_step);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
             Term::parse("c0(c1)"),
             Term::parse("c2"),
         )]);
-        assert_eq!(result[0].0, expected);
+        assert_eq!(result[0].clause, expected);
     }
 
     #[test]
