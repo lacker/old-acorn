@@ -163,10 +163,6 @@ pub struct ProofStep {
 
     // Cached for simplicity
     atom_count: u32,
-
-    // The order in which this ProofStep was created.
-    // This is different from the order in which the ProofStep was activated.
-    generation_ordinal: usize,
 }
 
 impl Ord for ProofStep {
@@ -200,7 +196,6 @@ impl ProofStep {
         rule: Rule,
         simplification_rules: Vec<usize>,
         proof_size: u32,
-        generation_ordinal: usize,
     ) -> ProofStep {
         let atom_count = clause.atom_count();
         ProofStep {
@@ -210,7 +205,6 @@ impl ProofStep {
             simplification_rules,
             proof_size,
             atom_count,
-            generation_ordinal,
         }
     }
 
@@ -220,14 +214,7 @@ impl ProofStep {
         truthiness: Truthiness,
         generation_ordinal: usize,
     ) -> ProofStep {
-        ProofStep::new(
-            clause,
-            truthiness,
-            Rule::Assumption,
-            vec![],
-            0,
-            generation_ordinal,
-        )
+        ProofStep::new(clause, truthiness, Rule::Assumption, vec![], 0)
     }
 
     // Construct a new ProofStep that is a direct implication of a single activated step,
@@ -244,7 +231,6 @@ impl ProofStep {
             rule,
             vec![],
             activated_step.proof_size + 1,
-            generation_ordinal,
         )
     }
 
@@ -275,7 +261,6 @@ impl ProofStep {
             rule,
             vec![],
             paramodulator_step.proof_size + resolver_step.proof_size + 1,
-            generation_ordinal,
         )
     }
 
@@ -292,14 +277,7 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
-        ProofStep::new(
-            clause,
-            new_truthiness,
-            self.rule,
-            rules,
-            self.proof_size,
-            self.generation_ordinal,
-        )
+        ProofStep::new(clause, new_truthiness, self.rule, rules, self.proof_size)
     }
 
     // Construct a ProofStep with fake heuristic data for testing
