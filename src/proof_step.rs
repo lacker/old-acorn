@@ -209,22 +209,13 @@ impl ProofStep {
     }
 
     // Construct a ProofStep for an assumption that the prover starts with.
-    pub fn new_assumption(
-        clause: Clause,
-        truthiness: Truthiness,
-        generation_ordinal: usize,
-    ) -> ProofStep {
+    pub fn new_assumption(clause: Clause, truthiness: Truthiness) -> ProofStep {
         ProofStep::new(clause, truthiness, Rule::Assumption, vec![], 0)
     }
 
     // Construct a new ProofStep that is a direct implication of a single activated step,
     // not requiring any other clauses.
-    pub fn new_direct(
-        activated_step: &ProofStep,
-        rule: Rule,
-        clause: Clause,
-        generation_ordinal: usize,
-    ) -> ProofStep {
+    pub fn new_direct(activated_step: &ProofStep, rule: Rule, clause: Clause) -> ProofStep {
         ProofStep::new(
             clause,
             activated_step.truthiness,
@@ -241,7 +232,6 @@ impl ProofStep {
         resolver_id: usize,
         resolver_step: &ProofStep,
         clause: Clause,
-        generation_ordinal: usize,
     ) -> ProofStep {
         let rule = Rule::Superposition(SuperpositionInfo {
             paramodulator_id,
@@ -284,7 +274,7 @@ impl ProofStep {
     pub fn mock(s: &str) -> ProofStep {
         let clause = Clause::parse(s);
 
-        ProofStep::new_assumption(clause, Truthiness::Factual, 0)
+        ProofStep::new_assumption(clause, Truthiness::Factual)
     }
 
     // The ids of the other clauses that this clause depends on.

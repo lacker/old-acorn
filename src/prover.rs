@@ -167,11 +167,8 @@ impl Prover {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
                 // We have a false assumption, so we're done already.
-                let final_step = ProofStep::new_assumption(
-                    Clause::impossible(),
-                    Truthiness::Factual,
-                    self.active_set.next_generation_ordinal(),
-                );
+                let final_step =
+                    ProofStep::new_assumption(Clause::impossible(), Truthiness::Factual);
                 self.report_contradiction(final_step);
                 return;
             }
@@ -181,11 +178,7 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let step = ProofStep::new_assumption(
-                clause,
-                truthiness,
-                self.active_set.next_generation_ordinal(),
-            );
+            let step = ProofStep::new_assumption(clause, truthiness);
             self.passive.push(step);
         }
     }

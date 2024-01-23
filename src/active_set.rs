@@ -25,9 +25,6 @@ pub struct ActiveSet {
     resolution_targets: FingerprintTree<ResolutionTarget>,
 
     paramodulation_targets: FingerprintTree<ParamodulationTarget>,
-
-    // How many ProofSteps have been generated (not activated) during this proof.
-    num_generated: usize,
 }
 
 // A ResolutionTarget represents one a subterm within an active clause.
@@ -77,15 +74,7 @@ impl ActiveSet {
             literal_set: LiteralSet::new(),
             resolution_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
-            num_generated: 0,
         }
-    }
-
-    // Get a number representing the order in which a clause was generated.
-    pub fn next_generation_ordinal(&mut self) -> usize {
-        let ordinal = self.num_generated;
-        self.num_generated += 1;
-        ordinal
     }
 
     pub fn len(&self) -> usize {
@@ -642,7 +631,6 @@ impl ActiveSet {
                 &activated_step,
                 Rule::EqualityResolution(activated_id),
                 new_clause,
-                self.next_generation_ordinal(),
             ));
         }
 
@@ -651,7 +639,6 @@ impl ActiveSet {
                 &activated_step,
                 Rule::EqualityFactoring(activated_id),
                 clause,
-                self.next_generation_ordinal(),
             ));
         }
 
@@ -660,31 +647,26 @@ impl ActiveSet {
                 &activated_step,
                 Rule::FunctionElimination(activated_id),
                 clause,
-                self.next_generation_ordinal(),
             ));
         }
 
         for (new_clause, resolver_id) in self.activate_paramodulator(&activated_step) {
-            let generation_ordinal = self.next_generation_ordinal();
             generated_steps.push(ProofStep::new_superposition(
                 activated_id,
                 &activated_step,
                 resolver_id,
                 self.get_step(resolver_id),
                 new_clause,
-                generation_ordinal,
             ));
         }
 
         for (new_clause, paramodulator_id) in self.activate_resolver(&activated_step) {
-            let generation_ordinal = self.next_generation_ordinal();
             generated_steps.push(ProofStep::new_superposition(
                 paramodulator_id,
                 self.get_step(paramodulator_id),
                 activated_id,
                 &activated_step,
                 new_clause,
-                generation_ordinal,
             ));
         }
 
