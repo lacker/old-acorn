@@ -144,16 +144,13 @@ impl ActiveSet {
                 return None;
             }
 
-            let literals = unifier.superpose_clauses(
+            let literal = unifier.superpose_literals(
                 t,
-                pm_clause,
-                pm_literal_index,
                 u_subterm_path,
-                res_clause,
-                res_literal_index,
+                &res_clause.literals[0],
                 res_forwards,
             );
-            return Some(Clause::new(literals));
+            return Some(Clause::new(vec![literal]));
         }
 
         // This is a "long clause operation".
