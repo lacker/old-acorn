@@ -103,52 +103,63 @@ impl ActiveSet {
         literal.both_term_pairs()
     }
 
-    // Tries to do an inference from two clauses, but may fail to unify.
+    // Tries to do a superposition from two clauses, but may fail to unify.
     //
     // The pm clause is:
     //   s = t | S
     // The res clause is:
     //   u ?= v | R
-    fn try_two_clause_inference(
+    fn try_superposition(
         s: &Term,
         t: &Term,
         pm_clause: &Clause,
+        u_subterm: &Term,
+        u_subterm_path: &[usize],
+        res_clause: &Clause,
+        res_forwards: bool,
+    ) -> Option<Clause> {
+        if pm_clause.len() > 1 || res_clause.len() > 1 {
+            // Only allow superposition on short clauses.
+            return None;
+        }
+
+        // This prevents the "sub-unification" case, where we become interested in a term by
+        // unifying it with a subterm of another term.
+        if !u_subterm_path.is_empty() && u_subterm.has_any_variable() {
+            return None;
+        }
+
+        let mut unifier = Unifier::new();
+        // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
+        // the actual left or right of their normalized literals.
+        if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
+            return None;
+        }
+
+        let literal =
+            unifier.superpose_literals(t, u_subterm_path, &res_clause.literals[0], res_forwards);
+        return Some(Clause::new(vec![literal]));
+    }
+
+    // Tries to do a resolution from two clauses, but may fail to unify.
+    //
+    // The pm clause is:
+    //   s = t | S
+    // The res clause is:
+    //   u ?= v | R
+    fn try_resolution(
+        pm_clause: &Clause,
         pm_literal_index: usize,
         pm_forwards: bool,
-        u_subterm: &Term,
         u_subterm_path: &[usize],
         res_clause: &Clause,
         res_literal_index: usize,
         res_forwards: bool,
     ) -> Option<Clause> {
-        assert!(!s.is_true(), "no superposing into true");
-
         if pm_clause.len() == 1 && res_clause.len() == 1 {
-            // This is a "short clause operation".
-
-            // This prevents the "sub-unification" case, where we become interested in a term by
-            // unifying it with a subterm of another term.
-            if !u_subterm_path.is_empty() && u_subterm.has_any_variable() {
-                return None;
-            }
-
-            let mut unifier = Unifier::new();
-            // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
-            // the actual left or right of their normalized literals.
-            if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
-                return None;
-            }
-
-            let literal = unifier.superpose_literals(
-                t,
-                u_subterm_path,
-                &res_clause.literals[0],
-                res_forwards,
-            );
-            return Some(Clause::new(vec![literal]));
+            // TODO: allow these circumstances
+            return None;
         }
-
-        // This is a "long clause operation".
 
         // The newly created literal must be reducible by equality resolution.
         if res_clause.literals[res_literal_index].positive {
@@ -261,13 +272,21 @@ impl ActiveSet {
                         // No global-global superposition
                         continue;
                     }
-                    if let Some(new_clause) = ActiveSet::try_two_clause_inference(
+                    if let Some(new_clause) = ActiveSet::try_superposition(
                         s,
                         t,
                         &pm_step.clause,
+                        u_subterm,
+                        &target.path,
+                        &res_step.clause,
+                        target.forwards,
+                    ) {
+                        results.push((new_clause, target.step_index));
+                    }
+                    if let Some(new_clause) = ActiveSet::try_resolution(
+                        &pm_step.clause,
                         i,
                         pm_forwards,
-                        u_subterm,
                         &target.path,
                         &res_step.clause,
                         target.literal_index,
@@ -328,13 +347,21 @@ impl ActiveSet {
                             // I don't think we should paramodulate into "true"
                             continue;
                         }
-                        if let Some(new_clause) = ActiveSet::try_two_clause_inference(
+                        if let Some(new_clause) = ActiveSet::try_superposition(
                             s,
                             t,
                             &pm_step.clause,
+                            u_subterm,
+                            &path,
+                            &res_step.clause,
+                            res_forwards,
+                        ) {
+                            results.push((new_clause, target.step_index));
+                        }
+                        if let Some(new_clause) = ActiveSet::try_resolution(
+                            &pm_step.clause,
                             target.literal_index,
                             target.forwards,
-                            u_subterm,
                             &path,
                             &res_step.clause,
                             i,
