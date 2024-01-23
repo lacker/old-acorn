@@ -36,7 +36,16 @@ impl Truthiness {
     }
 }
 
-// Information about a superposition.
+// Information about a resolution inference.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolutionInfo {
+    // Which clauses were used as the sources.
+    // "short" and "long" refers to the number of literals, but they can be the same length.
+    short_id: usize,
+    long_id: usize,
+}
+
+// Information about a superposition inference.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SuperpositionInfo {
     // Which clauses were used as the sources.
@@ -61,7 +70,7 @@ pub struct SuperpositionInfo {
 pub enum Rule {
     Assumption,
 
-    // (paramodulator, resolver)
+    Resolution(ResolutionInfo),
     Superposition(SuperpositionInfo),
 
     // Rules with only one source clause
@@ -75,6 +84,7 @@ impl Rule {
     fn dependencies(&self) -> impl Iterator<Item = &usize> {
         match self {
             Rule::Assumption => vec![].into_iter(),
+            Rule::Resolution(info) => vec![&info.short_id, &info.long_id].into_iter(),
             Rule::Superposition(info) => {
                 vec![&info.paramodulator_id, &info.resolver_id].into_iter()
             }
@@ -89,6 +99,10 @@ impl Rule {
         let mut answer = vec![];
         match self {
             Rule::Assumption => {}
+            Rule::Resolution(info) => {
+                answer.push(("short".to_string(), info.short_id));
+                answer.push(("long".to_string(), info.long_id));
+            }
             Rule::Superposition(info) => {
                 answer.push(("paramodulator".to_string(), info.paramodulator_id));
                 answer.push(("resolver".to_string(), info.resolver_id));
@@ -105,6 +119,7 @@ impl Rule {
     pub fn name(&self) -> &str {
         match self {
             Rule::Assumption => "Assumption",
+            Rule::Resolution(_) => "Resolution",
             Rule::Superposition(_) => "Superposition",
             Rule::EqualityFactoring(_) => "EqualityFactoring",
             Rule::EqualityResolution(_) => "EqualityResolution",
