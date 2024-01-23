@@ -557,6 +557,7 @@ theorem fac_helper_alt(a: Nat, b: Nat): fac_helper(NatPair.new(a, b)) = NatPair.
     NatPair.first(p) = a
     NatPair.second(p) = b
     fac_helper(p) = NatPair.new(Suc(NatPair.first(p)), mul(Suc(NatPair.first(p)), NatPair.second(p)))
+    fac_helper(p) = NatPair.new(Suc(NatPair.first(p)), mul(Suc(a), b))
 }
 
 // Takes n -> (n, n!)

@@ -137,6 +137,12 @@ impl ActiveSet {
         if pm_clause.len() == 1 && res_clause.len() == 1 {
             // This is a "short clause operation".
 
+            // This prevents the "sub-unification" case, where we become interested in a term by
+            // unifying it with a subterm of another term.
+            if !u_subterm_path.is_empty() && u_subterm.has_any_variable() {
+                return None;
+            }
+
             let mut unifier = Unifier::new();
             // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
             // the actual left or right of their normalized literals.
