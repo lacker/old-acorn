@@ -148,12 +148,17 @@ impl ActiveSet {
     // When u(A) = u(C) and u(B) = u(D), that is "not flipped".
     // When u(A) = u(D) and u(B) = u(C), that is "flipped".
     fn try_resolution(
-        pm_clause: &Clause,
+        pm_id: usize,
+        pm_step: &ProofStep,
         pm_literal_index: usize,
-        res_clause: &Clause,
+        res_id: usize,
+        res_step: &ProofStep,
         res_literal_index: usize,
         flipped: bool,
     ) -> Option<Clause> {
+        let pm_clause = &pm_step.clause;
+        let res_clause = &res_step.clause;
+
         if pm_clause.len() == 1 && res_clause.len() == 1 {
             // TODO: allow these circumstances
             return None;
@@ -261,9 +266,11 @@ impl ActiveSet {
                     }
                     if target.path.is_empty() {
                         if let Some(new_clause) = ActiveSet::try_resolution(
-                            &pm_step.clause,
+                            pm_id,
+                            pm_step,
                             i,
-                            &res_step.clause,
+                            target.step_index,
+                            res_step,
                             target.literal_index,
                             pm_forwards ^ target.forwards,
                         ) {
@@ -347,9 +354,11 @@ impl ActiveSet {
                         }
                         if path.is_empty() {
                             if let Some(new_clause) = ActiveSet::try_resolution(
-                                &pm_step.clause,
+                                target.step_index,
+                                pm_step,
                                 target.literal_index,
-                                &res_step.clause,
+                                res_id,
+                                res_step,
                                 i,
                                 target.forwards ^ res_forwards,
                             ) {
