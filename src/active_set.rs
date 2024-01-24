@@ -151,7 +151,6 @@ impl ActiveSet {
         pm_clause: &Clause,
         pm_literal_index: usize,
         pm_forwards: bool,
-        u_subterm_path: &[usize],
         res_clause: &Clause,
         res_literal_index: usize,
         res_forwards: bool,
@@ -163,11 +162,6 @@ impl ActiveSet {
 
         // The newly created literal must be reducible by equality resolution.
         if res_clause.literals[res_literal_index].positive {
-            return None;
-        }
-
-        // We only resolve on full literals.
-        if !u_subterm_path.is_empty() {
             return None;
         }
 
@@ -271,22 +265,23 @@ impl ActiveSet {
                         // No global-global superposition
                         continue;
                     }
-                    if let Some(new_clause) = ActiveSet::try_resolution(
-                        &pm_step.clause,
-                        i,
-                        pm_forwards,
-                        &target.path,
-                        &res_step.clause,
-                        target.literal_index,
-                        target.forwards,
-                    ) {
-                        results.push(ProofStep::new_superposition(
-                            pm_id,
-                            &pm_step,
-                            target.step_index,
-                            self.get_step(target.step_index),
-                            new_clause,
-                        ));
+                    if target.path.is_empty() {
+                        if let Some(new_clause) = ActiveSet::try_resolution(
+                            &pm_step.clause,
+                            i,
+                            pm_forwards,
+                            &res_step.clause,
+                            target.literal_index,
+                            target.forwards,
+                        ) {
+                            results.push(ProofStep::new_superposition(
+                                pm_id,
+                                &pm_step,
+                                target.step_index,
+                                self.get_step(target.step_index),
+                                new_clause,
+                            ));
+                        }
                     }
                     if let Some(new_clause) = ActiveSet::try_superposition(
                         s,
@@ -357,22 +352,23 @@ impl ActiveSet {
                             // I don't think we should paramodulate into "true"
                             continue;
                         }
-                        if let Some(new_clause) = ActiveSet::try_resolution(
-                            &pm_step.clause,
-                            target.literal_index,
-                            target.forwards,
-                            &path,
-                            &res_step.clause,
-                            i,
-                            res_forwards,
-                        ) {
-                            results.push(ProofStep::new_superposition(
-                                target.step_index,
-                                &pm_step,
-                                res_id,
-                                &res_step,
-                                new_clause,
-                            ));
+                        if path.is_empty() {
+                            if let Some(new_clause) = ActiveSet::try_resolution(
+                                &pm_step.clause,
+                                target.literal_index,
+                                target.forwards,
+                                &res_step.clause,
+                                i,
+                                res_forwards,
+                            ) {
+                                results.push(ProofStep::new_superposition(
+                                    target.step_index,
+                                    &pm_step,
+                                    res_id,
+                                    &res_step,
+                                    new_clause,
+                                ));
+                            }
                         }
                         if let Some(new_clause) = ActiveSet::try_superposition(
                             s,
