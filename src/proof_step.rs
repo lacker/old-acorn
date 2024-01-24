@@ -40,9 +40,9 @@ impl Truthiness {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolutionInfo {
     // Which clauses were used as the sources.
-    // "short" and "long" refers to the number of literals, but they can be the same length.
-    short_id: usize,
-    long_id: usize,
+    // Resolution requires one positive and one negative clause..
+    positive_id: usize,
+    negative_id: usize,
 }
 
 // Information about a superposition inference.
@@ -84,7 +84,7 @@ impl Rule {
     fn dependencies(&self) -> impl Iterator<Item = &usize> {
         match self {
             Rule::Assumption => vec![].into_iter(),
-            Rule::Resolution(info) => vec![&info.short_id, &info.long_id].into_iter(),
+            Rule::Resolution(info) => vec![&info.positive_id, &info.negative_id].into_iter(),
             Rule::Superposition(info) => {
                 vec![&info.paramodulator_id, &info.resolver_id].into_iter()
             }
@@ -100,8 +100,8 @@ impl Rule {
         match self {
             Rule::Assumption => {}
             Rule::Resolution(info) => {
-                answer.push(("short".to_string(), info.short_id));
-                answer.push(("long".to_string(), info.long_id));
+                answer.push(("positive".to_string(), info.positive_id));
+                answer.push(("negative".to_string(), info.negative_id));
             }
             Rule::Superposition(info) => {
                 answer.push(("paramodulator".to_string(), info.paramodulator_id));
@@ -227,19 +227,22 @@ impl ProofStep {
 
     // Construct a new ProofStep via resolution.
     pub fn new_resolution(
-        short_id: usize,
-        short_step: &ProofStep,
-        long_id: usize,
-        long_step: &ProofStep,
+        positive_id: usize,
+        positive_step: &ProofStep,
+        negative_id: usize,
+        negative_step: &ProofStep,
         clause: Clause,
     ) -> ProofStep {
-        let rule = Rule::Resolution(ResolutionInfo { short_id, long_id });
+        let rule = Rule::Resolution(ResolutionInfo {
+            positive_id,
+            negative_id,
+        });
         ProofStep::new(
             clause,
-            short_step.truthiness.combine(long_step.truthiness),
+            positive_step.truthiness.combine(negative_step.truthiness),
             rule,
             vec![],
-            short_step.proof_size + long_step.proof_size + 1,
+            positive_step.proof_size + negative_step.proof_size + 1,
         )
     }
 

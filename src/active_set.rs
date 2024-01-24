@@ -151,10 +151,10 @@ impl ActiveSet {
         &self,
         pm_id: usize,
         pm_step: &ProofStep,
-        pm_literal_index: usize,
+        pm_index: usize,
         res_id: usize,
         res_step: &ProofStep,
-        res_literal_index: usize,
+        res_index: usize,
         flipped: bool,
     ) -> Option<ProofStep> {
         let pm_clause = &pm_step.clause;
@@ -165,8 +165,8 @@ impl ActiveSet {
             return None;
         }
 
-        // The newly created literal must be reducible by equality resolution.
-        if res_clause.literals[res_literal_index].positive {
+        // The paramodulator is always positive, so to do resolution the resolver has to be negative.
+        if res_clause.literals[res_index].positive {
             return None;
         }
 
@@ -175,9 +175,9 @@ impl ActiveSet {
         // Let's be sure those are the only ones we are using.
         let (short_clause, short_index, long_clause, long_index) =
             if pm_clause.len() < res_clause.len() {
-                (pm_clause, pm_literal_index, res_clause, res_literal_index)
+                (pm_clause, pm_index, res_clause, res_index)
             } else {
-                (res_clause, res_literal_index, pm_clause, pm_literal_index)
+                (res_clause, res_index, pm_clause, pm_index)
             };
         for (i, literal) in short_clause.literals.iter().enumerate() {
             if i == short_index {
@@ -227,7 +227,7 @@ impl ActiveSet {
 
         // Gather the output data
         let clause = Clause::new(literals);
-        let step = ProofStep::new_superposition(pm_id, pm_step, res_id, res_step, clause);
+        let step = ProofStep::new_resolution(pm_id, pm_step, res_id, res_step, clause);
         Some(step)
     }
 
