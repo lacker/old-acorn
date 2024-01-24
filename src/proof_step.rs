@@ -225,6 +225,24 @@ impl ProofStep {
         )
     }
 
+    // Construct a new ProofStep via resolution.
+    pub fn new_resolution(
+        short_id: usize,
+        short_step: &ProofStep,
+        long_id: usize,
+        long_step: &ProofStep,
+        clause: Clause,
+    ) -> ProofStep {
+        let rule = Rule::Resolution(ResolutionInfo { short_id, long_id });
+        ProofStep::new(
+            clause,
+            short_step.truthiness.combine(long_step.truthiness),
+            rule,
+            vec![],
+            short_step.proof_size + long_step.proof_size + 1,
+        )
+    }
+
     // Construct a new ProofStep via superposition.
     pub fn new_superposition(
         paramodulator_id: usize,
