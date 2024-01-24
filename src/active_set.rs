@@ -148,6 +148,7 @@ impl ActiveSet {
     // When u(A) = u(C) and u(B) = u(D), that is "not flipped".
     // When u(A) = u(D) and u(B) = u(C), that is "flipped".
     fn try_resolution(
+        &self,
         pm_id: usize,
         pm_step: &ProofStep,
         pm_literal_index: usize,
@@ -155,7 +156,7 @@ impl ActiveSet {
         res_step: &ProofStep,
         res_literal_index: usize,
         flipped: bool,
-    ) -> Option<Clause> {
+    ) -> Option<ProofStep> {
         let pm_clause = &pm_step.clause;
         let res_clause = &res_step.clause;
 
@@ -223,7 +224,11 @@ impl ActiveSet {
             }
             literals.push(unifier.apply_to_literal(Scope::Right, literal));
         }
-        Some(Clause::new(literals))
+
+        // Gather the output data
+        let clause = Clause::new(literals);
+        let step = ProofStep::new_superposition(pm_id, pm_step, res_id, res_step, clause);
+        Some(step)
     }
 
     // Look for superposition inferences using a paramodulator which is not yet in the
@@ -265,7 +270,7 @@ impl ActiveSet {
                         continue;
                     }
                     if target.path.is_empty() {
-                        if let Some(new_clause) = ActiveSet::try_resolution(
+                        if let Some(new_step) = self.try_resolution(
                             pm_id,
                             pm_step,
                             i,
@@ -274,13 +279,7 @@ impl ActiveSet {
                             target.literal_index,
                             pm_forwards ^ target.forwards,
                         ) {
-                            results.push(ProofStep::new_superposition(
-                                pm_id,
-                                &pm_step,
-                                target.step_index,
-                                self.get_step(target.step_index),
-                                new_clause,
-                            ));
+                            results.push(new_step);
                         }
                     }
                     if let Some(new_clause) = ActiveSet::try_superposition(
@@ -353,7 +352,7 @@ impl ActiveSet {
                             continue;
                         }
                         if path.is_empty() {
-                            if let Some(new_clause) = ActiveSet::try_resolution(
+                            if let Some(new_step) = self.try_resolution(
                                 target.step_index,
                                 pm_step,
                                 target.literal_index,
@@ -362,13 +361,7 @@ impl ActiveSet {
                                 i,
                                 target.forwards ^ res_forwards,
                             ) {
-                                results.push(ProofStep::new_superposition(
-                                    target.step_index,
-                                    &pm_step,
-                                    res_id,
-                                    &res_step,
-                                    new_clause,
-                                ));
+                                results.push(new_step);
                             }
                         }
                         if let Some(new_clause) = ActiveSet::try_superposition(
