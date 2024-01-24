@@ -271,13 +271,13 @@ impl ActiveSet {
                         // No global-global superposition
                         continue;
                     }
-                    if let Some(new_clause) = ActiveSet::try_superposition(
-                        s,
-                        t,
+                    if let Some(new_clause) = ActiveSet::try_resolution(
                         &pm_step.clause,
-                        u_subterm,
+                        i,
+                        pm_forwards,
                         &target.path,
                         &res_step.clause,
+                        target.literal_index,
                         target.forwards,
                     ) {
                         results.push(ProofStep::new_superposition(
@@ -288,13 +288,13 @@ impl ActiveSet {
                             new_clause,
                         ));
                     }
-                    if let Some(new_clause) = ActiveSet::try_resolution(
+                    if let Some(new_clause) = ActiveSet::try_superposition(
+                        s,
+                        t,
                         &pm_step.clause,
-                        i,
-                        pm_forwards,
+                        u_subterm,
                         &target.path,
                         &res_step.clause,
-                        target.literal_index,
                         target.forwards,
                     ) {
                         results.push(ProofStep::new_superposition(
@@ -357,13 +357,13 @@ impl ActiveSet {
                             // I don't think we should paramodulate into "true"
                             continue;
                         }
-                        if let Some(new_clause) = ActiveSet::try_superposition(
-                            s,
-                            t,
+                        if let Some(new_clause) = ActiveSet::try_resolution(
                             &pm_step.clause,
-                            u_subterm,
+                            target.literal_index,
+                            target.forwards,
                             &path,
                             &res_step.clause,
+                            i,
                             res_forwards,
                         ) {
                             results.push(ProofStep::new_superposition(
@@ -374,13 +374,13 @@ impl ActiveSet {
                                 new_clause,
                             ));
                         }
-                        if let Some(new_clause) = ActiveSet::try_resolution(
+                        if let Some(new_clause) = ActiveSet::try_superposition(
+                            s,
+                            t,
                             &pm_step.clause,
-                            target.literal_index,
-                            target.forwards,
+                            u_subterm,
                             &path,
                             &res_step.clause,
-                            i,
                             res_forwards,
                         ) {
                             results.push(ProofStep::new_superposition(
