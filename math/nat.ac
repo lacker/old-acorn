@@ -293,6 +293,9 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by
         if f(z) {
             forall(x: Nat, y: Nat) {
                 if lte(x, y) & lte(y, Suc(z)) {
+                    exists(d: Nat) { add(x, d) = y }
+                    exists(e: Nat) { add(y, e) = Suc(z) }
+                    add(x, add(d, e)) = Suc(z)
                     lte(x, Suc(z))
                 }
                 lte_trans(x, y, Suc(z))
@@ -300,13 +303,6 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by
             f(Suc(z))
         }
     }
-}
-
-theorem lt_add_suc(a: Nat, b: Nat): lt(a, add(a, Suc(b)))
-
-theorem lt_suc(a: Nat): lt(a, Suc(a)) by {
-    Suc(a) = add(a, 1)
-    Suc(a) = add(a, Suc(0))
 }
 
 theorem add_cancels_left(a: Nat, b: Nat, c: Nat): add(a, b) = add(a, c) -> b = c by {
@@ -335,6 +331,20 @@ theorem add_cancels_right(a: Nat, b: Nat, c: Nat): add(b, a) = add(c, a) -> b = 
 }
 
 theorem add_identity_right(a: Nat, b: Nat): add(a, b) = a -> b = 0
+
+theorem lt_add_suc(a: Nat, b: Nat): lt(a, add(a, Suc(b))) by {
+    lte(a, add(a, Suc(b)))
+    if a = add(a, Suc(b)) {
+        add(a, 0) = add(a, Suc(b))
+        0 = Suc(b)
+        false
+    }
+}
+
+theorem lt_suc(a: Nat): lt(a, Suc(a)) by {
+    Suc(a) = add(a, 1)
+    Suc(a) = add(a, Suc(0))
+}
 
 theorem lt_suc_left(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
     if lt(a, b) {

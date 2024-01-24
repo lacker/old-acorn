@@ -136,11 +136,10 @@ impl ActiveSet {
             return None;
         }
 
-        // TODO: make this work.
         // This constraint makes superposition only handle the "rewrite" case.
-        // if !unifier.right_reversible() {
-        //     return None;
-        // }
+        if !unifier.right_reversible() {
+            return None;
+        }
 
         let literal =
             unifier.superpose_literals(t, u_subterm_path, &res_clause.literals[0], res_forwards);
