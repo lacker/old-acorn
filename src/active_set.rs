@@ -141,19 +141,18 @@ impl ActiveSet {
         return Some(Clause::new(vec![literal]));
     }
 
-    // Tries to do a resolution from two clauses, but may fail to unify.
+    // Tries to do a resolution from two clauses. This works when two literals can be unified
+    // in such a way that they contradict each other.
     //
-    // The pm clause is:
-    //   s = t | S
-    // The res clause is:
-    //   u ?= v | R
+    // There are two ways that A = B and C != D can contradict.
+    // When u(A) = u(C) and u(B) = u(D), that is "not flipped".
+    // When u(A) = u(D) and u(B) = u(C), that is "flipped".
     fn try_resolution(
         pm_clause: &Clause,
         pm_literal_index: usize,
-        pm_forwards: bool,
         res_clause: &Clause,
         res_literal_index: usize,
-        res_forwards: bool,
+        flipped: bool,
     ) -> Option<Clause> {
         if pm_clause.len() == 1 && res_clause.len() == 1 {
             // TODO: allow these circumstances
@@ -186,11 +185,6 @@ impl ActiveSet {
             }
             return None;
         }
-
-        // There are two ways that A = B and C != D can be resolved after unification.
-        // When u(A) = u(C) and u(B) = u(D), that is "not flipped".
-        // When u(A) = u(D) and u(B) = u(C), that is "flipped".
-        let flipped = pm_forwards ^ res_forwards;
 
         let mut unifier = Unifier::new();
 
@@ -269,10 +263,9 @@ impl ActiveSet {
                         if let Some(new_clause) = ActiveSet::try_resolution(
                             &pm_step.clause,
                             i,
-                            pm_forwards,
                             &res_step.clause,
                             target.literal_index,
-                            target.forwards,
+                            pm_forwards ^ target.forwards,
                         ) {
                             results.push(ProofStep::new_superposition(
                                 pm_id,
@@ -356,10 +349,9 @@ impl ActiveSet {
                             if let Some(new_clause) = ActiveSet::try_resolution(
                                 &pm_step.clause,
                                 target.literal_index,
-                                target.forwards,
                                 &res_step.clause,
                                 i,
-                                res_forwards,
+                                target.forwards ^ res_forwards,
                             ) {
                                 results.push(ProofStep::new_superposition(
                                     target.step_index,
