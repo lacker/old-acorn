@@ -160,11 +160,6 @@ impl ActiveSet {
         let pm_clause = &pm_step.clause;
         let res_clause = &res_step.clause;
 
-        if pm_clause.len() == 1 && res_clause.len() == 1 {
-            // TODO: allow these circumstances
-            return None;
-        }
-
         // The paramodulator is always positive, so to do resolution the resolver has to be negative.
         if res_clause.literals[res_index].positive {
             return None;
