@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
 
@@ -161,6 +161,14 @@ impl ActiveSet {
         let literal =
             unifier.superpose_literals(t, u_subterm_path, &res_clause.literals[0], res_forwards);
         return Some(Clause::new(vec![literal]));
+    }
+
+    // Finds all resolutions that can be done with a given proof step.
+    pub fn find_resolutions(&self, step_id: usize, step: &ProofStep) -> Vec<ProofStep> {
+        if EXPERIMENT {
+            todo!();
+        }
+        vec![]
     }
 
     // Tries to do a resolution from two clauses. This works when two literals can be unified
@@ -729,6 +737,10 @@ impl ActiveSet {
                 Rule::FunctionElimination(activated_id),
                 clause,
             ));
+        }
+
+        for step in self.find_resolutions(activated_id, &activated_step) {
+            generated_steps.push(step);
         }
 
         for step in self.activate_paramodulator(activated_id, &activated_step) {
