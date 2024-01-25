@@ -22,31 +22,46 @@ pub struct ActiveSet {
     // A LiteralSet for checking specific literals we already know, including generalization
     literal_set: LiteralSet,
 
-    resolution_targets: FingerprintTree<ResolutionTarget>,
+    rewrite_targets: FingerprintTree<RewriteTarget>,
 
     paramodulation_targets: FingerprintTree<ParamodulationTarget>,
+
+    positive_res_targets: FingerprintTree<ResolutionTarget>,
+
+    negative_res_targets: FingerprintTree<ResolutionTarget>,
 }
 
-// A ResolutionTarget represents one a subterm within an active clause.
-// So, in foo(bar(x)) = baz, bar(x) could be a resolution target.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+// A ResolutionTarget represents a literal that could be resolved against.
 struct ResolutionTarget {
     // Which proof step the resolution target is in.
-    // For resolution, the literal can be either positive or negative.
     step_index: usize,
 
     // Which literal within the clause the resolution target is in.
-    // We assume the resolution target is the first term in the literal. (Is that okay?)
     literal_index: usize,
 
-    // "forwards" resolution is when we rewrite u in a literal u ?= v.
-    // "backwards" resolution is when we rewrite u in a literal v ?= u.
-    // You could call this "left" but it's nice to be parallel to the paramodulation target.
-    forwards: bool,
+    // Whether we index starting with the left term of the literal.
+    // (As opposed to the right term.)
+    left: bool,
+}
 
-    // We resolve against subterms. This is the path from the root term to the subterm to
-    // resolve against.
-    // An empty path means resolve against the root.
+// A RewriteTarget represents one a subterm within an active clause.
+// So, in foo(bar(x)) = baz, bar(x) could be a rewrite target.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct RewriteTarget {
+    // Which proof step the rewrite target is in.
+    // The literal can be either positive or negative.
+    step_index: usize,
+
+    // Which literal within the clause the rewrite target is in.
+    // TODO: remove
+    literal_index: usize,
+
+    // Whether we are rewriting the left term of the literal.
+    // (As opposed to the right one.)
+    left: bool,
+
+    // We rewrite subterms. This is the path from the root term to the subterm.
+    // An empty path means rewrite at the root.
     path: Vec<usize>,
 }
 
@@ -72,8 +87,10 @@ impl ActiveSet {
             steps: vec![],
             clause_set: HashSet::new(),
             literal_set: LiteralSet::new(),
-            resolution_targets: FingerprintTree::new(),
+            rewrite_targets: FingerprintTree::new(),
             paramodulation_targets: FingerprintTree::new(),
+            positive_res_targets: FingerprintTree::new(),
+            negative_res_targets: FingerprintTree::new(),
         }
     }
 
@@ -81,10 +98,10 @@ impl ActiveSet {
         self.steps.len()
     }
 
-    fn get_resolution_term(&self, target: &ResolutionTarget) -> &Term {
+    fn get_resolution_term(&self, target: &RewriteTarget) -> &Term {
         let clause = self.get_clause(target.step_index);
         let literal = &clause.literals[target.literal_index];
-        let mut term = if target.forwards {
+        let mut term = if target.left {
             &literal.left
         } else {
             &literal.right
@@ -259,7 +276,7 @@ impl ActiveSet {
                 }
 
                 // Look for resolution targets that match s
-                let targets = self.resolution_targets.get_unifying(s);
+                let targets = self.rewrite_targets.get_unifying(s);
                 for target in targets {
                     let u_subterm = self.get_resolution_term(target);
                     let res_step = self.get_step(target.step_index);
@@ -277,7 +294,7 @@ impl ActiveSet {
                             target.step_index,
                             res_step,
                             target.literal_index,
-                            pm_forwards ^ target.forwards,
+                            pm_forwards ^ target.left,
                         ) {
                             results.push(new_step);
                         }
@@ -289,7 +306,7 @@ impl ActiveSet {
                         u_subterm,
                         &target.path,
                         &res_step.clause,
-                        target.forwards,
+                        target.left,
                     ) {
                         results.push(ProofStep::new_superposition(
                             pm_id,
@@ -599,26 +616,50 @@ impl ActiveSet {
         Some(step.simplify(simplified_clause, new_rules, new_truthiness))
     }
 
-    // Add all the resolution targets for a given literal.
+    // Add all the rewrite targets for a given literal.
+    fn add_rewrite_targets(&mut self, step_index: usize, literal_index: usize, literal: &Literal) {
+        for (forwards, from, _) in literal.both_term_pairs() {
+            for (path, subterm) in from.non_variable_subterms() {
+                self.rewrite_targets.insert(
+                    subterm,
+                    RewriteTarget {
+                        step_index,
+                        literal_index,
+                        left: forwards,
+                        path,
+                    },
+                );
+            }
+        }
+    }
+
     fn add_resolution_targets(
         &mut self,
         step_index: usize,
         literal_index: usize,
         literal: &Literal,
     ) {
-        for (forwards, from, _) in literal.both_term_pairs() {
-            for (path, subterm) in from.non_variable_subterms() {
-                self.resolution_targets.insert(
-                    subterm,
-                    ResolutionTarget {
-                        step_index,
-                        literal_index,
-                        forwards,
-                        path,
-                    },
-                );
-            }
-        }
+        let tree = if literal.positive {
+            &mut self.positive_res_targets
+        } else {
+            &mut self.negative_res_targets
+        };
+        tree.insert(
+            &literal.left,
+            ResolutionTarget {
+                step_index,
+                literal_index,
+                left: true,
+            },
+        );
+        tree.insert(
+            &literal.right,
+            ResolutionTarget {
+                step_index,
+                literal_index,
+                left: false,
+            },
+        );
     }
 
     // Adds a clause so that it becomes available for resolution and paramodulation.
@@ -630,6 +671,7 @@ impl ActiveSet {
         // Add resolution targets for the new clause.
         // Use any literal for resolution.
         for (i, literal) in clause.literals.iter().enumerate() {
+            self.add_rewrite_targets(step_index, i, literal);
             self.add_resolution_targets(step_index, i, literal);
         }
 
