@@ -164,11 +164,43 @@ impl ActiveSet {
     }
 
     // Finds all resolutions that can be done with a given proof step.
-    pub fn find_resolutions(&self, step_id: usize, step: &ProofStep) -> Vec<ProofStep> {
+    // The "new clause" is the one that is being activated, and the "old clause" is the existing one.
+    pub fn find_resolutions(&self, new_step_id: usize, new_step: &ProofStep) -> Vec<ProofStep> {
+        let mut results = vec![];
         if EXPERIMENT {
-            todo!();
+            for (i, new_literal) in new_step.clause.literals.iter().enumerate() {
+                let target_map = if new_literal.positive {
+                    &self.negative_res_targets
+                } else {
+                    &self.positive_res_targets
+                };
+                for (forwards, s, _) in new_literal.both_term_pairs() {
+                    let targets = target_map.get_unifying(s);
+                    for target in targets {
+                        let old_step = self.get_step(target.step_index);
+                        if new_step.truthiness == Truthiness::Factual
+                            && old_step.truthiness == Truthiness::Factual
+                        {
+                            // No global-global resolution
+                            continue;
+                        }
+                        let flipped = target.left != forwards;
+                        if let Some(new_step) = self.try_resolution(
+                            new_step_id,
+                            new_step,
+                            i,
+                            target.step_index,
+                            old_step,
+                            target.literal_index,
+                            flipped,
+                        ) {
+                            results.push(new_step);
+                        }
+                    }
+                }
+            }
         }
-        vec![]
+        results
     }
 
     // Tries to do a resolution from two clauses. This works when two literals can be unified
@@ -177,21 +209,23 @@ impl ActiveSet {
     // There are two ways that A = B and C != D can contradict.
     // When u(A) = u(C) and u(B) = u(D), that is "not flipped".
     // When u(A) = u(D) and u(B) = u(C), that is "flipped".
+    //
+    // To do resolution, one of the literals must be positive, and the other must be negative.
     fn try_resolution(
         &self,
-        pm_id: usize,
-        pm_step: &ProofStep,
-        pm_index: usize,
-        res_id: usize,
-        res_step: &ProofStep,
-        res_index: usize,
+        pos_id: usize,
+        pos_step: &ProofStep,
+        pos_index: usize,
+        neg_id: usize,
+        neg_step: &ProofStep,
+        neg_index: usize,
         flipped: bool,
     ) -> Option<ProofStep> {
-        let pm_clause = &pm_step.clause;
-        let res_clause = &res_step.clause;
+        let pos_clause = &pos_step.clause;
+        let neg_clause = &neg_step.clause;
 
-        // The paramodulator is always positive, so to do resolution the resolver has to be negative.
-        if res_clause.literals[res_index].positive {
+        // TODO: do this check outside try_resolution.
+        if neg_clause.literals[neg_index].positive {
             return None;
         }
 
@@ -199,10 +233,10 @@ impl ActiveSet {
         // in the shorter clause are either non-variable dupes or the one that is being canceled.
         // Let's be sure those are the only ones we are using.
         let (short_clause, short_index, long_clause, long_index) =
-            if pm_clause.len() < res_clause.len() {
-                (pm_clause, pm_index, res_clause, res_index)
+            if pos_clause.len() < neg_clause.len() {
+                (pos_clause, pos_index, neg_clause, neg_index)
             } else {
-                (res_clause, res_index, pm_clause, pm_index)
+                (neg_clause, neg_index, pos_clause, pos_index)
             };
         for (i, literal) in short_clause.literals.iter().enumerate() {
             if i == short_index {
@@ -252,7 +286,7 @@ impl ActiveSet {
 
         // Gather the output data
         let clause = Clause::new(literals);
-        let step = ProofStep::new_resolution(pm_id, pm_step, res_id, res_step, clause);
+        let step = ProofStep::new_resolution(pos_id, pos_step, neg_id, neg_step, clause);
         Some(step)
     }
 
