@@ -22,12 +22,16 @@ pub struct ActiveSet {
     // A LiteralSet for checking specific literals we already know, including generalization
     literal_set: LiteralSet,
 
+    // An index of all the subterms that can be rewritten.
     rewrite_targets: FingerprintTree<RewriteTarget>,
 
-    paramodulation_targets: FingerprintTree<ParamodulationTarget>,
+    // An index of all the ways to rewrite subterms.
+    rewrite_patterns: FingerprintTree<RewritePattern>,
 
+    // An index of all the positive literals that we can do resolution with.
     positive_res_targets: FingerprintTree<ResolutionTarget>,
 
+    // An index of all the negative literals that we can do resolution with.
     negative_res_targets: FingerprintTree<ResolutionTarget>,
 }
 
@@ -44,8 +48,9 @@ struct ResolutionTarget {
     left: bool,
 }
 
-// A RewriteTarget represents one a subterm within an active clause.
+// A RewriteTarget represents a subterm within an active clause, that could be rewritten.
 // So, in foo(bar(x)) = baz, bar(x) could be a rewrite target.
+// We only rewrite within single literals.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct RewriteTarget {
     // Which proof step the rewrite target is in.
@@ -65,19 +70,26 @@ struct RewriteTarget {
     path: Vec<usize>,
 }
 
-// A ParamodulationTarget represents one side of a literal within an active clause.
-// So, in foo(bar(x)) = baz, bar(x) could *not* be a paramodulation target.
-// Only the whole foo(bar(x)).
+// A RewritePattern represents a way to rewrite a subterm.
+// It must correspond to a single positive literal.
+// For example, the pattern:
+//
+//   foo(bar(x)) = baz
+//
+// represents a rewrite that could change:
+//
+//   qux(foo(bar(zip))) -> qux(baz)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct ParamodulationTarget {
-    // Which proof step the paramodulation target is in.
+struct RewritePattern {
+    // Which proof step to use as a rewrite pattern.
     step_index: usize,
 
     // Which literal within the clause the paramodulation target is in.
+    // TODO: remove
     literal_index: usize,
 
-    // "forwards" paramodulation is when we use s = t to rewrite s to t.
-    // "backwards" paramodulation is when we use s = t to rewrite t to s.
+    // "forwards" rewriting is when we use s = t to rewrite s to t.
+    // "backwards" rewriting is when we use s = t to rewrite t to s.
     forwards: bool,
 }
 
@@ -88,7 +100,7 @@ impl ActiveSet {
             clause_set: HashSet::new(),
             literal_set: LiteralSet::new(),
             rewrite_targets: FingerprintTree::new(),
-            paramodulation_targets: FingerprintTree::new(),
+            rewrite_patterns: FingerprintTree::new(),
             positive_res_targets: FingerprintTree::new(),
             negative_res_targets: FingerprintTree::new(),
         }
@@ -303,19 +315,7 @@ impl ActiveSet {
 
     // Look for superposition inferences using a paramodulator which is not yet in the
     // active set.
-    // At a high level, this is when we have just learned that s = t in some circumstances,
-    // and we are looking for all the conclusions we can infer by rewriting s -> t
-    // in existing formulas.
-    //
-    // Specifically, this function handles the case when
-    //
-    //   s = t | S  (pm_clause)
-    //
-    // is the clause that is being activated, and we are searching for any clauses that can fit the
-    //
-    //   u ?= v | R
-    //
-    // in the superposition formula.
+    // TODO: rename this to not say "paramodulator"
     pub fn activate_paramodulator(&self, pm_id: usize, pm_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
         for pm_literal in &pm_step.clause.literals {
@@ -389,7 +389,7 @@ impl ActiveSet {
                     }
 
                     // Look for paramodulation targets that match u_subterm
-                    let targets = self.paramodulation_targets.get_unifying(u_subterm);
+                    let targets = self.rewrite_patterns.get_unifying(u_subterm);
                     for target in targets {
                         let pm_step = self.get_step(target.step_index);
                         if pm_step.truthiness == Truthiness::Factual
@@ -699,16 +699,16 @@ impl ActiveSet {
         // Use any literal for resolution.
         for (i, literal) in clause.literals.iter().enumerate() {
             self.add_rewrite_targets(step_index, i, literal);
-            self.add_resolution_targets(step_index, i, literal);
         }
 
         // Add paramodulation targets for the new clause.
         // Use any literal for paramodulation.
         for (i, literal) in clause.literals.iter().enumerate() {
+            self.add_resolution_targets(step_index, i, literal);
             for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
-                self.paramodulation_targets.insert(
+                self.rewrite_patterns.insert(
                     from,
-                    ParamodulationTarget {
+                    RewritePattern {
                         step_index,
                         literal_index: i,
                         forwards,
@@ -758,12 +758,15 @@ impl ActiveSet {
             ));
         }
 
-        for step in self.activate_paramodulator(activated_id, &activated_step) {
-            generated_steps.push(step);
-        }
+        if activated_step.clause.len() == 1 {
+            // Look for rewrites.
+            for step in self.activate_paramodulator(activated_id, &activated_step) {
+                generated_steps.push(step);
+            }
 
-        for step in self.activate_resolver(activated_id, &activated_step) {
-            generated_steps.push(step);
+            for step in self.activate_resolver(activated_id, &activated_step) {
+                generated_steps.push(step);
+            }
         }
 
         for step in self.find_resolutions(activated_id, &activated_step) {
