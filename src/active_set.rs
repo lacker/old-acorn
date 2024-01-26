@@ -307,7 +307,7 @@ impl ActiveSet {
 
     // Look for superposition inferences using a paramodulator which is not yet in the
     // active set.
-    pub fn activate_paramodulator(&self, pm_id: usize, pm_step: &ProofStep) -> Vec<ProofStep> {
+    pub fn activate_rewrite_pattern(&self, pm_id: usize, pm_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
         assert!(pm_step.clause.len() == 1);
         let pm_literal = &pm_step.clause.literals[0];
@@ -368,7 +368,7 @@ impl ActiveSet {
     //   s = t | S
     //
     // in the superposition formula.
-    pub fn activate_resolver(&self, res_id: usize, res_step: &ProofStep) -> Vec<ProofStep> {
+    pub fn activate_rewrite_target(&self, res_id: usize, res_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
         assert!(res_step.clause.len() == 1);
         let res_literal = &res_step.clause.literals[0];
@@ -752,12 +752,15 @@ impl ActiveSet {
         }
 
         if activated_step.clause.len() == 1 {
-            // Look for rewrites.
-            for step in self.activate_paramodulator(activated_id, &activated_step) {
-                generated_steps.push(step);
+            if activated_step.clause.literals[0].positive {
+                // The activated step could be used as a rewrite pattern.
+                for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
+                    generated_steps.push(step);
+                }
             }
 
-            for step in self.activate_resolver(activated_id, &activated_step) {
+            // The activated step could be rewritten itself.
+            for step in self.activate_rewrite_target(activated_id, &activated_step) {
                 generated_steps.push(step);
             }
         }
@@ -813,7 +816,7 @@ mod tests {
 
         // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
         let pm_step = ProofStep::mock("c1 = c3");
-        let result = set.activate_paramodulator(0, &pm_step);
+        let result = set.activate_rewrite_pattern(0, &pm_step);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
@@ -833,7 +836,7 @@ mod tests {
         // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
         let mut res_step = ProofStep::mock("c0(c3) = c2");
         res_step.truthiness = Truthiness::Hypothetical;
-        let result = set.activate_resolver(0, &res_step);
+        let result = set.activate_rewrite_target(0, &res_step);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
