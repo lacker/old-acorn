@@ -305,8 +305,7 @@ impl ActiveSet {
         Some(step)
     }
 
-    // Look for superposition inferences using a paramodulator which is not yet in the
-    // active set.
+    // When we have a new rewrite pattern, find everything that we can rewrite with it.
     pub fn activate_rewrite_pattern(&self, pm_id: usize, pm_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
         assert!(pm_step.clause.len() == 1);
@@ -315,7 +314,7 @@ impl ActiveSet {
             // TODO: pull this check out
             return vec![];
         }
-        for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
+        for (_, s, t) in pm_literal.both_term_pairs() {
             if s.is_true() {
                 // I don't think we should rewrite from "true"
                 continue;
@@ -378,18 +377,19 @@ impl ActiveSet {
 
             for (path, u_subterm) in u_subterms {
                 if res_literal.positive && path.is_empty() {
-                    // We already handle the u = s case in activate_paramodulator.
+                    // We already handle the u = s case in activate_rewrite_pattern.
+                    // TODO: handle the "top level transitive equality" case separately.
                     continue;
                 }
 
-                // Look for paramodulation targets that match u_subterm
+                // Look for ways to rewrite u_subterm
                 let targets = self.rewrite_patterns.get_unifying(u_subterm);
                 for target in targets {
                     let pm_step = self.get_step(target.step_index);
                     if pm_step.truthiness == Truthiness::Factual
                         && res_step.truthiness == Truthiness::Factual
                     {
-                        // No global-global superposition
+                        // No global-global rewrites
                         continue;
                     }
                     let pm_literal = &pm_step.clause.literals[0];
@@ -399,7 +399,7 @@ impl ActiveSet {
                         (&pm_literal.right, &pm_literal.left)
                     };
                     if s.is_true() {
-                        // I don't think we should paramodulate into "true"
+                        // I don't think we should rewrite "true"
                         continue;
                     }
                     if let Some(new_clause) = ActiveSet::try_superposition(
