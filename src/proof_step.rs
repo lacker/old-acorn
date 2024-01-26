@@ -181,11 +181,7 @@ impl PartialOrd for ProofStep {
 
 impl fmt::Display for ProofStep {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} atoms, {} proof size",
-            self.atom_count, self.proof_size
-        )
+        write!(f, "{} ; rule = {:?}", self.clause, self.rule)
     }
 }
 

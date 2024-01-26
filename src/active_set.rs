@@ -177,23 +177,39 @@ impl ActiveSet {
                 let targets = target_map.get_unifying(s);
                 for target in targets {
                     let old_step = self.get_step(target.step_index);
+                    let flipped = target.left != forwards;
+
                     if new_step.truthiness == Truthiness::Factual
                         && old_step.truthiness == Truthiness::Factual
                     {
                         // No global-global resolution
                         continue;
                     }
-                    let flipped = target.left != forwards;
-                    if let Some(new_step) = self.try_resolution(
-                        new_step_id,
-                        new_step,
-                        i,
-                        target.step_index,
-                        old_step,
-                        target.literal_index,
-                        flipped,
-                    ) {
-                        results.push(new_step);
+
+                    let step = if new_literal.positive {
+                        self.try_resolution(
+                            new_step_id,
+                            new_step,
+                            i,
+                            target.step_index,
+                            old_step,
+                            target.literal_index,
+                            flipped,
+                        )
+                    } else {
+                        self.try_resolution(
+                            target.step_index,
+                            old_step,
+                            target.literal_index,
+                            new_step_id,
+                            new_step,
+                            i,
+                            flipped,
+                        )
+                    };
+
+                    if let Some(step) = step {
+                        results.push(step);
                     }
                 }
             }
@@ -779,10 +795,19 @@ impl ActiveSet {
             generated_steps.push(step);
         }
 
-        // TODO: I'd like to generate resolutions this way, but it's not working. Debug
+        // TODO: Actually use this method instead of just double-checking with it
         let mut alt_steps = vec![];
         for step in self.find_resolutions(activated_id, &activated_step) {
             alt_steps.push(step);
+        }
+
+        // Check if alt_steps contains all the resolution-type generated steps
+        for step in &generated_steps {
+            if let Rule::Resolution(..) = step.rule {
+                if !alt_steps.contains(&step) {
+                    panic!("missing resolution step: {}", step);
+                }
+            }
         }
 
         self.insert(activated_step, activated_id);
