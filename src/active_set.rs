@@ -320,11 +320,11 @@ impl ActiveSet {
     // in the superposition formula.
     pub fn activate_paramodulator(&self, pm_id: usize, pm_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
-        for (i, pm_literal) in pm_step.clause.literals.iter().enumerate() {
+        for pm_literal in &pm_step.clause.literals {
             if !pm_literal.positive {
                 continue;
             }
-            for (pm_forwards, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
+            for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
                 if s.is_true() {
                     // I don't think we should paramodulate into "true"
                     continue;
@@ -380,7 +380,7 @@ impl ActiveSet {
     // in the superposition formula.
     pub fn activate_resolver(&self, res_id: usize, res_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
-        for (i, res_literal) in res_step.clause.literals.iter().enumerate() {
+        for res_literal in &res_step.clause.literals {
             for (res_forwards, u, _) in res_literal.both_term_pairs() {
                 let u_subterms = u.non_variable_subterms();
 
