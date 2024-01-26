@@ -294,7 +294,7 @@ impl ActiveSet {
                         // No global-global superposition
                         continue;
                     }
-                    if target.path.is_empty() {
+                    if !EXPERIMENT && target.path.is_empty() {
                         if let Some(new_step) = self.try_resolution(
                             pm_id,
                             pm_step,
@@ -376,7 +376,7 @@ impl ActiveSet {
                             // I don't think we should paramodulate into "true"
                             continue;
                         }
-                        if path.is_empty() {
+                        if !EXPERIMENT && path.is_empty() {
                             if let Some(new_step) = self.try_resolution(
                                 target.step_index,
                                 pm_step,
