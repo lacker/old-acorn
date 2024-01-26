@@ -698,22 +698,25 @@ impl ActiveSet {
         // Add resolution targets for the new clause.
         // Use any literal for resolution.
         for (i, literal) in clause.literals.iter().enumerate() {
-            self.add_rewrite_targets(step_index, i, literal);
+            self.add_resolution_targets(step_index, i, literal);
         }
 
         // Add paramodulation targets for the new clause.
         // Use any literal for paramodulation.
-        for (i, literal) in clause.literals.iter().enumerate() {
-            self.add_resolution_targets(step_index, i, literal);
-            for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
-                self.rewrite_patterns.insert(
-                    from,
-                    RewritePattern {
-                        step_index,
-                        literal_index: i,
-                        forwards,
-                    },
-                );
+        if clause.literals.len() == 1 {
+            for (i, literal) in clause.literals.iter().enumerate() {
+                self.add_rewrite_targets(step_index, i, literal);
+
+                for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
+                    self.rewrite_patterns.insert(
+                        from,
+                        RewritePattern {
+                            step_index,
+                            literal_index: i,
+                            forwards,
+                        },
+                    );
+                }
             }
         }
 
