@@ -57,10 +57,6 @@ struct RewriteTarget {
     // The literal can be either positive or negative.
     step_index: usize,
 
-    // Which literal within the clause the rewrite target is in.
-    // TODO: remove
-    literal_index: usize,
-
     // Whether we are rewriting the left term of the literal.
     // (As opposed to the right one.)
     left: bool,
@@ -84,10 +80,6 @@ struct RewritePattern {
     // Which proof step to use as a rewrite pattern.
     step_index: usize,
 
-    // Which literal within the clause the paramodulation target is in.
-    // TODO: remove
-    literal_index: usize,
-
     // "forwards" rewriting is when we use s = t to rewrite s to t.
     // "backwards" rewriting is when we use s = t to rewrite t to s.
     forwards: bool,
@@ -110,9 +102,9 @@ impl ActiveSet {
         self.steps.len()
     }
 
-    fn get_resolution_term(&self, target: &RewriteTarget) -> &Term {
+    fn get_subterm(&self, target: &RewriteTarget) -> &Term {
         let clause = self.get_clause(target.step_index);
-        let literal = &clause.literals[target.literal_index];
+        let literal = &clause.literals[0];
         let mut term = if target.left {
             &literal.left
         } else {
@@ -331,7 +323,7 @@ impl ActiveSet {
                 // Look for resolution targets that match s
                 let targets = self.rewrite_targets.get_unifying(s);
                 for target in targets {
-                    let u_subterm = self.get_resolution_term(target);
+                    let u_subterm = self.get_subterm(target);
                     let res_step = self.get_step(target.step_index);
                     if pm_step.truthiness == Truthiness::Factual
                         && res_step.truthiness == Truthiness::Factual
@@ -398,7 +390,7 @@ impl ActiveSet {
                             // No global-global superposition
                             continue;
                         }
-                        let pm_literal = &pm_step.clause.literals[target.literal_index];
+                        let pm_literal = &pm_step.clause.literals[0];
                         let (s, t) = if target.forwards {
                             (&pm_literal.left, &pm_literal.right)
                         } else {
@@ -644,14 +636,13 @@ impl ActiveSet {
     }
 
     // Add all the rewrite targets for a given literal.
-    fn add_rewrite_targets(&mut self, step_index: usize, literal_index: usize, literal: &Literal) {
+    fn add_rewrite_targets(&mut self, step_index: usize, literal: &Literal) {
         for (forwards, from, _) in literal.both_term_pairs() {
             for (path, subterm) in from.non_variable_subterms() {
                 self.rewrite_targets.insert(
                     subterm,
                     RewriteTarget {
                         step_index,
-                        literal_index,
                         left: forwards,
                         path,
                     },
@@ -705,14 +696,13 @@ impl ActiveSet {
         // Use any literal for paramodulation.
         if clause.literals.len() == 1 {
             let literal = &clause.literals[0];
-            self.add_rewrite_targets(step_index, 0, literal);
+            self.add_rewrite_targets(step_index, literal);
 
             for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
                 self.rewrite_patterns.insert(
                     from,
                     RewritePattern {
                         step_index,
-                        literal_index: 0,
                         forwards,
                     },
                 );
