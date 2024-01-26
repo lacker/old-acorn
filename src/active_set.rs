@@ -370,53 +370,54 @@ impl ActiveSet {
     // in the superposition formula.
     pub fn activate_resolver(&self, res_id: usize, res_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
-        for res_literal in &res_step.clause.literals {
-            for (res_forwards, u, _) in res_literal.both_term_pairs() {
-                let u_subterms = u.non_variable_subterms();
+        assert!(res_step.clause.len() == 1);
+        let res_literal = &res_step.clause.literals[0];
 
-                for (path, u_subterm) in u_subterms {
-                    if res_literal.positive && path.is_empty() {
-                        // We already handle the u = s case in activate_paramodulator.
+        for (res_forwards, u, _) in res_literal.both_term_pairs() {
+            let u_subterms = u.non_variable_subterms();
+
+            for (path, u_subterm) in u_subterms {
+                if res_literal.positive && path.is_empty() {
+                    // We already handle the u = s case in activate_paramodulator.
+                    continue;
+                }
+
+                // Look for paramodulation targets that match u_subterm
+                let targets = self.rewrite_patterns.get_unifying(u_subterm);
+                for target in targets {
+                    let pm_step = self.get_step(target.step_index);
+                    if pm_step.truthiness == Truthiness::Factual
+                        && res_step.truthiness == Truthiness::Factual
+                    {
+                        // No global-global superposition
                         continue;
                     }
-
-                    // Look for paramodulation targets that match u_subterm
-                    let targets = self.rewrite_patterns.get_unifying(u_subterm);
-                    for target in targets {
-                        let pm_step = self.get_step(target.step_index);
-                        if pm_step.truthiness == Truthiness::Factual
-                            && res_step.truthiness == Truthiness::Factual
-                        {
-                            // No global-global superposition
-                            continue;
-                        }
-                        let pm_literal = &pm_step.clause.literals[0];
-                        let (s, t) = if target.forwards {
-                            (&pm_literal.left, &pm_literal.right)
-                        } else {
-                            (&pm_literal.right, &pm_literal.left)
-                        };
-                        if s.is_true() {
-                            // I don't think we should paramodulate into "true"
-                            continue;
-                        }
-                        if let Some(new_clause) = ActiveSet::try_superposition(
-                            s,
-                            t,
-                            &pm_step.clause,
-                            u_subterm,
-                            &path,
-                            &res_step.clause,
-                            res_forwards,
-                        ) {
-                            results.push(ProofStep::new_superposition(
-                                target.step_index,
-                                &pm_step,
-                                res_id,
-                                &res_step,
-                                new_clause,
-                            ));
-                        }
+                    let pm_literal = &pm_step.clause.literals[0];
+                    let (s, t) = if target.forwards {
+                        (&pm_literal.left, &pm_literal.right)
+                    } else {
+                        (&pm_literal.right, &pm_literal.left)
+                    };
+                    if s.is_true() {
+                        // I don't think we should paramodulate into "true"
+                        continue;
+                    }
+                    if let Some(new_clause) = ActiveSet::try_superposition(
+                        s,
+                        t,
+                        &pm_step.clause,
+                        u_subterm,
+                        &path,
+                        &res_step.clause,
+                        res_forwards,
+                    ) {
+                        results.push(ProofStep::new_superposition(
+                            target.step_index,
+                            &pm_step,
+                            res_id,
+                            &res_step,
+                            new_clause,
+                        ));
                     }
                 }
             }
