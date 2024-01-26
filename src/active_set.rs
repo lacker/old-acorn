@@ -173,44 +173,43 @@ impl ActiveSet {
             } else {
                 &self.positive_res_targets
             };
-            for (forwards, s, _) in new_literal.both_term_pairs() {
-                let targets = target_map.get_unifying(s);
-                for target in targets {
-                    let old_step = self.get_step(target.step_index);
-                    let flipped = target.left != forwards;
 
-                    if new_step.truthiness == Truthiness::Factual
-                        && old_step.truthiness == Truthiness::Factual
-                    {
-                        // No global-global resolution
-                        continue;
-                    }
+            let targets = target_map.get_unifying(&new_literal.left);
+            for target in targets {
+                let old_step = self.get_step(target.step_index);
+                let flipped = !target.left;
 
-                    let step = if new_literal.positive {
-                        self.try_resolution(
-                            new_step_id,
-                            new_step,
-                            i,
-                            target.step_index,
-                            old_step,
-                            target.literal_index,
-                            flipped,
-                        )
-                    } else {
-                        self.try_resolution(
-                            target.step_index,
-                            old_step,
-                            target.literal_index,
-                            new_step_id,
-                            new_step,
-                            i,
-                            flipped,
-                        )
-                    };
+                if new_step.truthiness == Truthiness::Factual
+                    && old_step.truthiness == Truthiness::Factual
+                {
+                    // No global-global resolution
+                    continue;
+                }
 
-                    if let Some(step) = step {
-                        results.push(step);
-                    }
+                let step = if new_literal.positive {
+                    self.try_resolution(
+                        new_step_id,
+                        new_step,
+                        i,
+                        target.step_index,
+                        old_step,
+                        target.literal_index,
+                        flipped,
+                    )
+                } else {
+                    self.try_resolution(
+                        target.step_index,
+                        old_step,
+                        target.literal_index,
+                        new_step_id,
+                        new_step,
+                        i,
+                        flipped,
+                    )
+                };
+
+                if let Some(step) = step {
+                    results.push(step);
                 }
             }
         }
@@ -342,19 +341,6 @@ impl ActiveSet {
                         // No global-global superposition
                         continue;
                     }
-                    if target.path.is_empty() {
-                        if let Some(new_step) = self.try_resolution(
-                            pm_id,
-                            pm_step,
-                            i,
-                            target.step_index,
-                            res_step,
-                            target.literal_index,
-                            pm_forwards ^ target.left,
-                        ) {
-                            results.push(new_step);
-                        }
-                    }
                     if let Some(new_clause) = ActiveSet::try_superposition(
                         s,
                         t,
@@ -423,19 +409,6 @@ impl ActiveSet {
                         if s.is_true() {
                             // I don't think we should paramodulate into "true"
                             continue;
-                        }
-                        if path.is_empty() {
-                            if let Some(new_step) = self.try_resolution(
-                                target.step_index,
-                                pm_step,
-                                target.literal_index,
-                                res_id,
-                                res_step,
-                                i,
-                                target.forwards ^ res_forwards,
-                            ) {
-                                results.push(new_step);
-                            }
                         }
                         if let Some(new_clause) = ActiveSet::try_superposition(
                             s,
@@ -795,19 +768,8 @@ impl ActiveSet {
             generated_steps.push(step);
         }
 
-        // TODO: Actually use this method instead of just double-checking with it
-        let mut alt_steps = vec![];
         for step in self.find_resolutions(activated_id, &activated_step) {
-            alt_steps.push(step);
-        }
-
-        // Check if alt_steps contains all the resolution-type generated steps
-        for step in &generated_steps {
-            if let Rule::Resolution(..) = step.rule {
-                if !alt_steps.contains(&step) {
-                    panic!("missing resolution step: {}", step);
-                }
-            }
+            generated_steps.push(step);
         }
 
         self.insert(activated_step, activated_id);
@@ -903,20 +865,6 @@ mod tests {
         // This is a bug we ran into. It shouldn't work
         let unresolvable_clause = Clause::parse("c0(x0, c0(x1, c1(x2))) != c0(c0(x2, x1), x0)");
         assert!(ActiveSet::equality_resolution(&unresolvable_clause).is_none());
-    }
-
-    #[test]
-    fn test_select_all_literals_for_paramodulation() {
-        let mut set = ActiveSet::new();
-        let mut step = ProofStep::mock("c1 != c0(x0) | c2 = c3");
-        step.truthiness = Truthiness::Factual;
-        set.insert(step, 0);
-        let mut res_step = ProofStep::mock("c2 != c3");
-        res_step.truthiness = Truthiness::Counterfactual;
-        let result = set.activate_resolver(0, &res_step);
-        // It could be a duplicate if we relax the paramodulation rules.
-        // assert_eq!(result.len(), 1);
-        assert_eq!(result[0].clause.to_string(), "c1 != c0(x0)".to_string());
     }
 
     #[test]
