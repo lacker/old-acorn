@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
 
@@ -167,35 +167,33 @@ impl ActiveSet {
     // The "new clause" is the one that is being activated, and the "old clause" is the existing one.
     pub fn find_resolutions(&self, new_step_id: usize, new_step: &ProofStep) -> Vec<ProofStep> {
         let mut results = vec![];
-        if EXPERIMENT {
-            for (i, new_literal) in new_step.clause.literals.iter().enumerate() {
-                let target_map = if new_literal.positive {
-                    &self.negative_res_targets
-                } else {
-                    &self.positive_res_targets
-                };
-                for (forwards, s, _) in new_literal.both_term_pairs() {
-                    let targets = target_map.get_unifying(s);
-                    for target in targets {
-                        let old_step = self.get_step(target.step_index);
-                        if new_step.truthiness == Truthiness::Factual
-                            && old_step.truthiness == Truthiness::Factual
-                        {
-                            // No global-global resolution
-                            continue;
-                        }
-                        let flipped = target.left != forwards;
-                        if let Some(new_step) = self.try_resolution(
-                            new_step_id,
-                            new_step,
-                            i,
-                            target.step_index,
-                            old_step,
-                            target.literal_index,
-                            flipped,
-                        ) {
-                            results.push(new_step);
-                        }
+        for (i, new_literal) in new_step.clause.literals.iter().enumerate() {
+            let target_map = if new_literal.positive {
+                &self.negative_res_targets
+            } else {
+                &self.positive_res_targets
+            };
+            for (forwards, s, _) in new_literal.both_term_pairs() {
+                let targets = target_map.get_unifying(s);
+                for target in targets {
+                    let old_step = self.get_step(target.step_index);
+                    if new_step.truthiness == Truthiness::Factual
+                        && old_step.truthiness == Truthiness::Factual
+                    {
+                        // No global-global resolution
+                        continue;
+                    }
+                    let flipped = target.left != forwards;
+                    if let Some(new_step) = self.try_resolution(
+                        new_step_id,
+                        new_step,
+                        i,
+                        target.step_index,
+                        old_step,
+                        target.literal_index,
+                        flipped,
+                    ) {
+                        results.push(new_step);
                     }
                 }
             }
@@ -328,7 +326,7 @@ impl ActiveSet {
                         // No global-global superposition
                         continue;
                     }
-                    if !EXPERIMENT && target.path.is_empty() {
+                    if target.path.is_empty() {
                         if let Some(new_step) = self.try_resolution(
                             pm_id,
                             pm_step,
@@ -410,7 +408,7 @@ impl ActiveSet {
                             // I don't think we should paramodulate into "true"
                             continue;
                         }
-                        if !EXPERIMENT && path.is_empty() {
+                        if path.is_empty() {
                             if let Some(new_step) = self.try_resolution(
                                 target.step_index,
                                 pm_step,
@@ -773,16 +771,18 @@ impl ActiveSet {
             ));
         }
 
-        for step in self.find_resolutions(activated_id, &activated_step) {
-            generated_steps.push(step);
-        }
-
         for step in self.activate_paramodulator(activated_id, &activated_step) {
             generated_steps.push(step);
         }
 
         for step in self.activate_resolver(activated_id, &activated_step) {
             generated_steps.push(step);
+        }
+
+        // TODO: I'd like to generate resolutions this way, but it's not working. Debug
+        let mut alt_steps = vec![];
+        for step in self.find_resolutions(activated_id, &activated_step) {
+            alt_steps.push(step);
         }
 
         self.insert(activated_step, activated_id);
