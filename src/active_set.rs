@@ -704,19 +704,18 @@ impl ActiveSet {
         // Add paramodulation targets for the new clause.
         // Use any literal for paramodulation.
         if clause.literals.len() == 1 {
-            for (i, literal) in clause.literals.iter().enumerate() {
-                self.add_rewrite_targets(step_index, i, literal);
+            let literal = &clause.literals[0];
+            self.add_rewrite_targets(step_index, 0, literal);
 
-                for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
-                    self.rewrite_patterns.insert(
-                        from,
-                        RewritePattern {
-                            step_index,
-                            literal_index: i,
-                            forwards,
-                        },
-                    );
-                }
+            for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
+                self.rewrite_patterns.insert(
+                    from,
+                    RewritePattern {
+                        step_index,
+                        literal_index: 0,
+                        forwards,
+                    },
+                );
             }
         }
 
