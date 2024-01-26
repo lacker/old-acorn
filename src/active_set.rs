@@ -235,12 +235,10 @@ impl ActiveSet {
         flipped: bool,
     ) -> Option<ProofStep> {
         let pos_clause = &pos_step.clause;
-        let neg_clause = &neg_step.clause;
+        assert!(pos_clause.literals[pos_index].positive);
 
-        // TODO: do this check outside try_resolution.
-        if neg_clause.literals[neg_index].positive {
-            return None;
-        }
+        let neg_clause = &neg_step.clause;
+        assert!(!neg_clause.literals[neg_index].positive);
 
         // We want to only use reductive operations that are reductive because all the literals
         // in the shorter clause are either non-variable dupes or the one that is being canceled.
