@@ -310,10 +310,8 @@ impl ActiveSet {
         let mut results = vec![];
         assert!(pm_step.clause.len() == 1);
         let pm_literal = &pm_step.clause.literals[0];
-        if !pm_literal.positive {
-            // TODO: pull this check out
-            return vec![];
-        }
+        assert!(pm_literal.positive);
+
         for (_, s, t) in pm_literal.both_term_pairs() {
             if s.is_true() {
                 // I don't think we should rewrite from "true"
