@@ -96,8 +96,8 @@ impl Rule {
                 answer.push(("negative".to_string(), info.negative_id));
             }
             Rule::Superposition(info) => {
-                answer.push(("paramodulator".to_string(), info.pattern_id));
-                answer.push(("resolver".to_string(), info.target_id));
+                answer.push(("pattern".to_string(), info.pattern_id));
+                answer.push(("target".to_string(), info.target_id));
             }
             Rule::EqualityFactoring(source)
             | Rule::EqualityResolution(source)

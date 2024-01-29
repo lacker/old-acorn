@@ -806,7 +806,7 @@ mod tests {
         step.truthiness = Truthiness::Hypothetical;
         set.insert(step, 0);
 
-        // We should be able to use c1 = c3 to paramodulate into c0(c3) = c2
+        // We should be able replace c1 with c3 in "c0(c3) = c2"
         let pm_step = ProofStep::mock("c1 = c3");
         let result = set.activate_rewrite_pattern(0, &pm_step);
 
