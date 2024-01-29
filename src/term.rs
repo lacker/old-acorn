@@ -518,19 +518,24 @@ impl Term {
         Some(current_term)
     }
 
+    // Lone variables and "true" cannot be rewritten, because there are too many stupid possibilities.
+    pub fn is_rewritable(&self) -> bool {
+        if self.is_true() || self.is_variable() {
+            return false;
+        }
+        true
+    }
+
     // Finds all subterms of this term, and with their paths, appends to "answer".
     // prepends "prefix" to all paths.
-    // allow_nonrewritable is false then we don't report plain variables or "true".
     fn push_subterms<'a>(
         &'a self,
         allow_nonrewritable: bool,
         prefix: &mut Vec<usize>,
         answer: &mut Vec<(Vec<usize>, &'a Term)>,
     ) {
-        if !allow_nonrewritable {
-            if self.is_true() || self.is_variable() {
-                return;
-            }
+        if !allow_nonrewritable && !self.is_rewritable() {
+            return;
         }
         answer.push((prefix.clone(), self));
         for (i, arg) in self.args.iter().enumerate() {

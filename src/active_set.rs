@@ -304,7 +304,7 @@ impl ActiveSet {
 
         for (_, s, t) in pattern_literal.both_term_pairs() {
             if s.is_true() {
-                // I don't think we should rewrite from "true"
+                // Don't rewrite from "true"
                 continue;
             }
 
@@ -674,13 +674,15 @@ impl ActiveSet {
 
             if literal.positive {
                 for (forwards, from, _) in literal.both_term_pairs() {
-                    self.rewrite_patterns.insert(
-                        from,
-                        RewritePattern {
-                            step_index,
-                            forwards,
-                        },
-                    );
+                    if !from.is_true() {
+                        self.rewrite_patterns.insert(
+                            from,
+                            RewritePattern {
+                                step_index,
+                                forwards,
+                            },
+                        );
+                    }
                 }
             }
         }
