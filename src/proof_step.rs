@@ -45,24 +45,18 @@ pub struct ResolutionInfo {
     negative_id: usize,
 }
 
-// Information about a superposition inference.
+// Information about a rewrite inference.
+// Rewrites have two parts, the "pattern" that determines what gets rewritten into what,
+// and the "target" which contains the subterm that gets rewritten.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SuperpositionInfo {
     // Which clauses were used as the sources.
-    paramodulator_id: usize,
-    resolver_id: usize,
+    pattern_id: usize,
+    target_id: usize,
 
     // The truthiness of the source clauses.
-    paramodulator_truthiness: Truthiness,
-    resolver_truthiness: Truthiness,
-
-    // How many literals were in the source clauses
-    paramodulator_literals: usize,
-    resolver_literals: usize,
-
-    // Whether the sources are "rewrites" clauses - a single positive literal with strict kbo ordering.
-    paramodulator_is_rewrite: bool,
-    resolver_is_rewrite: bool,
+    pattern_truthiness: Truthiness,
+    target_truthiness: Truthiness,
 }
 
 // The rules that can generate new clauses, along with the clause ids used to generate.
@@ -85,9 +79,7 @@ impl Rule {
         match self {
             Rule::Assumption => vec![].into_iter(),
             Rule::Resolution(info) => vec![&info.positive_id, &info.negative_id].into_iter(),
-            Rule::Superposition(info) => {
-                vec![&info.paramodulator_id, &info.resolver_id].into_iter()
-            }
+            Rule::Superposition(info) => vec![&info.pattern_id, &info.target_id].into_iter(),
             Rule::EqualityFactoring(rewritten)
             | Rule::EqualityResolution(rewritten)
             | Rule::FunctionElimination(rewritten) => vec![rewritten].into_iter(),
@@ -104,8 +96,8 @@ impl Rule {
                 answer.push(("negative".to_string(), info.negative_id));
             }
             Rule::Superposition(info) => {
-                answer.push(("paramodulator".to_string(), info.paramodulator_id));
-                answer.push(("resolver".to_string(), info.resolver_id));
+                answer.push(("paramodulator".to_string(), info.pattern_id));
+                answer.push(("resolver".to_string(), info.target_id));
             }
             Rule::EqualityFactoring(source)
             | Rule::EqualityResolution(source)
@@ -244,30 +236,24 @@ impl ProofStep {
 
     // Construct a new ProofStep via superposition.
     pub fn new_superposition(
-        paramodulator_id: usize,
-        paramodulator_step: &ProofStep,
-        resolver_id: usize,
-        resolver_step: &ProofStep,
+        pattern_id: usize,
+        pattern_step: &ProofStep,
+        target_id: usize,
+        target_step: &ProofStep,
         clause: Clause,
     ) -> ProofStep {
         let rule = Rule::Superposition(SuperpositionInfo {
-            paramodulator_id,
-            resolver_id,
-            paramodulator_truthiness: paramodulator_step.truthiness,
-            resolver_truthiness: resolver_step.truthiness,
-            paramodulator_literals: paramodulator_step.clause.len(),
-            resolver_literals: resolver_step.clause.len(),
-            paramodulator_is_rewrite: paramodulator_step.clause.is_rewrite_rule(),
-            resolver_is_rewrite: resolver_step.clause.is_rewrite_rule(),
+            pattern_id,
+            target_id,
+            pattern_truthiness: pattern_step.truthiness,
+            target_truthiness: target_step.truthiness,
         });
         ProofStep::new(
             clause,
-            paramodulator_step
-                .truthiness
-                .combine(resolver_step.truthiness),
+            pattern_step.truthiness.combine(target_step.truthiness),
             rule,
             vec![],
-            paramodulator_step.proof_size + resolver_step.proof_size + 1,
+            pattern_step.proof_size + target_step.proof_size + 1,
         )
     }
 

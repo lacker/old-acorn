@@ -799,7 +799,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_activate_paramodulator() {
+    fn test_activate_rewrite_pattern() {
         // Create an active set that knows c0(c3) = c2
         let mut set = ActiveSet::new();
         let mut step = ProofStep::mock("c0(c3) = c2");
@@ -819,7 +819,7 @@ mod tests {
     }
 
     #[test]
-    fn test_activate_resolver() {
+    fn test_activate_rewrite_target() {
         // Create an active set that knows c1 = c3
         let mut set = ActiveSet::new();
         let step = ProofStep::mock("c1 = c3");
