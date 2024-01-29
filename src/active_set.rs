@@ -125,13 +125,13 @@ impl ActiveSet {
     fn try_superposition(
         s: &Term,
         t: &Term,
-        pm_clause: &Clause,
+        pattern_clause: &Clause,
         u_subterm: &Term,
         u_subterm_path: &[usize],
-        res_clause: &Clause,
-        res_forwards: bool,
+        target_clause: &Clause,
+        target_forwards: bool,
     ) -> Option<Clause> {
-        if pm_clause.len() > 1 || res_clause.len() > 1 {
+        if pattern_clause.len() > 1 || target_clause.len() > 1 {
             // Only allow superposition on short clauses.
             return None;
         }
@@ -154,8 +154,12 @@ impl ActiveSet {
             return None;
         }
 
-        let literal =
-            unifier.superpose_literals(t, u_subterm_path, &res_clause.literals[0], res_forwards);
+        let literal = unifier.superpose_literals(
+            t,
+            u_subterm_path,
+            &target_clause.literals[0],
+            target_forwards,
+        );
         return Some(Clause::new(vec![literal]));
     }
 
@@ -298,13 +302,17 @@ impl ActiveSet {
     }
 
     // When we have a new rewrite pattern, find everything that we can rewrite with it.
-    pub fn activate_rewrite_pattern(&self, pm_id: usize, pm_step: &ProofStep) -> Vec<ProofStep> {
+    pub fn activate_rewrite_pattern(
+        &self,
+        pattern_id: usize,
+        pattern_step: &ProofStep,
+    ) -> Vec<ProofStep> {
         let mut results = vec![];
-        assert!(pm_step.clause.len() == 1);
-        let pm_literal = &pm_step.clause.literals[0];
-        assert!(pm_literal.positive);
+        assert!(pattern_step.clause.len() == 1);
+        let pattern_literal = &pattern_step.clause.literals[0];
+        assert!(pattern_literal.positive);
 
-        for (_, s, t) in pm_literal.both_term_pairs() {
+        for (_, s, t) in pattern_literal.both_term_pairs() {
             if s.is_true() {
                 // I don't think we should rewrite from "true"
                 continue;
@@ -314,9 +322,9 @@ impl ActiveSet {
             let targets = self.rewrite_targets.get_unifying(s);
             for target in targets {
                 let u_subterm = self.get_subterm(target);
-                let res_step = self.get_step(target.step_index);
-                if pm_step.truthiness == Truthiness::Factual
-                    && res_step.truthiness == Truthiness::Factual
+                let target_step = self.get_step(target.step_index);
+                if pattern_step.truthiness == Truthiness::Factual
+                    && target_step.truthiness == Truthiness::Factual
                 {
                     // No global-global superposition
                     continue;
@@ -324,15 +332,15 @@ impl ActiveSet {
                 if let Some(new_clause) = ActiveSet::try_superposition(
                     s,
                     t,
-                    &pm_step.clause,
+                    &pattern_step.clause,
                     u_subterm,
                     &target.path,
-                    &res_step.clause,
+                    &target_step.clause,
                     target.left,
                 ) {
                     results.push(ProofStep::new_superposition(
-                        pm_id,
-                        &pm_step,
+                        pattern_id,
+                        &pattern_step,
                         target.step_index,
                         self.get_step(target.step_index),
                         new_clause,
@@ -366,18 +374,18 @@ impl ActiveSet {
                 // Look for ways to rewrite u_subterm
                 let targets = self.rewrite_patterns.get_unifying(u_subterm);
                 for target in targets {
-                    let pm_step = self.get_step(target.step_index);
-                    if pm_step.truthiness == Truthiness::Factual
+                    let pattern_step = self.get_step(target.step_index);
+                    if pattern_step.truthiness == Truthiness::Factual
                         && target_step.truthiness == Truthiness::Factual
                     {
                         // No global-global rewrites
                         continue;
                     }
-                    let pm_literal = &pm_step.clause.literals[0];
+                    let pattern_literal = &pattern_step.clause.literals[0];
                     let (s, t) = if target.forwards {
-                        (&pm_literal.left, &pm_literal.right)
+                        (&pattern_literal.left, &pattern_literal.right)
                     } else {
-                        (&pm_literal.right, &pm_literal.left)
+                        (&pattern_literal.right, &pattern_literal.left)
                     };
                     if s.is_true() {
                         // I don't think we should rewrite "true"
@@ -386,7 +394,7 @@ impl ActiveSet {
                     if let Some(new_clause) = ActiveSet::try_superposition(
                         s,
                         t,
-                        &pm_step.clause,
+                        &pattern_step.clause,
                         u_subterm,
                         &path,
                         &target_step.clause,
@@ -394,7 +402,7 @@ impl ActiveSet {
                     ) {
                         results.push(ProofStep::new_superposition(
                             target.step_index,
-                            &pm_step,
+                            &pattern_step,
                             target_id,
                             &target_step,
                             new_clause,
@@ -798,8 +806,8 @@ mod tests {
         set.insert(step, 0);
 
         // We should be able replace c1 with c3 in "c0(c3) = c2"
-        let pm_step = ProofStep::mock("c1 = c3");
-        let result = set.activate_rewrite_pattern(0, &pm_step);
+        let pattern_step = ProofStep::mock("c1 = c3");
+        let result = set.activate_rewrite_pattern(0, &pattern_step);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
@@ -817,9 +825,9 @@ mod tests {
         set.insert(step, 0);
 
         // We should be able to rewrite c0(c3) = c2 to get c0(c1) = c2
-        let mut res_step = ProofStep::mock("c0(c3) = c2");
-        res_step.truthiness = Truthiness::Hypothetical;
-        let result = set.activate_rewrite_target(0, &res_step);
+        let mut target_step = ProofStep::mock("c0(c3) = c2");
+        target_step.truthiness = Truthiness::Hypothetical;
+        let result = set.activate_rewrite_target(0, &target_step);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
