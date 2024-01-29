@@ -116,26 +116,21 @@ impl ActiveSet {
         term
     }
 
-    // Tries to do a superposition from two clauses, but may fail to unify.
+    // Tries to do a rewrite, but may fail to match.
     //
-    // The pm clause is:
-    //   s = t | S
-    // The res clause is:
-    //   u ?= v | R
-    fn try_superposition(
+    // We ar erewriting the pattern "s" to the pattern "t".
+    // The target is a literal of the form:
+    //   u ?= v
+    // We are rewriting a subterm of u.
+    // target_left tells us whether u is on the left of its literal.
+    fn try_rewrite(
         s: &Term,
         t: &Term,
-        pattern_clause: &Clause,
         u_subterm: &Term,
         u_subterm_path: &[usize],
-        target_clause: &Clause,
-        target_forwards: bool,
+        target: &Literal,
+        target_left: bool,
     ) -> Option<Clause> {
-        if pattern_clause.len() > 1 || target_clause.len() > 1 {
-            // Only allow superposition on short clauses.
-            return None;
-        }
-
         // This prevents the "sub-unification" case, where we become interested in a term by
         // unifying it with a subterm of another term.
         if !u_subterm_path.is_empty() && u_subterm.has_any_variable() {
@@ -154,12 +149,7 @@ impl ActiveSet {
             return None;
         }
 
-        let literal = unifier.superpose_literals(
-            t,
-            u_subterm_path,
-            &target_clause.literals[0],
-            target_forwards,
-        );
+        let literal = unifier.superpose_literals(t, u_subterm_path, &target, target_left);
         return Some(Clause::new(vec![literal]));
     }
 
@@ -329,13 +319,12 @@ impl ActiveSet {
                     // No global-global superposition
                     continue;
                 }
-                if let Some(new_clause) = ActiveSet::try_superposition(
+                if let Some(new_clause) = ActiveSet::try_rewrite(
                     s,
                     t,
-                    &pattern_step.clause,
                     u_subterm,
                     &target.path,
-                    &target_step.clause,
+                    &target_step.clause.literals[0],
                     target.left,
                 ) {
                     results.push(ProofStep::new_superposition(
@@ -391,13 +380,12 @@ impl ActiveSet {
                         // I don't think we should rewrite "true"
                         continue;
                     }
-                    if let Some(new_clause) = ActiveSet::try_superposition(
+                    if let Some(new_clause) = ActiveSet::try_rewrite(
                         s,
                         t,
-                        &pattern_step.clause,
                         u_subterm,
                         &path,
-                        &target_step.clause,
+                        &target_step.clause.literals[0],
                         target_left,
                     ) {
                         results.push(ProofStep::new_superposition(
