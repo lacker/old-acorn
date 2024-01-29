@@ -515,21 +515,22 @@ impl ActiveSet {
     //   t != v | u = v | R
     //
     // "s = t" must be the first clause, but "u = v" can be any of them.
+    // TODO: This "first clause" constraint seems incomplete or mistaken.
     pub fn equality_factoring(clause: &Clause) -> Vec<Clause> {
         let mut answer = vec![];
-        let pm_literal = &clause.literals[0];
-        for (_, s, t) in ActiveSet::paramodulation_terms(pm_literal) {
+        let st_literal = &clause.literals[0];
+        if !st_literal.positive {
+            return answer;
+        }
+        for (_, s, t) in st_literal.both_term_pairs() {
             for i in 1..clause.literals.len() {
                 // Try paramodulating into the literal at index i
-                let literal = &clause.literals[i];
-                if !literal.positive {
+                let uv_literal = &clause.literals[i];
+                if !uv_literal.positive {
                     continue;
                 }
                 // This literal can go in either direction.
-                for (u, v) in [
-                    (&literal.left, &literal.right),
-                    (&literal.right, &literal.left),
-                ] {
+                for (_, u, v) in uv_literal.both_term_pairs() {
                     // The variables are in the same scope, which we will call "left".
                     let mut unifier = Unifier::new();
                     if !unifier.unify(Scope::Left, s, Scope::Left, u) {
@@ -540,7 +541,7 @@ impl ActiveSet {
                         unifier.apply(Scope::Left, t),
                         unifier.apply(Scope::Left, v),
                     ));
-                    literals.push(unifier.apply_to_literal(Scope::Left, literal));
+                    literals.push(unifier.apply_to_literal(Scope::Left, uv_literal));
                     for j in 1..clause.literals.len() {
                         if j != i {
                             literals
