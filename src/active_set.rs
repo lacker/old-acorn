@@ -116,14 +116,6 @@ impl ActiveSet {
         term
     }
 
-    // Get an iterator of (forward?, s, t) for all s -> t paramodulations allowed for this literal.
-    fn paramodulation_terms(literal: &Literal) -> Vec<(bool, &Term, &Term)> {
-        if !literal.positive {
-            return vec![];
-        }
-        literal.both_term_pairs()
-    }
-
     // Tries to do a superposition from two clauses, but may fail to unify.
     //
     // The pm clause is:
@@ -524,14 +516,13 @@ impl ActiveSet {
         }
         for (_, s, t) in st_literal.both_term_pairs() {
             for i in 1..clause.literals.len() {
-                // Try paramodulating into the literal at index i
                 let uv_literal = &clause.literals[i];
                 if !uv_literal.positive {
                     continue;
                 }
-                // This literal can go in either direction.
+
                 for (_, u, v) in uv_literal.both_term_pairs() {
-                    // The variables are in the same scope, which we will call "left".
+                    // The variables are all in the same scope, which we will call "left".
                     let mut unifier = Unifier::new();
                     if !unifier.unify(Scope::Left, s, Scope::Left, u) {
                         continue;
@@ -680,32 +671,34 @@ impl ActiveSet {
         );
     }
 
-    // Adds a clause so that it becomes available for resolution and paramodulation.
-    // There's nothing heuristic here any more.
+    // Indexes a clause so that it becomes available for future proof step generation.
     fn insert(&mut self, step: ProofStep, id: usize) {
         let clause = &step.clause;
         let step_index = self.steps.len();
 
         // Add resolution targets for the new clause.
-        // Use any literal for resolution.
+        // Any literal can be used for resolution.
         for (i, literal) in clause.literals.iter().enumerate() {
             self.add_resolution_targets(step_index, i, literal);
         }
 
-        // Add paramodulation targets for the new clause.
-        // Use any literal for paramodulation.
+        // Add rewrite targets for the new clause.
+        // Only single-literal clauses can be used for rewriting.
         if clause.literals.len() == 1 {
             let literal = &clause.literals[0];
+
             self.add_rewrite_targets(step_index, literal);
 
-            for (forwards, from, _) in ActiveSet::paramodulation_terms(literal) {
-                self.rewrite_patterns.insert(
-                    from,
-                    RewritePattern {
-                        step_index,
-                        forwards,
-                    },
-                );
+            if literal.positive {
+                for (forwards, from, _) in literal.both_term_pairs() {
+                    self.rewrite_patterns.insert(
+                        from,
+                        RewritePattern {
+                            step_index,
+                            forwards,
+                        },
+                    );
+                }
             }
         }
 
