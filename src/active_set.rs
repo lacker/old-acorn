@@ -35,7 +35,7 @@ pub struct ActiveSet {
     negative_res_targets: FingerprintTree<ResolutionTarget>,
 }
 
-// A ResolutionTarget represents a literal that could be resolved against.
+// A ResolutionTarget represents a literal that we could do resolution with.
 struct ResolutionTarget {
     // Which proof step the resolution target is in.
     step_index: usize,
@@ -343,32 +343,23 @@ impl ActiveSet {
         results
     }
 
-    // Look for superposition inferences using a resolver which is not yet in the active set.
-    // At a high level, this is when we have just learned the relation u ?= v, and we are
-    // looking for all the ways we can alter it in a no-less-simple way
-    // (while possibly adding conditions).
-    //
-    // Specifically, this function handles the case when
-    //
-    //   u ?= v | R   (res_clause)
-    //
-    // is the clause that is being activated, and we are searching for any clauses that can fit the
-    //
-    //   s = t | S
-    //
-    // in the superposition formula.
-    pub fn activate_rewrite_target(&self, res_id: usize, res_step: &ProofStep) -> Vec<ProofStep> {
+    // Look for ways to rewrite a literal that is not yet in the active set.
+    pub fn activate_rewrite_target(
+        &self,
+        target_id: usize,
+        target_step: &ProofStep,
+    ) -> Vec<ProofStep> {
         let mut results = vec![];
-        assert!(res_step.clause.len() == 1);
-        let res_literal = &res_step.clause.literals[0];
+        assert!(target_step.clause.len() == 1);
+        let target_literal = &target_step.clause.literals[0];
 
-        for (res_forwards, u, _) in res_literal.both_term_pairs() {
+        for (target_left, u, _) in target_literal.both_term_pairs() {
             let u_subterms = u.non_variable_subterms();
 
             for (path, u_subterm) in u_subterms {
-                if res_literal.positive && path.is_empty() {
-                    // We already handle the u = s case in activate_rewrite_pattern.
-                    // TODO: handle the "top level transitive equality" case separately.
+                if target_literal.positive && path.is_empty() {
+                    // The "transitive equality" case is already handled in activate_rewrite_pattern.
+                    // TODO: this seems too restrictive.
                     continue;
                 }
 
@@ -377,7 +368,7 @@ impl ActiveSet {
                 for target in targets {
                     let pm_step = self.get_step(target.step_index);
                     if pm_step.truthiness == Truthiness::Factual
-                        && res_step.truthiness == Truthiness::Factual
+                        && target_step.truthiness == Truthiness::Factual
                     {
                         // No global-global rewrites
                         continue;
@@ -398,14 +389,14 @@ impl ActiveSet {
                         &pm_step.clause,
                         u_subterm,
                         &path,
-                        &res_step.clause,
-                        res_forwards,
+                        &target_step.clause,
+                        target_left,
                     ) {
                         results.push(ProofStep::new_superposition(
                             target.step_index,
                             &pm_step,
-                            res_id,
-                            &res_step,
+                            target_id,
+                            &target_step,
                             new_clause,
                         ));
                     }
@@ -417,7 +408,7 @@ impl ActiveSet {
     }
 
     // Tries to do inference using the equality resolution (ER) rule.
-    // This assumes the first literal in the clause is the one being resolved.
+    // This assumes we are operating on the first literal.
     // Specifically, when the first literal is of the form
     //   u != v
     // then if we can unify u and v, we can eliminate this literal from the clause.
@@ -825,7 +816,7 @@ mod tests {
         let step = ProofStep::mock("c1 = c3");
         set.insert(step, 0);
 
-        // We should be able to use c0(c3) = c2 as a resolver to get c0(c1) = c2
+        // We should be able to rewrite c0(c3) = c2 to get c0(c1) = c2
         let mut res_step = ProofStep::mock("c0(c3) = c2");
         res_step.truthiness = Truthiness::Hypothetical;
         let result = set.activate_rewrite_target(0, &res_step);
@@ -852,8 +843,8 @@ mod tests {
     #[test]
     fn test_mutually_recursive_equality_resolution() {
         // This is a bug we ran into. It shouldn't work
-        let unresolvable_clause = Clause::parse("c0(x0, c0(x1, c1(x2))) != c0(c0(x2, x1), x0)");
-        assert!(ActiveSet::equality_resolution(&unresolvable_clause).is_none());
+        let clause = Clause::parse("c0(x0, c0(x1, c1(x2))) != c0(c0(x2, x1), x0)");
+        assert!(ActiveSet::equality_resolution(&clause).is_none());
     }
 
     #[test]
