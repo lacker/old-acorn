@@ -376,10 +376,6 @@ impl ActiveSet {
                     } else {
                         (&pattern_literal.right, &pattern_literal.left)
                     };
-                    if s.is_true() {
-                        // I don't think we should rewrite "true"
-                        continue;
-                    }
                     if let Some(new_clause) = ActiveSet::try_rewrite(
                         s,
                         t,
