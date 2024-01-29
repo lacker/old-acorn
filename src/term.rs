@@ -520,20 +520,22 @@ impl Term {
 
     // Finds all subterms of this term, and with their paths, appends to "answer".
     // prepends "prefix" to all paths.
-    // allow_variable is whether a variable atom like "x2" counts as a subterm.
+    // allow_nonrewritable is false then we don't report plain variables or "true".
     fn push_subterms<'a>(
         &'a self,
-        allow_variable: bool,
+        allow_nonrewritable: bool,
         prefix: &mut Vec<usize>,
         answer: &mut Vec<(Vec<usize>, &'a Term)>,
     ) {
-        if !allow_variable && self.is_variable() {
-            return;
+        if !allow_nonrewritable {
+            if self.is_true() || self.is_variable() {
+                return;
+            }
         }
         answer.push((prefix.clone(), self));
         for (i, arg) in self.args.iter().enumerate() {
             prefix.push(i);
-            arg.push_subterms(allow_variable, prefix, answer);
+            arg.push_subterms(allow_nonrewritable, prefix, answer);
             prefix.pop();
         }
     }
@@ -545,7 +547,7 @@ impl Term {
         answer
     }
 
-    pub fn non_variable_subterms(&self) -> Vec<(Vec<usize>, &Term)> {
+    pub fn rewritable_subterms(&self) -> Vec<(Vec<usize>, &Term)> {
         let mut answer = vec![];
         let mut prefix = vec![];
         self.push_subterms(false, &mut prefix, &mut answer);

@@ -351,7 +351,7 @@ impl ActiveSet {
         let target_literal = &target_step.clause.literals[0];
 
         for (target_left, u, _) in target_literal.both_term_pairs() {
-            let u_subterms = u.non_variable_subterms();
+            let u_subterms = u.rewritable_subterms();
 
             for (path, u_subterm) in u_subterms {
                 if target_literal.positive && path.is_empty() {
@@ -616,7 +616,7 @@ impl ActiveSet {
     // Add all the rewrite targets for a given literal.
     fn add_rewrite_targets(&mut self, step_index: usize, literal: &Literal) {
         for (forwards, from, _) in literal.both_term_pairs() {
-            for (path, subterm) in from.non_variable_subterms() {
+            for (path, subterm) in from.rewritable_subterms() {
                 self.rewrite_targets.insert(
                     subterm,
                     RewriteTarget {
