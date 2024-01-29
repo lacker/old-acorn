@@ -341,17 +341,6 @@ fn replace_components(
     output
 }
 
-// Information stored in each trie leaf.
-#[derive(Debug, Clone)]
-struct Leaf {
-    // The rewrite tree just sees an opaque id for each rewrite rule.
-    // When we do a rewrite, we want to know which rule was used.
-    rule_id: usize,
-
-    // An id for the rewritten form of the term.
-    rewritten_id: usize,
-}
-
 // Finds a leaf in the trie that matches the given term components.
 // These term components could represent a single term, or they could represent a
 // sequence of terms that are a suffix of a subterm. The "right part" of a subterm cut by a path.
@@ -361,11 +350,11 @@ struct Leaf {
 // A "match" can replace any variable i in the trie with replacements[i].
 // If this does not find a match, it returns key and replacements to their initial state.
 fn find_leaf<'a>(
-    subtrie: &SubTrie<Vec<u8>, Leaf>,
+    subtrie: &SubTrie<Vec<u8>, usize>,
     key: &mut Vec<u8>,
     components: &'a [TermComponent],
     replacements: &mut Vec<&'a [TermComponent]>,
-) -> Option<Leaf> {
+) -> Option<usize> {
     if subtrie.is_empty() {
         return None;
     }
@@ -444,11 +433,16 @@ fn find_leaf<'a>(
     None
 }
 
-pub struct RewriteTree {
-    trie: Trie<Vec<u8>, Leaf>,
+struct RewriteValue {
+    rule_id: usize,
+    output: Vec<TermComponent>,
+}
 
-    // Indexed by rewritten_id.
-    rewritten: Vec<Vec<TermComponent>>,
+pub struct RewriteTree {
+    // Maps to an index into values.
+    trie: Trie<Vec<u8>, usize>,
+
+    values: Vec<RewriteValue>,
 
     validate: bool,
 }
@@ -459,7 +453,7 @@ impl RewriteTree {
     pub fn new() -> RewriteTree {
         RewriteTree {
             trie: Trie::new(),
-            rewritten: vec![],
+            values: vec![],
             validate: false,
         }
     }
@@ -469,13 +463,13 @@ impl RewriteTree {
             panic!("cannot rewrite atomic variables to something else");
         }
         let path = path_from_term(input_term);
-        let rewritten_id = self.rewritten.len();
-        self.rewritten.push(flatten_term(output_term));
-        let leaf = Leaf {
+        let value_id = self.values.len();
+        let value = RewriteValue {
             rule_id,
-            rewritten_id,
+            output: flatten_term(output_term),
         };
-        self.trie.insert(path, leaf);
+        self.values.push(value);
+        self.trie.insert(path, value_id);
     }
 
     // Does one rewrite.
@@ -494,10 +488,10 @@ impl RewriteTree {
             let mut replacements = vec![];
             let mut key = vec![];
 
-            if let Some(leaf) = find_leaf(&subtrie, &mut key, subterm, &mut replacements) {
-                rules.push(leaf.rule_id);
-                let rewritten = &self.rewritten[leaf.rewritten_id];
-                let new_subterm = replace_components(rewritten, &replacements);
+            if let Some(value_id) = find_leaf(&subtrie, &mut key, subterm, &mut replacements) {
+                let value = &self.values[value_id];
+                rules.push(value.rule_id);
+                let new_subterm = replace_components(&value.output, &replacements);
                 if self.validate {
                     validate_components(&new_subterm);
                 }
