@@ -349,7 +349,7 @@ fn replace_components(
 // Returns None if there is no matching leaf.
 // A "match" can replace any variable i in the trie with replacements[i].
 // If this does not find a match, it returns key and replacements to their initial state.
-fn find_leaf<'a>(
+fn find_one_match<'a>(
     subtrie: &SubTrie<Vec<u8>, usize>,
     key: &mut Vec<u8>,
     components: &'a [TermComponent],
@@ -388,7 +388,7 @@ fn find_leaf<'a>(
             // This term could match x_i as a backreference.
             Edge::Atom(Atom::Variable(i as u16)).append_to(key);
             let new_subtrie = subtrie.subtrie(key as &[u8]);
-            if let Some(leaf) = find_leaf(&new_subtrie, key, rest, replacements) {
+            if let Some(leaf) = find_one_match(&new_subtrie, key, rest, replacements) {
                 return Some(leaf);
             }
             key.truncate(initial_key_len);
@@ -400,7 +400,7 @@ fn find_leaf<'a>(
     let new_subtrie = subtrie.subtrie(key as &[u8]);
     if !new_subtrie.is_empty() {
         replacements.push(first);
-        if let Some(leaf) = find_leaf(&new_subtrie, key, rest, replacements) {
+        if let Some(leaf) = find_one_match(&new_subtrie, key, rest, replacements) {
             return Some(leaf);
         }
         replacements.pop();
@@ -426,11 +426,51 @@ fn find_leaf<'a>(
     };
     bytes.append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
-    if let Some(leaf) = find_leaf(&new_subtrie, key, &components[1..], replacements) {
+    if let Some(leaf) = find_one_match(&new_subtrie, key, &components[1..], replacements) {
         return Some(leaf);
     }
     key.truncate(initial_key_len);
     None
+}
+
+pub struct PatternTree<T> {
+    // Maps to an index into values.
+    trie: Trie<Vec<u8>, usize>,
+
+    values: Vec<T>,
+}
+
+const EMPTY_SLICE: &[u8] = &[];
+
+impl<T> PatternTree<T> {
+    pub fn new() -> PatternTree<T> {
+        PatternTree {
+            trie: Trie::new(),
+            values: vec![],
+        }
+    }
+
+    pub fn insert(&mut self, key: &Term, value: T) {
+        let path = path_from_term(key);
+        let value_id = self.values.len();
+        self.values.push(value);
+        self.trie.insert(path, value_id);
+    }
+
+    // Finds a single match, if possible.
+    // Returns the value id of the match, and the set of replacements used for the match.
+    fn find_one_match<'a>(
+        &'a self,
+        term: &'a [TermComponent],
+    ) -> Option<(usize, Vec<&'a [TermComponent]>)> {
+        let mut key = vec![];
+        let mut replacements = vec![];
+        let subtrie = self.trie.subtrie(EMPTY_SLICE);
+        match find_one_match(&subtrie, &mut key, term, &mut replacements) {
+            Some(leaf) => Some((leaf, replacements)),
+            None => None,
+        }
+    }
 }
 
 struct RewriteValue {
@@ -447,8 +487,6 @@ pub struct RewriteTree {
     validate: bool,
 }
 
-const EMPTY_SLICE: &[u8] = &[];
-
 impl RewriteTree {
     pub fn new() -> RewriteTree {
         RewriteTree {
@@ -458,6 +496,7 @@ impl RewriteTree {
         }
     }
 
+    // Overwrites any existing rule.
     pub fn add_rule(&mut self, rule_id: usize, input_term: &Term, output_term: &Term) {
         if input_term.atomic_variable().is_some() {
             panic!("cannot rewrite atomic variables to something else");
@@ -488,7 +527,7 @@ impl RewriteTree {
             let mut replacements = vec![];
             let mut key = vec![];
 
-            if let Some(value_id) = find_leaf(&subtrie, &mut key, subterm, &mut replacements) {
+            if let Some(value_id) = find_one_match(&subtrie, &mut key, subterm, &mut replacements) {
                 let value = &self.values[value_id];
                 rules.push(value.rule_id);
                 let new_subterm = replace_components(&value.output, &replacements);
