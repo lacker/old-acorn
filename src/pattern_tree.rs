@@ -462,12 +462,12 @@ impl<T> PatternTree<T> {
     fn find_one_match<'a>(
         &'a self,
         term: &'a [TermComponent],
-    ) -> Option<(usize, Vec<&'a [TermComponent]>)> {
+    ) -> Option<(&T, Vec<&'a [TermComponent]>)> {
         let mut key = vec![];
         let mut replacements = vec![];
         let subtrie = self.trie.subtrie(EMPTY_SLICE);
         match find_one_match(&subtrie, &mut key, term, &mut replacements) {
-            Some(leaf) => Some((leaf, replacements)),
+            Some(value_id) => Some((&self.values[value_id], replacements)),
             None => None,
         }
     }
@@ -479,10 +479,7 @@ struct RewriteValue {
 }
 
 pub struct RewriteTree {
-    // Maps to an index into values.
-    trie: Trie<Vec<u8>, usize>,
-
-    values: Vec<RewriteValue>,
+    tree: PatternTree<RewriteValue>,
 
     validate: bool,
 }
@@ -490,8 +487,7 @@ pub struct RewriteTree {
 impl RewriteTree {
     pub fn new() -> RewriteTree {
         RewriteTree {
-            trie: Trie::new(),
-            values: vec![],
+            tree: PatternTree::new(),
             validate: false,
         }
     }
@@ -501,14 +497,11 @@ impl RewriteTree {
         if input_term.atomic_variable().is_some() {
             panic!("cannot rewrite atomic variables to something else");
         }
-        let path = path_from_term(input_term);
-        let value_id = self.values.len();
         let value = RewriteValue {
             rule_id,
             output: flatten_term(output_term),
         };
-        self.values.push(value);
-        self.trie.insert(path, value_id);
+        self.tree.insert(input_term, value);
     }
 
     // Does one rewrite.
@@ -523,12 +516,8 @@ impl RewriteTree {
         for i in 0..components.len() {
             let subterm_size = components[i].size();
             let subterm = &components[i..i + subterm_size];
-            let subtrie = self.trie.subtrie(EMPTY_SLICE);
-            let mut replacements = vec![];
-            let mut key = vec![];
 
-            if let Some(value_id) = find_one_match(&subtrie, &mut key, subterm, &mut replacements) {
-                let value = &self.values[value_id];
+            if let Some((value, replacements)) = self.tree.find_one_match(subterm) {
                 rules.push(value.rule_id);
                 let new_subterm = replace_components(&value.output, &replacements);
                 if self.validate {
