@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use crate::fingerprint::Fingerprint;
 use crate::literal::Literal;
-use crate::proof_step::EXPERIMENT;
 use crate::specializer::Specializer;
 
 // A datastructure for storing a set of literals to make it quick, for a new
@@ -40,25 +39,14 @@ impl LiteralSet {
         for ((key_left, key_right), known_literals) in &self.tree {
             if key_left.generalizes(&f_left) && key_right.generalizes(&f_right) {
                 for (known_literal, id) in known_literals {
-                    if EXPERIMENT {
-                        // Just check exact equality, for simplicity, despite its seeming
-                        // theoretical paucity.
-                        if known_literal.left != literal.left {
-                            continue;
-                        }
-                        if known_literal.right != literal.right {
-                            continue;
-                        }
-                    } else {
-                        // Check if the given literal is a specialization of the known literal.
-                        // Note that we illogically only check one direction.
-                        let mut s = Specializer::new();
-                        if !s.match_terms(&known_literal.left, &literal.left) {
-                            continue;
-                        }
-                        if !s.match_terms(&known_literal.right, &literal.right) {
-                            continue;
-                        }
+                    // Check if the given literal is a specialization of the known literal.
+                    // Note that we illogically only check one direction.
+                    let mut s = Specializer::new();
+                    if !s.match_terms(&known_literal.left, &literal.left) {
+                        continue;
+                    }
+                    if !s.match_terms(&known_literal.right, &literal.right) {
+                        continue;
                     }
 
                     return Some((

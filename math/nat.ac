@@ -447,7 +447,16 @@ define is_composite(a: Nat) -> bool = exists(b: Nat, c: Nat) {
     lt(1, b) & lt(1, c) & a = mul(b, c)
 }
 
-theorem mul_to_zero(a: Nat, b: Nat): mul(a, b) = 0 -> a = 0 | b = 0
+theorem mul_to_zero(a: Nat, b: Nat): mul(a, b) = 0 -> a = 0 | b = 0 by {
+    if mul(a, b) = 0 {
+        if a != 0 & b != 0 {
+            exists(pred_a: Nat) { Suc(pred_a) = a }
+            exists(pred_b: Nat) { Suc(pred_b) = b }
+            mul(Suc(pred_a), Suc(pred_b)) = 0
+            false
+        }
+    } 
+}
 
 theorem divisor_lt(a: Nat, b: Nat, c: Nat):
     a != 0 & lt(1, b) & mul(a, b) = c -> lt(a, c) by {
