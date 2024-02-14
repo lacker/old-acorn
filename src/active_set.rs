@@ -361,9 +361,9 @@ impl ActiveSet {
                 }
 
                 // Look for ways to rewrite u_subterm
-                let targets = self.rewrite_patterns.get_unifying(u_subterm);
-                for target in targets {
-                    let pattern_step = self.get_step(target.step_index);
+                let patterns = self.rewrite_patterns.get_unifying(u_subterm);
+                for pattern in patterns {
+                    let pattern_step = self.get_step(pattern.step_index);
                     if pattern_step.truthiness == Truthiness::Factual
                         && target_step.truthiness == Truthiness::Factual
                     {
@@ -371,7 +371,7 @@ impl ActiveSet {
                         continue;
                     }
                     let pattern_literal = &pattern_step.clause.literals[0];
-                    let (s, t) = if target.forwards {
+                    let (s, t) = if pattern.forwards {
                         (&pattern_literal.left, &pattern_literal.right)
                     } else {
                         (&pattern_literal.right, &pattern_literal.left)
@@ -385,7 +385,7 @@ impl ActiveSet {
                         target_left,
                     ) {
                         results.push(ProofStep::new_rewrite(
-                            target.step_index,
+                            pattern.step_index,
                             &pattern_step,
                             target_id,
                             &target_step,
