@@ -49,7 +49,7 @@ pub struct ResolutionInfo {
 // Rewrites have two parts, the "pattern" that determines what gets rewritten into what,
 // and the "target" which contains the subterm that gets rewritten.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SuperpositionInfo {
+pub struct RewriteInfo {
     // Which clauses were used as the sources.
     pattern_id: usize,
     target_id: usize,
@@ -64,8 +64,9 @@ pub struct SuperpositionInfo {
 pub enum Rule {
     Assumption,
 
+    // Rules based on multiple source clauses
     Resolution(ResolutionInfo),
-    Superposition(SuperpositionInfo),
+    Rewrite(RewriteInfo),
 
     // Rules with only one source clause
     EqualityFactoring(usize),
@@ -79,7 +80,7 @@ impl Rule {
         match self {
             Rule::Assumption => vec![].into_iter(),
             Rule::Resolution(info) => vec![&info.positive_id, &info.negative_id].into_iter(),
-            Rule::Superposition(info) => vec![&info.pattern_id, &info.target_id].into_iter(),
+            Rule::Rewrite(info) => vec![&info.pattern_id, &info.target_id].into_iter(),
             Rule::EqualityFactoring(rewritten)
             | Rule::EqualityResolution(rewritten)
             | Rule::FunctionElimination(rewritten) => vec![rewritten].into_iter(),
@@ -95,7 +96,7 @@ impl Rule {
                 answer.push(("positive".to_string(), info.positive_id));
                 answer.push(("negative".to_string(), info.negative_id));
             }
-            Rule::Superposition(info) => {
+            Rule::Rewrite(info) => {
                 answer.push(("pattern".to_string(), info.pattern_id));
                 answer.push(("target".to_string(), info.target_id));
             }
@@ -112,17 +113,10 @@ impl Rule {
         match self {
             Rule::Assumption => "Assumption",
             Rule::Resolution(_) => "Resolution",
-            Rule::Superposition(_) => "Superposition",
+            Rule::Rewrite(_) => "Superposition",
             Rule::EqualityFactoring(_) => "EqualityFactoring",
             Rule::EqualityResolution(_) => "EqualityResolution",
             Rule::FunctionElimination(_) => "FunctionElimination",
-        }
-    }
-
-    pub fn is_superposition(&self) -> bool {
-        match self {
-            Rule::Superposition(_) => true,
-            _ => false,
         }
     }
 }
@@ -234,15 +228,15 @@ impl ProofStep {
         )
     }
 
-    // Construct a new ProofStep via superposition.
-    pub fn new_superposition(
+    // Construct a new ProofStep via rewriting.
+    pub fn new_rewrite(
         pattern_id: usize,
         pattern_step: &ProofStep,
         target_id: usize,
         target_step: &ProofStep,
         clause: Clause,
     ) -> ProofStep {
-        let rule = Rule::Superposition(SuperpositionInfo {
+        let rule = Rule::Rewrite(RewriteInfo {
             pattern_id,
             target_id,
             pattern_truthiness: pattern_step.truthiness,

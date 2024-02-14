@@ -118,7 +118,7 @@ impl ActiveSet {
 
     // Tries to do a rewrite, but may fail to match.
     //
-    // We ar erewriting the pattern "s" to the pattern "t".
+    // We are rewriting the pattern "s" to the pattern "t".
     // The target is a literal of the form:
     //   u ?= v
     // We are rewriting a subterm of u.
@@ -316,7 +316,7 @@ impl ActiveSet {
                 if pattern_step.truthiness == Truthiness::Factual
                     && target_step.truthiness == Truthiness::Factual
                 {
-                    // No global-global superposition
+                    // No global-global rewriting
                     continue;
                 }
                 if let Some(new_clause) = ActiveSet::try_rewrite(
@@ -327,11 +327,11 @@ impl ActiveSet {
                     &target_step.clause.literals[0],
                     target.left,
                 ) {
-                    results.push(ProofStep::new_superposition(
+                    results.push(ProofStep::new_rewrite(
                         pattern_id,
                         &pattern_step,
                         target.step_index,
-                        self.get_step(target.step_index),
+                        &target_step,
                         new_clause,
                     ));
                 }
@@ -384,7 +384,7 @@ impl ActiveSet {
                         &target_step.clause.literals[0],
                         target_left,
                     ) {
-                        results.push(ProofStep::new_superposition(
+                        results.push(ProofStep::new_rewrite(
                             target.step_index,
                             &pattern_step,
                             target_id,
