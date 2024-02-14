@@ -18,16 +18,15 @@ enum TermComponent {
 
     // This can only be the first element of a &[TermComponent].
     // It indicates that this slice represents a literal rather than a term.
-    // The boolean indicates the sign of the literal.
     // The u16 is the number of term components in the literal, including this one.
-    Literal(TypeId, bool, u16),
+    Literal(TypeId, u16),
 }
 
 impl TermComponent {
     // The number of TermComponents in the component starting with this one
     fn size(&self) -> usize {
         match self {
-            TermComponent::Composite(_, _, size) | TermComponent::Literal(_, _, size) => {
+            TermComponent::Composite(_, _, size) | TermComponent::Literal(_, size) => {
                 *size as usize
             }
             TermComponent::Atom(_, _) => 1,
@@ -75,14 +74,10 @@ fn flatten_term(term: &Term) -> Vec<TermComponent> {
 fn flatten_literal(literal: &Literal) -> Vec<TermComponent> {
     let mut output = Vec::new();
     // The zero is a placeholder. We'll fill in the real info later.
-    output.push(TermComponent::Literal(0, false, 0));
+    output.push(TermComponent::Literal(0, 0));
     flatten_next(&literal.left, &mut output);
     flatten_next(&literal.right, &mut output);
-    output[0] = TermComponent::Literal(
-        literal.left.term_type,
-        literal.positive,
-        output.len() as u16,
-    );
+    output[0] = TermComponent::Literal(literal.left.term_type, output.len() as u16);
     output
 }
 
@@ -168,7 +163,7 @@ fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, 
             Ok(final_pos)
         }
         TermComponent::Atom(_, _) => return Ok(position + 1),
-        TermComponent::Literal(_, _, size) => {
+        TermComponent::Literal(_, size) => {
             if size < 3 {
                 return Err(format!("literals must have size at least 3"));
             }
@@ -231,6 +226,7 @@ const GLOBAL_CONSTANT: u8 = 102;
 const LOCAL_CONSTANT: u8 = 103;
 const MONOMORPH: u8 = 104;
 const VARIABLE: u8 = 105;
+const LITERAL: u8 = 106;
 
 #[derive(Debug)]
 enum Edge {
@@ -238,6 +234,8 @@ enum Edge {
     HeadType(u8, TypeId),
 
     Atom(Atom),
+
+    Literal(TypeId),
 }
 
 impl Edge {
@@ -251,6 +249,7 @@ impl Edge {
                 Atom::Monomorph(_) => MONOMORPH,
                 Atom::Variable(_) => VARIABLE,
             },
+            Edge::Literal(..) => LITERAL,
         }
     }
 
@@ -265,6 +264,7 @@ impl Edge {
                 Atom::Monomorph(m) => *m,
                 Atom::Variable(i) => *i,
             },
+            Edge::Literal(t) => *t,
         };
         v.extend_from_slice(&id.to_ne_bytes());
     }
@@ -277,6 +277,7 @@ impl Edge {
             LOCAL_CONSTANT => Edge::Atom(Atom::LocalConstant(id)),
             MONOMORPH => Edge::Atom(Atom::Monomorph(id)),
             VARIABLE => Edge::Atom(Atom::Variable(id)),
+            LITERAL => Edge::Literal(id),
             num_args => {
                 if num_args > MAX_ARGS {
                     panic!("invalid discriminant byte");
@@ -387,7 +388,7 @@ fn replace_components(
                 }
             }
             TermComponent::Literal(..) => {
-                panic!("no replacing in literals");
+                panic!("replacing in literals is not implemented");
             }
         }
     }
@@ -432,7 +433,12 @@ fn find_one_match<'a>(
     }
     let initial_key_len = key.len();
 
-    // Case 1: the first term in the components could match an existing replacement
+    // Case 1: this is a literal, which must match a literal comparing the same types.
+    if let TermComponent::Literal(term_type, size) = components[0] {
+        todo!();
+    }
+
+    // Case 2: the first term in the components could match an existing replacement
     let size = components[0].size();
     let first = &components[..size];
     let rest = &components[size..];
@@ -448,7 +454,7 @@ fn find_one_match<'a>(
         }
     }
 
-    // Case 2: the first term could match an entirely new variable
+    // Case 3: the first term could match an entirely new variable
     Edge::Atom(Atom::Variable(replacements.len() as u16)).append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
     if !new_subtrie.is_empty() {
@@ -460,7 +466,7 @@ fn find_one_match<'a>(
     }
     key.truncate(initial_key_len);
 
-    // Case 3: we could exactly match just the first component
+    // Case 4: we could exactly match just the first component
     let bytes = match components[0] {
         TermComponent::Composite(_, num_args, _) => {
             if let TermComponent::Atom(head_type, _) = components[1] {
