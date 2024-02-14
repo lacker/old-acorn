@@ -150,43 +150,16 @@ impl ActiveSet {
         };
         let target_literal = &target_step.clause.literals[0];
 
-        match ActiveSet::old_try_rewrite(s, t, subterm, path, &target_literal, target_left) {
-            Some(new_clause) => Some(ProofStep::new_rewrite(
-                pattern_id,
-                pattern_step,
-                target_id,
-                target_step,
-                new_clause,
-            )),
-            None => None,
-        }
-    }
-
-    // Tries to do a rewrite, but may fail to match.
-    //
-    // We are rewriting the pattern "s" to the pattern "t".
-    // The target is a literal of the form:
-    //   u ?= v
-    // We are rewriting a subterm of u.
-    // target_left tells us whether u is on the left of its literal.
-    fn old_try_rewrite(
-        s: &Term,
-        t: &Term,
-        u_subterm: &Term,
-        u_subterm_path: &[usize],
-        target: &Literal,
-        target_left: bool,
-    ) -> Option<Clause> {
         // This prevents the "sub-unification" case, where we become interested in a term by
         // unifying it with a subterm of another term.
-        if !u_subterm_path.is_empty() && u_subterm.has_any_variable() {
+        if !path.is_empty() && subterm.has_any_variable() {
             return None;
         }
 
         let mut unifier = Unifier::new();
         // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
         // the actual left or right of their normalized literals.
-        if !unifier.unify(Scope::Left, s, Scope::Right, u_subterm) {
+        if !unifier.unify(Scope::Left, s, Scope::Right, subterm) {
             return None;
         }
 
@@ -195,8 +168,15 @@ impl ActiveSet {
             return None;
         }
 
-        let literal = unifier.superpose_literals(t, u_subterm_path, &target, target_left);
-        return Some(Clause::new(vec![literal]));
+        let literal = unifier.superpose_literals(t, path, &target_literal, target_left);
+        let new_clause = Clause::new(vec![literal]);
+        Some(ProofStep::new_rewrite(
+            pattern_id,
+            pattern_step,
+            target_id,
+            target_step,
+            new_clause,
+        ))
     }
 
     // Finds all resolutions that can be done with a given proof step.
