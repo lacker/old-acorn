@@ -123,6 +123,13 @@ impl Rule {
             Rule::FunctionElimination(_) => "FunctionElimination",
         }
     }
+
+    pub fn is_rewrite(&self) -> bool {
+        match self {
+            Rule::Rewrite(_) => true,
+            _ => false,
+        }
+    }
 }
 
 // A proof is made up of ProofSteps.
