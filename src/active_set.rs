@@ -674,7 +674,12 @@ impl ActiveSet {
 
             self.add_rewrite_targets(step_index, literal);
 
-            if literal.positive {
+            // When a literal is created via rewrite, we don't need to add it as a rewrite pattern.
+            // We might want to do it anyway.
+            // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
+            // to simplify everything, without going through the intermediate steps.
+            // But, for now, we just don't do it.
+            if literal.positive && !step.rule.is_rewrite() {
                 for (forwards, from, _) in literal.both_term_pairs() {
                     if !from.is_true() {
                         self.rewrite_patterns.insert(
