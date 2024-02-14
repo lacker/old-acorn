@@ -370,8 +370,10 @@ impl ActiveSet {
 
             for (path, u_subterm) in u_subterms {
                 if target_literal.positive && path.is_empty() {
-                    // The "transitive equality" case is already handled in activate_rewrite_pattern.
-                    // TODO: this seems too restrictive.
+                    // The "transitive equality" case.
+                    // We know a = b and we are activating b = c.
+                    // This will be caught twice, because b = c could be either pattern or target.
+                    // So, we don't bother catching it here.
                     continue;
                 }
 
