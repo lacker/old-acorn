@@ -57,6 +57,10 @@ pub struct RewriteInfo {
     // The truthiness of the source clauses.
     pattern_truthiness: Truthiness,
     target_truthiness: Truthiness,
+
+    // An exact rewrite is when A = B, B ?= C, therefore A ?= C.
+    // Inexact rewrites only operate on subterms.
+    exact: bool,
 }
 
 // The rules that can generate new clauses, along with the clause ids used to generate.
@@ -113,7 +117,7 @@ impl Rule {
         match self {
             Rule::Assumption => "Assumption",
             Rule::Resolution(_) => "Resolution",
-            Rule::Rewrite(_) => "Superposition",
+            Rule::Rewrite(_) => "Rewrite",
             Rule::EqualityFactoring(_) => "EqualityFactoring",
             Rule::EqualityResolution(_) => "EqualityResolution",
             Rule::FunctionElimination(_) => "FunctionElimination",
@@ -235,12 +239,14 @@ impl ProofStep {
         target_id: usize,
         target_step: &ProofStep,
         clause: Clause,
+        exact: bool,
     ) -> ProofStep {
         let rule = Rule::Rewrite(RewriteInfo {
             pattern_id,
             target_id,
             pattern_truthiness: pattern_step.truthiness,
             target_truthiness: target_step.truthiness,
+            exact,
         });
         ProofStep::new(
             clause,

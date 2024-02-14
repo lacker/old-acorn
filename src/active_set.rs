@@ -152,7 +152,8 @@ impl ActiveSet {
 
         // This prevents the "sub-unification" case, where we become interested in a term by
         // unifying it with a subterm of another term.
-        if !path.is_empty() && subterm.has_any_variable() {
+        let exact = path.is_empty();
+        if !exact && subterm.has_any_variable() {
             return None;
         }
 
@@ -176,6 +177,7 @@ impl ActiveSet {
             target_id,
             target_step,
             new_clause,
+            exact,
         ))
     }
 
