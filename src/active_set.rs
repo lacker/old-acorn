@@ -348,7 +348,7 @@ impl ActiveSet {
         let pattern_literal = &pattern_step.clause.literals[0];
         assert!(pattern_literal.positive);
 
-        for (_, s, t) in pattern_literal.both_term_pairs() {
+        for (pattern_forwards, s, _) in pattern_literal.both_term_pairs() {
             if s.is_true() {
                 // Don't rewrite from "true"
                 continue;
@@ -357,29 +357,18 @@ impl ActiveSet {
             // Look for resolution targets that match s
             let targets = self.rewrite_targets.get_unifying(s);
             for target in targets {
-                let u_subterm = self.get_subterm(target);
-                let target_step = self.get_step(target.step_index);
-                if pattern_step.truthiness == Truthiness::Factual
-                    && target_step.truthiness == Truthiness::Factual
-                {
-                    // No global-global rewriting
-                    continue;
-                }
-                if let Some(new_clause) = ActiveSet::old_try_rewrite(
-                    s,
-                    t,
-                    u_subterm,
-                    &target.path,
-                    &target_step.clause.literals[0],
+                let subterm = self.get_subterm(target);
+                if let Some(ps) = ActiveSet::try_rewrite(
+                    pattern_id,
+                    pattern_step,
+                    pattern_forwards,
+                    target.step_index,
+                    self.get_step(target.step_index),
                     target.left,
+                    subterm,
+                    &target.path,
                 ) {
-                    results.push(ProofStep::new_rewrite(
-                        pattern_id,
-                        &pattern_step,
-                        target.step_index,
-                        &target_step,
-                        new_clause,
-                    ));
+                    results.push(ps);
                 }
             }
         }
