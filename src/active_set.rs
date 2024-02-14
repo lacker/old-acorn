@@ -398,34 +398,17 @@ impl ActiveSet {
                 // Look for ways to rewrite u_subterm
                 let patterns = self.rewrite_patterns.get_unifying(u_subterm);
                 for pattern in patterns {
-                    let pattern_step = self.get_step(pattern.step_index);
-                    if pattern_step.truthiness == Truthiness::Factual
-                        && target_step.truthiness == Truthiness::Factual
-                    {
-                        // No global-global rewrites
-                        continue;
-                    }
-                    let pattern_literal = &pattern_step.clause.literals[0];
-                    let (s, t) = if pattern.forwards {
-                        (&pattern_literal.left, &pattern_literal.right)
-                    } else {
-                        (&pattern_literal.right, &pattern_literal.left)
-                    };
-                    if let Some(new_clause) = ActiveSet::old_try_rewrite(
-                        s,
-                        t,
+                    if let Some(ps) = ActiveSet::try_rewrite(
+                        pattern.step_index,
+                        self.get_step(pattern.step_index),
+                        pattern.forwards,
+                        target_id,
+                        target_step,
+                        target_left,
                         u_subterm,
                         &path,
-                        &target_step.clause.literals[0],
-                        target_left,
                     ) {
-                        results.push(ProofStep::new_rewrite(
-                            pattern.step_index,
-                            &pattern_step,
-                            target_id,
-                            &target_step,
-                            new_clause,
-                        ));
+                        results.push(ps);
                     }
                 }
             }
