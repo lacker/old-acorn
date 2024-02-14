@@ -116,6 +116,52 @@ impl ActiveSet {
         term
     }
 
+    // Tries to do a rewrite, but may fail or decline.
+    // The "indexing" type stuff happens outside this function.
+    //
+    // We are using the equality "pattern" to rewrite "target".
+    // pattern_forwards is the rewrite direction, ie forwards is using "s = t" to rewrite s -> t.
+    // target_left tells us whether we are rewriting the left or right of the target literal.
+    // subterm is the subterm of the target literal that we are rewriting.
+    // path is the subpath at which subterm exists in the target term.
+    //
+    // Returns None if the rewrite doesn't work, either mechanically or heuristically.
+    fn try_rewrite(
+        pattern_id: usize,
+        pattern_step: &ProofStep,
+        pattern_forwards: bool,
+        target_id: usize,
+        target_step: &ProofStep,
+        target_left: bool,
+        subterm: &Term,
+        path: &[usize],
+    ) -> Option<ProofStep> {
+        if pattern_step.truthiness == Truthiness::Factual
+            && target_step.truthiness == Truthiness::Factual
+        {
+            // No global-global rewriting
+            return None;
+        }
+        let pattern_literal = &pattern_step.clause.literals[0];
+        let (s, t) = if pattern_forwards {
+            (&pattern_literal.left, &pattern_literal.right)
+        } else {
+            (&pattern_literal.right, &pattern_literal.left)
+        };
+        let target_literal = &target_step.clause.literals[0];
+
+        match ActiveSet::old_try_rewrite(s, t, subterm, path, &target_literal, target_left) {
+            Some(new_clause) => Some(ProofStep::new_rewrite(
+                pattern_id,
+                pattern_step,
+                target_id,
+                target_step,
+                new_clause,
+            )),
+            None => None,
+        }
+    }
+
     // Tries to do a rewrite, but may fail to match.
     //
     // We are rewriting the pattern "s" to the pattern "t".
@@ -123,7 +169,7 @@ impl ActiveSet {
     //   u ?= v
     // We are rewriting a subterm of u.
     // target_left tells us whether u is on the left of its literal.
-    fn try_rewrite(
+    fn old_try_rewrite(
         s: &Term,
         t: &Term,
         u_subterm: &Term,
@@ -319,7 +365,7 @@ impl ActiveSet {
                     // No global-global rewriting
                     continue;
                 }
-                if let Some(new_clause) = ActiveSet::try_rewrite(
+                if let Some(new_clause) = ActiveSet::old_try_rewrite(
                     s,
                     t,
                     u_subterm,
@@ -376,7 +422,7 @@ impl ActiveSet {
                     } else {
                         (&pattern_literal.right, &pattern_literal.left)
                     };
-                    if let Some(new_clause) = ActiveSet::try_rewrite(
+                    if let Some(new_clause) = ActiveSet::old_try_rewrite(
                         s,
                         t,
                         u_subterm,
