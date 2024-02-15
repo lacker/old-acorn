@@ -16,8 +16,8 @@ pub struct ActiveSet {
     // A vector for indexed reference
     steps: Vec<ProofStep>,
 
-    // A HashSet for checking what complete clauses we already know
-    clause_set: HashSet<Clause>,
+    // The long clauses (ie more than one literal) that we already know
+    long_clauses: HashSet<Clause>,
 
     // For checking specific literals we already know, including generalization
     literal_tree: LiteralTree,
@@ -89,7 +89,7 @@ impl ActiveSet {
     pub fn new() -> ActiveSet {
         ActiveSet {
             steps: vec![],
-            clause_set: HashSet::new(),
+            long_clauses: HashSet::new(),
             literal_tree: LiteralTree::new(),
             rewrite_targets: FingerprintTree::new(),
             rewrite_patterns: FingerprintTree::new(),
@@ -100,6 +100,10 @@ impl ActiveSet {
 
     pub fn len(&self) -> usize {
         self.steps.len()
+    }
+
+    fn is_known_long_clause(&self, clause: &Clause) -> bool {
+        clause.literals.len() > 1 && self.long_clauses.contains(clause)
     }
 
     fn get_subterm(&self, target: &RewriteTarget) -> &Term {
@@ -540,10 +544,6 @@ impl ActiveSet {
         &self.steps[index]
     }
 
-    pub fn contains(&self, clause: &Clause) -> bool {
-        self.clause_set.contains(clause)
-    }
-
     // Returns (value, id of clause) when this literal's value is known due to some existing clause.
     // No id is returned if this literal is "expr = expr".
     fn evaluate_literal(&self, literal: &Literal) -> Option<(bool, Option<usize>)> {
@@ -563,7 +563,9 @@ impl ActiveSet {
         if step.clause.is_tautology() {
             return None;
         }
-        if self.contains(&step.clause) {
+
+        // TODO: does it help performance to check here?
+        if self.is_known_long_clause(&step.clause) {
             return None;
         }
 
@@ -600,7 +602,7 @@ impl ActiveSet {
         if simplified_clause.is_tautology() {
             return None;
         }
-        if self.contains(&simplified_clause) {
+        if self.is_known_long_clause(&simplified_clause) {
             return None;
         }
         let mut new_truthiness = step.truthiness;
@@ -692,12 +694,9 @@ impl ActiveSet {
                     }
                 }
             }
-        }
-
-        self.clause_set.insert(clause.clone());
-
-        if clause.literals.len() == 1 {
             self.literal_tree.insert(&clause.literals[0], id);
+        } else {
+            self.long_clauses.insert(clause.clone());
         }
 
         self.steps.push(step);
