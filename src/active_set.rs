@@ -559,7 +559,7 @@ impl ActiveSet {
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
     // If the result is an impossibility, return an empty clause.
-    pub fn simplify(&self, step: ProofStep) -> Option<ProofStep> {
+    pub fn simplify(&self, mut step: ProofStep) -> Option<ProofStep> {
         if step.clause.is_tautology() {
             return None;
         }
@@ -571,9 +571,9 @@ impl ActiveSet {
 
         // Filter out any literals that are known to be true
         let mut new_rules = vec![];
-        let mut filtered_literals = vec![];
-        let mut literals_changed = false;
-        for literal in &step.clause.literals {
+        let initial_num_literals = step.clause.literals.len();
+        let mut output_literals = vec![];
+        for literal in std::mem::take(&mut step.clause.literals) {
             match self.evaluate_literal(&literal) {
                 Some((true, _)) => {
                     // This literal is already known to be true.
@@ -586,21 +586,21 @@ impl ActiveSet {
                     if let Some(id) = id {
                         new_rules.push(id);
                     }
-                    literals_changed = true;
                     continue;
                 }
                 None => {
-                    filtered_literals.push(literal.clone());
+                    output_literals.push(literal);
                 }
             }
         }
 
-        if !literals_changed {
+        if output_literals.len() == initial_num_literals {
             // This proof step hasn't changed.
+            step.clause.literals = output_literals;
             return Some(step);
         }
 
-        let simplified_clause = Clause::new(filtered_literals);
+        let simplified_clause = Clause::new(output_literals);
         if simplified_clause.is_tautology() {
             return None;
         }
