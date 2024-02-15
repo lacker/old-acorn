@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
-use crate::literal_set::LiteralSet;
 use crate::pattern_tree::LiteralTree;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::term::Term;
