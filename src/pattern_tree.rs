@@ -567,8 +567,21 @@ impl LiteralTree {
         }
     }
 
+    // Inserts a literal along with its id.
+    // This only inserts the given direction.
     pub fn insert(&mut self, literal: &Literal, id: usize) {
         self.tree.insert_literal(literal, (literal.positive, id));
+    }
+
+    // Checks whether any literal in the tree is a generalization of the provided literal.
+    // If so, returns a pair with:
+    //   1. whether the sign of the provided literal and the generalization match
+    //   2. the id of the generalization
+    pub fn find_generalization(&self, literal: &Literal) -> Option<(bool, usize)> {
+        match self.tree.find_one_match(&flatten_literal(literal)) {
+            Some(((positive, id), _)) => Some((positive == &literal.positive, *id)),
+            None => None,
+        }
     }
 }
 
@@ -781,5 +794,34 @@ mod tests {
             .unwrap();
         assert_eq!(rules, vec![0]);
         assert_eq!(term, Term::parse("c2(c3, c4)"));
+    }
+
+    #[test]
+    fn test_literal_tree() {
+        let mut tree = LiteralTree::new();
+        tree.insert(&Literal::parse("c0(x0, c1) = x0"), 7);
+
+        let lit = Literal::parse("c0(x0, c1) = x0");
+        assert!(tree.find_generalization(&lit).unwrap().0);
+
+        let lit = Literal::parse("c0(c2, c1) = c2");
+        assert!(tree.find_generalization(&lit).unwrap().0);
+
+        let lit = Literal::parse("c0(x0, x1) = x0");
+        assert!(tree.find_generalization(&lit).is_none());
+
+        let lit = Literal::parse("c0(x0, c1) != x0");
+        assert!(!tree.find_generalization(&lit).unwrap().0);
+
+        tree.insert(&Literal::parse("x0 = x0"), 8);
+
+        let lit = Literal::parse("x0 = c0");
+        assert!(tree.find_generalization(&lit).is_none());
+
+        let lit = Literal::parse("c0 = x0");
+        assert!(tree.find_generalization(&lit).is_none());
+
+        let lit = Literal::parse("c0 = c0");
+        assert!(tree.find_generalization(&lit).unwrap().0);
     }
 }
