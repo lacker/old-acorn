@@ -577,6 +577,8 @@ impl LiteralTree {
     // If so, returns a pair with:
     //   1. whether the sign of the provided literal and the generalization match
     //   2. the id of the generalization
+    //
+    // TODO: we just don't handle flipping literals around. That seems relevant though.
     pub fn find_generalization(&self, literal: &Literal) -> Option<(bool, usize)> {
         match self.tree.find_one_match(&flatten_literal(literal)) {
             Some(((positive, id), _)) => Some((positive == &literal.positive, *id)),
