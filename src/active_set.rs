@@ -564,7 +564,6 @@ impl ActiveSet {
             return None;
         }
 
-        // TODO: does it help performance to check here?
         if self.is_known_long_clause(&step.clause) {
             return None;
         }
