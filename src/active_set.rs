@@ -572,6 +572,7 @@ impl ActiveSet {
         // Filter out any literals that are known to be true
         let mut new_rules = vec![];
         let mut filtered_literals = vec![];
+        let mut literals_changed = false;
         for literal in &step.clause.literals {
             match self.evaluate_literal(&literal) {
                 Some((true, _)) => {
@@ -585,6 +586,7 @@ impl ActiveSet {
                     if let Some(id) = id {
                         new_rules.push(id);
                     }
+                    literals_changed = true;
                     continue;
                 }
                 None => {
@@ -593,7 +595,7 @@ impl ActiveSet {
             }
         }
 
-        if new_rules.is_empty() {
+        if !literals_changed {
             // This proof step hasn't changed.
             return Some(step);
         }
