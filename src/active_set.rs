@@ -551,7 +551,7 @@ impl ActiveSet {
             return Some((literal.positive, None));
         }
         match self.literal_set.lookup(&literal) {
-            Some((positive, _, id)) => Some((positive, Some(id))),
+            Some((positive, id)) => Some((positive, Some(id))),
             None => None,
         }
     }

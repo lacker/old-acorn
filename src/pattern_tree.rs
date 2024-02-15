@@ -324,6 +324,14 @@ fn path_from_term(term: &Term) -> Vec<u8> {
     path
 }
 
+fn path_from_literal(literal: &Literal) -> Vec<u8> {
+    let mut path = Vec::new();
+    Edge::Literal(literal.left.term_type).append_to(&mut path);
+    path_from_term_helper(&literal.left, &mut path);
+    path_from_term_helper(&literal.right, &mut path);
+    path
+}
+
 // Replace the variable x_i with the contents of replacements[i].
 // Appends the result to output.
 // We only update the size indices for components we add to the output, not
@@ -434,8 +442,15 @@ fn find_one_match<'a>(
     let initial_key_len = key.len();
 
     // Case 1: this is a literal, which must match a literal comparing the same types.
-    if let TermComponent::Literal(term_type, size) = components[0] {
-        todo!();
+    if let TermComponent::Literal(term_type, _) = components[0] {
+        let edge = Edge::Literal(term_type);
+        edge.append_to(key);
+        let new_subtrie = subtrie.subtrie(key as &[u8]);
+        if let Some(leaf) = find_one_match(&new_subtrie, key, &components[1..], replacements) {
+            return Some(leaf);
+        }
+        key.truncate(initial_key_len);
+        return None;
     }
 
     // Case 2: the first term in the components could match an existing replacement
@@ -467,7 +482,7 @@ fn find_one_match<'a>(
     key.truncate(initial_key_len);
 
     // Case 4: we could exactly match just the first component
-    let bytes = match components[0] {
+    let edge = match components[0] {
         TermComponent::Composite(_, num_args, _) => {
             if let TermComponent::Atom(head_type, _) = components[1] {
                 Edge::HeadType(num_args, head_type)
@@ -484,7 +499,7 @@ fn find_one_match<'a>(
         }
         TermComponent::Literal(..) => panic!("literals should have been handled already"),
     };
-    bytes.append_to(key);
+    edge.append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
     if let Some(leaf) = find_one_match(&new_subtrie, key, &components[1..], replacements) {
         return Some(leaf);
@@ -510,8 +525,15 @@ impl<T> PatternTree<T> {
         }
     }
 
-    pub fn insert(&mut self, key: &Term, value: T) {
+    pub fn insert_term(&mut self, key: &Term, value: T) {
         let path = path_from_term(key);
+        let value_id = self.values.len();
+        self.values.push(value);
+        self.trie.insert(path, value_id);
+    }
+
+    pub fn insert_literal(&mut self, key: &Literal, value: T) {
+        let path = path_from_literal(key);
         let value_id = self.values.len();
         self.values.push(value);
         self.trie.insert(path, value_id);
@@ -533,11 +555,29 @@ impl<T> PatternTree<T> {
     }
 }
 
+pub struct LiteralTree {
+    // Stores (sign, id) for each literal.
+    tree: PatternTree<(bool, usize)>,
+}
+
+impl LiteralTree {
+    pub fn new() -> LiteralTree {
+        LiteralTree {
+            tree: PatternTree::new(),
+        }
+    }
+
+    pub fn insert(&mut self, literal: &Literal, id: usize) {
+        self.tree.insert_literal(literal, (literal.positive, id));
+    }
+}
+
 struct RewriteValue {
     rule_id: usize,
     output: Vec<TermComponent>,
 }
 
+// Not used, but the tests on it demonstrate how replacement works on the PatternTree.
 pub struct RewriteTree {
     tree: PatternTree<RewriteValue>,
 
@@ -561,7 +601,7 @@ impl RewriteTree {
             rule_id,
             output: flatten_term(output_term),
         };
-        self.tree.insert(input_term, value);
+        self.tree.insert_term(input_term, value);
     }
 
     // Does one rewrite.

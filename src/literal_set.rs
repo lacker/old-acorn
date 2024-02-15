@@ -28,11 +28,10 @@ impl LiteralSet {
     }
 
     // Checks whether this literal is a specialization of any literal in the set.
-    // If so, returns the literal in the set that it is a specialization of, as well
-    // as the sign.
+    // If so, returns the sign and the id of the literal that this one is a specialization of.
     // "true" means that this literal is true for every value of the free variables.
     // "false" means that this literal is false for every value of the free variables.
-    pub fn lookup(&self, literal: &Literal) -> Option<(bool, &Literal, usize)> {
+    pub fn lookup(&self, literal: &Literal) -> Option<(bool, usize)> {
         // TODO: do smart tree things instead of this dumb exhaustive search
         let f_left = Fingerprint::new(&literal.left);
         let f_right = Fingerprint::new(&literal.right);
@@ -49,11 +48,7 @@ impl LiteralSet {
                         continue;
                     }
 
-                    return Some((
-                        literal.positive == known_literal.positive,
-                        known_literal,
-                        *id,
-                    ));
+                    return Some((literal.positive == known_literal.positive, *id));
                 }
             }
         }
