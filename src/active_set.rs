@@ -4,6 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::literal_set::LiteralSet;
+use crate::pattern_tree::LiteralTree;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
@@ -19,8 +20,8 @@ pub struct ActiveSet {
     // A HashSet for checking what complete clauses we already know
     clause_set: HashSet<Clause>,
 
-    // A LiteralSet for checking specific literals we already know, including generalization
-    literal_set: LiteralSet,
+    // For checking specific literals we already know, including generalization
+    literal_tree: LiteralTree,
 
     // An index of all the subterms that can be rewritten.
     rewrite_targets: FingerprintTree<RewriteTarget>,
@@ -90,7 +91,7 @@ impl ActiveSet {
         ActiveSet {
             steps: vec![],
             clause_set: HashSet::new(),
-            literal_set: LiteralSet::new(),
+            literal_tree: LiteralTree::new(),
             rewrite_targets: FingerprintTree::new(),
             rewrite_patterns: FingerprintTree::new(),
             positive_res_targets: FingerprintTree::new(),
@@ -550,7 +551,7 @@ impl ActiveSet {
         if literal.left == literal.right {
             return Some((literal.positive, None));
         }
-        match self.literal_set.lookup(&literal) {
+        match self.literal_tree.find_generalization(&literal) {
             Some((positive, id)) => Some((positive, Some(id))),
             None => None,
         }
@@ -697,7 +698,7 @@ impl ActiveSet {
         self.clause_set.insert(clause.clone());
 
         if clause.literals.len() == 1 {
-            self.literal_set.insert(clause.literals[0].clone(), id);
+            self.literal_tree.insert(&clause.literals[0], id);
         }
 
         self.steps.push(step);
