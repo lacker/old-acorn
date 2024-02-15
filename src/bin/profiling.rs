@@ -3,17 +3,20 @@
 //   cargo flamegraph --bin=profiling
 
 use acorn::project::Project;
-use acorn::prover::Prover;
 
 fn main() {
     let mut project = Project::new("math");
-    let module = project.load_module("nat").unwrap();
-    let env = project.get_env(module).unwrap();
-    let paths = env.goal_paths();
-    for path in paths {
-        let goal_context = env.get_goal_context(&project, &path);
-        let mut prover = Prover::new(&project, &goal_context, false, None);
-        let result = prover.search_for_contradiction(1000000, 30.0);
-        println!("{}: {}", result, goal_context.name);
-    }
+    assert!(project.add_target("nat"));
+    assert!(project.add_target("subtraction"));
+    assert!(project.add_target("gcd"));
+    project.build(&mut |event| {
+        if let Some(m) = event.log_message {
+            println!("{}", m);
+        }
+        if let Some((d, t)) = event.progress {
+            if d == t {
+                println!("{}/{} OK", d, t);
+            }
+        }
+    });
 }
