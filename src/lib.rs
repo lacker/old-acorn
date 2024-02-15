@@ -11,7 +11,6 @@ pub mod expression;
 pub mod fingerprint;
 pub mod goal_context;
 pub mod literal;
-pub mod literal_set;
 pub mod module;
 pub mod normalizer;
 pub mod passive_set;
