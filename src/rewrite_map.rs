@@ -92,4 +92,15 @@ mod tests {
         assert_eq!(rewrites.len(), 1);
         assert_eq!(rewrites[0].2, Term::parse("c0(c2)"));
     }
+
+    #[test]
+    fn test_rewrite_map_multiple_rewrites() {
+        let mut map = RewriteMap::new();
+        map.insert(0, &Term::parse("c1(x0, c2)"), &Term::parse("c3(x0)"), true);
+        map.insert(1, &Term::parse("c1(c2, x0)"), &Term::parse("c4(x0)"), true);
+        let rewrites = map.find_rewrites(&Term::parse("c1(c2, c2)"));
+        assert_eq!(rewrites.len(), 2);
+        assert_eq!(rewrites[0].2, Term::parse("c3(c2)"));
+        assert_eq!(rewrites[1].2, Term::parse("c4(c2)"));
+    }
 }
