@@ -121,7 +121,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_rewriting_an_atom() {
+    fn test_rewrite_tree_atoms() {
         let mut tree = RewriteTree::new();
         tree.validate = true;
         let mut rules = vec![];
@@ -132,7 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rewriting_a_function() {
+    fn test_rewrite_tree_functions() {
         let mut tree = RewriteTree::new();
         tree.validate = true;
         let mut rules = vec![];
@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_rewrites() {
+    fn test_rewrite_tree_multiple_rewrites() {
         let mut tree = RewriteTree::new();
         tree.validate = true;
         let mut rules = vec![];
@@ -155,7 +155,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rewriting_tail_subterms() {
+    fn test_rewrite_tree_tail_subterms() {
         let mut tree = RewriteTree::new();
         tree.validate = true;
         let mut rules = vec![];
@@ -169,7 +169,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rewriting_non_tail_subterms() {
+    fn test_rewrite_tree_non_tail_subterms() {
         let mut tree = RewriteTree::new();
         tree.validate = true;
         let mut rules = vec![];
@@ -193,7 +193,7 @@ mod tests {
     }
 
     #[test]
-    fn test_variables_cant_just_match_themselves() {
+    fn test_rewrite_tree_variables_cant_just_match_themselves() {
         let mut tree = RewriteTree::new();
         tree.validate = true;
         let mut rules = vec![];
@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rewriting_function_variables() {
+    fn test_rewrite_tree_function_variables() {
         let mut tree = RewriteTree::new();
         tree.validate = true;
         let mut rules = vec![];

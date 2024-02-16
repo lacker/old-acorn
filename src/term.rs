@@ -522,7 +522,14 @@ impl Term {
         if path.is_empty() {
             return replacement;
         }
-        todo!();
+        let mut new_args = self.args.clone();
+        new_args[path[0]] = self.args[path[0]].replace_at_path(&path[1..], replacement);
+        Term {
+            term_type: self.term_type,
+            head_type: self.head_type,
+            head: self.head.clone(),
+            args: new_args,
+        }
     }
 
     // Finds all rewritable subterms of this term, and with their paths, appends to "answer".

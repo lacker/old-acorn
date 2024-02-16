@@ -70,3 +70,26 @@ impl RewriteMap {
         answer
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rewrite_map_atoms() {
+        let mut map = RewriteMap::new();
+        map.insert(0, &Term::parse("c1"), &Term::parse("c0"), true);
+        let rewrites = map.find_rewrites(&Term::parse("c1"));
+        assert_eq!(rewrites.len(), 1);
+        assert_eq!(rewrites[0].2, Term::parse("c0"));
+    }
+
+    #[test]
+    fn test_rewrite_map_functions() {
+        let mut map = RewriteMap::new();
+        map.insert(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"), true);
+        let rewrites = map.find_rewrites(&Term::parse("c1(c2)"));
+        assert_eq!(rewrites.len(), 1);
+        assert_eq!(rewrites[0].2, Term::parse("c0(c2)"));
+    }
+}
