@@ -1156,4 +1156,17 @@ mod tests {
         "#,
         )
     }
+
+    #[test]
+    fn test_basic_unification() {
+        prove_all_succeeds(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            let f: (Nat, Nat) -> bool = axiom
+            axiom f_zero_right(x: Nat): f(x, 0)
+            theorem goal: exists(x: Nat) { f(0, x) }
+        "#,
+        );
+    }
 }
