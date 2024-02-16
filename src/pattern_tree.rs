@@ -120,11 +120,10 @@ impl TermComponent {
 
     pub fn unflatten_pair(components: &[TermComponent]) -> (Term, Term) {
         match components[0] {
-            TermComponent::Pair(term_type, size) => {
-                let size = size as usize;
+            TermComponent::Pair(..) => {
                 let (j, term1) = TermComponent::unflatten_next(components, 1);
                 let (k, term2) = TermComponent::unflatten_next(components, j);
-                if k != size {
+                if k != components.len() {
                     panic!("Pair has wrong size");
                 }
                 (term1, term2)
