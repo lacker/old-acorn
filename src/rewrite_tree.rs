@@ -1,6 +1,8 @@
-// We aren't currently using the RewriteTree, but I'm keeping it around because we are going to
-// want to do similar things in the future, it demonstrates the use of TermComponent and PatternTree,
-// and its tests are testing things we care about indirectly.
+// The RewriteTree stores a set of "canonical rewrites", that we want to always do when possible.
+//
+// We aren't currently using the RewriteTree, but it's here for reference.
+// It demonstrates the use of TermComponent and PatternTree, and its tests are testing things
+// we care about indirectly.
 
 use crate::pattern_tree::{PatternTree, TermComponent};
 use crate::term::Term;

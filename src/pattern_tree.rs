@@ -561,20 +561,18 @@ impl<T> PatternTree<T> {
         self.trie.insert(path, value_id);
     }
 
-    // Appends to the existing value if possible. Otherwises, inserts a vec![U].
-    pub fn insert_or_append<U>(pt: &mut PatternTree<Vec<U>>, key: &Term, value: U) {
-        let path = path_from_term(key);
-        match pt.trie.entry(path) {
-            Entry::Occupied(entry) => {
-                let value_id = entry.get();
-                pt.values[*value_id].push(value);
-            }
-            Entry::Vacant(entry) => {
-                let value_id = pt.values.len();
-                pt.values.push(vec![value]);
-                entry.insert(value_id);
-            }
-        }
+    pub fn find_matches_while<'a, F>(
+        &self,
+        key: &mut Vec<u8>,
+        components: &'a [TermComponent],
+        replacements: &mut Vec<&'a [TermComponent]>,
+        callback: &mut F,
+    ) -> bool
+    where
+        F: FnMut(usize, &Vec<&[TermComponent]>) -> bool,
+    {
+        let subtrie = self.trie.subtrie(EMPTY_SLICE);
+        find_matches_while(&subtrie, key, components, replacements, callback)
     }
 
     // Finds a single match, if possible.
@@ -585,18 +583,11 @@ impl<T> PatternTree<T> {
     ) -> Option<(&T, Vec<&'a [TermComponent]>)> {
         let mut key = vec![];
         let mut replacements = vec![];
-        let subtrie = self.trie.subtrie(EMPTY_SLICE);
         let mut found_id = None;
-        find_matches_while(
-            &subtrie,
-            &mut key,
-            term,
-            &mut replacements,
-            &mut |value_id, _| {
-                found_id = Some(value_id);
-                false
-            },
-        );
+        self.find_matches_while(&mut key, term, &mut replacements, &mut |value_id, _| {
+            found_id = Some(value_id);
+            false
+        });
         match found_id {
             Some(value_id) => Some((&self.values[value_id], replacements)),
             None => None,
@@ -613,6 +604,24 @@ impl<T> PatternTree<T> {
             true
         });
         count
+    }
+}
+
+impl PatternTree<()> {
+    // Appends to the existing value if possible. Otherwises, inserts a vec![U].
+    pub fn insert_or_append<U>(pt: &mut PatternTree<Vec<U>>, key: &Term, value: U) {
+        let path = path_from_term(key);
+        match pt.trie.entry(path) {
+            Entry::Occupied(entry) => {
+                let value_id = entry.get();
+                pt.values[*value_id].push(value);
+            }
+            Entry::Vacant(entry) => {
+                let value_id = pt.values.len();
+                pt.values.push(vec![value]);
+                entry.insert(value_id);
+            }
+        }
     }
 }
 

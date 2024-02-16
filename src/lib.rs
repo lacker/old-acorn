@@ -18,6 +18,7 @@ pub mod pattern_tree;
 pub mod project;
 pub mod proof_step;
 pub mod prover;
+pub mod rewrite_map;
 pub mod rewrite_tree;
 pub mod specializer;
 pub mod statement;

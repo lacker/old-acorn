@@ -518,6 +518,10 @@ impl Term {
         Some(current_term)
     }
 
+    pub fn replace_at_path(&self, path: &[usize], replacement: &Term) -> Term {
+        todo!();
+    }
+
     // Finds all rewritable subterms of this term, and with their paths, appends to "answer".
     //
     // The rules for rewriting:
