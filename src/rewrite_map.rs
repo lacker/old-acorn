@@ -28,7 +28,7 @@ impl RewriteMap {
         }
     }
 
-    // The input term's variable ids must be normalized.
+    // NOTE: The input term's variable ids must be normalized.
     pub fn insert(
         &mut self,
         rule_id: usize,

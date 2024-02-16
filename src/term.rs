@@ -518,7 +518,10 @@ impl Term {
         Some(current_term)
     }
 
-    pub fn replace_at_path(&self, path: &[usize], replacement: &Term) -> Term {
+    pub fn replace_at_path(&self, path: &[usize], replacement: Term) -> Term {
+        if path.is_empty() {
+            return replacement;
+        }
         todo!();
     }
 
