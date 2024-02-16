@@ -522,6 +522,7 @@ fn find_one_match<'a>(
 
 pub struct PatternTree<T> {
     // Maps to an index into values.
+    // The values are stored separately because subtrie lifetimes get weird.
     trie: Trie<Vec<u8>, usize>,
 
     values: Vec<T>,
