@@ -106,7 +106,7 @@ impl TermComponent {
                 (j, Term::new(term_type, head_type, head, args))
             }
             TermComponent::Atom(term_type, atom) => (i + 1, Term::atom(term_type, atom)),
-            TermComponent::Pair(..) => panic!("unflatten_next called with a literal"),
+            TermComponent::Pair(..) => panic!("unflatten_next called with a pair"),
         }
     }
 
@@ -162,7 +162,7 @@ impl TermComponent {
             TermComponent::Atom(_, _) => return Ok(position + 1),
             TermComponent::Pair(_, size) => {
                 if size < 3 {
-                    return Err(format!("literals must have size at least 3"));
+                    return Err(format!("pairs must have size at least 3"));
                 }
                 let final_pos = position + size as usize;
                 let mut next_pos = position + 1;
@@ -173,13 +173,13 @@ impl TermComponent {
                 }
                 if next_pos != final_pos {
                     return Err(format!(
-                        "expected literal at {} to end by {} but it went until {}",
+                        "expected pair at {} to end by {} but it went until {}",
                         position, final_pos, next_pos
                     ));
                 }
                 if args_seen != 2 {
                     return Err(format!(
-                        "expected literal at {} to be made up of two terms but it had {}",
+                        "expected pair at {} to be made up of two terms but it had {}",
                         position, args_seen
                     ));
                 }
@@ -269,7 +269,7 @@ impl TermComponent {
                     }
                 }
                 TermComponent::Pair(..) => {
-                    panic!("replacing in literals is not implemented");
+                    panic!("replacing in pairs is not implemented");
                 }
             }
         }
