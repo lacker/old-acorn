@@ -68,13 +68,14 @@ impl TermComponent {
         output
     }
 
-    fn flatten_literal(literal: &Literal) -> Vec<TermComponent> {
+    fn flatten_pair(term1: &Term, term2: &Term) -> Vec<TermComponent> {
+        assert_eq!(term1.term_type, term2.term_type);
         let mut output = Vec::new();
         // The zero is a placeholder. We'll fill in the real info later.
         output.push(TermComponent::Pair(0, 0));
-        TermComponent::flatten_next(&literal.left, &mut output);
-        TermComponent::flatten_next(&literal.right, &mut output);
-        output[0] = TermComponent::Pair(literal.left.term_type, output.len() as u16);
+        TermComponent::flatten_next(term1, &mut output);
+        TermComponent::flatten_next(term2, &mut output);
+        output[0] = TermComponent::Pair(term1.term_type, output.len() as u16);
         output
     }
 
@@ -577,7 +578,7 @@ impl LiteralTree {
     //
     // TODO: we just don't handle flipping literals around. That seems relevant though.
     pub fn find_generalization(&self, literal: &Literal) -> Option<(bool, usize)> {
-        let flat = TermComponent::flatten_literal(literal);
+        let flat = TermComponent::flatten_pair(&literal.left, &literal.right);
         match self.tree.find_one_match(&flat) {
             Some(((positive, id), _)) => Some((positive == &literal.positive, *id)),
             None => None,
