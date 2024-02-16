@@ -154,13 +154,6 @@ impl ActiveSet {
         };
         let target_literal = &target_step.clause.literals[0];
 
-        // This prevents the "sub-unification" case, where we become interested in a term by
-        // unifying it with a subterm of another term.
-        let exact = path.is_empty();
-        if !exact && subterm.has_any_variable() {
-            return None;
-        }
-
         let mut unifier = Unifier::new();
         // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
         // the actual left or right of their normalized literals.
@@ -181,7 +174,7 @@ impl ActiveSet {
             target_id,
             target_step,
             new_clause,
-            exact,
+            path.is_empty(),
         ))
     }
 

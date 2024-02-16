@@ -518,44 +518,47 @@ impl Term {
         Some(current_term)
     }
 
-    // Lone variables and "true" cannot be rewritten, because there are too many stupid possibilities.
-    pub fn is_rewritable(&self) -> bool {
-        if self.is_true() || self.is_variable() {
-            return false;
-        }
-        true
-    }
-
-    // Finds all subterms of this term, and with their paths, appends to "answer".
-    // prepends "prefix" to all paths.
-    fn push_subterms<'a>(
+    // Finds all rewritable subterms of this term, and with their paths, appends to "answer".
+    //
+    // The rules for rewriting:
+    //
+    //   1. Plain variables and "true" can never be rewritten
+    //   2. Non-root terms that contain variables cannot be rewritten
+    //
+    // I'm not entirely sure about the second rule.
+    //
+    // Prepends "prefix" to all paths.
+    // Returns whether there are any variables in this term.
+    fn push_rewritable_subterms<'a>(
         &'a self,
-        allow_nonrewritable: bool,
+        is_root: bool,
         prefix: &mut Vec<usize>,
         answer: &mut Vec<(Vec<usize>, &'a Term)>,
-    ) {
-        if !allow_nonrewritable && !self.is_rewritable() {
-            return;
+    ) -> bool {
+        if self.is_true() {
+            return false;
         }
-        answer.push((prefix.clone(), self));
+        if self.is_variable() {
+            return true;
+        }
+        let mut contains_variable = false;
         for (i, arg) in self.args.iter().enumerate() {
             prefix.push(i);
-            arg.push_subterms(allow_nonrewritable, prefix, answer);
+            if arg.push_rewritable_subterms(false, prefix, answer) {
+                contains_variable = true;
+            }
             prefix.pop();
         }
-    }
-
-    pub fn subterms(&self) -> Vec<(Vec<usize>, &Term)> {
-        let mut answer = vec![];
-        let mut prefix = vec![];
-        self.push_subterms(true, &mut prefix, &mut answer);
-        answer
+        if is_root || !contains_variable {
+            answer.push((prefix.clone(), self));
+        }
+        contains_variable
     }
 
     pub fn rewritable_subterms(&self) -> Vec<(Vec<usize>, &Term)> {
         let mut answer = vec![];
         let mut prefix = vec![];
-        self.push_subterms(false, &mut prefix, &mut answer);
+        self.push_rewritable_subterms(true, &mut prefix, &mut answer);
         answer
     }
 
