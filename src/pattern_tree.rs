@@ -605,6 +605,40 @@ impl LiteralTree {
 mod tests {
     use super::*;
 
+    fn check_term(s: &str) {
+        let input_term = Term::parse(s);
+        let flat = TermComponent::flatten_term(&input_term);
+        TermComponent::validate_slice(&flat);
+        let output_term = TermComponent::unflatten_term(&flat);
+        assert_eq!(input_term, output_term);
+    }
+
+    #[test]
+    fn test_flatten_and_unflatten_term() {
+        check_term("x0");
+        check_term("c0(x0)");
+        check_term("c0(x0, x1)");
+        check_term("c0(x0, c1(x1))");
+    }
+
+    fn check_pair(s1: &str, s2: &str) {
+        let input_term1 = Term::parse(s1);
+        let input_term2 = Term::parse(s2);
+        let flat = TermComponent::flatten_pair(&input_term1, &input_term2);
+        TermComponent::validate_slice(&flat);
+        let (output_term1, output_term2) = TermComponent::unflatten_pair(&flat);
+        assert_eq!(input_term1, output_term1);
+        assert_eq!(input_term2, output_term2);
+    }
+
+    #[test]
+    fn test_flatten_and_unflatten_pair() {
+        check_pair("x0", "x1");
+        check_pair("c0(x0)", "c1(x1)");
+        check_pair("c0(x0, x1)", "c1(x2, x3)");
+        check_pair("c0(x0, c1(x1))", "c2(x2, x3)");
+    }
+
     #[test]
     fn test_literal_tree() {
         let mut tree = LiteralTree::new();
