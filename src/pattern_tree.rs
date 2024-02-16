@@ -393,11 +393,11 @@ fn path_from_term(term: &Term) -> Vec<u8> {
     path
 }
 
-fn path_from_literal(literal: &Literal) -> Vec<u8> {
+fn path_from_pair(term1: &Term, term2: &Term) -> Vec<u8> {
     let mut path = Vec::new();
-    Edge::Literal(literal.left.term_type).append_to(&mut path);
-    path_from_term_helper(&literal.left, &mut path);
-    path_from_term_helper(&literal.right, &mut path);
+    Edge::Literal(term1.term_type).append_to(&mut path);
+    path_from_term_helper(&term1, &mut path);
+    path_from_term_helper(&term2, &mut path);
     path
 }
 
@@ -531,7 +531,7 @@ impl<T> PatternTree<T> {
     }
 
     pub fn insert_literal(&mut self, key: &Literal, value: T) {
-        let path = path_from_literal(key);
+        let path = path_from_pair(&key.left, &key.right);
         let value_id = self.values.len();
         self.values.push(value);
         self.trie.insert(path, value_id);
