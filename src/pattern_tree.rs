@@ -42,168 +42,239 @@ impl TermComponent {
             TermComponent::Literal(..) => panic!("cannot increase size of literal"),
         }
     }
-}
 
-fn flatten_next(term: &Term, output: &mut Vec<TermComponent>) {
-    if term.args.is_empty() {
-        output.push(TermComponent::Atom(term.term_type, term.head));
-        return;
-    }
-
-    let initial_size = output.len();
-
-    // The zeros are a placeholder. We'll fill in the real info later.
-    output.push(TermComponent::Composite(0, 0, 0));
-    output.push(TermComponent::Atom(term.head_type, term.head));
-    for arg in &term.args {
-        flatten_next(arg, output);
-    }
-
-    // Now we can fill in the real size
-    let real_size = output.len() - initial_size;
-    output[initial_size] =
-        TermComponent::Composite(term.term_type, term.args.len() as u8, real_size as u16);
-}
-
-pub fn flatten_term(term: &Term) -> Vec<TermComponent> {
-    let mut output = Vec::new();
-    flatten_next(term, &mut output);
-    output
-}
-
-fn flatten_literal(literal: &Literal) -> Vec<TermComponent> {
-    let mut output = Vec::new();
-    // The zero is a placeholder. We'll fill in the real info later.
-    output.push(TermComponent::Literal(0, 0));
-    flatten_next(&literal.left, &mut output);
-    flatten_next(&literal.right, &mut output);
-    output[0] = TermComponent::Literal(literal.left.term_type, output.len() as u16);
-    output
-}
-
-// Constructs a term, starting at components[i].
-// Returns the next unused index and the term.
-fn unflatten_next(components: &[TermComponent], i: usize) -> (usize, Term) {
-    match components[i] {
-        TermComponent::Composite(term_type, num_args, size) => {
-            let size = size as usize;
-            let (head_type, head) = match components[i + 1] {
-                TermComponent::Atom(head_type, head) => (head_type, head),
-                _ => panic!("Composite term must have an atom as its head"),
-            };
-
-            let mut args = Vec::new();
-            let mut j = i + 2;
-            while j < i + size {
-                let (next_j, arg) = unflatten_next(components, j);
-                j = next_j;
-                args.push(arg);
-            }
-            if j != i + size {
-                panic!("Composite term has wrong size");
-            }
-            if args.len() != num_args as usize {
-                panic!("Composite term has wrong number of args");
-            }
-            (j, Term::new(term_type, head_type, head, args))
+    fn flatten_next(term: &Term, output: &mut Vec<TermComponent>) {
+        if term.args.is_empty() {
+            output.push(TermComponent::Atom(term.term_type, term.head));
+            return;
         }
-        TermComponent::Atom(term_type, atom) => (i + 1, Term::atom(term_type, atom)),
-        TermComponent::Literal(..) => panic!("unflatten_next called with a literal"),
-    }
-}
 
-pub fn unflatten_term(components: &[TermComponent]) -> Term {
-    let (size, term) = unflatten_next(components, 0);
-    if size != components.len() {
-        panic!("Term has wrong size");
-    }
-    term
-}
+        let initial_size = output.len();
 
-// Validates the subterm starting at the given position.
-// Returns the position the next subterm should start at.
-#[allow(dead_code)]
-fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, String> {
-    if position > components.len() {
-        return Err(format!("ran off the end, position {}", position));
-    }
-    match components[position] {
-        TermComponent::Composite(_, num_args, size) => {
-            if size < 3 {
-                return Err(format!("composite terms must have size at least 3"));
-            }
-            if position + 1 >= components.len() {
-                return Err(format!(
-                    "composite terms must have a head, but we ran off the end"
-                ));
-            }
-            if let TermComponent::Composite(..) = components[position + 1] {
-                return Err(format!("composite terms must have an atom as their head"));
-            }
-            // The position we expect to end up in after parsing
-            let final_pos = position + size as usize;
-            let mut next_pos = position + 2;
-            let mut args_seen = 0;
-            while next_pos < final_pos {
-                next_pos = validate_one(components, next_pos)?;
-                args_seen += 1;
-            }
-            if next_pos != final_pos {
-                return Err(format!(
-                    "expected composite term at {} to end by {} but it went until {}",
-                    position, final_pos, next_pos
-                ));
-            }
-            if args_seen != num_args as usize {
-                return Err(format!(
-                    "expected composite term at {} to have {} args but it had {}",
-                    position, num_args, args_seen
-                ));
-            }
-            Ok(final_pos)
+        // The zeros are a placeholder. We'll fill in the real info later.
+        output.push(TermComponent::Composite(0, 0, 0));
+        output.push(TermComponent::Atom(term.head_type, term.head));
+        for arg in &term.args {
+            TermComponent::flatten_next(arg, output);
         }
-        TermComponent::Atom(_, _) => return Ok(position + 1),
-        TermComponent::Literal(_, size) => {
-            if size < 3 {
-                return Err(format!("literals must have size at least 3"));
+
+        // Now we can fill in the real size
+        let real_size = output.len() - initial_size;
+        output[initial_size] =
+            TermComponent::Composite(term.term_type, term.args.len() as u8, real_size as u16);
+    }
+
+    pub fn flatten_term(term: &Term) -> Vec<TermComponent> {
+        let mut output = Vec::new();
+        TermComponent::flatten_next(term, &mut output);
+        output
+    }
+
+    fn flatten_literal(literal: &Literal) -> Vec<TermComponent> {
+        let mut output = Vec::new();
+        // The zero is a placeholder. We'll fill in the real info later.
+        output.push(TermComponent::Literal(0, 0));
+        TermComponent::flatten_next(&literal.left, &mut output);
+        TermComponent::flatten_next(&literal.right, &mut output);
+        output[0] = TermComponent::Literal(literal.left.term_type, output.len() as u16);
+        output
+    }
+
+    // Constructs a term, starting at components[i].
+    // Returns the next unused index and the term.
+    fn unflatten_next(components: &[TermComponent], i: usize) -> (usize, Term) {
+        match components[i] {
+            TermComponent::Composite(term_type, num_args, size) => {
+                let size = size as usize;
+                let (head_type, head) = match components[i + 1] {
+                    TermComponent::Atom(head_type, head) => (head_type, head),
+                    _ => panic!("Composite term must have an atom as its head"),
+                };
+
+                let mut args = Vec::new();
+                let mut j = i + 2;
+                while j < i + size {
+                    let (next_j, arg) = TermComponent::unflatten_next(components, j);
+                    j = next_j;
+                    args.push(arg);
+                }
+                if j != i + size {
+                    panic!("Composite term has wrong size");
+                }
+                if args.len() != num_args as usize {
+                    panic!("Composite term has wrong number of args");
+                }
+                (j, Term::new(term_type, head_type, head, args))
             }
-            let final_pos = position + size as usize;
-            let mut next_pos = position + 1;
-            let mut args_seen = 0;
-            while next_pos < final_pos {
-                next_pos = validate_one(components, next_pos)?;
-                args_seen += 1;
-            }
-            if next_pos != final_pos {
-                return Err(format!(
-                    "expected literal at {} to end by {} but it went until {}",
-                    position, final_pos, next_pos
-                ));
-            }
-            if args_seen != 2 {
-                return Err(format!(
-                    "expected literal at {} to be made up of two terms but it had {}",
-                    position, args_seen
-                ));
-            }
-            Ok(final_pos)
+            TermComponent::Atom(term_type, atom) => (i + 1, Term::atom(term_type, atom)),
+            TermComponent::Literal(..) => panic!("unflatten_next called with a literal"),
         }
     }
-}
 
-pub fn validate_components(components: &[TermComponent]) {
-    match validate_one(components, 0) {
-        Ok(final_pos) => {
-            if final_pos != components.len() {
-                panic!(
-                    "validation fail in {:?}. we have {} components but parsing used {}",
-                    components,
-                    components.len(),
-                    final_pos
-                );
+    pub fn unflatten_term(components: &[TermComponent]) -> Term {
+        let (size, term) = TermComponent::unflatten_next(components, 0);
+        if size != components.len() {
+            panic!("Term has wrong size");
+        }
+        term
+    }
+
+    // Validates the subterm starting at the given position.
+    // Returns the position the next subterm should start at.
+    fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, String> {
+        if position > components.len() {
+            return Err(format!("ran off the end, position {}", position));
+        }
+        match components[position] {
+            TermComponent::Composite(_, num_args, size) => {
+                if size < 3 {
+                    return Err(format!("composite terms must have size at least 3"));
+                }
+                if position + 1 >= components.len() {
+                    return Err(format!(
+                        "composite terms must have a head, but we ran off the end"
+                    ));
+                }
+                if let TermComponent::Composite(..) = components[position + 1] {
+                    return Err(format!("composite terms must have an atom as their head"));
+                }
+                // The position we expect to end up in after parsing
+                let final_pos = position + size as usize;
+                let mut next_pos = position + 2;
+                let mut args_seen = 0;
+                while next_pos < final_pos {
+                    next_pos = TermComponent::validate_one(components, next_pos)?;
+                    args_seen += 1;
+                }
+                if next_pos != final_pos {
+                    return Err(format!(
+                        "expected composite term at {} to end by {} but it went until {}",
+                        position, final_pos, next_pos
+                    ));
+                }
+                if args_seen != num_args as usize {
+                    return Err(format!(
+                        "expected composite term at {} to have {} args but it had {}",
+                        position, num_args, args_seen
+                    ));
+                }
+                Ok(final_pos)
+            }
+            TermComponent::Atom(_, _) => return Ok(position + 1),
+            TermComponent::Literal(_, size) => {
+                if size < 3 {
+                    return Err(format!("literals must have size at least 3"));
+                }
+                let final_pos = position + size as usize;
+                let mut next_pos = position + 1;
+                let mut args_seen = 0;
+                while next_pos < final_pos {
+                    next_pos = TermComponent::validate_one(components, next_pos)?;
+                    args_seen += 1;
+                }
+                if next_pos != final_pos {
+                    return Err(format!(
+                        "expected literal at {} to end by {} but it went until {}",
+                        position, final_pos, next_pos
+                    ));
+                }
+                if args_seen != 2 {
+                    return Err(format!(
+                        "expected literal at {} to be made up of two terms but it had {}",
+                        position, args_seen
+                    ));
+                }
+                Ok(final_pos)
             }
         }
-        Err(e) => panic!("validation fail in {:?}. error: {}", components, e),
+    }
+
+    pub fn validate_slice(components: &[TermComponent]) {
+        match TermComponent::validate_one(components, 0) {
+            Ok(final_pos) => {
+                if final_pos != components.len() {
+                    panic!(
+                        "validation fail in {:?}. we have {} components but parsing used {}",
+                        components,
+                        components.len(),
+                        final_pos
+                    );
+                }
+            }
+            Err(e) => panic!("validation fail in {:?}. error: {}", components, e),
+        }
+    }
+
+    // Replace the variable x_i with the contents of replacements[i].
+    // Appends the result to output.
+    // We only update the size indices for components we add to the output, not
+    // components that are already in the output.
+    pub fn replace(
+        components: &[TermComponent],
+        replacements: &[&[TermComponent]],
+    ) -> Vec<TermComponent> {
+        let mut output: Vec<TermComponent> = vec![];
+
+        // path contains all the indices of composite parents, in *output*, of the current node
+        let mut path: Vec<usize> = vec![];
+
+        for component in components {
+            // Pop any elements of the path that are no longer parents
+            while path.len() > 0 {
+                let j = path[path.len() - 1];
+                if j + output[j].size() <= output.len() {
+                    path.pop();
+                } else {
+                    break;
+                }
+            }
+
+            match component {
+                TermComponent::Composite(..) => {
+                    path.push(output.len());
+                    output.push(component.clone());
+                }
+                TermComponent::Atom(_, a) => {
+                    if let Atom::Variable(i) = a {
+                        let mut replacement = replacements[*i as usize];
+
+                        // If the replacement is a composite, and this is the head of a term,
+                        // we need to flatten the two terms together.
+                        if replacement.len() > 1 && output.len() > 0 {
+                            let last_index = output.len() - 1;
+                            if let TermComponent::Composite(t, num_args, size) = output[last_index]
+                            {
+                                match replacement[0] {
+                                    TermComponent::Composite(_, replacement_num_args, _) => {
+                                        // This composite now has more args, both old and new ones.
+                                        let new_num_args = num_args + replacement_num_args;
+                                        output[last_index] =
+                                            TermComponent::Composite(t, new_num_args, size);
+
+                                        // We don't need the replacement head any more.
+                                        replacement = &replacement[1..];
+                                    }
+                                    _ => panic!("replacement has length > 1 but is not composite"),
+                                }
+                            }
+                        }
+
+                        // Every parent of this node, its size is changing by delta
+                        let delta = (replacement.len() - 1) as i32;
+                        for j in &path {
+                            output[*j] = output[*j].alter_size(delta);
+                        }
+                        output.extend_from_slice(replacement);
+                    } else {
+                        output.push(component.clone());
+                    }
+                }
+                TermComponent::Literal(..) => {
+                    panic!("replacing in literals is not implemented");
+                }
+            }
+        }
+        output
     }
 }
 
@@ -329,77 +400,6 @@ fn path_from_literal(literal: &Literal) -> Vec<u8> {
     path_from_term_helper(&literal.left, &mut path);
     path_from_term_helper(&literal.right, &mut path);
     path
-}
-
-// Replace the variable x_i with the contents of replacements[i].
-// Appends the result to output.
-// We only update the size indices for components we add to the output, not
-// components that are already in the output.
-pub fn replace_components(
-    components: &[TermComponent],
-    replacements: &[&[TermComponent]],
-) -> Vec<TermComponent> {
-    let mut output: Vec<TermComponent> = vec![];
-
-    // path contains all the indices of composite parents, in *output*, of the current node
-    let mut path: Vec<usize> = vec![];
-
-    for component in components {
-        // Pop any elements of the path that are no longer parents
-        while path.len() > 0 {
-            let j = path[path.len() - 1];
-            if j + output[j].size() <= output.len() {
-                path.pop();
-            } else {
-                break;
-            }
-        }
-
-        match component {
-            TermComponent::Composite(..) => {
-                path.push(output.len());
-                output.push(component.clone());
-            }
-            TermComponent::Atom(_, a) => {
-                if let Atom::Variable(i) = a {
-                    let mut replacement = replacements[*i as usize];
-
-                    // If the replacement is a composite, and this is the head of a term,
-                    // we need to flatten the two terms together.
-                    if replacement.len() > 1 && output.len() > 0 {
-                        let last_index = output.len() - 1;
-                        if let TermComponent::Composite(t, num_args, size) = output[last_index] {
-                            match replacement[0] {
-                                TermComponent::Composite(_, replacement_num_args, _) => {
-                                    // This composite now has more args, both old and new ones.
-                                    let new_num_args = num_args + replacement_num_args;
-                                    output[last_index] =
-                                        TermComponent::Composite(t, new_num_args, size);
-
-                                    // We don't need the replacement head any more.
-                                    replacement = &replacement[1..];
-                                }
-                                _ => panic!("replacement has length > 1 but is not composite"),
-                            }
-                        }
-                    }
-
-                    // Every parent of this node, its size is changing by delta
-                    let delta = (replacement.len() - 1) as i32;
-                    for j in &path {
-                        output[*j] = output[*j].alter_size(delta);
-                    }
-                    output.extend_from_slice(replacement);
-                } else {
-                    output.push(component.clone());
-                }
-            }
-            TermComponent::Literal(..) => {
-                panic!("replacing in literals is not implemented");
-            }
-        }
-    }
-    output
 }
 
 // Finds a leaf in the trie that matches the given term components.
@@ -579,7 +579,8 @@ impl LiteralTree {
     //
     // TODO: we just don't handle flipping literals around. That seems relevant though.
     pub fn find_generalization(&self, literal: &Literal) -> Option<(bool, usize)> {
-        match self.tree.find_one_match(&flatten_literal(literal)) {
+        let flat = TermComponent::flatten_literal(literal);
+        match self.tree.find_one_match(&flat) {
             Some(((positive, id), _)) => Some((positive == &literal.positive, *id)),
             None => None,
         }

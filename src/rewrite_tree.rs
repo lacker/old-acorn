@@ -2,10 +2,7 @@
 // want to do similar things in the future, it demonstrates the use of TermComponent and PatternTree,
 // and its tests are testing things we care about indirectly.
 
-use crate::pattern_tree::{
-    flatten_term, replace_components, unflatten_term, validate_components, PatternTree,
-    TermComponent,
-};
+use crate::pattern_tree::{PatternTree, TermComponent};
 use crate::term::Term;
 
 struct RewriteValue {
@@ -34,7 +31,7 @@ impl RewriteTree {
         }
         let value = RewriteValue {
             rule_id,
-            output: flatten_term(output_term),
+            output: TermComponent::flatten_term(output_term),
         };
         self.tree.insert_term(input_term, value);
     }
@@ -54,9 +51,9 @@ impl RewriteTree {
 
             if let Some((value, replacements)) = self.tree.find_one_match(subterm) {
                 rules.push(value.rule_id);
-                let new_subterm = replace_components(&value.output, &replacements);
+                let new_subterm = TermComponent::replace(&value.output, &replacements);
                 if self.validate {
-                    validate_components(&new_subterm);
+                    TermComponent::validate_slice(&new_subterm);
                 }
                 if i == 0 {
                     // We just replaced the whole term
@@ -87,7 +84,7 @@ impl RewriteTree {
     // Returns the final term, if any rewrites happen.
     // Appends the rules used to rules.
     pub fn rewrite(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
-        let mut components = flatten_term(term);
+        let mut components = TermComponent::flatten_term(term);
 
         // Infinite loops are hard to debug, so cap this loop.
         for i in 0..100 {
@@ -100,7 +97,7 @@ impl RewriteTree {
                     if i == 0 {
                         return None;
                     } else {
-                        let term = unflatten_term(&components);
+                        let term = TermComponent::unflatten_term(&components);
                         return Some(term);
                     }
                 }
