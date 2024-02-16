@@ -118,6 +118,21 @@ impl TermComponent {
         term
     }
 
+    pub fn unflatten_pair(components: &[TermComponent]) -> (Term, Term) {
+        match components[0] {
+            TermComponent::Pair(term_type, size) => {
+                let size = size as usize;
+                let (j, term1) = TermComponent::unflatten_next(components, 1);
+                let (k, term2) = TermComponent::unflatten_next(components, j);
+                if k != size {
+                    panic!("Pair has wrong size");
+                }
+                (term1, term2)
+            }
+            _ => panic!("unflatten_pair called with a non-pair"),
+        }
+    }
+
     // Validates the subterm starting at the given position.
     // Returns the position the next subterm should start at.
     fn validate_one(components: &[TermComponent], position: usize) -> Result<usize, String> {
