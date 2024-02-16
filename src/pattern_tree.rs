@@ -439,7 +439,7 @@ fn find_one_match<'a>(
     }
     let initial_key_len = key.len();
 
-    // Case 1: this is a literal, which must match a literal comparing the same types.
+    // Case 1: this is a pair, which must match a pair using the same types.
     if let TermComponent::Pair(term_type, _) = components[0] {
         let edge = Edge::Literal(term_type);
         edge.append_to(key);
@@ -495,7 +495,7 @@ fn find_one_match<'a>(
             }
             Edge::Atom(a)
         }
-        TermComponent::Pair(..) => panic!("literals should have been handled already"),
+        TermComponent::Pair(..) => panic!("pairs should have been handled already"),
     };
     edge.append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
