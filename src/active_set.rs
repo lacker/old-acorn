@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
-use crate::pattern_tree::LiteralTree;
+use crate::pattern_tree::LiteralSet;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
@@ -20,7 +20,7 @@ pub struct ActiveSet {
     long_clauses: HashSet<Clause>,
 
     // For checking specific literals we already know, including generalization
-    literal_tree: LiteralTree,
+    literal_tree: LiteralSet,
 
     // An index of all the subterms that can be rewritten.
     rewrite_targets: FingerprintTree<RewriteTarget>,
@@ -90,7 +90,7 @@ impl ActiveSet {
         ActiveSet {
             steps: vec![],
             long_clauses: HashSet::new(),
-            literal_tree: LiteralTree::new(),
+            literal_tree: LiteralSet::new(),
             rewrite_targets: FingerprintTree::new(),
             rewrite_patterns: FingerprintTree::new(),
             positive_res_targets: FingerprintTree::new(),

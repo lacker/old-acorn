@@ -602,22 +602,35 @@ impl<T> PatternTree<T> {
             None => None,
         }
     }
+
+    pub fn count_matches(&self, term: &[TermComponent]) -> usize {
+        let mut key = vec![];
+        let mut replacements = vec![];
+        let subtrie = self.trie.subtrie(EMPTY_SLICE);
+        let mut count = 0;
+        find_matches_while(&subtrie, &mut key, term, &mut replacements, &mut |_, _| {
+            count += 1;
+            true
+        });
+        count
+    }
 }
 
-pub struct LiteralTree {
+pub struct LiteralSet {
     // Stores (sign, id) for each literal.
     tree: PatternTree<(bool, usize)>,
 }
 
-impl LiteralTree {
-    pub fn new() -> LiteralTree {
-        LiteralTree {
+impl LiteralSet {
+    pub fn new() -> LiteralSet {
+        LiteralSet {
             tree: PatternTree::new(),
         }
     }
 
     // Inserts a literal along with its id.
     // This only inserts the given direction.
+    // Overwrites if the negation already exists.
     pub fn insert(&mut self, literal: &Literal, id: usize) {
         self.tree
             .insert_pair(&literal.left, &literal.right, (literal.positive, id));
@@ -678,7 +691,7 @@ mod tests {
 
     #[test]
     fn test_literal_tree() {
-        let mut tree = LiteralTree::new();
+        let mut tree = LiteralSet::new();
         tree.insert(&Literal::parse("c0(x0, c1) = x0"), 7);
 
         let lit = Literal::parse("c0(x0, c1) = x0");
