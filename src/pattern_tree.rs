@@ -1,4 +1,4 @@
-use qp_trie::{SubTrie, Trie};
+use qp_trie::{Entry, SubTrie, Trie};
 
 use crate::atom::Atom;
 use crate::literal::Literal;
@@ -563,6 +563,22 @@ impl<T> PatternTree<T> {
         match find_one_match(&subtrie, &mut key, term, &mut replacements) {
             Some(value_id) => Some((&self.values[value_id], replacements)),
             None => None,
+        }
+    }
+
+    // Appends to the existing value if possible. Otherwises, inserts a vec![U].
+    pub fn insert_or_append<U>(pt: &mut PatternTree<Vec<U>>, key: &Term, value: U) {
+        let path = path_from_term(key);
+        match pt.trie.entry(path) {
+            Entry::Occupied(entry) => {
+                let value_id = entry.get();
+                pt.values[*value_id].push(value);
+            }
+            Entry::Vacant(entry) => {
+                let value_id = pt.values.len();
+                pt.values.push(vec![value]);
+                entry.insert(value_id);
+            }
         }
     }
 }
