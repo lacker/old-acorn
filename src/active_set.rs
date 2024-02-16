@@ -678,7 +678,7 @@ impl ActiveSet {
             self.add_rewrite_targets(step_index, literal);
 
             // When a literal is created via rewrite, we don't need to add it as a rewrite pattern.
-            // We might want to do it anyway.
+            // At some point we might want to do it anyway.
             // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
             // to simplify everything, without going through the intermediate steps.
             // But, for now, we just don't do it.
