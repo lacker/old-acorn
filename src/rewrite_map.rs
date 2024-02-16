@@ -49,9 +49,24 @@ impl RewriteMap {
 
     // Finds all the ways to rewrite the given term, at the root level.
     // Returns a list of (rule_id, forwards, new_term) tuples.
-    pub fn find_rewrites(&self, term: &Term) -> Vec<(usize, bool, Term)> {
+    pub fn find_rewrites(&self, input_term: &Term) -> Vec<(usize, bool, Term)> {
         let mut answer = vec![];
-        todo!();
+        let components = TermComponent::flatten_term(input_term);
+        let mut key = vec![];
+        let mut replacements = vec![];
+        self.tree.find_matches_while(
+            &mut key,
+            &components,
+            &mut replacements,
+            &mut |value_id, replacements| {
+                for value in &self.tree.values[value_id] {
+                    let new_components = TermComponent::replace(&value.output, replacements);
+                    let new_term = TermComponent::unflatten_term(&new_components);
+                    answer.push((value.rule_id, value.forwards, new_term));
+                }
+                true
+            },
+        );
         answer
     }
 }

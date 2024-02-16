@@ -387,32 +387,32 @@ impl Edge {
     }
 }
 
-// Appends the path to the term, but does not add the top-level type
-fn path_from_term_helper(term: &Term, path: &mut Vec<u8>) {
+// Appends the key for this term, but does not add the top-level type
+fn key_from_term_helper(term: &Term, key: &mut Vec<u8>) {
     if term.args.is_empty() {
-        Edge::Atom(term.head).append_to(path);
+        Edge::Atom(term.head).append_to(key);
     } else {
-        Edge::HeadType(term.args.len() as u8, term.head_type).append_to(path);
-        Edge::Atom(term.head).append_to(path);
+        Edge::HeadType(term.args.len() as u8, term.head_type).append_to(key);
+        Edge::Atom(term.head).append_to(key);
         for arg in &term.args {
-            path_from_term_helper(arg, path);
+            key_from_term_helper(arg, key);
         }
     }
 }
 
-// Appends the path to the term, prefixing with the top-level type
-fn path_from_term(term: &Term) -> Vec<u8> {
-    let mut path = Vec::new();
-    path_from_term_helper(term, &mut path);
-    path
+// Appends the key for this term, prefixing with the top-level type
+pub fn key_from_term(term: &Term) -> Vec<u8> {
+    let mut key = Vec::new();
+    key_from_term_helper(term, &mut key);
+    key
 }
 
-fn path_from_pair(term1: &Term, term2: &Term) -> Vec<u8> {
-    let mut path = Vec::new();
-    Edge::Literal(term1.term_type).append_to(&mut path);
-    path_from_term_helper(&term1, &mut path);
-    path_from_term_helper(&term2, &mut path);
-    path
+fn key_from_pair(term1: &Term, term2: &Term) -> Vec<u8> {
+    let mut key = Vec::new();
+    Edge::Literal(term1.term_type).append_to(&mut key);
+    key_from_term_helper(&term1, &mut key);
+    key_from_term_helper(&term2, &mut key);
+    key
 }
 
 // Finds leaves in the trie that match the given term components.
@@ -534,7 +534,7 @@ pub struct PatternTree<T> {
     // The values are stored separately because subtrie lifetimes get weird.
     trie: Trie<Vec<u8>, usize>,
 
-    values: Vec<T>,
+    pub values: Vec<T>,
 }
 
 const EMPTY_SLICE: &[u8] = &[];
@@ -547,18 +547,18 @@ impl<T> PatternTree<T> {
         }
     }
 
-    pub fn insert_term(&mut self, key: &Term, value: T) {
-        let path = path_from_term(key);
+    pub fn insert_term(&mut self, term: &Term, value: T) {
+        let path = key_from_term(term);
         let value_id = self.values.len();
         self.values.push(value);
         self.trie.insert(path, value_id);
     }
 
-    pub fn insert_pair(&mut self, key1: &Term, key2: &Term, value: T) {
-        let path = path_from_pair(key1, key2);
+    pub fn insert_pair(&mut self, term1: &Term, term2: &Term, value: T) {
+        let key = key_from_pair(term1, term2);
         let value_id = self.values.len();
         self.values.push(value);
-        self.trie.insert(path, value_id);
+        self.trie.insert(key, value_id);
     }
 
     pub fn find_matches_while<'a, F>(
@@ -609,9 +609,9 @@ impl<T> PatternTree<T> {
 
 impl PatternTree<()> {
     // Appends to the existing value if possible. Otherwises, inserts a vec![U].
-    pub fn insert_or_append<U>(pt: &mut PatternTree<Vec<U>>, key: &Term, value: U) {
-        let path = path_from_term(key);
-        match pt.trie.entry(path) {
+    pub fn insert_or_append<U>(pt: &mut PatternTree<Vec<U>>, term: &Term, value: U) {
+        let key = key_from_term(term);
+        match pt.trie.entry(key) {
             Entry::Occupied(entry) => {
                 let value_id = entry.get();
                 pt.values[*value_id].push(value);
