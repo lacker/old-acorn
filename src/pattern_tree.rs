@@ -17,18 +17,16 @@ pub enum TermComponent {
     Atom(TypeId, Atom),
 
     // This can only be the first element of a &[TermComponent].
-    // It indicates that this slice represents a literal rather than a term.
-    // The u16 is the number of term components in the literal, including this one.
-    Literal(TypeId, u16),
+    // It indicates that this slice represents a pair of terms rather than a single term.
+    // The u16 is the number of term components in the pair, including this one.
+    Pair(TypeId, u16),
 }
 
 impl TermComponent {
     // The number of TermComponents in the component starting with this one
     pub fn size(&self) -> usize {
         match self {
-            TermComponent::Composite(_, _, size) | TermComponent::Literal(_, size) => {
-                *size as usize
-            }
+            TermComponent::Composite(_, _, size) | TermComponent::Pair(_, size) => *size as usize,
             TermComponent::Atom(_, _) => 1,
         }
     }
@@ -39,7 +37,7 @@ impl TermComponent {
                 TermComponent::Composite(*term_type, *num_args, (*size as i32 + delta) as u16)
             }
             TermComponent::Atom(_, _) => panic!("cannot increase size of atom"),
-            TermComponent::Literal(..) => panic!("cannot increase size of literal"),
+            TermComponent::Pair(..) => panic!("cannot increase size of pair"),
         }
     }
 
@@ -73,10 +71,10 @@ impl TermComponent {
     fn flatten_literal(literal: &Literal) -> Vec<TermComponent> {
         let mut output = Vec::new();
         // The zero is a placeholder. We'll fill in the real info later.
-        output.push(TermComponent::Literal(0, 0));
+        output.push(TermComponent::Pair(0, 0));
         TermComponent::flatten_next(&literal.left, &mut output);
         TermComponent::flatten_next(&literal.right, &mut output);
-        output[0] = TermComponent::Literal(literal.left.term_type, output.len() as u16);
+        output[0] = TermComponent::Pair(literal.left.term_type, output.len() as u16);
         output
     }
 
@@ -107,7 +105,7 @@ impl TermComponent {
                 (j, Term::new(term_type, head_type, head, args))
             }
             TermComponent::Atom(term_type, atom) => (i + 1, Term::atom(term_type, atom)),
-            TermComponent::Literal(..) => panic!("unflatten_next called with a literal"),
+            TermComponent::Pair(..) => panic!("unflatten_next called with a literal"),
         }
     }
 
@@ -161,7 +159,7 @@ impl TermComponent {
                 Ok(final_pos)
             }
             TermComponent::Atom(_, _) => return Ok(position + 1),
-            TermComponent::Literal(_, size) => {
+            TermComponent::Pair(_, size) => {
                 if size < 3 {
                     return Err(format!("literals must have size at least 3"));
                 }
@@ -269,7 +267,7 @@ impl TermComponent {
                         output.push(component.clone());
                     }
                 }
-                TermComponent::Literal(..) => {
+                TermComponent::Pair(..) => {
                     panic!("replacing in literals is not implemented");
                 }
             }
@@ -441,7 +439,7 @@ fn find_one_match<'a>(
     let initial_key_len = key.len();
 
     // Case 1: this is a literal, which must match a literal comparing the same types.
-    if let TermComponent::Literal(term_type, _) = components[0] {
+    if let TermComponent::Pair(term_type, _) = components[0] {
         let edge = Edge::Literal(term_type);
         edge.append_to(key);
         let new_subtrie = subtrie.subtrie(key as &[u8]);
@@ -496,7 +494,7 @@ fn find_one_match<'a>(
             }
             Edge::Atom(a)
         }
-        TermComponent::Literal(..) => panic!("literals should have been handled already"),
+        TermComponent::Pair(..) => panic!("literals should have been handled already"),
     };
     edge.append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
