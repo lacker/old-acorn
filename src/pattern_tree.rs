@@ -530,8 +530,8 @@ impl<T> PatternTree<T> {
         self.trie.insert(path, value_id);
     }
 
-    pub fn insert_literal(&mut self, key: &Literal, value: T) {
-        let path = path_from_pair(&key.left, &key.right);
+    pub fn insert_pair(&mut self, key1: &Term, key2: &Term, value: T) {
+        let path = path_from_pair(key1, key2);
         let value_id = self.values.len();
         self.values.push(value);
         self.trie.insert(path, value_id);
@@ -568,7 +568,8 @@ impl LiteralTree {
     // Inserts a literal along with its id.
     // This only inserts the given direction.
     pub fn insert(&mut self, literal: &Literal, id: usize) {
-        self.tree.insert_literal(literal, (literal.positive, id));
+        self.tree
+            .insert_pair(&literal.left, &literal.right, (literal.positive, id));
     }
 
     // Checks whether any literal in the tree is a generalization of the provided literal.
