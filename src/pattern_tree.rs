@@ -415,6 +415,119 @@ fn path_from_pair(term1: &Term, term2: &Term) -> Vec<u8> {
     path
 }
 
+// Finds leaves in the trie that match the given term components.
+// These term components could represent a single term, or they could represent a
+// sequence of terms that are a suffix of a subterm. The "right part" of a subterm cut by a path.
+// Kind of confusing, just be aware that it does not correspond to a single term.
+//
+// For each match, it calls the callback with the value id matched, and the replacements used.
+// If the callback returns false, the search is stopped early.
+// The function returns whether the search fully completed (without stopping early).
+//
+// If the search does fully complete, we reset key and replacements to their initial state.
+fn find_matches_while<'a, F>(
+    subtrie: &SubTrie<Vec<u8>, usize>,
+    key: &mut Vec<u8>,
+    components: &'a [TermComponent],
+    replacements: &mut Vec<&'a [TermComponent]>,
+    callback: &mut F,
+) -> bool
+where
+    F: FnMut(usize, &Vec<&[TermComponent]>) -> bool,
+{
+    if subtrie.is_empty() {
+        return true;
+    }
+
+    if components.is_empty() {
+        match subtrie.get(key as &[u8]) {
+            Some(value_id) => {
+                return callback(*value_id, replacements);
+            }
+            None => {
+                // The entire term is matched, but we are not yet at the leaf.
+                // The key format is supposed to ensure that two different valid
+                // keys don't have a prefix relationship.
+                // This indicates some sort of problem, like that some atom
+                // is being used with an inconsistent number of args.
+                let (sample, _) = subtrie.iter().next().unwrap();
+                panic!(
+                    "\nkey mismatch.\nquerying: {}\nexisting: {}\n",
+                    Edge::debug_bytes(key),
+                    Edge::debug_bytes(sample)
+                );
+            }
+        }
+    }
+    let initial_key_len = key.len();
+
+    // Case 1: this is a pair, which must match a pair using the same types.
+    if let TermComponent::Pair(term_type, _) = components[0] {
+        let edge = Edge::Literal(term_type);
+        edge.append_to(key);
+        let new_subtrie = subtrie.subtrie(key as &[u8]);
+        if !find_matches_while(&new_subtrie, key, &components[1..], replacements, callback) {
+            return false;
+        }
+        key.truncate(initial_key_len);
+        return true;
+    }
+
+    // Case 2: the first term in the components could match an existing replacement
+    let size = components[0].size();
+    let first = &components[..size];
+    let rest = &components[size..];
+    for i in 0..replacements.len() {
+        if first == replacements[i] {
+            // This term could match x_i as a backreference.
+            Edge::Atom(Atom::Variable(i as u16)).append_to(key);
+            let new_subtrie = subtrie.subtrie(key as &[u8]);
+            if !find_matches_while(&new_subtrie, key, rest, replacements, callback) {
+                return false;
+            }
+            key.truncate(initial_key_len);
+        }
+    }
+
+    // Case 3: the first term could match an entirely new variable
+    Edge::Atom(Atom::Variable(replacements.len() as u16)).append_to(key);
+    let new_subtrie = subtrie.subtrie(key as &[u8]);
+    if !new_subtrie.is_empty() {
+        replacements.push(first);
+        if !find_matches_while(&new_subtrie, key, rest, replacements, callback) {
+            return false;
+        }
+        replacements.pop();
+    }
+    key.truncate(initial_key_len);
+
+    // Case 4: we could exactly match just the first component
+    let edge = match components[0] {
+        TermComponent::Composite(_, num_args, _) => {
+            if let TermComponent::Atom(head_type, _) = components[1] {
+                Edge::HeadType(num_args, head_type)
+            } else {
+                panic!("Composite term must have an atom as its head");
+            }
+        }
+        TermComponent::Atom(_, a) => {
+            if a.is_variable() {
+                // Variables in the term have to match a replacement, they can't exact-match.
+                return true;
+            }
+            Edge::Atom(a)
+        }
+        TermComponent::Pair(..) => panic!("pairs should have been handled already"),
+    };
+    edge.append_to(key);
+    let new_subtrie = subtrie.subtrie(key as &[u8]);
+    if !find_matches_while(&new_subtrie, key, &components[1..], replacements, callback) {
+        return false;
+    }
+    key.truncate(initial_key_len);
+    true
+}
+
 // Finds a leaf in the trie that matches the given term components.
 // These term components could represent a single term, or they could represent a
 // sequence of terms that are a suffix of a subterm. The "right part" of a subterm cut by a path.
@@ -552,21 +665,6 @@ impl<T> PatternTree<T> {
         self.trie.insert(path, value_id);
     }
 
-    // Finds a single match, if possible.
-    // Returns the value id of the match, and the set of replacements used for the match.
-    pub fn find_one_match<'a>(
-        &'a self,
-        term: &'a [TermComponent],
-    ) -> Option<(&T, Vec<&'a [TermComponent]>)> {
-        let mut key = vec![];
-        let mut replacements = vec![];
-        let subtrie = self.trie.subtrie(EMPTY_SLICE);
-        match find_one_match(&subtrie, &mut key, term, &mut replacements) {
-            Some(value_id) => Some((&self.values[value_id], replacements)),
-            None => None,
-        }
-    }
-
     // Appends to the existing value if possible. Otherwises, inserts a vec![U].
     pub fn insert_or_append<U>(pt: &mut PatternTree<Vec<U>>, key: &Term, value: U) {
         let path = path_from_term(key);
@@ -580,6 +678,21 @@ impl<T> PatternTree<T> {
                 pt.values.push(vec![value]);
                 entry.insert(value_id);
             }
+        }
+    }
+
+    // Finds a single match, if possible.
+    // Returns the value id of the match, and the set of replacements used for the match.
+    pub fn find_one_match<'a>(
+        &'a self,
+        term: &'a [TermComponent],
+    ) -> Option<(&T, Vec<&'a [TermComponent]>)> {
+        let mut key = vec![];
+        let mut replacements = vec![];
+        let subtrie = self.trie.subtrie(EMPTY_SLICE);
+        match find_one_match(&subtrie, &mut key, term, &mut replacements) {
+            Some(value_id) => Some((&self.values[value_id], replacements)),
+            None => None,
         }
     }
 }
