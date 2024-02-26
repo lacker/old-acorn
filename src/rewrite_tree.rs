@@ -1,121 +1,76 @@
-// The RewriteTree stores a set of "canonical rewrites", that we want to always do when possible.
-//
-// We aren't currently using the RewriteTree, but it's here for reference.
-// It demonstrates the use of TermComponent and PatternTree, and its tests are testing things
-// we care about indirectly.
+// The RewriteTree stores a set of potential rewrites.
+// A given pattern can be rewritten to multiple different output terms.
 
 use crate::pattern_tree::{PatternTree, TermComponent};
 use crate::term::Term;
 
+// Each term can correspond with multiple RewriteValues.
 struct RewriteValue {
+    // Which rule this rewrite is generated from
     rule_id: usize,
+
+    // For an s = t rule, "forwards" is rewriting s -> t, "backwards" is rewriting t -> s
+    forwards: bool,
+
+    // The term that we are rewriting into.
+    // The term that we are rewriting *from* is kept in the key.
     output: Vec<TermComponent>,
 }
 
 pub struct RewriteTree {
-    tree: PatternTree<RewriteValue>,
-
-    validate: bool,
+    tree: PatternTree<Vec<RewriteValue>>,
 }
 
 impl RewriteTree {
     pub fn new() -> RewriteTree {
         RewriteTree {
             tree: PatternTree::new(),
-            validate: false,
         }
     }
 
-    // Overwrites any existing rule.
-    pub fn add_rule(&mut self, rule_id: usize, input_term: &Term, output_term: &Term) {
+    // NOTE: The input term's variable ids must be normalized.
+    pub fn insert(
+        &mut self,
+        rule_id: usize,
+        input_term: &Term,
+        output_term: &Term,
+        forwards: bool,
+    ) {
         if input_term.atomic_variable().is_some() {
             panic!("cannot rewrite atomic variables to something else");
         }
         let value = RewriteValue {
             rule_id,
+            forwards,
             output: TermComponent::flatten_term(output_term),
         };
-        self.tree.insert_term(input_term, value);
+        PatternTree::insert_or_append(&mut self.tree, input_term, value);
     }
 
-    // Does one rewrite.
-    // Checks all subterms.
-    // Returns the new sequence of components, if there is a rewrite.
-    // Appends any rule used to rules.
-    fn rewrite_once(
-        &self,
-        components: &Vec<TermComponent>,
-        rules: &mut Vec<usize>,
-    ) -> Option<Vec<TermComponent>> {
-        for i in 0..components.len() {
-            let subterm_size = components[i].size();
-            let subterm = &components[i..i + subterm_size];
-
-            if let Some((value, replacements)) = self.tree.find_one_match(subterm) {
-                rules.push(value.rule_id);
-                let new_subterm = TermComponent::replace(&value.output, &replacements);
-                if self.validate {
-                    TermComponent::validate_slice(&new_subterm);
+    // Finds all the ways to rewrite the given term, at the root level.
+    // Returns a list of (rule_id, forwards, new_term) tuples.
+    pub fn find_rewrites(&self, input_term: &Term) -> Vec<(usize, bool, Term)> {
+        let mut answer = vec![];
+        let components = TermComponent::flatten_term(input_term);
+        let mut key = vec![];
+        let mut replacements = vec![];
+        self.tree.find_matches_while(
+            &mut key,
+            &components,
+            &mut replacements,
+            &mut |value_id, replacements| {
+                for value in &self.tree.values[value_id] {
+                    let new_components = TermComponent::replace(&value.output, replacements);
+                    let new_term = TermComponent::unflatten_term(&new_components);
+                    answer.push((value.rule_id, value.forwards, new_term));
                 }
-                if i == 0 {
-                    // We just replaced the whole term
-                    return Some(new_subterm);
-                }
-
-                // It's important that delta can be negative, if a rewrite shrinks the term.
-                let delta: i32 = (new_subterm.len() as i32) - (subterm_size as i32);
-                let mut new_components = vec![];
-                for (j, component) in components[..i].iter().enumerate() {
-                    if j + component.size() <= i {
-                        // This component doesn't contain the new subterm
-                        new_components.push(component.clone());
-                    } else {
-                        // This component does contain the new subterm, so alter its size
-                        new_components.push(component.alter_size(delta));
-                    }
-                }
-                new_components.extend_from_slice(&new_subterm);
-                new_components.extend_from_slice(&components[i + subterm_size..]);
-                return Some(new_components);
-            }
-        }
-        None
-    }
-
-    // Rewrites repeatedly.
-    // Returns the final term, if any rewrites happen.
-    // Appends the rules used to rules.
-    pub fn rewrite(&self, term: &Term, rules: &mut Vec<usize>) -> Option<Term> {
-        let mut components = TermComponent::flatten_term(term);
-
-        // Infinite loops are hard to debug, so cap this loop.
-        for i in 0..100 {
-            match self.rewrite_once(&components, rules) {
-                Some(new_components) => {
-                    components = new_components;
-                    continue;
-                }
-                None => {
-                    if i == 0 {
-                        return None;
-                    } else {
-                        let term = TermComponent::unflatten_term(&components);
-                        return Some(term);
-                    }
-                }
-            }
-        }
-
-        panic!("rewrite looped too many times");
-    }
-
-    pub fn rewrite_or_clone(&self, term: &Term, rules: &mut Vec<usize>) -> Term {
-        match self.rewrite(term, rules) {
-            Some(t) => t,
-            None => term.clone(),
-        }
+                true
+            },
+        );
+        answer
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,96 +78,29 @@ mod tests {
     #[test]
     fn test_rewrite_tree_atoms() {
         let mut tree = RewriteTree::new();
-        tree.validate = true;
-        let mut rules = vec![];
-        tree.add_rule(0, &Term::parse("c1"), &Term::parse("c0"));
-        let term = tree.rewrite(&Term::parse("c1"), &mut rules).unwrap();
-        assert_eq!(rules, vec![0]);
-        assert_eq!(term, Term::parse("c0"));
+        tree.insert(0, &Term::parse("c1"), &Term::parse("c0"), true);
+        let rewrites = tree.find_rewrites(&Term::parse("c1"));
+        assert_eq!(rewrites.len(), 1);
+        assert_eq!(rewrites[0].2, Term::parse("c0"));
     }
 
     #[test]
     fn test_rewrite_tree_functions() {
         let mut tree = RewriteTree::new();
-        tree.validate = true;
-        let mut rules = vec![];
-        tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
-        let term = tree.rewrite(&Term::parse("c1(c2)"), &mut rules).unwrap();
-        assert_eq!(rules, vec![0]);
-        assert_eq!(term, Term::parse("c0(c2)"));
+        tree.insert(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"), true);
+        let rewrites = tree.find_rewrites(&Term::parse("c1(c2)"));
+        assert_eq!(rewrites.len(), 1);
+        assert_eq!(rewrites[0].2, Term::parse("c0(c2)"));
     }
 
     #[test]
     fn test_rewrite_tree_multiple_rewrites() {
         let mut tree = RewriteTree::new();
-        tree.validate = true;
-        let mut rules = vec![];
-        tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
-        tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
-        let term = tree.rewrite(&Term::parse("c1(c2)"), &mut rules).unwrap();
-        assert_eq!(rules, vec![0, 1]);
-        assert_eq!(term, Term::parse("c3"));
-    }
-
-    #[test]
-    fn test_rewrite_tree_tail_subterms() {
-        let mut tree = RewriteTree::new();
-        tree.validate = true;
-        let mut rules = vec![];
-        tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
-        tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
-        let term = tree
-            .rewrite(&Term::parse("c4(c1(c2))"), &mut rules)
-            .unwrap();
-        assert_eq!(rules, vec![0, 1]);
-        assert_eq!(term, Term::parse("c4(c3)"));
-    }
-
-    #[test]
-    fn test_rewrite_tree_non_tail_subterms() {
-        let mut tree = RewriteTree::new();
-        tree.validate = true;
-        let mut rules = vec![];
-        tree.add_rule(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"));
-        tree.add_rule(1, &Term::parse("c0(c2)"), &Term::parse("c3"));
-        tree.add_rule(2, &Term::parse("c4(x0, x0)"), &Term::parse("c1(x0)"));
-        let term = tree
-            .rewrite(&Term::parse("c4(c1(c2), c3)"), &mut rules)
-            .unwrap();
-        assert_eq!(rules, vec![0, 1, 2, 0]);
-        assert_eq!(term, Term::parse("c0(c3)"));
-    }
-
-    #[test]
-    fn test_rewriting_same_head_different_num_args() {
-        let mut tree = RewriteTree::new();
-        tree.validate = true;
-        let mut rules = vec![];
-        tree.add_rule(0, &Term::parse("c1(x0, x1)"), &Term::parse("c0(x0, x1)"));
-        assert!(tree.rewrite(&Term::parse("c1(x0)"), &mut rules).is_none());
-    }
-
-    #[test]
-    fn test_rewrite_tree_variables_cant_just_match_themselves() {
-        let mut tree = RewriteTree::new();
-        tree.validate = true;
-        let mut rules = vec![];
-        tree.add_rule(0, &Term::parse("c1(x0, x0)"), &Term::parse("c2"));
-        assert!(tree
-            .rewrite(&Term::parse("c1(x0, c3)"), &mut rules)
-            .is_none());
-    }
-
-    #[test]
-    fn test_rewrite_tree_function_variables() {
-        let mut tree = RewriteTree::new();
-        tree.validate = true;
-        let mut rules = vec![];
-        tree.add_rule(0, &Term::parse("c1(x0, x1)"), &Term::parse("x0(x1)"));
-        let term = tree
-            .rewrite(&Term::parse("c1(c2(c3), c4)"), &mut rules)
-            .unwrap();
-        assert_eq!(rules, vec![0]);
-        assert_eq!(term, Term::parse("c2(c3, c4)"));
+        tree.insert(0, &Term::parse("c1(x0, c2)"), &Term::parse("c3(x0)"), true);
+        tree.insert(1, &Term::parse("c1(c2, x0)"), &Term::parse("c4(x0)"), true);
+        let rewrites = tree.find_rewrites(&Term::parse("c1(c2, c2)"));
+        assert_eq!(rewrites.len(), 2);
+        assert_eq!(rewrites[0].2, Term::parse("c3(c2)"));
+        assert_eq!(rewrites[1].2, Term::parse("c4(c2)"));
     }
 }
