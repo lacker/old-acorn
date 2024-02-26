@@ -134,4 +134,13 @@ mod tests {
         tree.insert_literal(0, &Literal::parse("x0 = c0"));
         tree.insert_literal(1, &Literal::parse("c0"));
     }
+
+    #[test]
+    fn test_new_variable_created_during_rewrite() {
+        let mut tree = RewriteTree::new();
+        tree.insert_literal(0, &Literal::parse("x0 = c0"));
+        let rewrites = tree.find_rewrites(&Term::parse("c0"));
+        assert_eq!(rewrites.len(), 1);
+        assert_eq!(rewrites[0].2, Term::parse("x0"));
+    }
 }
