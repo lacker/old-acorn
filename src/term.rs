@@ -643,4 +643,12 @@ mod tests {
         let new_term = old_term.remap_variables(&var_map);
         assert_eq!(new_term, Term::parse("c2(x3, x2)"));
     }
+
+    #[test]
+    fn test_replace_at_path() {
+        let old_term = Term::parse("c2(x0, x1)");
+        let new_term = Term::parse("c0(x0)");
+        let replaced = old_term.replace_at_path(&[1], new_term);
+        assert_eq!(replaced, Term::parse("c2(x0, c0(x0))"));
+    }
 }
