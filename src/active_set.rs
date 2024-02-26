@@ -360,7 +360,7 @@ impl ActiveSet {
         let mut results = vec![];
         assert!(target_step.clause.len() == 1);
         let target_literal = &target_step.clause.literals[0];
-
+        let next_var = target_literal.least_unused_variable();
         for (target_left, u, v) in target_literal.both_term_pairs() {
             let u_subterms = u.rewritable_subterms();
 
@@ -391,7 +391,7 @@ impl ActiveSet {
                         }
                     }
                 } else {
-                    let rewrites = self.rewrite_patterns.find_rewrites(u_subterm);
+                    let rewrites = self.rewrite_patterns.find_rewrites(u_subterm, next_var);
                     for (step_index, _, new_subterm) in rewrites {
                         let new_u = u.replace_at_path(&path, new_subterm);
                         let new_literal = Literal::new(target_literal.positive, new_u, v.clone());

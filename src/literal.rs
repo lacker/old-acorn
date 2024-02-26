@@ -175,6 +175,12 @@ impl Literal {
         left.normalize_var_ids(&mut var_ids);
         (right, left)
     }
+
+    pub fn least_unused_variable(&self) -> AtomId {
+        self.left
+            .least_unused_variable()
+            .max(self.right.least_unused_variable())
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.

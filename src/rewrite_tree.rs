@@ -1,6 +1,7 @@
 // The RewriteTree stores a set of potential rewrites.
 // A given pattern can be rewritten to multiple different output terms.
 
+use crate::atom::AtomId;
 use crate::literal::Literal;
 use crate::pattern_tree::{PatternTree, TermComponent};
 use crate::term::Term;
@@ -68,12 +69,11 @@ impl RewriteTree {
 
     // Finds all the ways to rewrite the given term, at the root level.
     //
-    // TODO: Sometimes rewrites have to create a new variable.
-    // To handle this, num_vars is the number of variables that are already used in the term's space.
-    // When we create new variables, we start numbering from num_vars.
+    // Sometimes rewrites have to create a new variable.
+    // When we create new variables, we start numbering from next_var.
     //
     // Returns a list of (rule_id, forwards, new_term) tuples.
-    pub fn find_rewrites(&self, input_term: &Term) -> Vec<(usize, bool, Term)> {
+    pub fn find_rewrites(&self, input_term: &Term, next_var: AtomId) -> Vec<(usize, bool, Term)> {
         let mut answer = vec![];
         let components = TermComponent::flatten_term(input_term);
         let mut key = vec![];
@@ -84,7 +84,11 @@ impl RewriteTree {
             &mut replacements,
             &mut |value_id, replacements| {
                 for value in &self.tree.values[value_id] {
-                    let new_components = TermComponent::replace(&value.output, replacements);
+                    let new_components = TermComponent::replace_or_shift(
+                        &value.output,
+                        replacements,
+                        Some(next_var),
+                    );
                     let new_term = TermComponent::unflatten_term(&new_components);
                     answer.push((value.rule_id, value.forwards, new_term));
                 }
@@ -103,7 +107,7 @@ mod tests {
     fn test_rewrite_tree_atoms() {
         let mut tree = RewriteTree::new();
         tree.insert_terms(0, &Term::parse("c1"), &Term::parse("c0"), true);
-        let rewrites = tree.find_rewrites(&Term::parse("c1"));
+        let rewrites = tree.find_rewrites(&Term::parse("c1"), 0);
         assert_eq!(rewrites.len(), 1);
         assert_eq!(rewrites[0].2, Term::parse("c0"));
     }
@@ -112,7 +116,7 @@ mod tests {
     fn test_rewrite_tree_functions() {
         let mut tree = RewriteTree::new();
         tree.insert_terms(0, &Term::parse("c1(x0)"), &Term::parse("c0(x0)"), true);
-        let rewrites = tree.find_rewrites(&Term::parse("c1(c2)"));
+        let rewrites = tree.find_rewrites(&Term::parse("c1(c2)"), 0);
         assert_eq!(rewrites.len(), 1);
         assert_eq!(rewrites[0].2, Term::parse("c0(c2)"));
     }
@@ -122,7 +126,7 @@ mod tests {
         let mut tree = RewriteTree::new();
         tree.insert_terms(0, &Term::parse("c1(x0, c2)"), &Term::parse("c3(x0)"), true);
         tree.insert_terms(1, &Term::parse("c1(c2, x0)"), &Term::parse("c4(x0)"), true);
-        let rewrites = tree.find_rewrites(&Term::parse("c1(c2, c2)"));
+        let rewrites = tree.find_rewrites(&Term::parse("c1(c2, c2)"), 0);
         assert_eq!(rewrites.len(), 2);
         assert_eq!(rewrites[0].2, Term::parse("c3(c2)"));
         assert_eq!(rewrites[1].2, Term::parse("c4(c2)"));
@@ -139,8 +143,8 @@ mod tests {
     fn test_new_variable_created_during_rewrite() {
         let mut tree = RewriteTree::new();
         tree.insert_literal(0, &Literal::parse("x0 = c0"));
-        let rewrites = tree.find_rewrites(&Term::parse("c0"));
+        let rewrites = tree.find_rewrites(&Term::parse("c0"), 1);
         assert_eq!(rewrites.len(), 1);
-        assert_eq!(rewrites[0].2, Term::parse("x0"));
+        assert_eq!(rewrites[0].2, Term::parse("x1"));
     }
 }

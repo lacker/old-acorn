@@ -1,6 +1,6 @@
 use qp_trie::{Entry, SubTrie, Trie};
 
-use crate::atom::Atom;
+use crate::atom::{Atom, AtomId};
 use crate::literal::Literal;
 use crate::term::Term;
 use crate::type_map::TypeId;
@@ -219,9 +219,11 @@ impl TermComponent {
     }
 
     // In components, replace the variable x_i with the contents of replacements[i].
-    pub fn replace(
+    // If there is no replacement, shift it by shift.
+    pub fn replace_or_shift(
         components: &[TermComponent],
         replacements: &[&[TermComponent]],
+        shift: Option<AtomId>,
     ) -> Vec<TermComponent> {
         let mut output: Vec<TermComponent> = vec![];
 
@@ -244,8 +246,15 @@ impl TermComponent {
                     path.push(output.len());
                     output.push(component.clone());
                 }
-                TermComponent::Atom(_, a) => {
+                TermComponent::Atom(t, a) => {
                     if let Atom::Variable(i) = a {
+                        if *i as usize >= replacements.len() {
+                            if let Some(shift) = shift {
+                                output.push(TermComponent::Atom(*t, Atom::Variable(*i + shift)));
+                                continue;
+                            }
+                            panic!("no replacement for variable x{}", i);
+                        }
                         let mut replacement = replacements[*i as usize];
 
                         // If the replacement is a composite, and this is the head of a term,

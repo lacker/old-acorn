@@ -54,7 +54,8 @@ impl CanonicalRewriteTree {
             if let Some((value, replacements)) = self.tree.find_one_match(subterm) {
                 rules.push(value.rule_id);
                 // Construct a new subterm.
-                let new_subterm = TermComponent::replace(&value.output, &replacements);
+                let new_subterm =
+                    TermComponent::replace_or_shift(&value.output, &replacements, None);
                 if self.validate {
                     TermComponent::validate_slice(&new_subterm);
                 }
