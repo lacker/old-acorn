@@ -218,10 +218,7 @@ impl TermComponent {
         }
     }
 
-    // Replace the variable x_i with the contents of replacements[i].
-    // Appends the result to output.
-    // We only update the size indices for components we add to the output, not
-    // components that are already in the output.
+    // In components, replace the variable x_i with the contents of replacements[i].
     pub fn replace(
         components: &[TermComponent],
         replacements: &[&[TermComponent]],

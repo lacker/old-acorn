@@ -67,6 +67,11 @@ impl RewriteTree {
     }
 
     // Finds all the ways to rewrite the given term, at the root level.
+    //
+    // TODO: Sometimes rewrites have to create a new variable.
+    // To handle this, num_vars is the number of variables that are already used in the term's space.
+    // When we create new variables, we start numbering from num_vars.
+    //
     // Returns a list of (rule_id, forwards, new_term) tuples.
     pub fn find_rewrites(&self, input_term: &Term) -> Vec<(usize, bool, Term)> {
         let mut answer = vec![];

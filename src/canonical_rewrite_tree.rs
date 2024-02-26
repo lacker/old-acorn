@@ -53,6 +53,7 @@ impl CanonicalRewriteTree {
 
             if let Some((value, replacements)) = self.tree.find_one_match(subterm) {
                 rules.push(value.rule_id);
+                // Construct a new subterm.
                 let new_subterm = TermComponent::replace(&value.output, &replacements);
                 if self.validate {
                     TermComponent::validate_slice(&new_subterm);
@@ -62,6 +63,7 @@ impl CanonicalRewriteTree {
                     return Some(new_subterm);
                 }
 
+                // Replace the old subterm with the new subterm.
                 // It's important that delta can be negative, if a rewrite shrinks the term.
                 let delta: i32 = (new_subterm.len() as i32) - (subterm_size as i32);
                 let mut new_components = vec![];
