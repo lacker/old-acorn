@@ -96,6 +96,8 @@ impl RewriteTree {
 
 #[cfg(test)]
 mod tests {
+    use crate::atom::Atom;
+
     use super::*;
 
     #[test]
@@ -141,5 +143,24 @@ mod tests {
         let rewrites = tree.find_rewrites(&Term::parse("c0"), 1);
         assert_eq!(rewrites.len(), 1);
         assert_eq!(rewrites[0].2, Term::parse("c1(x1)"));
+    }
+
+    #[test]
+    fn test_rewrite_tree_checks_type() {
+        let mut tree = RewriteTree::new();
+
+        // Make a rule for type 2 variables
+        let var2 = Term::atom(2, Atom::Variable(0));
+        tree.insert_terms(0, &var2, &var2, true);
+
+        // A type 2 constant should match it
+        let const2 = Term::atom(2, Atom::GlobalConstant(2));
+        let rewrites = tree.find_rewrites(&const2, 0);
+        assert_eq!(rewrites.len(), 1);
+
+        // A type 3 constant should not match it
+        let const3 = Term::atom(3, Atom::GlobalConstant(3));
+        let rewrites = tree.find_rewrites(&const3, 0);
+        assert_eq!(rewrites.len(), 0);
     }
 }
