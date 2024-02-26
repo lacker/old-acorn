@@ -39,9 +39,6 @@ impl RewriteTree {
         output_term: &Term,
         forwards: bool,
     ) {
-        if input_term.atomic_variable().is_some() {
-            panic!("cannot rewrite atomic variables to something else");
-        }
         if input_term.is_true() {
             panic!("cannot rewrite true to something else");
         }
@@ -56,12 +53,10 @@ impl RewriteTree {
     // Inserts both directions.
     // NOTE: The input term's variable ids must be normalized.
     pub fn insert_literal(&mut self, rule_id: usize, literal: &Literal) {
-        if literal.left.atomic_variable().is_none() {
-            // Already normalized
-            self.insert_terms(rule_id, &literal.left, &literal.right, true);
-        }
+        // Already normalized
+        self.insert_terms(rule_id, &literal.left, &literal.right, true);
 
-        if !literal.right.is_true() && literal.right.atomic_variable().is_none() {
+        if !literal.right.is_true() {
             let (right, left) = literal.normalized_reversed();
             self.insert_terms(rule_id, &right, &left, false);
         }
@@ -142,9 +137,9 @@ mod tests {
     #[test]
     fn test_new_variable_created_during_rewrite() {
         let mut tree = RewriteTree::new();
-        tree.insert_literal(0, &Literal::parse("x0 = c0"));
+        tree.insert_literal(0, &Literal::parse("c1(x0) = c0"));
         let rewrites = tree.find_rewrites(&Term::parse("c0"), 1);
         assert_eq!(rewrites.len(), 1);
-        assert_eq!(rewrites[0].2, Term::parse("x1"));
+        assert_eq!(rewrites[0].2, Term::parse("c1(x1)"));
     }
 }
