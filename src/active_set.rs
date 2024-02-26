@@ -395,6 +395,7 @@ impl ActiveSet {
                     for (step_index, _, new_subterm) in rewrites {
                         let new_u = u.replace_at_path(&path, new_subterm);
                         let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
+                        new_literal.validate_type();
                         let new_clause = Clause::new(vec![new_literal]);
                         let ps = ProofStep::new_rewrite(
                             step_index,
@@ -555,6 +556,7 @@ impl ActiveSet {
     // Returns (value, id of clause) when this literal's value is known due to some existing clause.
     // No id is returned if this literal is "expr = expr".
     fn evaluate_literal(&self, literal: &Literal) -> Option<(bool, Option<usize>)> {
+        literal.validate_type();
         if literal.left == literal.right {
             return Some((literal.positive, None));
         }

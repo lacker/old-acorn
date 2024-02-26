@@ -181,6 +181,15 @@ impl Literal {
             .least_unused_variable()
             .max(self.right.least_unused_variable())
     }
+
+    pub fn validate_type(&self) {
+        if self.left.term_type != self.right.term_type {
+            panic!(
+                "Literal type mismatch: {} has type {} but {} has type {}",
+                self.left, self.left.term_type, self.right, self.right.term_type
+            );
+        }
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.
