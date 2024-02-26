@@ -165,6 +165,16 @@ impl Literal {
             (false, &self.right, &self.left),
         ]
     }
+
+    // Returns (right, left) with normalized var ids.
+    pub fn normalized_reversed(&self) -> (Term, Term) {
+        let mut var_ids = vec![];
+        let mut right = self.right.clone();
+        right.normalize_var_ids(&mut var_ids);
+        let mut left = self.left.clone();
+        left.normalize_var_ids(&mut var_ids);
+        (right, left)
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.
