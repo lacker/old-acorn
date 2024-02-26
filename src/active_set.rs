@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
-use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::pattern_tree::{LiteralSet, PatternTree, TermComponent};
+use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
 
@@ -26,7 +26,10 @@ pub struct ActiveSet {
     rewrite_targets: FingerprintTree<RewriteTarget>,
 
     // An index of all the ways to rewrite subterms.
-    rewrite_patterns: FingerprintTree<RewritePattern>,
+    rewrite_patterns: PatternTree<Vec<RewriteValue>>,
+
+    // TODO: remove
+    old_rewrite_patterns: FingerprintTree<OldRewritePattern>,
 
     // An index of all the positive literals that we can do resolution with.
     positive_res_targets: FingerprintTree<ResolutionTarget>,
@@ -66,7 +69,7 @@ struct RewriteTarget {
     path: Vec<usize>,
 }
 
-// A RewritePattern represents a way to rewrite a subterm.
+// A RewriteValue represents a way to rewrite a subterm, once we have found a match.
 // It must correspond to a single positive literal.
 // For example, the pattern:
 //
@@ -75,8 +78,18 @@ struct RewriteTarget {
 // represents a rewrite that could change:
 //
 //   qux(foo(bar(zip))) -> qux(baz)
+struct RewriteValue {
+    // Which proof step to use as a rewrite pattern.
+    step_index: usize,
+
+    // The term that we are rewriting into.
+    // The term that we are rewriting *from* is kept in the key.
+    output: Vec<TermComponent>,
+}
+
+// TODO: remove
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct RewritePattern {
+struct OldRewritePattern {
     // Which proof step to use as a rewrite pattern.
     step_index: usize,
 
@@ -92,7 +105,8 @@ impl ActiveSet {
             long_clauses: HashSet::new(),
             literal_tree: LiteralSet::new(),
             rewrite_targets: FingerprintTree::new(),
-            rewrite_patterns: FingerprintTree::new(),
+            old_rewrite_patterns: FingerprintTree::new(),
+            rewrite_patterns: PatternTree::new(),
             positive_res_targets: FingerprintTree::new(),
             negative_res_targets: FingerprintTree::new(),
         }
@@ -364,7 +378,7 @@ impl ActiveSet {
         assert!(target_step.clause.len() == 1);
         let target_literal = &target_step.clause.literals[0];
 
-        for (target_left, u, _) in target_literal.both_term_pairs() {
+        for (target_left, u, v) in target_literal.both_term_pairs() {
             let u_subterms = u.rewritable_subterms();
 
             for (path, u_subterm) in u_subterms {
@@ -377,20 +391,52 @@ impl ActiveSet {
                 }
 
                 // Look for ways to rewrite u_subterm
-                let patterns = self.rewrite_patterns.get_unifying(u_subterm);
-                for pattern in patterns {
-                    if let Some(ps) = ActiveSet::try_rewrite(
-                        pattern.step_index,
-                        self.get_step(pattern.step_index),
-                        pattern.forwards,
-                        target_id,
-                        target_step,
-                        target_left,
-                        u_subterm,
-                        &path,
-                    ) {
-                        results.push(ps);
+                if !EXPERIMENT {
+                    let patterns = self.old_rewrite_patterns.get_unifying(u_subterm);
+                    for pattern in patterns {
+                        if let Some(ps) = ActiveSet::try_rewrite(
+                            pattern.step_index,
+                            self.get_step(pattern.step_index),
+                            pattern.forwards,
+                            target_id,
+                            target_step,
+                            target_left,
+                            u_subterm,
+                            &path,
+                        ) {
+                            results.push(ps);
+                        }
                     }
+                } else {
+                    let components = TermComponent::flatten_term(u_subterm);
+                    let mut key = vec![];
+                    let mut replacements = vec![];
+                    self.rewrite_patterns.find_matches_while(
+                        &mut key,
+                        &components,
+                        &mut replacements,
+                        &mut |value_id, replacements| {
+                            for value in &self.rewrite_patterns.values[value_id] {
+                                let new_components =
+                                    TermComponent::replace(&value.output, replacements);
+                                let new_subterm = TermComponent::unflatten_term(&new_components);
+                                let new_u = u.replace_at_path(&path, new_subterm);
+                                let new_literal =
+                                    Literal::new(target_literal.positive, new_u, v.clone());
+                                let new_clause = Clause::new(vec![new_literal]);
+                                let ps = ProofStep::new_rewrite(
+                                    value.step_index,
+                                    &self.get_step(value.step_index),
+                                    target_id,
+                                    target_step,
+                                    new_clause,
+                                    path.is_empty(),
+                                );
+                                results.push(ps);
+                            }
+                            true
+                        },
+                    );
                 }
             }
         }
@@ -676,18 +722,38 @@ impl ActiveSet {
             // to simplify everything, without going through the intermediate steps.
             // But, for now, we just don't do it.
             if literal.positive && !step.rule.is_rewrite() {
-                for (forwards, from, _) in literal.both_term_pairs() {
-                    if !from.is_true() {
-                        self.rewrite_patterns.insert(
-                            from,
-                            RewritePattern {
-                                step_index,
-                                forwards,
-                            },
-                        );
+                if !EXPERIMENT {
+                    for (forwards, from, _) in literal.both_term_pairs() {
+                        if !from.is_true() {
+                            self.old_rewrite_patterns.insert(
+                                from,
+                                OldRewritePattern {
+                                    step_index,
+                                    forwards,
+                                },
+                            );
+                        }
+                    }
+                } else {
+                    // Using s = t to rewrite s -> t
+                    let value = RewriteValue {
+                        step_index,
+                        output: TermComponent::flatten_term(&literal.right),
+                    };
+                    PatternTree::insert_or_append(&mut self.rewrite_patterns, &literal.left, value);
+
+                    // Using s = t to rewrite t -> s
+                    if !literal.right.is_true() {
+                        let (right, left) = literal.normalized_reversed();
+                        let value = RewriteValue {
+                            step_index,
+                            output: TermComponent::flatten_term(&left),
+                        };
+                        PatternTree::insert_or_append(&mut self.rewrite_patterns, &right, value);
                     }
                 }
             }
+
             self.literal_tree.insert(&clause.literals[0], id);
         } else {
             self.long_clauses.insert(clause.clone());
