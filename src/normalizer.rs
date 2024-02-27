@@ -433,7 +433,7 @@ impl Normalizer {
         let mut answer = self.denormalize_literal(&clause.literals[last_index]);
         for i in (0..last_index).rev() {
             let subvalue = self.denormalize_literal(&clause.literals[i]);
-            answer = AcornValue::new_and(subvalue, answer);
+            answer = AcornValue::new_or(subvalue, answer);
         }
         answer
     }
@@ -458,6 +458,21 @@ impl Normalizer {
         }
     }
 
+    // When you denormalize and renormalize a clause, you should get the same thing.
+    fn check_denormalize_renormalize(&mut self, clause: &Clause) {
+        let denormalized = self.denormalize(clause);
+        let renormalized = self.normalize(denormalized.clone()).expect_clauses();
+        if renormalized.len() != 1 {
+            println!("original clause: {}", clause);
+            println!("denormalized: {}", denormalized);
+            for (i, clause) in renormalized.iter().enumerate() {
+                println!("renormalized[{}]: {}", i, clause);
+            }
+            panic!("expected 1 clause, got {}", renormalized.len());
+        }
+        assert_eq!(clause, &renormalized[0]);
+    }
+
     fn check_value(&mut self, value: AcornValue, expected: &[&str]) {
         let actual = self.normalize(value).expect_clauses();
         if actual.len() != expected.len() {
@@ -473,6 +488,9 @@ impl Normalizer {
             );
         }
         for (i, clause) in actual.iter().enumerate() {
+            if !clause.has_any_variable() {
+                self.check_denormalize_renormalize(clause);
+            }
             let c = DisplayClause {
                 clause,
                 normalizer: self,
