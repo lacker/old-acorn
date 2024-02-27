@@ -15,18 +15,13 @@ pub enum TermComponent {
     Composite(TypeId, u8, u16),
 
     Atom(TypeId, Atom),
-
-    // This can only be the first element of a &[TermComponent].
-    // It indicates that this slice represents a pair of terms rather than a single term.
-    // The u16 is the number of term components in the pair, including this one.
-    Pair(TypeId, u16),
 }
 
 impl TermComponent {
     // The number of TermComponents in the component starting with this one
     pub fn size(&self) -> usize {
         match self {
-            TermComponent::Composite(_, _, size) | TermComponent::Pair(_, size) => *size as usize,
+            TermComponent::Composite(_, _, size) => *size as usize,
             TermComponent::Atom(_, _) => 1,
         }
     }
@@ -37,7 +32,6 @@ impl TermComponent {
                 TermComponent::Composite(*term_type, *num_args, (*size as i32 + delta) as u16)
             }
             TermComponent::Atom(_, _) => panic!("cannot increase size of atom"),
-            TermComponent::Pair(..) => panic!("cannot increase size of pair"),
         }
     }
 
@@ -72,10 +66,8 @@ impl TermComponent {
         assert_eq!(term1.term_type, term2.term_type);
         let mut output = Vec::new();
         // The zero is a placeholder. We'll fill in the real info later.
-        output.push(TermComponent::Pair(0, 0));
         TermComponent::flatten_next(term1, &mut output);
         TermComponent::flatten_next(term2, &mut output);
-        output[0] = TermComponent::Pair(term1.term_type, output.len() as u16);
         output
     }
 
@@ -106,7 +98,6 @@ impl TermComponent {
                 (j, Term::new(term_type, head_type, head, args))
             }
             TermComponent::Atom(term_type, atom) => (i + 1, Term::atom(term_type, atom)),
-            TermComponent::Pair(..) => panic!("unflatten_next called with a pair"),
         }
     }
 
@@ -119,17 +110,12 @@ impl TermComponent {
     }
 
     pub fn unflatten_pair(components: &[TermComponent]) -> (Term, Term) {
-        match components[0] {
-            TermComponent::Pair(..) => {
-                let (j, term1) = TermComponent::unflatten_next(components, 1);
-                let (k, term2) = TermComponent::unflatten_next(components, j);
-                if k != components.len() {
-                    panic!("Pair has wrong size");
-                }
-                (term1, term2)
-            }
-            _ => panic!("unflatten_pair called with a non-pair"),
+        let (size1, term1) = TermComponent::unflatten_next(components, 0);
+        let (size2, term2) = TermComponent::unflatten_next(components, size1);
+        if size2 != components.len() {
+            panic!("Pair has wrong size");
         }
+        (term1, term2)
     }
 
     // Validates the subterm starting at the given position.
@@ -174,31 +160,6 @@ impl TermComponent {
                 Ok(final_pos)
             }
             TermComponent::Atom(_, _) => return Ok(position + 1),
-            TermComponent::Pair(_, size) => {
-                if size < 3 {
-                    return Err(format!("pairs must have size at least 3"));
-                }
-                let final_pos = position + size as usize;
-                let mut next_pos = position + 1;
-                let mut args_seen = 0;
-                while next_pos < final_pos {
-                    next_pos = TermComponent::validate_one(components, next_pos)?;
-                    args_seen += 1;
-                }
-                if next_pos != final_pos {
-                    return Err(format!(
-                        "expected pair at {} to end by {} but it went until {}",
-                        position, final_pos, next_pos
-                    ));
-                }
-                if args_seen != 2 {
-                    return Err(format!(
-                        "expected pair at {} to be made up of two terms but it had {}",
-                        position, args_seen
-                    ));
-                }
-                Ok(final_pos)
-            }
         }
     }
 
@@ -288,9 +249,6 @@ impl TermComponent {
                         output.push(component.clone());
                     }
                 }
-                TermComponent::Pair(..) => {
-                    panic!("replacing in pairs is not implemented");
-                }
             }
         }
         output
@@ -299,8 +257,10 @@ impl TermComponent {
 
 // A rewrite tree is a "perfect discrimination tree" specifically designed to rewrite
 // terms into simplified versions.
-// Each path from the root to a leaf is a series of edges that represents a term.
-// The linear representation of a term is a preorder traversal of the tree.
+// Each path from the root to a leaf is a series of edges that represents a term or a literal.
+// The first edge determines the type, and literal vs term.
+//
+// Afterwards, the linear representation of a term is a preorder traversal of the tree.
 // For any non-atomic term, we include the type of its head, then recurse.
 // For any atom, we just include the atom.
 // This doesn't contain enough type information to extract a term from the tree, but it
@@ -315,15 +275,20 @@ const GLOBAL_CONSTANT: u8 = 102;
 const LOCAL_CONSTANT: u8 = 103;
 const MONOMORPH: u8 = 104;
 const VARIABLE: u8 = 105;
-const LITERAL: u8 = 106;
+const TERM: u8 = 106;
+const LITERAL: u8 = 107;
 
 #[derive(Debug)]
 enum Edge {
-    // Number of args, and the type.
+    // Number of args, and the type of the head atom.
     HeadType(u8, TypeId),
 
     Atom(Atom),
 
+    // Top level. Indicates the type of the term.
+    Term(TypeId),
+
+    // Top level. Indicates the type of both left and right of the literal.
     Literal(TypeId),
 }
 
@@ -338,6 +303,7 @@ impl Edge {
                 Atom::Monomorph(_) => MONOMORPH,
                 Atom::Variable(_) => VARIABLE,
             },
+            Edge::Term(..) => TERM,
             Edge::Literal(..) => LITERAL,
         }
     }
@@ -353,6 +319,7 @@ impl Edge {
                 Atom::Monomorph(m) => *m,
                 Atom::Variable(i) => *i,
             },
+            Edge::Term(t) => *t,
             Edge::Literal(t) => *t,
         };
         v.extend_from_slice(&id.to_ne_bytes());
@@ -406,6 +373,12 @@ fn key_from_term_helper(term: &Term, key: &mut Vec<u8>) {
     }
 }
 
+fn literal_key(type_id: TypeId) -> Vec<u8> {
+    let mut key = Vec::new();
+    Edge::Literal(type_id).append_to(&mut key);
+    key
+}
+
 // Appends the key for this term, prefixing with the top-level type
 pub fn key_from_term(term: &Term) -> Vec<u8> {
     let mut key = Vec::new();
@@ -414,8 +387,7 @@ pub fn key_from_term(term: &Term) -> Vec<u8> {
 }
 
 fn key_from_pair(term1: &Term, term2: &Term) -> Vec<u8> {
-    let mut key = Vec::new();
-    Edge::Literal(term1.term_type).append_to(&mut key);
+    let mut key = literal_key(term1.term_type);
     key_from_term_helper(&term1, &mut key);
     key_from_term_helper(&term2, &mut key);
     key
@@ -468,19 +440,7 @@ where
     }
     let initial_key_len = key.len();
 
-    // Case 1: this is a pair, which must match a pair using the same types.
-    if let TermComponent::Pair(term_type, _) = components[0] {
-        let edge = Edge::Literal(term_type);
-        edge.append_to(key);
-        let new_subtrie = subtrie.subtrie(key as &[u8]);
-        if !find_matches_while(&new_subtrie, key, &components[1..], replacements, callback) {
-            return false;
-        }
-        key.truncate(initial_key_len);
-        return true;
-    }
-
-    // Case 2: the first term in the components could match an existing replacement
+    // Case 1: the first term in the components could match an existing replacement
     let size = components[0].size();
     let first = &components[..size];
     let rest = &components[size..];
@@ -496,7 +456,7 @@ where
         }
     }
 
-    // Case 3: the first term could match an entirely new variable
+    // Case 2: the first term could match an entirely new variable
     Edge::Atom(Atom::Variable(replacements.len() as u16)).append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
     if !new_subtrie.is_empty() {
@@ -508,7 +468,7 @@ where
     }
     key.truncate(initial_key_len);
 
-    // Case 4: we could exactly match just the first component
+    // Case 3: we could exactly match just the first component
     let edge = match components[0] {
         TermComponent::Composite(_, num_args, _) => {
             if let TermComponent::Atom(head_type, _) = components[1] {
@@ -524,7 +484,6 @@ where
             }
             Edge::Atom(a)
         }
-        TermComponent::Pair(..) => panic!("pairs should have been handled already"),
     };
     edge.append_to(key);
     let new_subtrie = subtrie.subtrie(key as &[u8]);
@@ -542,8 +501,6 @@ pub struct PatternTree<T> {
 
     pub values: Vec<T>,
 }
-
-const EMPTY_SLICE: &[u8] = &[];
 
 impl<T> PatternTree<T> {
     pub fn new() -> PatternTree<T> {
@@ -577,7 +534,7 @@ impl<T> PatternTree<T> {
     where
         F: FnMut(usize, &Vec<&[TermComponent]>) -> bool,
     {
-        let subtrie = self.trie.subtrie(EMPTY_SLICE);
+        let subtrie = self.trie.subtrie(key);
         find_matches_while(&subtrie, key, components, replacements, callback)
     }
 
@@ -585,12 +542,12 @@ impl<T> PatternTree<T> {
     // Returns the value id of the match, and the set of replacements used for the match.
     pub fn find_one_match<'a>(
         &'a self,
+        key: &mut Vec<u8>,
         term: &'a [TermComponent],
     ) -> Option<(&T, Vec<&'a [TermComponent]>)> {
-        let mut key = vec![];
         let mut replacements = vec![];
         let mut found_id = None;
-        self.find_matches_while(&mut key, term, &mut replacements, &mut |value_id, _| {
+        self.find_matches_while(key, term, &mut replacements, &mut |value_id, _| {
             found_id = Some(value_id);
             false
         });
@@ -598,18 +555,6 @@ impl<T> PatternTree<T> {
             Some(value_id) => Some((&self.values[value_id], replacements)),
             None => None,
         }
-    }
-
-    pub fn count_matches(&self, term: &[TermComponent]) -> usize {
-        let mut key = vec![];
-        let mut replacements = vec![];
-        let subtrie = self.trie.subtrie(EMPTY_SLICE);
-        let mut count = 0;
-        find_matches_while(&subtrie, &mut key, term, &mut replacements, &mut |_, _| {
-            count += 1;
-            true
-        });
-        count
     }
 }
 
@@ -659,7 +604,8 @@ impl LiteralSet {
     // TODO: we just don't handle flipping literals around. That seems relevant though.
     pub fn find_generalization(&self, literal: &Literal) -> Option<(bool, usize)> {
         let flat = TermComponent::flatten_pair(&literal.left, &literal.right);
-        match self.tree.find_one_match(&flat) {
+        let mut key = literal_key(literal.left.term_type);
+        match self.tree.find_one_match(&mut key, &flat) {
             Some(((positive, id), _)) => Some((positive == &literal.positive, *id)),
             None => None,
         }
@@ -690,7 +636,6 @@ mod tests {
         let input_term1 = Term::parse(s1);
         let input_term2 = Term::parse(s2);
         let flat = TermComponent::flatten_pair(&input_term1, &input_term2);
-        TermComponent::validate_slice(&flat);
         let (output_term1, output_term2) = TermComponent::unflatten_pair(&flat);
         assert_eq!(input_term1, output_term1);
         assert_eq!(input_term2, output_term2);

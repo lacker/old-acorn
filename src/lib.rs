@@ -3,7 +3,6 @@ pub mod acorn_value;
 pub mod active_set;
 pub mod atom;
 pub mod binding_map;
-pub mod canonical_rewrite_tree;
 pub mod clause;
 pub mod constant_map;
 pub mod display;
