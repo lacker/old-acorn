@@ -7,7 +7,7 @@ use crate::{environment::Environment, token};
 pub type ModuleId = u16;
 
 // Some entities that are created for the prover get their own modules.
-// Skolem functions are ones created to replace "exists" quantifiers.
+// Skolem functions are created during normalization to replace "exists" quantifiers.
 pub const SKOLEM: ModuleId = 0;
 
 // The regular module ids start here.

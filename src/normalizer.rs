@@ -382,7 +382,13 @@ impl Normalizer {
         self.convert_then_normalize(value)
     }
 
-    fn denormalize_atom(&self, atom_type: TypeId, atom: &Atom) -> AcornValue {
+    // Variables are left unbound. Their types are accumulated.
+    fn denormalize_atom(
+        &self,
+        atom_type: TypeId,
+        atom: &Atom,
+        var_types: &mut Vec<AcornType>,
+    ) -> AcornValue {
         let acorn_type = self.type_map.get_type(atom_type).clone();
         match atom {
             Atom::True => AcornValue::Bool(true),
@@ -398,18 +404,32 @@ impl Normalizer {
                 let (module, name, params) = self.type_map.get_monomorph_info(*i);
                 AcornValue::Specialized(module, name.to_string(), acorn_type, params.clone())
             }
-            Atom::Variable(_) => todo!("denormalize variables"),
+            Atom::Variable(i) => {
+                let index = *i as usize;
+                if index < var_types.len() {
+                    assert_eq!(var_types[index], acorn_type);
+                } else if index == var_types.len() {
+                    var_types.push(acorn_type.clone());
+                } else {
+                    panic!("variable index out of order");
+                }
+                AcornValue::Variable(*i, acorn_type)
+            }
         }
     }
 
-    fn denormalize_term(&self, term: &Term) -> AcornValue {
-        let head = self.denormalize_atom(term.head_type, &term.head);
-        let args: Vec<_> = term.args.iter().map(|t| self.denormalize_term(t)).collect();
+    fn denormalize_term(&self, term: &Term, var_types: &mut Vec<AcornType>) -> AcornValue {
+        let head = self.denormalize_atom(term.head_type, &term.head, var_types);
+        let args: Vec<_> = term
+            .args
+            .iter()
+            .map(|t| self.denormalize_term(t, var_types))
+            .collect();
         AcornValue::new_apply(head, args)
     }
 
-    fn denormalize_literal(&self, literal: &Literal) -> AcornValue {
-        let left = self.denormalize_term(&literal.left);
+    fn denormalize_literal(&self, literal: &Literal, var_types: &mut Vec<AcornType>) -> AcornValue {
+        let left = self.denormalize_term(&literal.left, var_types);
         if literal.right.is_true() {
             if literal.positive {
                 return left;
@@ -417,7 +437,7 @@ impl Normalizer {
                 return AcornValue::Not(Box::new(left));
             }
         }
-        let right = self.denormalize_term(&literal.right);
+        let right = self.denormalize_term(&literal.right, var_types);
         if literal.positive {
             AcornValue::new_equals(left, right)
         } else {
@@ -426,16 +446,16 @@ impl Normalizer {
     }
 
     // Converts backwards, from a clause to a value.
-    // Panics if it isn't possible.
-    // TODO: handle this better
+    // TODO: what cases does this not handle? skolem functions?
     pub fn denormalize(&self, clause: &Clause) -> AcornValue {
+        let mut var_types = vec![];
         let last_index = clause.literals.len() - 1;
-        let mut answer = self.denormalize_literal(&clause.literals[last_index]);
+        let mut answer = self.denormalize_literal(&clause.literals[last_index], &mut var_types);
         for i in (0..last_index).rev() {
-            let subvalue = self.denormalize_literal(&clause.literals[i]);
+            let subvalue = self.denormalize_literal(&clause.literals[i], &mut var_types);
             answer = AcornValue::new_or(subvalue, answer);
         }
-        answer
+        AcornValue::new_forall(var_types, answer)
     }
 
     pub fn atom_str(&self, atom: &Atom) -> String {
