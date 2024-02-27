@@ -5,6 +5,7 @@ use crate::atom::AtomId;
 use crate::literal::Literal;
 use crate::pattern_tree::{term_key_prefix, PatternTree, TermComponent};
 use crate::term::Term;
+use crate::type_map::TypeId;
 
 // Each term can correspond with multiple RewriteValues.
 struct RewriteValue {
@@ -62,6 +63,36 @@ impl RewriteTree {
         }
     }
 
+    // The callback is on (rule id, forwards, new components).
+    fn find_rewrites<F>(
+        &self,
+        term_type: TypeId,
+        components: &[TermComponent],
+        next_var: AtomId,
+        callback: &mut F,
+    ) where
+        F: FnMut(usize, bool, &[TermComponent]),
+    {
+        let mut key = term_key_prefix(term_type);
+        let mut replacements = vec![];
+        self.tree.find_matches_while(
+            &mut key,
+            components,
+            &mut replacements,
+            &mut |value_id, replacements| {
+                for value in &self.tree.values[value_id] {
+                    let new_components = TermComponent::replace_or_shift(
+                        &value.output,
+                        replacements,
+                        Some(next_var),
+                    );
+                    callback(value.rule_id, value.forwards, &new_components);
+                }
+                true
+            },
+        );
+    }
+
     // Finds all the ways to rewrite the given term, at the root level.
     //
     // Sometimes rewrites have to create a new variable.
@@ -71,23 +102,13 @@ impl RewriteTree {
     pub fn get_rewrites(&self, input_term: &Term, next_var: AtomId) -> Vec<(usize, bool, Term)> {
         let mut answer = vec![];
         let components = TermComponent::flatten_term(input_term);
-        let mut key = term_key_prefix(input_term.term_type);
-        let mut replacements = vec![];
-        self.tree.find_matches_while(
-            &mut key,
+        self.find_rewrites(
+            input_term.term_type,
             &components,
-            &mut replacements,
-            &mut |value_id, replacements| {
-                for value in &self.tree.values[value_id] {
-                    let new_components = TermComponent::replace_or_shift(
-                        &value.output,
-                        replacements,
-                        Some(next_var),
-                    );
-                    let new_term = TermComponent::unflatten_term(&new_components);
-                    answer.push((value.rule_id, value.forwards, new_term));
-                }
-                true
+            next_var,
+            &mut |rule_id, forwards, new_components| {
+                let new_term = TermComponent::unflatten_term(new_components);
+                answer.push((rule_id, forwards, new_term));
             },
         );
         answer
