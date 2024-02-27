@@ -373,21 +373,27 @@ fn key_from_term_helper(term: &Term, key: &mut Vec<u8>) {
     }
 }
 
-fn literal_key(type_id: TypeId) -> Vec<u8> {
+pub fn term_key_prefix(type_id: TypeId) -> Vec<u8> {
     let mut key = Vec::new();
-    Edge::Literal(type_id).append_to(&mut key);
+    Edge::Term(type_id).append_to(&mut key);
     key
 }
 
 // Appends the key for this term, prefixing with the top-level type
 pub fn key_from_term(term: &Term) -> Vec<u8> {
-    let mut key = Vec::new();
+    let mut key = term_key_prefix(term.term_type);
     key_from_term_helper(term, &mut key);
     key
 }
 
+fn literal_key_prefix(type_id: TypeId) -> Vec<u8> {
+    let mut key = Vec::new();
+    Edge::Literal(type_id).append_to(&mut key);
+    key
+}
+
 fn key_from_pair(term1: &Term, term2: &Term) -> Vec<u8> {
-    let mut key = literal_key(term1.term_type);
+    let mut key = literal_key_prefix(term1.term_type);
     key_from_term_helper(&term1, &mut key);
     key_from_term_helper(&term2, &mut key);
     key
@@ -604,7 +610,7 @@ impl LiteralSet {
     // TODO: we just don't handle flipping literals around. That seems relevant though.
     pub fn find_generalization(&self, literal: &Literal) -> Option<(bool, usize)> {
         let flat = TermComponent::flatten_pair(&literal.left, &literal.right);
-        let mut key = literal_key(literal.left.term_type);
+        let mut key = literal_key_prefix(literal.left.term_type);
         match self.tree.find_one_match(&mut key, &flat) {
             Some(((positive, id), _)) => Some((positive == &literal.positive, *id)),
             None => None,

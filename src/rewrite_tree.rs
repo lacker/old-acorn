@@ -3,7 +3,7 @@
 
 use crate::atom::AtomId;
 use crate::literal::Literal;
-use crate::pattern_tree::{PatternTree, TermComponent};
+use crate::pattern_tree::{term_key_prefix, PatternTree, TermComponent};
 use crate::term::Term;
 
 // Each term can correspond with multiple RewriteValues.
@@ -71,7 +71,7 @@ impl RewriteTree {
     pub fn find_rewrites(&self, input_term: &Term, next_var: AtomId) -> Vec<(usize, bool, Term)> {
         let mut answer = vec![];
         let components = TermComponent::flatten_term(input_term);
-        let mut key = vec![];
+        let mut key = term_key_prefix(input_term.term_type);
         let mut replacements = vec![];
         self.tree.find_matches_while(
             &mut key,
