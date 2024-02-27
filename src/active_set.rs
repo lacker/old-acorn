@@ -461,7 +461,7 @@ impl ActiveSet {
                 }
 
                 if EXPERIMENT {
-                    let rewrites = self.rewrite_patterns.find_rewrites(u_subterm, next_var);
+                    let rewrites = self.rewrite_patterns.get_rewrites(u_subterm, next_var);
                     for (step_index, _, new_subterm) in rewrites {
                         let pattern_step = self.get_step(step_index);
                         if pattern_step.truthiness == Truthiness::Factual

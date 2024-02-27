@@ -181,13 +181,13 @@ impl TermComponent {
 
     // In components, replace the variable x_i with the contents of replacements[i].
     // If there is no replacement, shift it by shift.
+    // Appends the result to output.
     pub fn replace_or_shift(
         components: &[TermComponent],
         replacements: &[&[TermComponent]],
         shift: Option<AtomId>,
-    ) -> Vec<TermComponent> {
-        let mut output: Vec<TermComponent> = vec![];
-
+        output: &mut Vec<TermComponent>,
+    ) {
         // path contains all the indices of composite parents, in *output*, of the current node
         let mut path: Vec<usize> = vec![];
 
@@ -251,7 +251,6 @@ impl TermComponent {
                 }
             }
         }
-        output
     }
 }
 
