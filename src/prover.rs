@@ -13,6 +13,7 @@ use crate::goal_context::GoalContext;
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
+use crate::proof::Proof;
 use crate::proof_step::{ProofStep, Truthiness};
 
 pub struct Prover {
@@ -302,6 +303,21 @@ impl Prover {
             self.print_proof_step(&preface, step);
         }
         self.print_proof_step("final step: ", final_step);
+    }
+
+    pub fn get_proof(&self) -> Option<Proof> {
+        let final_step = if let Some((final_step, _)) = &self.result {
+            final_step
+        } else {
+            return None;
+        };
+        let indices = self.active_set.find_upstream(&final_step);
+        let mut proof = Proof::new(&self.normalizer);
+        for i in indices {
+            let step = self.active_set.get_step(i);
+            proof.add_step(i, step.clone());
+        }
+        Some(proof)
     }
 
     // Handle the case when we found a contradiction

@@ -12,6 +12,17 @@ pub struct Proof<'a> {
 }
 
 impl<'a> Proof<'a> {
+    pub fn new(normalizer: &'a Normalizer) -> Proof<'a> {
+        Proof {
+            normalizer,
+            steps: BTreeMap::new(),
+        }
+    }
+
+    pub fn add_step(&mut self, id: usize, step: ProofStep) {
+        self.steps.insert(id, step);
+    }
+
     fn display(&self, clause: &'a Clause) -> DisplayClause<'a> {
         DisplayClause {
             clause,
