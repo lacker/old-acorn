@@ -259,6 +259,10 @@ impl AcornValue {
         AcornValue::Binary(BinaryOp::And, Box::new(left), Box::new(right))
     }
 
+    pub fn new_or(left: AcornValue, right: AcornValue) -> AcornValue {
+        AcornValue::Binary(BinaryOp::Or, Box::new(left), Box::new(right))
+    }
+
     // Make a Constant or a Specialized depending on whether we have params.
     pub fn new_specialized(
         module: ModuleId,

@@ -8,7 +8,7 @@ use crate::environment::Environment;
 use crate::literal::Literal;
 use crate::module::SKOLEM;
 use crate::term::Term;
-use crate::type_map::TypeMap;
+use crate::type_map::{TypeId, TypeMap};
 
 #[derive(Debug)]
 struct NormalizationError(String);
@@ -380,6 +380,62 @@ impl Normalizer {
         }
 
         self.convert_then_normalize(value)
+    }
+
+    fn denormalize_atom(&self, atom_type: TypeId, atom: &Atom) -> AcornValue {
+        let acorn_type = self.type_map.get_type(atom_type).clone();
+        match atom {
+            Atom::True => AcornValue::Bool(true),
+            Atom::GlobalConstant(i) => {
+                let (module, name) = self.constant_map.get_global_info(*i);
+                AcornValue::Constant(module, name.to_string(), acorn_type, vec![])
+            }
+            Atom::LocalConstant(i) => {
+                let (module, name) = self.constant_map.get_local_info(*i);
+                AcornValue::Constant(module, name.to_string(), acorn_type, vec![])
+            }
+            Atom::Monomorph(i) => {
+                let (module, name, params) = self.type_map.get_monomorph_info(*i);
+                AcornValue::Specialized(module, name.to_string(), acorn_type, params.clone())
+            }
+            Atom::Variable(_) => todo!("denormalize variables"),
+        }
+    }
+
+    fn denormalize_term(&self, term: &Term) -> AcornValue {
+        let head = self.denormalize_atom(term.head_type, &term.head);
+        let args: Vec<_> = term.args.iter().map(|t| self.denormalize_term(t)).collect();
+        AcornValue::new_apply(head, args)
+    }
+
+    fn denormalize_literal(&self, literal: &Literal) -> AcornValue {
+        let left = self.denormalize_term(&literal.left);
+        if literal.right.is_true() {
+            if literal.positive {
+                return left;
+            } else {
+                return AcornValue::Not(Box::new(left));
+            }
+        }
+        let right = self.denormalize_term(&literal.right);
+        if literal.positive {
+            AcornValue::new_equals(left, right)
+        } else {
+            AcornValue::new_not_equals(left, right)
+        }
+    }
+
+    // Converts backwards, from a clause to a value.
+    // Panics if it isn't possible.
+    // TODO: handle this better
+    pub fn denormalize(&self, clause: &Clause) -> AcornValue {
+        let last_index = clause.literals.len() - 1;
+        let mut answer = self.denormalize_literal(&clause.literals[last_index]);
+        for i in (0..last_index).rev() {
+            let subvalue = self.denormalize_literal(&clause.literals[i]);
+            answer = AcornValue::new_and(subvalue, answer);
+        }
+        answer
     }
 
     pub fn atom_str(&self, atom: &Atom) -> String {
