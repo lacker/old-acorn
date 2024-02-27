@@ -358,6 +358,7 @@ impl ActiveSet {
         target_step: &ProofStep,
     ) -> Vec<ProofStep> {
         let mut results = vec![];
+        let mut alt_results = vec![];
         assert!(target_step.clause.len() == 1);
         let target_literal = &target_step.clause.literals[0];
         let next_var = target_literal.least_unused_variable();
@@ -374,23 +375,23 @@ impl ActiveSet {
                 }
 
                 // Look for ways to rewrite u_subterm
-                if !EXPERIMENT {
-                    let patterns = self.old_rewrite_patterns.get_unifying(u_subterm);
-                    for pattern in patterns {
-                        if let Some(ps) = ActiveSet::try_rewrite(
-                            pattern.step_index,
-                            self.get_step(pattern.step_index),
-                            pattern.forwards,
-                            target_id,
-                            target_step,
-                            target_left,
-                            u_subterm,
-                            &path,
-                        ) {
-                            results.push(ps);
-                        }
+                let patterns = self.old_rewrite_patterns.get_unifying(u_subterm);
+                for pattern in patterns {
+                    if let Some(ps) = ActiveSet::try_rewrite(
+                        pattern.step_index,
+                        self.get_step(pattern.step_index),
+                        pattern.forwards,
+                        target_id,
+                        target_step,
+                        target_left,
+                        u_subterm,
+                        &path,
+                    ) {
+                        results.push(ps);
                     }
-                } else {
+                }
+
+                if EXPERIMENT {
                     let rewrites = self.rewrite_patterns.find_rewrites(u_subterm, next_var);
                     for (step_index, _, new_subterm) in rewrites {
                         let new_u = u.replace_at_path(&path, new_subterm);
@@ -405,7 +406,7 @@ impl ActiveSet {
                             new_clause,
                             path.is_empty(),
                         );
-                        results.push(ps);
+                        alt_results.push(ps);
                     }
                 }
             }
@@ -693,19 +694,19 @@ impl ActiveSet {
             // to simplify everything, without going through the intermediate steps.
             // But, for now, we just don't do it.
             if literal.positive && !step.rule.is_rewrite() {
-                if !EXPERIMENT {
-                    for (forwards, from, _) in literal.both_term_pairs() {
-                        if !from.is_true() {
-                            self.old_rewrite_patterns.insert(
-                                from,
-                                OldRewritePattern {
-                                    step_index,
-                                    forwards,
-                                },
-                            );
-                        }
+                for (forwards, from, _) in literal.both_term_pairs() {
+                    if !from.is_true() {
+                        self.old_rewrite_patterns.insert(
+                            from,
+                            OldRewritePattern {
+                                step_index,
+                                forwards,
+                            },
+                        );
                     }
-                } else {
+                }
+
+                if EXPERIMENT {
                     self.rewrite_patterns.insert_literal(step_index, literal);
                 }
             }
