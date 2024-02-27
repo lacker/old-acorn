@@ -461,13 +461,20 @@ impl ActiveSet {
                 if EXPERIMENT {
                     let rewrites = self.rewrite_patterns.find_rewrites(u_subterm, next_var);
                     for (step_index, _, new_subterm) in rewrites {
+                        let pattern_step = self.get_step(step_index);
+                        if pattern_step.truthiness == Truthiness::Factual
+                            && target_step.truthiness == Truthiness::Factual
+                        {
+                            // No global-global rewriting
+                            continue;
+                        }
                         let new_u = u.replace_at_path(&path, new_subterm);
                         let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
                         new_literal.validate_type();
                         let new_clause = Clause::new(vec![new_literal]);
                         let ps = ProofStep::new_rewrite(
                             step_index,
-                            &self.get_step(step_index),
+                            pattern_step,
                             target_id,
                             target_step,
                             new_clause,
