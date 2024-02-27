@@ -40,9 +40,9 @@ impl Truthiness {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolutionInfo {
     // Which clauses were used as the sources.
-    // Resolution requires one positive and one negative clause..
-    positive_id: usize,
-    negative_id: usize,
+    // Resolution requires one positive and one negative clause.
+    pub positive_id: usize,
+    pub negative_id: usize,
 }
 
 // Information about a rewrite inference.
@@ -51,8 +51,8 @@ pub struct ResolutionInfo {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RewriteInfo {
     // Which clauses were used as the sources.
-    pattern_id: usize,
-    target_id: usize,
+    pub pattern_id: usize,
+    pub target_id: usize,
 
     // The truthiness of the source clauses.
     pattern_truthiness: Truthiness,

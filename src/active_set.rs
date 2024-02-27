@@ -117,6 +117,73 @@ impl ActiveSet {
         term
     }
 
+    // A helper to print a clause that may not yet be inserted.
+    fn clause_str(&self, index: usize, extra: Option<(usize, &ProofStep)>) -> String {
+        if let Some((id, step)) = extra {
+            if id == index {
+                return format!("clause {}: {}", id, step.clause);
+            }
+        }
+        format!("clause {}: {}", index, self.get_clause(index))
+    }
+
+    // Not as nice as the Prover's print_proof_step, because it uses ids instead of nice names for
+    // values, but useful for debugging.
+    // You can pass an "extra" step that does not yet exist.
+    pub fn print_proof_step(&self, step: &ProofStep, extra: Option<(usize, &ProofStep)>) {
+        println!("proof step:");
+        println!("  output: {}", step.clause);
+        match &step.rule {
+            Rule::Assumption => {
+                println!("  rule: assumption");
+            }
+            Rule::EqualityResolution(id) => {
+                println!("  rule: equality resolution from {}", id);
+                println!("  clause {}: {}", id, self.clause_str(*id, extra));
+            }
+            Rule::EqualityFactoring(id) => {
+                println!("  rule: equality factoring from {}", id);
+                println!("  clause {}: {}", id, self.clause_str(*id, extra));
+            }
+            Rule::FunctionElimination(id) => {
+                println!("  rule: function elimination from {}", id);
+                println!("  clause {}: {}", id, self.clause_str(*id, extra));
+            }
+            Rule::Rewrite(info) => {
+                println!(
+                    "  rule: rewrite with target {}, pattern {}",
+                    info.target_id, info.pattern_id
+                );
+                println!(
+                    "  target clause {}: {}",
+                    info.target_id,
+                    self.clause_str(info.target_id, extra)
+                );
+                println!(
+                    "  pattern clause {}: {}",
+                    info.pattern_id,
+                    self.clause_str(info.pattern_id, extra)
+                );
+            }
+            Rule::Resolution(info) => {
+                println!(
+                    "  rule: resolution with positive {}, negative {}",
+                    info.positive_id, info.negative_id
+                );
+                println!(
+                    "  positive clause {}: {}",
+                    info.positive_id,
+                    self.clause_str(info.positive_id, extra)
+                );
+                println!(
+                    "  negative clause {}: {}",
+                    info.negative_id,
+                    self.clause_str(info.negative_id, extra)
+                );
+            }
+        }
+    }
+
     // Tries to do a rewrite, but may fail or decline.
     // The "indexing" type stuff happens outside this function.
     //
@@ -376,7 +443,7 @@ impl ActiveSet {
 
                 // Look for ways to rewrite u_subterm
                 let patterns = self.old_rewrite_patterns.get_unifying(u_subterm);
-                for pattern in patterns {
+                for pattern in &patterns {
                     if let Some(ps) = ActiveSet::try_rewrite(
                         pattern.step_index,
                         self.get_step(pattern.step_index),
@@ -407,6 +474,26 @@ impl ActiveSet {
                             path.is_empty(),
                         );
                         alt_results.push(ps);
+                    }
+
+                    if results.len() != alt_results.len() {
+                        println!("XXX mismatch detected!");
+                        println!("XXX u_subterm: {}", u_subterm);
+                        println!("XXX {} classically matching patterns:", patterns.len());
+                        for pattern in patterns {
+                            self.print_proof_step(&self.get_step(pattern.step_index), None);
+                        }
+                        println!("XXX result mismatch:");
+                        println!("{} results:", results.len());
+                        let extra = Some((target_id, target_step));
+                        for r in &results {
+                            self.print_proof_step(r, extra);
+                        }
+                        println!("{} alt_results:", alt_results.len());
+                        for r in &alt_results {
+                            self.print_proof_step(r, extra);
+                        }
+                        panic!("XXX mismatch");
                     }
                 }
             }
