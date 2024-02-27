@@ -3,7 +3,6 @@ use std::{cmp::Ordering, fmt};
 use crate::clause::Clause;
 
 // Use this to toggle experimental algorithm mode
-// There is no current experiment.
 pub const EXPERIMENT: bool = false;
 
 // The "truthiness" categorizes the different types of true statements, relative to a proof.

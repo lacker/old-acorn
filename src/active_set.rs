@@ -425,7 +425,6 @@ impl ActiveSet {
         target_step: &ProofStep,
     ) -> Vec<ProofStep> {
         let mut results = vec![];
-        let mut alt_results = vec![];
         assert!(target_step.clause.len() == 1);
         let target_literal = &target_step.clause.literals[0];
         let next_var = target_literal.least_unused_variable();
@@ -442,19 +441,22 @@ impl ActiveSet {
                 }
 
                 // Look for ways to rewrite u_subterm
-                let patterns = self.old_rewrite_patterns.get_unifying(u_subterm);
-                for pattern in &patterns {
-                    if let Some(ps) = ActiveSet::try_rewrite(
-                        pattern.step_index,
-                        self.get_step(pattern.step_index),
-                        pattern.forwards,
-                        target_id,
-                        target_step,
-                        target_left,
-                        u_subterm,
-                        &path,
-                    ) {
-                        results.push(ps);
+
+                if !EXPERIMENT {
+                    let patterns = self.old_rewrite_patterns.get_unifying(u_subterm);
+                    for pattern in &patterns {
+                        if let Some(ps) = ActiveSet::try_rewrite(
+                            pattern.step_index,
+                            self.get_step(pattern.step_index),
+                            pattern.forwards,
+                            target_id,
+                            target_step,
+                            target_left,
+                            u_subterm,
+                            &path,
+                        ) {
+                            results.push(ps);
+                        }
                     }
                 }
 
@@ -480,27 +482,7 @@ impl ActiveSet {
                             new_clause,
                             path.is_empty(),
                         );
-                        alt_results.push(ps);
-                    }
-
-                    if results.len() != alt_results.len() {
-                        println!("XXX mismatch detected!");
-                        println!("XXX u_subterm: {}", u_subterm);
-                        println!("XXX {} classically matching patterns:", patterns.len());
-                        for pattern in patterns {
-                            self.print_proof_step(&self.get_step(pattern.step_index), None);
-                        }
-                        println!("XXX result mismatch:");
-                        println!("{} results:", results.len());
-                        let extra = Some((target_id, target_step));
-                        for r in &results {
-                            self.print_proof_step(r, extra);
-                        }
-                        println!("{} alt_results:", alt_results.len());
-                        for r in &alt_results {
-                            self.print_proof_step(r, extra);
-                        }
-                        panic!("XXX mismatch");
+                        results.push(ps);
                     }
                 }
             }
@@ -788,15 +770,17 @@ impl ActiveSet {
             // to simplify everything, without going through the intermediate steps.
             // But, for now, we just don't do it.
             if literal.positive && !step.rule.is_rewrite() {
-                for (forwards, from, _) in literal.both_term_pairs() {
-                    if !from.is_true() {
-                        self.old_rewrite_patterns.insert(
-                            from,
-                            OldRewritePattern {
-                                step_index,
-                                forwards,
-                            },
-                        );
+                if !EXPERIMENT {
+                    for (forwards, from, _) in literal.both_term_pairs() {
+                        if !from.is_true() {
+                            self.old_rewrite_patterns.insert(
+                                from,
+                                OldRewritePattern {
+                                    step_index,
+                                    forwards,
+                                },
+                            );
+                        }
                     }
                 }
 
