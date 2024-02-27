@@ -186,8 +186,9 @@ impl TermComponent {
         components: &[TermComponent],
         replacements: &[&[TermComponent]],
         shift: Option<AtomId>,
-        output: &mut Vec<TermComponent>,
-    ) {
+    ) -> Vec<TermComponent> {
+        let mut output: Vec<TermComponent> = vec![];
+
         // path contains all the indices of composite parents, in *output*, of the current node
         let mut path: Vec<usize> = vec![];
 
@@ -251,6 +252,7 @@ impl TermComponent {
                 }
             }
         }
+        output
     }
 }
 

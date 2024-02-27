@@ -79,12 +79,10 @@ impl RewriteTree {
             &mut replacements,
             &mut |value_id, replacements| {
                 for value in &self.tree.values[value_id] {
-                    let mut new_components = vec![];
-                    TermComponent::replace_or_shift(
+                    let new_components = TermComponent::replace_or_shift(
                         &value.output,
                         replacements,
                         Some(next_var),
-                        &mut new_components,
                     );
                     let new_term = TermComponent::unflatten_term(&new_components);
                     answer.push((value.rule_id, value.forwards, new_term));
