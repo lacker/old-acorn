@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintTree;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::unifier::{Scope, Unifier};
@@ -28,9 +28,6 @@ pub struct ActiveSet {
 
     // An index of all the ways to rewrite subterms.
     rewrite_patterns: RewriteTree,
-
-    // TODO: remove
-    old_rewrite_patterns: FingerprintTree<OldRewritePattern>,
 
     // An index of all the positive literals that we can do resolution with.
     positive_res_targets: FingerprintTree<ResolutionTarget>,
@@ -88,7 +85,6 @@ impl ActiveSet {
             long_clauses: HashSet::new(),
             literal_tree: LiteralSet::new(),
             rewrite_targets: FingerprintTree::new(),
-            old_rewrite_patterns: FingerprintTree::new(),
             rewrite_patterns: RewriteTree::new(),
             positive_res_targets: FingerprintTree::new(),
             negative_res_targets: FingerprintTree::new(),
@@ -428,7 +424,7 @@ impl ActiveSet {
         assert!(target_step.clause.len() == 1);
         let target_literal = &target_step.clause.literals[0];
         let next_var = target_literal.least_unused_variable();
-        for (target_left, u, v) in target_literal.both_term_pairs() {
+        for (_, u, v) in target_literal.both_term_pairs() {
             let u_subterms = u.rewritable_subterms();
 
             for (path, u_subterm) in u_subterms {
@@ -440,50 +436,27 @@ impl ActiveSet {
                     continue;
                 }
 
-                // Look for ways to rewrite u_subterm
-
-                if !EXPERIMENT {
-                    let patterns = self.old_rewrite_patterns.get_unifying(u_subterm);
-                    for pattern in &patterns {
-                        if let Some(ps) = ActiveSet::try_rewrite(
-                            pattern.step_index,
-                            self.get_step(pattern.step_index),
-                            pattern.forwards,
-                            target_id,
-                            target_step,
-                            target_left,
-                            u_subterm,
-                            &path,
-                        ) {
-                            results.push(ps);
-                        }
-                    }
-                }
-
-                if EXPERIMENT {
-                    let rewrites = self.rewrite_patterns.get_rewrites(u_subterm, next_var);
-                    for (step_index, _, new_subterm) in rewrites {
-                        let pattern_step = self.get_step(step_index);
-                        if pattern_step.truthiness == Truthiness::Factual
-                            && target_step.truthiness == Truthiness::Factual
-                        {
-                            // No global-global rewriting
-                            continue;
-                        }
-                        let new_u = u.replace_at_path(&path, new_subterm);
-                        let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
-                        new_literal.validate_type();
-                        let new_clause = Clause::new(vec![new_literal]);
-                        let ps = ProofStep::new_rewrite(
-                            step_index,
-                            pattern_step,
-                            target_id,
-                            target_step,
-                            new_clause,
-                            path.is_empty(),
-                        );
-                        results.push(ps);
-                    }
+                // Look for ways to rewrite u_subterm.
+                // No global-global rewriting
+                let allow_factual = target_step.truthiness != Truthiness::Factual;
+                let rewrites =
+                    self.rewrite_patterns
+                        .get_rewrites(u_subterm, allow_factual, next_var);
+                for (step_index, _, new_subterm) in rewrites {
+                    let pattern_step = self.get_step(step_index);
+                    let new_u = u.replace_at_path(&path, new_subterm);
+                    let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
+                    new_literal.validate_type();
+                    let new_clause = Clause::new(vec![new_literal]);
+                    let ps = ProofStep::new_rewrite(
+                        step_index,
+                        pattern_step,
+                        target_id,
+                        target_step,
+                        new_clause,
+                        path.is_empty(),
+                    );
+                    results.push(ps);
                 }
             }
         }
@@ -770,23 +743,11 @@ impl ActiveSet {
             // to simplify everything, without going through the intermediate steps.
             // But, for now, we just don't do it.
             if literal.positive && !step.rule.is_rewrite() {
-                if !EXPERIMENT {
-                    for (forwards, from, _) in literal.both_term_pairs() {
-                        if !from.is_true() {
-                            self.old_rewrite_patterns.insert(
-                                from,
-                                OldRewritePattern {
-                                    step_index,
-                                    forwards,
-                                },
-                            );
-                        }
-                    }
-                }
-
-                if EXPERIMENT {
-                    self.rewrite_patterns.insert_literal(step_index, literal);
-                }
+                self.rewrite_patterns.insert_literal(
+                    step_index,
+                    step.truthiness == Truthiness::Factual,
+                    literal,
+                );
             }
 
             self.literal_tree.insert(&clause.literals[0], id);
