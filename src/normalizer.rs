@@ -481,6 +481,9 @@ impl Normalizer {
     // When you denormalize and renormalize a clause, you should get the same thing.
     fn check_denormalize_renormalize(&mut self, clause: &Clause) {
         let denormalized = self.denormalize(clause);
+        denormalized
+            .validate()
+            .expect("denormalized clause should validate");
         let renormalized = self.normalize(denormalized.clone()).expect_clauses();
         if renormalized.len() != 1 {
             println!("original clause: {}", clause);
