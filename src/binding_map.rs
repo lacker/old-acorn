@@ -21,6 +21,9 @@ pub struct BindingMap {
     // Maps the name of a type to the type object.
     type_names: HashMap<String, AcornType>,
 
+    // Maps the type object to the name of a type.
+    reverse_type_names: HashMap<AcornType, String>,
+
     // Maps an identifier name to its type.
     identifier_types: HashMap<String, AcornType>,
 
@@ -55,14 +58,17 @@ struct ConstantInfo {
 impl BindingMap {
     pub fn new(module: ModuleId) -> Self {
         assert!(module >= FIRST_NORMAL);
-        BindingMap {
+        let mut answer = BindingMap {
             module,
-            type_names: HashMap::from([("bool".to_string(), AcornType::Bool)]),
+            type_names: HashMap::new(),
+            reverse_type_names: HashMap::new(),
             identifier_types: HashMap::new(),
             constants: HashMap::new(),
             stack: HashMap::new(),
             modules: BTreeMap::new(),
-        }
+        };
+        answer.add_type_alias("bool", AcornType::Bool);
+        answer
     }
 
     ////////////////////////////////////////////////////////////////////////////////
