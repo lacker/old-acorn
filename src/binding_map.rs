@@ -934,7 +934,16 @@ impl BindingMap {
                 Some(format!("!{}", x))
             }
             AcornValue::ForAll(quants, value) => {
-                todo!();
+                let initial_var_names_len = var_names.len();
+                let mut args = vec![];
+                for _ in quants {
+                    let name = self.next_temp_var_name(next_x);
+                    args.push(name.clone());
+                    var_names.push(name);
+                }
+                let subresult = self.to_code_helper(value, var_names, next_x);
+                var_names.truncate(initial_var_names_len);
+                Some(format!("forall({}) {{ {} }}", args.join(", "), subresult?))
             }
             AcornValue::Bool(b) => {
                 if *b {
