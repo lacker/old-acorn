@@ -714,4 +714,20 @@ mod tests {
         let mut norm = Normalizer::new();
         norm.check(&env, "goal", &["zerof(x0, x1) = zerof(x2, x1)"]);
     }
+
+    #[test]
+    fn test_normalizing_exists() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            let 1: Nat = axiom
+            let add: (Nat, Nat) -> Nat = axiom
+            theorem goal: exists(x: Nat) { add(x, 0) = 1 }
+            "#,
+        );
+        let mut norm = Normalizer::new();
+        norm.check(&env, "goal", &["add(s0, 0) = 1"]);
+    }
 }
