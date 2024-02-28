@@ -508,9 +508,7 @@ impl Normalizer {
             );
         }
         for (i, clause) in actual.iter().enumerate() {
-            if !clause.has_any_variable() {
-                self.check_denormalize_renormalize(clause);
-            }
+            self.check_denormalize_renormalize(clause);
             let c = DisplayClause {
                 clause,
                 normalizer: self,
