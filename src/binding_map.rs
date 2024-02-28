@@ -90,6 +90,19 @@ impl BindingMap {
         names
     }
 
+    fn insert_type_name(&mut self, name: String, acorn_type: AcornType) {
+        if self.name_in_use(&name) {
+            panic!("type name {} already bound", name);
+        }
+        // There can be multiple names for a type.
+        // If we already have a name for the reverse lookup, we don't overwrite it.
+        if !self.reverse_type_names.contains_key(&acorn_type) {
+            self.reverse_type_names
+                .insert(acorn_type.clone(), name.clone());
+        }
+        self.type_names.insert(name, acorn_type);
+    }
+
     // Adds a new data type to the binding map.
     // Panics if the name is already bound.
     pub fn add_data_type(&mut self, name: &str) -> AcornType {
@@ -97,7 +110,7 @@ impl BindingMap {
             panic!("type name {} already bound", name);
         }
         let data_type = AcornType::Data(self.module, name.to_string());
-        self.type_names.insert(name.to_string(), data_type.clone());
+        self.insert_type_name(name.to_string(), data_type.clone());
         data_type
     }
 
@@ -110,7 +123,7 @@ impl BindingMap {
         if self.name_in_use(name) {
             panic!("type alias {} already bound", name);
         }
-        self.type_names.insert(name.to_string(), acorn_type);
+        self.insert_type_name(name.to_string(), acorn_type);
     }
 
     // Returns an AcornValue representing this name, if there is one.
@@ -205,10 +218,12 @@ impl BindingMap {
 
     // Data types that come from type parameters get removed when they go out of scope.
     pub fn remove_data_type(&mut self, name: &str) {
-        if !self.type_names.contains_key(name) {
-            panic!("removing data type {} which is already not present", name);
+        match self.type_names.remove(name) {
+            Some(t) => {
+                self.reverse_type_names.remove(&t);
+            }
+            None => panic!("removing data type {} which is already not present", name),
         }
-        self.type_names.remove(name);
     }
 
     pub fn add_module(&mut self, name: &str, module: ModuleId) {
