@@ -101,6 +101,9 @@ struct Subvalue<'a> {
     stack_size: usize,
 }
 
+// This is a formatting helper, doing a "best effort" that should always display *something*
+// but should not be used for generating usable code.
+// It may reuse temporary variable names, or use constants that have not been imported.
 impl fmt::Display for Subvalue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.value {

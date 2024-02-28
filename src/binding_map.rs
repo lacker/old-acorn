@@ -879,6 +879,75 @@ impl BindingMap {
     }
 
     ////////////////////////////////////////////////////////////////////////////////
+    // Tools for going the other way, from values back to a string.
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // We use variables named x0, x1, x2, etc when new temporary variables are needed.
+    // Find the next one that's available.
+    fn next_temp_var_name(&self, next_x: &mut u32) -> String {
+        loop {
+            let name = format!("x{}", next_x);
+            *next_x += 1;
+            if !self.name_in_use(&name) {
+                return name;
+            }
+        }
+    }
+
+    // If this value cannot be expressed in a single chunk of code, returns None.
+    // For example, it might refer to a constant that is not in scope.
+    pub fn to_code(&self, value: &AcornValue) -> Option<String> {
+        let mut var_names = vec![];
+        let mut next_x = 0;
+        self.to_code_helper(value, &mut var_names, &mut next_x)
+    }
+
+    // Helper that handles temporary variable naming.
+    // var_names are the names of the variables that we have already allocated.
+    // next_x is the next number to try using.
+    fn to_code_helper(
+        &self,
+        value: &AcornValue,
+        var_names: &mut Vec<String>,
+        next_x: &mut u32,
+    ) -> Option<String> {
+        match value {
+            AcornValue::Variable(i, _) => Some(var_names[*i as usize].clone()),
+            AcornValue::Constant(module, name, _, _) => {
+                todo!("reverse lookup a constant name");
+            }
+            AcornValue::Application(fa) => {
+                let f = self.to_code_helper(&fa.function, var_names, next_x)?;
+                let mut args = vec![];
+                for arg in &fa.args {
+                    args.push(self.to_code_helper(arg, var_names, next_x)?);
+                }
+                Some(format!("{}({})", f, args.join(", ")))
+            }
+            AcornValue::Binary(op, left, right) => {
+                let left = self.to_code_helper(left, var_names, next_x)?;
+                let right = self.to_code_helper(right, var_names, next_x)?;
+                Some(format!("{} {} {}", left, op, right))
+            }
+            AcornValue::Not(x) => {
+                let x = self.to_code_helper(x, var_names, next_x)?;
+                Some(format!("!{}", x))
+            }
+            AcornValue::ForAll(quants, value) => {
+                todo!();
+            }
+            AcornValue::Bool(b) => {
+                if *b {
+                    Some("true".to_string())
+                } else {
+                    Some("false".to_string())
+                }
+            }
+            _ => todo!("I thought these other cases weren't possible"),
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
     // Tools for testing.
     ////////////////////////////////////////////////////////////////////////////////
 
