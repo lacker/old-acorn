@@ -974,7 +974,16 @@ impl BindingMap {
         match value {
             AcornValue::Variable(i, _) => Some(var_names[*i as usize].clone()),
             AcornValue::Constant(module, name, _, _) => {
-                todo!("reverse lookup a constant name");
+                if module == &self.module {
+                    return Some(name.clone());
+                }
+
+                // Check if there's a local alias for this constant.
+                let key = (*module, name.clone());
+                match self.aliased_constants.get(&key) {
+                    Some(alias) => Some(alias.clone()),
+                    None => None,
+                }
             }
             AcornValue::Application(fa) => {
                 let f = self.value_to_code_helper(&fa.function, var_names, next_x)?;
