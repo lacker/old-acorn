@@ -9,6 +9,7 @@ use crate::binding_map::BindingMap;
 use crate::goal_context::GoalContext;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
+use crate::proof::Proof;
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
@@ -1004,6 +1005,16 @@ impl Environment {
             }
         }
         None
+    }
+
+    pub fn proof_to_code(&self, proof: &Proof) -> Option<Vec<String>> {
+        let values = proof.make_direct()?;
+        let mut answer = vec![];
+        for value in values {
+            let code = self.bindings.value_to_code(&value)?;
+            answer.push(code);
+        }
+        Some(answer)
     }
 
     // Expects the given line to be bad
