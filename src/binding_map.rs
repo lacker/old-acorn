@@ -1005,10 +1005,11 @@ impl BindingMap {
             AcornValue::ForAll(quants, value) => {
                 let initial_var_names_len = var_names.len();
                 let mut args = vec![];
-                for _ in quants {
-                    let name = self.next_temp_var_name(next_x);
-                    args.push(name.clone());
-                    var_names.push(name);
+                for arg_type in quants {
+                    let var_name = self.next_temp_var_name(next_x);
+                    let type_name = self.type_to_code(arg_type)?;
+                    args.push(format!("{}: {}", var_name, type_name));
+                    var_names.push(var_name);
                 }
                 let subresult = self.value_to_code_helper(value, var_names, next_x);
                 var_names.truncate(initial_var_names_len);
