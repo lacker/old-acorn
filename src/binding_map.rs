@@ -32,6 +32,10 @@ pub struct BindingMap {
     // entirety of this environment.
     constants: HashMap<String, ConstantInfo>,
 
+    // For constants in other modules that have a local name in this environment, we map
+    // their information to their local name.
+    aliased_constants: HashMap<(ModuleId, String), String>,
+
     // For variables defined on the stack, we keep track of their depth from the top.
     stack: HashMap<String, AtomId>,
 
@@ -64,6 +68,7 @@ impl BindingMap {
             reverse_type_names: HashMap::new(),
             identifier_types: HashMap::new(),
             constants: HashMap::new(),
+            aliased_constants: HashMap::new(),
             stack: HashMap::new(),
             modules: BTreeMap::new(),
         };
@@ -186,6 +191,16 @@ impl BindingMap {
     ) {
         if self.name_in_use(name) {
             panic!("constant name {} already bound", name);
+        }
+
+        // Check if we are aliasing a constant from another module.
+        if let AcornType::Data(module, type_name) = &constant_type {
+            if *module != self.module {
+                let key = (*module, type_name.clone());
+                self.aliased_constants
+                    .entry(key)
+                    .or_insert(name.to_string());
+            }
         }
 
         let info = ConstantInfo {
