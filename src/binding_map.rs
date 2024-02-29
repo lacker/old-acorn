@@ -900,8 +900,32 @@ impl BindingMap {
     }
 
     ////////////////////////////////////////////////////////////////////////////////
-    // Tools for going the other way, from values back to a string.
+    // Tools for going the other way, to create code strings given the bindings.
     ////////////////////////////////////////////////////////////////////////////////
+
+    // Returns None if this type can't be encoded. For example, it could be a type that
+    // is not imported into this scope.
+    pub fn type_to_code(&self, acorn_type: &AcornType) -> Option<String> {
+        if let AcornType::Function(ft) = acorn_type {
+            let mut args = vec![];
+            for arg_type in &ft.arg_types {
+                args.push(self.type_to_code(arg_type)?);
+            }
+            let joined = args.join(", ");
+            let lhs = if ft.arg_types.len() == 1 {
+                joined
+            } else {
+                format!("({})", joined)
+            };
+            let rhs = self.type_to_code(&ft.return_type)?;
+            return Some(format!("{} -> {}", lhs, rhs));
+        }
+
+        match self.reverse_type_names.get(acorn_type) {
+            Some(name) => Some(name.clone()),
+            None => None,
+        }
+    }
 
     // We use variables named x0, x1, x2, etc when new temporary variables are needed.
     // Find the next one that's available.
@@ -917,16 +941,16 @@ impl BindingMap {
 
     // If this value cannot be expressed in a single chunk of code, returns None.
     // For example, it might refer to a constant that is not in scope.
-    pub fn to_code(&self, value: &AcornValue) -> Option<String> {
+    pub fn value_to_code(&self, value: &AcornValue) -> Option<String> {
         let mut var_names = vec![];
         let mut next_x = 0;
-        self.to_code_helper(value, &mut var_names, &mut next_x)
+        self.value_to_code_helper(value, &mut var_names, &mut next_x)
     }
 
     // Helper that handles temporary variable naming.
     // var_names are the names of the variables that we have already allocated.
     // next_x is the next number to try using.
-    fn to_code_helper(
+    fn value_to_code_helper(
         &self,
         value: &AcornValue,
         var_names: &mut Vec<String>,
@@ -938,20 +962,20 @@ impl BindingMap {
                 todo!("reverse lookup a constant name");
             }
             AcornValue::Application(fa) => {
-                let f = self.to_code_helper(&fa.function, var_names, next_x)?;
+                let f = self.value_to_code_helper(&fa.function, var_names, next_x)?;
                 let mut args = vec![];
                 for arg in &fa.args {
-                    args.push(self.to_code_helper(arg, var_names, next_x)?);
+                    args.push(self.value_to_code_helper(arg, var_names, next_x)?);
                 }
                 Some(format!("{}({})", f, args.join(", ")))
             }
             AcornValue::Binary(op, left, right) => {
-                let left = self.to_code_helper(left, var_names, next_x)?;
-                let right = self.to_code_helper(right, var_names, next_x)?;
+                let left = self.value_to_code_helper(left, var_names, next_x)?;
+                let right = self.value_to_code_helper(right, var_names, next_x)?;
                 Some(format!("{} {} {}", left, op, right))
             }
             AcornValue::Not(x) => {
-                let x = self.to_code_helper(x, var_names, next_x)?;
+                let x = self.value_to_code_helper(x, var_names, next_x)?;
                 Some(format!("!{}", x))
             }
             AcornValue::ForAll(quants, value) => {
@@ -962,7 +986,7 @@ impl BindingMap {
                     args.push(name.clone());
                     var_names.push(name);
                 }
-                let subresult = self.to_code_helper(value, var_names, next_x);
+                let subresult = self.value_to_code_helper(value, var_names, next_x);
                 var_names.truncate(initial_var_names_len);
                 Some(format!("forall({}) {{ {} }}", args.join(", "), subresult?))
             }
