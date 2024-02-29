@@ -1005,15 +1005,22 @@ impl BindingMap {
     // Tools for testing.
     ////////////////////////////////////////////////////////////////////////////////
 
-    pub fn assert_type_ok(&mut self, input: &str) {
+    fn str_to_type(&mut self, input: &str) -> AcornType {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
         let (expression, _) =
             Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
         match self.evaluate_type(&Project::new_mock(), &expression) {
-            Ok(_) => {}
+            Ok(t) => t,
             Err(error) => panic!("Error evaluating type expression: {}", error),
         }
+    }
+
+    pub fn assert_type_ok(&mut self, input: &str) {
+        let acorn_type = self.str_to_type(input);
+        let reconstructed = self.type_to_code(&acorn_type).unwrap();
+        let reevaluated = self.str_to_type(&reconstructed);
+        assert_eq!(acorn_type, reevaluated);
     }
 
     pub fn assert_type_bad(&mut self, input: &str) {
