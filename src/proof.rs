@@ -97,7 +97,8 @@ impl<'a> Proof<'a> {
                     if count_counterfactual > 1 {
                         return Err(format!(
                             "{} is counterfactual and depends on {} counterfactual steps",
-                            step.clause, count_counterfactual
+                            self.display(&step.clause),
+                            count_counterfactual
                         ));
                     }
 
