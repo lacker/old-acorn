@@ -1011,14 +1011,17 @@ impl Environment {
         None
     }
 
-    pub fn proof_to_code(&self, proof: &Proof) -> Option<Vec<String>> {
+    pub fn proof_to_code(&self, proof: &Proof) -> Result<Vec<String>, String> {
         let values = proof.make_direct()?;
         let mut answer = vec![];
         for value in values {
-            let code = self.bindings.value_to_code(&value)?;
+            let code = match self.bindings.value_to_code(&value) {
+                Some(code) => code,
+                None => return Err(format!("could not convert value to code: {}", value)),
+            };
             answer.push(code);
         }
-        Some(answer)
+        Ok(answer)
     }
 
     // Expects the given line to be bad

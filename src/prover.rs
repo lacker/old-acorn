@@ -515,7 +515,10 @@ mod tests {
             panic!("prover error: {}", prover.error.unwrap());
         }
         let code = match prover.get_proof() {
-            Some(proof) => env.proof_to_code(&proof),
+            Some(proof) => match env.proof_to_code(&proof) {
+                Ok(code) => Some(code),
+                Err(_) => None,
+            },
             None => None,
         };
         (outcome, code)

@@ -190,18 +190,19 @@ impl DebugTask {
             Outcome::Success => {
                 self.queue.push("Success!".to_string());
                 prover.print_proof();
-
+                self.queue.push("".to_string());
                 let proof = prover.get_proof().unwrap();
                 match env.proof_to_code(&proof) {
-                    Some(code) => {
+                    Ok(code) => {
                         self.queue.push("Proof converted to code:".to_string());
                         for line in code {
                             self.queue.push(line);
                         }
                     }
-                    None => {
+                    Err(s) => {
                         self.queue
-                            .push("Proof could not be converted to code.".to_string());
+                            .push("Error converting proof to code:".to_string());
+                        self.queue.push(s);
                     }
                 }
             }

@@ -69,8 +69,8 @@ impl<'a> Proof<'a> {
     // Direct proofs do not need to include statements which the prover automatically includes,
     // such as previous statements and library facts.
     //
-    // Some proofs cannot be converted to a direct proof, in which case we return None.
-    pub fn make_direct(&self) -> Option<Vec<AcornValue>> {
+    // If we can't convert to values, return a string explaining why.
+    pub fn make_direct(&self) -> Result<Vec<AcornValue>, String> {
         let mut regular = vec![];
         let mut inverted = vec![];
         for step in self.steps.values() {
@@ -95,7 +95,10 @@ impl<'a> Proof<'a> {
                         }
                     }
                     if count_counterfactual > 1 {
-                        return None;
+                        return Err(format!(
+                            "{} is counterfactual and depends on {} counterfactual steps",
+                            step.clause, count_counterfactual
+                        ));
                     }
 
                     // A counterfactual step that only depends on a single counterfactual step
@@ -120,6 +123,6 @@ impl<'a> Proof<'a> {
             answer.push(value);
         }
 
-        Some(answer)
+        Ok(answer)
     }
 }
