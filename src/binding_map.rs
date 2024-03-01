@@ -6,7 +6,7 @@ use crate::atom::AtomId;
 use crate::expression::Expression;
 use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::project::Project;
-use crate::token::{Error, Result, Token, TokenIter, TokenType};
+use crate::token::{self, Error, Token, TokenIter, TokenType};
 
 // In order to convert an Expression to an AcornValue, we need to convert the string representation
 // of types, variable names, and constant names into numeric identifiers, detect name collisions,
@@ -267,7 +267,7 @@ impl BindingMap {
         error_token: &Token,
         expected_type: Option<&AcornType>,
         actual_type: &AcornType,
-    ) -> Result<()> {
+    ) -> token::Result<()> {
         if let Some(e) = expected_type {
             if e != actual_type {
                 return Err(Error::new(
@@ -284,7 +284,7 @@ impl BindingMap {
         project: &'a Project,
         token: &Token,
         module_name: &str,
-    ) -> Result<&'a BindingMap> {
+    ) -> token::Result<&'a BindingMap> {
         let module = match self.modules.get(module_name) {
             Some(module) => *module,
             None => {
@@ -304,7 +304,11 @@ impl BindingMap {
     }
 
     // Evaluates an expression that represents a type.
-    pub fn evaluate_type(&self, project: &Project, expression: &Expression) -> Result<AcornType> {
+    pub fn evaluate_type(
+        &self,
+        project: &Project,
+        expression: &Expression,
+    ) -> token::Result<AcornType> {
         match expression {
             Expression::Identifier(token) => {
                 if token.token_type == TokenType::Axiom {
@@ -373,7 +377,7 @@ impl BindingMap {
         &self,
         project: &Project,
         declaration: &Expression,
-    ) -> Result<(String, AcornType)> {
+    ) -> token::Result<(String, AcornType)> {
         match declaration {
             Expression::Binary(left, token, right) => match token.token_type {
                 TokenType::Colon => {
@@ -398,7 +402,7 @@ impl BindingMap {
         &mut self,
         project: &Project,
         declarations: I,
-    ) -> Result<(Vec<String>, Vec<AcornType>)>
+    ) -> token::Result<(Vec<String>, Vec<AcornType>)>
     where
         I: IntoIterator<Item = &'a Expression>,
     {
@@ -447,7 +451,7 @@ impl BindingMap {
         project: &Project,
         expression: &Expression,
         expected_type: Option<&AcornType>,
-    ) -> Result<AcornValue> {
+    ) -> token::Result<AcornValue> {
         match expression {
             Expression::Identifier(token) => {
                 match token.token_type {
@@ -795,7 +799,7 @@ impl BindingMap {
         arg_exprs: &[Expression],
         value_type_expr: Option<&Expression>,
         value_expr: &Expression,
-    ) -> Result<(
+    ) -> token::Result<(
         Vec<String>,
         Vec<String>,
         Vec<AcornType>,
