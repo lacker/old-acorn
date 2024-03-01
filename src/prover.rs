@@ -742,7 +742,6 @@ mod tests {
             }
             "#;
 
-        // The proof should require no supporting steps
         expect_proof(text, "reflexivity(t)", &[]);
     }
 
@@ -757,7 +756,8 @@ mod tests {
                 x = t -> foo(x)
             }
             "#;
-        assert_eq!(prove_text(text, "((x = t) -> foo(x))"), Outcome::Success);
+
+        expect_proof(text, "((x = t) -> foo(x))", &[]);
     }
 
     #[test]
@@ -770,7 +770,7 @@ mod tests {
                 }
             }
             "#;
-        assert_eq!(prove_text(text, "(x = y)"), Outcome::Success);
+        expect_proof(text, "(x = y)", &[]);
     }
 
     #[test]
