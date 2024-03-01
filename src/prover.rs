@@ -495,7 +495,12 @@ mod tests {
     use super::*;
 
     // Tries to prove one thing from the project.
-    fn prove(project: &mut Project, module_name: &str, goal_name: &str) -> (Prover, Outcome) {
+    // If the proof is successful, try to generate the code.
+    fn prove(
+        project: &mut Project,
+        module_name: &str,
+        goal_name: &str,
+    ) -> (Outcome, Option<Vec<String>>) {
         let module_id = project.load_module(module_name).expect("load failed");
         let env = match project.get_module(module_id) {
             Module::Ok(env) => env,
@@ -509,14 +514,18 @@ mod tests {
         if outcome == Outcome::Error {
             panic!("prover error: {}", prover.error.unwrap());
         }
-        (prover, outcome)
+        let code = match prover.get_proof() {
+            Some(proof) => env.proof_to_code(&proof),
+            None => None,
+        };
+        (outcome, code)
     }
 
     // Does one proof on the provided text.
     fn prove_text(text: &str, goal_name: &str) -> Outcome {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
-        let (_, outcome) = prove(&mut project, "main", goal_name);
+        let (outcome, _) = prove(&mut project, "main", goal_name);
         outcome
     }
 
@@ -1156,7 +1165,7 @@ mod tests {
             theorem goal(a: bar.Bar, b: bar.Bar): bar.morph(a) = bar.morph(b)
         "#,
         );
-        let (_, outcome) = prove(&mut p, "main", "goal");
+        let (outcome, _) = prove(&mut p, "main", "goal");
         assert_eq!(outcome, Outcome::Success);
     }
 
