@@ -11,7 +11,7 @@ use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::proof::Proof;
 use crate::statement::{Statement, StatementInfo};
-use crate::token::{Error, Result, Token, TokenIter, TokenType};
+use crate::token::{self, Error, Token, TokenIter, TokenType};
 
 // The Environment takes Statements as input and processes them.
 // It does not prove anything directly, but it is responsible for determining which
@@ -194,7 +194,7 @@ impl Environment {
         args: Vec<(String, AcornType)>,
         body: &Vec<Statement>,
         params: BlockParams,
-    ) -> Result<Option<Block>> {
+    ) -> token::Result<Option<Block>> {
         if body.is_empty() {
             return Ok(None);
         }
@@ -373,7 +373,11 @@ impl Environment {
     // Adds a statement to the environment.
     // If the statement has a body, this call creates a sub-environment and adds the body
     // to that sub-environment.
-    pub fn add_statement(&mut self, project: &mut Project, statement: &Statement) -> Result<()> {
+    pub fn add_statement(
+        &mut self,
+        project: &mut Project,
+        statement: &Statement,
+    ) -> token::Result<()> {
         if self.includes_explicit_false {
             return Err(Error::new(
                 &statement.first_token,
@@ -825,7 +829,7 @@ impl Environment {
 
     // Parse these tokens and add them to the environment.
     // If project is not provided, we won't be able to handle import statements.
-    pub fn add_tokens(&mut self, project: &mut Project, tokens: Vec<Token>) -> Result<()> {
+    pub fn add_tokens(&mut self, project: &mut Project, tokens: Vec<Token>) -> token::Result<()> {
         let mut tokens = TokenIter::new(tokens);
         loop {
             match Statement::parse(&mut tokens, false) {
