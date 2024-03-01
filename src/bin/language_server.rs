@@ -190,6 +190,20 @@ impl DebugTask {
             Outcome::Success => {
                 self.queue.push("Success!".to_string());
                 prover.print_proof();
+
+                let proof = prover.get_proof().unwrap();
+                match env.proof_to_code(&proof) {
+                    Some(code) => {
+                        self.queue.push("Proof converted to code:".to_string());
+                        for line in code {
+                            self.queue.push(line);
+                        }
+                    }
+                    None => {
+                        self.queue
+                            .push("Proof could not be converted to code.".to_string());
+                    }
+                }
             }
             Outcome::Inconsistent => {
                 self.queue.push("Found inconsistency!".to_string());
