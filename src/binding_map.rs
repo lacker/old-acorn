@@ -42,6 +42,9 @@ pub struct BindingMap {
     // Names that refer to other modules.
     // For example after "import foo", "foo" refers to a module.
     modules: BTreeMap<String, ModuleId>,
+
+    // The local name for imported modules.
+    reverse_modules: HashMap<ModuleId, String>,
 }
 
 #[derive(Clone)]
@@ -71,6 +74,7 @@ impl BindingMap {
             aliased_constants: HashMap::new(),
             stack: HashMap::new(),
             modules: BTreeMap::new(),
+            reverse_modules: HashMap::new(),
         };
         answer.add_type_alias("bool", AcornType::Bool);
         answer
@@ -246,6 +250,7 @@ impl BindingMap {
             panic!("module name {} already bound", name);
         }
         self.modules.insert(name.to_string(), module);
+        self.reverse_modules.insert(module, name.to_string());
     }
 
     pub fn is_module(&self, name: &str) -> bool {
@@ -986,7 +991,13 @@ impl BindingMap {
                 let key = (*module, name.clone());
                 match self.aliased_constants.get(&key) {
                     Some(alias) => Ok(alias.clone()),
-                    None => Err(format!("no local name for '{}' in module {}", name, module)),
+                    None => {
+                        let module_name = match self.reverse_modules.get(module) {
+                            Some(name) => name.to_string(),
+                            None => format!("<module {}>", module),
+                        };
+                        Err(format!("no local name for '{}.{}'", module_name, name))
+                    }
                 }
             }
             AcornValue::Application(fa) => {
