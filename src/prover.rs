@@ -495,7 +495,7 @@ mod tests {
     use super::*;
 
     // Tries to prove one thing from the project.
-    fn prove(project: &mut Project, module_name: &str, goal_name: &str) -> Outcome {
+    fn prove(project: &mut Project, module_name: &str, goal_name: &str) -> (Prover, Outcome) {
         let module_id = project.load_module(module_name).expect("load failed");
         let env = match project.get_module(module_id) {
             Module::Ok(env) => env,
@@ -509,14 +509,15 @@ mod tests {
         if outcome == Outcome::Error {
             panic!("prover error: {}", prover.error.unwrap());
         }
-        outcome
+        (prover, outcome)
     }
 
     // Does one proof on the provided text.
     fn prove_text(text: &str, goal_name: &str) -> Outcome {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
-        prove(&mut project, "main", goal_name)
+        let (_, outcome) = prove(&mut project, "main", goal_name);
+        outcome
     }
 
     // Proves all the goals in the provided text, returning any non-Success outcome.
@@ -1155,7 +1156,8 @@ mod tests {
             theorem goal(a: bar.Bar, b: bar.Bar): bar.morph(a) = bar.morph(b)
         "#,
         );
-        assert_eq!(prove(&mut p, "main", "goal"), Outcome::Success);
+        let (_, outcome) = prove(&mut p, "main", "goal");
+        assert_eq!(outcome, Outcome::Success);
     }
 
     #[test]
