@@ -922,9 +922,9 @@ impl BindingMap {
     // Tools for going the other way, to create code strings given the bindings.
     ////////////////////////////////////////////////////////////////////////////////
 
-    // Returns None if this type can't be encoded. For example, it could be a type that
+    // Returns an error if this type can't be encoded. For example, it could be a type that
     // is not imported into this scope.
-    pub fn type_to_code(&self, acorn_type: &AcornType) -> Option<String> {
+    pub fn type_to_code(&self, acorn_type: &AcornType) -> Result<String, String> {
         if let AcornType::Function(ft) = acorn_type {
             let mut args = vec![];
             for arg_type in &ft.arg_types {
@@ -937,12 +937,12 @@ impl BindingMap {
                 format!("({})", joined)
             };
             let rhs = self.type_to_code(&ft.return_type)?;
-            return Some(format!("{} -> {}", lhs, rhs));
+            return Ok(format!("{} -> {}", lhs, rhs));
         }
 
         match self.reverse_type_names.get(acorn_type) {
-            Some(name) => Some(name.clone()),
-            None => None,
+            Some(name) => Ok(name.clone()),
+            None => Err(format!("unnamed type: {:?}", acorn_type)),
         }
     }
 
@@ -958,9 +958,9 @@ impl BindingMap {
         }
     }
 
-    // If this value cannot be expressed in a single chunk of code, returns None.
+    // If this value cannot be expressed in a single chunk of code, returns an error.
     // For example, it might refer to a constant that is not in scope.
-    pub fn value_to_code(&self, value: &AcornValue) -> Option<String> {
+    pub fn value_to_code(&self, value: &AcornValue) -> Result<String, String> {
         let mut var_names = vec![];
         let mut next_x = 0;
         self.value_to_code_helper(value, &mut var_names, &mut next_x)
@@ -974,19 +974,19 @@ impl BindingMap {
         value: &AcornValue,
         var_names: &mut Vec<String>,
         next_x: &mut u32,
-    ) -> Option<String> {
+    ) -> Result<String, String> {
         match value {
-            AcornValue::Variable(i, _) => Some(var_names[*i as usize].clone()),
+            AcornValue::Variable(i, _) => Ok(var_names[*i as usize].clone()),
             AcornValue::Constant(module, name, _, _) => {
                 if module == &self.module {
-                    return Some(name.clone());
+                    return Ok(name.clone());
                 }
 
                 // Check if there's a local alias for this constant.
                 let key = (*module, name.clone());
                 match self.aliased_constants.get(&key) {
-                    Some(alias) => Some(alias.clone()),
-                    None => None,
+                    Some(alias) => Ok(alias.clone()),
+                    None => Err(format!("no local name for '{}' in module {}", name, module)),
                 }
             }
             AcornValue::Application(fa) => {
@@ -995,16 +995,16 @@ impl BindingMap {
                 for arg in &fa.args {
                     args.push(self.value_to_code_helper(arg, var_names, next_x)?);
                 }
-                Some(format!("{}({})", f, args.join(", ")))
+                Ok(format!("{}({})", f, args.join(", ")))
             }
             AcornValue::Binary(op, left, right) => {
                 let left = self.value_to_code_helper(left, var_names, next_x)?;
                 let right = self.value_to_code_helper(right, var_names, next_x)?;
-                Some(format!("{} {} {}", left, op, right))
+                Ok(format!("{} {} {}", left, op, right))
             }
             AcornValue::Not(x) => {
                 let x = self.value_to_code_helper(x, var_names, next_x)?;
-                Some(format!("!{}", x))
+                Ok(format!("!{}", x))
             }
             AcornValue::ForAll(quants, value) => {
                 let initial_var_names_len = var_names.len();
@@ -1017,13 +1017,13 @@ impl BindingMap {
                 }
                 let subresult = self.value_to_code_helper(value, var_names, next_x);
                 var_names.truncate(initial_var_names_len);
-                Some(format!("forall({}) {{ {} }}", args.join(", "), subresult?))
+                Ok(format!("forall({}) {{ {} }}", args.join(", "), subresult?))
             }
             AcornValue::Bool(b) => {
                 if *b {
-                    Some("true".to_string())
+                    Ok("true".to_string())
                 } else {
-                    Some("false".to_string())
+                    Ok("false".to_string())
                 }
             }
             _ => todo!("I thought these other cases weren't possible"),

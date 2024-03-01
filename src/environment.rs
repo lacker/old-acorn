@@ -1015,10 +1015,7 @@ impl Environment {
         let values = proof.make_direct()?;
         let mut answer = vec![];
         for value in values {
-            let code = match self.bindings.value_to_code(&value) {
-                Some(code) => code,
-                None => return Err(format!("could not convert value to code: {}", value)),
-            };
+            let code = self.bindings.value_to_code(&value)?;
             answer.push(code);
         }
         Ok(answer)
