@@ -521,12 +521,15 @@ mod tests {
         (outcome, code)
     }
 
-    // Does one proof on the provided text.
-    fn prove_text(text: &str, goal_name: &str) -> Outcome {
+    fn prove_as_main(text: &str, goal_name: &str) -> (Outcome, Option<Vec<String>>) {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
-        let (outcome, _) = prove(&mut project, "main", goal_name);
-        outcome
+        prove(&mut project, "main", goal_name)
+    }
+
+    // Does one proof on the provided text.
+    fn prove_text(text: &str, goal_name: &str) -> Outcome {
+        prove_as_main(text, goal_name).0
     }
 
     // Proves all the goals in the provided text, returning any non-Success outcome.
@@ -555,6 +558,15 @@ mod tests {
 
     fn prove_all_succeeds(text: &str) {
         assert_eq!(prove_all_no_crash(text), Outcome::Success);
+    }
+
+    fn expect_proof(text: &str, goal_name: &str, expected: &[&str]) {
+        let (outcome, actual) = prove_as_main(text, goal_name);
+        assert_eq!(outcome, Outcome::Success);
+        assert_eq!(
+            actual,
+            Some(expected.iter().map(|s| s.to_string()).collect())
+        );
     }
 
     const THING: &str = r#"
@@ -729,7 +741,9 @@ mod tests {
                 reflexivity(t)
             }
             "#;
-        assert_eq!(prove_text(text, "reflexivity(t)"), Outcome::Success);
+
+        // The proof should require no supporting steps
+        expect_proof(text, "reflexivity(t)", &[]);
     }
 
     #[test]
