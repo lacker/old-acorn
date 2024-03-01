@@ -774,6 +774,23 @@ mod tests {
     }
 
     #[test]
+    fn test_extracting_narrow_proof() {
+        let text = r#"
+            let b: bool = axiom
+            let f1: bool -> bool = axiom
+            let f2: bool -> bool = axiom
+            let f3: bool -> bool = axiom
+            let f4: bool -> bool = axiom
+            axiom a1: f1(b)
+            axiom a12(x: bool): f1(x) -> f2(x)
+            axiom a23(x: bool): f2(x) -> f3(x)
+            axiom a34(x: bool): f3(x) -> f4(x)
+            theorem goal(x: bool): f4(b)
+        "#;
+        expect_proof(text, "goal", &["f2(b)", "f3(b)"]);
+    }
+
+    #[test]
     fn test_rewriting_confluence_indirectly() {
         // The facts given by "axiom recursion_base" and "define add" are
         // each rewrite rules.
@@ -789,7 +806,7 @@ mod tests {
             define add(a: Nat, b: Nat) -> Nat = recursion(Suc, a, b)
             theorem add_zero_right(a: Nat): add(a, 0) = a
         "#;
-        assert_eq!(prove_text(text, "add_zero_right"), Outcome::Success);
+        expect_proof(text, "add_zero_right", &[]);
     }
 
     #[test]
@@ -1037,18 +1054,6 @@ mod tests {
         assert_eq!(prove_all_no_crash(text), Outcome::Inconsistent);
     }
 
-    // #[test]
-    // fn test_lt_consistent() {
-    //     let text = r#"
-    //         type Nat: axiom
-    //         let lt: (Nat, Nat) -> bool = axiom
-    //         axiom nonreflexive(a: Nat): !lt(a, a)
-    //         axiom trichomotomy(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b
-    //         theorem goal(a: Nat, b: Nat): a = b
-    //     "#;
-    //     assert_eq!(prove_text(text, "goal"), Outcome::Exhausted);
-    // }
-
     #[test]
     fn test_basic_if_then_else() {
         prove_all_succeeds(
@@ -1093,21 +1098,6 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_functional_substitution() {
-    //     prove_all_succeeds(
-    //         r#"
-    //         type Nat: axiom
-    //         define find(f: Nat -> bool) -> Nat = axiom
-    //         define is_min(f: Nat -> bool) -> (Nat -> bool) = axiom
-    //         define gcd_term(p: Nat) -> (Nat -> bool) = axiom
-    //         let p: Nat = axiom
-    //         let f: Nat -> bool = is_min(gcd_term(p))
-    //         theorem goal: find(is_min(gcd_term(p))) = find(f)
-    //     "#,
-    //     );
-    // }
-
     #[test]
     fn test_functional_definition() {
         prove_all_succeeds(
@@ -1135,6 +1125,23 @@ mod tests {
         );
     }
 
+    // These tests cover some principles of functional equality that aren't implemented yet.
+    //
+    // #[test]
+    // fn test_functional_substitution() {
+    //     prove_all_succeeds(
+    //         r#"
+    //         type Nat: axiom
+    //         define find(f: Nat -> bool) -> Nat = axiom
+    //         define is_min(f: Nat -> bool) -> (Nat -> bool) = axiom
+    //         define gcd_term(p: Nat) -> (Nat -> bool) = axiom
+    //         let p: Nat = axiom
+    //         let f: Nat -> bool = is_min(gcd_term(p))
+    //         theorem goal: find(is_min(gcd_term(p))) = find(f)
+    //     "#,
+    //     );
+    // }
+    //
     // #[test]
     // fn test_functional_equality_implication() {
     //     prove_all_succeeds(
