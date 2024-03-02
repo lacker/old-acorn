@@ -195,6 +195,19 @@ impl Expression {
         ))
     }
 
+    pub fn expect_parse(input: &str, is_value: bool) -> Expression {
+        let tokens = Token::scan(input);
+        let mut tokens = TokenIter::new(tokens);
+        match Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine) {
+            Ok((e, _)) => e,
+            Err(e) => panic!("unexpected error parsing: {}", e),
+        }
+    }
+
+    pub fn expect_value(input: &str) -> Expression {
+        Expression::expect_parse(input, true)
+    }
+
     // Turn an expression like foo.bar.baz into ["foo", "bar", "baz"]
     pub fn flatten_dots(&self) -> Result<Vec<String>> {
         match self {
@@ -482,26 +495,13 @@ fn combine_partial_expressions(
 mod tests {
     use super::*;
 
-    fn expect_parse(input: &str, is_value: bool) -> Expression {
-        let tokens = Token::scan(input);
-        let mut tokens = TokenIter::new(tokens);
-        match Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine) {
-            Ok((e, _)) => e,
-            Err(e) => panic!("unexpected error parsing: {}", e),
-        }
-    }
-
     fn expect_optimal(input: &str, is_value: bool) {
-        let output = expect_parse(input, is_value).to_string();
+        let output = Expression::expect_parse(input, is_value).to_string();
         assert_eq!(input, output);
     }
 
     fn check_value(input: &str) {
         expect_optimal(input, true);
-    }
-
-    fn expect_value(input: &str) {
-        expect_parse(input, true);
     }
 
     fn check_type(input: &str) {
@@ -621,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_extra_newline() {
-        expect_value(
+        Expression::expect_value(
             "(1 +
             2)",
         );
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn test_dot_parsing_priority() {
-        let exp = expect_parse("foo.bar(baz)", true);
+        let exp = Expression::expect_parse("foo.bar(baz)", true);
         if let Expression::Apply(_, _) = exp {
             // That's what we expect
             return;

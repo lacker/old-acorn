@@ -593,6 +593,16 @@ impl Project {
             panic!("expected error");
         }
     }
+
+    // Checks that the given expression can be parsed and turned back into code.
+    #[cfg(test)]
+    fn check_value(&mut self, module_name: &str, code: &str) {
+        use crate::expression::Expression;
+
+        let module_id = self.expect_ok(module_name);
+        let expr = Expression::expect_value(code);
+        todo!("we really need to evaluate this thing without mutating the environment");
+    }
 }
 
 #[cfg(test)]
