@@ -596,23 +596,31 @@ impl Project {
 
     // Checks that the given expression can be parsed and turned back into code.
     #[cfg(test)]
-    fn check_value(&mut self, module_name: &str, in_code: &str) {
+    fn check_code_into(&mut self, module_name: &str, input: &str, expected: &str) {
         use crate::expression::Expression;
 
         let module_id = self.expect_ok(module_name);
-        let expression = Expression::expect_value(in_code);
+        let expression = Expression::expect_value(input);
         let env = self.get_env(module_id).expect("no env");
         let value = env
             .bindings
             .evaluate_value(self, &expression, None)
             .expect("could not evaluate");
-        let out_code = env
+        let output = env
             .bindings
             .value_to_code(&value)
             .expect("could not convert to code");
-        if out_code != in_code {
-            panic!("expected {}, got {}", in_code, out_code);
+        if output != expected {
+            panic!(
+                "\nwhen converting:\n  {}\nexpected:\n  {}\nactual:\n  {}\n",
+                input, expected, output
+            );
         }
+    }
+
+    #[cfg(test)]
+    fn check_code(&mut self, module_name: &str, code: &str) {
+        self.check_code_into(module_name, code, code);
     }
 }
 
@@ -738,6 +746,39 @@ mod tests {
         "#,
         );
         p.expect_ok("main");
+    }
+
+    #[test]
+    fn test_code_generation() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            type MyType: axiom
+            let t: MyType = axiom
+        "#,
+        );
+        p.check_code("main", "t");
+        p.check_code("main", "forall(x0: MyType) { x0 = t }");
+    }
+
+    #[test]
+    fn test_code_for_imported_things() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/stuff.ac",
+            r#"
+            let thing1: bool = axiom
+        "#,
+        );
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            import stuff
+            let st1: bool = stuff.thing1
+        "#,
+        );
+        p.check_code_into("main", "stuff.thing1", "st1");
     }
 
     #[tokio::test]
