@@ -228,9 +228,9 @@ impl BindingMap {
         }
 
         // Check if we are aliasing a constant from another module.
-        if let Some(AcornValue::Constant(module, name, _, _)) = &definition {
+        if let Some(AcornValue::Constant(module, external_name, _, _)) = &definition {
             if *module != self.module {
-                let key = (*module, name.clone());
+                let key = (*module, external_name.clone());
                 self.aliased_constants
                     .entry(key)
                     .or_insert(name.to_string());
