@@ -478,6 +478,29 @@ impl BindingMap {
         self.evaluate_value_with_stack(&mut Stack::new(), project, expression, expected_type)
     }
 
+    // Evaluates a name provided in dot-separated components.
+    // token is for reporting errors.
+    fn evaluate_name<T: AsRef<str>>(
+        &self,
+        token: &Token,
+        project: &Project,
+        components: &[T],
+    ) -> token::Result<AcornValue> {
+        assert!(components.len() > 0);
+        if components.len() == 1 {
+            return if let Some(value) = self.get_constant_value(components[0].as_ref()) {
+                Ok(value)
+            } else {
+                Err(Error::new(
+                    token,
+                    &format!("the name {} is unbound", components[0].as_ref()),
+                ))
+            };
+        }
+
+        todo!();
+    }
+
     // Evaluates a value with a stack given as context.
     // A value expression could be either a value or an argument list.
     // Returns the value along with its type.
