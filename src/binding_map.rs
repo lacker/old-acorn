@@ -1083,13 +1083,10 @@ impl BindingMap {
                 let key = (*module, name.clone());
                 match self.aliased_constants.get(&key) {
                     Some(alias) => Ok(alias.clone()),
-                    None => {
-                        let module_name = match self.reverse_modules.get(module) {
-                            Some(name) => name.to_string(),
-                            None => format!("<module {}>", module),
-                        };
-                        Err(format!("no local name for '{}.{}'", module_name, name))
-                    }
+                    None => match self.reverse_modules.get(module) {
+                        Some(module_name) => Ok(format!("{}.{}", module_name, name)),
+                        None => Err(format!("no local name for module {}", module)),
+                    },
                 }
             }
             AcornValue::Application(fa) => {

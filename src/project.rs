@@ -769,6 +769,7 @@ mod tests {
             "/mock/stuff.ac",
             r#"
             let thing1: bool = axiom
+            let thing2: bool = axiom
         "#,
         );
         p.mock(
@@ -779,6 +780,8 @@ mod tests {
         "#,
         );
         p.check_code_into("main", "stuff.thing1", "st1");
+        p.check_code("main", "st1");
+        p.check_code("main", "stuff.thing2");
     }
 
     #[tokio::test]
