@@ -535,28 +535,9 @@ impl BindingMap {
                             return Ok(AcornValue::Variable(*i, t.clone()));
                         }
 
-                        // Check the type for this identifier
-                        match self.identifier_types.get(token.text()) {
-                            Some(t) => {
-                                self.check_type(token, expected_type, t)?;
-                            }
-                            None => {
-                                return Err(Error::new(
-                                    token,
-                                    &format!("the identifier {} is unbound", token.text()),
-                                ));
-                            }
-                        };
-
-                        // Figure out the value for this identifier
-                        if let Some(acorn_value) = self.get_constant_value(token.text()) {
-                            Ok(acorn_value)
-                        } else {
-                            Err(Error::new(
-                                token,
-                                "interpreter bug: name has a type but we lost track of it",
-                            ))
-                        }
+                        let value = self.evaluate_name(token, project, &[token.text()])?;
+                        self.check_type(token, expected_type, &value.get_type())?;
+                        Ok(value)
                     }
                     _ => Err(Error::new(
                         token,
