@@ -8,6 +8,43 @@ use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::project::Project;
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
+// A representation of the variables on the stack.
+struct Stack {
+    // Maps the name of the variable to their depth and their type.
+    vars: HashMap<String, (AtomId, AcornType)>,
+}
+
+impl Stack {
+    fn new() -> Self {
+        Stack {
+            vars: HashMap::new(),
+        }
+    }
+
+    fn names(&self) -> Vec<&str> {
+        let mut answer: Vec<&str> = vec![""; self.vars.len()];
+        for (name, (i, _)) in &self.vars {
+            answer[*i as usize] = name;
+        }
+        answer
+    }
+
+    fn insert(&mut self, name: String, acorn_type: AcornType) -> AtomId {
+        let i = self.vars.len() as AtomId;
+        self.vars.insert(name, (i, acorn_type));
+        i
+    }
+
+    fn remove(&mut self, name: &str) {
+        self.vars.remove(name);
+    }
+
+    // Returns the depth and type of the variable with this name.
+    fn get(&self, name: &str) -> Option<&(AtomId, AcornType)> {
+        self.vars.get(name)
+    }
+}
+
 // In order to convert an Expression to an AcornValue, we need to convert the string representation
 // of types, variable names, and constant names into numeric identifiers, detect name collisions,
 // and typecheck everything.
@@ -36,7 +73,7 @@ pub struct BindingMap {
     // their information to their local name.
     aliased_constants: HashMap<(ModuleId, String), String>,
 
-    // For variables defined on the stack, we keep track of their depth from the top.
+    // TODO: remove this and use the stack in the future.
     stack: HashMap<String, AtomId>,
 
     // Names that refer to other modules.
