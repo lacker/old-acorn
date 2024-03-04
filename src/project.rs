@@ -819,6 +819,7 @@ mod tests {
                 first: bool
                 second: bool
             }
+            let alt_first: BoolPair -> bool = BoolPair.first
         "#,
         );
         p.mock(
@@ -827,14 +828,18 @@ mod tests {
             import boolpair
             type BoolPair: boolpair.BoolPair
             let first: BoolPair -> bool = BoolPair.first
+            let alt_first: BoolPair -> bool = boolpair.BoolPair.first
         "#,
         );
         p.expect_ok("main");
+        p.check_code("main", "first");
         p.check_code_into("main", "BoolPair.first", "first");
+        p.check_code_into("main", "boolpair.BoolPair.first", "first");
+        p.check_code_into("main", "alt_first", "first");
+        p.check_code_into("main", "boolpair.alt_first", "first");
 
-        // Impossible, because boolpair.BoolPair.second doesn't work, so there actually is no
-        // plausible answer.
-        // p.check_code("main", "BoolPair.second");
+        p.check_code("main", "BoolPair.second");
+        p.check_code_into("main", "boolpair.BoolPair.second", "BoolPair.second");
     }
 
     #[test]

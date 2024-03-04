@@ -73,6 +73,7 @@ pub struct BindingMap {
     // Maps the name of a constant to information about it.
     // Doesn't handle variables defined on the stack, only ones that will be in scope for the
     // entirety of this environment.
+    // Includes "<datatype>.<constant>" for data type members.
     constants: HashMap<String, ConstantInfo>,
 
     // For constants in other modules that have a local name in this environment, we map
