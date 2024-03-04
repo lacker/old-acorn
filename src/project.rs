@@ -596,12 +596,23 @@ impl Project {
 
     // Checks that the given expression can be parsed and turned back into code.
     #[cfg(test)]
-    fn check_value(&mut self, module_name: &str, code: &str) {
+    fn check_value(&mut self, module_name: &str, in_code: &str) {
         use crate::expression::Expression;
 
         let module_id = self.expect_ok(module_name);
-        let expr = Expression::expect_value(code);
-        todo!("we really need to evaluate this thing without mutating the environment");
+        let expression = Expression::expect_value(in_code);
+        let env = self.get_env(module_id).expect("no env");
+        let value = env
+            .bindings
+            .evaluate_value(self, &expression, None)
+            .expect("could not evaluate");
+        let out_code = env
+            .bindings
+            .value_to_code(&value)
+            .expect("could not convert to code");
+        if out_code != in_code {
+            panic!("expected {}, got {}", in_code, out_code);
+        }
     }
 }
 
