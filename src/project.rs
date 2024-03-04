@@ -830,5 +830,10 @@ mod tests {
         "#,
         );
         p.expect_ok("main");
+        p.check_code_into("main", "BoolPair.first", "first");
+
+        // Impossible, because boolpair.BoolPair.second doesn't work, so there actually is no
+        // plausible answer.
+        // p.check_code("main", "BoolPair.second");
     }
 }
