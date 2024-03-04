@@ -836,4 +836,20 @@ mod tests {
         // plausible answer.
         // p.check_code("main", "BoolPair.second");
     }
+
+    #[test]
+    fn test_struct_aliasing() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/stuff.ac",
+            r#"
+            struct Foo {
+                member: bool
+            }
+            type Bar: Foo
+        "#,
+        );
+        p.expect_ok("stuff");
+        p.check_code_into("stuff", "Bar.member", "Foo.member");
+    }
 }
