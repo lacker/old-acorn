@@ -5,7 +5,7 @@ use tower_lsp::lsp_types::{Position, Range};
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
-use crate::binding_map::BindingMap;
+use crate::binding_map::{BindingMap, Stack};
 use crate::goal_context::GoalContext;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
@@ -645,14 +645,18 @@ impl Environment {
 
             StatementInfo::Exists(es) => {
                 // We need to prove the general existence claim
+                let mut stack = Stack::new();
                 let (quant_names, quant_types) =
-                    self.bindings.bind_args(project, &es.quantifiers)?;
-                let general_claim_value =
                     self.bindings
-                        .evaluate_value(project, &es.claim, Some(&AcornType::Bool))?;
+                        .bind_args(&mut stack, project, &es.quantifiers)?;
+                let general_claim_value = self.bindings.evaluate_value_with_stack(
+                    &mut stack,
+                    project,
+                    &es.claim,
+                    Some(&AcornType::Bool),
+                )?;
                 let general_claim =
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
-                self.bindings.unbind_args(&quant_names);
                 let general_prop = Proposition {
                     theorem_name: None,
                     proven: false,
