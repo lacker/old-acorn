@@ -73,7 +73,7 @@ pub struct ProgressParams {}
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DebugParams {
+pub struct SearchParams {
     // Which document
     pub uri: Url,
     pub version: i32,
@@ -85,7 +85,7 @@ pub struct DebugParams {
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DebugResponse {
+pub struct SearchResponse {
     // This message is designed to be displayed in the client.
     pub message: Option<String>,
 
@@ -95,9 +95,9 @@ pub struct DebugResponse {
     pub completed: bool,
 }
 
-impl DebugResponse {
-    fn message(message: &str) -> DebugResponse {
-        DebugResponse {
+impl SearchResponse {
+    fn message(message: &str) -> SearchResponse {
+        SearchResponse {
             message: Some(message.to_string()),
             goal_name: None,
             output: vec![],
@@ -106,17 +106,18 @@ impl DebugResponse {
     }
 }
 
-// The language server can work on one expensive "debug" task at a time.
-// The DebugTask tracks information around that request.
+// A search task is a long-running task that searches for a proof.
+// The language server can work on one search task at a time.
+// The SearchTask tracks information around that request.
 #[derive(Clone)]
-struct DebugTask {
+struct SearchTask {
     project: Arc<RwLock<Project>>,
     document: Arc<Document>,
 
-    // The module that we're debugging a proof in
+    // The module that we're searching for a proof in
     module_name: String,
 
-    // The range in the document corresponding to the goal we're debugging
+    // The range in the document corresponding to the goal we're proving
     range: Range,
 
     // The path to the goal
@@ -125,26 +126,26 @@ struct DebugTask {
     // The name of the goal
     goal_name: String,
 
-    // The queue of lines printed by the debug task
+    // The queue of lines logged by the search task
     queue: Arc<SegQueue<String>>,
 
-    // The last return value of the debug task, just in "lines printed" format
+    // Unstructured output of the search process
     output: Arc<RwLock<Vec<String>>>,
 
     // Set this flag to true when the task is completed successfully
     completed: Arc<AtomicBool>,
 
-    // Set this flag to true when a subsequent debug task has been created
+    // Set this flag to true when a subsequent search task has been created
     superseded: Arc<AtomicBool>,
 }
 
-impl DebugTask {
+impl SearchTask {
     fn overlaps_selection(&self, start: Position, end: Position) -> bool {
         return start <= self.range.end && end >= self.range.start;
     }
 
     // Makes a response based on the current state of the task
-    async fn response(&self) -> DebugResponse {
+    async fn response(&self) -> SearchResponse {
         let completed = self.completed.load(std::sync::atomic::Ordering::Relaxed);
         let lines = {
             let mut locked_output = self.output.write().await;
@@ -153,7 +154,7 @@ impl DebugTask {
             }
             locked_output.clone()
         };
-        DebugResponse {
+        SearchResponse {
             message: None,
             goal_name: Some(self.goal_name.clone()),
             output: lines,
@@ -253,8 +254,8 @@ struct Backend {
     // Maps uri to the most recent version of a document
     documents: DashMap<Url, Arc<Document>>,
 
-    // The current debug task, if any
-    debug_task: Arc<RwLock<Option<DebugTask>>>,
+    // The current search task, if any
+    search_task: Arc<RwLock<Option<SearchTask>>>,
 }
 
 impl Backend {
@@ -264,7 +265,7 @@ impl Backend {
             client,
             progress: Arc::new(Mutex::new(ProgressResponse::default())),
             documents: DashMap::new(),
-            debug_task: Arc::new(RwLock::new(None)),
+            search_task: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -392,9 +393,9 @@ impl Backend {
         project.update_file(path, content);
     }
 
-    fn fail(&self, message: &str) -> jsonrpc::Result<DebugResponse> {
+    fn fail(&self, message: &str) -> jsonrpc::Result<SearchResponse> {
         log(message);
-        Ok(DebugResponse::message(message))
+        Ok(SearchResponse::message(message))
     }
 
     async fn handle_progress_request(
@@ -405,14 +406,14 @@ impl Backend {
         Ok(locked_progress.clone())
     }
 
-    async fn handle_debug_request(&self, params: DebugParams) -> jsonrpc::Result<DebugResponse> {
+    async fn handle_search_request(&self, params: SearchParams) -> jsonrpc::Result<SearchResponse> {
         let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
             None => {
                 return self.fail("no text available");
             }
         };
-        if let Some(current_task) = self.debug_task.read().await.as_ref() {
+        if let Some(current_task) = self.search_task.read().await.as_ref() {
             if current_task.document.url == params.uri
                 && current_task.document.version == params.version
                 && current_task.overlaps_selection(params.start, params.end)
@@ -428,7 +429,7 @@ impl Backend {
             Ok(path) => path,
             Err(_) => {
                 // There should be a path available, because we don't run this task without one.
-                return self.fail("no path available in DebugTask::run");
+                return self.fail("no path available in SearchTask::run");
             }
         };
         let module_name = match project.module_name_from_path(&path) {
@@ -449,8 +450,8 @@ impl Backend {
             }
         };
 
-        // Create a new debug task
-        let new_task = DebugTask {
+        // Create a new search task
+        let new_task = SearchTask {
             project: self.project.clone(),
             document: doc.clone(),
             module_name,
@@ -465,7 +466,7 @@ impl Backend {
 
         // Replace the locked singleton task
         {
-            let mut locked_task = self.debug_task.write().await;
+            let mut locked_task = self.search_task.write().await;
             if let Some(old_task) = locked_task.as_ref() {
                 // Cancel the old task
                 old_task
@@ -619,7 +620,7 @@ async fn main() {
     let stdout = tokio::io::stdout();
 
     let (service, socket) = LspService::build(Backend::new)
-        .custom_method("acorn/debug", Backend::handle_debug_request)
+        .custom_method("acorn/search", Backend::handle_search_request)
         .custom_method("acorn/progress", Backend::handle_progress_request)
         .finish();
 

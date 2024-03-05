@@ -23,14 +23,14 @@ import {
 
 let client: LanguageClient;
 
-interface DebugParams {
+interface SearchParams {
   uri: string;
   start: Position;
   end: Position;
   version: number;
 }
 
-function debugParamsEqual(a: DebugParams, b: DebugParams) {
+function searchParamsEqual(a: SearchParams, b: SearchParams) {
   return (
     a.uri == b.uri &&
     a.start.isEqual(b.start) &&
@@ -39,10 +39,10 @@ function debugParamsEqual(a: DebugParams, b: DebugParams) {
   );
 }
 
-class Debugger implements Disposable {
+class SearchPanel implements Disposable {
   panel: WebviewPanel;
   disposables: Disposable[];
-  currentParams: DebugParams;
+  currentParams: SearchParams;
   distPath: string;
   currentRequestId: number;
 
@@ -50,11 +50,11 @@ class Debugger implements Disposable {
     this.distPath = distPath;
     this.currentRequestId = 0;
     this.disposables = [
-      commands.registerTextEditorCommand("acorn.displayDebugger", (editor) =>
+      commands.registerTextEditorCommand("acorn.displaySearchPanel", (editor) =>
         this.display(editor)
       ),
 
-      commands.registerTextEditorCommand("acorn.toggleDebugger", (editor) =>
+      commands.registerTextEditorCommand("acorn.toggleSearchPanel", (editor) =>
         this.toggle(editor)
       ),
       window.onDidChangeActiveTextEditor(() => {
@@ -87,25 +87,25 @@ class Debugger implements Disposable {
     let version = editor.document.version;
 
     // No need to send the request if nothing has changed.
-    let params: DebugParams = { uri, start, end, version };
-    if (this.currentParams && debugParamsEqual(this.currentParams, params)) {
+    let params: SearchParams = { uri, start, end, version };
+    if (this.currentParams && searchParamsEqual(this.currentParams, params)) {
       return;
     }
 
-    this.sendDebugRequest(params);
+    this.sendSearchRequest(params);
   }
 
-  // Sends a debug request to the language server
-  sendDebugRequest(params: DebugParams) {
-    console.log("sending debug request:", params);
+  // Sends a search request to the language server
+  sendSearchRequest(params: SearchParams) {
+    console.log("sending search request:", params);
     this.currentRequestId += 1;
     let id = this.currentRequestId;
 
     this.currentParams = params;
 
-    client.sendRequest("acorn/debug", params).then((result: any) => {
+    client.sendRequest("acorn/search", params).then((result: any) => {
       if (!this.panel) {
-        // The user closed the debug panel since we sent the request.
+        // The user closed the search panel since we sent the request.
         return;
       }
       if (id != this.currentRequestId) {
@@ -119,9 +119,9 @@ class Debugger implements Disposable {
       console.log("posting message:", result);
       this.panel.webview.postMessage(result);
       if (!result.completed) {
-        // The debug response is not complete. Send another request after waiting a bit.
+        // The search response is not complete. Send another request after waiting a bit.
         let ms = 100;
-        setTimeout(() => this.sendDebugRequest(params), ms);
+        setTimeout(() => this.sendSearchRequest(params), ms);
       }
     });
   }
@@ -137,8 +137,8 @@ class Debugger implements Disposable {
       return;
     }
     this.panel = window.createWebviewPanel(
-      "acornDebugger",
-      "Acorn Debugger",
+      "acornSearchPanel",
+      "Proof Search",
       { viewColumn: column, preserveFocus: true },
       {
         enableFindWidget: true,
@@ -238,8 +238,8 @@ async function showProgressBar() {
 export function activate(context: ExtensionContext) {
   let timestamp = new Date().toLocaleTimeString();
   console.log("activating acorn language extension at", timestamp);
-  let debuggerPath = context.asAbsolutePath("../debugger/dist");
-  context.subscriptions.push(new Debugger(debuggerPath));
+  let searchPath = context.asAbsolutePath("../search/dist");
+  context.subscriptions.push(new SearchPanel(searchPath));
 
   let traceOutputChannel = window.createOutputChannel("Acorn Language Server");
 

@@ -23,27 +23,27 @@
     "commands": [
       {
         "category": "Acorn",
-        "command": "acorn.displayDebugger",
-        "title": "Debugger: Display",
-        "description": "Show the debugger.",
+        "command": "acorn.displaySearchPanel",
+        "title": "Search Panel: Display",
+        "description": "Show the search panel.",
         "icon": "$(squirrel)"
       },
       {
         "category": "Acorn",
-        "command": "acorn.toggleDebugger",
-        "title": "Debugger: Toggle",
-        "description": "Toggle whether the debugger is displayed."
+        "command": "acorn.toggleSearchPanel",
+        "title": "Search Panel: Toggle",
+        "description": "Toggle whether the search panel is displayed."
       }
     ],
     "keybindings": [
       {
-        "command": "acorn.toggleDebugger",
+        "command": "acorn.toggleSearchPanel",
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
         "when": "editorTextFocus && editorLangId == acorn"
       },
       {
-        "command": "acorn.toggleDebugger",
+        "command": "acorn.toggleSearchPanel",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
         "when": "editorTextFocus && editorLangId == acorn"
@@ -52,7 +52,7 @@
     "menus": {
       "editor/title": [
         {
-          "command": "acorn.displayDebugger",
+          "command": "acorn.displaySearchPanel",
           "group": "navigation",
           "when": "editorLangId == acorn"
         }
