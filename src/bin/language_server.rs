@@ -10,7 +10,7 @@ use chrono;
 use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{mpsc, Mutex, RwLock, RwLockWriteGuard};
+use tokio::sync::{mpsc, Mutex, OnceCell, RwLock, RwLockWriteGuard};
 use tower_lsp::jsonrpc;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -83,6 +83,26 @@ pub struct SearchParams {
     pub end: Position,
 }
 
+// The SearchResult contains information that is produced once, when the search completes.
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+pub struct SearchResult {
+    // Code for the proof that can be inserted.
+    // If we failed to find a proof, this is None.
+    pub code: Option<Vec<String>>,
+}
+
+impl SearchResult {
+    fn success(code: Vec<String>) -> SearchResult {
+        SearchResult { code: Some(code) }
+    }
+
+    fn failure() -> SearchResult {
+        SearchResult { code: None }
+    }
+}
+
+// The SearchResponse will be polled until the SearchResult is available, so it can
+// contain data that is updated over time.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResponse {
@@ -91,8 +111,12 @@ pub struct SearchResponse {
 
     pub goal_name: Option<String>,
 
+    // The output vector will keep growing as the search task runs.
     pub output: Vec<String>,
-    pub completed: bool,
+
+    // The result of the search process.
+    // If it has not completed yet, this is None.
+    pub result: Option<SearchResult>,
 }
 
 impl SearchResponse {
@@ -101,7 +125,7 @@ impl SearchResponse {
             message: Some(message.to_string()),
             goal_name: None,
             output: vec![],
-            completed: false,
+            result: None,
         }
     }
 }
@@ -109,6 +133,9 @@ impl SearchResponse {
 // A search task is a long-running task that searches for a proof.
 // The language server can work on one search task at a time.
 // The SearchTask tracks information around that request.
+// It will typically be accessed in parallel.
+// The thread doing the search updates the task with its information, while threads handling
+// concurrent user requests can read it.
 #[derive(Clone)]
 struct SearchTask {
     project: Arc<RwLock<Project>>,
@@ -129,11 +156,11 @@ struct SearchTask {
     // The queue of lines logged by the search task
     queue: Arc<SegQueue<String>>,
 
-    // Unstructured output of the search process
-    output: Arc<RwLock<Vec<String>>>,
+    // Unstructured partial output of the search process
+    lines: Arc<RwLock<Vec<String>>>,
 
-    // Set this flag to true when the task is completed successfully
-    completed: Arc<AtomicBool>,
+    // Final result of the search, if it has completed
+    result: Arc<OnceCell<SearchResult>>,
 
     // Set this flag to true when a subsequent search task has been created
     superseded: Arc<AtomicBool>,
@@ -146,19 +173,19 @@ impl SearchTask {
 
     // Makes a response based on the current state of the task
     async fn response(&self) -> SearchResponse {
-        let completed = self.completed.load(std::sync::atomic::Ordering::Relaxed);
         let lines = {
-            let mut locked_output = self.output.write().await;
+            let mut locked_output = self.lines.write().await;
             while let Some(line) = self.queue.pop() {
                 locked_output.push(line);
             }
             locked_output.clone()
         };
+        let result = self.result.get().map(|r| r.clone());
         SearchResponse {
             message: None,
             goal_name: Some(self.goal_name.clone()),
             output: lines,
-            completed,
+            result,
         }
     }
 
@@ -187,7 +214,7 @@ impl SearchTask {
         let outcome = prover.search_for_contradiction(3000, 3.0);
         self.queue.push("".to_string());
 
-        match outcome {
+        let result = match outcome {
             Outcome::Success => {
                 self.queue.push("Success!".to_string());
                 prover.print_proof();
@@ -196,30 +223,35 @@ impl SearchTask {
                 match env.proof_to_code(&proof) {
                     Ok(code) => {
                         self.queue.push("Proof converted to code:".to_string());
-                        for line in code {
-                            self.queue.push(line);
+                        for line in &code {
+                            self.queue.push(line.to_string());
                         }
+                        SearchResult::success(code)
                     }
                     Err(s) => {
                         self.queue
                             .push("Error converting proof to code:".to_string());
                         self.queue.push(s);
+                        SearchResult::failure()
                     }
                 }
             }
             Outcome::Inconsistent => {
                 self.queue.push("Found inconsistency!".to_string());
                 prover.print_proof();
+                SearchResult::failure()
             }
             Outcome::Exhausted => {
                 self.queue
                     .push("All possibilities have been exhausted.".to_string());
+                SearchResult::failure()
             }
             Outcome::Unknown => {
                 // We failed. Let's add more information about the final state of the prover.
                 self.queue
                     .push("Timeout. The final passive set:".to_string());
                 prover.print_passive(None);
+                SearchResult::failure()
             }
             Outcome::Interrupted => {
                 self.queue.push("Interrupted.".to_string());
@@ -233,11 +265,10 @@ impl SearchTask {
 
                 return;
             }
-        }
-        log(&format!("debug task for {} completed", self.goal_name));
+        };
 
-        self.completed
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        log(&format!("debug task for {} completed", self.goal_name));
+        self.result.set(result).expect("result was already set");
     }
 }
 
@@ -459,8 +490,8 @@ impl Backend {
             path,
             goal_name: goal_context.name.clone(),
             queue: Arc::new(SegQueue::new()),
-            output: Arc::new(RwLock::new(vec![])),
-            completed: Arc::new(AtomicBool::new(false)),
+            lines: Arc::new(RwLock::new(vec![])),
+            result: Arc::new(OnceCell::new()),
             superseded: Arc::new(AtomicBool::new(false)),
         };
 
