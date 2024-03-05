@@ -517,10 +517,7 @@ mod tests {
         let code = match prover.get_proof() {
             Some(proof) => match env.proof_to_code(&proof) {
                 Ok(code) => Some(code),
-                Err(e) => {
-                    println!("XXX proof_to_code error: {}", e);
-                    None
-                }
+                Err(e) => None,
             },
             None => None,
         };
