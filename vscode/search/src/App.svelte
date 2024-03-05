@@ -3,6 +3,7 @@
 
   let heading = "Select a proposition to see its proof.";
   let lines: Array<string> = [];
+  let result: any = null;
 
   function handleSearchResponse(response: any) {
     if (response.message) {
@@ -13,7 +14,8 @@
 
     heading = response.goalName;
     lines = response.lines;
-    if (response.completed) {
+    result = response.result;
+    if (response.result) {
       lines.push("");
       lines.push("(end of output)");
     }
