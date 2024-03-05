@@ -138,8 +138,11 @@ impl Prover {
         for fact in local_facts {
             p.add_assumption(fact, Truthiness::Hypothetical);
         }
-        let negated_goal = goal_context.goal.to_placeholder().negate();
-        p.add_assumption(negated_goal, Truthiness::Counterfactual);
+        let (hypo, counter) = goal_context.goal.to_placeholder().negate_goal();
+        if let Some(hypo) = hypo {
+            p.add_assumption(hypo, Truthiness::Hypothetical);
+        }
+        p.add_assumption(counter, Truthiness::Counterfactual);
         p
     }
 

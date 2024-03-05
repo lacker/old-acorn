@@ -1431,4 +1431,17 @@ impl AcornValue {
             AcornValue::Specialized(_, _, _, _) | AcornValue::Bool(_) => self.clone(),
         }
     }
+
+    // Negates a goal proposition and separates it into the types of its assumptions.
+    // (hypothetical, counterfactual)
+    // Hypotheticals are assumed to be true in a "by" block when proving something, in the
+    // sense that you can write more statements that depend on the hypotheticals.
+    // Counterfactuals are used by the prover to find a contradiction, but cannot be used
+    // in the direct reasoning of the code.
+    pub fn negate_goal(self) -> (Option<AcornValue>, AcornValue) {
+        match self {
+            AcornValue::Binary(BinaryOp::Implies, left, right) => (Some(*left), right.negate()),
+            _ => (None, self.negate()),
+        }
+    }
 }
