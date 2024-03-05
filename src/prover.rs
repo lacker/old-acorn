@@ -1219,4 +1219,22 @@ mod tests {
         "#,
         );
     }
+
+    #[test]
+    fn test_indirect_proof_extraction() {
+        let (outcome, code) = prove_as_main(
+            r#"
+            let a: bool = axiom
+            let b: bool = axiom
+            axiom bimpa: b -> a
+            axiom bimpna: b -> !a
+            theorem goal: !b
+        "#,
+            "goal",
+        );
+
+        // The proof is indirect, so we shouldn't be able to extract code from it.
+        assert_eq!(outcome, Outcome::Success);
+        assert_eq!(code, None);
+    }
 }
