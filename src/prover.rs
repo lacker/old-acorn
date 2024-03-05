@@ -312,7 +312,7 @@ impl Prover {
             return None;
         };
         let indices = self.active_set.find_upstream(&final_step);
-        let mut proof = Proof::new(&self.normalizer);
+        let mut proof = Proof::new(&self.normalizer, final_step.clone());
         for i in indices {
             let step = self.active_set.get_step(i);
             proof.add_step(i, step.clone());
@@ -517,7 +517,10 @@ mod tests {
         let code = match prover.get_proof() {
             Some(proof) => match env.proof_to_code(&proof) {
                 Ok(code) => Some(code),
-                Err(_) => None,
+                Err(e) => {
+                    println!("XXX proof_to_code error: {}", e);
+                    None
+                }
             },
             None => None,
         };

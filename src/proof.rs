@@ -10,13 +10,16 @@ pub struct Proof<'a> {
     normalizer: &'a Normalizer,
 
     steps: BTreeMap<usize, ProofStep>,
+
+    final_step: ProofStep,
 }
 
 impl<'a> Proof<'a> {
-    pub fn new(normalizer: &'a Normalizer) -> Proof<'a> {
+    pub fn new(normalizer: &'a Normalizer, final_step: ProofStep) -> Proof<'a> {
         Proof {
             normalizer,
             steps: BTreeMap::new(),
+            final_step,
         }
     }
 
@@ -62,6 +65,24 @@ impl<'a> Proof<'a> {
         self.steps.get(&id).unwrap().truthiness == Truthiness::Counterfactual
     }
 
+    // If this proof step cannot be made direct, return a string explaining why.
+    fn check_direct(&self, step: &ProofStep) -> Result<(), String> {
+        let mut counterfactual_deps = 0;
+        for i in step.dependencies() {
+            if self.is_counterfactual(*i) {
+                counterfactual_deps += 1;
+            }
+        }
+        if counterfactual_deps > 1 {
+            return Err(format!(
+                "clause {} depends on {} counterfactuals, so it cannot be made direct",
+                step.clause, counterfactual_deps
+            ));
+        }
+
+        Ok(())
+    }
+
     // Tries to turn this proof into a direct proof.
     //
     // A direct proof is represented as a list of true values, each of which can be proven
@@ -71,6 +92,8 @@ impl<'a> Proof<'a> {
     //
     // If we can't convert to values, return a string explaining why.
     pub fn make_direct(&self) -> Result<Vec<AcornValue>, String> {
+        self.check_direct(&self.final_step)?;
+
         let mut regular = vec![];
         let mut inverted = vec![];
         for step in self.steps.values() {
@@ -85,22 +108,7 @@ impl<'a> Proof<'a> {
                 }
 
                 Truthiness::Counterfactual => {
-                    // A counterfactual step that depends on multiple counterfactual steps
-                    // cannot be converted to a direct proof.
-                    // Instead, we would need to add branching logic somewhere.
-                    let mut count_counterfactual = 0;
-                    for &i in step.dependencies() {
-                        if self.is_counterfactual(i) {
-                            count_counterfactual += 1;
-                        }
-                    }
-                    if count_counterfactual > 1 {
-                        return Err(format!(
-                            "{} is counterfactual and depends on {} counterfactual steps",
-                            self.display(&step.clause),
-                            count_counterfactual
-                        ));
-                    }
+                    self.check_direct(step)?;
 
                     // A counterfactual step that only depends on a single counterfactual step
                     // can be converted to a direct proof by negating it and putting it at the end.
