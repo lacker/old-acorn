@@ -77,7 +77,7 @@ pub struct BindingMap {
     constants: HashMap<String, ConstantInfo>,
 
     // For constants in other modules that have a local name in this environment, we map
-    // their information to their local name.
+    // their canonical identifier to their local name.
     aliased_constants: HashMap<(ModuleId, String), String>,
 
     // Names that refer to other modules.
@@ -1071,12 +1071,23 @@ impl BindingMap {
 
                 // Check if there's a local alias for this constant.
                 let key = (*module, name.clone());
-                match self.aliased_constants.get(&key) {
-                    Some(alias) => Ok(alias.clone()),
-                    None => match self.reverse_modules.get(module) {
-                        Some(module_name) => Ok(format!("{}.{}", module_name, name)),
-                        None => Err(format!("no local name for module {}", module)),
-                    },
+                if let Some(alias) = self.aliased_constants.get(&key) {
+                    return Ok(alias.clone());
+                }
+
+                // If it's a member function, check if there's a local alias for its struct.
+                let parts = name.split('.').collect::<Vec<_>>();
+                if parts.len() == 2 {
+                    let data_type = AcornType::Data(*module, parts[0].to_string());
+                    if let Some(type_alias) = self.reverse_type_names.get(&data_type) {
+                        return Ok(format!("{}.{}", type_alias, parts[1]));
+                    }
+                }
+
+                // Refer to this constant using its module
+                match self.reverse_modules.get(module) {
+                    Some(module_name) => Ok(format!("{}.{}", module_name, name)),
+                    None => Err(format!("no local name for module {}", module)),
                 }
             }
             AcornValue::Application(fa) => {

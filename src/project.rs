@@ -835,7 +835,7 @@ mod tests {
         p.check_code_into("main", "BoolPair.first", "first");
         p.check_code_into("main", "boolpair.BoolPair.first", "first");
 
-        // p.check_code("main", "BoolPair.second");
+        p.check_code("main", "BoolPair.second");
         // p.check_code_into("main", "boolpair.BoolPair.second", "BoolPair.second");
     }
 
