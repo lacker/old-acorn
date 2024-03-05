@@ -4,7 +4,7 @@
   let heading = "Select a proposition to see its proof.";
   let lines: Array<string> = [];
 
-  function handleDebugResponse(response: any) {
+  function handleSearchResponse(response: any) {
     if (response.message) {
       heading = response.message;
       lines = [];
@@ -12,7 +12,7 @@
     }
 
     heading = response.goalName;
-    lines = response.output;
+    lines = response.lines;
     if (response.completed) {
       lines.push("");
       lines.push("(end of output)");
@@ -21,7 +21,7 @@
 
   onMount(() => {
     window.addEventListener("message", (event) => {
-      handleDebugResponse(event.data);
+      handleSearchResponse(event.data);
     });
   });
 </script>

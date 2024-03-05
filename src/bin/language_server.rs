@@ -111,8 +111,8 @@ pub struct SearchResponse {
 
     pub goal_name: Option<String>,
 
-    // The output vector will keep growing as the search task runs.
-    pub output: Vec<String>,
+    // The lines vector will keep growing as the search task runs.
+    pub lines: Vec<String>,
 
     // The result of the search process.
     // If it has not completed yet, this is None.
@@ -124,7 +124,7 @@ impl SearchResponse {
         SearchResponse {
             message: Some(message.to_string()),
             goal_name: None,
-            output: vec![],
+            lines: vec![],
             result: None,
         }
     }
@@ -184,7 +184,7 @@ impl SearchTask {
         SearchResponse {
             message: None,
             goal_name: Some(self.goal_name.clone()),
-            output: lines,
+            lines,
             result,
         }
     }
