@@ -189,7 +189,7 @@ impl SearchTask {
         }
     }
 
-    // Runs the debug task.
+    // Runs the search task.
     async fn run(&self) {
         // Get the environment for this module
         let project = self.project.read().await;
@@ -201,14 +201,14 @@ impl SearchTask {
             }
         };
 
-        log(&format!("running debug task for {}", self.goal_name));
+        log(&format!("running search task for {}", self.goal_name));
 
-        // Get the specific goal to debug
+        // Get the specific goal to prove
         let goal_context = env.get_goal_context(&project, &self.path);
         let mut prover = Prover::new(&project, &goal_context, true, Some(self.queue.clone()));
 
         // By default, the prover will stop if the build is stopped.
-        // We also want to stop it if we get a subsequent debug request, to debug something else.
+        // We also want to stop it if we get a subsequent search request, to work on something else.
         prover.stop_flags.push(self.superseded.clone());
 
         let outcome = prover.search_for_contradiction(3000, 3.0);
@@ -267,7 +267,7 @@ impl SearchTask {
             }
         };
 
-        log(&format!("debug task for {} completed", self.goal_name));
+        log(&format!("search task for {} completed", self.goal_name));
         self.result.set(result).expect("result was already set");
     }
 }
