@@ -30,5 +30,18 @@
 
 <main>
   <h1>{heading}</h1>
+
+  {#if result}
+    {#if result.code}
+      {#if result.code.length === 0}
+        <pre>the proof is trivial.</pre>
+      {:else}
+        <pre>{"proof found:\n  " + result.code.join("\n  ")}</pre>
+      {/if}
+    {:else}
+      <pre>proof search failed.</pre>
+    {/if}
+  {/if}
+
   <pre>{lines.join("\n")}</pre>
 </main>
