@@ -103,7 +103,7 @@ class SearchPanel implements Disposable {
 
     this.currentParams = params;
 
-    client.sendRequest("acorn/search", params).then((result: any) => {
+    client.sendRequest("acorn/search", params).then((response: any) => {
       if (!this.panel) {
         // The user closed the search panel since we sent the request.
         return;
@@ -112,13 +112,13 @@ class SearchPanel implements Disposable {
         // This request has been superseded by a newer one.
         return;
       }
-      if (result.message) {
-        console.log("language server responded:", result.message);
+      if (response.message) {
+        console.log("language server responded:", response.message);
         return;
       }
-      console.log("posting message:", result);
-      this.panel.webview.postMessage(result);
-      if (!result.completed) {
+      console.log("posting message:", response);
+      this.panel.webview.postMessage(response);
+      if (!response.result) {
         // The search response is not complete. Send another request after waiting a bit.
         let ms = 100;
         setTimeout(() => this.sendSearchRequest(params), ms);
