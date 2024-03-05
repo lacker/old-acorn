@@ -513,13 +513,20 @@ impl BindingMap {
             }
 
             match self.get_type_for_name(namespace) {
-                Some(AcornType::Data(module, _)) => {
+                Some(AcornType::Data(module, type_name)) => {
                     let bindings = if *module == self.module {
                         &self
                     } else {
                         project.get_bindings(*module).unwrap()
                     };
-                    return bindings.evaluate_name_components(token, project, &components[1..]);
+                    let constant_name = format!("{}.{}", type_name, components[1]);
+                    return match bindings.get_constant_value(&constant_name) {
+                        Some(value) => Ok(value),
+                        None => Err(Error::new(
+                            token,
+                            &format!("unknown member '{}'", constant_name),
+                        )),
+                    };
                 }
                 t => {
                     return Err(Error::new(
@@ -690,70 +697,9 @@ impl BindingMap {
                 }
                 TokenType::Dot => {
                     let components = expression.flatten_dots()?;
-
-                    if components.len() == 2 {
-                        let namespace = &components[0];
-                        let constant_name = &components[1];
-
-                        if self.is_module(namespace) {
-                            let bindings = self.get_imported_bindings(project, token, namespace)?;
-                            return match bindings.get_constant_value(constant_name) {
-                                Some(acorn_value) => {
-                                    self.check_type(token, expected_type, &acorn_value.get_type())?;
-                                    Ok(acorn_value)
-                                }
-                                None => Err(Error::new(
-                                    token,
-                                    &format!("unknown constant {}.{}", namespace, constant_name),
-                                )),
-                            };
-                        }
-
-                        if self.is_type(namespace) {
-                            match self.get_type_for_name(namespace) {
-                                Some(AcornType::Data(module, type_name)) => {
-                                    let constant_name = &components[1];
-                                    let bindings = if *module == self.module {
-                                        &self
-                                    } else {
-                                        project.get_bindings(*module).unwrap()
-                                    };
-                                    let member_name = format!("{}.{}", type_name, constant_name);
-                                    return match bindings.get_constant_value(&member_name) {
-                                        Some(acorn_value) => {
-                                            self.check_type(
-                                                token,
-                                                expected_type,
-                                                &acorn_value.get_type(),
-                                            )?;
-                                            Ok(acorn_value)
-                                        }
-                                        None => Err(Error::new(
-                                            token,
-                                            &format!("unknown constant {}", member_name),
-                                        )),
-                                    };
-                                }
-                                t => {
-                                    return Err(Error::new(
-                                        token,
-                                        &format!("type {:?} does not have members", t),
-                                    ))
-                                }
-                            }
-                        }
-                    }
-
-                    if true {
-                        panic!("XXX dead branch");
-                    }
-
-                    let name = components.join(".");
-                    if let Some(acorn_value) = self.get_constant_value(&name) {
-                        Ok(acorn_value)
-                    } else {
-                        return Err(Error::new(token, &format!("the name {} is unbound", name)));
-                    }
+                    let value = self.evaluate_name_components(token, project, &components)?;
+                    self.check_type(token, expected_type, &value.get_type())?;
+                    Ok(value)
                 }
                 _ => Err(Error::new(
                     token,
