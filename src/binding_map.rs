@@ -478,27 +478,62 @@ impl BindingMap {
         self.evaluate_value_with_stack(&mut Stack::new(), project, expression, expected_type)
     }
 
+    fn evaluate_name(&self, token: &Token, name: &str) -> token::Result<AcornValue> {
+        match self.get_constant_value(name) {
+            Some(value) => Ok(value),
+            None => Err(Error::new(token, &format!("unknown name '{}'", name))),
+        }
+    }
+
     // Evaluates a name provided in dot-separated components.
     // token is for reporting errors.
-    fn evaluate_name<T: AsRef<str>>(
+    fn evaluate_name_components(
         &self,
         token: &Token,
         project: &Project,
-        components: &[T],
+        components: &[String],
     ) -> token::Result<AcornValue> {
         assert!(components.len() > 0);
         if components.len() == 1 {
-            return if let Some(value) = self.get_constant_value(components[0].as_ref()) {
-                Ok(value)
-            } else {
-                Err(Error::new(
-                    token,
-                    &format!("the name {} is unbound", components[0].as_ref()),
-                ))
-            };
+            return self.evaluate_name(token, &components[0]);
         }
 
-        todo!();
+        let namespace = components[0].as_ref();
+        if self.is_module(namespace) {
+            let bindings = self.get_imported_bindings(project, token, namespace)?;
+            return bindings.evaluate_name_components(token, project, &components[1..]);
+        }
+
+        if self.is_type(namespace) {
+            if components.len() != 2 {
+                return Err(Error::new(
+                    token,
+                    &format!("{} is unexpectedly deep", components.join(".")),
+                ));
+            }
+
+            match self.get_type_for_name(namespace) {
+                Some(AcornType::Data(module, _)) => {
+                    let bindings = if *module == self.module {
+                        &self
+                    } else {
+                        project.get_bindings(*module).unwrap()
+                    };
+                    return bindings.evaluate_name_components(token, project, &components[1..]);
+                }
+                t => {
+                    return Err(Error::new(
+                        token,
+                        &format!("type {:?} does not have members", t),
+                    ))
+                }
+            }
+        }
+
+        Err(Error::new(
+            token,
+            &format!("unknown namespace '{}'", namespace),
+        ))
     }
 
     // Evaluates a value with a stack given as context.
@@ -535,7 +570,7 @@ impl BindingMap {
                             return Ok(AcornValue::Variable(*i, t.clone()));
                         }
 
-                        let value = self.evaluate_name(token, project, &[token.text()])?;
+                        let value = self.evaluate_name(token, token.text())?;
                         self.check_type(token, expected_type, &value.get_type())?;
                         Ok(value)
                     }
@@ -707,6 +742,10 @@ impl BindingMap {
                                 }
                             }
                         }
+                    }
+
+                    if true {
+                        panic!("XXX dead branch");
                     }
 
                     let name = components.join(".");
