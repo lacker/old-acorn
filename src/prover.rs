@@ -1240,4 +1240,20 @@ mod tests {
         assert_eq!(outcome, Outcome::Success);
         assert_eq!(code, None);
     }
+
+    #[test]
+    fn test_assuming_lhs_of_implication() {
+        prove_all_succeeds(
+            r#"
+            let a: bool = axiom
+            let b: bool = axiom
+            let c: bool = axiom
+            axiom aimpb: a -> b
+            axiom bimpc: b -> c
+            theorem goal: a -> c by {
+                b
+            }
+        "#,
+        );
+    }
 }
