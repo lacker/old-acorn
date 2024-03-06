@@ -151,12 +151,16 @@ impl Block {
 
 // The different ways to construct a block
 enum BlockParams<'a> {
-    // The name of the theorem, and an optional hypothesis to assume for proving it.
-    // The theorem is either a bool, or a function from something -> bool.
+    // (theorem name, hypothesis, goal)
+    //
+    // The hypothesis and goal are unbound, to be proved based on the args of the theorem.
+    //
+    // The theorem should already be defined by this name in the external environment.
+    // It is either a bool, or a function from something -> bool.
     // The meaning of the theorem is that it is true for all args.
-    // If the hypothesis is provided, it's unbound, to be assumed within the context of
-    // the args of the theorem.
-    Theorem(&'a str, Option<AcornValue>),
+    //
+    // The hypothesis is optional.
+    Theorem(&'a str, Option<AcornValue>, AcornValue),
 
     // The value passed in the "if" condition, and its range in the source document
     If(&'a AcornValue, Range),
@@ -233,7 +237,7 @@ impl Environment {
                 });
                 None
             }
-            BlockParams::Theorem(theorem_name, hypothesis) => {
+            BlockParams::Theorem(theorem_name, hypothesis, _) => {
                 let theorem_type = self
                     .bindings
                     .get_type_for_identifier(theorem_name)
@@ -535,9 +539,11 @@ impl Environment {
                 // Externally we use the theorem in "forall" form
                 let forall_claim = AcornValue::new_forall(arg_types.clone(), unbound_claim.clone());
 
-                let hypothesis = match &unbound_claim {
-                    AcornValue::Binary(BinaryOp::Implies, left, _) => Some(*left.clone()),
-                    _ => None,
+                let (hypothesis, goal) = match &unbound_claim {
+                    AcornValue::Binary(BinaryOp::Implies, left, right) => {
+                        (Some(*left.clone()), *right.clone())
+                    }
+                    c => (None, c.clone()),
                 };
 
                 // We define the theorem using "lambda" form.
@@ -557,7 +563,7 @@ impl Environment {
                     type_params,
                     block_args,
                     &ts.body,
-                    BlockParams::Theorem(&ts.name, hypothesis),
+                    BlockParams::Theorem(&ts.name, hypothesis, goal),
                 )?;
 
                 let prop = Proposition {
