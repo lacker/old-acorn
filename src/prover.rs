@@ -516,7 +516,7 @@ mod tests {
         project: &mut Project,
         module_name: &str,
         goal_name: &str,
-    ) -> (Outcome, Option<Vec<String>>) {
+    ) -> (Outcome, Result<Vec<String>, String>) {
         let module_id = project.load_module(module_name).expect("load failed");
         let env = match project.get_module(module_id) {
             Module::Ok(env) => env,
@@ -531,16 +531,13 @@ mod tests {
             panic!("prover error: {}", prover.error.unwrap());
         }
         let code = match prover.get_proof() {
-            Some(proof) => match env.proof_to_code(&proof) {
-                Ok(code) => Some(code),
-                Err(_) => None,
-            },
-            None => None,
+            Some(proof) => env.proof_to_code(&proof),
+            None => Err("there is no proof".to_string()),
         };
         (outcome, code)
     }
 
-    fn prove_as_main(text: &str, goal_name: &str) -> (Outcome, Option<Vec<String>>) {
+    fn prove_as_main(text: &str, goal_name: &str) -> (Outcome, Result<Vec<String>, String>) {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
         prove(&mut project, "main", goal_name)
@@ -580,12 +577,10 @@ mod tests {
     }
 
     fn expect_proof(text: &str, goal_name: &str, expected: &[&str]) {
-        let (outcome, actual) = prove_as_main(text, goal_name);
+        let (outcome, code) = prove_as_main(text, goal_name);
         assert_eq!(outcome, Outcome::Success);
-        assert_eq!(
-            actual,
-            Some(expected.iter().map(|s| s.to_string()).collect())
-        );
+        let actual = code.expect("code generation failed");
+        assert_eq!(actual, expected);
     }
 
     const THING: &str = r#"
@@ -1251,7 +1246,7 @@ mod tests {
 
         // The proof is indirect, so we shouldn't be able to extract code from it.
         assert_eq!(outcome, Outcome::Success);
-        assert_eq!(code, None);
+        assert!(code.is_err());
     }
 
     #[test]
