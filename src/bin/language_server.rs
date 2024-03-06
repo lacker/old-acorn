@@ -101,6 +101,8 @@ impl SearchResult {
     }
 }
 
+// NOTE: you have to keep this definition in sync with handleSearchResponse in App.svelte.
+//
 // The SearchResponse will be polled until the SearchResult is available, so it can
 // contain data that is updated over time.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
@@ -114,18 +116,22 @@ pub struct SearchResponse {
     // The lines vector will keep growing as the search task runs.
     pub lines: Vec<String>,
 
+    // The line where we would insert a proof for this goal
+    pub proof_insertion_line: u32,
+
     // The result of the search process.
     // If it has not completed yet, this is None.
     pub result: Option<SearchResult>,
 }
 
 impl SearchResponse {
-    fn message(message: &str) -> SearchResponse {
+    fn default() -> SearchResponse {
         SearchResponse {
-            message: Some(message.to_string()),
+            message: None,
             goal_name: None,
             lines: vec![],
             result: None,
+            proof_insertion_line: 0,
         }
     }
 }
@@ -164,6 +170,9 @@ struct SearchTask {
 
     // Set this flag to true when a subsequent search task has been created
     superseded: Arc<AtomicBool>,
+
+    // Zero-based line where we would insert a proof for this goal
+    proof_insertion_line: u32,
 }
 
 impl SearchTask {
@@ -186,6 +195,7 @@ impl SearchTask {
             goal_name: Some(self.goal_name.clone()),
             lines,
             result,
+            proof_insertion_line: self.proof_insertion_line,
         }
     }
 
@@ -426,7 +436,10 @@ impl Backend {
 
     fn fail(&self, message: &str) -> jsonrpc::Result<SearchResponse> {
         log(message);
-        Ok(SearchResponse::message(message))
+        Ok(SearchResponse {
+            message: Some(message.to_string()),
+            ..SearchResponse::default()
+        })
     }
 
     async fn handle_progress_request(
@@ -493,6 +506,7 @@ impl Backend {
             lines: Arc::new(RwLock::new(vec![])),
             result: Arc::new(OnceCell::new()),
             superseded: Arc::new(AtomicBool::new(false)),
+            proof_insertion_line: goal_context.proof_insertion_line,
         };
 
         // Replace the locked singleton task

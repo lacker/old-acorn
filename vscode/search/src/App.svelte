@@ -5,6 +5,7 @@
   let lines: Array<string> = [];
   let result: any = null;
 
+  // NOTE: the 'response' type corresponds to SearchResponse in language_server.rs.
   function handleSearchResponse(response: any) {
     if (response.message) {
       heading = response.message;
