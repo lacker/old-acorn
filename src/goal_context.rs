@@ -27,6 +27,10 @@ pub struct GoalContext<'a> {
 
     // The range in the source document corresponding to this goal.
     pub range: Range,
+
+    // The zero-based line where we would insert a proof for this goal.
+    // Code already on that line would be moved down.
+    pub proof_insertion_line: u32,
 }
 
 impl GoalContext<'_> {
@@ -37,6 +41,7 @@ impl GoalContext<'_> {
         name: String,
         goal: AcornValue,
         range: Range,
+        proof_insertion_line: u32,
     ) -> GoalContext {
         GoalContext {
             env,
@@ -45,6 +50,7 @@ impl GoalContext<'_> {
             name,
             goal,
             range,
+            proof_insertion_line,
         }
     }
 
@@ -103,6 +109,12 @@ impl GoalContext<'_> {
             }
         }
         (global_out, local_out)
+    }
+
+    // What zero-based line we could insert a proof at, for this goal.
+    // Returns None if we would have to create a "by" block.
+    pub fn proof_insertion_line(&self) -> Option<u32> {
+        todo!();
     }
 }
 

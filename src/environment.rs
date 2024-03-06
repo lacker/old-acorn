@@ -1002,6 +1002,7 @@ impl Environment {
                         prop.name(),
                         block.env.inline_theorems(project, claim),
                         prop.range,
+                        prop.range.end.line,
                     );
                 }
                 env = &block.env;
@@ -1016,6 +1017,7 @@ impl Environment {
                     prop.name(),
                     env.inline_theorems(project, &prop.claim),
                     prop.range,
+                    prop.range.start.line,
                 );
             }
         }
