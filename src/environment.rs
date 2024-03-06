@@ -151,10 +151,12 @@ impl Block {
 
 // The different ways to construct a block
 enum BlockParams<'a> {
-    // The name of the theorem.
+    // The name of the theorem, and an optional hypothesis to assume for proving it.
     // The theorem is either a bool, or a function from something -> bool.
     // The meaning of the theorem is that it is true for all args.
-    Theorem(&'a str),
+    // If the hypothesis is provided, it's unbound, to be assumed within the context of
+    // the args of the theorem.
+    Theorem(&'a str, Option<AcornValue>),
 
     // The value passed in the "if" condition, and its range in the source document
     If(&'a AcornValue, Range),
@@ -231,13 +233,15 @@ impl Environment {
                 });
                 None
             }
-            BlockParams::Theorem(theorem_name) => {
+            BlockParams::Theorem(theorem_name, hypothesis) => {
                 let theorem_type = self
                     .bindings
                     .get_type_for_identifier(theorem_name)
                     .unwrap()
                     .clone();
-                let unbound_claim = AcornValue::new_specialized(
+
+                // The theorem as a named function from args -> bool.
+                let functional_theorem = AcornValue::new_specialized(
                     self.module_id,
                     theorem_name.to_string(),
                     theorem_type,
@@ -251,10 +255,30 @@ impl Environment {
 
                 // Within the theorem block, the theorem is treated like a function,
                 // with propositions to define its identity.
-                // Outside the theorem block, theorems are inlined.
+                // This is a compromise so that we can do induction without writing
+                // a separate definition for the inductive hypothesis.
+                // (Outside the theorem block, theorems are inlined.)
                 subenv.add_identity_props(theorem_name);
 
-                Some(AcornValue::new_apply(unbound_claim, arg_values))
+                if let Some(hypothesis) = hypothesis {
+                    // Add the hypothesis to the environment, when proving the theorem.
+                    // The hypothesis is unbound, so we need to bind the block's arg values.
+                    let bound = hypothesis.bind_values(0, 0, &arg_values);
+
+                    // The range for this proposition is the same as the range for the theorem.
+                    // We could narrow it down to just the range for the hypothesis part.
+                    let range = self.definition_ranges.get(theorem_name).unwrap().clone();
+
+                    subenv.add_proposition(Proposition {
+                        theorem_name: None,
+                        proven: true,
+                        claim: bound,
+                        block: None,
+                        range,
+                    });
+                }
+
+                Some(AcornValue::new_apply(functional_theorem, arg_values))
             }
             BlockParams::ForAll => None,
         };
@@ -511,9 +535,15 @@ impl Environment {
                 // Externally we use the theorem in "forall" form
                 let forall_claim = AcornValue::new_forall(arg_types.clone(), unbound_claim.clone());
 
-                // We define the theorem using "lambda" form
-                let lambda_claim = AcornValue::new_lambda(arg_types, unbound_claim);
+                let hypothesis = match &unbound_claim {
+                    AcornValue::Binary(BinaryOp::Implies, left, _) => Some(*left.clone()),
+                    _ => None,
+                };
 
+                // We define the theorem using "lambda" form.
+                // The definition happens here, in the outside environment, because the
+                // theorem is usable by name in this environment.
+                let lambda_claim = AcornValue::new_lambda(arg_types, unbound_claim);
                 let theorem_type = lambda_claim.get_type();
                 self.bindings.add_constant(
                     &ts.name,
@@ -527,7 +557,7 @@ impl Environment {
                     type_params,
                     block_args,
                     &ts.body,
-                    BlockParams::Theorem(&ts.name),
+                    BlockParams::Theorem(&ts.name, hypothesis),
                 )?;
 
                 let prop = Proposition {
@@ -998,6 +1028,8 @@ impl Environment {
     }
 
     // Returns the path and goal context for the given location.
+    // If, for whatever reason, there are multiple goals with overlapping ranges, this
+    // will return the first one that matches.
     pub fn find_location(
         &self,
         project: &Project,

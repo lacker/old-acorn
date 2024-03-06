@@ -29,7 +29,20 @@ async fn main() {
     let mut all_ok = true;
     project.build(&mut |event| {
         if let Some(m) = event.log_message {
-            println!("{}", m);
+            if let Some((target, diagnostic)) = event.diagnostic {
+                if let Some(diagnostic) = diagnostic {
+                    println!(
+                        "{}, line {}: {}",
+                        target,
+                        diagnostic.range.start.line + 1,
+                        m
+                    );
+                } else {
+                    println!("{}: {}", target, m);
+                }
+            } else {
+                println!("{}", m);
+            }
             all_ok = false;
         }
         if let Some((d, t)) = event.progress {

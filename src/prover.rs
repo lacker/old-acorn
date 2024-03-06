@@ -445,6 +445,19 @@ impl Prover {
         Outcome::Unknown
     }
 
+    // A standard set of parameters, with a balance between speed and depth.
+    // Useful for CLI or IDE when the user can wait a little bit.
+    pub fn medium_search(&mut self) -> Outcome {
+        self.search_for_contradiction(5000, 5.0)
+    }
+
+    // A set of parameters to use when we want to find an answer very quickly.
+    // Useful for unit tests.
+    // TODO: make this deterministic.
+    pub fn quick_search(&mut self) -> Outcome {
+        self.search_for_contradiction(2000, 0.05)
+    }
+
     pub fn search_for_contradiction(&mut self, size: i32, seconds: f32) -> Outcome {
         if self.error.is_some() {
             return Outcome::Error;
@@ -513,7 +526,7 @@ mod tests {
         let goal_context = env.get_goal_context_by_name(project, goal_name);
         let mut prover = Prover::new(&project, &goal_context, false, None);
         prover.verbose = true;
-        let outcome = prover.search_for_contradiction(2000, 0.05);
+        let outcome = prover.quick_search();
         if outcome == Outcome::Error {
             panic!("prover error: {}", prover.error.unwrap());
         }
@@ -554,7 +567,7 @@ mod tests {
             println!("proving: {}", goal_context.name);
             let mut prover = Prover::new(&project, &goal_context, false, None);
             prover.verbose = true;
-            let outcome = prover.search_for_contradiction(2000, 0.05);
+            let outcome = prover.quick_search();
             if outcome != Outcome::Success {
                 return outcome;
             }

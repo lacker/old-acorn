@@ -211,7 +211,7 @@ impl SearchTask {
         // We also want to stop it if we get a subsequent search request, to work on something else.
         prover.stop_flags.push(self.superseded.clone());
 
-        let outcome = prover.search_for_contradiction(3000, 3.0);
+        let outcome = prover.medium_search();
         self.queue.push("".to_string());
 
         let result = match outcome {

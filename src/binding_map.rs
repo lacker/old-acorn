@@ -855,7 +855,7 @@ impl BindingMap {
         }
     }
 
-    // Evaluate an expression that is scoped within braces.
+    // Evaluate an expression that is scoped inside a bunch of variable declarations.
     // type_params is a list of tokens for the parametrized types in this value.
     // arg_exprs is a list of "<varname>: <typename>" expressions for the arguments.
     // value_type_expr is an optional expression for the type of the value.

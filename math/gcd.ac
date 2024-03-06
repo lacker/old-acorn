@@ -202,6 +202,10 @@ theorem divides_gcd_step_n_converse(d: Nat, p: NatPair, n: Nat):
     f(0)
     forall(x: Nat) {
         if f(x) {
+            if divides_both(d, gcd_step_n(p, Suc(x))) {
+                divides_both(d, p)
+            }
+            divides_gcd_step_n_converse(d, p, Suc(x))
             f(Suc(x))
         }
     }

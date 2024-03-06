@@ -299,7 +299,7 @@ impl Project {
             for path in paths.iter() {
                 let goal_context = env.get_goal_context(&self, &path);
                 let mut prover = Prover::new(&self, &goal_context, false, None);
-                let outcome = prover.search_for_contradiction(5000, 5.0);
+                let outcome = prover.medium_search();
 
                 done += 1;
                 let mut exit_early = false;
