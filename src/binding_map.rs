@@ -1127,7 +1127,7 @@ impl BindingMap {
                     Ok("false".to_string())
                 }
             }
-            _ => todo!("I thought these other cases weren't possible"),
+            value => Err(format!("cannot convert value to code: {}", value)),
         }
     }
 

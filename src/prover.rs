@@ -1269,4 +1269,22 @@ mod tests {
         "#,
         );
     }
+
+    #[test]
+    fn test_templated_proof() {
+        let text = r#"
+            type Thing: axiom
+            let t1: Thing = axiom
+            let t2: Thing = axiom
+            let t3: Thing = axiom
+            
+            define foo<T>(x: T) -> bool = axiom
+
+            axiom a12: foo(t1) -> foo(t2)
+            axiom a23: foo(t2) -> foo(t3)
+            theorem goal: foo(t1) -> foo(t3)
+            "#;
+
+        expect_proof(text, "goal", &["foo(t2)"]);
+    }
 }
