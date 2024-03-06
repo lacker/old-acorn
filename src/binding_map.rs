@@ -1053,6 +1053,34 @@ impl BindingMap {
         self.value_to_code_helper(value, &mut var_names, &mut next_x)
     }
 
+    // Given a module and a name, find a way for us to describe the name with our bindings.
+    fn name_to_code(&self, module: ModuleId, name: &str) -> Result<String, String> {
+        if module == self.module {
+            return Ok(name.to_string());
+        }
+
+        // Check if there's a local alias for this constant.
+        let key = (module, name.to_string());
+        if let Some(alias) = self.aliased_constants.get(&key) {
+            return Ok(alias.clone());
+        }
+
+        // If it's a member function, check if there's a local alias for its struct.
+        let parts = name.split('.').collect::<Vec<_>>();
+        if parts.len() == 2 {
+            let data_type = AcornType::Data(module, parts[0].to_string());
+            if let Some(type_alias) = self.reverse_type_names.get(&data_type) {
+                return Ok(format!("{}.{}", type_alias, parts[1]));
+            }
+        }
+
+        // Refer to this constant using its module
+        match self.reverse_modules.get(&module) {
+            Some(module_name) => Ok(format!("{}.{}", module_name, name)),
+            None => Err(format!("no local name for module {}", module)),
+        }
+    }
+
     // Helper that handles temporary variable naming.
     // var_names are the names of the variables that we have already allocated.
     // next_x is the next number to try using.
@@ -1064,32 +1092,7 @@ impl BindingMap {
     ) -> Result<String, String> {
         match value {
             AcornValue::Variable(i, _) => Ok(var_names[*i as usize].clone()),
-            AcornValue::Constant(module, name, _, _) => {
-                if module == &self.module {
-                    return Ok(name.clone());
-                }
-
-                // Check if there's a local alias for this constant.
-                let key = (*module, name.clone());
-                if let Some(alias) = self.aliased_constants.get(&key) {
-                    return Ok(alias.clone());
-                }
-
-                // If it's a member function, check if there's a local alias for its struct.
-                let parts = name.split('.').collect::<Vec<_>>();
-                if parts.len() == 2 {
-                    let data_type = AcornType::Data(*module, parts[0].to_string());
-                    if let Some(type_alias) = self.reverse_type_names.get(&data_type) {
-                        return Ok(format!("{}.{}", type_alias, parts[1]));
-                    }
-                }
-
-                // Refer to this constant using its module
-                match self.reverse_modules.get(module) {
-                    Some(module_name) => Ok(format!("{}.{}", module_name, name)),
-                    None => Err(format!("no local name for module {}", module)),
-                }
-            }
+            AcornValue::Constant(module, name, _, _) => self.name_to_code(*module, name),
             AcornValue::Application(fa) => {
                 let f = self.value_to_code_helper(&fa.function, var_names, next_x)?;
                 let mut args = vec![];
@@ -1126,6 +1129,12 @@ impl BindingMap {
                 } else {
                     Ok("false".to_string())
                 }
+            }
+            AcornValue::Specialized(module, name, _, _) => {
+                // Here we are assuming that the context will be enough to disambiguate
+                // the type of the templated name.
+                // At some point this assumption will probably fail.
+                self.name_to_code(*module, name)
             }
             value => Err(format!("cannot convert value to code: {}", value)),
         }
