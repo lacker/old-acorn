@@ -237,7 +237,7 @@ impl Environment {
                 });
                 None
             }
-            BlockParams::Theorem(theorem_name, hypothesis, _) => {
+            BlockParams::Theorem(theorem_name, unbound_hypo, unbound_goal) => {
                 let theorem_type = self
                     .bindings
                     .get_type_for_identifier(theorem_name)
@@ -264,10 +264,10 @@ impl Environment {
                 // (Outside the theorem block, theorems are inlined.)
                 subenv.add_identity_props(theorem_name);
 
-                if let Some(hypothesis) = hypothesis {
+                if let Some(unbound_hypo) = unbound_hypo {
                     // Add the hypothesis to the environment, when proving the theorem.
                     // The hypothesis is unbound, so we need to bind the block's arg values.
-                    let bound = hypothesis.bind_values(0, 0, &arg_values);
+                    let hypo = unbound_hypo.bind_values(0, 0, &arg_values);
 
                     // The range for this proposition is the same as the range for the theorem.
                     // We could narrow it down to just the range for the hypothesis part.
@@ -276,13 +276,16 @@ impl Environment {
                     subenv.add_proposition(Proposition {
                         theorem_name: None,
                         proven: true,
-                        claim: bound,
+                        claim: hypo,
                         block: None,
                         range,
                     });
                 }
 
-                Some(AcornValue::new_apply(functional_theorem, arg_values))
+                // We can prove the goal either in bound or in function form
+                let bound_goal = unbound_goal.bind_values(0, 0, &arg_values);
+                let functional_goal = AcornValue::new_apply(functional_theorem, arg_values);
+                Some(AcornValue::new_or(functional_goal, bound_goal))
             }
             BlockParams::ForAll => None,
         };
