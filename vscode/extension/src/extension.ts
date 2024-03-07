@@ -134,9 +134,13 @@ class SearchPanel implements Disposable {
 
   // Handles messages from the webview.
   async handleWebviewMessage(message: any) {
-    console.log("XXX handleWebviewMessage:", message);
     if (message.command === "insertProof") {
-      await this.insertProof(message.uri, message.line, message.code);
+      await this.insertProof(
+        message.uri,
+        message.version,
+        message.line,
+        message.code
+      );
     } else {
       console.log("unhandled message:", message);
     }
@@ -163,12 +167,23 @@ class SearchPanel implements Disposable {
     return null;
   }
 
-  async insertProof(uri: string, line: number, code: string[]) {
+  async insertProof(
+    uri: string,
+    version: number,
+    line: number,
+    code: string[]
+  ) {
+    let parts = uri.split("/");
+    let filename = parts[parts.length - 1];
+
     let editor = await this.focusEditor(uri);
     if (!editor) {
-      let parts = uri.split("/");
-      let filename = parts[parts.length - 1];
       window.showWarningMessage(`${filename} has been closed`);
+      return;
+    }
+
+    if (editor.document.version != version) {
+      window.showWarningMessage(`${filename} has pending changes`);
       return;
     }
 
