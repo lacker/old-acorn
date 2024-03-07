@@ -41,6 +41,7 @@ function searchParamsEqual(a: SearchParams, b: SearchParams) {
 
 class SearchPanel implements Disposable {
   panel: WebviewPanel;
+  listener: Disposable;
   disposables: Disposable[];
   currentParams: SearchParams;
   distPath: string;
@@ -148,7 +149,13 @@ class SearchPanel implements Disposable {
       }
     );
 
+    this.listener = this.panel.webview.onDidReceiveMessage((message) => {
+      console.log("command: ", message.command);
+    });
+
     this.panel.onDidDispose(() => {
+      this.listener.dispose();
+      this.listener = null;
       this.panel = null;
     });
 

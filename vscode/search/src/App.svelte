@@ -1,3 +1,7 @@
+<script context="module">
+  let vscode = acquireVsCodeApi();
+</script>
+
 <script lang="ts">
   import { onMount } from "svelte";
 
@@ -32,7 +36,6 @@
     if (!result || !result.code) {
       return;
     }
-    const vscode = acquireVsCodeApi();
     vscode.postMessage({
       command: "insertProof",
       code: result.code,
