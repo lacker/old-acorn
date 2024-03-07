@@ -172,11 +172,42 @@ class SearchPanel implements Disposable {
       return;
     }
 
-    console.log(`XXX line: ${line}, code: ${code.join("\n")}`);
+    if (line < 0 || line > editor.document.lineCount) {
+      window.showErrorMessage(`invalid line number: ${line}`);
+      return;
+    }
+
+    let config = workspace.getConfiguration("editor", editor.document.uri);
+    let tabSize = config.get("tabSize", 4);
+    let lineText = editor.document.lineAt(line).text;
+
+    // Figure out how much to indent the inserted code.
+    let indent = 0;
+    for (let i = 0; i < lineText.length; i++) {
+      if (lineText[i] === " ") {
+        indent += 1;
+        continue;
+      }
+      if (lineText[i] === "\t") {
+        indent += tabSize;
+        continue;
+      }
+      if (lineText[i] === "}") {
+        // We're inserting into a block that this line closes.
+        // So we want the inserted code to be more indented than this line is.
+        indent += tabSize;
+      }
+      break;
+    }
+    let spacer = " ".repeat(indent);
+    let formatted = [];
+    for (let c of code) {
+      formatted.push(spacer + c + "\n");
+    }
+    let position = new Position(line, 0);
 
     let success = await editor.edit((edit) => {
-      let position = new Position(line, 0);
-      edit.insert(position, code.join("\n") + "\n");
+      edit.insert(position, formatted.join());
     });
     if (!success) {
       window.showErrorMessage("failed to insert proof");
