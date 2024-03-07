@@ -59,6 +59,7 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(Suc(
         forall(x: Nat) { !lte(f(x), f(Suc(x))) }
         let h: Nat -> bool = function(x: Nat) { lte(add(x, f(x)), f(0)) }
         nat.induction(h)
+        lte(add(0, f(0)), f(0))
         h(0)
         forall(x: Nat) {
             if h(x) {

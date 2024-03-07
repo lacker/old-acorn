@@ -504,12 +504,6 @@ impl Backend {
             }
         }
 
-        // TODO:
-        // The problem at this point is that the project might be based on stale data, like if we
-        // haven't saved. We don't want to handle searches if we have a stale project.
-        // We can't prevent stale projects from existing; there will always be some case where
-        // the user types one character, and boom, immediately the project is stale.
-
         let project = self.project.read().await;
         let path = match doc.url.to_file_path() {
             Ok(path) => path,
@@ -518,6 +512,25 @@ impl Backend {
                 return self.fail(params, "no path available in SearchTask::run");
             }
         };
+        match project.get_version(&path) {
+            Some(project_version) => {
+                if params.version != project_version {
+                    return self.fail(
+                        params,
+                        &format!(
+                            "the project does not have an up-to-date version of {}",
+                            path.display()
+                        ),
+                    );
+                }
+            }
+            None => {
+                return self.fail(
+                    params,
+                    &format!("the project has not opened {}", path.display()),
+                );
+            }
+        }
         let module_name = match project.module_name_from_path(&path) {
             Ok(name) => name,
             Err(e) => return self.fail(params, &format!("module_name_from_path failed: {:?}", e)),
