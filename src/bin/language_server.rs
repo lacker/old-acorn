@@ -111,7 +111,9 @@ impl SearchResult {
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResponse {
+    // Which document this search is for.
     pub uri: Url,
+    pub version: i32,
 
     // If something went wrong, this contains an error message.
     pub error: Option<String>,
@@ -130,9 +132,10 @@ pub struct SearchResponse {
 }
 
 impl SearchResponse {
-    fn new(uri: Url) -> SearchResponse {
+    fn new(params: SearchParams) -> SearchResponse {
         SearchResponse {
-            uri,
+            uri: params.uri,
+            version: params.version,
             error: None,
             goal_name: None,
             lines: vec![],
@@ -198,6 +201,7 @@ impl SearchTask {
         let result = self.result.get().map(|r| r.clone());
         SearchResponse {
             uri: self.document.url.clone(),
+            version: self.document.version,
             error: None,
             goal_name: Some(self.goal_name.clone()),
             lines,
@@ -441,11 +445,11 @@ impl Backend {
         project.update_file(path, content);
     }
 
-    fn fail(&self, uri: Url, message: &str) -> jsonrpc::Result<SearchResponse> {
+    fn fail(&self, params: SearchParams, message: &str) -> jsonrpc::Result<SearchResponse> {
         log(message);
         Ok(SearchResponse {
             error: Some(message.to_string()),
-            ..SearchResponse::new(uri)
+            ..SearchResponse::new(params)
         })
     }
 
@@ -461,7 +465,7 @@ impl Backend {
         let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
             None => {
-                return self.fail(params.uri, "no text available");
+                return self.fail(params, "no text available");
             }
         };
         if let Some(current_task) = self.search_task.read().await.as_ref() {
@@ -480,23 +484,18 @@ impl Backend {
             Ok(path) => path,
             Err(_) => {
                 // There should be a path available, because we don't run this task without one.
-                return self.fail(params.uri, "no path available in SearchTask::run");
+                return self.fail(params, "no path available in SearchTask::run");
             }
         };
         let module_name = match project.module_name_from_path(&path) {
             Ok(name) => name,
-            Err(e) => {
-                return self.fail(
-                    params.uri,
-                    &format!("module_name_from_path failed: {:?}", e),
-                )
-            }
+            Err(e) => return self.fail(params, &format!("module_name_from_path failed: {:?}", e)),
         };
         let env = match project.get_module_by_name(&module_name) {
             Module::Ok(env) => env,
             _ => {
                 return self.fail(
-                    params.uri,
+                    params,
                     &format!("could not load module named {}", module_name),
                 );
             }
@@ -505,7 +504,7 @@ impl Backend {
         let (path, goal_context) = match env.find_location(&project, params.start, params.end) {
             Some(tuple) => tuple,
             None => {
-                return self.fail(params.uri, "no goal at this location");
+                return self.fail(params, "no goal at this location");
             }
         };
 
