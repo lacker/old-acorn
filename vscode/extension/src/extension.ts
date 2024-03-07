@@ -46,6 +46,7 @@ class SearchPanel implements Disposable {
   currentParams: SearchParams;
   distPath: string;
   currentRequestId: number;
+  requestViewColumn: number;
 
   constructor(distPath: string) {
     this.distPath = distPath;
@@ -93,10 +94,14 @@ class SearchPanel implements Disposable {
       return;
     }
 
+    // This view column is probably the one the user is actively writing in.
+    // When in doubt, we can use this view column to do code-writing operations.
+    this.requestViewColumn = editor.viewColumn;
+
     this.sendSearchRequest(params);
   }
 
-  // Sends a search request to the language server
+  // Sends a search request to the language server, passing the response on to the webview.
   sendSearchRequest(params: SearchParams) {
     console.log("sending search request:", params);
     this.currentRequestId += 1;
@@ -127,6 +132,48 @@ class SearchPanel implements Disposable {
     });
   }
 
+  // Handles messages from the webview.
+  async handleWebviewMessage(message: any) {
+    if (message.command === "insertProof") {
+      await this.insertProof(message.uri, message.line, message.code);
+    } else {
+      console.log("unhandled message:", message);
+    }
+  }
+
+  // Heuristically find an editor for the given uri and focus it.
+  // If we can't, return null.
+  async focusEditor(uri: string): Promise<TextEditor | null> {
+    // Ideally we use an editor that's already visible
+    for (let editor of window.visibleTextEditors) {
+      if (editor.document.uri.toString() === uri) {
+        await window.showTextDocument(editor.document, editor.viewColumn);
+        return editor;
+      }
+    }
+
+    // If the document is open but not visible, we have to guess a view column.
+    for (let document of workspace.textDocuments) {
+      if (document.uri.toString() === uri) {
+        return window.showTextDocument(document, this.requestViewColumn);
+      }
+    }
+
+    return null;
+  }
+
+  async insertProof(uri: string, line: number, code: string[]) {
+    let editor = await this.focusEditor(uri);
+    if (!editor) {
+      let parts = uri.split("/");
+      let filename = parts[parts.length - 1];
+      window.showWarningMessage(`${filename} has been closed`);
+      return;
+    }
+
+    window.showInformationMessage("TODO: implement");
+  }
+
   display(editor: TextEditor) {
     let column =
       editor && editor.viewColumn ? editor.viewColumn + 1 : ViewColumn.Two;
@@ -149,9 +196,10 @@ class SearchPanel implements Disposable {
       }
     );
 
-    this.listener = this.panel.webview.onDidReceiveMessage((message) => {
-      console.log("command: ", message.command);
-    });
+    this.listener = this.panel.webview.onDidReceiveMessage(
+      this.handleWebviewMessage,
+      this
+    );
 
     this.panel.onDidDispose(() => {
       this.listener.dispose();

@@ -5,12 +5,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  // handleSearchResponse sets each of these each time it's called.
+  // handleSearchResponse typically sets each of these each time it's called.
   let heading = "Select a proposition to see its proof.";
   let complete: boolean = false;
   let lines: string[] = [];
   let code: string[] | null = null;
   let proof_insertion_line: number | null = null;
+  let uri: string | null;
 
   // NOTE: the 'response' type corresponds to SearchResponse in language_server.rs.
   function handleSearchResponse(response: any) {
@@ -22,6 +23,7 @@
 
     heading = response.goalName;
     lines = response.lines;
+    uri = response.uri;
     if (response.result) {
       complete = true;
       code = response.result.code;
@@ -53,6 +55,7 @@
     }
     vscode.postMessage({
       command: "insertProof",
+      uri,
       line: proof_insertion_line,
       code,
     });
