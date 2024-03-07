@@ -38,6 +38,7 @@
         <pre>the proof is trivial.</pre>
       {:else}
         <pre>{"proof found:\n  " + result.code.join("\n  ")}</pre>
+        <button id="insertButton">Insert proof</button>
       {/if}
     {:else}
       <pre>proof search failed.</pre>
