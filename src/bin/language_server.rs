@@ -391,7 +391,7 @@ impl Backend {
 
     // This updates a document in the backend, but not in the project.
     // The backend tracks every single change; the project only gets them when we want it to use them.
-    // This means that typing a little bit won't cancel an ongoing build.
+    // This means that typing a little bit doesn't necessarily cancel an ongoing build.
     fn update_doc_in_backend(&self, url: Url, text: String, version: i32, tag: &str) {
         let new_doc = Document::new(url.clone(), text, version);
         new_doc.log(&format!("did_{}; updating document", tag));
@@ -503,6 +503,12 @@ impl Backend {
             }
         }
 
+        // TODO:
+        // The problem at this point is that the project might be based on stale data, like if we
+        // haven't saved. We don't want to handle searches if we have a stale project.
+        // We can't prevent stale projects from existing; there will always be some case where
+        // the user types one character, and boom, immediately the project is stale.
+
         let project = self.project.read().await;
         let path = match doc.url.to_file_path() {
             Ok(path) => path,
@@ -547,24 +553,10 @@ impl Backend {
             proof_insertion_line: goal_context.proof_insertion_line,
         };
 
-        // Replace the locked singleton task
-        {
-            let mut locked_task = self.search_task.write().await;
-            if let Some(old_task) = locked_task.as_ref() {
-                // Cancel the old task
-                old_task
-                    .superseded
-                    .store(true, std::sync::atomic::Ordering::Relaxed);
-            }
-            *locked_task = Some(new_task.clone());
-        }
-
         // A minimal response before any data has been collected
         let response = new_task.response().await;
 
-        tokio::spawn(async move {
-            new_task.run().await;
-        });
+        self.set_search_task(Some(new_task)).await;
 
         Ok(response)
     }
@@ -632,6 +624,9 @@ impl LanguageServer for Backend {
         self.spawn_build();
     }
 
+    // TODO: Note that this does not cancel any ongoing search tasks.
+    // It does make the result of any ongoing search tasks useless.
+    // So maybe this behavior is a bit illogical.
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
         let text = std::mem::take(&mut params.content_changes[0].text);
