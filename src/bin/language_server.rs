@@ -425,7 +425,8 @@ impl Backend {
             log("no text available for update_doc_in_project");
             return;
         }
-        let content = &content.unwrap().text;
+        let document = content.unwrap();
+        let content = &document.text;
         let path = match url.to_file_path() {
             Ok(path) => path,
             Err(_) => {
@@ -443,7 +444,7 @@ impl Backend {
         }
         let mut project = self.stop_build_and_get_project().await;
         log(format!("updating {} with {} bytes", path.display(), content.len()).as_str());
-        project.update_file(path, content);
+        project.update_file(path, content, document.version);
     }
 
     fn fail(&self, params: SearchParams, message: &str) -> jsonrpc::Result<SearchResponse> {

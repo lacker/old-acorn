@@ -25,8 +25,11 @@ pub struct Project {
     // For "open" files, we use the content we are storing rather than the content on disk.
     // This can store either test data that doesn't exist on the filesystem at all, or
     // work in progress whose state is "owned" by an IDE via the language server protocol.
-    // Maps filename -> contents.
-    pub open_files: HashMap<PathBuf, String>,
+    //
+    // Maps filename -> (contents, version number).
+    // The version number can mean whatever the caller wants it to mean.
+    // From vscode, it'll be the vscode version number.
+    pub open_files: HashMap<PathBuf, (String, i32)>,
 
     // modules[module_id] is the Module for the given module id
     modules: Vec<Module>,
@@ -184,17 +187,22 @@ impl Project {
 
     // Whether the provided content matches what we already have for an open file.
     pub fn matches_open_file(&self, path: &PathBuf, content: &str) -> bool {
-        if let Some(existing) = self.open_files.get(path) {
+        if let Some((existing, _)) = self.open_files.get(path) {
             existing == content
         } else {
             false
         }
     }
 
+    // Returns None if we don't have this file at all.
+    pub fn get_version(&self, path: &PathBuf) -> Option<i32> {
+        self.open_files.get(path).map(|(_, version)| *version)
+    }
+
     // Updating a file makes us treat it as "open". When a file is open, we use the
     // content in memory for it, rather than the content on disk.
     // Updated files are also added as build targets.
-    pub fn update_file(&mut self, path: PathBuf, content: &str) {
+    pub fn update_file(&mut self, path: PathBuf, content: &str, version: i32) {
         if self.matches_open_file(&path, content) {
             // No need to do anything
             return;
@@ -212,7 +220,7 @@ impl Project {
                 reload_modules.push(target.clone());
             }
         }
-        self.open_files.insert(path, content.to_string());
+        self.open_files.insert(path, (content.to_string(), version));
         for module_name in &reload_modules {
             self.add_target(module_name);
         }
@@ -372,7 +380,7 @@ impl Project {
     #[cfg(test)]
     pub fn mock(&mut self, filename: &str, content: &str) {
         assert!(!self.use_filesystem);
-        self.update_file(PathBuf::from(filename), content);
+        self.update_file(PathBuf::from(filename), content, 0);
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
@@ -416,7 +424,7 @@ impl Project {
     }
 
     fn read_file(&mut self, path: &PathBuf) -> Result<String, LoadError> {
-        if let Some(content) = self.open_files.get(path) {
+        if let Some((content, _)) = self.open_files.get(path) {
             return Ok(content.clone());
         }
         if !self.use_filesystem {
