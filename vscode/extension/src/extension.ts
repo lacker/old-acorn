@@ -134,6 +134,7 @@ class SearchPanel implements Disposable {
 
   // Handles messages from the webview.
   async handleWebviewMessage(message: any) {
+    console.log("XXX handleWebviewMessage:", message);
     if (message.command === "insertProof") {
       await this.insertProof(message.uri, message.line, message.code);
     } else {
@@ -171,7 +172,15 @@ class SearchPanel implements Disposable {
       return;
     }
 
-    window.showInformationMessage("TODO: implement");
+    console.log(`XXX line: ${line}, code: ${code.join("\n")}`);
+
+    let success = await editor.edit((edit) => {
+      let position = new Position(line, 0);
+      edit.insert(position, code.join("\n") + "\n");
+    });
+    if (!success) {
+      window.showErrorMessage("failed to insert proof");
+    }
   }
 
   display(editor: TextEditor) {

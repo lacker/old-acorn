@@ -10,7 +10,7 @@
   let complete: boolean = false;
   let lines: string[] = [];
   let code: string[] | null = null;
-  let proof_insertion_line: number | null = null;
+  let proofInsertionLine: number | null = null;
   let uri: string | null;
 
   // NOTE: the 'response' type corresponds to SearchResponse in language_server.rs.
@@ -27,13 +27,13 @@
     if (response.result) {
       complete = true;
       code = response.result.code;
-      proof_insertion_line = response.proof_insertion_line;
+      proofInsertionLine = response.proofInsertionLine;
       lines.push("");
       lines.push("(end of output)");
     } else {
       complete = false;
       code = null;
-      proof_insertion_line = null;
+      proofInsertionLine = null;
     }
   }
 
@@ -48,7 +48,7 @@
       !complete ||
       code === null ||
       code.length === 0 ||
-      proof_insertion_line === null
+      proofInsertionLine === null
     ) {
       console.log("cannot insert proof");
       return;
@@ -56,7 +56,7 @@
     vscode.postMessage({
       command: "insertProof",
       uri,
-      line: proof_insertion_line,
+      line: proofInsertionLine,
       code,
     });
   }
