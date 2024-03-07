@@ -103,7 +103,9 @@ class SearchPanel implements Disposable {
 
   // Sends a search request to the language server, passing the response on to the webview.
   sendSearchRequest(params: SearchParams) {
-    console.log("sending search request:", params);
+    console.log(
+      `search request: ${params.uri} line ${params.start.line} char ${params.start.character}`
+    );
     this.currentRequestId += 1;
     let id = this.currentRequestId;
 
@@ -119,10 +121,18 @@ class SearchPanel implements Disposable {
         return;
       }
       if (response.error) {
-        console.log("language server error:", response.error);
+        console.log("search error:", response.error);
         return;
       }
-      console.log("posting message:", response);
+      console.log("search response:");
+      console.log(`  goalName: ${response.goalName}`);
+      if (!response.result) {
+        console.log("  pending");
+      } else if (response.result.code) {
+        console.log(`  found proof in ${response.result.code.length} LOC`);
+      } else {
+        console.log("  no proof found");
+      }
       this.panel.webview.postMessage(response);
       if (!response.result) {
         // The search response is not complete. Send another request after waiting a bit.
