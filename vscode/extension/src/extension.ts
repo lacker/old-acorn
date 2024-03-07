@@ -104,7 +104,7 @@ class SearchPanel implements Disposable {
   // Sends a search request to the language server, passing the response on to the webview.
   sendSearchRequest(params: SearchParams) {
     console.log(
-      `search request: ${params.uri} line ${params.start.line} char ${params.start.character}`
+      `search request: ${params.uri} v${params.version} line ${params.start.line} char ${params.start.character}`
     );
     this.currentRequestId += 1;
     let id = this.currentRequestId;

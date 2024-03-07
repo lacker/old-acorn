@@ -15,6 +15,7 @@ use tower_lsp::jsonrpc;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+// During development, this will show up in the "Output" tab in the extension development host.
 fn log(message: &str) {
     let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
     let stamped = format!("[{}] {}", timestamp, message);
@@ -461,6 +462,28 @@ impl Backend {
         Ok(locked_progress.clone())
     }
 
+    // Cancels any current search task.
+    // Runs the new task, if it is not None.
+    async fn set_search_task(&self, new_task: Option<SearchTask>) {
+        // Replace the locked singleton task
+        {
+            let mut locked_task = self.search_task.write().await;
+            if let Some(old_task) = locked_task.as_ref() {
+                // Cancel the old task
+                old_task
+                    .superseded
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            *locked_task = new_task.clone();
+        }
+
+        if let Some(new_task) = new_task {
+            tokio::spawn(async move {
+                new_task.run().await;
+            });
+        }
+    }
+
     async fn handle_search_request(&self, params: SearchParams) -> jsonrpc::Result<SearchResponse> {
         let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
@@ -468,6 +491,7 @@ impl Backend {
                 return self.fail(params, "no text available");
             }
         };
+
         if let Some(current_task) = self.search_task.read().await.as_ref() {
             if current_task.document.url == params.uri
                 && current_task.document.version == params.version
