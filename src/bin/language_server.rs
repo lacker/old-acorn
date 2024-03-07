@@ -101,15 +101,18 @@ impl SearchResult {
     }
 }
 
-// NOTE: you have to keep this definition in sync with handleSearchResponse in App.svelte.
+// NOTE: this struct defines the format used for the response in JavaScript as well.
+//   See:
+//   sendSearchRequest in extension.ts
+//   handleSearchResponse in App.svelte
 //
 // The SearchResponse will be polled until the SearchResult is available, so it can
 // contain data that is updated over time.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResponse {
-    // This message is designed to be displayed in the client.
-    pub message: Option<String>,
+    // If something went wrong, this contains an error message.
+    pub error: Option<String>,
 
     pub goal_name: Option<String>,
 
@@ -127,7 +130,7 @@ pub struct SearchResponse {
 impl SearchResponse {
     fn default() -> SearchResponse {
         SearchResponse {
-            message: None,
+            error: None,
             goal_name: None,
             lines: vec![],
             result: None,
@@ -191,7 +194,7 @@ impl SearchTask {
         };
         let result = self.result.get().map(|r| r.clone());
         SearchResponse {
-            message: None,
+            error: None,
             goal_name: Some(self.goal_name.clone()),
             lines,
             result,
@@ -437,7 +440,7 @@ impl Backend {
     fn fail(&self, message: &str) -> jsonrpc::Result<SearchResponse> {
         log(message);
         Ok(SearchResponse {
-            message: Some(message.to_string()),
+            error: Some(message.to_string()),
             ..SearchResponse::default()
         })
     }

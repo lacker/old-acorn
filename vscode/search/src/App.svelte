@@ -14,12 +14,9 @@
 
   // NOTE: the 'response' type corresponds to SearchResponse in language_server.rs.
   function handleSearchResponse(response: any) {
-    if (response.message) {
-      heading = "message: " + response.message;
-      complete = false;
-      lines = [];
-      code = null;
-      proof_insertion_line = null;
+    if (response.error) {
+      // Error responses should not reach this point.
+      console.error("unexpected upstream error:", response.error);
       return;
     }
 

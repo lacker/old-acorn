@@ -113,8 +113,8 @@ class SearchPanel implements Disposable {
         // This request has been superseded by a newer one.
         return;
       }
-      if (response.message) {
-        console.log("language server responded:", response.message);
+      if (response.error) {
+        console.log("language server error:", response.error);
         return;
       }
       console.log("posting message:", response);
