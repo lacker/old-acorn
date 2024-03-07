@@ -34,7 +34,7 @@
     }
     const vscode = acquireVsCodeApi();
     vscode.postMessage({
-      comment: "insertProof",
+      command: "insertProof",
       code: result.code,
     });
   }
