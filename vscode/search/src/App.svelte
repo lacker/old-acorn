@@ -27,6 +27,17 @@
       handleSearchResponse(event.data);
     });
   });
+
+  function insertProof() {
+    if (!result || !result.code) {
+      return;
+    }
+    const vscode = acquireVsCodeApi();
+    vscode.postMessage({
+      comment: "insertProof",
+      code: result.code,
+    });
+  }
 </script>
 
 <main>
