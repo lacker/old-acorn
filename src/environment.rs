@@ -221,13 +221,16 @@ impl Environment {
         Environment::new(FIRST_NORMAL)
     }
 
+    fn next_line(&self) -> u32 {
+        self.line_types.len() as u32 + self.first_line
+    }
+
     // Add line types for the given range, inserting empties as needed.
     fn add_line_types(&mut self, line_type: LineType, first: u32, last: u32) {
-        assert!(first <= last);
-        while self.line_types.len() as u32 + self.first_line < first {
+        while self.next_line() < first {
             self.line_types.push(LineType::Empty);
         }
-        for _ in first..last {
+        while self.next_line() < last {
             self.line_types.push(line_type);
         }
     }
