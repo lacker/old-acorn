@@ -63,6 +63,9 @@ pub struct Proposition {
     block: Option<Block>,
 
     // The range in the source document corresponding to this proposition.
+    // Multiple propositions can have overlapping ranges.
+    // The convention is that selecting a location will select the first overlapping proposition,
+    // so when there are implicit propositions, they should come after the explicit one.
     pub range: Range,
 }
 
@@ -388,17 +391,6 @@ impl Environment {
             }
         }
         None
-    }
-
-    pub fn get_proposition(&self, name: &str) -> &Proposition {
-        for prop in &self.propositions {
-            if let Some(claim_name) = &prop.theorem_name {
-                if claim_name == name {
-                    return prop;
-                }
-            }
-        }
-        panic!("no proposition named {}", name);
     }
 
     // Adds a statement to the environment.
@@ -905,11 +897,11 @@ impl Environment {
     // The order is "proving order", ie the propositions inside the block are proved before the
     // root proposition of a block.
     pub fn goal_paths(&self) -> Vec<Vec<usize>> {
-        self.prepend_goal_paths(&Vec::new())
+        self.goal_paths_helper(&Vec::new())
     }
 
     // A helper for proposition_paths that prepends 'prepend' to each path.
-    fn prepend_goal_paths(&self, prepend: &Vec<usize>) -> Vec<Vec<usize>> {
+    fn goal_paths_helper(&self, prepend: &Vec<usize>) -> Vec<Vec<usize>> {
         let mut paths = Vec::new();
         for (i, prop) in self.propositions.iter().enumerate() {
             if prop.proven {
@@ -921,7 +913,7 @@ impl Environment {
                 path
             };
             if let Some(block) = &prop.block {
-                let mut subpaths = block.env.prepend_goal_paths(&path);
+                let mut subpaths = block.env.goal_paths_helper(&path);
                 paths.append(&mut subpaths);
                 if block.claim.is_some() {
                     // This block has a claim that also needs to be proved
@@ -962,6 +954,24 @@ impl Environment {
             facts.push(self.inline_theorems(project, &prop.claim));
         }
         facts
+    }
+
+    // Gets the proposition at a certain path.
+    pub fn get_proposition(&self, path: &Vec<usize>) -> Option<&Proposition> {
+        let mut env = self;
+        let mut it = path.iter().peekable();
+        while let Some(i) = it.next() {
+            if it.peek().is_none() {
+                return env.propositions.get(*i);
+            }
+            let prop = env.propositions.get(*i)?;
+            if let Some(block) = &prop.block {
+                env = &block.env;
+            } else {
+                return None;
+            }
+        }
+        None
     }
 
     // Get a list of facts that are available at a certain path, along with the proposition
