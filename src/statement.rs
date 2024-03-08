@@ -72,7 +72,7 @@ pub struct ForAllStatement {
 // If statements create a new block that introduces no variables but has an implicit condition.
 pub struct IfStatement {
     pub condition: Expression,
-    pub body: Vec<Statement>,
+    pub body: Body,
 
     // Just for error reporting
     pub token: Token,
@@ -356,8 +356,13 @@ fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 // Parses an if statement where the "if" keyword has already been found.
 fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
-    let (condition, _) = Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
-    let (body, last_token) = parse_block(tokens)?;
+    let (condition, left_brace) = Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
+    let (statements, right_brace) = parse_block(tokens)?;
+    let body = Body {
+        left_brace,
+        statements,
+        right_brace: right_brace.clone(),
+    };
     let is = IfStatement {
         condition,
         body,
@@ -365,7 +370,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
     };
     let statement = Statement {
         first_token: keyword,
-        last_token: last_token,
+        last_token: right_brace,
         statement: StatementInfo::If(is),
     };
     Ok(statement)
@@ -537,7 +542,7 @@ impl Statement {
 
             StatementInfo::If(is) => {
                 write!(f, "if {}", is.condition)?;
-                write_block(f, &is.body, indentation)
+                write_block(f, &is.body.statements, indentation)
             }
 
             StatementInfo::Exists(es) => {

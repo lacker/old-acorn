@@ -10,7 +10,7 @@ use crate::goal_context::GoalContext;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::proof::Proof;
-use crate::statement::{Statement, StatementInfo};
+use crate::statement::{Body, Statement, StatementInfo};
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
 // Each line has a LineType, to handle line-based user interface.
@@ -262,14 +262,10 @@ impl Environment {
         project: &mut Project,
         type_params: Vec<String>,
         args: Vec<(String, AcornType)>,
-        body: &Vec<Statement>,
         params: BlockParams,
         first_line: u32,
-        last_line: u32,
-    ) -> token::Result<Option<Block>> {
-        if body.is_empty() {
-            return Ok(None);
-        }
+        body: &Body,
+    ) -> token::Result<Block> {
         let mut subenv = Environment {
             module_id: self.module_id,
             bindings: self.bindings.clone(),
@@ -358,15 +354,15 @@ impl Environment {
             BlockParams::ForAll => None,
         };
 
-        for s in body {
+        for s in &body.statements {
             subenv.add_statement(project, s)?;
         }
-        Ok(Some(Block {
+        Ok(Block {
             type_params,
             args,
             env: subenv,
             claim,
-        }))
+        })
     }
 
     // Adds a proposition.
@@ -621,20 +617,17 @@ impl Environment {
                     Some(lambda_claim.clone()),
                 );
 
-                let empty = vec![];
-                let body_statements = match &ts.body {
-                    Some(body) => &body.statements,
-                    None => &empty,
+                let block = match &ts.body {
+                    Some(body) => Some(self.new_block(
+                        project,
+                        type_params,
+                        block_args,
+                        BlockParams::Theorem(&ts.name, hypothesis, goal),
+                        statement.first_line(),
+                        &body,
+                    )?),
+                    None => None,
                 };
-                let block = self.new_block(
-                    project,
-                    type_params,
-                    block_args,
-                    &body_statements,
-                    BlockParams::Theorem(&ts.name, hypothesis, goal),
-                    statement.first_line(),
-                    statement.last_line(),
-                )?;
 
                 let prop = Proposition {
                     theorem_name: Some(ts.name.to_string()),
@@ -681,17 +674,14 @@ impl Environment {
                     args.push((arg_name, arg_type));
                 }
 
-                let block = self
-                    .new_block(
-                        project,
-                        vec![],
-                        args,
-                        &fas.body.statements,
-                        BlockParams::ForAll,
-                        statement.first_line(),
-                        statement.last_line(),
-                    )?
-                    .unwrap();
+                let block = self.new_block(
+                    project,
+                    vec![],
+                    args,
+                    BlockParams::ForAll,
+                    statement.first_line(),
+                    &fas.body,
+                )?;
 
                 // The last claim in the block is exported to the outside environment.
                 let inner_claim: &AcornValue = match block.env.propositions.last() {
@@ -717,7 +707,7 @@ impl Environment {
             }
 
             StatementInfo::If(is) => {
-                if is.body.is_empty() {
+                if is.body.statements.is_empty() {
                     // If statements with an empty body can just be ignored
                     return Ok(());
                 }
@@ -725,17 +715,14 @@ impl Environment {
                     self.bindings
                         .evaluate_value(project, &is.condition, Some(&AcornType::Bool))?;
                 let range = is.condition.range();
-                let block = self
-                    .new_block(
-                        project,
-                        vec![],
-                        vec![],
-                        &is.body,
-                        BlockParams::If(&condition, range),
-                        statement.first_line(),
-                        statement.last_line(),
-                    )?
-                    .unwrap();
+                let block = self.new_block(
+                    project,
+                    vec![],
+                    vec![],
+                    BlockParams::If(&condition, range),
+                    statement.first_line(),
+                    &is.body,
+                )?;
                 let inner_claim: &AcornValue = match block.env.propositions.last() {
                     Some(p) => &p.claim,
                     None => {
