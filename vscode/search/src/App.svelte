@@ -8,7 +8,7 @@
   // handleSearchResponse typically sets each of these each time it's called.
   let heading = "Select a proposition to see its proof.";
   let complete: boolean = false;
-  let lines: string[] = [];
+  let textOutput: string[] = [];
   let code: string[] | null = null;
   let proofInsertionLine: number | null = null;
   let uri: string | null;
@@ -23,15 +23,15 @@
     }
 
     heading = response.goalName;
-    lines = response.lines;
+    textOutput = response.textOutput;
     uri = response.uri;
     version = response.version;
     if (response.result) {
       complete = true;
       code = response.result.code;
       proofInsertionLine = response.proofInsertionLine;
-      lines.push("");
-      lines.push("(end of output)");
+      textOutput.push("");
+      textOutput.push("(end of output)");
     } else {
       complete = false;
       code = null;
@@ -79,5 +79,5 @@
     {/if}
   {/if}
 
-  <pre>{lines.join("\n")}</pre>
+  <pre>{textOutput.join("\n")}</pre>
 </main>

@@ -121,8 +121,8 @@ pub struct SearchResponse {
 
     pub goal_name: Option<String>,
 
-    // The lines vector will keep growing as the search task runs.
-    pub lines: Vec<String>,
+    // The text output will keep growing as the search task runs.
+    pub text_output: Vec<String>,
 
     // The line where we would insert a proof for this goal
     pub proof_insertion_line: u32,
@@ -139,7 +139,7 @@ impl SearchResponse {
             version: params.version,
             error: None,
             goal_name: None,
-            lines: vec![],
+            text_output: vec![],
             result: None,
             proof_insertion_line: 0,
         }
@@ -169,11 +169,11 @@ struct SearchTask {
     // The name of the goal
     goal_name: String,
 
-    // The queue of lines logged by the search task
+    // The queue of pending text output from the search task
     queue: Arc<SegQueue<String>>,
 
     // Unstructured partial output of the search process
-    lines: Arc<RwLock<Vec<String>>>,
+    text_output: Arc<RwLock<Vec<String>>>,
 
     // Final result of the search, if it has completed
     result: Arc<OnceCell<SearchResult>>,
@@ -192,12 +192,12 @@ impl SearchTask {
 
     // Makes a response based on the current state of the task
     async fn response(&self) -> SearchResponse {
-        let lines = {
-            let mut locked_output = self.lines.write().await;
+        let text_output = {
+            let mut locked_text_output = self.text_output.write().await;
             while let Some(line) = self.queue.pop() {
-                locked_output.push(line);
+                locked_text_output.push(line);
             }
-            locked_output.clone()
+            locked_text_output.clone()
         };
         let result = self.result.get().map(|r| r.clone());
         SearchResponse {
@@ -205,7 +205,7 @@ impl SearchTask {
             version: self.document.version,
             error: None,
             goal_name: Some(self.goal_name.clone()),
-            lines,
+            text_output,
             result,
             proof_insertion_line: self.proof_insertion_line,
         }
@@ -565,7 +565,7 @@ impl Backend {
             path,
             goal_name: goal_context.name.clone(),
             queue: Arc::new(SegQueue::new()),
-            lines: Arc::new(RwLock::new(vec![])),
+            text_output: Arc::new(RwLock::new(vec![])),
             result: Arc::new(OnceCell::new()),
             superseded: Arc::new(AtomicBool::new(false)),
             proof_insertion_line: goal_context.proof_insertion_line,
