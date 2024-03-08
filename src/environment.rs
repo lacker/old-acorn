@@ -670,7 +670,7 @@ impl Environment {
             }
 
             StatementInfo::ForAll(fas) => {
-                if fas.body.is_empty() {
+                if fas.body.statements.is_empty() {
                     // ForAll statements with an empty body can just be ignored
                     return Ok(());
                 }
@@ -686,7 +686,7 @@ impl Environment {
                         project,
                         vec![],
                         args,
-                        &fas.body,
+                        &fas.body.statements,
                         BlockParams::ForAll,
                         statement.first_line(),
                         statement.last_line(),

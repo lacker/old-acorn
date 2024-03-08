@@ -66,7 +66,7 @@ pub struct TypeStatement {
 // ForAll statements create a new block in which new variables are introduced.
 pub struct ForAllStatement {
     pub quantifiers: Vec<Expression>,
-    pub body: Vec<Statement>,
+    pub body: Body,
 }
 
 // If statements create a new block that introduces no variables but has an implicit condition.
@@ -171,13 +171,14 @@ fn parse_block(tokens: &mut TokenIter) -> Result<(Vec<Statement>, Token)> {
 // <T>(a: T, f: T -> T)
 // The second element is an optional parenthesized list of arguments.
 // Finally we have the terminator token.
+// Returns the type params, the arguments, and the terminator token.
 fn parse_args(
     tokens: &mut TokenIter,
     terminator: TokenType,
-) -> Result<(Vec<Token>, Vec<Expression>)> {
+) -> Result<(Vec<Token>, Vec<Expression>, Token)> {
     let mut token = Token::expect_token(tokens)?;
     if token.token_type == terminator {
-        return Ok((vec![], vec![]));
+        return Ok((vec![], vec![], token));
     }
     let mut type_params = vec![];
     if token.token_type == TokenType::LessThan {
@@ -213,11 +214,10 @@ fn parse_args(
         })?;
         args.push(exp);
         if t.token_type == TokenType::RightParen {
-            Token::expect_type(tokens, terminator)?;
-            break;
+            let terminator = Token::expect_type(tokens, terminator)?;
+            return Ok((type_params, args, terminator));
         }
     }
-    Ok((type_params, args))
 }
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been found.
@@ -229,7 +229,7 @@ fn parse_theorem_statement(
 ) -> Result<Statement> {
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text().to_string();
-    let (type_params, args) = parse_args(tokens, TokenType::Colon)?;
+    let (type_params, args, _) = parse_args(tokens, TokenType::Colon)?;
     if type_params.len() > 1 {
         return Err(Error::new(
             &type_params[1],
@@ -293,7 +293,7 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     let name = Token::expect_type(tokens, TokenType::Identifier)?
         .text()
         .to_string();
-    let (type_params, args) = parse_args(tokens, TokenType::RightArrow)?;
+    let (type_params, args, _) = parse_args(tokens, TokenType::RightArrow)?;
     if type_params.len() > 1 {
         return Err(Error::new(
             &type_params[1],
@@ -337,12 +337,17 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
 
 // Parses a forall statement where the "forall" keyword has already been found.
 fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let (_, quantifiers) = parse_args(tokens, TokenType::LeftBrace)?;
-    let (body, last_token) = parse_block(tokens)?;
+    let (_, quantifiers, left_brace) = parse_args(tokens, TokenType::LeftBrace)?;
+    let (statements, right_brace) = parse_block(tokens)?;
+    let body = Body {
+        left_brace,
+        statements,
+        right_brace: right_brace.clone(),
+    };
     let fas = ForAllStatement { quantifiers, body };
     let statement = Statement {
         first_token: keyword,
-        last_token: last_token,
+        last_token: right_brace,
         statement: StatementInfo::ForAll(fas),
     };
     Ok(statement)
@@ -368,7 +373,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
 
 // Parses an exists statement where the "exists" keyword has already been found.
 fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let (_, quantifiers) = parse_args(tokens, TokenType::LeftBrace)?;
+    let (_, quantifiers, _) = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, last_token) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
     let es = ExistsStatement {
         quantifiers,
@@ -527,7 +532,7 @@ impl Statement {
             StatementInfo::ForAll(fas) => {
                 write!(f, "forall")?;
                 write_args(f, &fas.quantifiers)?;
-                write_block(f, &fas.body, indentation)
+                write_block(f, &fas.body.statements, indentation)
             }
 
             StatementInfo::If(is) => {
