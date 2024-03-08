@@ -122,14 +122,12 @@ class SearchPanel implements Disposable {
         console.log("search error:", response.error);
         return;
       }
-      console.log("search response:");
-      console.log(`  goalName: ${response.goalName}`);
       if (!response.result) {
-        console.log("  pending");
+        console.log(`search response: ${response.goalName} pending`);
       } else if (response.result.code) {
-        console.log(`  found proof in ${response.result.code.length} LOC`);
+        console.log(`search response: ${response.goalName} proved`);
       } else {
-        console.log("  no proof found");
+        console.log(`search response: ${response.goalName} not proved`);
       }
       this.panel.webview.postMessage(response);
       if (!response.result) {
