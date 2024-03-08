@@ -25,17 +25,15 @@ let client: LanguageClient;
 
 interface SearchParams {
   uri: string;
-  start: Position;
-  end: Position;
   version: number;
+  selectedLine: number;
 }
 
 function searchParamsEqual(a: SearchParams, b: SearchParams) {
   return (
-    a.uri == b.uri &&
-    a.start.isEqual(b.start) &&
-    a.end.isEqual(b.end) &&
-    a.version == b.version
+    a.uri === b.uri &&
+    a.selectedLine === b.selectedLine &&
+    a.version === b.version
   );
 }
 
@@ -85,11 +83,11 @@ class SearchPanel implements Disposable {
     }
 
     let uri = editor.document.uri.toString();
-    let { start, end } = editor.selection;
+    let selectedLine = editor.selection.start.line;
     let version = editor.document.version;
 
     // No need to send the request if nothing has changed.
-    let params: SearchParams = { uri, start, end, version };
+    let params: SearchParams = { uri, selectedLine, version };
     if (this.currentParams && searchParamsEqual(this.currentParams, params)) {
       return;
     }
@@ -104,7 +102,7 @@ class SearchPanel implements Disposable {
   // Sends a search request to the language server, passing the response on to the webview.
   sendSearchRequest(params: SearchParams) {
     console.log(
-      `search request: ${params.uri} v${params.version} line ${params.start.line} char ${params.start.character}`
+      `search request: ${params.uri} v${params.version} line ${params.selectedLine}`
     );
     this.currentRequestId += 1;
     let id = this.currentRequestId;

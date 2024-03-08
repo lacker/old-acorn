@@ -72,6 +72,9 @@ impl Document {
 #[serde(rename_all = "camelCase")]
 pub struct ProgressParams {}
 
+// NOTE: this struct defines the format used for the params in JavaScript as well.
+//  See:
+//  the SearchParams interface in extension.ts
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchParams {
@@ -79,9 +82,8 @@ pub struct SearchParams {
     pub uri: Url,
     pub version: i32,
 
-    // The selected location in the document
-    pub start: Position,
-    pub end: Position,
+    // The selected line in the document
+    pub selected_line: u32,
 }
 
 // The SearchResult contains information that is produced once, when the search completes.
@@ -160,8 +162,8 @@ struct SearchTask {
     // The module that we're searching for a proof in
     module_name: String,
 
-    // The range in the document corresponding to the goal we're proving
-    range: Range,
+    // The line in the document corresponding to the goal we're proving.
+    goal_line: u32,
 
     // The path to the goal
     path: Vec<usize>,
@@ -186,10 +188,6 @@ struct SearchTask {
 }
 
 impl SearchTask {
-    fn overlaps_selection(&self, start: Position, end: Position) -> bool {
-        return start <= self.range.end && end >= self.range.start;
-    }
-
     // Makes a response based on the current state of the task
     async fn response(&self) -> SearchResponse {
         let text_output = {
@@ -493,10 +491,11 @@ impl Backend {
             }
         };
 
+        // Duplicate check 1.
         if let Some(current_task) = self.search_task.read().await.as_ref() {
             if current_task.document.url == params.uri
                 && current_task.document.version == params.version
-                && current_task.overlaps_selection(params.start, params.end)
+                && current_task.goal_line == params.selected_line
             {
                 // This request matches the current task.
                 // Respond based on the current task.
@@ -545,23 +544,34 @@ impl Backend {
             }
         };
 
-        let selection = Range {
-            start: params.start,
-            end: params.end,
-        };
-        let (path, goal_context) = match env.find_goal_for_selection(&project, selection) {
+        let (path, goal_context) = match env.find_goal_for_line(&project, params.selected_line) {
             Some(tuple) => tuple,
             None => {
                 return self.fail(params, "no goal at this location");
             }
         };
+        let goal_line = goal_context.range.start.line;
+
+        // Duplicate check 2.
+        // We have two because of the difference between the selected line and the goal line.
+        // TODO: get rid of one of the duplicate checks.
+        if let Some(current_task) = self.search_task.read().await.as_ref() {
+            if current_task.document.url == params.uri
+                && current_task.document.version == params.version
+                && current_task.goal_line == goal_line
+            {
+                // This request matches the current task.
+                // Respond based on the current task.
+                return Ok(current_task.response().await);
+            }
+        }
 
         // Create a new search task
         let new_task = SearchTask {
             project: self.project.clone(),
             document: doc.clone(),
             module_name,
-            range: goal_context.range,
+            goal_line,
             path,
             goal_name: goal_context.name.clone(),
             queue: Arc::new(SegQueue::new()),

@@ -83,6 +83,7 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(Suc(
         lte(Suc(f(0)), f(0))
         false
     }
+    
 }
 
 theorem dtz_terminates(f: Nat -> Nat):
@@ -228,7 +229,7 @@ theorem gcd_divides(d: Nat, a: Nat, b: Nat): divides(d, gcd(a, b)) -> divides(d,
     NatPair.second(p) = b
     if divides(d, gcd(a, b)) {
         divides(d, gcd_pair(p))
-        divides_both(d, p)
+        divides_both(d, p)    
         divides(d, NatPair.first(p))
         divides(d, a)
         divides(d, NatPair.second(p))
