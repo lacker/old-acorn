@@ -5,6 +5,12 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 use std::fmt;
 
+pub struct Body {
+    pub left_brace: Token,
+    pub statements: Vec<Statement>,
+    pub right_brace: Token,
+}
+
 // Let statements introduce new named constants. For example:
 //   let a: int = x + 2
 pub struct LetStatement {
@@ -41,7 +47,7 @@ pub struct TheoremStatement {
     pub type_params: Vec<Token>,
     pub args: Vec<Expression>,
     pub claim: Expression,
-    pub body: Vec<Statement>,
+    pub body: Option<Body>,
 }
 
 // Prop statements are a boolean expression.
@@ -235,10 +241,16 @@ fn parse_theorem_statement(
         t == TokenType::NewLine || t == TokenType::By
     })?;
     let (body, last_token) = if terminator.token_type == TokenType::By {
-        Token::expect_type(tokens, TokenType::LeftBrace)?;
-        parse_block(tokens)?
+        let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+        let (statements, right_brace) = parse_block(tokens)?;
+        let body = Body {
+            left_brace,
+            statements,
+            right_brace: right_brace.clone(),
+        };
+        (Some(body), right_brace)
     } else {
-        (Vec::new(), terminator)
+        (None, terminator)
     };
     let ts = TheoremStatement {
         axiomatic,
@@ -496,9 +508,9 @@ impl Statement {
                 write_type_params(f, &ts.type_params)?;
                 write_args(f, &ts.args)?;
                 write!(f, ": {}", ts.claim)?;
-                if ts.body.len() > 0 {
+                if let Some(body) = &ts.body {
                     write!(f, " by")?;
-                    write_block(f, &ts.body, indentation)?;
+                    write_block(f, &body.statements, indentation)?;
                 }
                 Ok(())
             }

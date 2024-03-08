@@ -621,11 +621,16 @@ impl Environment {
                     Some(lambda_claim.clone()),
                 );
 
+                let empty = vec![];
+                let body_statements = match &ts.body {
+                    Some(body) => &body.statements,
+                    None => &empty,
+                };
                 let block = self.new_block(
                     project,
                     type_params,
                     block_args,
-                    &ts.body,
+                    &body_statements,
                     BlockParams::Theorem(&ts.name, hypothesis, goal),
                     statement.first_line(),
                     statement.last_line(),
