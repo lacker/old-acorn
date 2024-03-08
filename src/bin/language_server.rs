@@ -162,8 +162,8 @@ struct SearchTask {
     // The module that we're searching for a proof in
     module_name: String,
 
-    // The line in the document corresponding to the goal we're proving.
-    goal_line: u32,
+    // The line in the document the user selected to kick off this task.
+    selected_line: u32,
 
     // The path to the goal
     path: Vec<usize>,
@@ -491,14 +491,14 @@ impl Backend {
             }
         };
 
-        // Duplicate check 1.
+        // Check if this request matches our current task, based on the selected line.
+        // This is less general than checking the full path, but we don't have the
+        // full path until we acquire a lock on the project.
         if let Some(current_task) = self.search_task.read().await.as_ref() {
             if current_task.document.url == params.uri
                 && current_task.document.version == params.version
-                && current_task.goal_line == params.selected_line
+                && current_task.selected_line == params.selected_line
             {
-                // This request matches the current task.
-                // Respond based on the current task.
                 return Ok(current_task.response().await);
             }
         }
@@ -544,34 +544,31 @@ impl Backend {
             }
         };
 
-        let (path, goal_context) = match env.find_goal_for_line(&project, params.selected_line) {
+        let path = match env.get_path_for_line(params.selected_line) {
             Some(tuple) => tuple,
-            None => {
-                return self.fail(params, "no goal at this location");
-            }
+            None => return self.fail(params, "no goal at this location"),
         };
-        let goal_line = goal_context.range.start.line;
 
-        // Duplicate check 2.
-        // We have two because of the difference between the selected line and the goal line.
-        // TODO: get rid of one of the duplicate checks.
+        // Check if this request matches our current task, based on the full path of the goal.
+        // This is slower (because we had to acquire the project lock first)
+        // but catches more situations than just checking the selected line.
         if let Some(current_task) = self.search_task.read().await.as_ref() {
             if current_task.document.url == params.uri
                 && current_task.document.version == params.version
-                && current_task.goal_line == goal_line
+                && current_task.path == path
             {
-                // This request matches the current task.
-                // Respond based on the current task.
                 return Ok(current_task.response().await);
             }
         }
+
+        let goal_context = env.get_goal_context(&project, &path);
 
         // Create a new search task
         let new_task = SearchTask {
             project: self.project.clone(),
             document: doc.clone(),
             module_name,
-            goal_line,
+            selected_line: params.selected_line,
             path,
             goal_name: goal_context.name.clone(),
             queue: Arc::new(SegQueue::new()),

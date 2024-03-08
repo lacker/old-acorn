@@ -251,6 +251,18 @@ impl Environment {
         );
     }
 
+    fn get_line_type(&self, line: u32) -> Option<LineType> {
+        if line < self.first_line {
+            return None;
+        }
+        let index = (line - self.first_line) as usize;
+        if index < self.line_types.len() {
+            Some(self.line_types[index])
+        } else {
+            None
+        }
+    }
+
     // Creates a new block with a subenvironment by copying this environment and adding some stuff.
     //
     // Performance is quadratic because it clones a lot of the existing environment.
@@ -1144,34 +1156,57 @@ impl Environment {
         panic!("no context found for {} in:\n{}\n", name, names.join("\n"));
     }
 
-    // Returns the path and goal context for a given zero-based line.
+    // Returns the path corresponding to the goal for a given zero-based line.
     // This is a UI heuristic.
     // Each line should have at most one goal.
-    // If this is an empty line, look at the next nonempty line for a goal.
-    pub fn find_goal_for_line(
-        &self,
-        project: &Project,
-        line: u32,
-    ) -> Option<(Vec<usize>, GoalContext)> {
-        let paths = self.prop_paths();
-        for path in paths {
-            let prop = self.get_proposition(&path).unwrap();
-            if prop.range.end.line < line {
-                // Not there yet
-                continue;
+    pub fn get_path_for_line(&self, line: u32) -> Option<Vec<usize>> {
+        let mut path = vec![];
+        let mut env = self;
+        loop {
+            match env.get_line_type(line) {
+                Some(LineType::Proposition(i)) => {
+                    path.push(i);
+                    let prop = &env.propositions[i];
+                    match &prop.block {
+                        Some(block) => {
+                            env = &block.env;
+                            continue;
+                        }
+                        None => {
+                            return Some(path);
+                        }
+                    }
+                }
+                Some(LineType::Opening) | Some(LineType::Closing) => return Some(path),
+                Some(LineType::Other) | None => return None,
+                Some(LineType::Empty) => {
+                    // We let the user insert a proof in an area by clicking on an empty
+                    // line where the proof would go.
+                    // To find the statement we're proving, we "slide" into the next prop.
+                    let mut slide = line;
+                    loop {
+                        slide += 1;
+                        match env.get_line_type(slide) {
+                            Some(LineType::Proposition(i)) => {
+                                let prop = &env.propositions[i];
+                                if prop.block.is_none() {
+                                    path.push(i);
+                                    return Some(path);
+                                }
+                                // We can't slide into a block, because the proof would be
+                                // inserted into the block, rather than here.
+                                return None;
+                            }
+                            Some(LineType::Empty) => {
+                                // Keep sliding
+                                continue;
+                            }
+                            _ => return None,
+                        }
+                    }
+                }
             }
-
-            if prop.proven {
-                // The next nonempty line has no goal
-                return None;
-            }
-
-            let goal_context = self.get_goal_context(project, &path);
-            return Some((path, goal_context));
         }
-
-        // There is no next nonempty line
-        None
     }
 
     pub fn proof_to_code(&self, proof: &Proof) -> Result<Vec<String>, String> {
