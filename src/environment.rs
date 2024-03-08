@@ -230,7 +230,7 @@ impl Environment {
         while self.next_line() < first {
             self.line_types.push(LineType::Empty);
         }
-        while self.next_line() < last {
+        while self.next_line() <= last {
             self.line_types.push(line_type);
         }
     }
@@ -1158,8 +1158,9 @@ impl Environment {
 
     // Returns the path corresponding to the goal for a given zero-based line.
     // This is a UI heuristic.
-    // Each line should have at most one goal.
-    pub fn get_path_for_line(&self, line: u32) -> Option<Vec<usize>> {
+    // Either returns a path to a proposition, or an error message explaining why this line
+    // is unusable. Error messages use one-based line numbers.
+    pub fn get_path_for_line(&self, line: u32) -> Result<Vec<usize>, String> {
         let mut path = vec![];
         let mut env = self;
         loop {
@@ -1173,12 +1174,13 @@ impl Environment {
                             continue;
                         }
                         None => {
-                            return Some(path);
+                            return Ok(path);
                         }
                     }
                 }
-                Some(LineType::Opening) | Some(LineType::Closing) => return Some(path),
-                Some(LineType::Other) | None => return None,
+                Some(LineType::Opening) | Some(LineType::Closing) => return Ok(path),
+                Some(LineType::Other) => return Err(format!("line {} is not a prop", line + 1)),
+                None => return Err(format!("line {} is out of range", line + 1)),
                 Some(LineType::Empty) => {
                     // We let the user insert a proof in an area by clicking on an empty
                     // line where the proof would go.
@@ -1191,17 +1193,17 @@ impl Environment {
                                 let prop = &env.propositions[i];
                                 if prop.block.is_none() {
                                     path.push(i);
-                                    return Some(path);
+                                    return Ok(path);
                                 }
                                 // We can't slide into a block, because the proof would be
                                 // inserted into the block, rather than here.
-                                return None;
+                                return Err(format!("blocked slide {} -> {}", line + 1, slide + 1));
                             }
                             Some(LineType::Empty) => {
                                 // Keep sliding
                                 continue;
                             }
-                            _ => return None,
+                            _ => return Err(format!("can't slide {} -> {}", line + 1, slide + 1)),
                         }
                     }
                 }

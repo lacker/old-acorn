@@ -545,8 +545,8 @@ impl Backend {
         };
 
         let path = match env.get_path_for_line(params.selected_line) {
-            Some(tuple) => tuple,
-            None => return self.fail(params, "no goal at this location"),
+            Ok(path) => path,
+            Err(s) => return self.fail(params, &s),
         };
 
         // Check if this request matches our current task, based on the full path of the goal.
