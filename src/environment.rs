@@ -354,9 +354,19 @@ impl Environment {
             BlockParams::ForAll => None,
         };
 
+        subenv.add_line_types(
+            LineType::Opening,
+            first_line,
+            body.left_brace.line_number as u32,
+        );
         for s in &body.statements {
             subenv.add_statement(project, s)?;
         }
+        subenv.add_line_types(
+            LineType::Closing,
+            body.right_brace.line_number as u32,
+            body.right_brace.line_number as u32,
+        );
         Ok(Block {
             type_params,
             args,

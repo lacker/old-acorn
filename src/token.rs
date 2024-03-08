@@ -168,13 +168,13 @@ pub struct Token {
     pub line: Arc<String>,
 
     // The index of this line within the document.
-    pub line_number: usize,
+    pub line_number: u32,
 
     // The index where this token starts, within the line.
-    pub start: usize,
+    pub start: u32,
 
     // The length of this token.
-    pub len: usize,
+    pub len: u32,
 }
 
 fn fmt_line_part(f: &mut fmt::Formatter, text: &str, line: &str, index: usize) -> fmt::Result {
@@ -212,20 +212,22 @@ impl Token {
     }
 
     pub fn text(&self) -> &str {
-        &self.line[self.start..self.start + self.len]
+        let start = self.start as usize;
+        let end = (self.start + self.len) as usize;
+        &self.line[start..end]
     }
 
     pub fn start_pos(&self) -> Position {
         Position {
-            line: self.line_number as u32,
-            character: self.start as u32,
+            line: self.line_number,
+            character: self.start,
         }
     }
 
     pub fn end_pos(&self) -> Position {
         Position {
-            line: self.line_number as u32,
-            character: (self.start + self.len) as u32,
+            line: self.line_number,
+            character: (self.start + self.len),
         }
     }
 
@@ -326,6 +328,7 @@ impl Token {
     pub fn scan(input: &str) -> Vec<Token> {
         let mut tokens = Vec::new();
         for (line_number, line) in input.lines().enumerate() {
+            let line_number = line_number as u32;
             let rc_line = Arc::new(line.to_string());
             let mut char_indices = line.char_indices().peekable();
             while let Some((char_index, ch)) = char_indices.next() {
@@ -419,8 +422,8 @@ impl Token {
                     token_type,
                     line: rc_line.clone(),
                     line_number,
-                    start: char_index,
-                    len: end - char_index,
+                    start: char_index as u32,
+                    len: (end - char_index) as u32,
                 };
                 tokens.push(token);
             }
@@ -430,7 +433,7 @@ impl Token {
                 token_type: TokenType::NewLine,
                 line: rc_line,
                 line_number,
-                start: line.len(),
+                start: line.len() as u32,
                 len: 0,
             });
         }
@@ -487,7 +490,12 @@ pub struct Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}:\n", self.message)?;
-        fmt_line_part(f, &self.token.text(), &self.token.line, self.token.start)
+        fmt_line_part(
+            f,
+            &self.token.text(),
+            &self.token.line,
+            self.token.start as usize,
+        )
     }
 }
 
