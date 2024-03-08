@@ -1184,6 +1184,37 @@ impl Environment {
         Ok(answer)
     }
 
+    pub fn covers_line(&self, line: u32) -> bool {
+        if line < self.first_line {
+            return false;
+        }
+        if line >= self.next_line() {
+            return false;
+        }
+        true
+    }
+
+    // Makes sure the lines are self-consistent
+    #[cfg(test)]
+    fn check_lines(&self) {
+        // Check that each proposition's block covers the lines it claims to cover
+        for (line, line_type) in self.line_types.iter().enumerate() {
+            if let LineType::Proposition(prop_index) = line_type {
+                let prop = &self.propositions[*prop_index];
+                if let Some(block) = &prop.block {
+                    assert!(block.env.covers_line(line as u32));
+                }
+            }
+        }
+
+        // Recurse
+        for prop in &self.propositions {
+            if let Some(block) = &prop.block {
+                block.env.check_lines();
+            }
+        }
+    }
+
     // Expects the given line to be bad
     #[cfg(test)]
     fn bad(&mut self, input: &str) {
@@ -1462,6 +1493,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             }
             "#,
         );
+        env.check_lines();
     }
 
     #[test]
