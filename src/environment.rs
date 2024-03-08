@@ -14,6 +14,7 @@ use crate::statement::{Statement, StatementInfo};
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
 // Each line has a LineType, to handle line-based user interface.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum LineType {
     // Only used within subenvironments.
     // The line relates to the block, but is outside the opening brace for this block.
@@ -220,6 +221,33 @@ impl Environment {
         Environment::new(FIRST_NORMAL)
     }
 
+    // Add line types for the given range, inserting empties as needed.
+    fn add_line_types(&mut self, line_type: LineType, first: u32, last: u32) {
+        assert!(first <= last);
+        while self.line_types.len() as u32 + self.first_line < first {
+            self.line_types.push(LineType::Empty);
+        }
+        for _ in first..last {
+            self.line_types.push(line_type);
+        }
+    }
+
+    fn add_other_lines(&mut self, statement: &Statement) {
+        self.add_line_types(
+            LineType::Other,
+            statement.first_line(),
+            statement.last_line(),
+        );
+    }
+
+    fn add_prop_lines(&mut self, index: usize, statement: &Statement) {
+        self.add_line_types(
+            LineType::Proposition(index),
+            statement.first_line(),
+            statement.last_line(),
+        );
+    }
+
     // Creates a new block with a subenvironment by copying this environment and adding some stuff.
     //
     // Performance is quadratic because it clones a lot of the existing environment.
@@ -339,13 +367,14 @@ impl Environment {
     }
 
     // Adds a proposition.
-    fn add_proposition(&mut self, prop: Proposition) {
+    fn add_proposition(&mut self, prop: Proposition) -> usize {
         // Check if we're adding invalid claims.
         prop.claim
             .validate()
             .unwrap_or_else(|e| panic!("invalid claim: {} ({})", prop.claim, e));
 
         self.propositions.push(prop);
+        self.propositions.len() - 1
     }
 
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
@@ -442,6 +471,7 @@ impl Environment {
         }
         match &statement.statement {
             StatementInfo::Type(ts) => {
+                self.add_other_lines(statement);
                 if !Token::is_valid_type_name(&ts.name) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
@@ -465,6 +495,7 @@ impl Environment {
             }
 
             StatementInfo::Let(ls) => {
+                self.add_other_lines(statement);
                 if self.bindings.name_in_use(&ls.name) {
                     return Err(Error::new(
                         &statement.first_token,
@@ -492,6 +523,7 @@ impl Environment {
             }
 
             StatementInfo::Define(ds) => {
+                self.add_other_lines(statement);
                 if self.bindings.name_in_use(&ds.name) {
                     return Err(Error::new(
                         &statement.first_token,
@@ -603,7 +635,8 @@ impl Environment {
                     block,
                     range,
                 };
-                self.add_proposition(prop);
+                let index = self.add_proposition(prop);
+                self.add_prop_lines(index, statement);
                 self.bindings.mark_as_theorem(&ts.name);
 
                 Ok(())
@@ -623,7 +656,8 @@ impl Environment {
                     block: None,
                     range: statement.range(),
                 };
-                self.add_proposition(prop);
+                let index = self.add_proposition(prop);
+                self.add_prop_lines(index, statement);
                 Ok(())
             }
 
@@ -669,7 +703,8 @@ impl Environment {
                     block: Some(block),
                     range: statement.range(),
                 };
-                self.add_proposition(prop);
+                let index = self.add_proposition(prop);
+                self.add_prop_lines(index, statement);
                 Ok(())
             }
 
@@ -715,7 +750,8 @@ impl Environment {
                     block: Some(block),
                     range: statement.range(),
                 };
-                self.add_proposition(prop);
+                let index = self.add_proposition(prop);
+                self.add_prop_lines(index, statement);
                 Ok(())
             }
 
@@ -740,7 +776,8 @@ impl Environment {
                     block: None,
                     range: statement.range(),
                 };
-                self.add_proposition(general_prop);
+                let index = self.add_proposition(general_prop);
+                self.add_prop_lines(index, statement);
 
                 // Define the quantifiers as constants
                 for (quant_name, quant_type) in quant_names.iter().zip(quant_types.iter()) {
@@ -765,6 +802,7 @@ impl Environment {
             }
 
             StatementInfo::Struct(ss) => {
+                self.add_other_lines(statement);
                 if self.bindings.has_type_name(&ss.name) {
                     return Err(Error::new(
                         &statement.first_token,
@@ -871,6 +909,7 @@ impl Environment {
             }
 
             StatementInfo::Import(is) => {
+                self.add_other_lines(statement);
                 let local_name = is.components.last().unwrap();
                 if self.bindings.name_in_use(local_name) {
                     return Err(Error::new(
