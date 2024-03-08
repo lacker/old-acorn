@@ -1055,10 +1055,41 @@ impl Environment {
         panic!("no context found for {} in:\n{}\n", name, names.join("\n"));
     }
 
+    // Returns the path and goal context for a given zero-based line.
+    // This is a UI heuristic.
+    // Each line should have at most one goal.
+    // If this is an empty line, look at the next nonempty line for a goal.
+    pub fn find_goal_for_line(
+        &self,
+        project: &Project,
+        line: u32,
+    ) -> Option<(Vec<usize>, GoalContext)> {
+        let paths = self.prop_paths();
+        for path in paths {
+            let prop = self.get_proposition(&path).unwrap();
+            if prop.range.end.line < line {
+                // Not there yet
+                continue;
+            }
+
+            if prop.proven {
+                // The next nonempty line has no goal
+                return None;
+            }
+
+            let goal_context = self.get_goal_context(project, &path);
+            return Some((path, goal_context));
+        }
+
+        // There is no next nonempty line
+        None
+    }
+
     // Returns the path and goal context that are indicated by a selected range.
     // This is a UI heuristic.
     // If there are multiple goals with overlapping ranges, this
     // will return the first one that matches.
+    // TODO: deprecate
     pub fn find_goal_for_selection(
         &self,
         project: &Project,
