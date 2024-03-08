@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use tower_lsp::lsp_types::{Position, Range};
+use tower_lsp::lsp_types::Range;
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
@@ -897,14 +897,21 @@ impl Environment {
     // The order is "proving order", ie the propositions inside the block are proved before the
     // root proposition of a block.
     pub fn goal_paths(&self) -> Vec<Vec<usize>> {
-        self.goal_paths_helper(&Vec::new())
+        self.get_paths(&vec![], false)
     }
 
-    // A helper for proposition_paths that prepends 'prepend' to each path.
-    fn goal_paths_helper(&self, prepend: &Vec<usize>) -> Vec<Vec<usize>> {
+    // Like goal_paths but also includes the paths to props with no goal, like
+    // "if" or "define" statements.
+    pub fn prop_paths(&self) -> Vec<Vec<usize>> {
+        self.get_paths(&vec![], true)
+    }
+
+    // Find all paths from this environment, prepending 'prepend' to each path.
+    // allow_proven controls whether we include propositions that have already been proven.
+    fn get_paths(&self, prepend: &Vec<usize>, allow_proven: bool) -> Vec<Vec<usize>> {
         let mut paths = Vec::new();
         for (i, prop) in self.propositions.iter().enumerate() {
-            if prop.proven {
+            if prop.proven && !allow_proven {
                 continue;
             }
             let path = {
@@ -913,7 +920,7 @@ impl Environment {
                 path
             };
             if let Some(block) = &prop.block {
-                let mut subpaths = block.env.goal_paths_helper(&path);
+                let mut subpaths = block.env.get_paths(&path, allow_proven);
                 paths.append(&mut subpaths);
                 if block.claim.is_some() {
                     // This block has a claim that also needs to be proved
@@ -1048,23 +1055,33 @@ impl Environment {
         panic!("no context found for {} in:\n{}\n", name, names.join("\n"));
     }
 
-    // Returns the path and goal context for the given location.
-    // If, for whatever reason, there are multiple goals with overlapping ranges, this
+    // Returns the path and goal context that are indicated by a selected range.
+    // This is a UI heuristic.
+    // If there are multiple goals with overlapping ranges, this
     // will return the first one that matches.
-    pub fn find_location(
+    pub fn find_goal_for_selection(
         &self,
         project: &Project,
-        start: Position,
-        end: Position,
+        selection: Range,
     ) -> Option<(Vec<usize>, GoalContext)> {
-        let paths = self.goal_paths();
+        let paths = self.prop_paths();
         for path in paths {
-            let goal_context = self.get_goal_context(project, &path);
-            if goal_context.range.start <= start && goal_context.range.end >= end {
-                // This is the goal that contains the cursor.
-                return Some((path, goal_context));
+            let prop = self.get_proposition(&path).unwrap();
+            if prop.range.end < selection.start {
+                // We never select propositions that end before the selection starts.
+                continue;
             }
+
+            if prop.proven {
+                // There's no goal for proven propositions.
+                return None;
+            }
+
+            let goal_context = self.get_goal_context(project, &path);
+            return Some((path, goal_context));
         }
+
+        // The selection is after all the goals.
         None
     }
 

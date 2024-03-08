@@ -545,7 +545,11 @@ impl Backend {
             }
         };
 
-        let (path, goal_context) = match env.find_location(&project, params.start, params.end) {
+        let selection = Range {
+            start: params.start,
+            end: params.end,
+        };
+        let (path, goal_context) = match env.find_goal_for_selection(&project, selection) {
             Some(tuple) => tuple,
             None => {
                 return self.fail(params, "no goal at this location");

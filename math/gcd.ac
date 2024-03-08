@@ -175,6 +175,7 @@ theorem divides_gcd(d: Nat, a: Nat, b: Nat): divides(d, a) & divides(d, b) -> di
     if divides(d, a) & divides(d, b) {
         divides_both(d, NatPair.new(a, b))
         divides_gcd_pair(d, NatPair.new(a, b))
+        
         divides(d, gcd_pair(NatPair.new(a, b)))
         divides(d, gcd(a, b))
     }
