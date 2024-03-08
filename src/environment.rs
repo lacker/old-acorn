@@ -1085,37 +1085,6 @@ impl Environment {
         None
     }
 
-    // Returns the path and goal context that are indicated by a selected range.
-    // This is a UI heuristic.
-    // If there are multiple goals with overlapping ranges, this
-    // will return the first one that matches.
-    // TODO: deprecate
-    pub fn find_goal_for_selection(
-        &self,
-        project: &Project,
-        selection: Range,
-    ) -> Option<(Vec<usize>, GoalContext)> {
-        let paths = self.prop_paths();
-        for path in paths {
-            let prop = self.get_proposition(&path).unwrap();
-            if prop.range.end < selection.start {
-                // We never select propositions that end before the selection starts.
-                continue;
-            }
-
-            if prop.proven {
-                // There's no goal for proven propositions.
-                return None;
-            }
-
-            let goal_context = self.get_goal_context(project, &path);
-            return Some((path, goal_context));
-        }
-
-        // The selection is after all the goals.
-        None
-    }
-
     pub fn proof_to_code(&self, proof: &Proof) -> Result<Vec<String>, String> {
         let values = proof.make_direct()?;
         let mut answer = vec![];
