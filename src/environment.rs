@@ -13,6 +13,28 @@ use crate::proof::Proof;
 use crate::statement::{Statement, StatementInfo};
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
+// Each line has a LineType, to handle line-based user interface.
+enum LineType {
+    // Only used within subenvironments.
+    // The line relates to the block, but is outside the opening brace for this block.
+    Opening,
+
+    // This line corresponds to a proposition inside the environment.
+    // The usize is an index into the propositions array.
+    // If the proposition has a block, this line should also have a type within the block.
+    Proposition(usize),
+
+    // Either only whitespace is here, or a comment.
+    Empty,
+
+    // Lines with other sorts of statements besides prop statements.
+    Other,
+
+    // Only used within subenvironments.
+    // The line has the closing brace for this block.
+    Closing,
+}
+
 // The Environment takes Statements as input and processes them.
 // It does not prove anything directly, but it is responsible for determining which
 // things need to be proved, and which statements are usable in which proofs.
@@ -38,6 +60,12 @@ pub struct Environment {
     // Whether a plain "false" is anywhere in this environment.
     // This indicates that the environment is supposed to have contradictory facts.
     pub includes_explicit_false: bool,
+
+    // For the base environment, first_line is zero.
+    // first_line is usually nonzero when the environment is a subenvironment.
+    // line_types[0] corresponds to first_line in the source document.
+    first_line: u32,
+    line_types: Vec<LineType>,
 }
 
 pub struct Proposition {
@@ -180,6 +208,8 @@ impl Environment {
             propositions: Vec::new(),
             definition_ranges: HashMap::new(),
             includes_explicit_false: false,
+            first_line: 0,
+            line_types: Vec::new(),
         }
     }
 
@@ -203,6 +233,8 @@ impl Environment {
         args: Vec<(String, AcornType)>,
         body: &Vec<Statement>,
         params: BlockParams,
+        first_line: u32,
+        last_line: u32,
     ) -> token::Result<Option<Block>> {
         if body.is_empty() {
             return Ok(None);
@@ -213,6 +245,8 @@ impl Environment {
             propositions: Vec::new(),
             definition_ranges: self.definition_ranges.clone(),
             includes_explicit_false: false,
+            first_line,
+            line_types: Vec::new(),
         };
 
         // Inside the block, the type parameters are opaque data types.
@@ -294,7 +328,6 @@ impl Environment {
         };
 
         for s in body {
-            // Imports are not allowed in blocks, so the subenv doesn't need the project.
             subenv.add_statement(project, s)?;
         }
         Ok(Some(Block {
@@ -559,6 +592,8 @@ impl Environment {
                     block_args,
                     &ts.body,
                     BlockParams::Theorem(&ts.name, hypothesis, goal),
+                    statement.first_line(),
+                    statement.last_line(),
                 )?;
 
                 let prop = Proposition {
@@ -605,7 +640,15 @@ impl Environment {
                 }
 
                 let block = self
-                    .new_block(project, vec![], args, &fas.body, BlockParams::ForAll)?
+                    .new_block(
+                        project,
+                        vec![],
+                        args,
+                        &fas.body,
+                        BlockParams::ForAll,
+                        statement.first_line(),
+                        statement.last_line(),
+                    )?
                     .unwrap();
 
                 // The last claim in the block is exported to the outside environment.
@@ -646,6 +689,8 @@ impl Environment {
                         vec![],
                         &is.body,
                         BlockParams::If(&condition, range),
+                        statement.first_line(),
+                        statement.last_line(),
                     )?
                     .unwrap();
                 let inner_claim: &AcornValue = match block.env.propositions.last() {

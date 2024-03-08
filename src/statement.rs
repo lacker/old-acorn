@@ -669,6 +669,14 @@ impl Statement {
             end: self.last_token.end_pos(),
         }
     }
+
+    pub fn first_line(&self) -> u32 {
+        self.first_token.start_pos().line
+    }
+
+    pub fn last_line(&self) -> u32 {
+        self.last_token.end_pos().line
+    }
 }
 
 #[cfg(test)]
