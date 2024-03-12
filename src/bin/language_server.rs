@@ -72,6 +72,8 @@ impl Document {
 #[serde(rename_all = "camelCase")]
 pub struct ProgressParams {}
 
+// The SearchParams are sent from extension to language server to start searching for a proof.
+//
 // NOTE: this struct defines the format used for the params in JavaScript as well.
 //  See:
 //  the SearchParams interface in extension.ts
@@ -84,6 +86,9 @@ pub struct SearchParams {
 
     // The selected line in the document
     pub selected_line: u32,
+
+    // The search id, set by the extension.
+    pub id: i32,
 }
 
 // The SearchResult contains information that is produced once, when the search completes.
@@ -104,6 +109,9 @@ impl SearchResult {
     }
 }
 
+// The SearchResponse is sent from language server -> extension -> webview with the result of a
+// proof search, or information about a partial result.
+//
 // NOTE: this struct defines the format used for the response in JavaScript as well.
 //   See:
 //   sendSearchRequest in extension.ts
@@ -136,6 +144,9 @@ pub struct SearchResponse {
     // The result of the search process.
     // If it has not completed yet, this is None.
     pub result: Option<SearchResult>,
+
+    // The id for the search, provided by the extension
+    pub id: i32,
 }
 
 impl SearchResponse {
@@ -149,6 +160,7 @@ impl SearchResponse {
             text_output: vec![],
             result: None,
             proof_insertion_line: 0,
+            id: params.id,
         }
     }
 }
@@ -190,6 +202,13 @@ struct SearchTask {
 
     // Zero-based line where we would insert a proof for this goal
     proof_insertion_line: u32,
+
+    // The search id set by the extenson for the original search that created this task.
+    // The extension may send new searches with essentially the same parameters, that we
+    // discard. This is inevitable because the extension doesn't have enough information to
+    // disambiguoute searches. Only the language server does.
+    // Thus, when we get redundant searches, we keep using the original id downstream.
+    id: i32,
 }
 
 impl SearchTask {
@@ -212,6 +231,7 @@ impl SearchTask {
             text_output,
             result,
             proof_insertion_line: self.proof_insertion_line,
+            id: self.id,
         }
     }
 
@@ -594,6 +614,7 @@ impl Backend {
             result: Arc::new(OnceCell::new()),
             superseded: Arc::new(AtomicBool::new(false)),
             proof_insertion_line: goal_context.proof_insertion_line,
+            id: params.id,
         };
 
         // A minimal response before any data has been collected

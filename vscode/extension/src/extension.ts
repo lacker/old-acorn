@@ -30,7 +30,9 @@ interface SearchParams {
   selectedLine: number;
 }
 
-function searchParamsEqual(a: SearchParams, b: SearchParams) {
+// Whether these search params will definitely yield the same result, just based
+// on the local information we have.
+function searchParamsEquivalent(a: SearchParams, b: SearchParams) {
   return (
     a.uri === b.uri &&
     a.selectedLine === b.selectedLine &&
@@ -44,12 +46,12 @@ class SearchPanel implements Disposable {
   disposables: Disposable[];
   currentParams: SearchParams;
   distPath: string;
-  currentRequestId: number;
+  currentSearchId: number;
   requestViewColumn: number;
 
   constructor(distPath: string) {
     this.distPath = distPath;
-    this.currentRequestId = 0;
+    this.currentSearchId = 0;
     this.disposables = [
       commands.registerTextEditorCommand("acorn.displaySearchPanel", (editor) =>
         this.display(editor)
@@ -90,7 +92,10 @@ class SearchPanel implements Disposable {
 
     // No need to send the request if nothing has changed.
     let params: SearchParams = { uri, selectedLine, version };
-    if (this.currentParams && searchParamsEqual(this.currentParams, params)) {
+    if (
+      this.currentParams &&
+      searchParamsEquivalent(this.currentParams, params)
+    ) {
       return;
     }
 
@@ -98,7 +103,7 @@ class SearchPanel implements Disposable {
     // When in doubt, we can use this view column to do code-writing operations.
     this.requestViewColumn = editor.viewColumn;
 
-    let id = this.currentRequestId + 1;
+    let id = this.currentSearchId + 1;
     this.sendSearchRequest(id, params);
   }
 
@@ -107,31 +112,33 @@ class SearchPanel implements Disposable {
     console.log(
       `search request ${id}: ${params.uri} v${params.version} line ${params.selectedLine}`
     );
-    this.currentRequestId = id;
+    this.currentSearchId = id;
     this.currentParams = params;
 
-    client.sendRequest("acorn/search", params).then((response: any) => {
-      if (!this.panel) {
-        // The user closed the search panel since we sent the request.
-        return;
-      }
-      if (id != this.currentRequestId) {
-        // This request has been superseded by a newer one.
-        return;
-      }
-      if (response.error) {
-        console.log("search error:", response.error);
-        return;
-      }
-      if (!response.loading) {
-        this.panel.webview.postMessage(response);
-      }
-      if (!response.result) {
-        // The search response is not complete. Send another request after waiting a bit.
-        let ms = 100;
-        setTimeout(() => this.retrySearchRequest(id), ms);
-      }
-    });
+    client
+      .sendRequest("acorn/search", { id, ...params })
+      .then((response: any) => {
+        if (!this.panel) {
+          // The user closed the search panel since we sent the request.
+          return;
+        }
+        if (id != this.currentSearchId) {
+          // This request has been superseded by a newer one.
+          return;
+        }
+        if (response.error) {
+          console.log("search error:", response.error);
+          return;
+        }
+        if (!response.loading) {
+          this.panel.webview.postMessage(response);
+        }
+        if (!response.result) {
+          // The search response is not complete. Send another request after waiting a bit.
+          let ms = 100;
+          setTimeout(() => this.retrySearchRequest(id), ms);
+        }
+      });
   }
 
   retrySearchRequest(id: number) {
@@ -139,7 +146,7 @@ class SearchPanel implements Disposable {
       // The user closed the search panel since we sent the request.
       return;
     }
-    if (id != this.currentRequestId) {
+    if (id != this.currentSearchId) {
       // This request has been superseded by a newer one.
       return;
     }
