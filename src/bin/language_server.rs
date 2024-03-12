@@ -657,8 +657,7 @@ impl LanguageServer for Backend {
     }
 
     // TODO: Note that this does not cancel any ongoing search tasks.
-    // It does make the result of any ongoing search tasks useless.
-    // So maybe this behavior is a bit illogical.
+    // It does make the result of any ongoing search tasks unusable, though.
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
         let text = std::mem::take(&mut params.content_changes[0].text);
