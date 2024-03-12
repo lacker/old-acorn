@@ -321,6 +321,10 @@ class SearchPanel implements Disposable {
     );
     console.log("post-injection html:\n", injected);
     this.panel.webview.html = injected;
+
+    // Always reissue the search request on panel open
+    this.currentParams = null;
+    this.updateLocation();
   }
 
   toggle(editor: TextEditor) {
