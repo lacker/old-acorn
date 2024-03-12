@@ -561,7 +561,7 @@ mod tests {
         let paths = env.goal_paths();
         for path in paths {
             let prop = env.get_proposition(&path).unwrap();
-            let goal_context = env.get_goal_context(&project, &path);
+            let goal_context = env.get_goal_context(&project, &path).unwrap();
             assert_eq!(prop.range, goal_context.range);
             println!("proving: {}", goal_context.name);
             let mut prover = Prover::new(&project, &goal_context, false, None);

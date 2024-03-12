@@ -224,7 +224,7 @@ impl SearchTask {
         log(&format!("running search task for {}", self.goal_name));
 
         // Get the specific goal to prove
-        let goal_context = env.get_goal_context(&project, &self.path);
+        let goal_context = env.get_goal_context(&project, &self.path).unwrap();
         let mut prover = Prover::new(&project, &goal_context, true, Some(self.queue.clone()));
 
         // By default, the prover will stop if the build is stopped.
@@ -561,7 +561,10 @@ impl Backend {
             }
         }
 
-        let goal_context = env.get_goal_context(&project, &path);
+        let goal_context = match env.get_goal_context(&project, &path) {
+            Ok(goal_context) => goal_context,
+            Err(s) => return self.fail(params, &s),
+        };
 
         // Create a new search task
         let new_task = SearchTask {

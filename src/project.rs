@@ -305,7 +305,7 @@ impl Project {
             let mut target_warnings = false;
             let paths = env.goal_paths();
             for path in paths.iter() {
-                let goal_context = env.get_goal_context(&self, &path);
+                let goal_context = env.get_goal_context(&self, &path).unwrap();
                 let mut prover = Prover::new(&self, &goal_context, false, None);
                 let outcome = prover.medium_search();
 

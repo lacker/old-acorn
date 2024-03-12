@@ -985,7 +985,7 @@ impl Environment {
         for (i, p) in self.propositions.iter().enumerate() {
             if let Some(name) = &p.theorem_name {
                 if name == theorem_name {
-                    return self.get_goal_context(project, &vec![i]);
+                    return self.get_goal_context(project, &vec![i]).unwrap();
                 }
             }
         }
@@ -1084,7 +1084,11 @@ impl Environment {
 
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
-    pub fn get_goal_context(&self, project: &Project, path: &Vec<usize>) -> GoalContext {
+    pub fn get_goal_context(
+        &self,
+        project: &Project,
+        path: &Vec<usize>,
+    ) -> Result<GoalContext, String> {
         let mut global_facts = vec![];
         let mut local_facts = vec![];
         let mut env = self;
@@ -1100,7 +1104,11 @@ impl Environment {
                 }
             }
             global = false;
-            let prop = &env.propositions[*i];
+            let prop = &env.propositions.get(*i);
+            let prop = match prop {
+                Some(p) => p,
+                None => return Err(format!("no prop at path {:?}", path)),
+            };
             if let Some(block) = &prop.block {
                 if it.peek().is_none() {
                     // This is the last element of the path. It has a block, so we can use the
@@ -1111,9 +1119,9 @@ impl Environment {
                     let claim = if let Some(claim) = &block.claim {
                         claim
                     } else {
-                        panic!("expected a claim at path {:?}", path);
+                        return Err(format!("no internal claim at path {:?}", path));
                     };
-                    return GoalContext::new(
+                    return Ok(GoalContext::new(
                         &block.env,
                         global_facts,
                         local_facts,
@@ -1121,14 +1129,14 @@ impl Environment {
                         block.env.inline_theorems(project, claim),
                         prop.range,
                         prop.range.end.line,
-                    );
+                    ));
                 }
                 env = &block.env;
             } else {
                 // If there's no block on this prop, this must be the last element of the path
                 assert!(it.peek().is_none());
 
-                return GoalContext::new(
+                return Ok(GoalContext::new(
                     &env,
                     global_facts,
                     local_facts,
@@ -1136,7 +1144,7 @@ impl Environment {
                     env.inline_theorems(project, &prop.claim),
                     prop.range,
                     prop.range.start.line,
-                );
+                ));
             }
         }
         panic!("control should not get here");
@@ -1146,7 +1154,7 @@ impl Environment {
         let paths = self.goal_paths();
         let mut names = Vec::new();
         for path in paths {
-            let context = self.get_goal_context(project, &path);
+            let context = self.get_goal_context(project, &path).unwrap();
             if context.name == name {
                 return context;
             }
@@ -1162,6 +1170,7 @@ impl Environment {
     // is unusable. Error messages use one-based line numbers.
     pub fn get_path_for_line(&self, line: u32) -> Result<Vec<usize>, String> {
         let mut path = vec![];
+        let mut block: Option<&Block> = None;
         let mut env = self;
         loop {
             match env.get_line_type(line) {
@@ -1169,8 +1178,9 @@ impl Environment {
                     path.push(i);
                     let prop = &env.propositions[i];
                     match &prop.block {
-                        Some(block) => {
-                            env = &block.env;
+                        Some(b) => {
+                            block = Some(b);
+                            env = &b.env;
                             continue;
                         }
                         None => {
@@ -1178,7 +1188,15 @@ impl Environment {
                         }
                     }
                 }
-                Some(LineType::Opening) | Some(LineType::Closing) => return Ok(path),
+                Some(LineType::Opening) | Some(LineType::Closing) => match block {
+                    Some(block) => {
+                        if block.claim.is_none() {
+                            return Err(format!("no claim for block at line {}", line + 1));
+                        }
+                        return Ok(path);
+                    }
+                    None => return Err(format!("no block for line {}", line + 1)),
+                },
                 Some(LineType::Other) => return Err(format!("line {} is not a prop", line + 1)),
                 None => return Err(format!("line {} is out of range", line + 1)),
                 Some(LineType::Empty) => {
@@ -1590,7 +1608,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let module = p.expect_ok("main");
         let env = p.get_env(module).unwrap();
         for path in env.goal_paths() {
-            env.get_goal_context(&p, &path);
+            env.get_goal_context(&p, &path).unwrap();
         }
     }
 
@@ -1611,7 +1629,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let module = p.expect_ok("main");
         let env = p.get_env(module).unwrap();
         for path in env.goal_paths() {
-            env.get_goal_context(&p, &path);
+            env.get_goal_context(&p, &path).unwrap();
         }
     }
 
