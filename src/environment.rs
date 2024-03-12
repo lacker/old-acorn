@@ -1195,7 +1195,7 @@ impl Environment {
                         }
                         return Ok(path);
                     }
-                    None => return Err(format!("no block for line {}", line + 1)),
+                    None => return Err(format!("brace but no block, line {}", line + 1)),
                 },
                 Some(LineType::Other) => return Err(format!("line {} is not a prop", line + 1)),
                 None => return Err(format!("line {} is out of range", line + 1)),
@@ -1221,7 +1221,30 @@ impl Environment {
                                 // Keep sliding
                                 continue;
                             }
-                            _ => return Err(format!("can't slide {} -> {}", line + 1, slide + 1)),
+                            Some(LineType::Closing) => {
+                                // Sliding into the end of our block is okay
+                                match block {
+                                    Some(block) => {
+                                        if block.claim.is_none() {
+                                            return Err("slide to end but no claim".to_string());
+                                        }
+                                        return Ok(path);
+                                    }
+                                    None => {
+                                        return Err(format!(
+                                            "close brace but no block, line {}",
+                                            slide + 1
+                                        ))
+                                    }
+                                }
+                            }
+                            Some(LineType::Opening) => {
+                                return Err(format!("slide to open brace, line {}", slide + 1));
+                            }
+                            Some(LineType::Other) => {
+                                return Err(format!("slide to non-prop {}", slide + 1));
+                            }
+                            None => return Err(format!("slide to end, line {}", slide + 1)),
                         }
                     }
                 }
