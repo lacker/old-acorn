@@ -418,17 +418,17 @@ impl Backend {
 
     // This updates a document in the project, based on the state in the backend.
     async fn update_doc_in_project(&self, url: &Url) {
-        let content = self.documents.get(url);
-        if content.is_none() {
-            log("no text available for update_doc_in_project");
-            return;
-        }
-        let document = content.unwrap();
-        let content = &document.text;
+        let document = match self.documents.get(url) {
+            Some(doc) => doc,
+            None => {
+                log("no text available for update_doc_in_project");
+                return;
+            }
+        };
         let path = match url.to_file_path() {
             Ok(path) => path,
             Err(_) => {
-                log(format!("no path available for {} in update_doc_in_project", url).as_str());
+                log(&format!("no path available for {}", url));
                 return;
             }
         };
@@ -436,13 +436,17 @@ impl Backend {
             // Check if the project already has this document state.
             // If the update is a no-op, there's no need to stop the build.
             let project = self.project.read().await;
-            if project.matches_open_file(&path, content) {
+            if project.has_version(&path, document.version) {
                 return;
             }
         }
         let mut project = self.stop_build_and_get_project().await;
-        log(format!("updating {} with {} bytes", path.display(), content.len()).as_str());
-        project.update_file(path, content, document.version);
+        log(&format!(
+            "updating {} with {} bytes",
+            path.display(),
+            document.text.len()
+        ));
+        project.update_file(path, &document.text, document.version);
     }
 
     fn fail(&self, params: SearchParams, message: &str) -> jsonrpc::Result<SearchResponse> {

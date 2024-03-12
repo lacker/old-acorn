@@ -185,10 +185,10 @@ impl Project {
         }
     }
 
-    // Whether the provided content matches what we already have for an open file.
-    pub fn matches_open_file(&self, path: &PathBuf, content: &str) -> bool {
-        if let Some((existing, _)) = self.open_files.get(path) {
-            existing == content
+    // Whether we currently have this version of a file.
+    pub fn has_version(&self, path: &PathBuf, version: i32) -> bool {
+        if let Some((_, v)) = self.open_files.get(path) {
+            &version == v
         } else {
             false
         }
@@ -203,7 +203,7 @@ impl Project {
     // content in memory for it, rather than the content on disk.
     // Updated files are also added as build targets.
     pub fn update_file(&mut self, path: PathBuf, content: &str, version: i32) {
-        if self.matches_open_file(&path, content) {
+        if self.has_version(&path, version) {
             // No need to do anything
             return;
         }
