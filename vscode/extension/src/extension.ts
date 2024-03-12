@@ -239,11 +239,23 @@ class SearchPanel implements Disposable {
     for (let c of code) {
       formatted.push(spacer + c + "\n");
     }
-    let position = new Position(line, 0);
 
     let success = await editor.edit((edit) => {
-      edit.insert(position, formatted.join());
+      // Insert the new code itself.
+      let insertPos = new Position(line, 0);
+      edit.insert(insertPos, formatted.join());
+
+      // If the line before our insertion is empty, we want to delete it, so that
+      // the net effect is inserting this code at the empty line.
+      if (
+        line > 0 &&
+        editor.document.lineAt(line - 1).text.trim().length === 0
+      ) {
+        let prevPos = new Position(line - 1, 0);
+        edit.delete(new Range(prevPos, insertPos));
+      }
     });
+
     if (!success) {
       window.showErrorMessage("failed to insert proof");
       return;
