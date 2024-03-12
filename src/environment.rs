@@ -92,7 +92,7 @@ pub struct Proposition {
     block: Option<Block>,
 
     // The range in the source document corresponding to this proposition.
-    // Multiple propositions can have overlapping ranges.
+    // Multiple propositions can have overlapping ranges, so don't use this for lookups.
     pub range: Range,
 }
 
@@ -221,6 +221,10 @@ impl Environment {
 
     fn next_line(&self) -> u32 {
         self.line_types.len() as u32 + self.first_line
+    }
+
+    fn last_line(&self) -> u32 {
+        self.next_line() - 1
     }
 
     // Add line types for the given range, inserting empties as needed.
@@ -1126,7 +1130,7 @@ impl Environment {
                         prop.name(),
                         block.env.inline_theorems(project, claim),
                         prop.range,
-                        prop.range.end.line,
+                        block.env.last_line(),
                     ));
                 }
                 env = &block.env;

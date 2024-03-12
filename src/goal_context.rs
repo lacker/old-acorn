@@ -110,12 +110,6 @@ impl GoalContext<'_> {
         }
         (global_out, local_out)
     }
-
-    // What zero-based line we could insert a proof at, for this goal.
-    // Returns None if we would have to create a "by" block.
-    pub fn proof_insertion_line(&self) -> Option<u32> {
-        todo!();
-    }
 }
 
 // For the purposes of the goal context, we store parameter lists that correspond to
