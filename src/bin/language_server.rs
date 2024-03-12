@@ -121,6 +121,10 @@ pub struct SearchResponse {
     // If something went wrong, this contains an error message.
     pub error: Option<String>,
 
+    // When loading is true, it means that we can't start a search, because the version
+    // requested is not loaded. The caller can wait and retry, or just abandon.
+    pub loading: bool,
+
     pub goal_name: Option<String>,
 
     // The text output will keep growing as the search task runs.
@@ -140,6 +144,7 @@ impl SearchResponse {
             uri: params.uri,
             version: params.version,
             error: None,
+            loading: false,
             goal_name: None,
             text_output: vec![],
             result: None,
@@ -202,6 +207,7 @@ impl SearchTask {
             uri: self.document.url.clone(),
             version: self.document.version,
             error: None,
+            loading: false,
             goal_name: Some(self.goal_name.clone()),
             text_output,
             result,
@@ -517,14 +523,19 @@ impl Backend {
         };
         match project.get_version(&path) {
             Some(project_version) => {
-                if params.version != project_version {
-                    return self.fail(
-                        params,
-                        &format!(
-                            "the project does not have an up-to-date version of {}",
-                            path.display()
-                        ),
+                if params.version < project_version {
+                    let message = &format!(
+                        "user requested version {} but the project has version {}",
+                        params.version, project_version
                     );
+                    return self.fail(params, message);
+                }
+                if params.version > project_version {
+                    // The requested version is not loaded yet.
+                    return Ok(SearchResponse {
+                        loading: true,
+                        ..SearchResponse::new(params)
+                    });
                 }
             }
             None => {

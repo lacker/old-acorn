@@ -70,7 +70,8 @@ class SearchPanel implements Disposable {
     ];
   }
 
-  // Updates the current location in the document
+  // Updates the current location in the document.
+  // Also updates the document version.
   updateLocation() {
     let editor = window.activeTextEditor;
     if (!editor) {
@@ -122,14 +123,9 @@ class SearchPanel implements Disposable {
         console.log("search error:", response.error);
         return;
       }
-      if (!response.result) {
-        console.log(`search response: ${response.goalName} pending`);
-      } else if (response.result.code) {
-        console.log(`search response: ${response.goalName} proved`);
-      } else {
-        console.log(`search response: ${response.goalName} not proved`);
+      if (!response.loading) {
+        this.panel.webview.postMessage(response);
       }
-      this.panel.webview.postMessage(response);
       if (!response.result) {
         // The search response is not complete. Send another request after waiting a bit.
         let ms = 100;
