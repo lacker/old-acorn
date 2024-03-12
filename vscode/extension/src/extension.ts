@@ -97,17 +97,16 @@ class SearchPanel implements Disposable {
     // When in doubt, we can use this view column to do code-writing operations.
     this.requestViewColumn = editor.viewColumn;
 
-    this.sendSearchRequest(params);
+    let id = this.currentRequestId + 1;
+    this.sendSearchRequest(id, params);
   }
 
   // Sends a search request to the language server, passing the response on to the webview.
-  sendSearchRequest(params: SearchParams) {
+  sendSearchRequest(id: number, params: SearchParams) {
     console.log(
-      `search request: ${params.uri} v${params.version} line ${params.selectedLine}`
+      `search request ${id}: ${params.uri} v${params.version} line ${params.selectedLine}`
     );
-    this.currentRequestId += 1;
-    let id = this.currentRequestId;
-
+    this.currentRequestId = id;
     this.currentParams = params;
 
     client.sendRequest("acorn/search", params).then((response: any) => {
@@ -134,9 +133,21 @@ class SearchPanel implements Disposable {
       if (!response.result) {
         // The search response is not complete. Send another request after waiting a bit.
         let ms = 100;
-        setTimeout(() => this.sendSearchRequest(params), ms);
+        setTimeout(() => this.retrySearchRequest(id), ms);
       }
     });
+  }
+
+  retrySearchRequest(id: number) {
+    if (!this.panel) {
+      // The user closed the search panel since we sent the request.
+      return;
+    }
+    if (id != this.currentRequestId) {
+      // This request has been superseded by a newer one.
+      return;
+    }
+    this.sendSearchRequest(id, this.currentParams);
   }
 
   // Handles messages from the webview.
