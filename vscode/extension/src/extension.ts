@@ -4,6 +4,7 @@ import {
   ExtensionContext,
   Position,
   ProgressLocation,
+  Range,
   TextDocument,
   TextEditor,
   Uri,
@@ -173,6 +174,8 @@ class SearchPanel implements Disposable {
     return null;
   }
 
+  // Inserts a proof at the given line.
+  // Code already at that line will be shifted down, so that it follows the inserted code.
   async insertProof(
     uri: string,
     version: number,
@@ -232,6 +235,20 @@ class SearchPanel implements Disposable {
     });
     if (!success) {
       window.showErrorMessage("failed to insert proof");
+      return;
+    }
+
+    // If the line before our insertion is empty, we want to delete it.
+    if (line > 0 && editor.document.lineAt(line - 1).text.trim().length === 0) {
+      let start = new Position(line - 1, 0);
+      let end = new Position(line, 0);
+      let success = await editor.edit((edit) => {
+        edit.delete(new Range(start, end));
+      });
+      if (!success) {
+        window.showErrorMessage("failed to delete empty line");
+        return;
+      }
     }
   }
 
