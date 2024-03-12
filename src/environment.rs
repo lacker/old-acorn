@@ -93,8 +93,6 @@ pub struct Proposition {
 
     // The range in the source document corresponding to this proposition.
     // Multiple propositions can have overlapping ranges.
-    // The convention is that selecting a location will select the first overlapping proposition,
-    // so when there are implicit propositions, they should come after the explicit one.
     pub range: Range,
 }
 
