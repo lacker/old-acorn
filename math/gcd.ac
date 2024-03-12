@@ -81,8 +81,7 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(Suc(
         lte(Suc(f(0)), z)
         lte(Suc(f(0)), f(0))
         false
-    }
-    
+    }    
 }
 
 theorem dtz_terminates(f: Nat -> Nat):
@@ -135,65 +134,57 @@ define gcd(a: Nat, b: Nat) -> Nat = gcd_pair(NatPair.new(a, b))
 define divides_both(a: Nat, p: NatPair) -> bool = divides(a, NatPair.first(p)) & divides(a, NatPair.second(p))
 
 theorem divides_both_step(a: Nat, p: NatPair): divides_both(a, p) -> divides_both(a, gcd_step(p)) by {
-    if divides_both(a, p) {
-        divides(a, NatPair.first(p))
-        divides(a, NatPair.second(p))
-        divides(a, mod(NatPair.first(p), NatPair.second(p)))
-        if NatPair.second(p) = 0 {
-            divides_both(a, gcd_step(p))
-        }
-        if NatPair.second(p) != 0 {
-            gcd_step(p) = NatPair.new(NatPair.second(p),
-                                      mod(NatPair.first(p), NatPair.second(p)))
-            NatPair.second(gcd_step(p)) = mod(NatPair.first(p), NatPair.second(p))
-            divides(a, NatPair.second(gcd_step(p)))
-            NatPair.first(gcd_step(p)) = NatPair.second(p)
-            divides(a, NatPair.first(gcd_step(p)))
-            divides_both(a, gcd_step(p))
-        }
+    divides(a, NatPair.first(p))
+    divides(a, NatPair.second(p))
+    divides(a, mod(NatPair.first(p), NatPair.second(p)))
+    if NatPair.second(p) = 0 {
+        divides_both(a, gcd_step(p))
+    }
+    if NatPair.second(p) != 0 {
+        gcd_step(p) = NatPair.new(NatPair.second(p),
+                                    mod(NatPair.first(p), NatPair.second(p)))
+        NatPair.second(gcd_step(p)) = mod(NatPair.first(p), NatPair.second(p))
+        divides(a, NatPair.second(gcd_step(p)))
+        NatPair.first(gcd_step(p)) = NatPair.second(p)
+        divides(a, NatPair.first(gcd_step(p)))
+        divides_both(a, gcd_step(p))
     }
 }
 
 theorem divides_gcd_step_n(d: Nat, p: NatPair, n: Nat):
     divides_both(d, p) -> divides_both(d, gcd_step_n(p, n)) by {
-    if divides_both(d, p) {
-        let f: Nat -> bool = function(x: Nat) { divides_both(d, gcd_step_n(p, x)) }
-        nat.induction(f)
-        f(0)
-        forall(x: Nat) {
-            if f(x) {
-                f(Suc(x))
-            }
+    let f: Nat -> bool = function(x: Nat) { divides_both(d, gcd_step_n(p, x)) }
+    nat.induction(f)
+    f(0)
+    forall(x: Nat) {
+        if f(x) {
+            f(Suc(x))
         }
-        divides_both(d, gcd_step_n(p, n))
     }
+    divides_both(d, gcd_step_n(p, n))
 }
 
 theorem divides_gcd_pair(d: Nat, p: NatPair): divides_both(d, p) -> divides(d, gcd_pair(p))
 
 theorem divides_gcd(d: Nat, a: Nat, b: Nat): divides(d, a) & divides(d, b) -> divides(d, gcd(a, b)) by {
-    if divides(d, a) & divides(d, b) {
-        divides_both(d, NatPair.new(a, b))
-        divides_gcd_pair(d, NatPair.new(a, b))
-        
-        divides(d, gcd_pair(NatPair.new(a, b)))
-        divides(d, gcd(a, b))
-    }
+    divides_both(d, NatPair.new(a, b))
+    divides_gcd_pair(d, NatPair.new(a, b))
+    
+    divides(d, gcd_pair(NatPair.new(a, b)))
+    divides(d, gcd(a, b))
 }
 
 theorem divides_both_unstep(a: Nat, p: NatPair): divides_both(a, gcd_step(p)) -> divides_both(a, p) by {
-    if divides_both(a, gcd_step(p)) {
-        if NatPair.second(p) = 0 {
-            p = gcd_step(p)
-            divides_both(a, p)
-        }
-        if NatPair.second(p) != 0 {
-            gcd_step(p) = NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
-            divides(a, NatPair.second(p))
-            divides(a, mod(NatPair.first(p), NatPair.second(p)))
-            divides(a, NatPair.first(p))
-            divides_both(a, p)
-        }
+    if NatPair.second(p) = 0 {
+        p = gcd_step(p)
+        divides_both(a, p)
+    }
+    if NatPair.second(p) != 0 {
+        gcd_step(p) = NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
+        divides(a, NatPair.second(p))
+        divides(a, mod(NatPair.first(p), NatPair.second(p)))
+        divides(a, NatPair.first(p))
+        divides_both(a, p)
     }
 }
 
@@ -214,12 +205,10 @@ theorem divides_gcd_step_n_converse(d: Nat, p: NatPair, n: Nat):
 }
 
 theorem divides_gcd_pair_converse(d: Nat, p: NatPair): divides(d, gcd_pair(p)) -> divides_both(d, p) by {
-    if divides(d, gcd_pair(p)) {
-        gcd_pair(p) = NatPair.first(gcd_step_n(p, num_gcd_steps(p)))
-        0 = NatPair.second(gcd_step_n(p, num_gcd_steps(p)))
-        divides_both(d, gcd_step_n(p, num_gcd_steps(p)))
-        divides_both(d, p)
-    }
+    gcd_pair(p) = NatPair.first(gcd_step_n(p, num_gcd_steps(p)))
+    0 = NatPair.second(gcd_step_n(p, num_gcd_steps(p)))
+    divides_both(d, gcd_step_n(p, num_gcd_steps(p)))
+    divides_both(d, p)
 }
 
 theorem gcd_divides(d: Nat, a: Nat, b: Nat): divides(d, gcd(a, b)) -> divides(d, a) & divides(d, b) by {
