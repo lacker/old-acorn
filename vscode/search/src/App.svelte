@@ -8,36 +8,14 @@
   // This will be updated to reflect the last successful search response.
   let searchResponse: SearchResponse | null = null;
 
-  // handleSearchResponse typically sets each of these each time it's called.
-  let complete: boolean = false;
-  let code: string[] | null = null;
-  let proofInsertionLine: number | null = null;
-  let uri: string | null;
-  let version: number | null;
-
-  // NOTE: the 'response' type corresponds to SearchResponse in language_server.rs.
   function handleSearchResponse(response: SearchResponse) {
-    if (response.error) {
+    if (response.error || response.goalName === null) {
       // Error responses should not reach this point.
       console.error("unexpected upstream error:", response.error);
       return;
     }
-    if (!response.goalName) {
-      return;
-    }
 
     searchResponse = response;
-    uri = response.uri;
-    version = response.version;
-    if (response.result) {
-      complete = true;
-      code = response.result.code;
-      proofInsertionLine = response.proofInsertionLine;
-    } else {
-      complete = false;
-      code = null;
-      proofInsertionLine = null;
-    }
   }
 
   onMount(() => {
@@ -48,20 +26,21 @@
 
   function insertProof() {
     if (
-      !complete ||
-      code === null ||
-      code.length === 0 ||
-      proofInsertionLine === null
+      searchResponse === null ||
+      searchResponse.result === null ||
+      searchResponse.result.code === null ||
+      searchResponse.result.code.length === 0 ||
+      searchResponse.proofInsertionLine === null
     ) {
       console.log("cannot insert proof");
       return;
     }
     vscode.postMessage({
       command: "insertProof",
-      uri,
-      version,
-      line: proofInsertionLine,
-      code,
+      uri: searchResponse.uri,
+      version: searchResponse.version,
+      line: searchResponse.proofInsertionLine,
+      code: searchResponse.result.code,
     });
   }
 </script>
@@ -72,14 +51,25 @@
   {:else}
     <h1>{searchResponse.goalName}</h1>
 
-    {#if complete}
-      {#if code === null}
+    {#if searchResponse.result !== null}
+      {#if searchResponse.result.code === null}
         <pre>proof search failed.</pre>
-      {:else if code.length === 0}
+      {:else if searchResponse.result.code.length === 0}
         <pre>the proof is trivial.</pre>
       {:else}
-        <pre>{"proof found:\n  " + code.join("\n  ")}</pre>
+        <pre>{"proof found:\n  " +
+            searchResponse.result.code.join("\n  ")}</pre>
         <button on:click={insertProof}>Insert proof</button>
+      {/if}
+
+      {#if searchResponse.result.steps !== null}
+        {#each searchResponse.result.steps as step}
+          <pre>{step.clause.id === null
+              ? "Contradiction"
+              : `Clause ${step.clause.id}`}, by {step.rule.toLowerCase()}:
+
+{step.clause.text}</pre>
+        {/each}
       {/if}
     {/if}
 
