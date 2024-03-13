@@ -43,6 +43,10 @@
       code: searchResponse.result.code,
     });
   }
+
+  function spaces(n: number): string {
+    return "\u00A0".repeat(n);
+  }
 </script>
 
 <main>
@@ -63,16 +67,31 @@
       {/if}
 
       {#if searchResponse.result.steps !== null}
-        {#each searchResponse.result.steps as step}
-          <pre>{step.clause.id === null
-              ? "Contradiction"
-              : `Clause ${step.clause.id}`}, by {step.rule.toLowerCase()}:
-
-{step.clause.text}</pre>
-        {/each}
+        <div class="mono">
+          {#each searchResponse.result.steps as step}
+            <br />
+            {#if step.clause.id === null}
+              Contradiction, by {step.rule.toLowerCase()}.<br />
+            {:else}
+              Clause {step.clause.id}, by {step.rule.toLowerCase()}:<br />
+              {spaces(4)}{step.clause.text}<br />
+            {/if}
+            {#each step.premises as [desc, clause]}
+              {spaces(2)}using clause {clause.id} as {desc}:<br />
+              {spaces(4)}{clause.text}<br />
+            {/each}
+          {/each}
+        </div>
       {/if}
     {/if}
 
     <pre>{searchResponse.textOutput.join("\n")}</pre>
   {/if}
 </main>
+
+<style>
+  .mono {
+    font-family: monospace;
+    display: block;
+  }
+</style>

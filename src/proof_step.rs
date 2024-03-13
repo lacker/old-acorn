@@ -96,8 +96,8 @@ impl Rule {
         match self {
             Rule::Assumption => {}
             Rule::Resolution(info) => {
-                answer.push(("positive".to_string(), info.positive_id));
-                answer.push(("negative".to_string(), info.negative_id));
+                answer.push(("positive resolver".to_string(), info.positive_id));
+                answer.push(("negative resolver".to_string(), info.negative_id));
             }
             Rule::Rewrite(info) => {
                 answer.push(("pattern".to_string(), info.pattern_id));
