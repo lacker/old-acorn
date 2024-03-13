@@ -156,9 +156,15 @@ class SearchPanel implements Disposable {
         message.line,
         message.code
       );
-    } else {
-      console.log("unhandled message:", message);
+      return;
     }
+
+    if (message.command === "infoRequest") {
+      console.log("XXX clause id:", message.params.clauseId);
+      return;
+    }
+
+    console.log("unhandled message:", message);
   }
 
   // Heuristically find an editor for the given uri and focus it.

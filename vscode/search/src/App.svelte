@@ -47,6 +47,17 @@
   function spaces(n: number): string {
     return "\u00A0".repeat(n);
   }
+
+  function clauseClick(id: number | null) {
+    if (searchResponse === null || id === null) {
+      return;
+    }
+    let params: InfoParams = {
+      searchId: searchResponse.id,
+      clauseId: id,
+    };
+    vscode.postMessage({ command: "infoRequest", params });
+  }
 </script>
 
 <main>
@@ -77,7 +88,9 @@
               {spaces(4)}{step.clause.text}<br />
             {/if}
             {#each step.premises as [desc, clause]}
-              {spaces(2)}using clause {clause.id} as {desc}:<br />
+              {spaces(2)}using
+              <a on:click={() => clauseClick(clause.id)}>clause {clause.id}</a>
+              as {desc}:<br />
               {spaces(4)}{clause.text}<br />
             {/each}
           {/each}
