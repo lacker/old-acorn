@@ -10,7 +10,6 @@
 
   // handleSearchResponse typically sets each of these each time it's called.
   let complete: boolean = false;
-  let textOutput: string[] = [];
   let code: string[] | null = null;
   let proofInsertionLine: number | null = null;
   let uri: string | null;
@@ -28,15 +27,12 @@
     }
 
     searchResponse = response;
-    textOutput = response.textOutput;
     uri = response.uri;
     version = response.version;
     if (response.result) {
       complete = true;
       code = response.result.code;
       proofInsertionLine = response.proofInsertionLine;
-      textOutput.push("");
-      textOutput.push("(end of output)");
     } else {
       complete = false;
       code = null;
@@ -86,7 +82,7 @@
         <button on:click={insertProof}>Insert proof</button>
       {/if}
     {/if}
-  {/if}
 
-  <pre>{textOutput.join("\n")}</pre>
+    <pre>{searchResponse.textOutput.join("\n")}</pre>
+  {/if}
 </main>
