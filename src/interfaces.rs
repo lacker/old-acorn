@@ -47,21 +47,57 @@ pub struct SearchParams {
     pub id: i32,
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClauseInfo {
+    // A format for the user to see
+    pub text: String,
+
+    // Only activated clauses have an id
+    pub id: Option<usize>,
+}
+
+// Information about one step in a proof.
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProofStepInfo {
+    // The clause we are proving
+    pub clause: ClauseInfo,
+
+    // The clauses that we used to prove this one.
+    // Each clause is tagged with its description.
+    pub premises: Vec<(String, ClauseInfo)>,
+
+    // Name of the rule used in this proof step
+    pub rule: String,
+}
+
 // The SearchResult contains information that is produced once, when the search completes.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     // Code for the proof that can be inserted.
     // If we failed to find a proof, this is None.
     pub code: Option<Vec<String>>,
+
+    // Steps in the proof, as we found them.
+    // If we failed to find a proof, this is None.
+    pub steps: Option<Vec<ProofStepInfo>>,
 }
 
 impl SearchResult {
-    pub fn success(code: Vec<String>) -> SearchResult {
-        SearchResult { code: Some(code) }
+    pub fn success(code: Vec<String>, steps: Vec<ProofStepInfo>) -> SearchResult {
+        SearchResult {
+            code: Some(code),
+            steps: Some(steps),
+        }
     }
 
     pub fn failure() -> SearchResult {
-        SearchResult { code: None }
+        SearchResult {
+            code: None,
+            steps: None,
+        }
     }
 }
 
@@ -131,16 +167,6 @@ pub struct InfoParams {
     pub clause_id: usize,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ClauseInfo {
-    // A format for the user to see
-    pub text: String,
-
-    // Only activated clauses have an id
-    pub id: Option<usize>,
-}
-
 // The InfoResponse is sent from language server -> extension -> webview with the result of
 // an info request.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
@@ -149,12 +175,9 @@ pub struct InfoResponse {
     // The clause we are providing information for
     pub clause: ClauseInfo,
 
-    // The clauses that we used to prove this one
-    pub premises: Vec<ClauseInfo>,
+    // How we proved this clause
+    pub step: ProofStepInfo,
 
     // The clauses that this clause can be used to prove
     pub consequences: Vec<ClauseInfo>,
-
-    // How we proved this rule
-    pub rule: String,
 }

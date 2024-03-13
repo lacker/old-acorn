@@ -13,8 +13,20 @@ interface SearchParams {
   id: number;
 }
 
+interface ClauseInfo {
+  text: string;
+  id: number | null;
+}
+
+interface ProofStepInfo {
+  clause: ClauseInfo;
+  premises: Array<[String, ClauseInfo]>;
+  rule: string;
+}
+
 interface SearchResult {
   code: Array<string> | null;
+  steps: Array<ProofStepInfo> | null;
 }
 
 interface SearchResponse {
@@ -34,14 +46,8 @@ interface InfoParams {
   clauseId: number;
 }
 
-interface ClauseInfo {
-  text: string;
-  id: number | null;
-}
-
 interface InfoResponse {
   clause: ClauseInfo;
-  premises: Array<ClauseInfo>;
+  step: ProofStepInfo;
   consequences: Array<ClauseInfo>;
-  rule: string;
 }

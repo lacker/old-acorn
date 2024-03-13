@@ -10,6 +10,7 @@ use crate::active_set::ActiveSet;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::GoalContext;
+use crate::interfaces::{ClauseInfo, ProofStepInfo};
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
@@ -500,6 +501,41 @@ impl Prover {
             clause,
             normalizer: &self.normalizer,
         }
+    }
+
+    // Convert a clause to a jsonable form
+    pub fn to_clause_info(&self, id: Option<usize>, clause: &Clause) -> ClauseInfo {
+        ClauseInfo {
+            text: self.display(clause).to_string(),
+            id,
+        }
+    }
+
+    pub fn to_proof_step_info(&self, id: Option<usize>, step: &ProofStep) -> ProofStepInfo {
+        let clause = self.to_clause_info(id, &step.clause);
+        let mut premises = vec![];
+        for (description, i) in step.descriptive_dependencies() {
+            let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
+            premises.push((description, clause));
+        }
+        for i in &step.simplification_rules {
+            let clause = self.to_clause_info(Some(*i), self.active_set.get_clause(*i));
+            premises.push(("simplification".to_string(), clause));
+        }
+        let rule = step.rule.name().to_string();
+        ProofStepInfo {
+            clause,
+            premises,
+            rule,
+        }
+    }
+
+    pub fn to_proof_info(&self, proof: &Proof) -> Vec<ProofStepInfo> {
+        let mut result = vec![];
+        for (i, step) in proof.iter_steps() {
+            result.push(self.to_proof_step_info(i, step));
+        }
+        result
     }
 }
 

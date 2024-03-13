@@ -9,6 +9,8 @@ use crate::proof_step::{ProofStep, Rule, Truthiness};
 pub struct Proof<'a> {
     normalizer: &'a Normalizer,
 
+    // Maps clause id to proof step that proves it.
+    // Does not include the final step, because the final step has no clause id.
     steps: BTreeMap<usize, ProofStep>,
 
     final_step: ProofStep,
@@ -133,5 +135,14 @@ impl<'a> Proof<'a> {
         }
 
         Ok(answer)
+    }
+
+    // Iterates in order through the steps of the proof.
+    // Includes the clause id in the tuple, til it gets to the last one which is None.
+    pub fn iter_steps(&'a self) -> impl Iterator<Item = (Option<usize>, &'a ProofStep)> {
+        self.steps
+            .iter()
+            .map(|(id, step)| (Some(*id), step))
+            .chain(std::iter::once((None, &self.final_step)))
     }
 }

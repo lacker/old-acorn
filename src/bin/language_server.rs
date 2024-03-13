@@ -158,7 +158,8 @@ impl SearchTask {
                         for line in &code {
                             self.queue.push(line.to_string());
                         }
-                        SearchResult::success(code)
+                        let steps = prover.to_proof_info(&proof);
+                        SearchResult::success(code, steps)
                     }
                     Err(s) => {
                         self.queue
