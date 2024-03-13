@@ -240,7 +240,7 @@ class SearchPanel implements Disposable {
     let success = await editor.edit((edit) => {
       // Insert the new code itself.
       let insertPos = new Position(line, 0);
-      edit.insert(insertPos, formatted.join());
+      edit.insert(insertPos, formatted.join(""));
 
       // If the line before our insertion is empty, we want to delete it, so that
       // the net effect is inserting this code at the empty line.
