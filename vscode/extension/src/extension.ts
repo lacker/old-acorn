@@ -24,12 +24,6 @@ import {
 
 let client: LanguageClient;
 
-interface SearchParams {
-  uri: string;
-  version: number;
-  selectedLine: number;
-}
-
 // Whether these search params will definitely yield the same result, just based
 // on the local information we have.
 function searchParamsEquivalent(a: SearchParams, b: SearchParams) {
@@ -91,7 +85,8 @@ class SearchPanel implements Disposable {
     let version = editor.document.version;
 
     // No need to send the request if nothing has changed.
-    let params: SearchParams = { uri, selectedLine, version };
+    let id = this.currentSearchId + 1;
+    let params: SearchParams = { uri, selectedLine, version, id };
     if (
       this.currentParams &&
       searchParamsEquivalent(this.currentParams, params)
@@ -103,42 +98,39 @@ class SearchPanel implements Disposable {
     // When in doubt, we can use this view column to do code-writing operations.
     this.requestViewColumn = editor.viewColumn;
 
-    let id = this.currentSearchId + 1;
-    this.sendSearchRequest(id, params);
+    this.sendSearchRequest(params);
   }
 
   // Sends a search request to the language server, passing the response on to the webview.
-  sendSearchRequest(id: number, params: SearchParams) {
+  sendSearchRequest(params: SearchParams) {
     console.log(
-      `search request ${id}: ${params.uri} v${params.version} line ${params.selectedLine}`
+      `search request ${params.id}: ${params.uri} v${params.version} line ${params.selectedLine}`
     );
-    this.currentSearchId = id;
+    this.currentSearchId = params.id;
     this.currentParams = params;
 
-    client
-      .sendRequest("acorn/search", { id, ...params })
-      .then((response: any) => {
-        if (!this.panel) {
-          // The user closed the search panel since we sent the request.
-          return;
-        }
-        if (id != this.currentSearchId) {
-          // This request has been superseded by a newer one.
-          return;
-        }
-        if (response.error) {
-          console.log("search error:", response.error);
-          return;
-        }
-        if (!response.loading) {
-          this.panel.webview.postMessage(response);
-        }
-        if (!response.result) {
-          // The search response is not complete. Send another request after waiting a bit.
-          let ms = 100;
-          setTimeout(() => this.retrySearchRequest(id), ms);
-        }
-      });
+    client.sendRequest("acorn/search", params).then((response: any) => {
+      if (!this.panel) {
+        // The user closed the search panel since we sent the request.
+        return;
+      }
+      if (params.id != this.currentSearchId) {
+        // This request has been superseded by a newer one.
+        return;
+      }
+      if (response.error) {
+        console.log("search error:", response.error);
+        return;
+      }
+      if (!response.loading) {
+        this.panel.webview.postMessage(response);
+      }
+      if (!response.result) {
+        // The search response is not complete. Send another request after waiting a bit.
+        let ms = 100;
+        setTimeout(() => this.retrySearchRequest(params.id), ms);
+      }
+    });
   }
 
   retrySearchRequest(id: number) {
@@ -150,7 +142,7 @@ class SearchPanel implements Disposable {
       // This request has been superseded by a newer one.
       return;
     }
-    this.sendSearchRequest(id, this.currentParams);
+    this.sendSearchRequest(this.currentParams);
   }
 
   // Handles messages from the webview.
