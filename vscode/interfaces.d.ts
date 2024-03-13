@@ -1,3 +1,6 @@
+// Interfaces with the language server.
+// This should be kept parallel to interfaces.rs.
+
 interface ProgressResponse {
   done: number;
   total: number;

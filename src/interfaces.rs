@@ -2,7 +2,7 @@
 // The "Params" structs are requests that come into the language server.
 // The "Response" structs are responses that go out of the language server.
 //
-// This file should be kept parallel to interfaces.ts.
+// This file should be kept parallel to vscode/interfaces.d.ts.
 
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::Url;
