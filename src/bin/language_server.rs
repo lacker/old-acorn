@@ -92,6 +92,8 @@ pub struct SearchParams {
 }
 
 // The SearchResult contains information that is produced once, when the search completes.
+//
+// NOTE: keep this parallel to interfaces.ts in the webview.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 pub struct SearchResult {
     // Code for the proof that can be inserted.
@@ -112,10 +114,9 @@ impl SearchResult {
 // The SearchResponse is sent from language server -> extension -> webview with the result of a
 // proof search, or information about a partial result.
 //
-// NOTE: this struct defines the format used for the response in JavaScript as well.
-//   See:
+// NOTE: keep this parallel to:
 //   sendSearchRequest in extension.ts
-//   handleSearchResponse in App.svelte
+//   interfaces.ts in the webview
 //
 // The SearchResponse will be polled until the SearchResult is available, so it can
 // contain data that is updated over time.
@@ -321,9 +322,7 @@ impl SearchTask {
 // The InfoParams are sent from webview -> extension -> language server, when the user is requesting
 // more information about a search in progress.
 //
-// NOTE: this struct defines the format used for the params in JavaScript as well.
-//  See:
-//  the InfoParams interface in App.svelte
+// NOTE: keep this parallel to interfaces.ts in the webview.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfoParams {

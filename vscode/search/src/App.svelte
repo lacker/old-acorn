@@ -5,11 +5,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  interface InfoParams {
-    searchId: number;
-    clauseId: number;
-  }
-
   // handleSearchResponse typically sets each of these each time it's called.
   let heading = "Select a proposition to see its proof.";
   let complete: boolean = false;
@@ -20,14 +15,16 @@
   let version: number | null;
 
   // NOTE: the 'response' type corresponds to SearchResponse in language_server.rs.
-  function handleSearchResponse(response: any) {
+  function handleSearchResponse(response: SearchResponse) {
     if (response.error) {
       // Error responses should not reach this point.
       console.error("unexpected upstream error:", response.error);
       return;
     }
 
-    heading = response.goalName;
+    if (response.goalName) {
+      heading = response.goalName;
+    }
     textOutput = response.textOutput;
     uri = response.uri;
     version = response.version;
