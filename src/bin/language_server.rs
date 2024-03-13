@@ -318,6 +318,51 @@ impl SearchTask {
     }
 }
 
+// The InfoParams are sent from webview -> extension -> language server, when the user is requesting
+// more information about a search in progress.
+//
+// NOTE: this struct defines the format used for the params in JavaScript as well.
+//  See:
+//  the InfoParams interface in App.svelte
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InfoParams {
+    // Each info request is associated with a single proof search.
+    // We track this correlation using the id for the search request.
+    search_id: i32,
+
+    // Which clause we are requesting information for
+    clause_id: usize,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClauseInfo {
+    // A format for the user to see
+    pub text: String,
+
+    // Only activated clauses have an id
+    pub id: Option<usize>,
+}
+
+// The InfoResponse is sent from language server -> extension -> webview with the result of
+// an info request.
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InfoResponse {
+    // The clause we are providing information for
+    clause: ClauseInfo,
+
+    // The clauses that we used to prove this one
+    premises: Vec<ClauseInfo>,
+
+    // The clauses that this clause can be used to prove
+    consequences: Vec<ClauseInfo>,
+
+    // How we proved this rule
+    rule: String,
+}
+
 struct Backend {
     client: Client,
 

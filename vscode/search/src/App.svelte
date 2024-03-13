@@ -5,6 +5,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
+  interface InfoParams {
+    searchId: number;
+    clauseId: number;
+  }
+
   // handleSearchResponse typically sets each of these each time it's called.
   let heading = "Select a proposition to see its proof.";
   let complete: boolean = false;

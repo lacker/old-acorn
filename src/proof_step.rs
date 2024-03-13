@@ -78,8 +78,8 @@ pub enum Rule {
 }
 
 impl Rule {
-    // The ids of the clauses that this rule depends on.
-    fn dependencies(&self) -> impl Iterator<Item = &usize> {
+    // The ids of the clauses that this rule directly depends on.
+    fn premises(&self) -> impl Iterator<Item = &usize> {
         match self {
             Rule::Assumption => vec![].into_iter(),
             Rule::Resolution(info) => vec![&info.positive_id, &info.negative_id].into_iter(),
@@ -90,8 +90,8 @@ impl Rule {
         }
     }
 
-    // (description, id) for every clause this rule depends on.
-    pub fn descriptive_dependencies(&self) -> Vec<(String, usize)> {
+    // (description, id) for every clause this rule directly depends on.
+    pub fn descriptive_premises(&self) -> Vec<(String, usize)> {
         let mut answer = vec![];
         match self {
             Rule::Assumption => {}
@@ -112,14 +112,15 @@ impl Rule {
         answer
     }
 
+    // Human-readable.
     pub fn name(&self) -> &str {
         match self {
             Rule::Assumption => "Assumption",
             Rule::Resolution(_) => "Resolution",
             Rule::Rewrite(_) => "Rewrite",
-            Rule::EqualityFactoring(_) => "EqualityFactoring",
-            Rule::EqualityResolution(_) => "EqualityResolution",
-            Rule::FunctionElimination(_) => "FunctionElimination",
+            Rule::EqualityFactoring(_) => "Equality Factoring",
+            Rule::EqualityResolution(_) => "Equality Resolution",
+            Rule::FunctionElimination(_) => "Function Elimination",
         }
     }
 
@@ -288,14 +289,12 @@ impl ProofStep {
 
     // The ids of the other clauses that this clause depends on.
     pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
-        self.rule
-            .dependencies()
-            .chain(self.simplification_rules.iter())
+        self.rule.premises().chain(self.simplification_rules.iter())
     }
 
     // (description, id) for every clause this rule depends on.
     pub fn descriptive_dependencies(&self) -> Vec<(String, usize)> {
-        let mut answer = self.rule.descriptive_dependencies();
+        let mut answer = self.rule.descriptive_premises();
         for rule in &self.simplification_rules {
             answer.push(("simplification".to_string(), *rule));
         }
