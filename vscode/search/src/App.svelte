@@ -5,8 +5,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
+  // This will be updated to reflect the last successful search response.
+  let searchResponse: SearchResponse | null = null;
+
   // handleSearchResponse typically sets each of these each time it's called.
-  let heading = "Select a proposition to see its proof.";
   let complete: boolean = false;
   let textOutput: string[] = [];
   let code: string[] | null = null;
@@ -21,10 +23,11 @@
       console.error("unexpected upstream error:", response.error);
       return;
     }
-
-    if (response.goalName) {
-      heading = response.goalName;
+    if (!response.goalName) {
+      return;
     }
+
+    searchResponse = response;
     textOutput = response.textOutput;
     uri = response.uri;
     version = response.version;
@@ -68,16 +71,20 @@
 </script>
 
 <main>
-  <h1>{heading}</h1>
+  {#if searchResponse === null || searchResponse.goalName === null}
+    <h1>Select a proposition to see its proof.</h1>
+  {:else}
+    <h1>{searchResponse.goalName}</h1>
 
-  {#if complete}
-    {#if code === null}
-      <pre>proof search failed.</pre>
-    {:else if code.length === 0}
-      <pre>the proof is trivial.</pre>
-    {:else}
-      <pre>{"proof found:\n  " + code.join("\n  ")}</pre>
-      <button on:click={insertProof}>Insert proof</button>
+    {#if complete}
+      {#if code === null}
+        <pre>proof search failed.</pre>
+      {:else if code.length === 0}
+        <pre>the proof is trivial.</pre>
+      {:else}
+        <pre>{"proof found:\n  " + code.join("\n  ")}</pre>
+        <button on:click={insertProof}>Insert proof</button>
+      {/if}
     {/if}
   {/if}
 
