@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use acorn::interfaces::{ProgressResponse, SearchParams, SearchResponse, SearchResult};
 use acorn::module::Module;
 use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
@@ -9,7 +10,6 @@ use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
 use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
-use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, Mutex, OnceCell, RwLock, RwLockWriteGuard};
 use tower_lsp::jsonrpc;
 use tower_lsp::lsp_types::*;
@@ -20,23 +20,6 @@ fn log(message: &str) {
     let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
     let stamped = format!("[{}] {}", timestamp, message);
     eprintln!("{}", stamped);
-}
-
-// The language server stores one progress struct, and returns it at any time.
-// 0/0 only occurs at initialization. It means "there have never been any progress bars".
-// Once we ever show a progress bar, we leave it at the previous finished state.
-// When progress is cancelled or interrupted, we should update this so that done = total.
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ProgressResponse {
-    done: i32,
-    total: i32,
-}
-
-impl ProgressResponse {
-    fn default() -> ProgressResponse {
-        ProgressResponse { done: 0, total: 0 }
-    }
 }
 
 // A structure representing a particular version of a document.
@@ -65,104 +48,6 @@ impl Document {
         let filename = self.url.path_segments().unwrap().last().unwrap();
         let versioned = format!("{} v{}: {}", filename, self.version, message);
         log(&versioned);
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProgressParams {}
-
-// The SearchParams are sent from extension to language server to start searching for a proof.
-//
-// NOTE: this struct defines the format used for the params in JavaScript as well.
-//  See:
-//  the SearchParams interface in extension.ts
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchParams {
-    // Which document
-    pub uri: Url,
-    pub version: i32,
-
-    // The selected line in the document
-    pub selected_line: u32,
-
-    // The search id, set by the extension.
-    pub id: i32,
-}
-
-// The SearchResult contains information that is produced once, when the search completes.
-//
-// NOTE: keep this parallel to interfaces.ts in the webview.
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-pub struct SearchResult {
-    // Code for the proof that can be inserted.
-    // If we failed to find a proof, this is None.
-    pub code: Option<Vec<String>>,
-}
-
-impl SearchResult {
-    fn success(code: Vec<String>) -> SearchResult {
-        SearchResult { code: Some(code) }
-    }
-
-    fn failure() -> SearchResult {
-        SearchResult { code: None }
-    }
-}
-
-// The SearchResponse is sent from language server -> extension -> webview with the result of a
-// proof search, or information about a partial result.
-//
-// NOTE: keep this parallel to:
-//   sendSearchRequest in extension.ts
-//   interfaces.ts in the webview
-//
-// The SearchResponse will be polled until the SearchResult is available, so it can
-// contain data that is updated over time.
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchResponse {
-    // Which document this search is for.
-    pub uri: Url,
-    pub version: i32,
-
-    // If something went wrong, this contains an error message.
-    pub error: Option<String>,
-
-    // When loading is true, it means that we can't start a search, because the version
-    // requested is not loaded. The caller can wait and retry, or just abandon.
-    pub loading: bool,
-
-    pub goal_name: Option<String>,
-
-    // The text output will keep growing as the search task runs.
-    pub text_output: Vec<String>,
-
-    // The line where we would insert a proof for this goal
-    pub proof_insertion_line: u32,
-
-    // The result of the search process.
-    // If it has not completed yet, this is None.
-    pub result: Option<SearchResult>,
-
-    // The id for the search, provided by the extension
-    pub id: i32,
-}
-
-impl SearchResponse {
-    fn new(params: SearchParams) -> SearchResponse {
-        SearchResponse {
-            uri: params.uri,
-            version: params.version,
-            error: None,
-            loading: false,
-            goal_name: None,
-            text_output: vec![],
-            result: None,
-            proof_insertion_line: 0,
-            id: params.id,
-        }
     }
 }
 
@@ -319,49 +204,6 @@ impl SearchTask {
     }
 }
 
-// The InfoParams are sent from webview -> extension -> language server, when the user is requesting
-// more information about a search in progress.
-//
-// NOTE: keep this parallel to interfaces.ts in the webview.
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InfoParams {
-    // Each info request is associated with a single proof search.
-    // We track this correlation using the id for the search request.
-    search_id: i32,
-
-    // Which clause we are requesting information for
-    clause_id: usize,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ClauseInfo {
-    // A format for the user to see
-    pub text: String,
-
-    // Only activated clauses have an id
-    pub id: Option<usize>,
-}
-
-// The InfoResponse is sent from language server -> extension -> webview with the result of
-// an info request.
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InfoResponse {
-    // The clause we are providing information for
-    clause: ClauseInfo,
-
-    // The clauses that we used to prove this one
-    premises: Vec<ClauseInfo>,
-
-    // The clauses that this clause can be used to prove
-    consequences: Vec<ClauseInfo>,
-
-    // How we proved this rule
-    rule: String,
-}
-
 struct Backend {
     client: Client,
 
@@ -369,7 +211,7 @@ struct Backend {
     project: Arc<RwLock<Project>>,
 
     // Progress requests share this value with the client.
-    // Long-running tasks update it as they go.
+    // Search tasks update it as they go.
     progress: Arc<Mutex<ProgressResponse>>,
 
     // Maps uri to the most recent version of a document
