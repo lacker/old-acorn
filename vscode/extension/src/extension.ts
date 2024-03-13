@@ -109,28 +109,30 @@ class SearchPanel implements Disposable {
     this.currentSearchId = params.id;
     this.currentParams = params;
 
-    client.sendRequest("acorn/search", params).then((response: any) => {
-      if (!this.panel) {
-        // The user closed the search panel since we sent the request.
-        return;
-      }
-      if (params.id != this.currentSearchId) {
-        // This request has been superseded by a newer one.
-        return;
-      }
-      if (response.error) {
-        console.log("search error:", response.error);
-        return;
-      }
-      if (!response.loading) {
-        this.panel.webview.postMessage(response);
-      }
-      if (!response.result) {
-        // The search response is not complete. Send another request after waiting a bit.
-        let ms = 100;
-        setTimeout(() => this.retrySearchRequest(params.id), ms);
-      }
-    });
+    client
+      .sendRequest("acorn/search", params)
+      .then((response: SearchResponse) => {
+        if (!this.panel) {
+          // The user closed the search panel since we sent the request.
+          return;
+        }
+        if (params.id != this.currentSearchId) {
+          // This request has been superseded by a newer one.
+          return;
+        }
+        if (response.error) {
+          console.log("search error:", response.error);
+          return;
+        }
+        if (!response.loading) {
+          this.panel.webview.postMessage(response);
+        }
+        if (!response.result) {
+          // The search response is not complete. Send another request after waiting a bit.
+          let ms = 100;
+          setTimeout(() => this.retrySearchRequest(params.id), ms);
+        }
+      });
   }
 
   retrySearchRequest(id: number) {
