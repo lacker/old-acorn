@@ -85,13 +85,20 @@
               Contradiction, by {step.rule.toLowerCase()}.<br />
             {:else}
               Clause {step.clause.id}, by {step.rule.toLowerCase()}:<br />
-              {spaces(4)}{step.clause.text}<br />
+              <div
+                class="clauselink"
+                on:click={() => clauseClick(step.clause.id)}
+              >
+                {spaces(4)}<span class="underliney">{step.clause.text}</span>
+              </div>
+              <br />
             {/if}
             {#each step.premises as [desc, clause]}
-              {spaces(2)}using
-              <a on:click={() => clauseClick(clause.id)}>clause {clause.id}</a>
-              as {desc}:<br />
-              {spaces(4)}{clause.text}<br />
+              {spaces(2)}using clause {clause.id} as {desc}:<br />
+              <div class="clauselink" on:click={() => clauseClick(clause.id)}>
+                {spaces(4)}<span class="underliney">{clause.text}</span>
+              </div>
+              <br />
             {/each}
           {/each}
         </div>
@@ -106,5 +113,16 @@
   .mono {
     font-family: monospace;
     display: block;
+  }
+
+  .clauselink {
+    display: block;
+    text-decoration: none;
+    cursor: pointer;
+    color: var(--vscode-textLink-foreground);
+  }
+
+  .clauselink:hover .underliney {
+    text-decoration: underline;
   }
 </style>
