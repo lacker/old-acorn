@@ -10,7 +10,7 @@ use crate::active_set::ActiveSet;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::GoalContext;
-use crate::interfaces::{ClauseInfo, ProofStepInfo};
+use crate::interfaces::{ClauseInfo, InfoResult, ProofStepInfo};
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
@@ -536,6 +536,12 @@ impl Prover {
             result.push(self.to_proof_step_info(i, step));
         }
         result
+    }
+
+    // Generates information about a clause in jsonable format.
+    // Returns None if we don't have any information about this clause.
+    pub fn info_result(&self, id: usize) -> Option<InfoResult> {
+        todo!();
     }
 }
 
