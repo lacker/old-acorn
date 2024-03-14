@@ -160,7 +160,9 @@ class SearchPanel implements Disposable {
     }
 
     if (message.command === "infoRequest") {
-      console.log("XXX clause id:", message.params.clauseId);
+      console.log(`info request for clause ${message.params.clauseId}`);
+      // XXX
+      // client.sendRequest("acorn/info", message.params);
       return;
     }
 
