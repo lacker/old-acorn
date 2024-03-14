@@ -110,6 +110,10 @@
 </main>
 
 <style>
+  :global(body) {
+    font-size: 14px; /* Set your desired font size */
+  }
+
   .mono {
     font-family: monospace;
     display: block;
