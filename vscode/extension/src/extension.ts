@@ -357,53 +357,62 @@ class SearchPanel implements Disposable {
 }
 
 async function getProgress() {
-  return await client.sendRequest("acorn/progress", {});
+  try {
+    return await client.sendRequest("acorn/progress", {});
+  } catch (e) {
+    console.error("error in getProgress:", e);
+    throw e;
+  }
 }
 
 // Automatically hides it when we are done.
 async function showProgressBar() {
   let startTime = Date.now();
 
-  let response: any = await getProgress();
+  try {
+    let response: any = await getProgress();
 
-  while (response.done === response.total) {
-    // Maybe progress just hasn't started yet.
-    // Let's wait a bit and try again.
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    response = await getProgress();
+    while (response.done === response.total) {
+      // Maybe progress just hasn't started yet.
+      // Let's wait a bit and try again.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      response = await getProgress();
 
-    let elapsed = Date.now() - startTime;
-    if (elapsed > 2000) {
-      // It's been a while. Let's give up.
-      console.log("giving up on progress bar");
-      return;
-    }
-  }
-
-  let previousPercent = 0;
-  window.withProgress(
-    {
-      location: ProgressLocation.Notification,
-      title: "Acorn Validation",
-      cancellable: true,
-    },
-    async (progress, token) => {
-      token.onCancellationRequested(() => {
-        console.log("acorn validation progress bar canceled");
-      });
-
-      while (response.total !== response.done) {
-        let percent = Math.floor((100 * response.done) / response.total);
-        let increment = percent - previousPercent;
-        progress.report({ increment });
-        previousPercent = percent;
-
-        // We have something to show, so we can wait a bit before updating.
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        response = await getProgress();
+      let elapsed = Date.now() - startTime;
+      if (elapsed > 2000) {
+        // It's been a while. Let's give up.
+        console.log("giving up on progress bar");
+        return;
       }
     }
-  );
+
+    let previousPercent = 0;
+    window.withProgress(
+      {
+        location: ProgressLocation.Notification,
+        title: "Acorn Validation",
+        cancellable: true,
+      },
+      async (progress, token) => {
+        token.onCancellationRequested(() => {
+          console.log("acorn validation progress bar canceled");
+        });
+
+        while (response.total !== response.done) {
+          let percent = Math.floor((100 * response.done) / response.total);
+          let increment = percent - previousPercent;
+          progress.report({ increment });
+          previousPercent = percent;
+
+          // We have something to show, so we can wait a bit before updating.
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          response = await getProgress();
+        }
+      }
+    );
+  } catch (e) {
+    console.error("error showing progress bar:", e);
+  }
 }
 
 export function activate(context: ExtensionContext) {
@@ -474,6 +483,7 @@ export function activate(context: ExtensionContext) {
       break;
     }
   }
+
   if (hasAcornDocs) {
     showProgressBar();
   }

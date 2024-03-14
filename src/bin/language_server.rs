@@ -3,7 +3,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use acorn::interfaces::{
-    InfoParams, InfoResponse, ProgressResponse, SearchParams, SearchResponse, SearchResult,
+    InfoParams, InfoResponse, ProgressParams, ProgressResponse, SearchParams, SearchResponse,
+    SearchResult,
 };
 use acorn::module::Module;
 use acorn::project::Project;
