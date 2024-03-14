@@ -54,51 +54,55 @@ class SearchPanel implements Disposable {
       commands.registerTextEditorCommand("acorn.toggleSearchPanel", (editor) =>
         this.toggle(editor)
       ),
-      window.onDidChangeActiveTextEditor(() => {
-        this.updateLocation();
+      window.onDidChangeActiveTextEditor(async () => {
+        await this.updateLocation();
       }),
-      window.onDidChangeTextEditorSelection(() => {
-        this.updateLocation();
+      window.onDidChangeTextEditorSelection(async () => {
+        await this.updateLocation();
       }),
-      workspace.onDidChangeTextDocument(() => {
-        this.updateLocation();
+      workspace.onDidChangeTextDocument(async () => {
+        await this.updateLocation();
       }),
     ];
   }
 
   // Updates the current location in the document.
   // Also updates the document version.
-  updateLocation() {
-    let editor = window.activeTextEditor;
-    if (!editor) {
-      return;
-    }
-    if (editor.document.languageId != "acorn") {
-      return;
-    }
-    if (!this.panel) {
-      return;
-    }
+  async updateLocation() {
+    try {
+      let editor = window.activeTextEditor;
+      if (!editor) {
+        return;
+      }
+      if (editor.document.languageId != "acorn") {
+        return;
+      }
+      if (!this.panel) {
+        return;
+      }
 
-    let uri = editor.document.uri.toString();
-    let selectedLine = editor.selection.start.line;
-    let version = editor.document.version;
+      let uri = editor.document.uri.toString();
+      let selectedLine = editor.selection.start.line;
+      let version = editor.document.version;
 
-    // No need to send the request if nothing has changed.
-    let id = this.currentSearchId + 1;
-    let params: SearchParams = { uri, selectedLine, version, id };
-    if (
-      this.currentParams &&
-      searchParamsEquivalent(this.currentParams, params)
-    ) {
-      return;
+      // No need to send the request if nothing has changed.
+      let id = this.currentSearchId + 1;
+      let params: SearchParams = { uri, selectedLine, version, id };
+      if (
+        this.currentParams &&
+        searchParamsEquivalent(this.currentParams, params)
+      ) {
+        return;
+      }
+
+      // This view column is probably the one the user is actively writing in.
+      // When in doubt, we can use this view column to do code-writing operations.
+      this.requestViewColumn = editor.viewColumn;
+
+      await this.sendSearchRequest(params);
+    } catch (e) {
+      console.error("error during update:", e);
     }
-
-    // This view column is probably the one the user is actively writing in.
-    // When in doubt, we can use this view column to do code-writing operations.
-    this.requestViewColumn = editor.viewColumn;
-
-    this.sendSearchRequest(params);
   }
 
   // Sends a search request to the language server, passing the response on to the webview.
@@ -118,12 +122,12 @@ class SearchPanel implements Disposable {
         // The request is no longer relevant
         return;
       }
-      if (response.error) {
-        console.log("search error:", response.error);
+      if (response.failure) {
+        console.log("search failure:", response.failure);
         return;
       }
       if (!response.loading) {
-        this.panel.webview.postMessage(response);
+        this.panel.webview.postMessage({ type: "search", response });
       }
       if (response.result) {
         return;
@@ -140,24 +144,35 @@ class SearchPanel implements Disposable {
 
   // Handles messages from the webview.
   async handleWebviewMessage(message: any) {
-    if (message.command === "insertProof") {
-      await this.insertProof(
-        message.uri,
-        message.version,
-        message.line,
-        message.code
-      );
-      return;
-    }
+    try {
+      if (message.command === "insertProof") {
+        await this.insertProof(
+          message.uri,
+          message.version,
+          message.line,
+          message.code
+        );
+        return;
+      }
 
-    if (message.command === "infoRequest") {
-      console.log(`info request for clause ${message.params.clauseId}`);
-      // XXX
-      // client.sendRequest("acorn/info", message.params);
-      return;
-    }
+      if (message.command === "infoRequest") {
+        console.log(`info request for clause ${message.params.clauseId}`);
+        let response: InfoResponse = await client.sendRequest(
+          "acorn/info",
+          message.params
+        );
+        if (!response.result) {
+          console.log(`info request failed: {response.failure}`);
+          return;
+        }
+        this.panel.webview.postMessage({ type: "info", response });
+        return;
+      }
 
-    console.log("unhandled message:", message);
+      console.log("unhandled message:", message);
+    } catch (e) {
+      console.error("error handling webview message:", e);
+    }
   }
 
   // Heuristically find an editor for the given uri and focus it.

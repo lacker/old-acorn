@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use acorn::interfaces::{ProgressResponse, SearchParams, SearchResponse, SearchResult};
+use acorn::interfaces::{
+    InfoParams, InfoResponse, ProgressResponse, SearchParams, SearchResponse, SearchResult,
+};
 use acorn::module::Module;
 use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
@@ -111,7 +113,7 @@ impl SearchTask {
         SearchResponse {
             uri: self.document.url.clone(),
             version: self.document.version,
-            error: None,
+            failure: None,
             loading: false,
             goal_name: Some(self.goal_name.clone()),
             text_output,
@@ -362,10 +364,10 @@ impl Backend {
         project.update_file(path, &document.text, document.version);
     }
 
-    fn fail(&self, params: SearchParams, message: &str) -> jsonrpc::Result<SearchResponse> {
+    fn search_fail(&self, params: SearchParams, message: &str) -> jsonrpc::Result<SearchResponse> {
         log(message);
         Ok(SearchResponse {
-            error: Some(message.to_string()),
+            failure: Some(message.to_string()),
             ..SearchResponse::new(params)
         })
     }
@@ -404,7 +406,7 @@ impl Backend {
         let doc = match self.documents.get(&params.uri) {
             Some(doc) => doc,
             None => {
-                return self.fail(params, "no text available");
+                return self.search_fail(params, "no text available");
             }
         };
 
@@ -425,7 +427,7 @@ impl Backend {
             Ok(path) => path,
             Err(_) => {
                 // There should be a path available, because we don't run this task without one.
-                return self.fail(params, "no path available in SearchTask::run");
+                return self.search_fail(params, "no path available in SearchTask::run");
             }
         };
         match project.get_version(&path) {
@@ -435,7 +437,7 @@ impl Backend {
                         "user requested version {} but the project has version {}",
                         params.version, project_version
                     );
-                    return self.fail(params, message);
+                    return self.search_fail(params, message);
                 }
                 if params.version > project_version {
                     // The requested version is not loaded yet.
@@ -446,7 +448,7 @@ impl Backend {
                 }
             }
             None => {
-                return self.fail(
+                return self.search_fail(
                     params,
                     &format!("the project has not opened {}", path.display()),
                 );
@@ -454,12 +456,14 @@ impl Backend {
         }
         let module_name = match project.module_name_from_path(&path) {
             Ok(name) => name,
-            Err(e) => return self.fail(params, &format!("module_name_from_path failed: {:?}", e)),
+            Err(e) => {
+                return self.search_fail(params, &format!("module_name_from_path failed: {:?}", e))
+            }
         };
         let env = match project.get_module_by_name(&module_name) {
             Module::Ok(env) => env,
             _ => {
-                return self.fail(
+                return self.search_fail(
                     params,
                     &format!("could not load module named {}", module_name),
                 );
@@ -468,7 +472,7 @@ impl Backend {
 
         let path = match env.get_path_for_line(params.selected_line) {
             Ok(path) => path,
-            Err(s) => return self.fail(params, &s),
+            Err(s) => return self.search_fail(params, &s),
         };
 
         // Check if this request matches our current task, based on the full path of the goal.
@@ -485,7 +489,7 @@ impl Backend {
 
         let goal_context = match env.get_goal_context(&project, &path) {
             Ok(goal_context) => goal_context,
-            Err(s) => return self.fail(params, &s),
+            Err(s) => return self.search_fail(params, &s),
         };
 
         // Create a new search task
@@ -510,6 +514,33 @@ impl Backend {
         self.set_search_task(Some(new_task)).await;
 
         Ok(response)
+    }
+
+    fn info_fail(&self, message: &str) -> jsonrpc::Result<InfoResponse> {
+        log(message);
+        Ok(InfoResponse {
+            failure: Some(message.to_string()),
+            result: None,
+        })
+    }
+
+    async fn handle_info_request(&self, params: InfoParams) -> jsonrpc::Result<InfoResponse> {
+        let locked_task = self.search_task.read().await;
+
+        let task = match locked_task.as_ref() {
+            Some(task) => task,
+            None => {
+                return self.info_fail("no search task available");
+            }
+        };
+        if task.id != params.search_id {
+            return self.info_fail(&format!(
+                "info request has search id {}, task has id {}",
+                params.search_id, task.id
+            ));
+        }
+        let _project = task.project.read().await;
+        Err(jsonrpc::Error::internal_error())
     }
 }
 
@@ -648,8 +679,9 @@ async fn main() {
     let stdout = tokio::io::stdout();
 
     let (service, socket) = LspService::build(Backend::new)
-        .custom_method("acorn/search", Backend::handle_search_request)
+        .custom_method("acorn/info", Backend::handle_info_request)
         .custom_method("acorn/progress", Backend::handle_progress_request)
+        .custom_method("acorn/search", Backend::handle_search_request)
         .finish();
 
     Server::new(stdin, stdout, socket).serve(service).await;

@@ -32,7 +32,7 @@ interface SearchResult {
 interface SearchResponse {
   uri: string;
   version: number;
-  error: string | null;
+  failure: string | null;
   loading: boolean;
   goalName: string | null;
   textOutput: Array<string>;
@@ -46,8 +46,12 @@ interface InfoParams {
   clauseId: number;
 }
 
-interface InfoResponse {
+interface InfoResult {
   clause: ClauseInfo;
   step: ProofStepInfo;
   consequences: Array<ClauseInfo>;
+}
+
+interface InfoResponse {
+  result: InfoResult | null;
 }

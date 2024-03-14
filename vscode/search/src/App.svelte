@@ -9,18 +9,30 @@
   let searchResponse: SearchResponse | null = null;
 
   function handleSearchResponse(response: SearchResponse) {
-    if (response.error || response.goalName === null) {
-      // Error responses should not reach this point.
-      console.error("unexpected upstream error:", response.error);
+    if (response.failure || response.goalName === null) {
+      // Failure responses should not reach this point.
+      console.error("unexpected upstream failure:", response.failure);
       return;
     }
 
     searchResponse = response;
   }
 
+  function handleInfoResult(result: InfoResult) {
+    console.log("XXX info result:", result);
+  }
+
   onMount(() => {
     window.addEventListener("message", (event) => {
-      handleSearchResponse(event.data);
+      if (event.data.type === "search") {
+        handleSearchResponse(event.data.response);
+        return;
+      }
+      if (event.data.type === "info") {
+        handleInfoResult(event.data.response.result);
+        return;
+      }
+      console.error("unexpected message type:", event.data.type);
     });
   });
 

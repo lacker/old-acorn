@@ -113,8 +113,11 @@ pub struct SearchResponse {
     pub uri: Url,
     pub version: i32,
 
-    // If something went wrong, this contains an error message.
-    pub error: Option<String>,
+    // A failure is distinct from an error. An error is a problem with the language server,
+    // or the extension. Those are reported as jsonrpc errors.
+    // A failure is when the user requested some operation that we can't do.
+    // When we have a failure, this contains a failure message.
+    pub failure: Option<String>,
 
     // When loading is true, it means that we can't start a search, because the version
     // requested is not loaded. The caller can wait and retry, or just abandon.
@@ -141,7 +144,7 @@ impl SearchResponse {
         SearchResponse {
             uri: params.uri,
             version: params.version,
-            error: None,
+            failure: None,
             loading: false,
             goal_name: None,
             text_output: vec![],
@@ -167,11 +170,11 @@ pub struct InfoParams {
     pub clause_id: usize,
 }
 
-// The InfoResponse is sent from language server -> extension -> webview with the result of
+// The InfoResult is sent from language server -> extension -> webview with the result of
 // an info request.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InfoResponse {
+pub struct InfoResult {
     // The clause we are providing information for
     pub clause: ClauseInfo,
 
@@ -180,4 +183,13 @@ pub struct InfoResponse {
 
     // The clauses that this clause can be used to prove
     pub consequences: Vec<ClauseInfo>,
+}
+
+// If the request is out of sync with the server state, and we want to just ignore this request,
+// returns a None result, along with a failure string describing what happened.
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InfoResponse {
+    pub failure: Option<String>,
+    pub result: Option<InfoResult>,
 }
