@@ -102,49 +102,44 @@ class SearchPanel implements Disposable {
   }
 
   // Sends a search request to the language server, passing the response on to the webview.
-  sendSearchRequest(params: SearchParams) {
+  async sendSearchRequest(params: SearchParams) {
     console.log(
       `search request ${params.id}: ${params.uri} v${params.version} line ${params.selectedLine}`
     );
     this.currentSearchId = params.id;
     this.currentParams = params;
 
-    client
-      .sendRequest("acorn/search", params)
-      .then((response: SearchResponse) => {
-        if (!this.panel) {
-          // The user closed the search panel since we sent the request.
-          return;
-        }
-        if (params.id != this.currentSearchId) {
-          // This request has been superseded by a newer one.
-          return;
-        }
-        if (response.error) {
-          console.log("search error:", response.error);
-          return;
-        }
-        if (!response.loading) {
-          this.panel.webview.postMessage(response);
-        }
-        if (!response.result) {
-          // The search response is not complete. Send another request after waiting a bit.
-          let ms = 100;
-          setTimeout(() => this.retrySearchRequest(params.id), ms);
-        }
-      });
-  }
+    while (true) {
+      let response: SearchResponse = await client.sendRequest(
+        "acorn/search",
+        params
+      );
+      if (!this.panel) {
+        // The user closed the search panel since we sent the request.
+        return;
+      }
+      if (params.id != this.currentSearchId) {
+        // This request has been superseded by a newer one.
+        return;
+      }
+      if (response.error) {
+        console.log("search error:", response.error);
+        return;
+      }
+      if (!response.loading) {
+        this.panel.webview.postMessage(response);
+      }
+      if (response.result) {
+        return;
+      }
 
-  retrySearchRequest(id: number) {
-    if (!this.panel) {
-      // The user closed the search panel since we sent the request.
-      return;
+      // The search response is not complete. Send another request after waiting a bit.
+      let ms = 100;
+      await new Promise((resolve) => setTimeout(resolve, ms));
+      if (!this.panel || params.id != this.currentSearchId) {
+        return;
+      }
     }
-    if (id != this.currentSearchId) {
-      // This request has been superseded by a newer one.
-      return;
-    }
-    this.sendSearchRequest(this.currentParams);
   }
 
   // Handles messages from the webview.
