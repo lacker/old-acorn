@@ -114,12 +114,8 @@ class SearchPanel implements Disposable {
         "acorn/search",
         params
       );
-      if (!this.panel) {
-        // The user closed the search panel since we sent the request.
-        return;
-      }
-      if (params.id != this.currentSearchId) {
-        // This request has been superseded by a newer one.
+      if (!this.panel || params.id != this.currentSearchId) {
+        // The request is no longer relevant
         return;
       }
       if (response.error) {
