@@ -1141,7 +1141,7 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_if_then_else() {
+    fn test_if_else_expression() {
         prove_all_succeeds(
             r#"
             type Nat: axiom

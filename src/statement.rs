@@ -872,4 +872,14 @@ mod tests {
     fn test_import_statement() {
         ok("import foo.bar.baz");
     }
+
+    #[test]
+    fn test_if_else_statement() {
+        ok(indoc! {"
+        if foo(x) {
+            bar(x)
+        } else {
+            qux(x)
+        }"});
+    }
 }
