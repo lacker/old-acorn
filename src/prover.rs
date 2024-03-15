@@ -546,7 +546,12 @@ impl Prover {
         // Information for steps in the active set that depend on this one
         let mut consequences = vec![];
         if let Some((final_step, _)) = &self.result {
-            consequences.push(self.to_proof_step_info(None, &final_step));
+            if final_step.depends_on(id) {
+                consequences.push(self.to_proof_step_info(None, &final_step));
+            }
+        }
+        for (i, step) in self.active_set.find_consequences(id) {
+            consequences.push(self.to_proof_step_info(Some(i), step));
         }
 
         // TODO: check the passive set
