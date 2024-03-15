@@ -99,7 +99,7 @@
             searchResponse.result.code.join("\n  ")}</pre>
         <button on:click={insertProof}>Insert proof</button>
       {/if}
-      <hr />
+
       {#if searchResponse.result.steps !== null}
         <div class="mono">
           {#each searchResponse.result.steps as step}
@@ -131,16 +131,12 @@
     {#if infoResult === null}
       <pre>{searchResponse.textOutput.join("\n")}</pre>
     {:else}
-      <pre>TODO: display infoResult for clause {infoResult.clause.id}</pre>
+      <div class="mono">TODO: have ProofStep.svelte</div>
     {/if}
   {/if}
 </main>
 
 <style>
-  :global(body) {
-    font-size: 14px; /* Set your desired font size */
-  }
-
   .mono {
     font-family: monospace;
     display: block;
