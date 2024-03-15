@@ -599,8 +599,23 @@ impl ActiveSet {
         &self.steps[index].clause
     }
 
+    pub fn has_step(&self, index: usize) -> bool {
+        index < self.steps.len()
+    }
+
     pub fn get_step(&self, index: usize) -> &ProofStep {
         &self.steps[index]
+    }
+
+    // Iterate over all proof steps that depend on this id.
+    pub fn find_consequences<'a>(
+        &'a self,
+        id: usize,
+    ) -> impl Iterator<Item = (usize, &'a ProofStep)> {
+        self.steps
+            .iter()
+            .enumerate()
+            .filter(move |(_, step)| step.depends_on(id))
     }
 
     // Returns (value, id of clause) when this literal's value is known due to some existing clause.

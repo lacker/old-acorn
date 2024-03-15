@@ -541,7 +541,21 @@ impl Prover {
     // Generates information about a clause in jsonable format.
     // Returns None if we don't have any information about this clause.
     pub fn info_result(&self, id: usize) -> Option<InfoResult> {
-        todo!();
+        // Information for the step that proved this clause
+        if !self.active_set.has_step(id) {
+            return None;
+        }
+        let step = self.to_proof_step_info(Some(id), self.active_set.get_step(id));
+
+        // Information for steps in the active set that depend on this one
+        let mut consequences = vec![];
+        if let Some((final_step, _)) = &self.result {
+            consequences.push(self.to_proof_step_info(None, &final_step));
+        }
+
+        // TODO: check the passive set
+
+        Some(InfoResult { step, consequences })
     }
 }
 

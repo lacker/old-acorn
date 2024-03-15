@@ -175,14 +175,11 @@ pub struct InfoParams {
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfoResult {
-    // The clause we are providing information for
-    pub clause: ClauseInfo,
-
     // How we proved this clause
     pub step: ProofStepInfo,
 
     // The clauses that this clause can be used to prove
-    pub consequences: Vec<ClauseInfo>,
+    pub consequences: Vec<ProofStepInfo>,
 }
 
 // If the request is out of sync with the server state, and we want to just ignore this request,

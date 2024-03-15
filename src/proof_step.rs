@@ -292,6 +292,10 @@ impl ProofStep {
         self.rule.premises().chain(self.simplification_rules.iter())
     }
 
+    pub fn depends_on(&self, id: usize) -> bool {
+        self.dependencies().any(|i| *i == id)
+    }
+
     // (description, id) for every clause this rule depends on.
     pub fn descriptive_dependencies(&self) -> Vec<(String, usize)> {
         let mut answer = self.rule.descriptive_premises();
