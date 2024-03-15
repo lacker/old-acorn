@@ -27,7 +27,7 @@ pub struct Prover {
 
     // The "passive" clauses are a queue of pending clauses that
     // we will add to the active clauses in the future.
-    passive: PassiveSet,
+    passive_set: PassiveSet,
 
     // A verbose prover prints out a lot of stuff.
     pub verbose: bool,
@@ -111,7 +111,7 @@ impl Prover {
         let mut p = Prover {
             normalizer: Normalizer::new(),
             active_set: ActiveSet::new(),
-            passive: PassiveSet::new(),
+            passive_set: PassiveSet::new(),
             verbose,
             print_queue,
             trace: None,
@@ -183,7 +183,7 @@ impl Prover {
         };
         for clause in clauses {
             let step = ProofStep::new_assumption(clause, truthiness);
-            self.passive.push(step);
+            self.passive_set.push(step);
         }
     }
 
@@ -201,7 +201,11 @@ impl Prover {
 
     pub fn print_stats(&self) {
         cprintln!(self, "{} clauses in the active set", self.active_set.len());
-        cprintln!(self, "{} clauses in the passive set", self.passive.len());
+        cprintln!(
+            self,
+            "{} clauses in the passive set",
+            self.passive_set.len()
+        );
     }
 
     // Prints out the entire active set
@@ -226,7 +230,7 @@ impl Prover {
 
     pub fn print_passive(&self, substr: Option<&str>) {
         let mut count = 0;
-        let steps = self.passive.all_steps();
+        let steps = self.passive_set.all_steps();
         // Only print the first ones
         for step in steps.iter().take(500) {
             let clause = self.display(&step.clause);
@@ -343,7 +347,7 @@ impl Prover {
             return *outcome;
         }
 
-        let step = match self.passive.pop() {
+        let step = match self.passive_set.pop() {
             Some(step) => step,
             None => {
                 // We're out of clauses to process, so we can't make any more progress.
@@ -440,7 +444,7 @@ impl Prover {
                 if simple_step.clause.is_impossible() {
                     return self.report_contradiction(simple_step);
                 }
-                self.passive.push(simple_step);
+                self.passive_set.push(simple_step);
             }
         }
         Outcome::Unknown
@@ -542,19 +546,24 @@ impl Prover {
             return None;
         }
         let step = self.to_proof_step_info(Some(id), self.active_set.get_step(id));
-
-        // Information for steps in the active set that depend on this one
         let mut consequences = vec![];
+
+        // Check if the final step is a consequence of this clause
         if let Some((final_step, _)) = &self.result {
             if final_step.depends_on(id) {
                 consequences.push(self.to_proof_step_info(None, &final_step));
             }
         }
+
+        // Check the active set for consequences
         for (i, step) in self.active_set.find_consequences(id) {
             consequences.push(self.to_proof_step_info(Some(i), step));
         }
 
-        // TODO: check the passive set
+        // Check the passive set for consequences
+        for step in self.passive_set.find_consequences(id) {
+            consequences.push(self.to_proof_step_info(None, step));
+        }
 
         Some(InfoResult { step, consequences })
     }

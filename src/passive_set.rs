@@ -36,6 +36,20 @@ impl PassiveSet {
         self.clauses.iter().map(|pc| &pc.clause)
     }
 
+    // Finds the proof steps that are consequences of the given clause.
+    // Sorts from best to worst, which is highest to lowest for ProofSteps.
+    pub fn find_consequences<'a>(&'a self, id: usize) -> Vec<&'a ProofStep> {
+        let mut answer = vec![];
+        for step in &self.clauses {
+            if step.depends_on(id) {
+                answer.push(step);
+            }
+        }
+        answer.sort();
+        answer.reverse();
+        answer
+    }
+
     // Sort "highest" to "lowest" which is best to worst
     pub fn all_steps(&self) -> Vec<ProofStep> {
         let mut steps: Vec<ProofStep> = self.clauses.iter().cloned().collect();
