@@ -5,8 +5,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  // This will be updated to reflect the last successful search response.
+  // These are updated to reflect the last valid responses from the extension.
   let searchResponse: SearchResponse | null = null;
+  let infoResult: InfoResult | null = null;
 
   function handleSearchResponse(response: SearchResponse) {
     if (response.failure || response.goalName === null) {
@@ -15,11 +16,21 @@
       return;
     }
 
+    // New search responses also invalidate the info result
     searchResponse = response;
+    infoResult = null;
   }
 
-  function handleInfoResult(result: InfoResult) {
-    console.log("XXX info result:", result);
+  function handleInfoResponse(response: InfoResponse) {
+    // Only accept info responses that match the current search response.
+    if (
+      searchResponse === null ||
+      response.result === null ||
+      response.searchId != searchResponse.id
+    ) {
+      return;
+    }
+    infoResult = response.result;
   }
 
   onMount(() => {
@@ -29,7 +40,7 @@
         return;
       }
       if (event.data.type === "info") {
-        handleInfoResult(event.data.response.result);
+        handleInfoResponse(event.data.response);
         return;
       }
       console.error("unexpected message type:", event.data.type);
@@ -74,10 +85,10 @@
 
 <main>
   {#if searchResponse === null || searchResponse.goalName === null}
-    <h1>Select a proposition to see its proof.</h1>
+    <h1><pre>Select a proposition to see its proof.</pre></h1>
   {:else}
-    <h1>{searchResponse.goalName}</h1>
-
+    <h1><pre>{searchResponse.goalName}</pre></h1>
+    <hr />
     {#if searchResponse.result !== null}
       {#if searchResponse.result.code === null}
         <pre>proof search failed.</pre>
@@ -88,7 +99,7 @@
             searchResponse.result.code.join("\n  ")}</pre>
         <button on:click={insertProof}>Insert proof</button>
       {/if}
-
+      <hr />
       {#if searchResponse.result.steps !== null}
         <div class="mono">
           {#each searchResponse.result.steps as step}
@@ -116,8 +127,12 @@
         </div>
       {/if}
     {/if}
-
-    <pre>{searchResponse.textOutput.join("\n")}</pre>
+    <hr />
+    {#if infoResult === null}
+      <pre>{searchResponse.textOutput.join("\n")}</pre>
+    {:else}
+      <pre>TODO: display infoResult for clause {infoResult.clause.id}</pre>
+    {/if}
   {/if}
 </main>
 

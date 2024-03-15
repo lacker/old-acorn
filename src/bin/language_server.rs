@@ -520,9 +520,10 @@ impl Backend {
         Ok(response)
     }
 
-    fn info_fail(&self, message: &str) -> jsonrpc::Result<InfoResponse> {
+    fn info_fail(&self, params: InfoParams, message: &str) -> jsonrpc::Result<InfoResponse> {
         log(message);
         Ok(InfoResponse {
+            search_id: params.search_id,
             failure: Some(message.to_string()),
             result: None,
         })
@@ -533,25 +534,30 @@ impl Backend {
 
         let task = match locked_task.as_ref() {
             Some(task) => task,
-            None => return self.info_fail("no search task available"),
+            None => return self.info_fail(params, "no search task available"),
         };
         if task.id != params.search_id {
-            return self.info_fail(&format!(
+            let failure = format!(
                 "info request has search id {}, task has id {}",
                 params.search_id, task.id
-            ));
+            );
+            return self.info_fail(params, &failure);
         }
         let locked_prover = task.prover.read().await;
         let prover = match locked_prover.as_ref() {
             Some(prover) => prover,
-            None => return self.info_fail("no prover available"),
+            None => return self.info_fail(params, "no prover available"),
         };
         let result = prover.info_result(params.clause_id);
         let failure = match result {
             Some(_) => None,
             None => Some(format!("no info available for clause {}", params.clause_id)),
         };
-        Ok(InfoResponse { failure, result })
+        Ok(InfoResponse {
+            search_id: params.search_id,
+            failure,
+            result,
+        })
     }
 }
 

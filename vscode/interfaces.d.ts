@@ -53,5 +53,7 @@ interface InfoResult {
 }
 
 interface InfoResponse {
+  searchId: number;
+  failure: string | null;
   result: InfoResult | null;
 }

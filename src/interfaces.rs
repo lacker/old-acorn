@@ -187,6 +187,9 @@ pub struct InfoResult {
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfoResponse {
+    // Matching to the request
+    pub search_id: i32,
+
     pub failure: Option<String>,
     pub result: Option<InfoResult>,
 }
