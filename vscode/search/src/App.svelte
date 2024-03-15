@@ -4,6 +4,7 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
+  import ProofStep from "./ProofStep.svelte";
 
   // These are updated to reflect the last valid responses from the extension.
   let searchResponse: SearchResponse | null = null;
@@ -104,25 +105,7 @@
         <div class="mono">
           {#each searchResponse.result.steps as step}
             <br />
-            {#if step.clause.id === null}
-              Contradiction, by {step.rule.toLowerCase()}.<br />
-            {:else}
-              Clause {step.clause.id}, by {step.rule.toLowerCase()}:<br />
-              <div
-                class="clauselink"
-                on:click={() => clauseClick(step.clause.id)}
-              >
-                {spaces(4)}<span class="underliney">{step.clause.text}</span>
-              </div>
-              <br />
-            {/if}
-            {#each step.premises as [desc, clause]}
-              {spaces(2)}using clause {clause.id} as {desc}:<br />
-              <div class="clauselink" on:click={() => clauseClick(clause.id)}>
-                {spaces(4)}<span class="underliney">{clause.text}</span>
-              </div>
-              <br />
-            {/each}
+            <ProofStep {step} callback={clauseClick} />
           {/each}
         </div>
       {/if}
@@ -135,16 +118,3 @@
     {/if}
   {/if}
 </main>
-
-<style>
-  .clauselink {
-    display: block;
-    text-decoration: none;
-    cursor: pointer;
-    color: var(--vscode-textLink-foreground);
-  }
-
-  .clauselink:hover .underliney {
-    text-decoration: underline;
-  }
-</style>
