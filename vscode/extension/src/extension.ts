@@ -330,7 +330,6 @@ class SearchPanel implements Disposable {
       "<head>",
       `<head>\n<base href="${distPathInWebview}/">`
     );
-    console.log("post-injection html:\n", injected);
     this.panel.webview.html = injected;
 
     // Always reissue the search request on panel open

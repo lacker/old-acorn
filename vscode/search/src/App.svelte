@@ -105,16 +105,19 @@
         <div class="mono">
           {#each searchResponse.result.steps as step}
             <br />
-            <ProofStep {step} callback={clauseClick} />
+            <ProofStep {step} {clauseClick} />
           {/each}
         </div>
       {/if}
     {/if}
     <hr />
-    {#if infoResult === null}
-      <pre>{searchResponse.textOutput.join("\n")}</pre>
-    {:else}
-      <div class="mono">TODO: have ProofStep.svelte</div>
-    {/if}
+    <div class="mono">
+      <br />
+      {#if infoResult === null}
+        <pre>{searchResponse.textOutput.join("\n")}</pre>
+      {:else}
+        <ProofStep step={infoResult.step} {clauseClick} />
+      {/if}
+    </div>
   {/if}
 </main>
