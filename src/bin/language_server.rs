@@ -64,6 +64,7 @@ impl Document {
 struct SearchTask {
     project: Arc<RwLock<Project>>,
     document: Arc<Document>,
+    prover: Arc<RwLock<Option<Prover>>>,
 
     // The module that we're searching for a proof in
     module_name: String,
@@ -204,6 +205,7 @@ impl SearchTask {
         };
 
         log(&format!("search task for {} completed", self.goal_name));
+        self.prover.write().await.replace(prover);
         self.result.set(result).expect("result was already set");
     }
 }
@@ -497,6 +499,7 @@ impl Backend {
         let new_task = SearchTask {
             project: self.project.clone(),
             document: doc.clone(),
+            prover: Arc::new(RwLock::new(None)),
             module_name,
             selected_line: params.selected_line,
             path,
@@ -530,9 +533,7 @@ impl Backend {
 
         let task = match locked_task.as_ref() {
             Some(task) => task,
-            None => {
-                return self.info_fail("no search task available");
-            }
+            None => return self.info_fail("no search task available"),
         };
         if task.id != params.search_id {
             return self.info_fail(&format!(
@@ -540,8 +541,17 @@ impl Backend {
                 params.search_id, task.id
             ));
         }
-        let _project = task.project.read().await;
-        Err(jsonrpc::Error::internal_error())
+        let locked_prover = task.prover.read().await;
+        let prover = match locked_prover.as_ref() {
+            Some(prover) => prover,
+            None => return self.info_fail("no prover available"),
+        };
+        let result = prover.info_result(params.clause_id);
+        let failure = match result {
+            Some(_) => None,
+            None => Some(format!("no info available for clause {}", params.clause_id)),
+        };
+        Ok(InfoResponse { failure, result })
     }
 }
 

@@ -518,10 +518,6 @@ impl Prover {
             let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
             premises.push((description, clause));
         }
-        for i in &step.simplification_rules {
-            let clause = self.to_clause_info(Some(*i), self.active_set.get_clause(*i));
-            premises.push(("simplification".to_string(), clause));
-        }
         let rule = step.rule.name().to_string();
         ProofStepInfo {
             clause,
