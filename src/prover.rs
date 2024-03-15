@@ -522,7 +522,11 @@ impl Prover {
             let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
             premises.push((description, clause));
         }
-        let rule = step.rule.name().to_string();
+        let rule = if step.is_negated_goal() {
+            "Negating the goal".to_string()
+        } else {
+            step.rule.name().to_string()
+        };
         ProofStepInfo {
             clause,
             premises,
