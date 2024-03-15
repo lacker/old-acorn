@@ -137,11 +137,6 @@
 </main>
 
 <style>
-  .mono {
-    font-family: monospace;
-    display: block;
-  }
-
   .clauselink {
     display: block;
     text-decoration: none;

@@ -1,3 +1,8 @@
 body {
   font-size: 14px;
 }
+
+.mono {
+  font-family: monospace;
+  display: block;
+}
