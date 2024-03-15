@@ -70,9 +70,11 @@ pub struct ForAllStatement {
 }
 
 // If statements create a new block that introduces no variables but has an implicit condition.
+// They can optionally create a second block with an "else" keyword followed by a block.
 pub struct IfStatement {
     pub condition: Expression,
     pub body: Body,
+    pub else_body: Option<Body>,
 
     // Just for error reporting
     pub token: Token,
@@ -366,6 +368,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
     let is = IfStatement {
         condition,
         body,
+        else_body: None,
         token,
     };
     let statement = Statement {
