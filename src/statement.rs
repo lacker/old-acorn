@@ -148,6 +148,7 @@ impl fmt::Display for Statement {
 
 // Parses a block (a list of statements) where the left brace has already been consumed.
 // Returns the statements along with the token for the final right brace.
+// Consumes the right brace, but nothing after that.
 fn parse_block(tokens: &mut TokenIter) -> Result<(Vec<Statement>, Token)> {
     let mut body = Vec::new();
     loop {
@@ -575,10 +576,11 @@ impl Statement {
     }
 
     // Tries to parse a single statement from the provided tokens.
-    // A statement can always end with a newline, which is consumed.
-    // If project is not provided, we won't be able to handle import statements.
     // If in_block is true, a prop statement can also end with a right brace.
     // Returns statement, as well as the right brace token, if the current block ended.
+    //
+    // Normally, this function consumes the final newline.
+    // When it's a right brace that ends a block, though, the last token consumed is the right brace.
     pub fn parse(
         tokens: &mut TokenIter,
         in_block: bool,
@@ -620,7 +622,6 @@ impl Statement {
                             return Err(Error::new(token, "unmatched right brace at top level"));
                         }
                         let brace = tokens.next().unwrap();
-                        Token::expect_type(tokens, TokenType::NewLine)?;
 
                         return Ok((None, Some(brace)));
                     }
@@ -884,5 +885,10 @@ mod tests {
         } else {
             qux(x)
         }"});
+    }
+
+    #[test]
+    fn test_no_lone_else_statement() {
+        fail("else { qux(x) }");
     }
 }
