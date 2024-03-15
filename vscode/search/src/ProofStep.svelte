@@ -1,6 +1,7 @@
 <script lang="ts">
   export let step: ProofStepInfo;
-  export let clauseClick: (id: number | null) => void;
+  export let clauseClick: (id: number) => void;
+  import ClauseLink from "./ClauseLink.svelte";
 
   function spaces(n: number): string {
     return "\u00A0".repeat(n);
@@ -16,28 +17,11 @@
     Clause {step.clause.id}, by
   {/if}
   {step.rule.toLowerCase()}:<br />
-  <div class="clauselink" on:click={() => clauseClick(step.clause.id)}>
-    {spaces(4)}<span class="underliney">{step.clause.text}</span>
-  </div>
+  <ClauseLink clause={step.clause} onClick={clauseClick} />
   <br />
 {/if}
 {#each step.premises as [desc, clause]}
   {spaces(2)}using clause {clause.id} as {desc}:<br />
-  <div class="clauselink" on:click={() => clauseClick(clause.id)}>
-    {spaces(4)}<span class="underliney">{clause.text}</span>
-  </div>
+  <ClauseLink {clause} onClick={clauseClick} />
   <br />
 {/each}
-
-<style>
-  .clauselink {
-    display: block;
-    text-decoration: none;
-    cursor: pointer;
-    color: var(--vscode-textLink-foreground);
-  }
-
-  .clauselink:hover .underliney {
-    text-decoration: underline;
-  }
-</style>

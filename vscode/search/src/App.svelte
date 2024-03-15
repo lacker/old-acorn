@@ -72,8 +72,8 @@
     return "\u00A0".repeat(n);
   }
 
-  function clauseClick(id: number | null) {
-    if (searchResponse === null || id === null) {
+  function clauseClick(id: number) {
+    if (searchResponse === null) {
       return;
     }
     let params: InfoParams = {
