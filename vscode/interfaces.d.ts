@@ -49,7 +49,7 @@ interface InfoParams {
 interface InfoResult {
   clause: ClauseInfo;
   step: ProofStepInfo;
-  consequences: Array<ClauseInfo>;
+  consequences: Array<ProofStepInfo>;
 }
 
 interface InfoResponse {

@@ -7,10 +7,15 @@
   }
 </script>
 
-{#if step.clause.id === null}
+{#if step.clause.text === "<empty>"}
   Contradiction, by {step.rule.toLowerCase()}.<br />
 {:else}
-  Clause {step.clause.id}, by {step.rule.toLowerCase()}:<br />
+  {#if step.clause.id === null}
+    By
+  {:else}
+    Clause {step.clause.id}, by
+  {/if}
+  {step.rule.toLowerCase()}:<br />
   <div class="clauselink" on:click={() => clauseClick(step.clause.id)}>
     {spaces(4)}<span class="underliney">{step.clause.text}</span>
   </div>

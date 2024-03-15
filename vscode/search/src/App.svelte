@@ -92,17 +92,20 @@
     <hr />
     {#if searchResponse.result !== null}
       {#if searchResponse.result.code === null}
-        <pre>proof search failed.</pre>
+        <pre>Proof search failed.</pre>
       {:else if searchResponse.result.code.length === 0}
-        <pre>the proof is trivial.</pre>
+        <pre>The proof is trivial.</pre>
       {:else}
-        <pre>{"proof found:\n  " +
+        <pre>{"Proof found:\n  " +
             searchResponse.result.code.join("\n  ")}</pre>
         <button on:click={insertProof}>Insert proof</button>
       {/if}
 
       {#if searchResponse.result.steps !== null}
         <div class="mono">
+          <br />
+          Details:
+          <br />
           {#each searchResponse.result.steps as step}
             <br />
             <ProofStep {step} {clauseClick} />
@@ -117,6 +120,12 @@
         <pre>{searchResponse.textOutput.join("\n")}</pre>
       {:else}
         <ProofStep step={infoResult.step} {clauseClick} />
+        <br />
+        Consequences:<br />
+        {#each infoResult.consequences as step}
+          <br />
+          <ProofStep {step} {clauseClick} />
+        {/each}
       {/if}
     </div>
   {/if}
