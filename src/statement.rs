@@ -130,6 +130,7 @@ fn add_indent(indentation: &str) -> String {
 }
 
 // Writes out a block, starting with the space before the open-brace, indenting the rest.
+// Does not write a trailing newline.
 fn write_block(f: &mut fmt::Formatter, statements: &[Statement], indentation: &str) -> fmt::Result {
     write!(f, " {{\n")?;
     let new_indentation = add_indent(indentation);
@@ -356,6 +357,28 @@ fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     Ok(statement)
 }
 
+// If there is an "else { ...statements }" body, parse and consume it.
+// Returns None and consumes nothing if there is not an "else" body here.
+fn parse_else_body(tokens: &mut TokenIter) -> Result<Option<Body>> {
+    match tokens.peek() {
+        Some(token) => match token.token_type {
+            TokenType::Else => {
+                tokens.next();
+            }
+            _ => return Ok(None),
+        },
+        None => return Ok(None),
+    }
+    let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+    let (statements, right_brace) = parse_block(tokens)?;
+    let body = Body {
+        left_brace,
+        statements,
+        right_brace,
+    };
+    Ok(Some(body))
+}
+
 // Parses an if statement where the "if" keyword has already been found.
 fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
@@ -366,10 +389,11 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
         statements,
         right_brace: right_brace.clone(),
     };
+    let else_body = parse_else_body(tokens)?;
     let is = IfStatement {
         condition,
         body,
-        else_body: None,
+        else_body,
         token,
     };
     let statement = Statement {
@@ -546,7 +570,12 @@ impl Statement {
 
             StatementInfo::If(is) => {
                 write!(f, "if {}", is.condition)?;
-                write_block(f, &is.body.statements, indentation)
+                write_block(f, &is.body.statements, indentation)?;
+                if let Some(else_body) = &is.else_body {
+                    write!(f, " else")?;
+                    write_block(f, &else_body.statements, indentation)?;
+                }
+                Ok(())
             }
 
             StatementInfo::Exists(es) => {
