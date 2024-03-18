@@ -789,8 +789,22 @@ impl Environment {
                     self.bindings
                         .evaluate_value(project, &is.condition, Some(&AcornType::Bool))?;
                 let range = is.condition.range();
-                self.add_condition(project, condition, range, statement.first_line(), &is.body)?;
-
+                self.add_condition(
+                    project,
+                    condition.clone(),
+                    range,
+                    statement.first_line(),
+                    &is.body,
+                )?;
+                if let Some(else_body) = &is.else_body {
+                    self.add_condition(
+                        project,
+                        condition.negate(),
+                        range,
+                        else_body.left_brace.line_number as u32,
+                        else_body,
+                    )?;
+                }
                 Ok(())
             }
 
