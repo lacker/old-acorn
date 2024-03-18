@@ -192,8 +192,8 @@ enum BlockParams<'a> {
     // The hypothesis is optional.
     Theorem(&'a str, Option<AcornValue>, AcornValue),
 
-    // The value passed in the "if" condition, and its range in the source document
-    If(&'a AcornValue, Range),
+    // The assumption to be used by the block, and the range of this assumption.
+    Conditional(&'a AcornValue, Range),
 
     // No special params needed
     ForAll,
@@ -305,11 +305,11 @@ impl Environment {
         }
 
         let claim = match params {
-            BlockParams::If(fact, range) => {
+            BlockParams::Conditional(condition, range) => {
                 subenv.add_proposition(Proposition {
                     theorem_name: None,
                     proven: true,
-                    claim: fact.clone(),
+                    claim: condition.clone(),
                     block: None,
                     range,
                 });
@@ -476,6 +476,60 @@ impl Environment {
             }
         }
         None
+    }
+
+    // Takes the condition, the range to associate with the condition, the first line of
+    // the conditional block, and finally the body itself.
+    fn add_condition(
+        &mut self,
+        project: &mut Project,
+        condition: AcornValue,
+        range: Range,
+        first_line: u32,
+        body: &Body,
+    ) -> token::Result<()> {
+        if body.statements.is_empty() {
+            // Conditions with an empty body can just be ignored
+            return Ok(());
+        }
+        let block = self.new_block(
+            project,
+            vec![],
+            vec![],
+            BlockParams::Conditional(&condition, range),
+            first_line,
+            body,
+        )?;
+        let (inner_claim, claim_range) = match block.env.propositions.last() {
+            Some(p) => (&p.claim, p.range),
+            None => {
+                return Err(Error::new(
+                    &body.right_brace,
+                    "expected a claim in this block",
+                ));
+            }
+        };
+        // The last claim in the block is exported to the outside environment.
+        let outer_claim = block.export_bool(&self, inner_claim);
+        let claim = AcornValue::Binary(
+            BinaryOp::Implies,
+            Box::new(condition),
+            Box::new(outer_claim.clone()),
+        );
+        let prop = Proposition {
+            theorem_name: None,
+            proven: false,
+            claim,
+            block: Some(block),
+            range: claim_range,
+        };
+        let index = self.add_proposition(prop);
+        self.add_line_types(
+            LineType::Proposition(index),
+            first_line,
+            body.right_brace.line_number,
+        );
+        Ok(())
     }
 
     // Adds a statement to the environment.
@@ -731,19 +785,20 @@ impl Environment {
             }
 
             StatementInfo::If(is) => {
+                let condition =
+                    self.bindings
+                        .evaluate_value(project, &is.condition, Some(&AcornType::Bool))?;
                 if is.body.statements.is_empty() {
                     // If statements with an empty body can just be ignored
                     return Ok(());
                 }
-                let condition =
-                    self.bindings
-                        .evaluate_value(project, &is.condition, Some(&AcornType::Bool))?;
+
                 let range = is.condition.range();
                 let block = self.new_block(
                     project,
                     vec![],
                     vec![],
-                    BlockParams::If(&condition, range),
+                    BlockParams::Conditional(&condition, range),
                     statement.first_line(),
                     &is.body,
                 )?;
