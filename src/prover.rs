@@ -1354,4 +1354,20 @@ mod tests {
 
         expect_proof(text, "goal", &["foo(t2)"]);
     }
+
+    #[test]
+    fn test_proof_using_else() {
+        let text = r#"
+        let a: bool = axiom
+        let b: bool = axiom
+        let c: bool = axiom
+        if a {
+            b
+        } else {
+            c
+        }
+        theorem goal: !a -> c
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
 }
