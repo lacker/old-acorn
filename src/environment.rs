@@ -788,44 +788,9 @@ impl Environment {
                 let condition =
                     self.bindings
                         .evaluate_value(project, &is.condition, Some(&AcornType::Bool))?;
-                if is.body.statements.is_empty() {
-                    // If statements with an empty body can just be ignored
-                    return Ok(());
-                }
-
                 let range = is.condition.range();
-                let block = self.new_block(
-                    project,
-                    vec![],
-                    vec![],
-                    BlockParams::Conditional(&condition, range),
-                    statement.first_line(),
-                    &is.body,
-                )?;
-                let inner_claim: &AcornValue = match block.env.propositions.last() {
-                    Some(p) => &p.claim,
-                    None => {
-                        return Err(Error::new(&is.token, "expected a claim in this block"));
-                    }
-                };
+                self.add_condition(project, condition, range, statement.first_line(), &is.body)?;
 
-                // The last claim in the block is exported to the outside environment.
-                let outer_claim = block.export_bool(&self, inner_claim);
-                let claim = AcornValue::Binary(
-                    BinaryOp::Implies,
-                    Box::new(condition),
-                    Box::new(outer_claim.clone()),
-                );
-
-                let prop = Proposition {
-                    theorem_name: None,
-                    proven: false,
-                    claim,
-                    block: Some(block),
-                    range: statement.range(),
-                };
-                let index = self.add_proposition(prop);
-                self.add_prop_lines(index, statement);
                 Ok(())
             }
 
