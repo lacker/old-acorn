@@ -1370,4 +1370,18 @@ mod tests {
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
+
+    #[test]
+    fn test_using_else_when_missing_if_block() {
+        let text = r#"
+        let a: bool = axiom
+        let b: bool = axiom
+        if a {
+        } else {
+            b
+        }
+        theorem goal: !a -> b
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
 }
