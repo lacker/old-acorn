@@ -91,8 +91,8 @@ pub struct Proposition {
     // claim is proven as well.
     block: Option<Block>,
 
-    // The range in the source document corresponding to this proposition.
-    // Multiple propositions can have overlapping ranges, so don't use this for lookups.
+    // The range in the source document that is the source of this proposition.
+    // Used for documentation purposes.
     pub range: Range,
 }
 

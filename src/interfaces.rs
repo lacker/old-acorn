@@ -5,7 +5,7 @@
 // This file should be kept parallel to vscode/interfaces.d.ts.
 
 use serde::{Deserialize, Serialize};
-use tower_lsp::lsp_types::Url;
+use tower_lsp::lsp_types::{Range, Url};
 
 // The language server stores one progress struct, and returns it at any time.
 // 0/0 only occurs at initialization. It means "there have never been any progress bars".
@@ -57,6 +57,24 @@ pub struct ClauseInfo {
     pub id: Option<usize>,
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssumptionInfo {
+    // Which document this assumption was made in
+    pub uri: Url,
+
+    // The range in the source document corresponding to this proposition.
+    // This is here for UI purposes. It is the place we should jump to or highlight to show
+    // the user where this proposition is defined.
+    pub range: Range,
+
+    // Only set when this proposition is a named theorem.
+    pub theorem_name: Option<String>,
+
+    // Whether this assumption is the negation of a goal
+    pub negated_goal: bool,
+}
+
 // Information about one step in a proof.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -70,6 +88,10 @@ pub struct ProofStepInfo {
 
     // Name of the rule used in this proof step
     pub rule: String,
+
+    // Assumption is set when this proof step is taking something directly from the codebase.
+    // This should be precisely when premises is empty.
+    pub assumption: Option<AssumptionInfo>,
 }
 
 // The SearchResult contains information that is produced once, when the search completes.

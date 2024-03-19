@@ -531,6 +531,7 @@ impl Prover {
             clause,
             premises,
             rule,
+            assumption: None,
         }
     }
 
