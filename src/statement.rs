@@ -360,14 +360,20 @@ fn parse_forall_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 // If there is an "else { ...statements }" body, parse and consume it.
 // Returns None and consumes nothing if there is not an "else" body here.
 fn parse_else_body(tokens: &mut TokenIter) -> Result<Option<Body>> {
-    match tokens.peek() {
-        Some(token) => match token.token_type {
-            TokenType::Else => {
-                tokens.next();
-            }
-            _ => return Ok(None),
-        },
-        None => return Ok(None),
+    loop {
+        match tokens.peek() {
+            Some(token) => match token.token_type {
+                TokenType::NewLine => {
+                    tokens.next();
+                }
+                TokenType::Else => {
+                    tokens.next();
+                    break;
+                }
+                _ => return Ok(None),
+            },
+            None => return Ok(None),
+        }
     }
     let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
     let (statements, right_brace) = parse_block(tokens)?;

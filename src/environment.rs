@@ -1912,4 +1912,21 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("let add00: Nat -> Nat = add3(0, 0)");
         env.add("let add00_alt: Nat -> Nat = add0(0)");
     }
+
+    #[test]
+    fn test_else_on_new_line() {
+        // This is ugly but it should work.
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+        let b: bool = axiom
+        if b {
+            b
+        }
+        else {
+            !b
+        }
+        "#,
+        );
+    }
 }
