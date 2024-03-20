@@ -69,8 +69,23 @@ pub struct Environment {
     line_types: Vec<LineType>,
 }
 
+// A value along with information on where to find it in the source.
+pub struct LocatedValue {
+    pub value: AcornValue,
+
+    // The module where this value was defined
+    pub module: ModuleId,
+
+    // The range in the source document that corresponds to the value's definition
+    pub range: Range,
+
+    // Only set when this value is a named theorem
+    pub theorem_name: Option<String>,
+}
+
 pub struct Proposition {
     // Only set when this proposition is a named theorem.
+    // TODO: remove
     theorem_name: Option<String>,
 
     // Whether this theorem has already been proved structurally.
@@ -84,7 +99,7 @@ pub struct Proposition {
     // Besides the claim, nothing else from the block is visible externally.
     //
     // This claim needs to be proved when proven is false, and there is no block.
-    pub claim: AcornValue,
+    pub claim: LocatedValue,
 
     // The body of the proposition, when it has an associated block.
     // When there is a block, proving every proposition in the block implies that the
@@ -93,6 +108,7 @@ pub struct Proposition {
 
     // The range in the source document that is the source of this proposition.
     // Used for documentation purposes.
+    // TODO: remove
     pub range: Range,
 }
 
@@ -101,7 +117,7 @@ impl Proposition {
     pub fn name(&self) -> String {
         match &self.theorem_name {
             Some(name) => name.clone(),
-            None => self.claim.to_string(),
+            None => self.claim.value.to_string(),
         }
     }
 }
@@ -309,7 +325,12 @@ impl Environment {
                 subenv.add_proposition(Proposition {
                     theorem_name: None,
                     proven: true,
-                    claim: condition.clone(),
+                    claim: LocatedValue {
+                        value: condition.clone(),
+                        module: self.module_id,
+                        range,
+                        theorem_name: None,
+                    },
                     block: None,
                     range,
                 });
@@ -354,7 +375,12 @@ impl Environment {
                     subenv.add_proposition(Proposition {
                         theorem_name: None,
                         proven: true,
-                        claim: hypo,
+                        claim: LocatedValue {
+                            value: hypo,
+                            module: self.module_id,
+                            range,
+                            theorem_name: None,
+                        },
                         block: None,
                         range,
                     });
@@ -393,8 +419,9 @@ impl Environment {
     fn add_proposition(&mut self, prop: Proposition) -> usize {
         // Check if we're adding invalid claims.
         prop.claim
+            .value
             .validate()
-            .unwrap_or_else(|e| panic!("invalid claim: {} ({})", prop.claim, e));
+            .unwrap_or_else(|e| panic!("invalid claim: {} ({})", prop.claim.value, e));
 
         self.propositions.push(prop);
         self.propositions.len() - 1
@@ -457,7 +484,12 @@ impl Environment {
         self.add_proposition(Proposition {
             theorem_name: None,
             proven: true,
-            claim,
+            claim: LocatedValue {
+                value: claim,
+                module: self.module_id,
+                range,
+                theorem_name: None,
+            },
             block: None,
             range,
         });
@@ -471,7 +503,7 @@ impl Environment {
         for prop in &self.propositions {
             if let Some(claim_name) = &prop.theorem_name {
                 if claim_name == name {
-                    return Some(prop.claim.clone());
+                    return Some(prop.claim.value.clone());
                 }
             }
         }
@@ -501,7 +533,7 @@ impl Environment {
             body,
         )?;
         let (inner_claim, claim_range) = match block.env.propositions.last() {
-            Some(p) => (&p.claim, p.range),
+            Some(p) => (&p.claim.value, p.range),
             None => {
                 return Err(Error::new(
                     &body.right_brace,
@@ -519,7 +551,12 @@ impl Environment {
         let prop = Proposition {
             theorem_name: None,
             proven: false,
-            claim,
+            claim: LocatedValue {
+                value: claim,
+                module: self.module_id,
+                range: claim_range,
+                theorem_name: None,
+            },
             block: Some(block),
             range: claim_range,
         };
@@ -710,7 +747,12 @@ impl Environment {
                 let prop = Proposition {
                     theorem_name: Some(ts.name.to_string()),
                     proven: ts.axiomatic,
-                    claim: forall_claim,
+                    claim: LocatedValue {
+                        value: forall_claim,
+                        module: self.module_id,
+                        range,
+                        theorem_name: Some(ts.name.to_string()),
+                    },
                     block,
                     range,
                 };
@@ -731,7 +773,12 @@ impl Environment {
                 let prop = Proposition {
                     theorem_name: None,
                     proven: false,
-                    claim,
+                    claim: LocatedValue {
+                        value: claim,
+                        module: self.module_id,
+                        range: statement.range(),
+                        theorem_name: None,
+                    },
                     block: None,
                     range: statement.range(),
                 };
@@ -763,7 +810,7 @@ impl Environment {
 
                 // The last claim in the block is exported to the outside environment.
                 let inner_claim: &AcornValue = match block.env.propositions.last() {
-                    Some(p) => &p.claim,
+                    Some(p) => &p.claim.value,
                     None => {
                         return Err(Error::new(
                             &statement.first_token,
@@ -775,7 +822,12 @@ impl Environment {
                 let prop = Proposition {
                     theorem_name: None,
                     proven: false,
-                    claim: outer_claim,
+                    claim: LocatedValue {
+                        value: outer_claim,
+                        module: self.module_id,
+                        range: statement.range(),
+                        theorem_name: None,
+                    },
                     block: Some(block),
                     range: statement.range(),
                 };
@@ -825,7 +877,12 @@ impl Environment {
                 let general_prop = Proposition {
                     theorem_name: None,
                     proven: false,
-                    claim: general_claim,
+                    claim: LocatedValue {
+                        value: general_claim,
+                        module: self.module_id,
+                        range: statement.range(),
+                        theorem_name: None,
+                    },
                     block: None,
                     range: statement.range(),
                 };
@@ -845,7 +902,12 @@ impl Environment {
                 let specific_prop = Proposition {
                     theorem_name: None,
                     proven: true,
-                    claim: specific_claim,
+                    claim: LocatedValue {
+                        value: specific_claim,
+                        module: self.module_id,
+                        range: statement.range(),
+                        theorem_name: None,
+                    },
                     block: None,
                     range: statement.range(),
                 };
@@ -913,15 +975,21 @@ impl Environment {
                 let new_eq =
                     AcornValue::Binary(BinaryOp::Equals, Box::new(recreated), Box::new(new_eq_var));
                 let new_claim = AcornValue::ForAll(vec![struct_type], Box::new(new_eq));
+                let range = Range {
+                    start: statement.first_token.start_pos(),
+                    end: ss.name_token.end_pos(),
+                };
                 self.add_proposition(Proposition {
                     theorem_name: None,
                     proven: true,
-                    claim: new_claim,
-                    block: None,
-                    range: Range {
-                        start: statement.first_token.start_pos(),
-                        end: ss.name_token.end_pos(),
+                    claim: LocatedValue {
+                        value: new_claim,
+                        module: self.module_id,
+                        range,
+                        theorem_name: None,
                     },
+                    block: None,
+                    range,
                 });
 
                 // There are also formulas for new followed by member functions. Ie:
@@ -946,15 +1014,21 @@ impl Environment {
                         Box::new(AcornValue::Variable(i as AtomId, field_types[i].clone())),
                     );
                     let member_claim = AcornValue::ForAll(field_types.clone(), Box::new(member_eq));
+                    let range = Range {
+                        start: field_name_token.start_pos(),
+                        end: field_type_expr.last_token().end_pos(),
+                    };
                     self.add_proposition(Proposition {
                         theorem_name: None,
                         proven: true,
-                        claim: member_claim,
-                        block: None,
-                        range: Range {
-                            start: field_name_token.start_pos(),
-                            end: field_type_expr.last_token().end_pos(),
+                        claim: LocatedValue {
+                            value: member_claim,
+                            module: self.module_id,
+                            range,
+                            theorem_name: None,
                         },
+                        block: None,
+                        range,
                     });
                 }
 
@@ -1095,7 +1169,7 @@ impl Environment {
     pub fn get_facts(&self, project: &Project) -> Vec<AcornValue> {
         let mut facts = Vec::new();
         for prop in &self.propositions {
-            facts.push(self.inline_theorems(project, &prop.claim));
+            facts.push(self.inline_theorems(project, &prop.claim.value));
         }
         facts
     }
@@ -1132,7 +1206,7 @@ impl Environment {
         let mut global = true;
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
-                let fact = env.inline_theorems(project, &previous_prop.claim);
+                let fact = env.inline_theorems(project, &previous_prop.claim.value);
                 if global {
                     global_facts.push(fact);
                 } else {
@@ -1150,7 +1224,7 @@ impl Environment {
                     // This is the last element of the path. It has a block, so we can use the
                     // contents of the block to help prove it.
                     for p in &block.env.propositions {
-                        local_facts.push(block.env.inline_theorems(project, &p.claim));
+                        local_facts.push(block.env.inline_theorems(project, &p.claim.value));
                     }
                     let claim = if let Some(claim) = &block.claim {
                         claim
@@ -1177,7 +1251,7 @@ impl Environment {
                     global_facts,
                     local_facts,
                     prop.name(),
-                    env.inline_theorems(project, &prop.claim),
+                    env.inline_theorems(project, &prop.claim.value),
                     prop.range,
                     prop.range.start.line,
                 ));
