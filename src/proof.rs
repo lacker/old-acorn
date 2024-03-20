@@ -99,7 +99,7 @@ impl<'a> Proof<'a> {
         let mut regular = vec![];
         let mut inverted = vec![];
         for step in self.steps.values() {
-            if let Rule::Assumption = step.rule {
+            if let Rule::Assumption(_) = step.rule {
                 // This is a previous statement.
                 continue;
             }

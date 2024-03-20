@@ -1,6 +1,8 @@
 use std::{cmp::Ordering, fmt};
 
-use crate::clause::Clause;
+use tower_lsp::lsp_types::Range;
+
+use crate::{clause::Clause, module::ModuleId};
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
@@ -35,6 +37,18 @@ impl Truthiness {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssumptionInfo {
+    // Which module this assumption came from
+    pub module: ModuleId,
+
+    // Where in the source document this assumption came from
+    pub range: Range,
+
+    // Only set when this assumption is a named theorem
+    pub theorem_name: Option<String>,
+}
+
 // Information about a resolution inference.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolutionInfo {
@@ -65,7 +79,7 @@ pub struct RewriteInfo {
 // The rules that can generate new clauses, along with the clause ids used to generate.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Rule {
-    Assumption,
+    Assumption(AssumptionInfo),
 
     // Rules based on multiple source clauses
     Resolution(ResolutionInfo),
@@ -81,7 +95,7 @@ impl Rule {
     // The ids of the clauses that this rule directly depends on.
     fn premises(&self) -> impl Iterator<Item = &usize> {
         match self {
-            Rule::Assumption => vec![].into_iter(),
+            Rule::Assumption(_) => vec![].into_iter(),
             Rule::Resolution(info) => vec![&info.positive_id, &info.negative_id].into_iter(),
             Rule::Rewrite(info) => vec![&info.pattern_id, &info.target_id].into_iter(),
             Rule::EqualityFactoring(rewritten)
@@ -94,7 +108,7 @@ impl Rule {
     pub fn descriptive_premises(&self) -> Vec<(String, usize)> {
         let mut answer = vec![];
         match self {
-            Rule::Assumption => {}
+            Rule::Assumption(_) => {}
             Rule::Resolution(info) => {
                 answer.push(("positive resolver".to_string(), info.positive_id));
                 answer.push(("negative resolver".to_string(), info.negative_id));
@@ -115,7 +129,7 @@ impl Rule {
     // Human-readable.
     pub fn name(&self) -> &str {
         match self {
-            Rule::Assumption => "Assumption",
+            Rule::Assumption(_) => "Assumption",
             Rule::Resolution(_) => "Resolution",
             Rule::Rewrite(_) => "Rewrite",
             Rule::EqualityFactoring(_) => "Equality Factoring",
@@ -203,7 +217,14 @@ impl ProofStep {
 
     // Construct a ProofStep for an assumption that the prover starts with.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness) -> ProofStep {
-        ProofStep::new(clause, truthiness, Rule::Assumption, vec![], 0)
+        // TODO: this information is wrong
+        let rule = Rule::Assumption(AssumptionInfo {
+            module: 0,
+            range: Range::default(),
+            theorem_name: None,
+        });
+
+        ProofStep::new(clause, truthiness, rule, vec![], 0)
     }
 
     // Construct a new ProofStep that is a direct implication of a single activated step,
@@ -312,7 +333,11 @@ impl ProofStep {
 
     // Whether this step is just the direct normalization of the negated goal
     pub fn is_negated_goal(&self) -> bool {
-        self.rule == Rule::Assumption && self.truthiness == Truthiness::Counterfactual
+        if let Rule::Assumption(_) = self.rule {
+            self.truthiness == Truthiness::Counterfactual
+        } else {
+            false
+        }
     }
 
     // The better the score, the more we want to activate this proof step.
@@ -335,7 +360,7 @@ impl ProofStep {
                 }
             }
             Truthiness::Hypothetical => {
-                if self.rule == Rule::Assumption {
+                if let Rule::Assumption(_) = self.rule {
                     2
                 } else {
                     1

@@ -130,7 +130,7 @@ impl ActiveSet {
         println!("proof step:");
         println!("  output: {}", step.clause);
         match &step.rule {
-            Rule::Assumption => {
+            Rule::Assumption(_) => {
                 println!("  rule: assumption");
             }
             Rule::EqualityResolution(id) => {
