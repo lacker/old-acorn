@@ -101,11 +101,6 @@ pub struct Proposition {
     // When there is a block, proving every proposition in the block implies that the
     // claim is proven as well.
     block: Option<Block>,
-
-    // The range in the source document that is the source of this proposition.
-    // Used for documentation purposes.
-    // TODO: remove
-    pub range: Range,
 }
 
 impl Proposition {
@@ -327,7 +322,6 @@ impl Environment {
                         theorem_name: None,
                     },
                     block: None,
-                    range,
                 });
                 None
             }
@@ -376,7 +370,6 @@ impl Environment {
                             theorem_name: None,
                         },
                         block: None,
-                        range,
                     });
                 }
 
@@ -484,7 +477,6 @@ impl Environment {
                 theorem_name: None,
             },
             block: None,
-            range,
         });
     }
 
@@ -526,7 +518,7 @@ impl Environment {
             body,
         )?;
         let (inner_claim, claim_range) = match block.env.propositions.last() {
-            Some(p) => (&p.claim.value, p.range),
+            Some(p) => (&p.claim.value, p.claim.range),
             None => {
                 return Err(Error::new(
                     &body.right_brace,
@@ -550,7 +542,6 @@ impl Environment {
                 theorem_name: None,
             },
             block: Some(block),
-            range: claim_range,
         };
         let index = self.add_proposition(prop);
         self.add_line_types(
@@ -745,7 +736,6 @@ impl Environment {
                         theorem_name: Some(ts.name.to_string()),
                     },
                     block,
-                    range,
                 };
                 let index = self.add_proposition(prop);
                 self.add_prop_lines(index, statement);
@@ -770,7 +760,6 @@ impl Environment {
                         theorem_name: None,
                     },
                     block: None,
-                    range: statement.range(),
                 };
                 let index = self.add_proposition(prop);
                 self.add_prop_lines(index, statement);
@@ -818,7 +807,6 @@ impl Environment {
                         theorem_name: None,
                     },
                     block: Some(block),
-                    range: statement.range(),
                 };
                 let index = self.add_proposition(prop);
                 self.add_prop_lines(index, statement);
@@ -872,7 +860,6 @@ impl Environment {
                         theorem_name: None,
                     },
                     block: None,
-                    range: statement.range(),
                 };
                 let index = self.add_proposition(general_prop);
                 self.add_prop_lines(index, statement);
@@ -896,7 +883,6 @@ impl Environment {
                         theorem_name: None,
                     },
                     block: None,
-                    range: statement.range(),
                 };
                 self.add_proposition(specific_prop);
 
@@ -975,7 +961,6 @@ impl Environment {
                         theorem_name: None,
                     },
                     block: None,
-                    range,
                 });
 
                 // There are also formulas for new followed by member functions. Ie:
@@ -1013,7 +998,6 @@ impl Environment {
                             theorem_name: None,
                         },
                         block: None,
-                        range,
                     });
                 }
 
@@ -1222,7 +1206,7 @@ impl Environment {
                         local_facts,
                         prop.name(),
                         block.env.inline_theorems(project, claim),
-                        prop.range,
+                        prop.claim.range,
                         block.env.last_line(),
                     ));
                 }
@@ -1237,8 +1221,8 @@ impl Environment {
                     local_facts,
                     prop.name(),
                     env.inline_theorems(project, &prop.claim.value),
-                    prop.range,
-                    prop.range.start.line,
+                    prop.claim.range,
+                    prop.claim.range.start.line,
                 ));
             }
         }
