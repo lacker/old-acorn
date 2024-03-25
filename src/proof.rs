@@ -95,7 +95,7 @@ impl<'a> Proof<'a> {
     // such as previous statements and library facts.
     //
     // If we can't convert to values, return a string explaining why.
-    pub fn make_direct(&self) -> Result<Vec<AcornValue>, String> {
+    fn make_direct(&self) -> Result<Vec<AcornValue>, String> {
         self.check_direct(&self.final_step)?;
 
         let mut regular = vec![];
