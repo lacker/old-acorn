@@ -542,8 +542,10 @@ impl Prover {
             step.rule.name().to_string()
         };
         let assumption = if let Rule::Assumption(info) = &step.rule {
-            let path = project.path_from_module(info.module).unwrap();
-            let uri = Url::from_file_path(path).unwrap();
+            let uri = match project.path_from_module(info.module) {
+                Some(path) => Url::from_file_path(path).ok(),
+                None => None,
+            };
             Some(AssumptionInfo {
                 uri,
                 range: info.range,

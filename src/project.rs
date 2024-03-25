@@ -31,14 +31,12 @@ pub struct Project {
     // From vscode, it'll be the vscode version number.
     pub open_files: HashMap<PathBuf, (String, i32)>,
 
-    // modules[module_id] is the Module for the given module id
-    modules: Vec<Module>,
+    // modules[module_id] is the (name, Module) for the given module id.
+    // Built-in modules have no name.
+    modules: Vec<(Option<String>, Module)>,
 
     // module_map maps from a module name specified in Acorn to its id
     module_map: HashMap<String, ModuleId>,
-
-    // Reverse of module_map
-    module_names: Vec<String>,
 
     // The module names that we want to build.
     targets: HashSet<String>,
@@ -89,10 +87,10 @@ impl BuildEvent {
     }
 }
 
-fn new_modules() -> Vec<Module> {
+fn new_modules() -> Vec<(Option<String>, Module)> {
     let mut modules = vec![];
     while modules.len() < FIRST_NORMAL as usize {
-        modules.push(Module::None);
+        modules.push((None, Module::None));
     }
     modules
 }
@@ -121,7 +119,6 @@ impl Project {
             open_files: HashMap::new(),
             modules: new_modules(),
             module_map: HashMap::new(),
-            module_names: vec![],
             targets: HashSet::new(),
             build_stopped: Arc::new(AtomicBool::new(false)),
         }
@@ -388,9 +385,10 @@ impl Project {
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
-        self.modules
-            .get(module_id as usize)
-            .unwrap_or(&Module::None)
+        match self.modules.get(module_id as usize) {
+            Some((_, module)) => module,
+            None => &Module::None,
+        }
     }
 
     pub fn get_module_by_name(&self, module_name: &str) -> &Module {
@@ -420,7 +418,7 @@ impl Project {
     pub fn errors(&self) -> Vec<(ModuleId, &token::Error)> {
         let mut errors = vec![];
         for (module_id, module) in self.modules.iter().enumerate() {
-            if let Module::Error(e) = module {
+            if let (_, Module::Error(e)) = module {
                 errors.push((module_id as ModuleId, e));
             }
         }
@@ -497,9 +495,16 @@ impl Project {
         Ok(path)
     }
 
-    pub fn path_from_module(&self, module_id: ModuleId) -> Result<PathBuf, LoadError> {
-        let name = &self.module_names[module_id as usize];
-        self.path_from_module_name(&name)
+    pub fn path_from_module(&self, module_id: ModuleId) -> Option<PathBuf> {
+        let name = match &self.modules[module_id as usize] {
+            (Some(name), _) => name,
+            _ => return None,
+        };
+
+        match self.path_from_module_name(&name) {
+            Ok(path) => Some(path),
+            Err(_) => None,
+        }
     }
 
     // Loads a module from cache if possible, or else from the filesystem.
@@ -527,9 +532,9 @@ impl Project {
 
         // Give this module an id before parsing it, so that we can catch circular imports.
         let module_id = self.modules.len() as ModuleId;
-        self.modules.push(Module::Loading);
+        self.modules
+            .push((Some(module_name.to_string()), Module::Loading));
         self.module_map.insert(module_name.to_string(), module_id);
-        self.module_names.push(module_name.to_string());
 
         let mut env = Environment::new(module_id);
         let tokens = Token::scan(&text);
@@ -538,7 +543,7 @@ impl Project {
         } else {
             Module::Ok(env)
         };
-        self.modules[module_id as usize] = module;
+        self.modules[module_id as usize].1 = module;
 
         Ok(module_id)
     }

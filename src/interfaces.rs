@@ -60,8 +60,9 @@ pub struct ClauseInfo {
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssumptionInfo {
-    // Which document this assumption was made in
-    pub uri: Url,
+    // Which document this assumption was made in.
+    // Can be None if this assumption is synthetic in some way.
+    pub uri: Option<Url>,
 
     // The range in the source document corresponding to this proposition.
     // This is here for UI purposes. It is the place we should jump to or highlight to show

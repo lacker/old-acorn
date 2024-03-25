@@ -14,7 +14,7 @@ interface SearchParams {
 }
 
 interface AssumptionInfo {
-  uri: string;
+  uri: string | null;
   range: any;
   theorem: string | null;
   negatedGoal: boolean;
