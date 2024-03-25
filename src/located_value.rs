@@ -3,6 +3,7 @@ use tower_lsp::lsp_types::Range;
 use crate::{acorn_value::AcornValue, module::ModuleId};
 
 // A value along with information on where to find it in the source.
+#[derive(Debug, Clone)]
 pub struct LocatedValue {
     pub value: AcornValue,
 

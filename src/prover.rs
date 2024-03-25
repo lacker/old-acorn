@@ -133,13 +133,13 @@ impl Prover {
 
         // Load facts into the prover
         for fact in global_facts {
-            p.add_assumption(fact, Truthiness::Factual);
+            p.add_assumption(fact.value, Truthiness::Factual);
         }
         p.normalizer.global_done = true;
         for fact in local_facts {
-            p.add_assumption(fact, Truthiness::Hypothetical);
+            p.add_assumption(fact.value, Truthiness::Hypothetical);
         }
-        let (hypo, counter) = goal_context.goal.to_placeholder().negate_goal();
+        let (hypo, counter) = goal_context.goal.value.to_placeholder().negate_goal();
         if let Some(hypo) = hypo {
             p.add_assumption(hypo, Truthiness::Hypothetical);
         }

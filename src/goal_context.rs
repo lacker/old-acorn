@@ -15,16 +15,16 @@ pub struct GoalContext<'a> {
     env: &'a Environment,
 
     // Facts that occur outside any block, before this goal.
-    global_facts: Vec<AcornValue>,
+    global_facts: Vec<LocatedValue>,
 
     // Facts that are in a block containing this goal.
-    local_facts: Vec<AcornValue>,
+    local_facts: Vec<LocatedValue>,
 
     // A printable name for this goal.
     pub name: String,
 
     // The goal itself.
-    pub goal: AcornValue,
+    pub goal: LocatedValue,
 
     // The range in the source document corresponding to this goal.
     pub range: Range,
@@ -44,14 +44,12 @@ impl GoalContext<'_> {
         range: Range,
         proof_insertion_line: u32,
     ) -> GoalContext {
-        let global_facts = global_facts.into_iter().map(|lv| lv.value).collect();
-        let local_facts = local_facts.into_iter().map(|lv| lv.value).collect();
         GoalContext {
             env,
             global_facts,
             local_facts,
             name,
-            goal: goal.value,
+            goal,
             range,
             proof_insertion_line,
         }
@@ -71,23 +69,20 @@ impl GoalContext<'_> {
     pub fn monomorphize(
         &self,
         imported_facts: Vec<LocatedValue>,
-    ) -> (Vec<AcornValue>, Vec<AcornValue>) {
-        let mut facts = imported_facts
-            .into_iter()
-            .map(|lv| lv.value)
-            .collect::<Vec<_>>();
+    ) -> (Vec<LocatedValue>, Vec<LocatedValue>) {
+        let mut facts = imported_facts;
         facts.extend(self.global_facts.iter().cloned());
         let num_global = facts.len();
         facts.extend(self.local_facts.iter().cloned());
         let mut graph = DependencyGraph::new(&facts);
 
         for fact in &facts {
-            fact.validate().unwrap_or_else(|e| {
-                panic!("bad fact: {} ({})", fact, e);
+            fact.value.validate().unwrap_or_else(|e| {
+                panic!("bad fact: {} ({})", &fact.value, e);
             });
-            graph.inspect_value(&facts, fact);
+            graph.inspect_value(&facts, &fact.value);
         }
-        graph.inspect_value(&facts, &self.goal);
+        graph.inspect_value(&facts, &self.goal.value);
 
         assert!(facts.len() == graph.monomorphs_for_fact.len());
 
@@ -103,14 +98,20 @@ impl GoalContext<'_> {
                 continue;
             }
             for monomorph_key in monomorph_keys.unwrap() {
-                let monomorph = fact.specialize(&monomorph_key.params);
+                let monomorph = fact.value.specialize(&monomorph_key.params);
                 if monomorph.is_parametric() {
                     panic!("monomorph {} is still parametric", monomorph);
                 }
+                let new_fact = LocatedValue {
+                    value: monomorph,
+                    module: fact.module,
+                    range: fact.range,
+                    theorem_name: fact.theorem_name.clone(),
+                };
                 if i < num_global {
-                    global_out.push(monomorph);
+                    global_out.push(new_fact);
                 } else {
-                    local_out.push(monomorph);
+                    local_out.push(new_fact);
                 }
             }
         }
@@ -173,14 +174,14 @@ struct DependencyGraph {
 impl DependencyGraph {
     // Populates facts_for_constant, and puts None vs Some([]) in the right place for
     // monomorphs_for_fact.
-    fn new(facts: &[AcornValue]) -> DependencyGraph {
+    fn new(facts: &[LocatedValue]) -> DependencyGraph {
         let mut monomorphs_for_fact = vec![];
         let mut parametric_instances = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
             let mut instances = vec![];
-            fact.find_parametric(&mut instances);
+            fact.value.find_parametric(&mut instances);
             if instances.is_empty() {
-                if let AcornValue::ForAll(args, _) = fact {
+                if let AcornValue::ForAll(args, _) = &fact.value {
                     if args.iter().any(|arg| arg.is_parametric()) {
                         // This is a polymorphic fact with no polymorphic functions.
                         // It could be something trivial and purely propositional, like
@@ -215,7 +216,7 @@ impl DependencyGraph {
     // using the types in monomorph_key.
     fn add_monomorph(
         &mut self,
-        facts: &[AcornValue],
+        facts: &[LocatedValue],
         constant_key: ConstantKey,
         monomorph_params: &ParamList,
     ) {
@@ -264,7 +265,7 @@ impl DependencyGraph {
                     continue;
                 }
 
-                let monomorph = facts[fact_id].specialize(&fact_params.params);
+                let monomorph = facts[fact_id].value.specialize(&fact_params.params);
                 if monomorph.is_parametric() {
                     // This is a little awkward. Completely monomorphizing this instance
                     // still doesn't monomorphize the whole fact.
@@ -278,7 +279,7 @@ impl DependencyGraph {
     }
 
     // Make sure that we are generating any monomorphizations that are used in this value.
-    fn inspect_value(&mut self, facts: &[AcornValue], value: &AcornValue) {
+    fn inspect_value(&mut self, facts: &[LocatedValue], value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {
