@@ -6,7 +6,7 @@ use tower_lsp::lsp_types::Range;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
-use crate::environment::Environment;
+use crate::environment::{Environment, LocatedValue};
 use crate::module::ModuleId;
 
 // A goal and the information used to prove it.
@@ -36,19 +36,21 @@ pub struct GoalContext<'a> {
 impl GoalContext<'_> {
     pub fn new(
         env: &Environment,
-        global_facts: Vec<AcornValue>,
-        local_facts: Vec<AcornValue>,
+        global_facts: Vec<LocatedValue>,
+        local_facts: Vec<LocatedValue>,
         name: String,
-        goal: AcornValue,
+        goal: LocatedValue,
         range: Range,
         proof_insertion_line: u32,
     ) -> GoalContext {
+        let global_facts = global_facts.into_iter().map(|lv| lv.value).collect();
+        let local_facts = local_facts.into_iter().map(|lv| lv.value).collect();
         GoalContext {
             env,
             global_facts,
             local_facts,
             name,
-            goal,
+            goal: goal.value,
             range,
             proof_insertion_line,
         }
@@ -67,9 +69,12 @@ impl GoalContext<'_> {
     // Sometimes we need to monomorphize an imported fact, so those need to be provided.
     pub fn monomorphize(
         &self,
-        imported_facts: Vec<AcornValue>,
+        imported_facts: Vec<LocatedValue>,
     ) -> (Vec<AcornValue>, Vec<AcornValue>) {
-        let mut facts = imported_facts;
+        let mut facts = imported_facts
+            .into_iter()
+            .map(|lv| lv.value)
+            .collect::<Vec<_>>();
         facts.extend(self.global_facts.iter().cloned());
         let num_global = facts.len();
         facts.extend(self.local_facts.iter().cloned());

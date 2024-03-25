@@ -1122,30 +1122,38 @@ impl Environment {
 
     // Uses our own binding to inline theorems when the module matches.
     // Falls back to project-level when the module doesn't match.
-    fn inline_theorems(&self, project: &Project, value: &AcornValue) -> AcornValue {
+    fn inline_theorems(&self, project: &Project, located: &LocatedValue) -> LocatedValue {
         // Replaces each theorem with its definition.
-        value.replace_constants_with_values(0, &|module_id, name| {
-            let bindings = if self.module_id == module_id {
-                &self.bindings
-            } else {
-                &project
-                    .get_env(module_id)
-                    .expect("missing module in inline_theorems")
-                    .bindings
-            };
-            if bindings.is_theorem(name) {
-                bindings.get_definition(name).clone()
-            } else {
-                None
-            }
-        })
+        let value = located
+            .value
+            .replace_constants_with_values(0, &|module_id, name| {
+                let bindings = if self.module_id == module_id {
+                    &self.bindings
+                } else {
+                    &project
+                        .get_env(module_id)
+                        .expect("missing module in inline_theorems")
+                        .bindings
+                };
+                if bindings.is_theorem(name) {
+                    bindings.get_definition(name).clone()
+                } else {
+                    None
+                }
+            });
+        LocatedValue {
+            value,
+            module: located.module,
+            range: located.range,
+            theorem_name: located.theorem_name.clone(),
+        }
     }
 
     // Get all facts from this environment.
-    pub fn get_facts(&self, project: &Project) -> Vec<AcornValue> {
+    pub fn get_facts(&self, project: &Project) -> Vec<LocatedValue> {
         let mut facts = Vec::new();
         for prop in &self.propositions {
-            facts.push(self.inline_theorems(project, &prop.claim.value));
+            facts.push(self.inline_theorems(project, &prop.claim));
         }
         facts
     }
@@ -1182,7 +1190,7 @@ impl Environment {
         let mut global = true;
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
-                let fact = env.inline_theorems(project, &previous_prop.claim.value);
+                let fact = env.inline_theorems(project, &previous_prop.claim);
                 if global {
                     global_facts.push(fact);
                 } else {
@@ -1200,7 +1208,7 @@ impl Environment {
                     // This is the last element of the path. It has a block, so we can use the
                     // contents of the block to help prove it.
                     for p in &block.env.propositions {
-                        local_facts.push(block.env.inline_theorems(project, &p.claim.value));
+                        local_facts.push(block.env.inline_theorems(project, &p.claim));
                     }
                     let claim = if let Some(claim) = &block.claim {
                         claim
@@ -1212,7 +1220,7 @@ impl Environment {
                         global_facts,
                         local_facts,
                         prop.name(),
-                        block.env.inline_theorems(project, &claim.value),
+                        block.env.inline_theorems(project, &claim),
                         prop.claim.range,
                         block.env.last_line(),
                     ));
@@ -1227,7 +1235,7 @@ impl Environment {
                     global_facts,
                     local_facts,
                     prop.name(),
-                    env.inline_theorems(project, &prop.claim.value),
+                    env.inline_theorems(project, &prop.claim),
                     prop.claim.range,
                     prop.claim.range.start.line,
                 ));
