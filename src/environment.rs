@@ -10,7 +10,6 @@ use crate::goal_context::GoalContext;
 use crate::located_value::LocatedValue;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
-use crate::proof::Proof;
 use crate::statement::{Body, Statement, StatementInfo};
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
@@ -1331,16 +1330,6 @@ impl Environment {
                 }
             }
         }
-    }
-
-    pub fn proof_to_code(&self, proof: &Proof) -> Result<Vec<String>, String> {
-        let values = proof.make_direct()?;
-        let mut answer = vec![];
-        for value in values {
-            let code = self.bindings.value_to_code(&value)?;
-            answer.push(code);
-        }
-        Ok(answer)
     }
 
     pub fn covers_line(&self, line: u32) -> bool {

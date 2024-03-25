@@ -633,7 +633,7 @@ mod tests {
             panic!("prover error: {}", prover.error.unwrap());
         }
         let code = match prover.get_proof() {
-            Some(proof) => env.proof_to_code(&proof),
+            Some(proof) => proof.to_code(&env.bindings),
             None => Err("there is no proof".to_string()),
         };
         (outcome, code)

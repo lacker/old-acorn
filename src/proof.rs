@@ -1,11 +1,13 @@
 use std::collections::BTreeMap;
 
 use crate::acorn_value::AcornValue;
+use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::normalizer::Normalizer;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 
+// A proof, as produced by the prover.
 pub struct Proof<'a> {
     normalizer: &'a Normalizer,
 
@@ -134,6 +136,19 @@ impl<'a> Proof<'a> {
             answer.push(value);
         }
 
+        Ok(answer)
+    }
+
+    // Make a pretty version of the proof, for an environment described by the given bindings.
+    // This is a list of strings, each of which is a line in the proof.
+    // If we can't, return an error string explaining why.
+    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, String> {
+        let values = self.make_direct()?;
+        let mut answer = vec![];
+        for value in values {
+            let code = bindings.value_to_code(&value)?;
+            answer.push(code);
+        }
         Ok(answer)
     }
 
