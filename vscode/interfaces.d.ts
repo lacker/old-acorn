@@ -13,6 +13,13 @@ interface SearchParams {
   id: number;
 }
 
+interface AssumptionInfo {
+  uri: string;
+  range: any;
+  theoremName: string | null;
+  negatedGoal: boolean;
+}
+
 interface ClauseInfo {
   text: string;
   id: number | null;

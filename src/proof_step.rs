@@ -1,8 +1,11 @@
-use std::{cmp::Ordering, fmt};
+use std::cmp::Ordering;
+use std::fmt;
 
 use tower_lsp::lsp_types::Range;
 
-use crate::{clause::Clause, located_value::LocatedValue, module::ModuleId};
+use crate::clause::Clause;
+use crate::located_value::LocatedValue;
+use crate::module::ModuleId;
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
