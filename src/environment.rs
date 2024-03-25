@@ -129,6 +129,7 @@ struct Block {
     args: Vec<(String, AcornType)>,
 
     // The "internal claim" of this block, defined relative to the block's environment.
+    // This only exists for theorem blocks, where we implicitly want to prove the theorem.
     // We always need to prove the propositions in the block's environment.
     // When the block has an internal claim, we need to prove that too.
     claim: Option<AcornValue>,
