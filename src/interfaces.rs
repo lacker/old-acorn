@@ -68,12 +68,6 @@ pub struct AssumptionInfo {
     // This is here for UI purposes. It is the place we should jump to or highlight to show
     // the user where this proposition is defined.
     pub range: Range,
-
-    // Only set when this proposition is a named theorem.
-    pub theorem: Option<String>,
-
-    // Whether this assumption is the negation of a goal
-    pub negated_goal: bool,
 }
 
 // Information about one step in a proof.
@@ -87,7 +81,7 @@ pub struct ProofStepInfo {
     // Each clause is tagged with its description.
     pub premises: Vec<(String, ClauseInfo)>,
 
-    // Name of the rule used in this proof step
+    // Description of the rule used in this proof step
     pub rule: String,
 
     // Assumption is set when this proof step is taking something directly from the codebase.

@@ -26,8 +26,6 @@ interface Range {
 interface AssumptionInfo {
   uri: string | null;
   range: Range;
-  theorem: string | null;
-  negatedGoal: boolean;
 }
 
 interface ClauseInfo {

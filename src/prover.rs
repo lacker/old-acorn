@@ -536,24 +536,27 @@ impl Prover {
             let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
             premises.push((description, clause));
         }
-        let rule = if step.is_negated_goal() {
-            "Negating the goal".to_string()
-        } else {
-            step.rule.name().to_string()
-        };
-        let assumption = if let Rule::Assumption(info) = &step.rule {
-            let uri = match project.path_from_module(info.module) {
-                Some(path) => Url::from_file_path(path).ok(),
-                None => None,
-            };
-            Some(AssumptionInfo {
-                uri,
-                range: info.range,
-                theorem: info.theorem_name.clone(),
-                negated_goal: step.is_negated_goal(),
-            })
-        } else {
-            None
+        let (rule, assumption) = match &step.rule {
+            Rule::Assumption(info) => {
+                let uri = match project.path_from_module(info.module) {
+                    Some(path) => Url::from_file_path(path).ok(),
+                    None => None,
+                };
+                let assumption = AssumptionInfo {
+                    uri,
+                    range: info.range,
+                };
+                let rule = match step.truthiness {
+                    Truthiness::Factual => match &info.theorem_name {
+                        Some(name) => format!("the '{}' theorem", name),
+                        None => "an anonymous theorem".to_string(),
+                    },
+                    Truthiness::Hypothetical => "previous proof".to_string(),
+                    Truthiness::Counterfactual => "negating the goal".to_string(),
+                };
+                (rule, Some(assumption))
+            }
+            _ => (step.rule.name().to_string(), None),
         };
         ProofStepInfo {
             clause,
