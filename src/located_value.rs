@@ -16,3 +16,14 @@ pub struct LocatedValue {
     // Only set when this value is a named theorem
     pub theorem_name: Option<String>,
 }
+
+impl LocatedValue {
+    pub fn with_value(&self, value: AcornValue) -> LocatedValue {
+        LocatedValue {
+            value,
+            module: self.module,
+            range: self.range,
+            theorem_name: self.theorem_name.clone(),
+        }
+    }
+}

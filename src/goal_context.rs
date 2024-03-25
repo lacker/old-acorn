@@ -102,12 +102,7 @@ impl GoalContext<'_> {
                 if monomorph.is_parametric() {
                     panic!("monomorph {} is still parametric", monomorph);
                 }
-                let new_fact = LocatedValue {
-                    value: monomorph,
-                    module: fact.module,
-                    range: fact.range,
-                    theorem_name: fact.theorem_name.clone(),
-                };
+                let new_fact = fact.with_value(monomorph);
                 if i < num_global {
                     global_out.push(new_fact);
                 } else {

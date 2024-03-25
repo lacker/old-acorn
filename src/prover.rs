@@ -11,6 +11,7 @@ use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::GoalContext;
 use crate::interfaces::{ClauseInfo, InfoResult, ProofStepInfo};
+use crate::located_value::LocatedValue;
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
@@ -133,17 +134,20 @@ impl Prover {
 
         // Load facts into the prover
         for fact in global_facts {
-            p.add_assumption(fact.value, Truthiness::Factual);
+            p.add_assumption(fact, Truthiness::Factual);
         }
         p.normalizer.global_done = true;
         for fact in local_facts {
-            p.add_assumption(fact.value, Truthiness::Hypothetical);
+            p.add_assumption(fact, Truthiness::Hypothetical);
         }
         let (hypo, counter) = goal_context.goal.value.to_placeholder().negate_goal();
         if let Some(hypo) = hypo {
-            p.add_assumption(hypo, Truthiness::Hypothetical);
+            p.add_assumption(goal_context.goal.with_value(hypo), Truthiness::Hypothetical);
         }
-        p.add_assumption(counter, Truthiness::Counterfactual);
+        p.add_assumption(
+            goal_context.goal.with_value(counter),
+            Truthiness::Counterfactual,
+        );
         p
     }
 
@@ -166,8 +170,8 @@ impl Prover {
         self.normalizer.normalize(proposition)
     }
 
-    fn add_assumption(&mut self, proposition: AcornValue, truthiness: Truthiness) {
-        let clauses = match self.normalize_proposition(proposition) {
+    fn add_assumption(&mut self, proposition: LocatedValue, truthiness: Truthiness) {
+        let clauses = match self.normalize_proposition(proposition.value) {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
                 // We have a false assumption, so we're done already.
