@@ -13,9 +13,19 @@ interface SearchParams {
   id: number;
 }
 
+interface Position {
+  line: number;
+  character: number;
+}
+
+interface Range {
+  start: Position;
+  end: Position;
+}
+
 interface AssumptionInfo {
   uri: string | null;
-  range: any;
+  range: Range;
   theorem: string | null;
   negatedGoal: boolean;
 }
