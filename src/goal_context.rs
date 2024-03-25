@@ -6,7 +6,8 @@ use tower_lsp::lsp_types::Range;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
-use crate::environment::{Environment, LocatedValue};
+use crate::environment::Environment;
+use crate::located_value::LocatedValue;
 use crate::module::ModuleId;
 
 // A goal and the information used to prove it.

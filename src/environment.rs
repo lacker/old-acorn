@@ -7,6 +7,7 @@ use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::{BindingMap, Stack};
 use crate::goal_context::GoalContext;
+use crate::located_value::LocatedValue;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::proof::Proof;
@@ -67,20 +68,6 @@ pub struct Environment {
     // line_types[0] corresponds to first_line in the source document.
     first_line: u32,
     line_types: Vec<LineType>,
-}
-
-// A value along with information on where to find it in the source.
-pub struct LocatedValue {
-    pub value: AcornValue,
-
-    // The module where this value was defined
-    pub module: ModuleId,
-
-    // The range in the source document that corresponds to the value's definition
-    pub range: Range,
-
-    // Only set when this value is a named theorem
-    pub theorem_name: Option<String>,
 }
 
 pub struct Proposition {
