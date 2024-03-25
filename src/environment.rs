@@ -132,7 +132,7 @@ struct Block {
     // This only exists for theorem blocks, where we implicitly want to prove the theorem.
     // We always need to prove the propositions in the block's environment.
     // When the block has an internal claim, we need to prove that too.
-    claim: Option<AcornValue>,
+    claim: Option<LocatedValue>,
 
     // The environment created inside the block.
     env: Environment,
@@ -233,6 +233,10 @@ impl Environment {
 
     fn last_line(&self) -> u32 {
         self.next_line() - 1
+    }
+
+    fn theorem_range(&self, name: &str) -> Option<Range> {
+        self.definition_ranges.get(name).cloned()
     }
 
     // Add line types for the given range, inserting empties as needed.
@@ -358,16 +362,12 @@ impl Environment {
                     // The hypothesis is unbound, so we need to bind the block's arg values.
                     let hypo = unbound_hypo.bind_values(0, 0, &arg_values);
 
-                    // The range for this proposition is the same as the range for the theorem.
-                    // We could narrow it down to just the range for the hypothesis part.
-                    let range = self.definition_ranges.get(theorem_name).unwrap().clone();
-
                     subenv.add_proposition(Proposition {
                         proven: true,
                         claim: LocatedValue {
                             value: hypo,
                             module: self.module_id,
-                            range,
+                            range: self.theorem_range(theorem_name).unwrap(),
                             theorem_name: None,
                         },
                         block: None,
@@ -377,7 +377,13 @@ impl Environment {
                 // We can prove the goal either in bound or in function form
                 let bound_goal = unbound_goal.bind_values(0, 0, &arg_values);
                 let functional_goal = AcornValue::new_apply(functional_theorem, arg_values);
-                Some(AcornValue::new_or(functional_goal, bound_goal))
+                let value = AcornValue::new_or(functional_goal, bound_goal);
+                Some(LocatedValue {
+                    value,
+                    module: self.module_id,
+                    range: self.theorem_range(theorem_name).unwrap(),
+                    theorem_name: Some(theorem_name.to_string()),
+                })
             }
             BlockParams::ForAll => None,
         };
@@ -1206,7 +1212,7 @@ impl Environment {
                         global_facts,
                         local_facts,
                         prop.name(),
-                        block.env.inline_theorems(project, claim),
+                        block.env.inline_theorems(project, &claim.value),
                         prop.claim.range,
                         block.env.last_line(),
                     ));
