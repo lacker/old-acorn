@@ -69,7 +69,7 @@ pub struct AssumptionInfo {
     pub range: Range,
 
     // Only set when this proposition is a named theorem.
-    pub theorem_name: Option<String>,
+    pub theorem: Option<String>,
 
     // Whether this assumption is the negation of a goal
     pub negated_goal: bool,

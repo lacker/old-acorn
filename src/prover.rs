@@ -3,6 +3,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use crossbeam::queue::SegQueue;
+use tower_lsp::lsp_types::Url;
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
@@ -10,7 +11,7 @@ use crate::active_set::ActiveSet;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::GoalContext;
-use crate::interfaces::{ClauseInfo, InfoResult, ProofStepInfo};
+use crate::interfaces::{AssumptionInfo, ClauseInfo, InfoResult, ProofStepInfo};
 use crate::located_value::LocatedValue;
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
@@ -523,7 +524,12 @@ impl Prover {
         }
     }
 
-    pub fn to_proof_step_info(&self, id: Option<usize>, step: &ProofStep) -> ProofStepInfo {
+    fn to_proof_step_info(
+        &self,
+        project: &Project,
+        id: Option<usize>,
+        step: &ProofStep,
+    ) -> ProofStepInfo {
         let clause = self.to_clause_info(id, &step.clause);
         let mut premises = vec![];
         for (description, i) in step.descriptive_dependencies() {
@@ -535,47 +541,59 @@ impl Prover {
         } else {
             step.rule.name().to_string()
         };
+        let assumption = if let Rule::Assumption(info) = &step.rule {
+            let path = project.path_from_module(info.module).unwrap();
+            let uri = Url::from_file_path(path).unwrap();
+            Some(AssumptionInfo {
+                uri,
+                range: info.range,
+                theorem: info.theorem_name.clone(),
+                negated_goal: step.is_negated_goal(),
+            })
+        } else {
+            None
+        };
         ProofStepInfo {
             clause,
             premises,
             rule,
-            assumption: None,
+            assumption,
         }
     }
 
-    pub fn to_proof_info(&self, proof: &Proof) -> Vec<ProofStepInfo> {
+    pub fn to_proof_info(&self, project: &Project, proof: &Proof) -> Vec<ProofStepInfo> {
         let mut result = vec![];
         for (i, step) in proof.iter_steps() {
-            result.push(self.to_proof_step_info(i, step));
+            result.push(self.to_proof_step_info(project, i, step));
         }
         result
     }
 
     // Generates information about a clause in jsonable format.
     // Returns None if we don't have any information about this clause.
-    pub fn info_result(&self, id: usize) -> Option<InfoResult> {
+    pub fn info_result(&self, project: &Project, id: usize) -> Option<InfoResult> {
         // Information for the step that proved this clause
         if !self.active_set.has_step(id) {
             return None;
         }
-        let step = self.to_proof_step_info(Some(id), self.active_set.get_step(id));
+        let step = self.to_proof_step_info(project, Some(id), self.active_set.get_step(id));
         let mut consequences = vec![];
 
         // Check if the final step is a consequence of this clause
         if let Some((final_step, _)) = &self.result {
             if final_step.depends_on(id) {
-                consequences.push(self.to_proof_step_info(None, &final_step));
+                consequences.push(self.to_proof_step_info(project, None, &final_step));
             }
         }
 
         // Check the active set for consequences
         for (i, step) in self.active_set.find_consequences(id) {
-            consequences.push(self.to_proof_step_info(Some(i), step));
+            consequences.push(self.to_proof_step_info(project, Some(i), step));
         }
 
         // Check the passive set for consequences
         for step in self.passive_set.find_consequences(id) {
-            consequences.push(self.to_proof_step_info(None, step));
+            consequences.push(self.to_proof_step_info(project, None, step));
         }
 
         Some(InfoResult { step, consequences })

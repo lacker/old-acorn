@@ -126,6 +126,7 @@ impl SearchTask {
     }
 
     // Runs the search task.
+    // This holds a read lock on the project the whole time.
     async fn run(&self) {
         // Get the environment for this module
         let project = self.project.read().await;
@@ -162,7 +163,7 @@ impl SearchTask {
                         for line in &code {
                             self.queue.push(line.to_string());
                         }
-                        let steps = prover.to_proof_info(&proof);
+                        let steps = prover.to_proof_info(&project, &proof);
                         SearchResult::success(code, steps)
                     }
                     Err(s) => {
@@ -548,7 +549,8 @@ impl Backend {
             Some(prover) => prover,
             None => return self.info_fail(params, "no prover available"),
         };
-        let result = prover.info_result(params.clause_id);
+        let project = self.project.read().await;
+        let result = prover.info_result(&project, params.clause_id);
         let failure = match result {
             Some(_) => None,
             None => Some(format!("no info available for clause {}", params.clause_id)),

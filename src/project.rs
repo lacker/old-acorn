@@ -37,6 +37,9 @@ pub struct Project {
     // module_map maps from a module name specified in Acorn to its id
     module_map: HashMap<String, ModuleId>,
 
+    // Reverse of module_map
+    module_names: Vec<String>,
+
     // The module names that we want to build.
     targets: HashSet<String>,
 
@@ -118,6 +121,7 @@ impl Project {
             open_files: HashMap::new(),
             modules: new_modules(),
             module_map: HashMap::new(),
+            module_names: vec![],
             targets: HashSet::new(),
             build_stopped: Arc::new(AtomicBool::new(false)),
         }
@@ -493,6 +497,11 @@ impl Project {
         Ok(path)
     }
 
+    pub fn path_from_module(&self, module_id: ModuleId) -> Result<PathBuf, LoadError> {
+        let name = &self.module_names[module_id as usize];
+        self.path_from_module_name(&name)
+    }
+
     // Loads a module from cache if possible, or else from the filesystem.
     // Module names are a .-separated list where each one must be [a-z_].
     // Each component maps to a subdirectory, except the last one, which maps to a .ac file.
@@ -520,6 +529,7 @@ impl Project {
         let module_id = self.modules.len() as ModuleId;
         self.modules.push(Module::Loading);
         self.module_map.insert(module_name.to_string(), module_id);
+        self.module_names.push(module_name.to_string());
 
         let mut env = Environment::new(module_id);
         let tokens = Token::scan(&text);
