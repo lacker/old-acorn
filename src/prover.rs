@@ -16,7 +16,7 @@ use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
 use crate::proof::Proof;
-use crate::proof_step::{ProofStep, Truthiness};
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 
 pub struct Prover {
     // The normalizer is used when we are turning the facts and goals from the environment into
@@ -170,13 +170,17 @@ impl Prover {
         self.normalizer.normalize(proposition)
     }
 
-    fn add_assumption(&mut self, proposition: LocatedValue, truthiness: Truthiness) {
-        let clauses = match self.normalize_proposition(proposition.value) {
+    fn add_assumption(&mut self, assumption: LocatedValue, truthiness: Truthiness) {
+        let rule = Rule::new_assumption(&assumption);
+        let clauses = match self.normalize_proposition(assumption.value) {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
                 // We have a false assumption, so we're done already.
-                let final_step =
-                    ProofStep::new_assumption(Clause::impossible(), Truthiness::Factual);
+                let final_step = ProofStep::new_assumption(
+                    Clause::impossible(),
+                    Truthiness::Factual,
+                    rule.clone(),
+                );
                 self.report_contradiction(final_step);
                 return;
             }
@@ -186,7 +190,7 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let step = ProofStep::new_assumption(clause, truthiness);
+            let step = ProofStep::new_assumption(clause, truthiness, rule.clone());
             self.passive_set.push(step);
         }
     }

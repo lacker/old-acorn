@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt};
 
 use tower_lsp::lsp_types::Range;
 
-use crate::{clause::Clause, module::ModuleId};
+use crate::{clause::Clause, located_value::LocatedValue, module::ModuleId};
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
@@ -47,6 +47,16 @@ pub struct AssumptionInfo {
 
     // Only set when this assumption is a named theorem
     pub theorem_name: Option<String>,
+}
+
+impl AssumptionInfo {
+    pub fn new(located_value: &LocatedValue) -> AssumptionInfo {
+        AssumptionInfo {
+            module: located_value.module,
+            range: located_value.range,
+            theorem_name: located_value.theorem_name.clone(),
+        }
+    }
 }
 
 // Information about a resolution inference.
@@ -144,6 +154,10 @@ impl Rule {
             _ => false,
         }
     }
+
+    pub fn new_assumption(located_value: &LocatedValue) -> Rule {
+        Rule::Assumption(AssumptionInfo::new(located_value))
+    }
 }
 
 // A proof is made up of ProofSteps.
@@ -215,15 +229,8 @@ impl ProofStep {
         }
     }
 
-    // Construct a ProofStep for an assumption that the prover starts with.
-    pub fn new_assumption(clause: Clause, truthiness: Truthiness) -> ProofStep {
-        // TODO: this information is wrong
-        let rule = Rule::Assumption(AssumptionInfo {
-            module: 0,
-            range: Range::default(),
-            theorem_name: None,
-        });
-
+    // Construct a new assumption ProofStep that is not dependent on any other steps.
+    pub fn new_assumption(clause: Clause, truthiness: Truthiness, rule: Rule) -> ProofStep {
         ProofStep::new(clause, truthiness, rule, vec![], 0)
     }
 
@@ -304,8 +311,18 @@ impl ProofStep {
     // Construct a ProofStep with fake heuristic data for testing
     pub fn mock(s: &str) -> ProofStep {
         let clause = Clause::parse(s);
-
-        ProofStep::new_assumption(clause, Truthiness::Factual)
+        let info = AssumptionInfo {
+            module: 0,
+            range: Range::default(),
+            theorem_name: None,
+        };
+        ProofStep::new(
+            clause,
+            Truthiness::Factual,
+            Rule::Assumption(info),
+            vec![],
+            0,
+        )
     }
 
     // The ids of the other clauses that this clause depends on.
