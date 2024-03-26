@@ -1350,13 +1350,29 @@ mod tests {
     #[test]
     fn test_proof_generation_with_forall_goal() {
         let text = r#"
+            type Nat: axiom
+            let f: Nat -> bool = axiom
+            let g: Nat -> bool = axiom
+            let h: Nat -> bool = axiom
+            axiom fimpg: forall(x: Nat) { f(x) -> g(x) }
+            axiom gimph: forall(x: Nat) { g(x) -> h(x) }
+            theorem goal: forall(x: Nat) { f(x) -> h(x) }
+        "#;
+        expect_proof(text, "goal", &[]);
+    }
+
+    #[test]
+    fn test_proof_generation_with_intermediate_skolems() {
+        let text = r#"
         type Nat: axiom
+        let a: bool = axiom
+        let b: bool = axiom
         let f: Nat -> bool = axiom
         let g: Nat -> bool = axiom
-        let h: Nat -> bool = axiom
-        axiom fimpg: forall(x: Nat) { f(x) -> g(x) }
-        axiom gimph: forall(x: Nat) { g(x) -> h(x) }
-        theorem goal: forall(x: Nat) { f(x) -> h(x) }
+        axiom aimpf: a -> forall(x: Nat) { f(x) }
+        axiom fimpg: forall(x: Nat) { f(x) } -> forall(x: Nat) { g(x) }
+        axiom gimpb: forall(x: Nat) { f(x) } -> b
+        theorem goal: a -> b
         "#;
         expect_proof(text, "goal", &[]);
     }
