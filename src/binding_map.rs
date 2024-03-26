@@ -1136,7 +1136,11 @@ impl BindingMap {
                 // At some point this assumption will probably fail.
                 self.name_to_code(*module, name)
             }
-            value => Err(format!("cannot convert value to code: {}", value)),
+
+            // Currently, I don't think codegen is producing these, anyways.
+            AcornValue::IfThenElse(..) => Err("cannot convert if-then-else to code".to_string()),
+            AcornValue::Lambda(..) => Err("cannot convert lambda to code".to_string()),
+            AcornValue::Exists(..) => Err("cannot convert exists to code".to_string()),
         }
     }
 

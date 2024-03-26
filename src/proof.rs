@@ -64,6 +64,19 @@ impl<'a> Proof<'a> {
         }
     }
 
+    fn clause_to_code(
+        &self,
+        clause: &Clause,
+        bindings: &BindingMap,
+        negate: bool,
+    ) -> Result<String, String> {
+        let mut value = self.normalizer.denormalize(clause);
+        if negate {
+            value = value.negate();
+        }
+        bindings.value_to_code(&value)
+    }
+
     // Converts the proof to lines of code.
     //
     // The prover assumes the goal is false and then searches for a contradiction.
@@ -148,18 +161,15 @@ impl<'a> Proof<'a> {
 
         let mut answer = vec![];
         for clause in preblock {
-            let value = self.normalizer.denormalize(clause);
-            let code = bindings.value_to_code(&value)?;
+            let code = self.clause_to_code(clause, bindings, false)?;
             answer.push(code);
         }
 
         if !conditional.is_empty() {
-            let value = self.normalizer.denormalize(conditional[0]);
-            let code = bindings.value_to_code(&value)?;
+            let code = self.clause_to_code(conditional[0], bindings, false)?;
             answer.push(format!("if {} {{", code));
             for clause in conditional.iter().skip(1) {
-                let value = self.normalizer.denormalize(clause);
-                let code = bindings.value_to_code(&value)?;
+                let code = self.clause_to_code(clause, bindings, false)?;
                 answer.push(format!("\t{}", code));
             }
             answer.push("\tfalse".to_string());
@@ -167,8 +177,7 @@ impl<'a> Proof<'a> {
         }
 
         for clause in postblock.iter().rev() {
-            let value = self.normalizer.denormalize(clause).negate();
-            let code = bindings.value_to_code(&value)?;
+            let code = self.clause_to_code(clause, bindings, true)?;
             answer.push(code);
         }
 
