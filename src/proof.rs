@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::acorn_value::AcornValue;
 use crate::binding_map::BindingMap;
@@ -149,6 +149,114 @@ impl<'a> Proof<'a> {
             let code = bindings.value_to_code(&value)?;
             answer.push(code);
         }
+        Ok(answer)
+    }
+
+    // Converts the proof to lines of code.
+    //
+    // The prover assumes the goal is false and then searches for a contradiction.
+    // When we turn this sort of proof into code, it looks like one big proof by contradiction.
+    // This often commingles lemma-style reasoning that seems intuitively true with
+    // proof-by-contradiction-style reasoning that feels intuitively backwards.
+    // Humans try to avoid mixing these different styles of reasoning.
+    //
+    // In a direct proof, all of the statements are true statements, so it's more intuitive.
+    // Howevever, we can't always create a direct proof. So the idea is to make the proof
+    // "as direct as possible".
+    //
+    // Specifically, we turn the proof into something of the form:
+    //
+    // <proposition>
+    // ...
+    // <proposition>
+    // if <condition> {
+    //   <proposition>
+    //   ...
+    //   <proposition>
+    //   false
+    // }
+    // <proposition>
+    // ...
+    // <proposition>
+    //
+    // So, a direct proof, followed by a proof by contradiction, followed by a direct proof.
+    // Essentially, we start with a proof by contradiction and "extract" as many statements
+    // as possible into the surrounding direct proofs.
+    pub fn new_to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, String> {
+        // Check how many times each clause is used by a subsequent clause.
+        let mut use_count = HashMap::new();
+        for step in self.steps.values() {
+            for i in step.dependencies() {
+                *use_count.entry(*i).or_insert(0) += 1;
+            }
+        }
+        for i in self.final_step.dependencies() {
+            *use_count.entry(*i).or_insert(0) += 1;
+        }
+
+        // The clauses before the if-block.
+        let mut preblock = vec![];
+
+        // The clauses that go into the if-block.
+        // The first one is the assumption.
+        // The block will end with a "false" that is not explicitly included.
+        let mut conditional = vec![];
+
+        // The clauses after the if-block.
+        // Populated in the order the prover generated them. In the final proof they
+        // will be negated and put in reverse order.
+        let mut postblock = vec![];
+
+        for (i, step) in self.steps.iter() {
+            if step.truthiness != Truthiness::Counterfactual {
+                // We can extract any clauses that are not counterfactual.
+                // We don't want to generate code for the assumptions.
+                if !step.rule.is_assumption() {
+                    preblock.push(&step.clause);
+                }
+                continue;
+            }
+
+            if conditional.is_empty() && use_count[i] <= 1 {
+                // We can extract this counterfactual.
+                // We don't want to generate code for the negated goal, though.
+                if !step.rule.is_assumption() {
+                    postblock.push(&step.clause);
+                }
+                continue;
+            }
+
+            // We can't extract this counterfactual.
+            // We *do* want to generate code if this is the negated goal.
+            conditional.push(&step.clause);
+        }
+
+        let mut answer = vec![];
+        for clause in preblock {
+            let value = self.normalizer.denormalize(clause);
+            let code = bindings.value_to_code(&value)?;
+            answer.push(code);
+        }
+
+        if !conditional.is_empty() {
+            let value = self.normalizer.denormalize(conditional[0]);
+            let code = bindings.value_to_code(&value)?;
+            answer.push(format!("if {} {{", code));
+            for clause in conditional.iter().skip(1) {
+                let value = self.normalizer.denormalize(clause);
+                let code = bindings.value_to_code(&value)?;
+                answer.push(code);
+            }
+            answer.push("false".to_string());
+            answer.push("}".to_string());
+        }
+
+        for clause in postblock.iter().rev() {
+            let value = self.normalizer.denormalize(clause).negate();
+            let code = bindings.value_to_code(&value)?;
+            answer.push(code);
+        }
+
         Ok(answer)
     }
 

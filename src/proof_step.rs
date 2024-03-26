@@ -158,6 +158,13 @@ impl Rule {
         }
     }
 
+    pub fn is_assumption(&self) -> bool {
+        match self {
+            Rule::Assumption(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn new_assumption(located_value: &LocatedValue) -> Rule {
         Rule::Assumption(AssumptionInfo::new(located_value))
     }
