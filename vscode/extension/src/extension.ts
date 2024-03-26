@@ -225,30 +225,30 @@ class SearchPanel implements Disposable {
 
     let config = workspace.getConfiguration("editor", editor.document.uri);
     let tabSize = config.get("tabSize", 4);
+    let tab = " ".repeat(tabSize);
     let lineText = editor.document.lineAt(line).text;
 
-    // Figure out how much to indent the inserted code.
-    let indent = 0;
+    // Figure out how much to indent at the base level of the inserted code.
+    let indent = "";
     for (let i = 0; i < lineText.length; i++) {
       if (lineText[i] === " ") {
-        indent += 1;
+        indent += " ";
         continue;
       }
       if (lineText[i] === "\t") {
-        indent += tabSize;
+        indent += tab;
         continue;
       }
       if (lineText[i] === "}") {
         // We're inserting into a block that this line closes.
         // So we want the inserted code to be more indented than this line is.
-        indent += tabSize;
+        indent += tab;
       }
       break;
     }
-    let spacer = " ".repeat(indent);
     let formatted = [];
     for (let c of code) {
-      formatted.push(spacer + c + "\n");
+      formatted.push(indent + c.replace(/\t/g, tab) + "\n");
     }
 
     let success = await editor.edit((edit) => {
