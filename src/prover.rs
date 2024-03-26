@@ -1362,17 +1362,15 @@ mod tests {
     }
 
     #[test]
-    fn test_proof_generation_with_intermediate_skolems() {
+    fn test_proof_generation_with_intermediate_skolem() {
         let text = r#"
         type Nat: axiom
-        let a: bool = axiom
         let b: bool = axiom
         let f: Nat -> bool = axiom
         let g: Nat -> bool = axiom
-        axiom aimpf: a -> forall(x: Nat) { f(x) }
-        axiom fimpg: forall(x: Nat) { f(x) } -> forall(x: Nat) { g(x) }
-        axiom gimpb: forall(x: Nat) { f(x) } -> b
-        theorem goal: a -> b
+        axiom forg(x: Nat): f(x) | g(x)
+        axiom fgimpb: forall(x: Nat) { f(x) | g(x) } -> b
+        theorem goal: b
         "#;
         expect_proof(text, "goal", &[]);
     }
