@@ -96,8 +96,10 @@
       {:else if searchResponse.result.code.length === 0}
         <pre>The proof is trivial.</pre>
       {:else}
-        <pre>{"Proof found:\n  " +
-            searchResponse.result.code.join("\n  ")}</pre>
+        <pre>{["Proof found:\n"]
+            .concat(searchResponse.result.code)
+            .join("\n\t")
+            .replace(/\t/g, "    ")}</pre>
         <button on:click={insertProof}>Insert proof</button>
       {/if}
 

@@ -1,11 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::acorn_value::AcornValue;
 use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::normalizer::Normalizer;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Truthiness};
 
 // A proof, as produced by the prover.
 pub struct Proof<'a> {
@@ -65,93 +64,6 @@ impl<'a> Proof<'a> {
         }
     }
 
-    fn is_counterfactual(&self, id: usize) -> bool {
-        self.steps.get(&id).unwrap().truthiness == Truthiness::Counterfactual
-    }
-
-    // If this proof step cannot be made direct, return a string explaining why.
-    fn check_direct(&self, step: &ProofStep) -> Result<(), String> {
-        let mut counterfactual_deps = 0;
-        for i in step.dependencies() {
-            if self.is_counterfactual(*i) {
-                counterfactual_deps += 1;
-            }
-        }
-        if counterfactual_deps > 1 {
-            return Err(format!(
-                "clause {} depends on {} counterfactuals, so it cannot be made direct",
-                step.clause, counterfactual_deps
-            ));
-        }
-
-        Ok(())
-    }
-
-    // Tries to turn this proof into a direct proof.
-    //
-    // A direct proof is represented as a list of true values, each of which can be proven
-    // in a single step.
-    // Direct proofs do not need to include statements which the prover automatically includes,
-    // such as previous statements and library facts.
-    //
-    // If we can't convert to values, return a string explaining why.
-    fn make_direct(&self) -> Result<Vec<AcornValue>, String> {
-        self.check_direct(&self.final_step)?;
-
-        let mut regular = vec![];
-        let mut inverted = vec![];
-        for step in self.steps.values() {
-            if let Rule::Assumption(_) = step.rule {
-                // This is a previous statement.
-                continue;
-            }
-            match step.truthiness {
-                Truthiness::Factual => {
-                    // This is a library fact.
-                    continue;
-                }
-
-                Truthiness::Counterfactual => {
-                    self.check_direct(step)?;
-
-                    // A counterfactual step that only depends on a single counterfactual step
-                    // can be converted to a direct proof by negating it and putting it at the end.
-                    inverted.push(&step.clause);
-                }
-
-                Truthiness::Hypothetical => {
-                    regular.push(&step.clause);
-                }
-            }
-        }
-
-        let mut answer = vec![];
-        for clause in regular {
-            let value = self.normalizer.denormalize(clause);
-            answer.push(value);
-        }
-
-        for clause in inverted.iter().rev() {
-            let value = self.normalizer.denormalize(clause).negate();
-            answer.push(value);
-        }
-
-        Ok(answer)
-    }
-
-    // Make a pretty version of the proof, for an environment described by the given bindings.
-    // This is a list of strings, each of which is a line in the proof.
-    // If we can't, return an error string explaining why.
-    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, String> {
-        let values = self.make_direct()?;
-        let mut answer = vec![];
-        for value in values {
-            let code = bindings.value_to_code(&value)?;
-            answer.push(code);
-        }
-        Ok(answer)
-    }
-
     // Converts the proof to lines of code.
     //
     // The prover assumes the goal is false and then searches for a contradiction.
@@ -182,7 +94,10 @@ impl<'a> Proof<'a> {
     // So, a direct proof, followed by a proof by contradiction, followed by a direct proof.
     // Essentially, we start with a proof by contradiction and "extract" as many statements
     // as possible into the surrounding direct proofs.
-    pub fn new_to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, String> {
+    //
+    // Code is generated with *tabs* even though I hate tabs. The consuming logic should
+    // appropriately turn tabs into spaces.
+    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, String> {
         // Check how many times each clause is used by a subsequent clause.
         let mut use_count = HashMap::new();
         for step in self.steps.values() {
@@ -245,9 +160,9 @@ impl<'a> Proof<'a> {
             for clause in conditional.iter().skip(1) {
                 let value = self.normalizer.denormalize(clause);
                 let code = bindings.value_to_code(&value)?;
-                answer.push(code);
+                answer.push(format!("\t{}", code));
             }
-            answer.push("false".to_string());
+            answer.push("\tfalse".to_string());
             answer.push("}".to_string());
         }
 
