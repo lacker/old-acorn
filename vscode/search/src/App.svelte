@@ -99,7 +99,7 @@
         <pre>{["Proof found:\n"]
             .concat(searchResponse.result.code)
             .join("\n\t")
-            .replace(/\t/g, "    ")}</pre>
+            .replace(/\t/g, spaces(4))}</pre>
         <button on:click={insertProof}>Insert proof</button>
       {/if}
 
