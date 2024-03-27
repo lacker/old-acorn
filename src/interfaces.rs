@@ -59,10 +59,9 @@ pub struct ClauseInfo {
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssumptionInfo {
+pub struct Location {
     // Which document this assumption was made in.
-    // Can be None if this assumption is synthetic in some way.
-    pub uri: Option<Url>,
+    pub uri: Url,
 
     // The range in the source document corresponding to this proposition.
     // This is here for UI purposes. It is the place we should jump to or highlight to show
@@ -84,9 +83,9 @@ pub struct ProofStepInfo {
     // Description of the rule used in this proof step
     pub rule: String,
 
-    // Assumption is set when this proof step is taking something directly from the codebase.
-    // This should be precisely when premises is empty.
-    pub assumption: Option<AssumptionInfo>,
+    // Source is set when this proof step is based on a specific part of a codebase,
+    // and we can find a location for it.
+    pub source: Option<Location>,
 }
 
 // The SearchResult contains information that is produced once, when the search completes.

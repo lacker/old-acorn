@@ -11,7 +11,7 @@ use crate::active_set::ActiveSet;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::GoalContext;
-use crate::interfaces::{AssumptionInfo, ClauseInfo, InfoResult, ProofStepInfo};
+use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::located_value::LocatedValue;
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
@@ -538,14 +538,14 @@ impl Prover {
         }
         let (rule, assumption) = match &step.rule {
             Rule::Assumption(info) => {
-                let uri = match project.path_from_module(info.module) {
-                    Some(path) => Url::from_file_path(path).ok(),
-                    None => None,
-                };
-                let assumption = AssumptionInfo {
-                    uri,
-                    range: info.range,
-                };
+                let assumption = project
+                    .path_from_module(info.module)
+                    .and_then(|path| Url::from_file_path(path).ok())
+                    .map(|uri| Location {
+                        uri,
+                        range: info.range,
+                    });
+
                 let rule = match step.truthiness {
                     Truthiness::Factual => match &info.theorem_name {
                         Some(name) => format!("the '{}' theorem", name),
@@ -554,7 +554,7 @@ impl Prover {
                     Truthiness::Hypothetical => "previous proof".to_string(),
                     Truthiness::Counterfactual => "negating the goal".to_string(),
                 };
-                (rule, Some(assumption))
+                (rule, assumption)
             }
             _ => (step.rule.name().to_string(), None),
         };
@@ -562,7 +562,7 @@ impl Prover {
             clause,
             premises,
             rule,
-            assumption,
+            source: assumption,
         }
     }
 

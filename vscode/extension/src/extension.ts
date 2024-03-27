@@ -286,6 +286,12 @@ class SearchPanel implements Disposable {
     }
   }
 
+  // Show a particular location in the codebase as a preview, not opening permanently.
+  showPreview(uri: string, range: Range) {
+    // TODO
+  }
+
+  // Show the search panel itself.
   display(editor: TextEditor) {
     let column =
       editor && editor.viewColumn ? editor.viewColumn + 1 : ViewColumn.Two;

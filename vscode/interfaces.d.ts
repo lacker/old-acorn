@@ -23,8 +23,8 @@ interface Range {
   end: Position;
 }
 
-interface AssumptionInfo {
-  uri: string | null;
+interface Location {
+  uri: string;
   range: Range;
 }
 
@@ -37,6 +37,7 @@ interface ProofStepInfo {
   clause: ClauseInfo;
   premises: Array<[String, ClauseInfo]>;
   rule: string;
+  source: Location | null;
 }
 
 interface SearchResult {
