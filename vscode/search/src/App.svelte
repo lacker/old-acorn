@@ -84,7 +84,8 @@
   }
 
   function pluralize(n: number, noun: string): string {
-    return n === 1 ? noun : noun + "s";
+    let word = n === 1 ? noun : noun + "s";
+    return `${n} ${word}`;
   }
 </script>
 
@@ -101,7 +102,7 @@
         <pre>Code generation failed:</pre>
         <pre>    {searchResponse.result.codeError}</pre>
       {:else if searchResponse.result.code.length === 0}
-        <pre>The proof is trivial.</pre>
+        <pre>The proposition is trivial.</pre>
       {:else}
         <pre>{["Proof found:\n"]
             .concat(searchResponse.result.code)
@@ -113,7 +114,7 @@
       {#if searchResponse.result.steps !== null}
         <div class="mono">
           <br />
-          The proof uses {pluralize(
+          The full proof has {pluralize(
             searchResponse.result.steps.length,
             "step"
           )}:
