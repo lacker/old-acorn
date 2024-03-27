@@ -82,6 +82,10 @@
     };
     vscode.postMessage({ command: "infoRequest", params });
   }
+
+  function pluralize(n: number, noun: string): string {
+    return n === 1 ? noun : noun + "s";
+  }
 </script>
 
 <main>
@@ -91,8 +95,11 @@
     <h1><pre>{searchResponse.goalName}</pre></h1>
     <hr />
     {#if searchResponse.result !== null}
-      {#if searchResponse.result.code === null}
-        <pre>Proof search failed.</pre>
+      {#if searchResponse.result.steps === null}
+        <pre>No proof found.</pre>
+      {:else if searchResponse.result.code === null}
+        <pre>Code generation failed:</pre>
+        <pre>    {searchResponse.result.codeError}</pre>
       {:else if searchResponse.result.code.length === 0}
         <pre>The proof is trivial.</pre>
       {:else}
@@ -106,7 +113,10 @@
       {#if searchResponse.result.steps !== null}
         <div class="mono">
           <br />
-          Details:
+          The proof uses {pluralize(
+            searchResponse.result.steps.length,
+            "step"
+          )}:
           <br />
           {#each searchResponse.result.steps as step}
             <br />

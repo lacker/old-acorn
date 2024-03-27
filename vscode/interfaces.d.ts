@@ -41,6 +41,7 @@ interface ProofStepInfo {
 
 interface SearchResult {
   code: Array<string> | null;
+  codeError: string | null;
   steps: Array<ProofStepInfo> | null;
 }
 

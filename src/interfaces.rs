@@ -97,6 +97,9 @@ pub struct SearchResult {
     // If we failed to find a proof, this is None.
     pub code: Option<Vec<String>>,
 
+    // If we failed to generate the "code" field, this is the error message.
+    pub code_error: Option<String>,
+
     // Steps in the proof, as we found them.
     // If we failed to find a proof, this is None.
     pub steps: Option<Vec<ProofStepInfo>>,
@@ -106,13 +109,25 @@ impl SearchResult {
     pub fn success(code: Vec<String>, steps: Vec<ProofStepInfo>) -> SearchResult {
         SearchResult {
             code: Some(code),
+            code_error: None,
             steps: Some(steps),
         }
     }
 
-    pub fn failure() -> SearchResult {
+    // Indicate a failure during code generation.
+    pub fn code_gen_error(steps: Vec<ProofStepInfo>, error: String) -> SearchResult {
         SearchResult {
             code: None,
+            code_error: Some(error),
+            steps: Some(steps),
+        }
+    }
+
+    // Indicate that there is no proof.
+    pub fn no_proof() -> SearchResult {
+        SearchResult {
+            code: None,
+            code_error: None,
             steps: None,
         }
     }

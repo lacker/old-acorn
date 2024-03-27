@@ -157,39 +157,40 @@ impl SearchTask {
                 prover.print_proof();
                 self.queue.push("".to_string());
                 let proof = prover.get_proof().unwrap();
+                let steps = prover.to_proof_info(&project, &proof);
+
                 match proof.to_code(&env.bindings) {
                     Ok(code) => {
                         self.queue.push("Proof converted to code:".to_string());
                         for line in &code {
                             self.queue.push(line.to_string());
                         }
-                        let steps = prover.to_proof_info(&project, &proof);
                         SearchResult::success(code, steps)
                     }
-                    Err(s) => {
+                    Err(e) => {
                         self.queue
                             .push("Error converting proof to code:".to_string());
-                        self.queue.push(s.to_string());
-                        SearchResult::failure()
+                        self.queue.push(e.to_string());
+                        SearchResult::code_gen_error(steps, e.to_string())
                     }
                 }
             }
             Outcome::Inconsistent => {
                 self.queue.push("Found inconsistency!".to_string());
                 prover.print_proof();
-                SearchResult::failure()
+                SearchResult::no_proof()
             }
             Outcome::Exhausted => {
                 self.queue
                     .push("All possibilities have been exhausted.".to_string());
-                SearchResult::failure()
+                SearchResult::no_proof()
             }
             Outcome::Unknown => {
                 // We failed. Let's add more information about the final state of the prover.
                 self.queue
                     .push("Timeout. The final passive set:".to_string());
                 prover.print_passive(None);
-                SearchResult::failure()
+                SearchResult::no_proof()
             }
             Outcome::Interrupted => {
                 self.queue.push("Interrupted.".to_string());
