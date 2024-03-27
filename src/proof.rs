@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::binding_map::BindingMap;
 use crate::clause::Clause;
+use crate::code_gen_error::CodeGenError;
 use crate::display::DisplayClause;
 use crate::normalizer::Normalizer;
 use crate::proof_step::{ProofStep, Truthiness};
@@ -69,7 +70,7 @@ impl<'a> Proof<'a> {
         clause: &Clause,
         bindings: &BindingMap,
         negate: bool,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodeGenError> {
         let mut value = self.normalizer.denormalize(clause);
         if negate {
             value = value.negate();
@@ -110,7 +111,7 @@ impl<'a> Proof<'a> {
     //
     // Code is generated with *tabs* even though I hate tabs. The consuming logic should
     // appropriately turn tabs into spaces.
-    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, String> {
+    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
         // Check how many times each clause is used by a subsequent clause.
         let mut use_count = HashMap::new();
         for step in self.steps.values() {

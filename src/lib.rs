@@ -4,6 +4,7 @@ pub mod active_set;
 pub mod atom;
 pub mod binding_map;
 pub mod clause;
+pub mod code_gen_error;
 pub mod constant_map;
 pub mod display;
 pub mod environment;

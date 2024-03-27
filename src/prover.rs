@@ -607,6 +607,7 @@ impl Prover {
 
 #[cfg(test)]
 mod tests {
+    use crate::code_gen_error::CodeGenError;
     use crate::module::Module;
     use crate::project::Project;
 
@@ -618,7 +619,7 @@ mod tests {
         project: &mut Project,
         module_name: &str,
         goal_name: &str,
-    ) -> (Outcome, Result<Vec<String>, String>) {
+    ) -> (Outcome, Result<Vec<String>, CodeGenError>) {
         let module_id = project.load_module(module_name).expect("load failed");
         let env = match project.get_module(module_id) {
             Module::Ok(env) => env,
@@ -634,12 +635,12 @@ mod tests {
         }
         let code = match prover.get_proof() {
             Some(proof) => proof.to_code(&env.bindings),
-            None => Err("there is no proof".to_string()),
+            None => Err(CodeGenError::NoProof),
         };
         (outcome, code)
     }
 
-    fn prove_as_main(text: &str, goal_name: &str) -> (Outcome, Result<Vec<String>, String>) {
+    fn prove_as_main(text: &str, goal_name: &str) -> (Outcome, Result<Vec<String>, CodeGenError>) {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
         prove(&mut project, "main", goal_name)

@@ -169,7 +169,7 @@ impl SearchTask {
                     Err(s) => {
                         self.queue
                             .push("Error converting proof to code:".to_string());
-                        self.queue.push(s);
+                        self.queue.push(s.to_string());
                         SearchResult::failure()
                     }
                 }

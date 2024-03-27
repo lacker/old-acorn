@@ -3,8 +3,9 @@ use std::collections::{BTreeMap, HashMap};
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
+use crate::code_gen_error::CodeGenError;
 use crate::expression::Expression;
-use crate::module::{Module, ModuleId, FIRST_NORMAL};
+use crate::module::{Module, ModuleId, FIRST_NORMAL, SKOLEM};
 use crate::project::Project;
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
@@ -1011,7 +1012,7 @@ impl BindingMap {
 
     // Returns an error if this type can't be encoded. For example, it could be a type that
     // is not imported into this scope.
-    pub fn type_to_code(&self, acorn_type: &AcornType) -> Result<String, String> {
+    pub fn type_to_code(&self, acorn_type: &AcornType) -> Result<String, CodeGenError> {
         if let AcornType::Function(ft) = acorn_type {
             let mut args = vec![];
             for arg_type in &ft.arg_types {
@@ -1029,7 +1030,7 @@ impl BindingMap {
 
         match self.reverse_type_names.get(acorn_type) {
             Some(name) => Ok(name.clone()),
-            None => Err(format!("unnamed type: {:?}", acorn_type)),
+            None => Err(CodeGenError::unnamed_type(acorn_type)),
         }
     }
 
@@ -1047,16 +1048,20 @@ impl BindingMap {
 
     // If this value cannot be expressed in a single chunk of code, returns an error.
     // For example, it might refer to a constant that is not in scope.
-    pub fn value_to_code(&self, value: &AcornValue) -> Result<String, String> {
+    pub fn value_to_code(&self, value: &AcornValue) -> Result<String, CodeGenError> {
         let mut var_names = vec![];
         let mut next_x = 0;
         self.value_to_code_helper(value, &mut var_names, &mut next_x)
     }
 
     // Given a module and a name, find a way for us to describe the name with our bindings.
-    fn name_to_code(&self, module: ModuleId, name: &str) -> Result<String, String> {
+    fn name_to_code(&self, module: ModuleId, name: &str) -> Result<String, CodeGenError> {
         if module == self.module {
             return Ok(name.to_string());
+        }
+
+        if module == SKOLEM {
+            return Err(CodeGenError::skolem(name));
         }
 
         // Check if there's a local alias for this constant.
@@ -1077,7 +1082,7 @@ impl BindingMap {
         // Refer to this constant using its module
         match self.reverse_modules.get(&module) {
             Some(module_name) => Ok(format!("{}.{}", module_name, name)),
-            None => Err(format!("no local name for module {}", module)),
+            None => Err(CodeGenError::UnimportedModule(module)),
         }
     }
 
@@ -1089,7 +1094,7 @@ impl BindingMap {
         value: &AcornValue,
         var_names: &mut Vec<String>,
         next_x: &mut u32,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodeGenError> {
         match value {
             AcornValue::Variable(i, _) => Ok(var_names[*i as usize].clone()),
             AcornValue::Constant(module, name, _, _) => self.name_to_code(*module, name),
@@ -1137,10 +1142,10 @@ impl BindingMap {
                 self.name_to_code(*module, name)
             }
 
-            // Currently, I don't think codegen is producing these, anyways.
-            AcornValue::IfThenElse(..) => Err("cannot convert if-then-else to code".to_string()),
-            AcornValue::Lambda(..) => Err("cannot convert lambda to code".to_string()),
-            AcornValue::Exists(..) => Err("cannot convert exists to code".to_string()),
+            // Currently, I don't think these code paths are ever hit.
+            AcornValue::IfThenElse(..) => Err(CodeGenError::unhandled_value("if-then-else")),
+            AcornValue::Lambda(..) => Err(CodeGenError::unhandled_value("lambda")),
+            AcornValue::Exists(..) => Err(CodeGenError::unhandled_value("exists")),
         }
     }
 
