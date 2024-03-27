@@ -1,7 +1,7 @@
 <script lang="ts">
   export let step: ProofStepInfo;
   export let clauseClick: (id: number) => void;
-  export let previewClick: (uri: string, range: Range) => void;
+  export let ruleClick: (uri: string, range: Range) => void;
   import ClauseLink from "./ClauseLink.svelte";
   import Rule from "./Rule.svelte";
 
@@ -11,14 +11,14 @@
 </script>
 
 {#if step.clause.text === "<empty>"}
-  Contradiction, by <Rule {step} {previewClick} />.<br />
+  Contradiction, by <Rule {step} {ruleClick} />.<br />
 {:else}
   {#if step.clause.id === null}
     By
   {:else}
     Clause {step.clause.id}, by
   {/if}
-  <Rule {step} {previewClick} />:<br />
+  <Rule {step} {ruleClick} />:<br />
   <ClauseLink clause={step.clause} onClick={clauseClick} />
   <br />
 {/if}

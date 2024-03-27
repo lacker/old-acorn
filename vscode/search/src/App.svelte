@@ -83,8 +83,8 @@
     vscode.postMessage({ command: "infoRequest", params });
   }
 
-  function previewClick(uri: string, range: Range) {
-    vscode.postMessage({ command: "showPreview", uri, range });
+  function ruleClick(uri: string, range: Range) {
+    vscode.postMessage({ command: "showLocation", uri, range });
   }
 
   function pluralize(n: number, noun: string): string {
@@ -125,7 +125,7 @@
           <br />
           {#each searchResponse.result.steps as step}
             <br />
-            <ProofStep {step} {clauseClick} {previewClick} />
+            <ProofStep {step} {clauseClick} {ruleClick} />
           {/each}
         </div>
       {/if}
@@ -136,12 +136,12 @@
       {#if infoResult === null}
         <pre>{searchResponse.textOutput.join("\n")}</pre>
       {:else}
-        <ProofStep step={infoResult.step} {clauseClick} {previewClick} />
+        <ProofStep step={infoResult.step} {clauseClick} {ruleClick} />
         <br />
         Consequences:<br />
         {#each infoResult.consequences as step}
           <br />
-          <ProofStep {step} {clauseClick} {previewClick} />
+          <ProofStep {step} {clauseClick} {ruleClick} />
         {/each}
       {/if}
     </div>

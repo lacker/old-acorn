@@ -7,6 +7,7 @@ import {
   Range,
   TextDocument,
   TextEditor,
+  TextEditorRevealType,
   Uri,
   ViewColumn,
   WebviewPanel,
@@ -23,6 +24,10 @@ import {
 } from "vscode-languageclient/node";
 
 let client: LanguageClient;
+
+const showLocationDecoration = window.createTextEditorDecorationType({
+  backgroundColor: "rgba(246, 185, 77, 0.3)",
+});
 
 // Whether these search params will definitely yield the same result, just based
 // on the local information we have.
@@ -169,8 +174,8 @@ class SearchPanel implements Disposable {
         return;
       }
 
-      if (message.command === "showPreview") {
-        await this.showPreview(message.uri, message.range);
+      if (message.command === "showLocation") {
+        await this.showLocation(message.uri, message.range);
         return;
       }
 
@@ -181,8 +186,8 @@ class SearchPanel implements Disposable {
   }
 
   // Heuristically find an editor for the given uri and focus it.
-  // If we can't, return null.
-  async focusEditor(uri: string): Promise<TextEditor | null> {
+  // If we don't have one open already, open a new one.
+  async focusEditor(uri: string): Promise<TextEditor> {
     // Ideally we use an editor that's already visible
     for (let editor of window.visibleTextEditors) {
       if (editor.document.uri.toString() === uri) {
@@ -198,7 +203,12 @@ class SearchPanel implements Disposable {
       }
     }
 
-    return null;
+    // If the document is not open, open it as a preview.
+    let doc = await workspace.openTextDocument(Uri.parse(uri));
+    return window.showTextDocument(doc, {
+      viewColumn: this.requestViewColumn,
+      preview: true,
+    });
   }
 
   // Inserts a proof at the given line.
@@ -291,16 +301,12 @@ class SearchPanel implements Disposable {
     }
   }
 
-  // Show a particular location in the codebase as a preview, not opening permanently.
-  async showPreview(uri: string, range: Range) {
-    const doc = await workspace.openTextDocument(uri);
+  // Show a particular location in the codebase.
+  async showLocation(uri: string, range: Range) {
+    let editor = await this.focusEditor(uri);
 
-    // Show the document and position the selection
-    await window.showTextDocument(doc, {
-      preserveFocus: true,
-      preview: true,
-      selection: range,
-    });
+    editor.setDecorations(showLocationDecoration, [range]);
+    editor.revealRange(range, TextEditorRevealType.InCenterIfOutsideViewport);
   }
 
   // Show the search panel itself.
