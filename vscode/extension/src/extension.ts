@@ -169,6 +169,11 @@ class SearchPanel implements Disposable {
         return;
       }
 
+      if (message.command === "showPreview") {
+        await this.showPreview(message.uri, message.range);
+        return;
+      }
+
       console.log("unhandled message:", message);
     } catch (e) {
       console.error("error handling webview message:", e);
@@ -287,8 +292,15 @@ class SearchPanel implements Disposable {
   }
 
   // Show a particular location in the codebase as a preview, not opening permanently.
-  showPreview(uri: string, range: Range) {
-    // TODO
+  async showPreview(uri: string, range: Range) {
+    const doc = await workspace.openTextDocument(uri);
+
+    // Show the document and position the selection
+    await window.showTextDocument(doc, {
+      preserveFocus: true,
+      preview: true,
+      selection: range,
+    });
   }
 
   // Show the search panel itself.
