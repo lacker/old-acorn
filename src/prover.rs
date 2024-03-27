@@ -688,6 +688,13 @@ mod tests {
         assert_eq!(actual, expected);
     }
 
+    // Expects the prover to find a proof but then fail to generate code.
+    fn expect_code_gen_error(text: &str, goal_name: &str, expected: &str) {
+        let (outcome, code) = prove_as_main(text, goal_name);
+        assert_eq!(outcome, Outcome::Success);
+        assert_eq!(code.unwrap_err().to_string(), expected);
+    }
+
     const THING: &str = r#"
     type Thing: axiom
     let t: Thing = axiom
@@ -1359,7 +1366,11 @@ mod tests {
             axiom gimph: forall(x: Nat) { g(x) -> h(x) }
             theorem goal: forall(x: Nat) { f(x) -> h(x) }
         "#;
-        expect_proof(text, "goal", &[]);
+        expect_code_gen_error(
+            text,
+            "goal",
+            "could not find a name for the skolem constant: s0",
+        );
     }
 
     #[test]
@@ -1373,7 +1384,11 @@ mod tests {
         axiom fgimpb: forall(x: Nat) { f(x) | g(x) } -> b
         theorem goal: b
         "#;
-        expect_proof(text, "goal", &[]);
+        expect_code_gen_error(
+            text,
+            "goal",
+            "could not find a name for the skolem constant: s0",
+        );
     }
 
     #[test]
