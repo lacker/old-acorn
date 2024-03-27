@@ -3,36 +3,31 @@
   export let onClick: (id: number) => void;
   export let indent: number = 4;
 
+  const id = clause.id;
+
   function spaces(n: number): string {
     return "\u00A0".repeat(n);
   }
 </script>
 
-{#if clause.id !== null}
-  <div
-    class="clause-link"
-    on:click={() => clause.id !== null && onClick(clause.id)}
-  >
-    {spaces(indent)}<span class="underliney">{clause.text}</span>
-  </div>
+{#if id !== null}
+  <span>
+    {spaces(indent)}<span class="clause-link" on:click={() => onClick(id)}
+      >{clause.text}</span
+    >
+  </span>
 {:else}
-  <div class="non-link">
+  <span>
     {spaces(indent)}{clause.text}
-  </div>
+  </span>
 {/if}
 
 <style>
-  .non-link {
-    display: block;
-  }
-
   .clause-link {
-    display: block;
-    text-decoration: none;
     cursor: pointer;
   }
 
-  .clause-link:hover .underliney {
+  .clause-link:hover {
     text-decoration: underline;
   }
 </style>
