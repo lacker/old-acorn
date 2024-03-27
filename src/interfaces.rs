@@ -154,7 +154,9 @@ pub struct SearchResponse {
     // requested is not loaded. The caller can wait and retry, or just abandon.
     pub loading: bool,
 
+    // Information about the goal
     pub goal_name: Option<String>,
+    pub goal_range: Option<Range>,
 
     // The text output will keep growing as the search task runs.
     pub text_output: Vec<String>,
@@ -178,6 +180,7 @@ impl SearchResponse {
             failure: None,
             loading: false,
             goal_name: None,
+            goal_range: None,
             text_output: vec![],
             result: None,
             proof_insertion_line: 0,

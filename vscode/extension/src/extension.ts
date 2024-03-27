@@ -90,7 +90,6 @@ class SearchPanel implements Disposable {
       editor.setDecorations(showLocationDecoration, []);
 
       let uri = editor.document.uri.toString();
-      console.log("XXX uS uri:", uri);
       let selectedLine = editor.selection.start.line;
       let version = editor.document.version;
 

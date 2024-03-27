@@ -10,30 +10,30 @@
 
 {#if clause.id !== null}
   <div
-    class="clauselink"
+    class="clause-link"
     on:click={() => clause.id !== null && onClick(clause.id)}
   >
     {spaces(indent)}<span class="underliney">{clause.text}</span>
   </div>
 {:else}
-  <div class="nonlink">
+  <div class="non-link">
     {spaces(indent)}{clause.text}
   </div>
 {/if}
 
 <style>
-  .nonlink {
+  .non-link {
     display: block;
   }
 
-  .clauselink {
+  .clause-link {
     display: block;
     text-decoration: none;
     cursor: pointer;
     color: var(--vscode-textLink-foreground);
   }
 
-  .clauselink:hover .underliney {
+  .clause-link:hover .underliney {
     text-decoration: underline;
   }
 </style>

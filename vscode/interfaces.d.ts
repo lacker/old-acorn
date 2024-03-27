@@ -52,6 +52,7 @@ interface SearchResponse {
   failure: string | null;
   loading: boolean;
   goalName: string | null;
+  goalRange: Range | null;
   textOutput: Array<string>;
   proofInsertionLine: number;
   result: SearchResult | null;

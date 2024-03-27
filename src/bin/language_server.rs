@@ -75,8 +75,11 @@ struct SearchTask {
     // The path to the goal
     path: Vec<usize>,
 
-    // The name of the goal
+    // A displayable name for the goal
     goal_name: String,
+
+    // The range of the goal in the document
+    goal_range: Range,
 
     // The queue of pending text output from the search task
     queue: Arc<SegQueue<String>>,
@@ -118,6 +121,7 @@ impl SearchTask {
             failure: None,
             loading: false,
             goal_name: Some(self.goal_name.clone()),
+            goal_range: Some(self.goal_range.clone()),
             text_output,
             result,
             proof_insertion_line: self.proof_insertion_line,
@@ -506,6 +510,7 @@ impl Backend {
             selected_line: params.selected_line,
             path,
             goal_name: goal_context.name.clone(),
+            goal_range: goal_context.goal.range,
             queue: Arc::new(SegQueue::new()),
             text_output: Arc::new(RwLock::new(vec![])),
             result: Arc::new(OnceCell::new()),

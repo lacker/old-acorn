@@ -4,6 +4,7 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
+  import Goal from "./Goal.svelte";
   import ProofStep from "./ProofStep.svelte";
 
   // These are updated to reflect the last valid responses from the extension.
@@ -83,7 +84,7 @@
     vscode.postMessage({ command: "infoRequest", params });
   }
 
-  function ruleClick(uri: string, range: Range) {
+  function showLocation(uri: string, range: Range) {
     vscode.postMessage({ command: "showLocation", uri, range });
   }
 
@@ -97,7 +98,7 @@
   {#if searchResponse === null || searchResponse.goalName === null}
     <h1><pre>Select a proposition to see its proof.</pre></h1>
   {:else}
-    <h1><pre>{searchResponse.goalName}</pre></h1>
+    <Goal {searchResponse} {showLocation} />
     <hr />
     {#if searchResponse.result !== null}
       {#if searchResponse.result.steps === null}
@@ -125,7 +126,7 @@
           <br />
           {#each searchResponse.result.steps as step}
             <br />
-            <ProofStep {step} {clauseClick} {ruleClick} />
+            <ProofStep {step} {clauseClick} {showLocation} />
           {/each}
         </div>
       {/if}
@@ -136,12 +137,12 @@
       {#if infoResult === null}
         <pre>{searchResponse.textOutput.join("\n")}</pre>
       {:else}
-        <ProofStep step={infoResult.step} {clauseClick} {ruleClick} />
+        <ProofStep step={infoResult.step} {clauseClick} {showLocation} />
         <br />
         Consequences:<br />
         {#each infoResult.consequences as step}
           <br />
-          <ProofStep {step} {clauseClick} {ruleClick} />
+          <ProofStep {step} {clauseClick} {showLocation} />
         {/each}
       {/if}
     </div>

@@ -1,8 +1,8 @@
 <script lang="ts">
   export let step: ProofStepInfo;
   export let clauseClick: (id: number) => void;
-  export let ruleClick: (uri: string, range: Range) => void;
-  import ClauseLink from "./ClauseLink.svelte";
+  export let showLocation: (uri: string, range: Range) => void;
+  import Clause from "./Clause.svelte";
   import Rule from "./Rule.svelte";
 
   function spaces(n: number): string {
@@ -11,19 +11,19 @@
 </script>
 
 {#if step.clause.text === "<empty>"}
-  Contradiction, by <Rule {step} {ruleClick} />.<br />
+  Contradiction, by <Rule {step} {showLocation} />.<br />
 {:else}
   {#if step.clause.id === null}
     By
   {:else}
     Clause {step.clause.id}, by
   {/if}
-  <Rule {step} {ruleClick} />:<br />
-  <ClauseLink clause={step.clause} onClick={clauseClick} />
+  <Rule {step} {showLocation} />:<br />
+  <Clause clause={step.clause} onClick={clauseClick} />
   <br />
 {/if}
 {#each step.premises as [desc, clause]}
   {spaces(2)}using clause {clause.id} as {desc}:<br />
-  <ClauseLink {clause} onClick={clauseClick} />
+  <Clause {clause} onClick={clauseClick} />
   <br />
 {/each}
