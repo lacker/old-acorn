@@ -18,6 +18,7 @@
 <style>
   .preview-link {
     cursor: pointer;
+    color: var(--vscode-textLink-foreground);
   }
 
   .preview-link:hover {

@@ -30,7 +30,6 @@
     display: block;
     text-decoration: none;
     cursor: pointer;
-    color: var(--vscode-textLink-foreground);
   }
 
   .clause-link:hover .underliney {
