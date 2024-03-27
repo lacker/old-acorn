@@ -8,6 +8,7 @@ import {
   TextDocument,
   TextEditor,
   TextEditorRevealType,
+  TextEditorSelectionChangeKind,
   Uri,
   ViewColumn,
   WebviewPanel,
@@ -59,21 +60,20 @@ class SearchPanel implements Disposable {
       commands.registerTextEditorCommand("acorn.toggleSearchPanel", (editor) =>
         this.toggle(editor)
       ),
-      window.onDidChangeActiveTextEditor(async () => {
-        await this.updateLocation();
-      }),
-      window.onDidChangeTextEditorSelection(async () => {
-        await this.updateLocation();
-      }),
-      workspace.onDidChangeTextDocument(async () => {
-        await this.updateLocation();
+      window.onDidChangeTextEditorSelection(async (e) => {
+        if (
+          e.kind === TextEditorSelectionChangeKind.Mouse ||
+          e.kind === TextEditorSelectionChangeKind.Keyboard
+        ) {
+          // We only want to trigger on explicit user actions.
+          await this.updateSelection();
+        }
       }),
     ];
   }
 
-  // Updates the current location in the document.
-  // Also updates the document version.
-  async updateLocation() {
+  // Handles any change in the selection.
+  async updateSelection() {
     try {
       let editor = window.activeTextEditor;
       if (!editor) {
@@ -86,7 +86,11 @@ class SearchPanel implements Disposable {
         return;
       }
 
+      // Clear any showLocation highlighting
+      editor.setDecorations(showLocationDecoration, []);
+
       let uri = editor.document.uri.toString();
+      console.log("XXX uS uri:", uri);
       let selectedLine = editor.selection.start.line;
       let version = editor.document.version;
 
@@ -358,7 +362,7 @@ class SearchPanel implements Disposable {
 
     // Always reissue the search request on panel open
     this.currentParams = null;
-    this.updateLocation();
+    this.updateSelection();
   }
 
   toggle(editor: TextEditor) {
