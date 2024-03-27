@@ -57,7 +57,8 @@ impl Document {
 // A search task is a long-running task that searches for a proof.
 // The language server can work on one search task at a time.
 // The SearchTask tracks information around that request.
-// It will typically be accessed in parallel.
+// It is clonable so that it can be used both by the thread doing the task, and
+// threads handling requests.
 // The thread doing the search updates the task with its information, while threads handling
 // concurrent user requests can read it.
 #[derive(Clone)]
