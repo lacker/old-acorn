@@ -10,14 +10,10 @@
   }
 </script>
 
-{#if step.clause.text === "<empty>"}
-  Contradiction, by <Rule {step} {showLocation} />.<br />
+{#if step.clause.id === null}
+  Contradiction, <Rule {step} {showLocation} />.<br />
 {:else}
-  {#if step.clause.id === null}
-    By
-  {:else}
-    Clause {step.clause.id}, by
-  {/if}
+  Clause {step.clause.id},
   <Rule {step} {showLocation} />:<br />
   <Clause clause={step.clause} onClick={clauseClick} />
   <br />

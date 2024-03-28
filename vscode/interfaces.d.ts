@@ -37,7 +37,7 @@ interface ProofStepInfo {
   clause: ClauseInfo;
   premises: Array<[String, ClauseInfo]>;
   rule: string;
-  source: Location | null;
+  location: Location | null;
 }
 
 interface SearchResult {

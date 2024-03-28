@@ -536,9 +536,9 @@ impl Prover {
             let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
             premises.push((description, clause));
         }
-        let (rule, assumption) = match &step.rule {
+        let (rule, location) = match &step.rule {
             Rule::Assumption(source) => {
-                let assumption = project
+                let location = project
                     .path_from_module(source.module)
                     .and_then(|path| Url::from_file_path(path).ok())
                     .map(|uri| Location {
@@ -550,15 +550,15 @@ impl Prover {
                     Truthiness::Counterfactual => "negating the goal".to_string(),
                     _ => source.description(),
                 };
-                (rule, assumption)
+                (rule, location)
             }
-            _ => (step.rule.name().to_string(), None),
+            _ => (step.rule.name().to_lowercase(), None),
         };
         ProofStepInfo {
             clause,
             premises,
             rule,
-            source: assumption,
+            location,
         }
     }
 

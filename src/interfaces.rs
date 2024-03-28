@@ -85,7 +85,7 @@ pub struct ProofStepInfo {
 
     // Source is set when this proof step is based on a specific part of a codebase,
     // and we can find a location for it.
-    pub source: Option<Location>,
+    pub location: Option<Location>,
 }
 
 // The SearchResult contains information that is produced once, when the search completes.
