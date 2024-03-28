@@ -93,7 +93,7 @@ pub struct PropositionTree {
 impl PropositionTree {
     // A human-readable name for this proposition.
     pub fn name(&self) -> String {
-        match &self.claim.theorem_name() {
+        match &self.claim.name() {
             Some(name) => name.to_string(),
             None => self.claim.value.to_string(),
         }
@@ -360,6 +360,7 @@ impl Environment {
                 let functional_goal = AcornValue::new_apply(functional_theorem, arg_values);
                 let value = AcornValue::new_or(functional_goal, bound_goal);
                 Some(Proposition::theorem(
+                    false,
                     value,
                     self.module_id,
                     self.theorem_range(theorem_name).unwrap(),
@@ -469,7 +470,7 @@ impl Environment {
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {
         for prop in &self.propositions {
-            if let Some(claim_name) = prop.claim.theorem_name() {
+            if let Some(claim_name) = prop.claim.name() {
                 if claim_name == name {
                     return Some(prop.claim.value.clone());
                 }
@@ -705,9 +706,10 @@ impl Environment {
                     None => None,
                 };
 
-                let prop = PropositionTree {
+                let tree = PropositionTree {
                     proven: ts.axiomatic,
                     claim: Proposition::theorem(
+                        ts.axiomatic,
                         forall_claim,
                         self.module_id,
                         range,
@@ -715,7 +717,7 @@ impl Environment {
                     ),
                     block,
                 };
-                let index = self.add_proposition(prop);
+                let index = self.add_proposition(tree);
                 self.add_prop_lines(index, statement);
                 self.bindings.mark_as_theorem(&ts.name);
 
@@ -1024,7 +1026,7 @@ impl Environment {
     // Will return a context for a subenvironment if this theorem has a block
     pub fn get_theorem_context(&self, project: &Project, theorem_name: &str) -> GoalContext {
         for (i, p) in self.propositions.iter().enumerate() {
-            if let Some(name) = p.claim.theorem_name() {
+            if let Some(name) = p.claim.name() {
                 if name == theorem_name {
                     return self.get_goal_context(project, &vec![i]).unwrap();
                 }

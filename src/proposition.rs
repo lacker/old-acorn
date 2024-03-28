@@ -6,7 +6,10 @@ use crate::module::ModuleId;
 // The different reasons that can lead us to create a proposition.
 #[derive(Debug, Clone)]
 pub enum Source {
-    // A named theorem
+    // A named axiom
+    Axiom(String),
+
+    // A named theorem that is not an axiom.
     Theorem(String),
 
     // An anonymous proposition that has previously been proved
@@ -36,17 +39,37 @@ pub struct Proposition {
 }
 
 impl Proposition {
-    pub fn theorem(
+    pub fn axiom(
         value: AcornValue,
         module: ModuleId,
         range: Range,
-        theorem_name: String,
+        axiom_name: String,
     ) -> Proposition {
         Proposition {
             value,
             module,
             range,
-            source: Source::Theorem(theorem_name),
+            source: Source::Axiom(axiom_name),
+        }
+    }
+
+    pub fn theorem(
+        axiomatic: bool,
+        value: AcornValue,
+        module: ModuleId,
+        range: Range,
+        theorem_name: String,
+    ) -> Proposition {
+        let source = if axiomatic {
+            Source::Axiom(theorem_name)
+        } else {
+            Source::Theorem(theorem_name)
+        };
+        Proposition {
+            value,
+            module,
+            range,
+            source,
         }
     }
 
@@ -92,8 +115,10 @@ impl Proposition {
         }
     }
 
-    pub fn theorem_name(&self) -> Option<&str> {
+    // Theorems and axioms have names
+    pub fn name(&self) -> Option<&str> {
         match &self.source {
+            Source::Axiom(name) => Some(name),
             Source::Theorem(name) => Some(name),
             _ => None,
         }

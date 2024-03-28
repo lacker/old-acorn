@@ -57,7 +57,7 @@ impl AssumptionInfo {
         AssumptionInfo {
             module: prop.module,
             range: prop.range,
-            theorem_name: prop.theorem_name().map(|s| s.to_string()),
+            theorem_name: prop.name().map(|s| s.to_string()),
         }
     }
 }
