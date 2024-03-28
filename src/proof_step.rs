@@ -53,11 +53,11 @@ pub struct AssumptionInfo {
 }
 
 impl AssumptionInfo {
-    pub fn new(located_value: &Proposition) -> AssumptionInfo {
+    pub fn new(prop: &Proposition) -> AssumptionInfo {
         AssumptionInfo {
-            module: located_value.module,
-            range: located_value.range,
-            theorem_name: located_value.theorem_name.clone(),
+            module: prop.module,
+            range: prop.range,
+            theorem_name: prop.theorem_name().map(|s| s.to_string()),
         }
     }
 }

@@ -31,9 +31,6 @@ pub struct Proposition {
     // The range in the source document that corresponds to the value's definition
     pub range: Range,
 
-    // Only set when this value is a named theorem
-    pub theorem_name: Option<String>,
-
     // Where this proposition came from.
     pub source: Source,
 }
@@ -49,7 +46,6 @@ impl Proposition {
             value,
             module,
             range,
-            theorem_name: Some(theorem_name.clone()),
             source: Source::Theorem(theorem_name),
         }
     }
@@ -59,7 +55,6 @@ impl Proposition {
             value,
             module,
             range,
-            theorem_name: None,
             source: Source::Anonymous,
         }
     }
@@ -74,7 +69,6 @@ impl Proposition {
             value,
             module,
             range,
-            theorem_name: None,
             source: Source::Definition(name),
         }
     }
@@ -84,7 +78,6 @@ impl Proposition {
             value,
             module,
             range,
-            theorem_name: None,
             source: Source::Condition,
         }
     }
@@ -95,8 +88,14 @@ impl Proposition {
             value,
             module: self.module,
             range: self.range,
-            theorem_name: self.theorem_name.clone(),
             source: self.source.clone(),
+        }
+    }
+
+    pub fn theorem_name(&self) -> Option<&str> {
+        match &self.source {
+            Source::Theorem(name) => Some(name),
+            _ => None,
         }
     }
 }

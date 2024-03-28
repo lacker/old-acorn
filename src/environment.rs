@@ -93,8 +93,8 @@ pub struct PropositionTree {
 impl PropositionTree {
     // A human-readable name for this proposition.
     pub fn name(&self) -> String {
-        match &self.claim.theorem_name {
-            Some(name) => name.clone(),
+        match &self.claim.theorem_name() {
+            Some(name) => name.to_string(),
             None => self.claim.value.to_string(),
         }
     }
@@ -469,7 +469,7 @@ impl Environment {
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {
         for prop in &self.propositions {
-            if let Some(claim_name) = &prop.claim.theorem_name {
+            if let Some(claim_name) = prop.claim.theorem_name() {
                 if claim_name == name {
                     return Some(prop.claim.value.clone());
                 }
@@ -1024,7 +1024,7 @@ impl Environment {
     // Will return a context for a subenvironment if this theorem has a block
     pub fn get_theorem_context(&self, project: &Project, theorem_name: &str) -> GoalContext {
         for (i, p) in self.propositions.iter().enumerate() {
-            if let Some(name) = &p.claim.theorem_name {
+            if let Some(name) = p.claim.theorem_name() {
                 if name == theorem_name {
                     return self.get_goal_context(project, &vec![i]).unwrap();
                 }
