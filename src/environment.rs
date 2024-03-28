@@ -676,7 +676,11 @@ impl Environment {
                     AcornValue::Binary(BinaryOp::Implies, left, right) => {
                         let premise_range = match ts.claim.premise() {
                             Some(p) => p.range(),
-                            None => ts.claim.range(),
+                            None => {
+                                // I don't think this should happen, but it's awkward for the
+                                // compiler to enforce, so pick a not-too-wrong default.
+                                ts.claim.range()
+                            }
                         };
                         (Some((*left.clone(), premise_range)), *right.clone())
                     }
