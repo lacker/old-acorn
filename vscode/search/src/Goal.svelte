@@ -2,18 +2,20 @@
   export let searchResponse: SearchResponse;
   export let showLocation: (uri: string, range: Range) => void;
 
-  const range = searchResponse.goalRange;
+  function callback() {
+    if (searchResponse.goalRange !== null) {
+      showLocation(searchResponse.uri, searchResponse.goalRange);
+    }
+  }
 </script>
 
 {#if searchResponse.goalName === null}
   <h1><pre>There is no goal.</pre></h1>
-{:else if range === null}
+{:else if searchResponse.goalRange === null}
   <h1><pre>{searchResponse.goalName}</pre></h1>
 {:else}
   <h1>
-    <pre><span
-        class="goal-link"
-        on:click={() => showLocation(searchResponse.uri, range)}
+    <pre><span class="goal-link" on:click={callback}
         >{searchResponse.goalName}</span
       ></pre>
   </h1>
