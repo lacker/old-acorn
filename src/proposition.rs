@@ -18,8 +18,8 @@ pub enum SourceType {
     // A proposition that is implicit in the definition of a struct or constant
     Definition(String),
 
-    // Conditions become propositions inside their conditional block
-    Condition,
+    // A premise for a block that contains the current environment
+    Premise,
 }
 
 // The information about where a proposition comes from.
@@ -50,7 +50,7 @@ impl Source {
             SourceType::Theorem(name) => format!("the '{}' theorem", name),
             SourceType::Anonymous => "an anonymous proposition".to_string(),
             SourceType::Definition(name) => format!("the '{}' definition", name),
-            SourceType::Condition => "an assumed condition".to_string(),
+            SourceType::Premise => "an assumed premise".to_string(),
         }
     }
 }
@@ -131,13 +131,13 @@ impl Proposition {
         }
     }
 
-    pub fn condition(value: AcornValue, module: ModuleId, range: Range) -> Proposition {
+    pub fn premise(value: AcornValue, module: ModuleId, range: Range) -> Proposition {
         Proposition {
             value,
             source: Source {
                 module,
                 range,
-                source_type: SourceType::Condition,
+                source_type: SourceType::Premise,
             },
         }
     }

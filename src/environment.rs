@@ -176,16 +176,16 @@ impl Block {
 
 // The different ways to construct a block
 enum BlockParams<'a> {
-    // (theorem name, hypothesis, goal)
+    // (theorem name, premise, goal)
     //
-    // The hypothesis and goal are unbound, to be proved based on the args of the theorem.
+    // The premise and goal are unbound, to be proved based on the args of the theorem.
     //
     // The theorem should already be defined by this name in the external environment.
     // It is either a bool, or a function from something -> bool.
     // The meaning of the theorem is that it is true for all args.
     //
-    // The hypothesis is optional.
-    Theorem(&'a str, Option<AcornValue>, AcornValue),
+    // The premise is optional.
+    Theorem(&'a str, Option<(AcornValue, Range)>, AcornValue),
 
     // The assumption to be used by the block, and the range of this assumption.
     Conditional(&'a AcornValue, Range),
@@ -307,12 +307,12 @@ impl Environment {
             BlockParams::Conditional(condition, range) => {
                 subenv.add_proposition(PropositionTree {
                     proven: true,
-                    claim: Proposition::condition(condition.clone(), self.module_id, range),
+                    claim: Proposition::premise(condition.clone(), self.module_id, range),
                     block: None,
                 });
                 None
             }
-            BlockParams::Theorem(theorem_name, unbound_hypo, unbound_goal) => {
+            BlockParams::Theorem(theorem_name, premise, unbound_goal) => {
                 let theorem_type = self
                     .bindings
                     .get_type_for_identifier(theorem_name)
@@ -334,23 +334,19 @@ impl Environment {
 
                 // Within the theorem block, the theorem is treated like a function,
                 // with propositions to define its identity.
-                // This is a compromise so that we can do induction without writing
-                // a separate definition for the inductive hypothesis.
+                // This is a compromise initially inspired by the desire so to do induction
+                // without writing a separate definition for the inductive hypothesis.
                 // (Outside the theorem block, theorems are inlined.)
                 subenv.add_identity_props(theorem_name);
 
-                if let Some(unbound_hypo) = unbound_hypo {
-                    // Add the hypothesis to the environment, when proving the theorem.
-                    // The hypothesis is unbound, so we need to bind the block's arg values.
-                    let hypo = unbound_hypo.bind_values(0, 0, &arg_values);
+                if let Some((unbound_premise, premise_range)) = premise {
+                    // Add the premise to the environment, when proving the theorem.
+                    // The premise is unbound, so we need to bind the block's arg values.
+                    let bound = unbound_premise.bind_values(0, 0, &arg_values);
 
                     subenv.add_proposition(PropositionTree {
                         proven: true,
-                        claim: Proposition::condition(
-                            hypo.clone(),
-                            self.module_id,
-                            self.theorem_range(theorem_name).unwrap(),
-                        ),
+                        claim: Proposition::premise(bound, self.module_id, premise_range),
                         block: None,
                     });
                 }
@@ -479,9 +475,10 @@ impl Environment {
         None
     }
 
+    // Adds a conditional block to the environment.
     // Takes the condition, the range to associate with the condition, the first line of
     // the conditional block, and finally the body itself.
-    fn add_condition(
+    fn add_conditional(
         &mut self,
         project: &mut Project,
         condition: AcornValue,
@@ -490,7 +487,7 @@ impl Environment {
         body: &Body,
     ) -> token::Result<()> {
         if body.statements.is_empty() {
-            // Conditions with an empty body can just be ignored
+            // Conditional blocks with an empty body can just be ignored
             return Ok(());
         }
         let block = self.new_block(
@@ -675,9 +672,13 @@ impl Environment {
                 // Externally we use the theorem in "forall" form
                 let forall_claim = AcornValue::new_forall(arg_types.clone(), unbound_claim.clone());
 
-                let (hypothesis, goal) = match &unbound_claim {
+                let (premise, goal) = match &unbound_claim {
                     AcornValue::Binary(BinaryOp::Implies, left, right) => {
-                        (Some(*left.clone()), *right.clone())
+                        let premise_range = match ts.claim.premise() {
+                            Some(p) => p.range(),
+                            None => ts.claim.range(),
+                        };
+                        (Some((*left.clone(), premise_range)), *right.clone())
                     }
                     c => (None, c.clone()),
                 };
@@ -699,7 +700,7 @@ impl Environment {
                         project,
                         type_params,
                         block_args,
-                        BlockParams::Theorem(&ts.name, hypothesis, goal),
+                        BlockParams::Theorem(&ts.name, premise, goal),
                         statement.first_line(),
                         &body,
                     )?),
@@ -788,7 +789,7 @@ impl Environment {
                     self.bindings
                         .evaluate_value(project, &is.condition, Some(&AcornType::Bool))?;
                 let range = is.condition.range();
-                self.add_condition(
+                self.add_conditional(
                     project,
                     condition.clone(),
                     range,
@@ -796,7 +797,7 @@ impl Environment {
                     &is.body,
                 )?;
                 if let Some(else_body) = &is.else_body {
-                    self.add_condition(
+                    self.add_conditional(
                         project,
                         condition.negate(),
                         range,

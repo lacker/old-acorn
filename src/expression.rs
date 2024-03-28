@@ -137,6 +137,21 @@ impl Expression {
         }
     }
 
+    // If this expression is of the form "premise -> conclusion", return the premise.
+    pub fn premise(&self) -> Option<&Expression> {
+        match self {
+            Expression::Grouping(_, e, _) => e.premise(),
+            Expression::Binary(left, token, _) => {
+                if token.token_type == TokenType::RightArrow {
+                    Some(left)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
     pub fn range(&self) -> Range {
         Range {
             start: self.first_token().start_pos(),
