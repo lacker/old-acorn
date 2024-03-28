@@ -15,7 +15,7 @@ use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
-use crate::proof::Proof;
+use crate::proof::ReductionProof;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::proposition::Proposition;
 
@@ -146,7 +146,7 @@ impl Prover {
             p.add_assumption(goal_context.goal.with_value(hypo), Truthiness::Hypothetical);
         }
         p.add_assumption(
-            goal_context.goal.with_value(counter),
+            goal_context.goal.with_negated_goal(counter),
             Truthiness::Counterfactual,
         );
         p
@@ -322,14 +322,14 @@ impl Prover {
         self.print_proof_step("final step: ", final_step);
     }
 
-    pub fn get_proof(&self) -> Option<Proof> {
+    pub fn get_proof(&self) -> Option<ReductionProof> {
         let final_step = if let Some((final_step, _)) = &self.result {
             final_step
         } else {
             return None;
         };
         let indices = self.active_set.find_upstream(&final_step);
-        let mut proof = Proof::new(&self.normalizer, final_step.clone());
+        let mut proof = ReductionProof::new(&self.normalizer, final_step.clone());
         for i in indices {
             let step = self.active_set.get_step(i);
             proof.add_step(i, step.clone());
@@ -562,7 +562,7 @@ impl Prover {
         }
     }
 
-    pub fn to_proof_info(&self, project: &Project, proof: &Proof) -> Vec<ProofStepInfo> {
+    pub fn to_proof_info(&self, project: &Project, proof: &ReductionProof) -> Vec<ProofStepInfo> {
         let mut result = vec![];
         for (i, step) in proof.iter_steps() {
             result.push(self.to_proof_step_info(project, i, step));

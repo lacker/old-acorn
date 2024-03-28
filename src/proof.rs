@@ -6,27 +6,63 @@ use crate::code_gen_error::CodeGenError;
 use crate::display::DisplayClause;
 use crate::normalizer::Normalizer;
 use crate::proof_step::{ProofStep, Truthiness};
+use crate::proposition::Source;
 
-// A proof, as produced by the prover.
-pub struct Proof<'a> {
+// A proof created by the Prover. It starts with
+pub struct ReductionProof<'a> {
     normalizer: &'a Normalizer,
 
     // Maps clause id to proof step that proves it.
     // Does not include the final step, because the final step has no clause id.
     steps: BTreeMap<usize, ProofStep>,
 
+    // The conclusion of this step should be a contradiction.
     final_step: ProofStep,
 }
 
-impl<'a> Proof<'a> {
-    pub fn new(normalizer: &'a Normalizer, final_step: ProofStep) -> Proof<'a> {
-        Proof {
+// To conveniently manipulate the proof, we store it as a directed graph with its own ids.
+// We need two sorts of ids because when we reverse individual steps in the reasoning, the
+// condensed and non-condensed steps won't be 1-to-1 related any more.
+type CondensedProofStepId = u32;
+
+struct CondensedProofStep {
+    // The clause that should be displayed to represent this node.
+    // The clause itself is stored in the ReductionProof.
+    // This is None if we are proving a contradiction.
+    clause_id: Option<usize>,
+
+    // Whether we are proving the clause described by clause_id, or its negation.
+    clause_negated: bool,
+
+    // Which other steps this step depends on.
+    premises: Vec<CondensedProofStepId>,
+
+    // Which other steps depend on this step.
+    consequences: Vec<CondensedProofStepId>,
+
+    // What assumptions this step depends on.
+    // Assumptions have their own ProofSteps in the ReductionProof, but in the CondensedProof
+    // they are always combined into other steps.
+    assumptions: Vec<Source>,
+}
+
+// A condensed proof is a graph.
+// Each node has a node id.
+struct CondensedProof {
+    // All steps, indexed by their id.
+    steps: Vec<CondensedProofStep>,
+}
+
+impl<'a> ReductionProof<'a> {
+    pub fn new(normalizer: &'a Normalizer, final_step: ProofStep) -> ReductionProof<'a> {
+        ReductionProof {
             normalizer,
             steps: BTreeMap::new(),
             final_step,
         }
     }
 
+    // Just to be used during construction.
     pub fn add_step(&mut self, id: usize, step: ProofStep) {
         self.steps.insert(id, step);
     }
