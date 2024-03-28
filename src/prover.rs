@@ -12,12 +12,12 @@ use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::GoalContext;
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
-use crate::located_value::LocatedValue;
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
 use crate::proof::Proof;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proposition::Proposition;
 
 pub struct Prover {
     // The normalizer is used when we are turning the facts and goals from the environment into
@@ -171,7 +171,7 @@ impl Prover {
         self.normalizer.normalize(proposition)
     }
 
-    fn add_assumption(&mut self, assumption: LocatedValue, truthiness: Truthiness) {
+    fn add_assumption(&mut self, assumption: Proposition, truthiness: Truthiness) {
         let rule = Rule::new_assumption(&assumption);
         let clauses = match self.normalize_proposition(assumption.value) {
             Normalization::Clauses(clauses) => clauses,

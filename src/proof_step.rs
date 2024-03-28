@@ -4,8 +4,8 @@ use std::fmt;
 use tower_lsp::lsp_types::Range;
 
 use crate::clause::Clause;
-use crate::located_value::LocatedValue;
 use crate::module::ModuleId;
+use crate::proposition::Proposition;
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
@@ -53,7 +53,7 @@ pub struct AssumptionInfo {
 }
 
 impl AssumptionInfo {
-    pub fn new(located_value: &LocatedValue) -> AssumptionInfo {
+    pub fn new(located_value: &Proposition) -> AssumptionInfo {
         AssumptionInfo {
             module: located_value.module,
             range: located_value.range,
@@ -165,7 +165,7 @@ impl Rule {
         }
     }
 
-    pub fn new_assumption(located_value: &LocatedValue) -> Rule {
+    pub fn new_assumption(located_value: &Proposition) -> Rule {
         Rule::Assumption(AssumptionInfo::new(located_value))
     }
 }

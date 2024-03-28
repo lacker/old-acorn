@@ -7,24 +7,24 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
 use crate::environment::Environment;
-use crate::located_value::LocatedValue;
 use crate::module::ModuleId;
+use crate::proposition::Proposition;
 
 // A goal and the information used to prove it.
 pub struct GoalContext<'a> {
     env: &'a Environment,
 
     // Facts that occur outside any block, before this goal.
-    global_facts: Vec<LocatedValue>,
+    global_facts: Vec<Proposition>,
 
     // Facts that are in a block containing this goal.
-    local_facts: Vec<LocatedValue>,
+    local_facts: Vec<Proposition>,
 
     // A printable name for this goal.
     pub name: String,
 
     // The goal itself.
-    pub goal: LocatedValue,
+    pub goal: Proposition,
 
     // The range in the source document corresponding to this goal.
     pub range: Range,
@@ -37,10 +37,10 @@ pub struct GoalContext<'a> {
 impl GoalContext<'_> {
     pub fn new(
         env: &Environment,
-        global_facts: Vec<LocatedValue>,
-        local_facts: Vec<LocatedValue>,
+        global_facts: Vec<Proposition>,
+        local_facts: Vec<Proposition>,
         name: String,
-        goal: LocatedValue,
+        goal: Proposition,
         range: Range,
         proof_insertion_line: u32,
     ) -> GoalContext {
@@ -68,8 +68,8 @@ impl GoalContext<'_> {
     // Sometimes we need to monomorphize an imported fact, so those need to be provided.
     pub fn monomorphize(
         &self,
-        imported_facts: Vec<LocatedValue>,
-    ) -> (Vec<LocatedValue>, Vec<LocatedValue>) {
+        imported_facts: Vec<Proposition>,
+    ) -> (Vec<Proposition>, Vec<Proposition>) {
         let mut facts = imported_facts;
         facts.extend(self.global_facts.iter().cloned());
         let num_global = facts.len();
@@ -169,7 +169,7 @@ struct DependencyGraph {
 impl DependencyGraph {
     // Populates facts_for_constant, and puts None vs Some([]) in the right place for
     // monomorphs_for_fact.
-    fn new(facts: &[LocatedValue]) -> DependencyGraph {
+    fn new(facts: &[Proposition]) -> DependencyGraph {
         let mut monomorphs_for_fact = vec![];
         let mut parametric_instances = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
@@ -211,7 +211,7 @@ impl DependencyGraph {
     // using the types in monomorph_key.
     fn add_monomorph(
         &mut self,
-        facts: &[LocatedValue],
+        facts: &[Proposition],
         constant_key: ConstantKey,
         monomorph_params: &ParamList,
     ) {
@@ -274,7 +274,7 @@ impl DependencyGraph {
     }
 
     // Make sure that we are generating any monomorphizations that are used in this value.
-    fn inspect_value(&mut self, facts: &[LocatedValue], value: &AcornValue) {
+    fn inspect_value(&mut self, facts: &[Proposition], value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {
