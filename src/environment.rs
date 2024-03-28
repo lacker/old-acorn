@@ -70,7 +70,7 @@ pub struct Environment {
 }
 
 // A proposition, as well as any subpropositions that need to be proved to establish this one.
-pub struct PropositionTree {
+struct PropositionTree {
     // Whether this proposition has already been proved structurally.
     // For example, this could be an axiom, or a definition.
     proven: bool,
@@ -82,7 +82,7 @@ pub struct PropositionTree {
     // Besides the claim, nothing else from the block is visible externally.
     //
     // This claim needs to be proved when proven is false, and there is no block.
-    pub claim: Proposition,
+    claim: Proposition,
 
     // The body of the proposition, when it has an associated block.
     // When there is a block, proving every proposition in the block implies that the
@@ -1116,12 +1116,12 @@ impl Environment {
     }
 
     // Gets the proposition at a certain path.
-    pub fn get_proposition(&self, path: &Vec<usize>) -> Option<&PropositionTree> {
+    pub fn get_proposition(&self, path: &Vec<usize>) -> Option<&Proposition> {
         let mut env = self;
         let mut it = path.iter().peekable();
         while let Some(i) = it.next() {
             if it.peek().is_none() {
-                return env.propositions.get(*i);
+                return env.propositions.get(*i).map(|p| &p.claim);
             }
             let prop = env.propositions.get(*i)?;
             if let Some(block) = &prop.block {
