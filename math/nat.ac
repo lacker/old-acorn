@@ -220,9 +220,7 @@ theorem add_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0 by {
     induction(f)
     f(0)
     forall(x: Nat) {
-        if f(x) {
-            f(Suc(x))
-        }
+        f(Suc(x))
     }
 }
 
