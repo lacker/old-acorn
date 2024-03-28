@@ -4,7 +4,7 @@ use crate::acorn_value::AcornValue;
 use crate::module::ModuleId;
 
 // The different reasons that can lead us to create a proposition.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SourceType {
     // A named axiom
     Axiom(String),
@@ -23,7 +23,7 @@ pub enum SourceType {
 }
 
 // The information about where a proposition comes from.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Source {
     // The module where this value was defined
     pub module: ModuleId,
@@ -33,6 +33,26 @@ pub struct Source {
 
     // How the expression at this location was turned into a proposition
     pub source_type: SourceType,
+}
+
+impl Source {
+    pub fn mock() -> Source {
+        Source {
+            module: 0,
+            range: Range::default(),
+            source_type: SourceType::Anonymous,
+        }
+    }
+
+    pub fn description(&self) -> String {
+        match &self.source_type {
+            SourceType::Axiom(name) => format!("the '{}' axiom", name),
+            SourceType::Theorem(name) => format!("the '{}' theorem", name),
+            SourceType::Anonymous => "an anonymous proposition".to_string(),
+            SourceType::Definition(name) => format!("the '{}' definition", name),
+            SourceType::Condition => "an assumed condition".to_string(),
+        }
+    }
 }
 
 // A value along with information on where to find it in the source.

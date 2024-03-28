@@ -537,22 +537,18 @@ impl Prover {
             premises.push((description, clause));
         }
         let (rule, assumption) = match &step.rule {
-            Rule::Assumption(info) => {
+            Rule::Assumption(source) => {
                 let assumption = project
-                    .path_from_module(info.module)
+                    .path_from_module(source.module)
                     .and_then(|path| Url::from_file_path(path).ok())
                     .map(|uri| Location {
                         uri,
-                        range: info.range,
+                        range: source.range,
                     });
 
                 let rule = match step.truthiness {
-                    Truthiness::Factual => match &info.theorem_name {
-                        Some(name) => format!("the '{}' theorem", name),
-                        None => "an anonymous theorem".to_string(),
-                    },
-                    Truthiness::Hypothetical => "previous proof".to_string(),
                     Truthiness::Counterfactual => "negating the goal".to_string(),
+                    _ => source.description(),
                 };
                 (rule, assumption)
             }

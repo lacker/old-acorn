@@ -1,11 +1,8 @@
 use std::cmp::Ordering;
 use std::fmt;
 
-use tower_lsp::lsp_types::Range;
-
 use crate::clause::Clause;
-use crate::module::ModuleId;
-use crate::proposition::Proposition;
+use crate::proposition::{Proposition, Source};
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
@@ -40,28 +37,6 @@ impl Truthiness {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AssumptionInfo {
-    // Which module this assumption came from
-    pub module: ModuleId,
-
-    // Where in the source document this assumption came from
-    pub range: Range,
-
-    // Only set when this assumption is a named theorem
-    pub theorem_name: Option<String>,
-}
-
-impl AssumptionInfo {
-    pub fn new(prop: &Proposition) -> AssumptionInfo {
-        AssumptionInfo {
-            module: prop.source.module,
-            range: prop.source.range,
-            theorem_name: prop.name().map(|s| s.to_string()),
-        }
-    }
-}
-
 // Information about a resolution inference.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolutionInfo {
@@ -92,7 +67,7 @@ pub struct RewriteInfo {
 // The rules that can generate new clauses, along with the clause ids used to generate.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Rule {
-    Assumption(AssumptionInfo),
+    Assumption(Source),
 
     // Rules based on multiple source clauses
     Resolution(ResolutionInfo),
@@ -165,8 +140,8 @@ impl Rule {
         }
     }
 
-    pub fn new_assumption(located_value: &Proposition) -> Rule {
-        Rule::Assumption(AssumptionInfo::new(located_value))
+    pub fn new_assumption(prop: &Proposition) -> Rule {
+        Rule::Assumption(prop.source.clone())
     }
 }
 
@@ -321,15 +296,10 @@ impl ProofStep {
     // Construct a ProofStep with fake heuristic data for testing
     pub fn mock(s: &str) -> ProofStep {
         let clause = Clause::parse(s);
-        let info = AssumptionInfo {
-            module: 0,
-            range: Range::default(),
-            theorem_name: None,
-        };
         ProofStep::new(
             clause,
             Truthiness::Factual,
-            Rule::Assumption(info),
+            Rule::Assumption(Source::mock()),
             vec![],
             0,
         )
