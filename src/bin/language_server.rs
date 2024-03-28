@@ -511,7 +511,7 @@ impl Backend {
             selected_line: params.selected_line,
             path,
             goal_name: goal_context.name.clone(),
-            goal_range: goal_context.goal.range,
+            goal_range: goal_context.goal.source.range,
             queue: Arc::new(SegQueue::new()),
             text_output: Arc::new(RwLock::new(vec![])),
             result: Arc::new(OnceCell::new()),

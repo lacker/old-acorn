@@ -55,8 +55,8 @@ pub struct AssumptionInfo {
 impl AssumptionInfo {
     pub fn new(prop: &Proposition) -> AssumptionInfo {
         AssumptionInfo {
-            module: prop.module,
-            range: prop.range,
+            module: prop.source.module,
+            range: prop.source.range,
             theorem_name: prop.name().map(|s| s.to_string()),
         }
     }

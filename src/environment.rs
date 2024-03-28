@@ -502,7 +502,7 @@ impl Environment {
             body,
         )?;
         let (inner_claim, claim_range) = match block.env.propositions.last() {
-            Some(p) => (&p.claim.value, p.claim.range),
+            Some(p) => (&p.claim.value, p.claim.source.range),
             None => {
                 return Err(Error::new(
                     &body.right_brace,
@@ -1173,7 +1173,7 @@ impl Environment {
                         local_facts,
                         prop.name(),
                         block.env.inline_theorems(project, &claim),
-                        prop.claim.range,
+                        prop.claim.source.range,
                         block.env.last_line(),
                     ));
                 }
@@ -1188,8 +1188,8 @@ impl Environment {
                     local_facts,
                     prop.name(),
                     env.inline_theorems(project, &prop.claim),
-                    prop.claim.range,
-                    prop.claim.range.start.line,
+                    prop.claim.source.range,
+                    prop.claim.source.range.start.line,
                 ));
             }
         }
