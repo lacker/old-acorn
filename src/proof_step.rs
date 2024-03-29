@@ -328,7 +328,7 @@ impl ProofStep {
         self.clause.is_impossible()
     }
 
-    // Whether this step is just the direct normalization of the negated goal
+    // Whether this step is created by the normalization of the negated goal
     pub fn is_negated_goal(&self) -> bool {
         if let Rule::Assumption(_) = self.rule {
             self.truthiness == Truthiness::Counterfactual

@@ -47,6 +47,7 @@ impl Clause {
         Clause { literals }
     }
 
+    // An unsatisfiable clause. Like a lone "false".
     pub fn impossible() -> Clause {
         Clause::new(vec![])
     }
