@@ -120,9 +120,18 @@ impl<'a> ProofNode<'a> {
     }
 }
 
-// A proof created by the Prover.
-// It assumes the negated goal and finishes by proving a contradiction.
-pub struct ReductionProof<'a> {
+// A proof that was successfully found by the prover.
+//
+// We store the proof in two different ways.
+// First, we store each step of the proof in the order we found them, in `steps`.
+// This starts with the negated goal and proves it by reducing it to a contradiction.
+//
+// Second, we store the proof as a graph in `nodes`.
+// This form lets us manipulate the proof to create an equivalent version that we can use
+// for code generation.
+// This dual representation helps us avoid the problem of proof generation creating a proof
+// that is unreadable because it repeats itself or uses unnecessarily indirect reasoning.
+pub struct Proof<'a> {
     normalizer: &'a Normalizer,
 
     // Maps clause id to proof step that proves it.
@@ -146,12 +155,26 @@ fn insert_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
     nodes[to as usize].premises.push(from);
 }
 
-impl<'a> ReductionProof<'a> {
-    pub fn new<'b>(
+impl<'a> Proof<'a> {
+    // Creates a new proof, without condensing the proof graph.
+    fn new_uncondensed<'b>(
         normalizer: &'a Normalizer,
         steps: impl Iterator<Item = (usize, &'a ProofStep)>,
         final_step: &'a ProofStep,
-    ) -> ReductionProof<'a> {
+    ) -> Proof<'a> {
+        let mut proof = Proof {
+            normalizer,
+            steps: steps.collect(),
+            final_step,
+            nodes: vec![],
+        };
+        proof.initialize_graph();
+        proof
+    }
+
+    // Convert the reduction proof to a graphical form.
+    // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
+    fn initialize_graph(&mut self) {
         let negated_goal = ProofNode {
             value: NodeValue::NegatedGoal,
             negated: false,
@@ -159,20 +182,8 @@ impl<'a> ReductionProof<'a> {
             consequences: vec![],
             sources: vec![],
         };
-        let mut proof = ReductionProof {
-            normalizer,
-            steps: steps.collect(),
-            final_step,
-            nodes: vec![negated_goal],
-        };
-        proof.initialize_graph();
-        proof.condense();
-        proof
-    }
+        self.nodes.push(negated_goal);
 
-    // Convert the reduction proof to a graphical form.
-    // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
-    fn initialize_graph(&mut self) {
         // Maps clause id to node id.
         let mut id_map = HashMap::new();
 
@@ -211,6 +222,16 @@ impl<'a> ReductionProof<'a> {
                 id_map.insert(clause_id, node_id);
             }
         }
+    }
+
+    pub fn new<'b>(
+        normalizer: &'a Normalizer,
+        steps: impl Iterator<Item = (usize, &'a ProofStep)>,
+        final_step: &'a ProofStep,
+    ) -> Proof<'a> {
+        let mut proof = Proof::new_uncondensed(normalizer, steps, final_step);
+        proof.condense();
+        proof
     }
 
     // If this node only uses a single source, and no premises, remove it.
