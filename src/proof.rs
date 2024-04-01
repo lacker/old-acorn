@@ -188,12 +188,13 @@ impl<'a> Proof<'a> {
         for (clause_id, step) in proof
             .steps
             .iter()
-            .map(|(id, step)| (Some(*id), *step))
-            .chain(std::iter::once((None, proof.final_step)))
+            .map(|(id, step)| (*id, *step))
+            .chain(std::iter::once((FINAL_STEP, proof.final_step)))
         {
-            let value = match clause_id {
-                Some(_) => NodeValue::Clause(&step.clause),
-                None => NodeValue::Contradiction,
+            let value = if clause_id != FINAL_STEP {
+                NodeValue::Clause(&step.clause)
+            } else {
+                NodeValue::Contradiction
             };
             let node_id = proof.nodes.len() as NodeId;
             proof.nodes.push(ProofNode {
@@ -216,9 +217,7 @@ impl<'a> Proof<'a> {
                 insert_edge(&mut proof.nodes, id_map[i], node_id);
             }
 
-            if let Some(clause_id) = clause_id {
-                id_map.insert(clause_id, node_id);
-            }
+            id_map.insert(clause_id, node_id);
         }
 
         proof
