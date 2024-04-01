@@ -157,6 +157,7 @@ fn insert_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
 
 impl<'a> Proof<'a> {
     // Creates a new proof, without condensing the proof graph.
+    // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
     fn new_uncondensed<'b>(
         normalizer: &'a Normalizer,
         steps: impl Iterator<Item = (usize, &'a ProofStep)>,
@@ -168,13 +169,7 @@ impl<'a> Proof<'a> {
             final_step,
             nodes: vec![],
         };
-        proof.initialize_graph();
-        proof
-    }
 
-    // Convert the reduction proof to a graphical form.
-    // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
-    fn initialize_graph(&mut self) {
         let negated_goal = ProofNode {
             value: NodeValue::NegatedGoal,
             negated: false,
@@ -182,23 +177,23 @@ impl<'a> Proof<'a> {
             consequences: vec![],
             sources: vec![],
         };
-        self.nodes.push(negated_goal);
+        proof.nodes.push(negated_goal);
 
         // Maps clause id to node id.
         let mut id_map = HashMap::new();
 
-        for (clause_id, step) in self
+        for (clause_id, step) in proof
             .steps
             .iter()
             .map(|(id, step)| (Some(*id), *step))
-            .chain(std::iter::once((None, self.final_step)))
+            .chain(std::iter::once((None, proof.final_step)))
         {
             let value = match clause_id {
                 Some(_) => NodeValue::Clause(&step.clause),
                 None => NodeValue::Contradiction,
             };
-            let node_id = self.nodes.len() as NodeId;
-            self.nodes.push(ProofNode {
+            let node_id = proof.nodes.len() as NodeId;
+            proof.nodes.push(ProofNode {
                 value,
                 negated: false,
                 premises: vec![],
@@ -208,20 +203,22 @@ impl<'a> Proof<'a> {
 
             if let Rule::Assumption(source) = &step.rule {
                 if source.source_type == SourceType::NegatedGoal {
-                    insert_edge(&mut self.nodes, 0, node_id);
+                    insert_edge(&mut proof.nodes, 0, node_id);
                 } else {
-                    self.nodes[node_id as usize].sources.push(source);
+                    proof.nodes[node_id as usize].sources.push(source);
                 }
             }
 
             for i in step.dependencies() {
-                insert_edge(&mut self.nodes, id_map[i], node_id);
+                insert_edge(&mut proof.nodes, id_map[i], node_id);
             }
 
             if let Some(clause_id) = clause_id {
                 id_map.insert(clause_id, node_id);
             }
         }
+
+        proof
     }
 
     pub fn new<'b>(
