@@ -15,7 +15,7 @@ use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
-use crate::proof::Proof;
+use crate::proof::{Proof, FINAL_STEP};
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::proposition::Proposition;
 
@@ -516,23 +516,19 @@ impl Prover {
     }
 
     // Convert a clause to a jsonable form
-    pub fn to_clause_info(&self, id: Option<usize>, clause: &Clause) -> ClauseInfo {
+    pub fn to_clause_info(&self, id: usize, clause: &Clause) -> ClauseInfo {
+        let id = if id == FINAL_STEP { None } else { Some(id) };
         ClauseInfo {
             text: self.display(clause).to_string(),
             id,
         }
     }
 
-    fn to_proof_step_info(
-        &self,
-        project: &Project,
-        id: Option<usize>,
-        step: &ProofStep,
-    ) -> ProofStepInfo {
+    fn to_proof_step_info(&self, project: &Project, id: usize, step: &ProofStep) -> ProofStepInfo {
         let clause = self.to_clause_info(id, &step.clause);
         let mut premises = vec![];
         for (description, i) in step.descriptive_dependencies() {
-            let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
+            let clause = self.to_clause_info(i, self.active_set.get_clause(i));
             premises.push((description, clause));
         }
         let (rule, location) = match &step.rule {
@@ -576,24 +572,24 @@ impl Prover {
         if !self.active_set.has_step(id) {
             return None;
         }
-        let step = self.to_proof_step_info(project, Some(id), self.active_set.get_step(id));
+        let step = self.to_proof_step_info(project, id, self.active_set.get_step(id));
         let mut consequences = vec![];
 
         // Check if the final step is a consequence of this clause
         if let Some((final_step, _)) = &self.result {
             if final_step.depends_on(id) {
-                consequences.push(self.to_proof_step_info(project, None, &final_step));
+                consequences.push(self.to_proof_step_info(project, FINAL_STEP, &final_step));
             }
         }
 
         // Check the active set for consequences
         for (i, step) in self.active_set.find_consequences(id) {
-            consequences.push(self.to_proof_step_info(project, Some(i), step));
+            consequences.push(self.to_proof_step_info(project, i, step));
         }
 
         // Check the passive set for consequences
         for step in self.passive_set.find_consequences(id) {
-            consequences.push(self.to_proof_step_info(project, None, step));
+            consequences.push(self.to_proof_step_info(project, FINAL_STEP, step));
         }
 
         Some(InfoResult { step, consequences })

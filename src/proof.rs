@@ -8,6 +8,9 @@ use crate::normalizer::Normalizer;
 use crate::proof_step::{ProofStep, Rule};
 use crate::proposition::{Source, SourceType};
 
+// A special id to indicate the final step of a proof.
+pub const FINAL_STEP: usize = usize::MAX;
+
 // To conveniently manipulate the proof, we store it as a directed graph with its own ids.
 // We need two sorts of ids because as we manipulate the condensed proof, the
 // condensed steps won't be 1-to-1 related to the reduction steps any more.
@@ -463,11 +466,11 @@ impl<'a> Proof<'a> {
     }
 
     // Iterates in order through the steps of the proof.
-    // Includes the clause id in the tuple, til it gets to the last one which is None.
-    pub fn iter_steps(&'a self) -> impl Iterator<Item = (Option<usize>, &'a ProofStep)> {
+    // Includes the clause id in the tuple, til it gets to the last one which is FINAL_STEP.
+    pub fn iter_steps(&'a self) -> impl Iterator<Item = (usize, &'a ProofStep)> {
         self.steps
             .iter()
-            .map(|(id, step)| (Some(*id), *step))
-            .chain(std::iter::once((None, self.final_step)))
+            .map(|(id, step)| (*id, *step))
+            .chain(std::iter::once((FINAL_STEP, self.final_step)))
     }
 }
