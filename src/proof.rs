@@ -4,7 +4,6 @@ use std::fmt;
 use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::code_gen_error::CodeGenError;
-use crate::display::DisplayClause;
 use crate::normalizer::Normalizer;
 use crate::proof_step::{ProofStep, Rule};
 use crate::proposition::{Source, SourceType};
@@ -204,7 +203,7 @@ impl<'a> ProofGraph<'a> {
         }
     }
 
-    pub fn print(&self) {
+    pub fn print_graph(&self) {
         for (i, node) in self.nodes.iter().enumerate() {
             if node.is_isolated() {
                 continue;
@@ -400,41 +399,6 @@ impl<'a> ReductionProof<'a> {
             normalizer,
             steps: steps.collect(),
             final_step,
-        }
-    }
-
-    fn display(&self, clause: &'a Clause) -> DisplayClause<'a> {
-        DisplayClause {
-            clause,
-            normalizer: self.normalizer,
-        }
-    }
-
-    fn print_step(&self, preface: &str, step: &ProofStep) {
-        println!(
-            "\n{}{} generated:\n    {}",
-            preface,
-            step.rule.name(),
-            self.display(&step.clause)
-        );
-        for (description, i) in step.descriptive_dependencies() {
-            let clause = &self.steps.get(&i).unwrap().clause;
-            let dc = self.display(clause);
-            println!("  using {} {}:\n    {}", description, i, dc);
-        }
-    }
-
-    // Prints the reduction form of the proof, the way it was originally found by the prover.
-    pub fn print_reduction(&self) {
-        println!("the reduction proof uses {} steps:", self.steps.len());
-        for (step_id, step) in &self.steps {
-            println!("step {}: {}", step_id, step);
-            let preface = if step.is_negated_goal() {
-                format!("clause {} (negating goal): ", step_id)
-            } else {
-                format!("clause {}: ", step_id)
-            };
-            self.print_step(&preface, step);
         }
     }
 
