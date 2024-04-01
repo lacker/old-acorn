@@ -630,7 +630,7 @@ mod tests {
             panic!("prover error: {}", prover.error.unwrap());
         }
         let code = match prover.get_proof() {
-            Some(proof) => proof.to_code(&env.bindings),
+            Some(proof) => proof.new_to_code(&env.bindings),
             None => Err(CodeGenError::NoProof),
         };
         (outcome, code)
@@ -1365,7 +1365,7 @@ mod tests {
         expect_code_gen_error(
             text,
             "goal",
-            "could not find a name for the skolem constant: s0",
+            "unable to find a simpler proposition that implies the goal",
         );
     }
 

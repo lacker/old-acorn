@@ -17,6 +17,9 @@ pub enum CodeGenError {
     // Some sort of value we could handle, but we don't yet, because it's rare.
     UnhandledValue(String),
 
+    // The goal is implicit, so we can't generate code for it.
+    ImplicitGoal,
+
     // When you try to generate code but there is no proof
     NoProof,
 }
@@ -50,6 +53,10 @@ impl fmt::Display for CodeGenError {
             CodeGenError::UnhandledValue(s) => {
                 write!(f, "codegen for '{}' values is not yet implemented", s)
             }
+            CodeGenError::ImplicitGoal => write!(
+                f,
+                "unable to find a simpler proposition that implies the goal"
+            ),
             CodeGenError::NoProof => write!(f, "no proof"),
         }
     }
