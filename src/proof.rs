@@ -391,17 +391,16 @@ pub struct ReductionProof<'a> {
 }
 
 impl<'a> ReductionProof<'a> {
-    pub fn new(normalizer: &'a Normalizer, final_step: ProofStep) -> ReductionProof<'a> {
+    pub fn new<'b>(
+        normalizer: &'a Normalizer,
+        steps: impl Iterator<Item = (usize, ProofStep)>,
+        final_step: ProofStep,
+    ) -> ReductionProof<'a> {
         ReductionProof {
             normalizer,
-            steps: BTreeMap::new(),
+            steps: steps.collect(),
             final_step,
         }
-    }
-
-    // Just to be used during construction.
-    pub fn add_step(&mut self, id: usize, step: ProofStep) {
-        self.steps.insert(id, step);
     }
 
     fn display(&self, clause: &'a Clause) -> DisplayClause<'a> {

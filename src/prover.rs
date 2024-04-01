@@ -329,12 +329,13 @@ impl Prover {
             return None;
         };
         let indices = self.active_set.find_upstream(&final_step);
-        let mut proof = ReductionProof::new(&self.normalizer, final_step.clone());
-        for i in indices {
-            let step = self.active_set.get_step(i);
-            proof.add_step(i, step.clone());
-        }
-        Some(proof)
+        Some(ReductionProof::new(
+            &self.normalizer,
+            indices
+                .iter()
+                .map(|&i| (i, self.active_set.get_step(i).clone())),
+            final_step.clone(),
+        ))
     }
 
     // Handle the case when we found a contradiction
