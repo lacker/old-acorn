@@ -331,10 +331,8 @@ impl Prover {
         let indices = self.active_set.find_upstream(&final_step);
         Some(ReductionProof::new(
             &self.normalizer,
-            indices
-                .iter()
-                .map(|&i| (i, self.active_set.get_step(i).clone())),
-            final_step.clone(),
+            indices.iter().map(|&i| (i, self.active_set.get_step(i))),
+            final_step,
         ))
     }
 

@@ -383,17 +383,17 @@ pub struct ReductionProof<'a> {
 
     // Maps clause id to proof step that proves it.
     // Does not include the final step, because the final step has no clause id.
-    steps: BTreeMap<usize, ProofStep>,
+    steps: BTreeMap<usize, &'a ProofStep>,
 
     // The conclusion of this step should be a contradiction.
-    final_step: ProofStep,
+    final_step: &'a ProofStep,
 }
 
 impl<'a> ReductionProof<'a> {
     pub fn new<'b>(
         normalizer: &'a Normalizer,
-        steps: impl Iterator<Item = (usize, ProofStep)>,
-        final_step: ProofStep,
+        steps: impl Iterator<Item = (usize, &'a ProofStep)>,
+        final_step: &'a ProofStep,
     ) -> ReductionProof<'a> {
         ReductionProof {
             normalizer,
@@ -467,7 +467,7 @@ impl<'a> ReductionProof<'a> {
     pub fn iter_steps(&'a self) -> impl Iterator<Item = (Option<usize>, &'a ProofStep)> {
         self.steps
             .iter()
-            .map(|(id, step)| (Some(*id), step))
-            .chain(std::iter::once((None, &self.final_step)))
+            .map(|(id, step)| (Some(*id), *step))
+            .chain(std::iter::once((None, self.final_step)))
     }
 }
