@@ -57,6 +57,17 @@ impl Source {
             SourceType::NegatedGoal => "negating the goal".to_string(),
         }
     }
+
+    // "Trivial" sources are ones that typically don't need to be mentioned explicitly.
+    // Axioms and theorems are nontrivial.
+    // Definitions and propositions that are already expressed locally are trivial.
+    // This is a heuristic.
+    pub fn is_trivial(&self) -> bool {
+        match self.source_type {
+            SourceType::Theorem(_) | SourceType::Axiom(_) => false,
+            _ => true,
+        }
+    }
 }
 
 // A value along with information on where to find it in the source.

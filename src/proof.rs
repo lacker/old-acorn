@@ -99,6 +99,10 @@ impl<'a> ProofNode<'a> {
         }
     }
 
+    fn nontrivial_sources(&self) -> usize {
+        self.sources.iter().filter(|x| !x.is_trivial()).count()
+    }
+
     // Whether this node is implicitly represented in the code already by the goal.
     // The negated negated goal is represented by the goal.
     // So is any negated clause that implies only the goal.
@@ -148,6 +152,11 @@ pub struct Proof<'a> {
     // Nodes that get removed from the proof are not removed from this vector.
     // Instead, they are modified to have no content, with nothing depending on them.
     nodes: Vec<ProofNode<'a>>,
+}
+
+fn remove_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
+    nodes[from as usize].consequences.retain(|x| *x != to);
+    nodes[to as usize].premises.retain(|x| *x != from);
 }
 
 fn insert_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
@@ -258,6 +267,32 @@ impl<'a> Proof<'a> {
         }
     }
 
+    // Sometimes when we have a line of reasoning
+    // A & B -> C -> D
+    // we can remove the interior C node and replace with
+    // A & B -> D
+    //
+    // In order to remove a node, we need:
+    //   1. The node has a single consequence.
+    //   2. The removal would not leave the consequence with multiple dependencies on named theorems.
+    //
+    // This method removes the interior node if possible.
+    // It does not recurse because this removal cannot improve the eligibility of other nodes.
+    fn remove_interior(&mut self, node_id: NodeId) {
+        let node = &self.nodes[node_id as usize];
+        if node.consequences.len() != 1 {
+            return;
+        }
+        let consequence_id = node.consequences[0];
+        let consequence = &self.nodes[consequence_id as usize];
+        if node.nontrivial_sources() + consequence.nontrivial_sources() > 1 {
+            return;
+        }
+
+        // We can remove the interior node.
+        todo!();
+    }
+
     pub fn print_graph(&self) {
         for (i, node) in self.nodes.iter().enumerate() {
             if node.is_isolated() {
@@ -350,15 +385,14 @@ impl<'a> Proof<'a> {
             // to from.
             // If to is a contradiction, we don't need the resulting edge at all.
             let to_id = counterfactual_consequences[0];
+            remove_edge(&mut self.nodes, from_id, to_id);
             let to = &mut self.nodes[to_id as usize];
             let to_is_contradiction = matches!(to.value, NodeValue::Contradiction);
-            to.premises.retain(|x| *x != from_id);
             if !to_is_contradiction {
                 to.consequences.push(from_id);
             }
             let to_sources = std::mem::take(&mut to.sources);
             let from = &mut self.nodes[from_id as usize];
-            from.consequences.retain(|x| *x != to_id);
             if !to_is_contradiction {
                 from.premises.push(to_id);
             }
