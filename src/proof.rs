@@ -6,7 +6,7 @@ use crate::clause::Clause;
 use crate::code_gen_error::CodeGenError;
 use crate::display::DisplayClause;
 use crate::normalizer::Normalizer;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Rule};
 use crate::proposition::{Source, SourceType};
 
 // To conveniently manipulate the proof, we store it as a directed graph with its own ids.
@@ -232,7 +232,11 @@ impl<'a> ProofGraph<'a> {
         }
     }
 
-    // Tries to turning one step from indirect to direct.
+    // In a direct proof, all of the statements are true statements, so it's more intuitive.
+    // Howevever, we can't always create a direct proof. So the idea is to make the proof
+    // "as direct as possible".
+    //
+    // Thus, this method tries to turn one step from indirect to direct, and then repeats.
     // We do this by reversing the logical order of this node and its immediate consequence.
     //
     // Converts:
@@ -249,7 +253,7 @@ impl<'a> ProofGraph<'a> {
     // }
     // !A
     //
-    // Recursively continues to make more steps direct, as much as possible.
+    // and then continues with the new hypothesis.
     fn make_direct(&mut self, from_id: NodeId) {
         let node = &self.nodes[from_id as usize];
         if !node.starts_reduction() {
@@ -435,19 +439,6 @@ impl<'a> ReductionProof<'a> {
         }
     }
 
-    fn clause_to_code(
-        &self,
-        clause: &Clause,
-        bindings: &BindingMap,
-        negate: bool,
-    ) -> Result<String, CodeGenError> {
-        let mut value = self.normalizer.denormalize(clause);
-        if negate {
-            value = value.negate();
-        }
-        bindings.value_to_code(&value)
-    }
-
     // Convert the reduction proof to a graphical form.
     // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
     fn to_graph(&'a self) -> ProofGraph<'a> {
@@ -483,9 +474,17 @@ impl<'a> ReductionProof<'a> {
         graph
     }
 
-    // New version of to_code.
-    // TODO: deprecate that one in favor of this one
-    pub fn new_to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
+    // Converts the proof to lines of code.
+    //
+    // The prover assumes the goal is false and then searches for a contradiction.
+    // When we turn this sort of proof into code, it looks like one big proof by contradiction.
+    // This often commingles lemma-style reasoning that seems intuitively true with
+    // proof-by-contradiction-style reasoning that feels intuitively backwards.
+    // Humans try to avoid mixing these different styles of reasoning.
+    //
+    // Code is generated with *tabs* even though I hate tabs. The consuming logic should
+    // appropriately turn tabs into spaces.
+    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
         let mut graph = self.to_graph();
         graph.condense();
         let mut output = vec![];
@@ -498,113 +497,6 @@ impl<'a> ReductionProof<'a> {
             &mut output,
         )?;
         Ok(output)
-    }
-
-    // Converts the proof to lines of code.
-    //
-    // The prover assumes the goal is false and then searches for a contradiction.
-    // When we turn this sort of proof into code, it looks like one big proof by contradiction.
-    // This often commingles lemma-style reasoning that seems intuitively true with
-    // proof-by-contradiction-style reasoning that feels intuitively backwards.
-    // Humans try to avoid mixing these different styles of reasoning.
-    //
-    // In a direct proof, all of the statements are true statements, so it's more intuitive.
-    // Howevever, we can't always create a direct proof. So the idea is to make the proof
-    // "as direct as possible".
-    //
-    // Specifically, we turn the proof into something of the form:
-    //
-    // <proposition>
-    // ...
-    // <proposition>
-    // if <condition> {
-    //   <proposition>
-    //   ...
-    //   <proposition>
-    //   false
-    // }
-    // <proposition>
-    // ...
-    // <proposition>
-    //
-    // So, a direct proof, followed by a proof by contradiction, followed by a direct proof.
-    // Essentially, we start with a proof by contradiction and "extract" as many statements
-    // as possible into the surrounding direct proofs.
-    //
-    // Code is generated with *tabs* even though I hate tabs. The consuming logic should
-    // appropriately turn tabs into spaces.
-    pub fn old_to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
-        // Check how many times each clause is used by a subsequent clause.
-        let mut use_count = HashMap::new();
-        for step in self.steps.values() {
-            for i in step.dependencies() {
-                *use_count.entry(*i).or_insert(0) += 1;
-            }
-        }
-        for i in self.final_step.dependencies() {
-            *use_count.entry(*i).or_insert(0) += 1;
-        }
-
-        // The clauses before the if-block.
-        let mut preblock = vec![];
-
-        // The clauses that go into the if-block.
-        // The first one is the assumption.
-        // The block will end with a "false" that is not explicitly included.
-        let mut conditional = vec![];
-
-        // The clauses after the if-block.
-        // Populated in the order the prover generated them. In the final proof they
-        // will be negated and put in reverse order.
-        let mut postblock = vec![];
-
-        for (i, step) in self.steps.iter() {
-            if step.truthiness != Truthiness::Counterfactual {
-                // We can extract any clauses that are not counterfactual.
-                // We don't want to generate code for the assumptions.
-                if !step.rule.is_assumption() {
-                    preblock.push(&step.clause);
-                }
-                continue;
-            }
-
-            if conditional.is_empty() && use_count[i] <= 1 {
-                // We can extract this counterfactual.
-                // We don't want to generate code for the negated goal, though.
-                if !step.rule.is_assumption() {
-                    postblock.push(&step.clause);
-                }
-                continue;
-            }
-
-            // We can't extract this counterfactual.
-            // We *do* want to generate code if this is the negated goal.
-            conditional.push(&step.clause);
-        }
-
-        let mut answer = vec![];
-        for clause in preblock {
-            let code = self.clause_to_code(clause, bindings, false)?;
-            answer.push(code);
-        }
-
-        if !conditional.is_empty() {
-            let code = self.clause_to_code(conditional[0], bindings, false)?;
-            answer.push(format!("if {} {{", code));
-            for clause in conditional.iter().skip(1) {
-                let code = self.clause_to_code(clause, bindings, false)?;
-                answer.push(format!("\t{}", code));
-            }
-            answer.push("\tfalse".to_string());
-            answer.push("}".to_string());
-        }
-
-        for clause in postblock.iter().rev() {
-            let code = self.clause_to_code(clause, bindings, true)?;
-            answer.push(code);
-        }
-
-        Ok(answer)
     }
 
     // Iterates in order through the steps of the proof.

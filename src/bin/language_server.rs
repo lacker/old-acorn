@@ -164,7 +164,7 @@ impl SearchTask {
                 let proof = prover.get_proof().unwrap();
                 let steps = prover.to_proof_info(&project, &proof);
 
-                match proof.old_to_code(&env.bindings) {
+                match proof.to_code(&env.bindings) {
                     Ok(code) => {
                         self.queue.push("Proof converted to code:".to_string());
                         for line in &code {

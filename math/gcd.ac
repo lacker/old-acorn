@@ -55,7 +55,9 @@ define decreasing_to_zero(f: Nat -> Nat) -> bool = forall(x: Nat) {
 
 theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(Suc(x))) } by {
     if !no_infinite_decreasing(f) {
-        forall(x: Nat) { !lte(f(x), f(Suc(x))) }
+        forall(x: Nat) {
+            !lte(f(x), f(Suc(x)))
+        }
         let h: Nat -> bool = function(x: Nat) { lte(add(x, f(x)), f(0)) }
         nat.induction(h)
         h(0)
