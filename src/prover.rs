@@ -331,8 +331,10 @@ impl Prover {
         let indices = self.active_set.find_upstream(&final_step);
         Some(Proof::new(
             &self.normalizer,
-            indices.iter().map(|&i| (i, self.active_set.get_step(i))),
-            final_step,
+            indices
+                .iter()
+                .map(|&i| (i, self.active_set.get_step(i)))
+                .chain(std::iter::once((FINAL_STEP, final_step))),
         ))
     }
 
@@ -559,8 +561,8 @@ impl Prover {
 
     pub fn to_proof_info(&self, project: &Project, proof: &Proof) -> Vec<ProofStepInfo> {
         let mut result = vec![];
-        for (i, step) in proof.iter_steps() {
-            result.push(self.to_proof_step_info(project, i, step));
+        for (i, step) in proof.steps.iter() {
+            result.push(self.to_proof_step_info(project, *i, step));
         }
         result
     }

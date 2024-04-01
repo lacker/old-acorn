@@ -138,11 +138,8 @@ pub struct Proof<'a> {
     normalizer: &'a Normalizer,
 
     // Maps clause id to proof step that proves it.
-    // Does not include the final step, because the final step has no clause id.
-    steps: BTreeMap<usize, &'a ProofStep>,
-
-    // The conclusion of this step should be a contradiction.
-    final_step: &'a ProofStep,
+    // The final step should be included, with id FINAL_STEP.
+    pub steps: BTreeMap<usize, &'a ProofStep>,
 
     // The graph representation of the proof.
     // Nodes are indexed by node id.
@@ -164,12 +161,10 @@ impl<'a> Proof<'a> {
     fn new_uncondensed<'b>(
         normalizer: &'a Normalizer,
         steps: impl Iterator<Item = (usize, &'a ProofStep)>,
-        final_step: &'a ProofStep,
     ) -> Proof<'a> {
         let mut proof = Proof {
             normalizer,
             steps: steps.collect(),
-            final_step,
             nodes: vec![],
         };
 
@@ -185,12 +180,7 @@ impl<'a> Proof<'a> {
         // Maps clause id to node id.
         let mut id_map = HashMap::new();
 
-        for (clause_id, step) in proof
-            .steps
-            .iter()
-            .map(|(id, step)| (*id, *step))
-            .chain(std::iter::once((FINAL_STEP, proof.final_step)))
-        {
+        for (&clause_id, &step) in &proof.steps {
             let value = if clause_id != FINAL_STEP {
                 NodeValue::Clause(&step.clause)
             } else {
@@ -226,9 +216,8 @@ impl<'a> Proof<'a> {
     pub fn new<'b>(
         normalizer: &'a Normalizer,
         steps: impl Iterator<Item = (usize, &'a ProofStep)>,
-        final_step: &'a ProofStep,
     ) -> Proof<'a> {
-        let mut proof = Proof::new_uncondensed(normalizer, steps, final_step);
+        let mut proof = Proof::new_uncondensed(normalizer, steps);
         proof.condense();
         proof
     }
@@ -462,14 +451,5 @@ impl<'a> Proof<'a> {
             output.push(format!("{}{}", "\t".repeat(tab_level), code));
         }
         Ok(())
-    }
-
-    // Iterates in order through the steps of the proof.
-    // Includes the clause id in the tuple, til it gets to the last one which is FINAL_STEP.
-    pub fn iter_steps(&'a self) -> impl Iterator<Item = (usize, &'a ProofStep)> {
-        self.steps
-            .iter()
-            .map(|(id, step)| (*id, *step))
-            .chain(std::iter::once((FINAL_STEP, self.final_step)))
     }
 }
