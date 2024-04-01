@@ -397,12 +397,15 @@ impl<'a> ReductionProof<'a> {
         steps: impl Iterator<Item = (usize, &'a ProofStep)>,
         final_step: &'a ProofStep,
     ) -> ReductionProof<'a> {
-        ReductionProof {
+        let mut proof = ReductionProof {
             normalizer,
             steps: steps.collect(),
             final_step,
             graph: ProofGraph::new(),
-        }
+        };
+        proof.make_graph();
+        proof.graph.condense();
+        proof
     }
 
     // Convert the reduction proof to a graphical form.
@@ -451,9 +454,7 @@ impl<'a> ReductionProof<'a> {
     //
     // Code is generated with *tabs* even though I hate tabs. The consuming logic should
     // appropriately turn tabs into spaces.
-    pub fn to_code(&mut self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
-        self.make_graph();
-        self.graph.condense();
+    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
         let mut output = vec![];
         self.graph.to_code(
             self.normalizer,

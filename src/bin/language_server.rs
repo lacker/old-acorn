@@ -161,7 +161,7 @@ impl SearchTask {
                 self.queue.push("Success!".to_string());
                 prover.print_proof();
                 self.queue.push("".to_string());
-                let mut proof = prover.get_proof().unwrap();
+                let proof = prover.get_proof().unwrap();
                 let steps = prover.to_proof_info(&project, &proof);
 
                 match proof.to_code(&env.bindings) {

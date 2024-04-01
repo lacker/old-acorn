@@ -629,7 +629,7 @@ mod tests {
             panic!("prover error: {}", prover.error.unwrap());
         }
         let code = match prover.get_proof() {
-            Some(mut proof) => proof.to_code(&env.bindings),
+            Some(proof) => proof.to_code(&env.bindings),
             None => Err(CodeGenError::NoProof),
         };
         (outcome, code)
