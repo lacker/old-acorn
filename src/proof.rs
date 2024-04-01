@@ -164,6 +164,11 @@ fn insert_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
     nodes[to as usize].premises.push(from);
 }
 
+fn move_sources(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
+    let sources = std::mem::take(&mut nodes[from as usize].sources);
+    nodes[to as usize].sources.extend(sources);
+}
+
 impl<'a> Proof<'a> {
     // Creates a new proof, without condensing the proof graph.
     // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
@@ -386,18 +391,11 @@ impl<'a> Proof<'a> {
             // If to is a contradiction, we don't need the resulting edge at all.
             let to_id = counterfactual_consequences[0];
             remove_edge(&mut self.nodes, from_id, to_id);
-            let to = &mut self.nodes[to_id as usize];
-            let to_is_contradiction = matches!(to.value, NodeValue::Contradiction);
-            if !to_is_contradiction {
-                to.consequences.push(from_id);
+            if !matches!(self.nodes[to_id as usize].value, NodeValue::Contradiction) {
+                insert_edge(&mut self.nodes, to_id, from_id);
             }
-            let to_sources = std::mem::take(&mut to.sources);
-            let from = &mut self.nodes[from_id as usize];
-            if !to_is_contradiction {
-                from.premises.push(to_id);
-            }
-            from.negated = true;
-            from.sources.extend(to_sources);
+            self.nodes[from_id as usize].negated = true;
+            move_sources(&mut self.nodes, to_id, from_id);
 
             // Continue with the node that we just moved into the "if" condition
             from_id = to_id;
