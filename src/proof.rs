@@ -309,60 +309,65 @@ impl<'a> Proof<'a> {
     //
     // and then continues with the new hypothesis.
     fn make_direct(&mut self, from_id: NodeId) {
-        let node = &self.nodes[from_id as usize];
-        if !node.starts_reduction() {
-            // This node is already direct
-            return;
-        }
-        if node.negated {
-            panic!("unexpected negation in make_direct");
-        }
-        if let NodeValue::Contradiction = node.value {
-            // This is assuming !false, which is fine.
-            return;
-        }
-
-        // Find the consequences that are inside the indirect block
-        let mut counterfactual_consequences = vec![];
-        for consequence_id in &node.consequences {
-            if self.nodes[*consequence_id as usize].negated {
-                // The consequence has been negated, which means it already must be outside
-                continue;
+        let mut from_id = from_id;
+        loop {
+            let node = &self.nodes[from_id as usize];
+            if !node.starts_reduction() {
+                // This node is already direct
+                return;
             }
-            counterfactual_consequences.push(*consequence_id);
-        }
+            if node.negated {
+                panic!("unexpected negation in make_direct");
+            }
+            if let NodeValue::Contradiction = node.value {
+                // This is assuming !false, which is fine.
+                return;
+            }
 
-        if counterfactual_consequences.len() == 0 {
-            panic!("a counterfactual is never disproven, in the proof");
-        }
+            // Find the consequences that are inside the indirect block
+            let mut counterfactual_consequences = vec![];
+            for consequence_id in &node.consequences {
+                if self.nodes[*consequence_id as usize].negated {
+                    // The consequence has been negated, which means it already must be outside
+                    continue;
+                }
+                counterfactual_consequences.push(*consequence_id);
+            }
 
-        if counterfactual_consequences.len() > 1 {
-            // We can't make this direct, because it has multiple consequences.
-            return;
-        }
+            if counterfactual_consequences.len() == 0 {
+                panic!("a counterfactual is never disproven, in the proof");
+            }
 
-        // We only use this node for one thing, so we can reverse the outgoing edge.
-        // Initially, the logic is that we assume "from", and prove "to".
-        // Afterwards, we are going to assume "to", and prove "!from".
-        // Thus, we need to reverse the direction, negate from, and move all of to's sources
-        // to from.
-        // If to is a contradiction, we don't need the resulting edge at all.
-        let to_id = counterfactual_consequences[0];
-        let to = &mut self.nodes[to_id as usize];
-        let to_is_contradiction = matches!(to.value, NodeValue::Contradiction);
-        to.premises.retain(|x| *x != from_id);
-        if !to_is_contradiction {
-            to.consequences.push(from_id);
+            if counterfactual_consequences.len() > 1 {
+                // We can't make this direct, because it has multiple consequences.
+                return;
+            }
+
+            // We only use this node for one thing, so we can reverse the outgoing edge.
+            // Initially, the logic is that we assume "from", and prove "to".
+            // Afterwards, we are going to assume "to", and prove "!from".
+            // Thus, we need to reverse the direction, negate from, and move all of to's sources
+            // to from.
+            // If to is a contradiction, we don't need the resulting edge at all.
+            let to_id = counterfactual_consequences[0];
+            let to = &mut self.nodes[to_id as usize];
+            let to_is_contradiction = matches!(to.value, NodeValue::Contradiction);
+            to.premises.retain(|x| *x != from_id);
+            if !to_is_contradiction {
+                to.consequences.push(from_id);
+            }
+            let to_sources = std::mem::take(&mut to.sources);
+            let from = &mut self.nodes[from_id as usize];
+            from.consequences.retain(|x| *x != to_id);
+            if !to_is_contradiction {
+                from.premises.push(to_id);
+            }
+            from.negated = true;
+            from.sources.extend(to_sources);
+
+            // Continue with the node that we just moved into the "if" condition
+            from_id = to_id;
         }
-        let to_sources = std::mem::take(&mut to.sources);
-        let from = &mut self.nodes[from_id as usize];
-        from.consequences.retain(|x| *x != to_id);
-        if !to_is_contradiction {
-            from.premises.push(to_id);
-        }
-        from.negated = true;
-        from.sources.extend(to_sources);
-        self.make_direct(to_id);
     }
 
     fn condense(&mut self) {
