@@ -387,6 +387,8 @@ pub struct ReductionProof<'a> {
 
     // The conclusion of this step should be a contradiction.
     final_step: &'a ProofStep,
+
+    graph: ProofGraph<'a>,
 }
 
 impl<'a> ReductionProof<'a> {
@@ -399,42 +401,44 @@ impl<'a> ReductionProof<'a> {
             normalizer,
             steps: steps.collect(),
             final_step,
+            graph: ProofGraph::new(),
         }
     }
 
     // Convert the reduction proof to a graphical form.
     // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
-    fn to_graph(&'a self) -> ProofGraph<'a> {
+    fn make_graph(&mut self) {
         // Maps clause id to node id.
         let mut id_map = HashMap::new();
 
-        let mut graph = ProofGraph::new();
-
-        for (clause_id, step) in self.iter_steps() {
+        for (clause_id, step) in self
+            .steps
+            .iter()
+            .map(|(id, step)| (Some(*id), *step))
+            .chain(std::iter::once((None, self.final_step)))
+        {
             let value = match clause_id {
                 Some(_) => NodeValue::Clause(&step.clause),
                 None => NodeValue::Contradiction,
             };
-            let node_id = graph.insert_node(value);
+            let node_id = self.graph.insert_node(value);
 
             if let Rule::Assumption(source) = &step.rule {
                 if source.source_type == SourceType::NegatedGoal {
-                    graph.insert_edge(0, node_id);
+                    self.graph.insert_edge(0, node_id);
                 } else {
-                    graph.add_source(node_id, source);
+                    self.graph.add_source(node_id, source);
                 }
             }
 
             for i in step.dependencies() {
-                graph.insert_edge(id_map[i], node_id);
+                self.graph.insert_edge(id_map[i], node_id);
             }
 
             if let Some(clause_id) = clause_id {
                 id_map.insert(clause_id, node_id);
             }
         }
-
-        graph
     }
 
     // Converts the proof to lines of code.
@@ -447,11 +451,11 @@ impl<'a> ReductionProof<'a> {
     //
     // Code is generated with *tabs* even though I hate tabs. The consuming logic should
     // appropriately turn tabs into spaces.
-    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
-        let mut graph = self.to_graph();
-        graph.condense();
+    pub fn to_code(&mut self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
+        self.make_graph();
+        self.graph.condense();
         let mut output = vec![];
-        graph.to_code(
+        self.graph.to_code(
             self.normalizer,
             bindings,
             0,
