@@ -120,10 +120,20 @@ impl<'a> ProofNode<'a> {
     }
 }
 
-// The proof in graph form, to make it easier to manipulate.
-pub struct ProofGraph<'a> {
-    // All nodes, indexed by node id.
-    //
+// A proof created by the Prover.
+// It assumes the negated goal and finishes by proving a contradiction.
+pub struct ReductionProof<'a> {
+    normalizer: &'a Normalizer,
+
+    // Maps clause id to proof step that proves it.
+    // Does not include the final step, because the final step has no clause id.
+    steps: BTreeMap<usize, &'a ProofStep>,
+
+    // The conclusion of this step should be a contradiction.
+    final_step: &'a ProofStep,
+
+    // The graph representation of the proof.
+    // Nodes are indexed by node id.
     // The goal is always id zero.
     //
     // Nodes that get removed from the proof are not removed from this vector.
@@ -131,9 +141,17 @@ pub struct ProofGraph<'a> {
     nodes: Vec<ProofNode<'a>>,
 }
 
-impl<'a> ProofGraph<'a> {
-    // Creates a stub proof with a single node with id 0 that assumes the negated goal.
-    fn new() -> ProofGraph<'a> {
+fn insert_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
+    nodes[from as usize].consequences.push(to);
+    nodes[to as usize].premises.push(from);
+}
+
+impl<'a> ReductionProof<'a> {
+    pub fn new<'b>(
+        normalizer: &'a Normalizer,
+        steps: impl Iterator<Item = (usize, &'a ProofStep)>,
+        final_step: &'a ProofStep,
+    ) -> ReductionProof<'a> {
         let negated_goal = ProofNode {
             value: NodeValue::NegatedGoal,
             negated: false,
@@ -141,30 +159,58 @@ impl<'a> ProofGraph<'a> {
             consequences: vec![],
             sources: vec![],
         };
-        ProofGraph {
+        let mut proof = ReductionProof {
+            normalizer,
+            steps: steps.collect(),
+            final_step,
             nodes: vec![negated_goal],
+        };
+        proof.initialize_graph();
+        proof.condense();
+        proof
+    }
+
+    // Convert the reduction proof to a graphical form.
+    // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
+    fn initialize_graph(&mut self) {
+        // Maps clause id to node id.
+        let mut id_map = HashMap::new();
+
+        for (clause_id, step) in self
+            .steps
+            .iter()
+            .map(|(id, step)| (Some(*id), *step))
+            .chain(std::iter::once((None, self.final_step)))
+        {
+            let value = match clause_id {
+                Some(_) => NodeValue::Clause(&step.clause),
+                None => NodeValue::Contradiction,
+            };
+            let node_id = self.nodes.len() as NodeId;
+            self.nodes.push(ProofNode {
+                value,
+                negated: false,
+                premises: vec![],
+                consequences: vec![],
+                sources: vec![],
+            });
+
+            if let Rule::Assumption(source) = &step.rule {
+                if source.source_type == SourceType::NegatedGoal {
+                    insert_edge(&mut self.nodes, 0, node_id);
+                } else {
+                    self.nodes[node_id as usize].sources.push(source);
+                }
+            }
+
+            for i in step.dependencies() {
+                insert_edge(&mut self.nodes, id_map[i], node_id);
+            }
+
+            if let Some(clause_id) = clause_id {
+                id_map.insert(clause_id, node_id);
+            }
         }
-    }
-
-    fn insert_node(&mut self, value: NodeValue<'a>) -> NodeId {
-        let id = self.nodes.len() as NodeId;
-        self.nodes.push(ProofNode {
-            value,
-            negated: false,
-            premises: vec![],
-            consequences: vec![],
-            sources: vec![],
-        });
-        id
-    }
-
-    fn add_source(&mut self, step_id: NodeId, source: &'a Source) {
-        self.nodes[step_id as usize].sources.push(source);
-    }
-
-    fn insert_edge(&mut self, from: NodeId, to: NodeId) {
-        self.nodes[from as usize].consequences.push(to);
-        self.nodes[to as usize].premises.push(from);
     }
 
     // If this node only uses a single source, and no premises, remove it.
@@ -330,8 +376,31 @@ impl<'a> ProofGraph<'a> {
         }
     }
 
+    // Converts the proof to lines of code.
+    //
+    // The prover assumes the goal is false and then searches for a contradiction.
+    // When we turn this sort of proof into code, it looks like one big proof by contradiction.
+    // This often commingles lemma-style reasoning that seems intuitively true with
+    // proof-by-contradiction-style reasoning that feels intuitively backwards.
+    // Humans try to avoid mixing these different styles of reasoning.
+    //
+    // Code is generated with *tabs* even though I hate tabs. The consuming logic should
+    // appropriately turn tabs into spaces.
+    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
+        let mut output = vec![];
+        self.to_code_helper(
+            self.normalizer,
+            bindings,
+            0,
+            0,
+            &mut HashSet::new(),
+            &mut output,
+        )?;
+        Ok(output)
+    }
+
     // Write out code for the given node, and everything needed to prove it.
-    fn to_code(
+    fn to_code_helper(
         &self,
         normalizer: &Normalizer,
         bindings: &BindingMap,
@@ -352,7 +421,7 @@ impl<'a> ProofGraph<'a> {
             let condition = node.to_code(normalizer, bindings)?;
             output.push(format!("{}if {} {{", "\t".repeat(tab_level), condition));
             let contradiction = self.find_contradiction(node_id);
-            self.to_code(
+            self.to_code_helper(
                 normalizer,
                 bindings,
                 contradiction,
@@ -365,7 +434,7 @@ impl<'a> ProofGraph<'a> {
         }
 
         for premise_id in &node.premises {
-            self.to_code(normalizer, bindings, *premise_id, tab_level, proven, output)?;
+            self.to_code_helper(normalizer, bindings, *premise_id, tab_level, proven, output)?;
         }
         proven.insert(node_id);
         if !node.already_represented() {
@@ -373,98 +442,6 @@ impl<'a> ProofGraph<'a> {
             output.push(format!("{}{}", "\t".repeat(tab_level), code));
         }
         Ok(())
-    }
-}
-
-// A proof created by the Prover.
-// It assumes the negated goal and finishes by proving a contradiction.
-pub struct ReductionProof<'a> {
-    normalizer: &'a Normalizer,
-
-    // Maps clause id to proof step that proves it.
-    // Does not include the final step, because the final step has no clause id.
-    steps: BTreeMap<usize, &'a ProofStep>,
-
-    // The conclusion of this step should be a contradiction.
-    final_step: &'a ProofStep,
-
-    graph: ProofGraph<'a>,
-}
-
-impl<'a> ReductionProof<'a> {
-    pub fn new<'b>(
-        normalizer: &'a Normalizer,
-        steps: impl Iterator<Item = (usize, &'a ProofStep)>,
-        final_step: &'a ProofStep,
-    ) -> ReductionProof<'a> {
-        let mut proof = ReductionProof {
-            normalizer,
-            steps: steps.collect(),
-            final_step,
-            graph: ProofGraph::new(),
-        };
-        proof.make_graph();
-        proof.graph.condense();
-        proof
-    }
-
-    // Convert the reduction proof to a graphical form.
-    // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
-    fn make_graph(&mut self) {
-        // Maps clause id to node id.
-        let mut id_map = HashMap::new();
-
-        for (clause_id, step) in self
-            .steps
-            .iter()
-            .map(|(id, step)| (Some(*id), *step))
-            .chain(std::iter::once((None, self.final_step)))
-        {
-            let value = match clause_id {
-                Some(_) => NodeValue::Clause(&step.clause),
-                None => NodeValue::Contradiction,
-            };
-            let node_id = self.graph.insert_node(value);
-
-            if let Rule::Assumption(source) = &step.rule {
-                if source.source_type == SourceType::NegatedGoal {
-                    self.graph.insert_edge(0, node_id);
-                } else {
-                    self.graph.add_source(node_id, source);
-                }
-            }
-
-            for i in step.dependencies() {
-                self.graph.insert_edge(id_map[i], node_id);
-            }
-
-            if let Some(clause_id) = clause_id {
-                id_map.insert(clause_id, node_id);
-            }
-        }
-    }
-
-    // Converts the proof to lines of code.
-    //
-    // The prover assumes the goal is false and then searches for a contradiction.
-    // When we turn this sort of proof into code, it looks like one big proof by contradiction.
-    // This often commingles lemma-style reasoning that seems intuitively true with
-    // proof-by-contradiction-style reasoning that feels intuitively backwards.
-    // Humans try to avoid mixing these different styles of reasoning.
-    //
-    // Code is generated with *tabs* even though I hate tabs. The consuming logic should
-    // appropriately turn tabs into spaces.
-    pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
-        let mut output = vec![];
-        self.graph.to_code(
-            self.normalizer,
-            bindings,
-            0,
-            0,
-            &mut HashSet::new(),
-            &mut output,
-        )?;
-        Ok(output)
     }
 
     // Iterates in order through the steps of the proof.
