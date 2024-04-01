@@ -4,6 +4,7 @@ use std::fmt;
 use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::code_gen_error::CodeGenError;
+use crate::display::DisplayClause;
 use crate::normalizer::Normalizer;
 use crate::proof_step::{ProofStep, Rule};
 use crate::proposition::{Source, SourceType};
@@ -95,7 +96,7 @@ impl<'a> ProofNode<'a> {
                 bindings.value_to_code(&value)
             }
             NodeValue::Contradiction => Ok("false".to_string()),
-            NodeValue::NegatedGoal => Err(CodeGenError::ImplicitGoal),
+            NodeValue::NegatedGoal => Err(CodeGenError::ExplicitGoal),
         }
     }
 
@@ -103,26 +104,10 @@ impl<'a> ProofNode<'a> {
         self.sources.iter().filter(|x| !x.is_trivial()).count()
     }
 
-    // Whether this node is implicitly represented in the code already by the goal.
-    // The negated negated goal is represented by the goal.
-    // So is any negated clause that implies only the goal.
-    // The goal is already represented, as are any nodes that are directly
-    // implied by the negated goal, because those are created by normalization.
-    fn already_represented(&self) -> bool {
-        if !self.negated {
-            return false;
-        }
+    fn is_positive_goal(&self) -> bool {
         match &self.value {
-            NodeValue::Clause(_) => {
-                for consequence_id in &self.consequences {
-                    if *consequence_id != 0 {
-                        return false;
-                    }
-                }
-                true
-            }
-            NodeValue::Contradiction => false,
-            NodeValue::NegatedGoal => true,
+            NodeValue::Clause(_) | NodeValue::Contradiction => false,
+            NodeValue::NegatedGoal => self.negated,
         }
     }
 }
@@ -283,7 +268,7 @@ impl<'a> Proof<'a> {
     //
     // This method removes the interior node if possible.
     // It does not recurse because this removal cannot improve the eligibility of other nodes.
-    fn remove_interior(&mut self, node_id: NodeId) {
+    fn remove_single_consequence(&mut self, node_id: NodeId) {
         let node = &self.nodes[node_id as usize];
         if node.consequences.len() != 1 {
             return;
@@ -295,7 +280,35 @@ impl<'a> Proof<'a> {
         }
 
         // We can remove the interior node.
-        todo!();
+        let premises = std::mem::take(&mut self.nodes[node_id as usize].premises);
+        for &premise_id in &premises {
+            self.nodes[premise_id as usize]
+                .consequences
+                .retain(|x| *x != node_id);
+            insert_edge(&mut self.nodes, premise_id, consequence_id);
+        }
+        remove_edge(&mut self.nodes, node_id, consequence_id);
+        move_sources(&mut self.nodes, node_id, consequence_id);
+    }
+
+    fn remove_all_single_consequence(&mut self) {
+        for node_id in 1..self.nodes.len() as NodeId {
+            self.remove_single_consequence(node_id);
+        }
+    }
+
+    fn display(&self, value: &NodeValue) -> String {
+        match value {
+            NodeValue::Clause(clause) => format!(
+                "clause: {}",
+                DisplayClause {
+                    normalizer: self.normalizer,
+                    clause: clause,
+                }
+            ),
+            NodeValue::Contradiction => "contradiction".to_string(),
+            NodeValue::NegatedGoal => "negated-goal".to_string(),
+        }
     }
 
     pub fn print_graph(&self) {
@@ -305,9 +318,9 @@ impl<'a> Proof<'a> {
             }
             print!("node {}: ", i);
             if node.negated {
-                print!("Negated ");
+                print!("negated ");
             }
-            println!("{}", node.value);
+            println!("{}", self.display(&node.value));
             if !node.premises.is_empty() {
                 println!("  premises: {:?}", node.premises);
             }
@@ -405,6 +418,7 @@ impl<'a> Proof<'a> {
     fn condense(&mut self) {
         self.remove_all_single_source();
         self.make_direct(0);
+        self.remove_all_single_consequence();
     }
 
     // Finds the contradiction that this node eventually leads to.
@@ -483,7 +497,8 @@ impl<'a> Proof<'a> {
             self.to_code_helper(normalizer, bindings, *premise_id, tab_level, proven, output)?;
         }
         proven.insert(node_id);
-        if !node.already_represented() {
+        // We don't need to put the goal in the proof because it's already expressed in the code
+        if !node.is_positive_goal() {
             let code = node.to_code(normalizer, bindings)?;
             output.push(format!("{}{}", "\t".repeat(tab_level), code));
         }

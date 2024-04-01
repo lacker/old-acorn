@@ -17,8 +17,8 @@ pub enum CodeGenError {
     // Some sort of value we could handle, but we don't yet, because it's rare.
     UnhandledValue(String),
 
-    // The goal is implicit, so we can't generate code for it.
-    ImplicitGoal,
+    // The code contains the explicit goal, which we can't generate code for.
+    ExplicitGoal,
 
     // When you try to generate code but there is no proof
     NoProof,
@@ -35,6 +35,17 @@ impl CodeGenError {
 
     pub fn unhandled_value(s: &str) -> CodeGenError {
         CodeGenError::UnhandledValue(s.to_string())
+    }
+
+    pub fn error_type(&self) -> &'static str {
+        match self {
+            CodeGenError::Skolem(_) => "Skolem",
+            CodeGenError::UnimportedModule(_) => "UnimportedModule",
+            CodeGenError::UnnamedType(_) => "UnnamedType",
+            CodeGenError::UnhandledValue(_) => "UnhandledValue",
+            CodeGenError::ExplicitGoal => "ExplicitGoal",
+            CodeGenError::NoProof => "NoProof",
+        }
     }
 }
 
@@ -53,10 +64,9 @@ impl fmt::Display for CodeGenError {
             CodeGenError::UnhandledValue(s) => {
                 write!(f, "codegen for '{}' values is not yet implemented", s)
             }
-            CodeGenError::ImplicitGoal => write!(
-                f,
-                "unable to find a simpler proposition that implies the goal"
-            ),
+            CodeGenError::ExplicitGoal => {
+                write!(f, "generated code should not explicitly contain the goal")
+            }
             CodeGenError::NoProof => write!(f, "no proof"),
         }
     }

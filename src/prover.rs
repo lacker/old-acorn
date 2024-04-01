@@ -685,7 +685,7 @@ mod tests {
     fn expect_code_gen_error(text: &str, goal_name: &str, expected: &str) {
         let (outcome, code) = prove_as_main(text, goal_name);
         assert_eq!(outcome, Outcome::Success);
-        assert_eq!(code.unwrap_err().to_string(), expected);
+        assert_eq!(code.unwrap_err().error_type(), expected);
     }
 
     const THING: &str = r#"
@@ -1359,11 +1359,7 @@ mod tests {
             axiom gimph: forall(x: Nat) { g(x) -> h(x) }
             theorem goal: forall(x: Nat) { f(x) -> h(x) }
         "#;
-        expect_code_gen_error(
-            text,
-            "goal",
-            "unable to find a simpler proposition that implies the goal",
-        );
+        expect_code_gen_error(text, "goal", "ExplicitGoal");
     }
 
     #[test]
@@ -1377,11 +1373,7 @@ mod tests {
         axiom fgimpb: forall(x: Nat) { f(x) | g(x) } -> b
         theorem goal: b
         "#;
-        expect_code_gen_error(
-            text,
-            "goal",
-            "could not find a name for the skolem constant: s0",
-        );
+        expect_code_gen_error(text, "goal", "Skolem");
     }
 
     #[test]
