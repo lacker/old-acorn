@@ -345,7 +345,7 @@ impl<'a> Proof<'a> {
     pub fn print_graph(&self) {
         for (i, node) in self.nodes.iter().enumerate() {
             if node.is_isolated() {
-                continue;
+                // continue;
             }
             print!("node {}: ", i);
             if node.negated {
@@ -392,7 +392,7 @@ impl<'a> Proof<'a> {
     // !A
     //
     // and then continues with the new hypothesis.
-    fn make_direct(&mut self, from_id: NodeId) {
+    fn remove_conditional(&mut self, from_id: NodeId) {
         let mut from_id = from_id;
         loop {
             let node = &self.nodes[from_id as usize];
@@ -451,7 +451,10 @@ impl<'a> Proof<'a> {
         // This might not be the best sequencing.
         self.remove_all_single_source();
         self.remove_all_single_consequence();
-        self.make_direct(0);
+        self.remove_conditional(0);
+
+        println!("\nXXX");
+        self.print_graph();
     }
 
     // Finds the contradiction that this node eventually leads to.
@@ -469,6 +472,21 @@ impl<'a> Proof<'a> {
         None
     }
 
+    // Usually, the negated negated goal counts as a goal.
+    // If we aren't actually using the goal, then use a contradiction as the goal.
+    fn find_goal_node(&self) -> Option<NodeId> {
+        if self.nodes[0].is_positive_goal() {
+            return Some(0);
+        }
+        for (i, node) in self.nodes.iter().enumerate().rev() {
+            if matches!(node.value, NodeValue::Contradiction) {
+                return Some(i as NodeId);
+            }
+        }
+
+        None
+    }
+
     // Converts the proof to lines of code.
     //
     // The prover assumes the goal is false and then searches for a contradiction.
@@ -480,12 +498,17 @@ impl<'a> Proof<'a> {
     // Code is generated with *tabs* even though I hate tabs. The consuming logic should
     // appropriately turn tabs into spaces.
     pub fn to_code(&self, bindings: &BindingMap) -> Result<Vec<String>, CodeGenError> {
+        let goal_id = match self.find_goal_node() {
+            Some(id) => id,
+            None => return Err(CodeGenError::ExplicitGoal),
+        };
         let mut output = vec![];
         self.to_code_helper(
             self.normalizer,
             bindings,
+            goal_id,
             0,
-            0,
+            true,
             &mut HashSet::new(),
             &mut output,
         )?;
@@ -499,6 +522,7 @@ impl<'a> Proof<'a> {
         bindings: &BindingMap,
         node_id: NodeId,
         tab_level: usize,
+        node_is_goal: bool,
         proven: &mut HashSet<NodeId>,
         output: &mut Vec<String>,
     ) -> Result<(), CodeGenError> {
@@ -526,6 +550,7 @@ impl<'a> Proof<'a> {
                 bindings,
                 contradiction,
                 tab_level + 1,
+                false,
                 proven,
                 output,
             )?;
@@ -534,11 +559,19 @@ impl<'a> Proof<'a> {
         }
 
         for premise_id in &node.premises {
-            self.to_code_helper(normalizer, bindings, *premise_id, tab_level, proven, output)?;
+            self.to_code_helper(
+                normalizer,
+                bindings,
+                *premise_id,
+                tab_level,
+                false,
+                proven,
+                output,
+            )?;
         }
         proven.insert(node_id);
         // We don't need to put the goal in the proof because it's already expressed in the code
-        if !node.is_positive_goal() {
+        if !node_is_goal {
             let code = node.to_code(normalizer, bindings)?;
             output.push(format!("{}{}", "\t".repeat(tab_level), code));
         }

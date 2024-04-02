@@ -1470,4 +1470,16 @@ mod tests {
         "#;
         expect_proof(text, "goal", &[]);
     }
+
+    #[test]
+    fn test_proof_condensing_false() {
+        let text = r#"
+        let a: bool = axiom
+        axiom a_true: a
+        if !a {
+            false
+        }
+        "#;
+        expect_proof(text, "false", &[]);
+    }
 }

@@ -69,7 +69,7 @@ impl fmt::Display for CodeGenError {
                 write!(f, "codegen for '{}' values is not yet implemented", s)
             }
             CodeGenError::ExplicitGoal => {
-                write!(f, "generated code should not explicitly contain the goal")
+                write!(f, "could not isolate the goal at the end of the proof")
             }
             CodeGenError::NoProof => write!(f, "no proof"),
             CodeGenError::InternalError(s) => {
