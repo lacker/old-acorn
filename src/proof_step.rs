@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::clause::Clause;
-use crate::proposition::{Proposition, Source};
+use crate::proposition::{Proposition, Source, SourceType};
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
@@ -330,8 +330,8 @@ impl ProofStep {
 
     // Whether this step is created by the normalization of the negated goal
     pub fn is_negated_goal(&self) -> bool {
-        if let Rule::Assumption(_) = self.rule {
-            self.truthiness == Truthiness::Counterfactual
+        if let Rule::Assumption(source) = &self.rule {
+            matches!(source.source_type, SourceType::NegatedGoal)
         } else {
             false
         }

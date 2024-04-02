@@ -1228,6 +1228,9 @@ impl Environment {
                 Some(LineType::Proposition(i)) => {
                     path.push(i);
                     let prop = &env.propositions[i];
+                    if prop.claim.source.is_axiom() {
+                        return Err(format!("line {} is an axiom", line + 1));
+                    }
                     match &prop.block {
                         Some(b) => {
                             block = Some(b);
@@ -1260,6 +1263,9 @@ impl Environment {
                         match env.get_line_type(slide) {
                             Some(LineType::Proposition(i)) => {
                                 let prop = &env.propositions[i];
+                                if prop.claim.source.is_axiom() {
+                                    return Err(format!("slide to axiom, line {}", slide + 1));
+                                }
                                 if prop.block.is_none() {
                                     path.push(i);
                                     return Ok(path);

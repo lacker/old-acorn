@@ -73,6 +73,13 @@ impl Source {
             _ => true,
         }
     }
+
+    pub fn is_axiom(&self) -> bool {
+        match self.source_type {
+            SourceType::Axiom(_) => true,
+            _ => false,
+        }
+    }
 }
 
 // A value along with information on where to find it in the source.

@@ -543,11 +543,7 @@ impl Prover {
                         range: source.range,
                     });
 
-                let rule = match step.truthiness {
-                    Truthiness::Counterfactual => "negating the goal".to_string(),
-                    _ => source.description(),
-                };
-                (rule, location, source.is_trivial())
+                (source.description(), location, source.is_trivial())
             }
             _ => (step.rule.name().to_lowercase(), None, true),
         };
