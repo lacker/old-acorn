@@ -290,6 +290,10 @@ impl<'a> Proof<'a> {
     // This method removes the interior node if possible.
     // It does not recurse because this removal cannot improve the eligibility of other nodes.
     fn remove_single_consequence(&mut self, node_id: NodeId) {
+        if node_id == 0 {
+            // We should never remove the goal
+            return;
+        }
         let node = &self.nodes[node_id as usize];
         if node.consequences.len() != 1 {
             return;
@@ -441,10 +445,8 @@ impl<'a> Proof<'a> {
         // This sequencing seems unprincipled, and I suspect it does not always work.
         self.remove_all_single_source();
         self.remove_all_single_consequence();
-        self.make_direct(0);
         self.remove_all_single_consequence();
-        println!("\nXXX");
-        self.print_graph();
+        self.make_direct(0);
     }
 
     // Finds the contradiction that this node eventually leads to.
