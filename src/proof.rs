@@ -100,10 +100,6 @@ impl<'a> ProofNode<'a> {
         }
     }
 
-    fn nontrivial_sources(&self) -> usize {
-        self.sources.iter().filter(|x| !x.is_trivial()).count()
-    }
-
     fn is_positive_goal(&self) -> bool {
         match &self.value {
             NodeValue::Clause(_) | NodeValue::Contradiction => false,
@@ -154,7 +150,29 @@ fn insert_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
 
 fn move_sources(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
     let sources = std::mem::take(&mut nodes[from as usize].sources);
-    nodes[to as usize].sources.extend(sources);
+    for source in sources {
+        if !nodes[to as usize].sources.contains(&source) {
+            nodes[to as usize].sources.push(source);
+        }
+    }
+}
+
+// A heuristic. Two different nontrivial sources mean we cannot combine.
+fn can_combine_sources<'a>(sources: impl Iterator<Item = &'a &'a Source>) -> bool {
+    let mut first_source = None;
+    for source in sources {
+        if source.is_trivial() {
+            continue;
+        }
+        if let Some(first_source) = first_source {
+            if first_source != source {
+                return false;
+            }
+        } else {
+            first_source = Some(source);
+        }
+    }
+    true
 }
 
 impl<'a> Proof<'a> {
@@ -278,7 +296,7 @@ impl<'a> Proof<'a> {
         }
         let consequence_id = node.consequences[0];
         let consequence = &self.nodes[consequence_id as usize];
-        if node.nontrivial_sources() + consequence.nontrivial_sources() > 1 {
+        if !can_combine_sources(node.sources.iter().chain(consequence.sources.iter())) {
             return;
         }
 
@@ -425,6 +443,8 @@ impl<'a> Proof<'a> {
         self.remove_all_single_consequence();
         self.make_direct(0);
         self.remove_all_single_consequence();
+        println!("\nXXX");
+        self.print_graph();
     }
 
     // Finds the contradiction that this node eventually leads to.
