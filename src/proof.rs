@@ -314,6 +314,12 @@ impl<'a> Proof<'a> {
         }
         remove_edge(&mut self.nodes, node_id, consequence_id);
         move_sources(&mut self.nodes, node_id, consequence_id);
+
+        // After we do this removal, it's possible that some of the premises can now be removed,
+        // because we could have combined multiple consequences into one.
+        for &premise_id in &premises {
+            self.remove_single_consequence(premise_id);
+        }
     }
 
     fn remove_all_single_consequence(&mut self) {
@@ -442,9 +448,8 @@ impl<'a> Proof<'a> {
 
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
-        // This sequencing seems unprincipled, and I suspect it does not always work.
+        // This might not be the best sequencing.
         self.remove_all_single_source();
-        self.remove_all_single_consequence();
         self.remove_all_single_consequence();
         self.make_direct(0);
     }
