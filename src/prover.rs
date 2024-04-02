@@ -1441,7 +1441,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proof_condensing() {
+    fn test_proof_condensing_multiple_paths() {
         let text = r#"
         type Nat: axiom
         let 0: Nat = axiom
@@ -1454,5 +1454,19 @@ mod tests {
         }
         "#;
         expect_proof(text, "f(0)", &[]);
+    }
+
+    #[test]
+    fn test_proof_condensing_induction() {
+        let text = r#"
+        type Nat: axiom
+        let 0: Nat = axiom
+        let Suc: Nat -> Nat = axiom
+        axiom induction(f: Nat -> bool):
+            f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
+        let foo: Nat -> bool = axiom
+        theorem goal: induction(foo)
+        "#;
+        expect_proof(text, "goal", &[]);
     }
 }
