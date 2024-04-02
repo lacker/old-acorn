@@ -335,16 +335,14 @@ theorem lt_suc(a: Nat): lt(a, Suc(a)) by {
 theorem lt_suc_left(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
     exists(c: Nat) { add(a, c) = b & c != 0 }
     exists(d: Nat) { Suc(d) = c }
-    add(a, Suc(d)) = b
     if d = 0 {
         Suc(a) = b
     } else {
+        Suc(add(a, d)) = b
         add(Suc(a), d) = b
         Suc(a) != b
-        lte(Suc(a), b)
         lt(Suc(a), b)
     }
-    Suc(a) = b | lt(Suc(a), b)
 }
 
 theorem lt_suc_right(a: Nat, b: Nat): lt(a, Suc(b)) -> a = b | lt(a, b)

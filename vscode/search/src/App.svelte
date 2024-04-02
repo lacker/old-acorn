@@ -13,6 +13,21 @@
   let infoResult: InfoResult | null = null;
   let nontrivial: Array<ProofStepInfo> = [];
 
+  function stepsContain(
+    steps: Array<ProofStepInfo>,
+    step: ProofStepInfo
+  ): boolean {
+    for (let s of steps) {
+      if (
+        s.rule === step.rule &&
+        JSON.stringify(step.location) === JSON.stringify(s.location)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function handleSearchResponse(response: SearchResponse) {
     if (response.failure || response.goalName === null) {
       // Failure responses should not reach this point.
@@ -23,10 +38,14 @@
     // New search responses also invalidate the info result
     searchResponse = response;
     infoResult = null;
+    nontrivial = [];
     if (response.result !== null && response.result.steps !== null) {
-      nontrivial = response.result.steps.filter((step) => !step.trivial);
-    } else {
-      nontrivial = [];
+      for (let step of response.result.steps) {
+        if (step.trivial || stepsContain(nontrivial, step)) {
+          continue;
+        }
+        nontrivial.push(step);
+      }
     }
   }
 

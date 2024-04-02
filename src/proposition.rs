@@ -47,11 +47,16 @@ impl Source {
         }
     }
 
+    // The line the user sees, starting from 1.
+    pub fn user_visible_line(&self) -> u32 {
+        self.range.start.line + 1
+    }
+
     pub fn description(&self) -> String {
         match &self.source_type {
             SourceType::Axiom(name) => format!("the '{}' axiom", name),
             SourceType::Theorem(name) => format!("the '{}' theorem", name),
-            SourceType::Anonymous => "an anonymous proposition".to_string(),
+            SourceType::Anonymous => format!("line {}", self.user_visible_line()),
             SourceType::Definition(name) => format!("the '{}' definition", name),
             SourceType::Premise => "an assumed premise".to_string(),
             SourceType::NegatedGoal => "negating the goal".to_string(),
