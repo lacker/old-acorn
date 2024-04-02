@@ -6,10 +6,12 @@
   import { onMount } from "svelte";
   import Goal from "./Goal.svelte";
   import ProofStep from "./ProofStep.svelte";
+  import Rule from "./Rule.svelte";
 
   // These are updated to reflect the last valid responses from the extension.
   let searchResponse: SearchResponse | null = null;
   let infoResult: InfoResult | null = null;
+  let nontrivial: Array<ProofStepInfo> = [];
 
   function handleSearchResponse(response: SearchResponse) {
     if (response.failure || response.goalName === null) {
@@ -21,6 +23,11 @@
     // New search responses also invalidate the info result
     searchResponse = response;
     infoResult = null;
+    if (response.result !== null && response.result.steps !== null) {
+      nontrivial = response.result.steps.filter((step) => !step.trivial);
+    } else {
+      nontrivial = [];
+    }
   }
 
   function handleInfoResponse(response: InfoResponse) {
@@ -107,7 +114,18 @@
         <pre>Code generation failed:</pre>
         <pre>    {searchResponse.result.codeError}</pre>
       {:else if searchResponse.result.code.length === 0}
-        <pre>The proposition is trivial.</pre>
+        {#if nontrivial.length === 0}
+          <div class="mono">The proposition is trivial.</div>
+        {:else}
+          <div class="mono">
+            The proposition follows
+            {#each nontrivial as step, i}
+              {#if i > 0}
+                {" and "}
+              {/if}
+              <Rule {step} {showLocation} />{/each}.
+          </div>
+        {/if}
       {:else}
         <pre>{["Proof found:\n"]
             .concat(searchResponse.result.code)

@@ -269,10 +269,8 @@ theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
 
 theorem lt_diff(a: Nat, b: Nat): lt(a, b) -> exists(c: Nat) { add(a, c) = b & c != 0 } by {
     exists(c: Nat) { add(a, c) = b }
-    add(a, c) = b
     b != a
     c != 0
-    lt_diff(a, b)
 }
 
 theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by {
