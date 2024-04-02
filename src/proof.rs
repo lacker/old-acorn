@@ -157,19 +157,20 @@ fn move_sources(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
     }
 }
 
-// A heuristic. Two different nontrivial sources mean we cannot combine.
-fn can_combine_sources<'a>(sources: impl Iterator<Item = &'a &'a Source>) -> bool {
-    let mut first_source = None;
-    for source in sources {
-        if source.is_trivial() {
+// A heuristic. We don't combine source lists when it means putting together two different
+// nontrivial sources that weren't together already.
+fn can_combine_sources<'a>(from_sources: &[&Source], to_sources: &[&Source]) -> bool {
+    for from_source in from_sources {
+        if from_source.is_trivial() {
             continue;
         }
-        if let Some(first_source) = first_source {
-            if first_source != source {
+        for to_source in to_sources {
+            if to_source.is_trivial() {
+                continue;
+            }
+            if from_source != to_source {
                 return false;
             }
-        } else {
-            first_source = Some(source);
         }
     }
     true
@@ -300,7 +301,7 @@ impl<'a> Proof<'a> {
         }
         let consequence_id = node.consequences[0];
         let consequence = &self.nodes[consequence_id as usize];
-        if !can_combine_sources(node.sources.iter().chain(consequence.sources.iter())) {
+        if !can_combine_sources(&node.sources, &consequence.sources) {
             return;
         }
 
@@ -343,9 +344,10 @@ impl<'a> Proof<'a> {
     }
 
     pub fn print_graph(&self) {
+        println!("\nProof graph:");
         for (i, node) in self.nodes.iter().enumerate() {
             if node.is_isolated() {
-                // continue;
+                continue;
             }
             print!("node {}: ", i);
             if node.negated {
