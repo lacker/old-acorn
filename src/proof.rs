@@ -144,9 +144,12 @@ fn remove_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
     nodes[to as usize].premises.retain(|x| *x != from);
 }
 
+// If the edge is already there, don't re-insert it.
 fn insert_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
-    nodes[from as usize].consequences.push(to);
-    nodes[to as usize].premises.push(from);
+    if !nodes[from as usize].consequences.contains(&to) {
+        nodes[from as usize].consequences.push(to);
+        nodes[to as usize].premises.push(from);
+    }
 }
 
 fn move_sources(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
@@ -415,25 +418,28 @@ impl<'a> Proof<'a> {
         }
     }
 
+    // Reduce the graph as much as possible.
     fn condense(&mut self) {
+        // This sequencing seems unprincipled, and I suspect it does not always work.
         self.remove_all_single_source();
+        self.remove_all_single_consequence();
         self.make_direct(0);
         self.remove_all_single_consequence();
     }
 
     // Finds the contradiction that this node eventually leads to.
-    fn find_contradiction(&self, node_id: NodeId) -> NodeId {
-        let mut node_id = node_id;
-        loop {
-            let node = &self.nodes[node_id as usize];
-            if let NodeValue::Contradiction = node.value {
-                return node_id;
-            }
-            if node.consequences.is_empty() {
-                panic!("expected contradiction");
-            }
-            node_id = node.consequences[0];
+    // Returns None if it does not lead to any contradiction.
+    fn find_contradiction(&self, node_id: NodeId) -> Option<NodeId> {
+        let node = &self.nodes[node_id as usize];
+        if let NodeValue::Contradiction = node.value {
+            return Some(node_id);
         }
+        for consequence_id in &node.consequences {
+            if let Some(result) = self.find_contradiction(*consequence_id) {
+                return Some(result);
+            }
+        }
+        None
     }
 
     // Converts the proof to lines of code.
@@ -480,7 +486,14 @@ impl<'a> Proof<'a> {
             proven.insert(node_id);
             let condition = node.to_code(normalizer, bindings)?;
             output.push(format!("{}if {} {{", "\t".repeat(tab_level), condition));
-            let contradiction = self.find_contradiction(node_id);
+            let contradiction = match self.find_contradiction(node_id) {
+                Some(id) => id,
+                None => {
+                    return Err(CodeGenError::InternalError(
+                        "lost the conclusion of the proof".to_string(),
+                    ))
+                }
+            };
             self.to_code_helper(
                 normalizer,
                 bindings,

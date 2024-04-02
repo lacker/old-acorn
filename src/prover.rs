@@ -1439,4 +1439,20 @@ mod tests {
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
+
+    #[test]
+    fn test_proof_condensing() {
+        let text = r#"
+        type Nat: axiom
+        let 0: Nat = axiom
+        define add(a: Nat, b: Nat) -> Nat = axiom
+        theorem add_zero_left(a: Nat): add(0, a) = a
+        
+        theorem add_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0 by {
+            define f(x: Nat) -> bool = add_to_zero(x, b)
+            f(0)
+        }
+        "#;
+        expect_proof(text, "f(0)", &[]);
+    }
 }

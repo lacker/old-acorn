@@ -22,6 +22,9 @@ pub enum CodeGenError {
 
     // When you try to generate code but there is no proof
     NoProof,
+
+    // Something went wrong, it's our fault, and we can't figure out what it is
+    InternalError(String),
 }
 
 impl CodeGenError {
@@ -45,6 +48,7 @@ impl CodeGenError {
             CodeGenError::UnhandledValue(_) => "UnhandledValue",
             CodeGenError::ExplicitGoal => "ExplicitGoal",
             CodeGenError::NoProof => "NoProof",
+            CodeGenError::InternalError(_) => "InternalError",
         }
     }
 }
@@ -68,6 +72,9 @@ impl fmt::Display for CodeGenError {
                 write!(f, "generated code should not explicitly contain the goal")
             }
             CodeGenError::NoProof => write!(f, "no proof"),
+            CodeGenError::InternalError(s) => {
+                write!(f, "internal error: {}", s)
+            }
         }
     }
 }
