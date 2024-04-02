@@ -82,16 +82,12 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     induction(f)
     forall(x: Nat) {
         if f(x) {
-            add(add(Suc(x), b), c) = add(Suc(add(x, b)), c)
             add(add(Suc(x), b), c) = Suc(add(add(x, b), c))
-            Suc(add(add(x, b), c)) = Suc(add(x, add(b, c)))
-            add(add(Suc(x), b), c) = Suc(add(x, add(b, c)))
             add(add(Suc(x), b), c) = add(Suc(x), add(b, c))
             f(Suc(x))
         }
     }
     f(0)
-    f(a)
 }
 
 define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }

@@ -126,6 +126,7 @@
   {:else}
     <Goal {searchResponse} {showLocation} />
     <hr />
+    <br />
     {#if searchResponse.result !== null}
       {#if searchResponse.result.steps === null}
         <pre>No proof found.</pre>
@@ -134,7 +135,7 @@
         <pre>    {searchResponse.result.codeError}</pre>
       {:else if searchResponse.result.code.length === 0}
         {#if nontrivial.length === 0}
-          <div class="mono">The proposition is trivial.</div>
+          <div class="mono">The proposition follows trivially.</div>
         {:else}
           <div class="mono">
             The proposition follows
@@ -168,11 +169,13 @@
         </div>
       {/if}
     {/if}
+    <br />
     <hr />
     <div class="mono">
       <br />
       {#if infoResult === null}
-        <pre>{searchResponse.textOutput.join("\n")}</pre>
+        <span>Log output from the prover:</span>
+        <pre>{"\n"}{searchResponse.textOutput.join("\n")}</pre>
       {:else}
         <ProofStep step={infoResult.step} {clauseClick} {showLocation} />
         <br />
