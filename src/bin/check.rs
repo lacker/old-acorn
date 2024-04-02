@@ -9,6 +9,7 @@ const USAGE: &str = "Usage: cargo run --bin=check [module name]";
 #[tokio::main]
 async fn main() {
     let mut project = Project::new("math");
+    project.warn_when_slow = true;
 
     // Parse command line arguments
     let args = std::env::args();

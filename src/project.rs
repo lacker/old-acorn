@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::time::Duration;
 use std::{fmt, io};
 
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
@@ -43,6 +44,9 @@ pub struct Project {
 
     // Used as a flag to stop a build in progress.
     pub build_stopped: Arc<AtomicBool>,
+
+    // When this flag is set, we emit warnings when we are slow, for some definition of "slow".
+    pub warn_when_slow: bool,
 }
 
 // An error found while importing a module.
@@ -103,6 +107,12 @@ fn check_valid_module_part(s: &str, error_name: &str) -> Result<(), LoadError> {
     }
 }
 
+fn duration_as_f64_secs(duration: Duration) -> f64 {
+    let secs = duration.as_secs() as f64; // Whole seconds as f64
+    let subsec_nanos = duration.subsec_nanos() as f64; // Fractional part in nanoseconds as f64
+    secs + subsec_nanos * 1e-9 // Combine them to get total seconds as f64
+}
+
 impl Project {
     // A Project where files are imported from the real filesystem.
     pub fn new(root: &str) -> Project {
@@ -121,6 +131,7 @@ impl Project {
             module_map: HashMap::new(),
             targets: HashSet::new(),
             build_stopped: Arc::new(AtomicBool::new(false)),
+            warn_when_slow: false,
         }
     }
 
@@ -306,28 +317,37 @@ impl Project {
             let mut target_warnings = false;
             let paths = env.goal_paths();
             for path in paths.iter() {
+                let start = std::time::Instant::now();
                 let goal_context = env.get_goal_context(&self, &path).unwrap();
                 let mut prover = Prover::new(&self, &goal_context, false, None);
                 let outcome = prover.medium_search();
-
+                let elapsed = duration_as_f64_secs(start.elapsed());
                 done += 1;
                 let mut exit_early = false;
+                let mut success = false;
                 let description = match outcome {
-                    Outcome::Success => "",
-                    Outcome::Exhausted => " is unprovable",
-                    Outcome::Inconsistent => " - prover found an inconsistency",
-                    Outcome::Unknown => " timed out",
+                    Outcome::Success => {
+                        if self.warn_when_slow && elapsed > 0.1 {
+                            format!(" took {:.3}s", elapsed)
+                        } else {
+                            success = true;
+                            "".to_string()
+                        }
+                    }
+                    Outcome::Exhausted => " is unprovable".to_string(),
+                    Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
+                    Outcome::Unknown => " timed out".to_string(),
                     Outcome::Interrupted => {
                         exit_early = true;
-                        " was interrupted"
+                        " was interrupted".to_string()
                     }
                     Outcome::Error => {
                         exit_early = true;
-                        " had an error"
+                        " had an error".to_string()
                     }
                 };
 
-                let (diagnostic, log_message) = if outcome != Outcome::Success {
+                let (diagnostic, log_message) = if !success {
                     // This is a failure
                     let severity = Some(if exit_early {
                         DiagnosticSeverity::ERROR
