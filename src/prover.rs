@@ -1478,4 +1478,18 @@ mod tests {
         "#;
         expect_proof(text, "false", &[]);
     }
+
+    #[test]
+    fn test_proof_condensing_combining_two_theorems() {
+        let text = r#"
+        type Nat: axiom
+        let a: Nat = axiom
+        let f: Nat -> bool = axiom
+        let g: Nat -> bool = axiom
+        axiom fimpg(x: Nat): f(x) -> g(x)
+        axiom fa: f(a)
+        theorem goal: g(a)
+        "#;
+        expect_proof(text, "goal", &[]);
+    }
 }
