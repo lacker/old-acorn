@@ -452,9 +452,6 @@ impl<'a> Proof<'a> {
         self.remove_all_single_source();
         self.remove_all_single_consequence();
         self.remove_conditional(0);
-
-        println!("\nXXX");
-        self.print_graph();
     }
 
     // Finds the contradiction that this node eventually leads to.
