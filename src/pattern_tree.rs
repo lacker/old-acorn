@@ -592,6 +592,8 @@ impl PatternTree<()> {
     }
 }
 
+// The LiteralSet stores a bunch of literals in a way that makes it quick to check whether
+// the set contains a generalization for a new literal.
 pub struct LiteralSet {
     // Stores (sign, id) for each literal.
     tree: PatternTree<(bool, usize)>,
