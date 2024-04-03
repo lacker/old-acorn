@@ -238,7 +238,7 @@ impl ActiveSet {
                 &self.positive_res_targets
             };
 
-            let targets = target_map.get_unifying(&new_literal.left);
+            let targets = target_map.find_unifying(&new_literal.left);
             for target in targets {
                 let old_step = self.get_step(target.step_index);
                 let flipped = !target.left;
@@ -383,7 +383,7 @@ impl ActiveSet {
             }
 
             // Look for resolution targets that match s
-            let targets = self.rewrite_targets.get_unifying(s);
+            let targets = self.rewrite_targets.find_unifying(s);
             for target in targets {
                 let subterm = self.get_subterm(target);
                 if let Some(ps) = ActiveSet::try_rewrite(

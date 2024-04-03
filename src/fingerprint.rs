@@ -43,7 +43,7 @@ impl FingerprintComponent {
     }
 
     // Whether unification could possibly identify terms with these two fingerprints
-    pub fn matches(&self, other: &FingerprintComponent) -> bool {
+    pub fn could_unify(&self, other: &FingerprintComponent) -> bool {
         match (self, other) {
             (FingerprintComponent::Below, _) => true,
             (_, FingerprintComponent::Below) => true,
@@ -78,9 +78,9 @@ impl Fingerprint {
         Fingerprint { components }
     }
 
-    pub fn matches(&self, other: &Fingerprint) -> bool {
+    pub fn could_unify(&self, other: &Fingerprint) -> bool {
         for i in 0..PATHS.len() {
-            if !self.components[i].matches(&other.components[i]) {
+            if !self.components[i].could_unify(&other.components[i]) {
                 return false;
             }
         }
@@ -106,13 +106,13 @@ impl<T> FingerprintTree<T> {
     }
 
     // Find all T with a fingerprint that could unify with this one.
-    pub fn get_unifying(&self, term: &Term) -> Vec<&T> {
+    pub fn find_unifying(&self, term: &Term) -> Vec<&T> {
         let fingerprint = Fingerprint::new(term);
         let mut result = vec![];
 
         // TODO: do smart tree things instead of this dumb exhaustive search
         for (f, values) in &self.tree {
-            if f.matches(&fingerprint) {
+            if f.could_unify(&fingerprint) {
                 for v in values {
                     result.push(v);
                 }
@@ -137,7 +137,7 @@ mod tests {
     fn test_fingerprint_matching() {
         let term1 = Term::parse("c2(x0, x1, c0)");
         let term2 = Term::parse("c2(c1, c3(x0), c0)");
-        assert!(Fingerprint::new(&term1).matches(&Fingerprint::new(&term2)));
+        assert!(Fingerprint::new(&term1).could_unify(&Fingerprint::new(&term2)));
     }
 
     #[test]
@@ -146,7 +146,7 @@ mod tests {
         let term1 = Term::parse("c2(x0, x1, c0)");
         let term2 = Term::parse("c2(c1, c3(x0), c0)");
         tree.insert(&term1, 1);
-        assert!(tree.get_unifying(&term1).len() > 0);
-        assert!(tree.get_unifying(&term2).len() > 0);
+        assert!(tree.find_unifying(&term1).len() > 0);
+        assert!(tree.find_unifying(&term2).len() > 0);
     }
 }
