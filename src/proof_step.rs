@@ -175,6 +175,8 @@ pub struct ProofStep {
     atom_count: u32,
 }
 
+pub type Score = (i32, i32);
+
 impl Ord for ProofStep {
     // The heuristic used to decide which clause is the most promising.
     // The passive set is a "max heap", so we want the best clause to compare as the largest.
@@ -346,7 +348,7 @@ impl ProofStep {
     //   Local deductions
     //
     // The second element of the score is heuristic. Any value should work there.
-    pub fn score(&self) -> (i32, i32) {
+    pub fn score(&self) -> Score {
         // Higher = more important, for the deterministic tier.
         let deterministic_tier = match self.truthiness {
             Truthiness::Counterfactual => {

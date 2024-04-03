@@ -1,55 +1,67 @@
-use std::collections::BinaryHeap;
+use std::collections::BTreeSet;
 
-use crate::proof_step::ProofStep;
+use crate::proof_step::{ProofStep, Score};
 
 // The PassiveSet stores a bunch of clauses.
-// It does not assist in generating new clauses.
-// So the PassiveSet is faster than the ActiveSet, but less powerful.
-// The main operations of the passive set are adding new clauses, and
-// picking the "most promising" clause to add to the active set.
-// This is not stable, but it is deterministic.
+// A clause in the passive set can be activated, and it can be simplified, but to do
+// anything more complicated it needs to be activated first.
 pub struct PassiveSet {
-    clauses: BinaryHeap<ProofStep>,
+    // Stores clauses in the passive set, along with their score.
+    // We never shrink this vector, we just replace its entries with None.
+    // The index into clauses acts like an id, but that id doesn't mean anything outside of the
+    // PassiveSet.
+    clauses: Vec<Option<(ProofStep, Score)>>,
+
+    // Stores (score, clause id).
+    // The queue lets us pick the highest-scoring clause to activate next.
+    queue: BTreeSet<(Score, usize)>,
 }
 
 impl PassiveSet {
     pub fn new() -> PassiveSet {
         PassiveSet {
-            clauses: BinaryHeap::new(),
+            clauses: vec![],
+            queue: BTreeSet::new(),
         }
     }
 
     pub fn push(&mut self, step: ProofStep) {
-        self.clauses.push(step);
+        let score = step.score();
+        let id = self.clauses.len();
+        self.clauses.push(Some((step, score)));
+        self.queue.insert((score, id));
     }
 
     pub fn pop(&mut self) -> Option<ProofStep> {
-        self.clauses.pop()
+        // Remove the largest entry from queue
+        let (_, id) = self.queue.pop_last()?;
+        match self.clauses[id].take() {
+            Some((step, _)) => Some(step),
+            None => panic!("Queue and clauses are out of sync"),
+        }
     }
 
+    // The number of clauses remaining in the passive set.
     pub fn len(&self) -> usize {
-        self.clauses.len()
+        self.queue.len()
+    }
+
+    // Iterates over the steps from highest-scoring to lowest-scoring.
+    pub fn iter_steps(&self) -> impl Iterator<Item = &ProofStep> {
+        self.queue
+            .iter()
+            .rev()
+            .map(|(_, id)| match &self.clauses[*id] {
+                Some((step, _)) => step,
+                None => panic!("Queue and clauses are out of sync"),
+            })
     }
 
     // Finds the proof steps that are consequences of the given clause.
     // Sorts from best to worst, which is highest to lowest for ProofSteps.
     pub fn find_consequences<'a>(&'a self, id: usize) -> Vec<&'a ProofStep> {
-        let mut answer = vec![];
-        for step in &self.clauses {
-            if step.depends_on(id) {
-                answer.push(step);
-            }
-        }
-        answer.sort();
-        answer.reverse();
-        answer
-    }
-
-    // Sort "highest" to "lowest" which is best to worst
-    pub fn all_steps(&self) -> Vec<ProofStep> {
-        let mut steps: Vec<ProofStep> = self.clauses.iter().cloned().collect();
-        steps.sort();
-        steps.reverse();
-        steps
+        self.iter_steps()
+            .filter(|step| step.depends_on(id))
+            .collect()
     }
 }

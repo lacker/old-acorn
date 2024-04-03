@@ -239,7 +239,7 @@ impl Prover {
 
     pub fn print_passive(&self, substr: Option<&str>) {
         let mut count = 0;
-        let steps = self.passive_set.all_steps();
+        let steps: Vec<_> = self.passive_set.iter_steps().collect();
         // Only print the first ones
         for step in steps.iter().take(500) {
             let clause = self.display(&step.clause);
