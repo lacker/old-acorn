@@ -21,7 +21,7 @@ pub struct ActiveSet {
     long_clauses: HashSet<Clause>,
 
     // The short clauses (ie just one literal) that we have proven.
-    literal_tree: LiteralSet,
+    literal_set: LiteralSet,
 
     // An index of all the subterms that can be rewritten.
     rewrite_targets: FingerprintTree<RewriteTarget>,
@@ -72,7 +72,7 @@ impl ActiveSet {
         ActiveSet {
             steps: vec![],
             long_clauses: HashSet::new(),
-            literal_tree: LiteralSet::new(),
+            literal_set: LiteralSet::new(),
             rewrite_targets: FingerprintTree::new(),
             rewrite_patterns: RewriteTree::new(),
             positive_res_targets: FingerprintTree::new(),
@@ -614,7 +614,7 @@ impl ActiveSet {
         if literal.left == literal.right {
             return Some((literal.positive, None));
         }
-        match self.literal_tree.find_generalization(&literal) {
+        match self.literal_set.find_generalization(&literal) {
             Some((positive, id)) => Some((positive, Some(id))),
             None => None,
         }
@@ -754,7 +754,7 @@ impl ActiveSet {
                 );
             }
 
-            self.literal_tree.insert(&clause.literals[0], id);
+            self.literal_set.insert(&clause.literals[0], id);
         } else {
             self.long_clauses.insert(clause.clone());
         }

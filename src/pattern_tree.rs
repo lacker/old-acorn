@@ -524,6 +524,7 @@ impl<T> PatternTree<T> {
         self.trie.insert(path, value_id);
     }
 
+    // The pair needs to have normalized variable numbering, with term1's variables preceding term2's.
     pub fn insert_pair(&mut self, term1: &Term, term2: &Term, value: T) {
         let key = key_from_pair(term1, term2);
         let value_id = self.values.len();
@@ -617,8 +618,8 @@ impl LiteralSet {
         self.tree
             .insert_pair(&literal.left, &literal.right, (literal.positive, id));
         if !literal.strict_kbo() {
-            self.tree
-                .insert_pair(&literal.right, &literal.left, (literal.positive, id));
+            let (right, left) = literal.normalized_reversed();
+            self.tree.insert_pair(&right, &left, (literal.positive, id));
         }
     }
 
@@ -672,31 +673,39 @@ mod tests {
     }
 
     #[test]
-    fn test_literal_tree() {
-        let mut tree = LiteralSet::new();
-        tree.insert(&Literal::parse("c0(x0, c1) = x0"), 7);
+    fn test_literal_set() {
+        let mut set = LiteralSet::new();
+        set.insert(&Literal::parse("c0(x0, c1) = x0"), 7);
 
         let lit = Literal::parse("c0(x0, c1) = x0");
-        assert!(tree.find_generalization(&lit).unwrap().0);
+        assert!(set.find_generalization(&lit).unwrap().0);
 
         let lit = Literal::parse("c0(c2, c1) = c2");
-        assert!(tree.find_generalization(&lit).unwrap().0);
+        assert!(set.find_generalization(&lit).unwrap().0);
 
         let lit = Literal::parse("c0(x0, x1) = x0");
-        assert!(tree.find_generalization(&lit).is_none());
+        assert!(set.find_generalization(&lit).is_none());
 
         let lit = Literal::parse("c0(x0, c1) != x0");
-        assert!(!tree.find_generalization(&lit).unwrap().0);
+        assert!(!set.find_generalization(&lit).unwrap().0);
 
-        tree.insert(&Literal::parse("x0 = x0"), 8);
+        set.insert(&Literal::parse("x0 = x0"), 8);
 
         let lit = Literal::parse("x0 = c0");
-        assert!(tree.find_generalization(&lit).is_none());
+        assert!(set.find_generalization(&lit).is_none());
 
         let lit = Literal::parse("c0 = x0");
-        assert!(tree.find_generalization(&lit).is_none());
+        assert!(set.find_generalization(&lit).is_none());
 
         let lit = Literal::parse("c0 = c0");
-        assert!(tree.find_generalization(&lit).unwrap().0);
+        assert!(set.find_generalization(&lit).unwrap().0);
+    }
+
+    #[test]
+    fn test_literal_set_literal_reversing() {
+        let mut set = LiteralSet::new();
+        set.insert(&Literal::parse("c0(x0, x0, x1) = c0(x1, x0, x0)"), 7);
+        let lit = Literal::parse("c0(c2, c1, c1) = c0(c1, c1, c2)");
+        assert!(set.find_generalization(&lit).unwrap().0);
     }
 }
