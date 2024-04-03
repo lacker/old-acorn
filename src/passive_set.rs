@@ -2,7 +2,8 @@ use std::collections::BTreeSet;
 
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
-use crate::proof_step::{ProofStep, Score};
+use crate::proof_step::{ProofStep, Score, Truthiness};
+use crate::specializer::Specializer;
 use crate::term::Term;
 
 // The PassiveSet stores a bunch of clauses.
@@ -56,22 +57,75 @@ impl PassiveSet {
     // Checks just the left->right direction for simplification.
     fn simplify_one_direction(
         &mut self,
-        step_id: usize,
+        activated_id: usize,
+        activated_truthiness: Truthiness,
         left: &Term,
         right: &Term,
         positive: bool,
     ) {
-        // TODO
+        for (clause_id, literal_index) in self.literals.find_specializing(left, right) {
+            let step = match &self.clauses[*clause_id] {
+                Some((step, _)) => step,
+                None => {
+                    // The clause was already removed, so this is a dead reference.
+                    // Maybe we could more actively clean these up.
+                    continue;
+                }
+            };
+            let literal = &step.clause.literals[*literal_index];
+            let literal_positive = literal.positive;
+
+            // We've only checked fingerprints. We need to check if they actually match.
+            let mut s = Specializer::new();
+            if !s.match_terms(left, &literal.left) {
+                continue;
+            }
+            if !s.match_terms(right, &literal.right) {
+                continue;
+            }
+
+            // It matches. So we're definitely removing the existing clause.
+            // let (step, score) = self.clauses[*clause_id].take().unwrap();
+            // self.queue.remove(&(score, *clause_id));
+
+            if positive == literal_positive {
+                // This clause in the passive set is implied by the activated clause.
+                // So it's just redundant. We can forget about it.
+
+                let (step, score) = self.clauses[*clause_id].take().unwrap();
+                self.queue.remove(&(score, *clause_id));
+                continue;
+            }
+
+            // XXX
+        }
     }
 
-    // Called when we discover a new true literal.
+    // Called when we activate a new true literal.
     // Simplifies the passive set by removing literals that are now known to be true.
     // Checks both directions.
-    pub fn simplify(&mut self, step_id: usize, literal: &Literal) {
-        self.simplify_one_direction(step_id, &literal.left, &literal.right, literal.positive);
+    pub fn simplify(
+        &mut self,
+        activated_id: usize,
+        activated_truthiness: Truthiness,
+        literal: &Literal,
+    ) {
+        self.simplify_one_direction(
+            activated_id,
+            activated_truthiness,
+            &literal.left,
+            &literal.right,
+            literal.positive,
+        );
         if !literal.strict_kbo() {
             let (right, left) = literal.normalized_reversed();
-            self.simplify_one_direction(step_id, &right, &left, literal.positive);
+            self.simplify_one_direction(
+                activated_id,
+                activated_truthiness,
+                &right,
+                &left,
+                literal.positive,
+            );
         }
     }
 

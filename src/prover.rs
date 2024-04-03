@@ -433,7 +433,7 @@ impl Prover {
         let step = self.active_set.get_step(activated_id);
         if step.clause.literals.len() == 1 {
             self.passive_set
-                .simplify(activated_id, &step.clause.literals[0]);
+                .simplify(activated_id, step.truthiness, &step.clause.literals[0]);
         }
 
         let print_limit = 30;
