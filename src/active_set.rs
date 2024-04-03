@@ -763,10 +763,10 @@ impl ActiveSet {
     }
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
-    // Does not simplify.
+    // We do not simplify the inferences, but we do simplify the passive set using the new clause.
     // After generation, adds this clause to the active set.
-    // Returns pairs describing how the generated clauses were proved.
-    pub fn generate(&mut self, activated_step: ProofStep) -> Vec<ProofStep> {
+    // Returns the id of the new clause, and pairs describing how the generated clauses were proved.
+    pub fn generate(&mut self, activated_step: ProofStep) -> (usize, Vec<ProofStep>) {
         let mut generated_steps = vec![];
         let activated_id = self.steps.len();
 
@@ -813,7 +813,7 @@ impl ActiveSet {
         }
 
         self.insert(activated_step, activated_id);
-        generated_steps
+        (activated_id, generated_steps)
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
@@ -931,7 +931,7 @@ mod tests {
         set.insert(step, 0);
         let mut step = ProofStep::mock("c1(c3) = c3");
         step.truthiness = Truthiness::Counterfactual;
-        let new_clauses = set.generate(step);
+        let (_, new_clauses) = set.generate(step);
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(
             new_clauses[0].clause.to_string(),

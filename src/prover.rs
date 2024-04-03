@@ -374,6 +374,8 @@ impl Prover {
             original_clause_string = self.display(&step.clause).to_string();
         }
 
+        // TODO: this simplification is only needed because we don't simplify
+        // the passive set. Once we *do* simplify the passive set, we can remove this.
         let step = match self.active_set.simplify(step) {
             Some(i) => i,
             None => {
@@ -418,10 +420,21 @@ impl Prover {
         self.activate(step, verbose, tracing)
     }
 
-    // Generates clauses, then simplifies them, then adds them to the passive set.
-    // Clauses will get simplified again when they are activated.
+    // Generates new passive clauses, simplifying appropriately, and adds them to the passive set.
+    //
+    // This does two forms of simplification. It simplifies all existing passive clauses based on
+    // the newly activated clause, and simplifies the new passive clauses based on all
+    // existing active clauses.
+    //
+    // This double simplification ensures that every passive clause is always simplified with
+    // respect to every active clause.
     fn activate(&mut self, activated_step: ProofStep, verbose: bool, tracing: bool) -> Outcome {
-        let generated_clauses = self.active_set.generate(activated_step);
+        let (activated_id, generated_clauses) = self.active_set.generate(activated_step);
+        let step = self.active_set.get_step(activated_id);
+        if step.clause.literals.len() == 1 {
+            self.passive_set
+                .simplify(activated_id, &step.clause.literals[0]);
+        }
 
         let print_limit = 30;
         let len = generated_clauses.len();

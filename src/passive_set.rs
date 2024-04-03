@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 
+use crate::fingerprint::FingerprintSpecializer;
+use crate::literal::Literal;
 use crate::proof_step::{ProofStep, Score};
 
 // The PassiveSet stores a bunch of clauses.
@@ -15,6 +17,11 @@ pub struct PassiveSet {
     // Stores (score, clause id).
     // The queue lets us pick the highest-scoring clause to activate next.
     queue: BTreeSet<(Score, usize)>,
+
+    // Stores (clause id, literal index) for each literal in each passive clause.
+    // We currently don't clean this up by removing old clause ids, so when we retrieve from
+    // it we need to check that the clause is still in the passive set.
+    literals: FingerprintSpecializer<(usize, usize)>,
 }
 
 impl PassiveSet {
@@ -22,12 +29,16 @@ impl PassiveSet {
         PassiveSet {
             clauses: vec![],
             queue: BTreeSet::new(),
+            literals: FingerprintSpecializer::new(),
         }
     }
 
     pub fn push(&mut self, step: ProofStep) {
         let score = step.score();
         let id = self.clauses.len();
+        for (i, literal) in step.clause.literals.iter().enumerate() {
+            self.literals.insert(literal, (id, i));
+        }
         self.clauses.push(Some((step, score)));
         self.queue.insert((score, id));
     }
@@ -39,6 +50,12 @@ impl PassiveSet {
             Some((step, _)) => Some(step),
             None => panic!("Queue and clauses are out of sync"),
         }
+    }
+
+    // Called when we discover a new true literal.
+    // Simplifies the passive set by removing literals that are now known to be true.
+    pub fn simplify(&mut self, step_id: usize, literal: &Literal) {
+        // TODO
     }
 
     // The number of clauses remaining in the passive set.
