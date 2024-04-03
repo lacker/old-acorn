@@ -282,7 +282,7 @@ impl ProofStep {
     // Create a replacement for this clause that has extra simplification rules
     pub fn simplify(
         self,
-        clause: Clause,
+        new_clause: Clause,
         new_rules: Vec<usize>,
         new_truthiness: Truthiness,
     ) -> ProofStep {
@@ -292,7 +292,13 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
-        ProofStep::new(clause, new_truthiness, self.rule, rules, self.proof_size)
+        ProofStep::new(
+            new_clause,
+            new_truthiness,
+            self.rule,
+            rules,
+            self.proof_size,
+        )
     }
 
     // Construct a ProofStep with fake heuristic data for testing

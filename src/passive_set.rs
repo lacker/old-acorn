@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use crate::clause::Clause;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
 use crate::proof_step::{ProofStep, Score, Truthiness};
@@ -63,6 +64,7 @@ impl PassiveSet {
         right: &Term,
         positive: bool,
     ) {
+        let mut new_steps = vec![];
         for (clause_id, literal_index) in self.literals.find_specializing(left, right) {
             let step = match &self.clauses[*clause_id] {
                 Some((step, _)) => step,
@@ -85,19 +87,25 @@ impl PassiveSet {
             }
 
             // It matches. So we're definitely removing the existing clause.
-            // let (step, score) = self.clauses[*clause_id].take().unwrap();
-            // self.queue.remove(&(score, *clause_id));
+            let (mut step, score) = self.clauses[*clause_id].take().unwrap();
+            self.queue.remove(&(score, *clause_id));
 
             if positive == literal_positive {
-                // This clause in the passive set is implied by the activated clause.
+                // The whole passive clause is implied by the activated clause.
                 // So it's just redundant. We can forget about it.
-
-                let (step, score) = self.clauses[*clause_id].take().unwrap();
-                self.queue.remove(&(score, *clause_id));
                 continue;
             }
 
-            // XXX
+            // We can simplify the passive clause by removing the literal that matches
+            // the activated one.
+            let mut new_literals = std::mem::take(&mut step.clause.literals);
+            new_literals.remove(*literal_index);
+            let new_clause = Clause::new(new_literals);
+            let new_truthiness = activated_truthiness.combine(step.truthiness);
+            new_steps.push(step.simplify(new_clause, vec![activated_id], new_truthiness));
+        }
+        for step in new_steps {
+            self.push(step);
         }
     }
 
