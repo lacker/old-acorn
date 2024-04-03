@@ -1,1 +1,12 @@
 import nat
+type Nat: nat.Nat
+type Int: axiom
+
+let from_nat: Nat -> Int = axiom
+let negate: Int -> Int = axiom
+
+let 0: Int = from_nat(nat.0)
+
+axiom negate_zero: negate(0) = 0
+
+axiom negate_negate(x: Int): negate(negate(x)) = x

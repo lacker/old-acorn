@@ -67,17 +67,6 @@ struct RewriteTarget {
     path: Vec<usize>,
 }
 
-// TODO: remove
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct OldRewritePattern {
-    // Which proof step to use as a rewrite pattern.
-    step_index: usize,
-
-    // "forwards" rewriting is when we use s = t to rewrite s to t.
-    // "backwards" rewriting is when we use s = t to rewrite t to s.
-    forwards: bool,
-}
-
 impl ActiveSet {
     pub fn new() -> ActiveSet {
         ActiveSet {
