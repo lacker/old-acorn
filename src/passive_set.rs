@@ -1,6 +1,5 @@
 use std::collections::BinaryHeap;
 
-use crate::clause::Clause;
 use crate::proof_step::ProofStep;
 
 // The PassiveSet stores a bunch of clauses.
@@ -30,10 +29,6 @@ impl PassiveSet {
 
     pub fn len(&self) -> usize {
         self.clauses.len()
-    }
-
-    pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
-        self.clauses.iter().map(|pc| &pc.clause)
     }
 
     // Finds the proof steps that are consequences of the given clause.
