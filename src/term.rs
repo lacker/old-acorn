@@ -424,10 +424,10 @@ impl Term {
     }
 
     // A "reduction order" is stable under variable substitution.
-    // This implements a Knuth-Bendix reduction ordering.
-    // Returns Greater if we should rewrite self -> other.
-    // Returns Less if we should rewrite other -> self.
-    // Returns Equal if they cannot be placed in a reduction order.
+    // This implements a Knuth-Bendix partial reduction ordering.
+    // Returns Greater if self > other.
+    // Returns Less if other > self.
+    // Returns Equal if they cannot be ordered. (This is not "Equal" in the usual sense.)
     pub fn kbo(&self, other: &Term) -> Ordering {
         self.kbo_helper(other, true)
     }

@@ -605,19 +605,25 @@ impl LiteralSet {
     }
 
     // Inserts a literal along with its id.
-    // This only inserts the left->right direction.
+    // This always inserts the left->right direction.
+    // When the literal is strictly kbo ordered, it can't be reversed and unify with
+    // another literal, so we don't need to insert the right->left direction.
+    // Otherwise, we do insert the right->left direction.
+    //
     // Overwrites if the negation already exists.
     pub fn insert(&mut self, literal: &Literal, id: usize) {
         self.tree
             .insert_pair(&literal.left, &literal.right, (literal.positive, id));
+        if !literal.strict_kbo() {
+            self.tree
+                .insert_pair(&literal.right, &literal.left, (literal.positive, id));
+        }
     }
 
     // Checks whether any literal in the tree is a generalization of the provided literal.
     // If so, returns a pair with:
     //   1. whether the sign of the generalization matches the literal
     //   2. the id of the generalization
-    //
-    // This only searches the left->right direction.
     pub fn find_generalization(&self, literal: &Literal) -> Option<(bool, usize)> {
         match self.tree.find_pair(&literal.left, &literal.right) {
             Some(&(sign, id)) => Some((sign == literal.positive, id)),

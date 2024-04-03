@@ -155,6 +155,15 @@ impl Literal {
         self.left.has_local_constant() || self.right.has_local_constant()
     }
 
+    // Whether the components of this literal are strictly ordered according to the KBO.
+    pub fn strict_kbo(&self) -> bool {
+        match self.left.kbo(&self.right) {
+            Ordering::Less => panic!("kbo inconsistency"),
+            Ordering::Equal => false,
+            Ordering::Greater => true,
+        }
+    }
+
     // Helper function to treat a literal as two terms.
     // For a literal s = t, get a vector with:
     // (true, s, t)
