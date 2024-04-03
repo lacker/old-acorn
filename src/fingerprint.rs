@@ -1,6 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::atom::Atom;
+use crate::literal::Literal;
 use crate::term::Term;
 use crate::type_map::TypeId;
 
@@ -82,21 +83,22 @@ impl FingerprintComponent {
 
 const PATHS: &[&[usize]] = &[&[], &[0], &[1], &[0, 0], &[0, 1], &[1, 0], &[1, 1]];
 
+// The fingerprints of a term, at a selection of paths.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Fingerprint {
+struct TermFingerprint {
     components: [FingerprintComponent; PATHS.len()],
 }
 
-impl Fingerprint {
-    pub fn new(term: &Term) -> Fingerprint {
+impl TermFingerprint {
+    pub fn new(term: &Term) -> TermFingerprint {
         let mut components = [FingerprintComponent::Nothing; PATHS.len()];
         for (i, path) in PATHS.iter().enumerate() {
             components[i] = FingerprintComponent::new(term, path);
         }
-        Fingerprint { components }
+        TermFingerprint { components }
     }
 
-    pub fn could_unify(&self, other: &Fingerprint) -> bool {
+    pub fn could_unify(&self, other: &TermFingerprint) -> bool {
         for i in 0..PATHS.len() {
             if !self.components[i].could_unify(&other.components[i]) {
                 return false;
@@ -105,7 +107,7 @@ impl Fingerprint {
         true
     }
 
-    pub fn could_specialize(&self, other: &Fingerprint) -> bool {
+    pub fn could_specialize(&self, other: &TermFingerprint) -> bool {
         for i in 0..PATHS.len() {
             if !self.components[i].could_specialize(&other.components[i]) {
                 return false;
@@ -115,26 +117,27 @@ impl Fingerprint {
     }
 }
 
+// A data structure designed to quickly find which terms unify with a query term.
 #[derive(Debug)]
-pub struct FingerprintTree<T> {
-    tree: BTreeMap<Fingerprint, Vec<T>>,
+pub struct FingerprintUnifier<T> {
+    tree: BTreeMap<TermFingerprint, Vec<T>>,
 }
 
-impl<T> FingerprintTree<T> {
-    pub fn new() -> FingerprintTree<T> {
-        FingerprintTree {
+impl<T> FingerprintUnifier<T> {
+    pub fn new() -> FingerprintUnifier<T> {
+        FingerprintUnifier {
             tree: BTreeMap::new(),
         }
     }
 
     pub fn insert(&mut self, term: &Term, value: T) {
-        let fingerprint = Fingerprint::new(term);
+        let fingerprint = TermFingerprint::new(term);
         self.tree.entry(fingerprint).or_insert(vec![]).push(value);
     }
 
     // Find all T with a fingerprint that this term could unify with.
     pub fn find_unifying(&self, term: &Term) -> Vec<&T> {
-        let fingerprint = Fingerprint::new(term);
+        let fingerprint = TermFingerprint::new(term);
         let mut result = vec![];
 
         // TODO: do smart tree things instead of this dumb exhaustive search
@@ -148,21 +151,69 @@ impl<T> FingerprintTree<T> {
 
         result
     }
+}
 
-    // Find all T with a fingerprint that this term could specialize into.
-    pub fn find_specializing(&self, term: &Term) -> Vec<&T> {
-        let fingerprint = Fingerprint::new(term);
+// The fingerprints of a literal, at a selection of paths.
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct LiteralFingerprint {
+    left: TermFingerprint,
+    right: TermFingerprint,
+}
+
+impl LiteralFingerprint {
+    pub fn new(literal: &Literal) -> LiteralFingerprint {
+        LiteralFingerprint {
+            left: TermFingerprint::new(&literal.left),
+            right: TermFingerprint::new(&literal.right),
+        }
+    }
+
+    pub fn could_specialize(&self, other: &LiteralFingerprint) -> bool {
+        self.left.could_specialize(&other.left) && self.right.could_specialize(&other.right)
+    }
+}
+
+// A data structure designed to quickly find which literals are a specialization of a query literal.
+// Identifies literals by a usize id.
+pub struct FingerprintSpecializer<T> {
+    trees: HashMap<TypeId, BTreeMap<LiteralFingerprint, Vec<T>>>,
+}
+
+impl<T> FingerprintSpecializer<T> {
+    pub fn new() -> FingerprintSpecializer<T> {
+        FingerprintSpecializer {
+            trees: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, literal: &Literal, value: T) {
+        let fingerprint = LiteralFingerprint::new(literal);
+        let tree = self
+            .trees
+            .entry(literal.left.get_term_type())
+            .or_insert(BTreeMap::new());
+        tree.entry(fingerprint).or_insert(vec![]).push(value);
+    }
+
+    // Find all ids with a fingerprint that this literal could specialize into.
+    // Only does a single left->right direction of lookup.
+    pub fn find_specializing(&self, literal: &Literal) -> Vec<&T> {
+        let fingerprint = LiteralFingerprint::new(literal);
         let mut result = vec![];
 
+        let tree = match self.trees.get(&literal.left.get_term_type()) {
+            Some(tree) => tree,
+            None => return result,
+        };
+
         // TODO: do smart tree things instead of this dumb exhaustive search
-        for (f, values) in &self.tree {
+        for (f, values) in tree {
             if fingerprint.could_specialize(f) {
                 for v in values {
                     result.push(v);
                 }
             }
         }
-
         result
     }
 }
@@ -174,19 +225,19 @@ mod tests {
     #[test]
     fn test_fingerprint() {
         let term = Term::parse("c0(x0, x1)");
-        Fingerprint::new(&term);
+        TermFingerprint::new(&term);
     }
 
     #[test]
     fn test_fingerprint_matching() {
         let term1 = Term::parse("c2(x0, x1, c0)");
         let term2 = Term::parse("c2(c1, c3(x0), c0)");
-        assert!(Fingerprint::new(&term1).could_unify(&Fingerprint::new(&term2)));
+        assert!(TermFingerprint::new(&term1).could_unify(&TermFingerprint::new(&term2)));
     }
 
     #[test]
     fn test_fingerprint_tree() {
-        let mut tree = FingerprintTree::new();
+        let mut tree = FingerprintUnifier::new();
         let term1 = Term::parse("c2(x0, x1, c0)");
         let term2 = Term::parse("c2(c1, c3(x0), c0)");
         tree.insert(&term1, 1);

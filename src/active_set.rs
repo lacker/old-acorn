@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::clause::Clause;
-use crate::fingerprint::FingerprintTree;
+use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
@@ -24,16 +24,16 @@ pub struct ActiveSet {
     literal_set: LiteralSet,
 
     // An index of all the subterms that can be rewritten.
-    rewrite_targets: FingerprintTree<RewriteTarget>,
+    rewrite_targets: FingerprintUnifier<RewriteTarget>,
 
     // An index of all the ways to rewrite subterms.
     rewrite_patterns: RewriteTree,
 
     // An index of all the positive literals that we can do resolution with.
-    positive_res_targets: FingerprintTree<ResolutionTarget>,
+    positive_res_targets: FingerprintUnifier<ResolutionTarget>,
 
     // An index of all the negative literals that we can do resolution with.
-    negative_res_targets: FingerprintTree<ResolutionTarget>,
+    negative_res_targets: FingerprintUnifier<ResolutionTarget>,
 }
 
 // A ResolutionTarget represents a literal that we could do resolution with.
@@ -73,10 +73,10 @@ impl ActiveSet {
             steps: vec![],
             long_clauses: HashSet::new(),
             literal_set: LiteralSet::new(),
-            rewrite_targets: FingerprintTree::new(),
+            rewrite_targets: FingerprintUnifier::new(),
             rewrite_patterns: RewriteTree::new(),
-            positive_res_targets: FingerprintTree::new(),
-            negative_res_targets: FingerprintTree::new(),
+            positive_res_targets: FingerprintUnifier::new(),
+            negative_res_targets: FingerprintUnifier::new(),
         }
     }
 
