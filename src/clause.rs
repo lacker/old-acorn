@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt};
+use std::fmt;
 
 use crate::atom::AtomId;
 use crate::literal::Literal;
@@ -94,17 +94,6 @@ impl Clause {
         self.literals.iter().map(|x| x.atom_count()).sum()
     }
 
-    pub fn is_rewrite_rule(&self) -> bool {
-        if self.literals.len() != 1 {
-            return false;
-        }
-        let literal = &self.literals[0];
-        if !literal.positive {
-            return false;
-        }
-        return literal.left.kbo(&literal.right) == Ordering::Greater;
-    }
-
     pub fn len(&self) -> usize {
         self.literals.len()
     }
@@ -119,18 +108,5 @@ impl Clause {
 
     pub fn num_positive_literals(&self) -> usize {
         self.literals.iter().filter(|x| x.positive).count()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_clause_is_rewrite_rule() {
-        assert!(Clause::parse("c0(x0) = x0").is_rewrite_rule());
-        assert!(Clause::parse("c0(x0, x0) = x0").is_rewrite_rule());
-        assert!(!Clause::parse("c0(x0, x0) != x0").is_rewrite_rule());
-        assert!(!Clause::parse("c0(x0, x1) = c0(x1, x0)").is_rewrite_rule());
     }
 }
