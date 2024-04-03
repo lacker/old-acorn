@@ -8,11 +8,10 @@ use crate::type_map::TypeId;
 // The path is the sequence of arg indices to get to that term
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum FingerprintComponent {
-    // This term is below a variable on the path. So it might match anything,
-    // either nothing or something.
+    // The path to this term goes through a variable.
     Below,
 
-    // The term cannot match any subterm at this path
+    // The path to this term goes through a leaf node.
     Nothing,
 
     // The head of the subterm at this path.
@@ -42,7 +41,7 @@ impl FingerprintComponent {
         }
     }
 
-    // Whether unification could possibly identify terms with these two fingerprints
+    // Whether a unification could combine paths with these fingerprint components
     pub fn could_unify(&self, other: &FingerprintComponent) -> bool {
         match (self, other) {
             (FingerprintComponent::Below, _) => true,
@@ -53,6 +52,25 @@ impl FingerprintComponent {
                     return false;
                 }
                 if a1.is_variable() || a2.is_variable() {
+                    return true;
+                }
+                a1 == a2
+            }
+            _ => false,
+        }
+    }
+
+    // Whether a specialization could turn the 'self' component into the 'other' component
+    pub fn could_specialize(&self, other: &FingerprintComponent) -> bool {
+        match (self, other) {
+            (FingerprintComponent::Below, _) => true,
+            (_, FingerprintComponent::Below) => false,
+            (FingerprintComponent::Nothing, FingerprintComponent::Nothing) => true,
+            (FingerprintComponent::Something(t1, a1), FingerprintComponent::Something(t2, a2)) => {
+                if t1 != t2 {
+                    return false;
+                }
+                if a1.is_variable() {
                     return true;
                 }
                 a1 == a2
@@ -86,6 +104,15 @@ impl Fingerprint {
         }
         true
     }
+
+    pub fn could_specialize(&self, other: &Fingerprint) -> bool {
+        for i in 0..PATHS.len() {
+            if !self.components[i].could_specialize(&other.components[i]) {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 #[derive(Debug)]
@@ -105,14 +132,31 @@ impl<T> FingerprintTree<T> {
         self.tree.entry(fingerprint).or_insert(vec![]).push(value);
     }
 
-    // Find all T with a fingerprint that could unify with this one.
+    // Find all T with a fingerprint that this term could unify with.
     pub fn find_unifying(&self, term: &Term) -> Vec<&T> {
         let fingerprint = Fingerprint::new(term);
         let mut result = vec![];
 
         // TODO: do smart tree things instead of this dumb exhaustive search
         for (f, values) in &self.tree {
-            if f.could_unify(&fingerprint) {
+            if fingerprint.could_unify(f) {
+                for v in values {
+                    result.push(v);
+                }
+            }
+        }
+
+        result
+    }
+
+    // Find all T with a fingerprint that this term could specialize into.
+    pub fn find_specializing(&self, term: &Term) -> Vec<&T> {
+        let fingerprint = Fingerprint::new(term);
+        let mut result = vec![];
+
+        // TODO: do smart tree things instead of this dumb exhaustive search
+        for (f, values) in &self.tree {
+            if fingerprint.could_specialize(f) {
                 for v in values {
                     result.push(v);
                 }
