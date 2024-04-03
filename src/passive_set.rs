@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
 use crate::proof_step::{ProofStep, Score};
+use crate::term::Term;
 
 // The PassiveSet stores a bunch of clauses.
 // A clause in the passive set can be activated, and it can be simplified, but to do
@@ -52,10 +53,26 @@ impl PassiveSet {
         }
     }
 
+    // Checks just the left->right direction for simplification.
+    fn simplify_one_direction(
+        &mut self,
+        step_id: usize,
+        left: &Term,
+        right: &Term,
+        positive: bool,
+    ) {
+        // TODO
+    }
+
     // Called when we discover a new true literal.
     // Simplifies the passive set by removing literals that are now known to be true.
+    // Checks both directions.
     pub fn simplify(&mut self, step_id: usize, literal: &Literal) {
-        // TODO
+        self.simplify_one_direction(step_id, &literal.left, &literal.right, literal.positive);
+        if !literal.strict_kbo() {
+            let (right, left) = literal.normalized_reversed();
+            self.simplify_one_direction(step_id, &right, &left, literal.positive);
+        }
     }
 
     // The number of clauses remaining in the passive set.

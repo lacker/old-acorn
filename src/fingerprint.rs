@@ -161,10 +161,10 @@ struct LiteralFingerprint {
 }
 
 impl LiteralFingerprint {
-    pub fn new(literal: &Literal) -> LiteralFingerprint {
+    pub fn new(left: &Term, right: &Term) -> LiteralFingerprint {
         LiteralFingerprint {
-            left: TermFingerprint::new(&literal.left),
-            right: TermFingerprint::new(&literal.right),
+            left: TermFingerprint::new(left),
+            right: TermFingerprint::new(right),
         }
     }
 
@@ -187,7 +187,7 @@ impl<T> FingerprintSpecializer<T> {
     }
 
     pub fn insert(&mut self, literal: &Literal, value: T) {
-        let fingerprint = LiteralFingerprint::new(literal);
+        let fingerprint = LiteralFingerprint::new(&literal.left, &literal.right);
         let tree = self
             .trees
             .entry(literal.left.get_term_type())
@@ -197,11 +197,11 @@ impl<T> FingerprintSpecializer<T> {
 
     // Find all ids with a fingerprint that this literal could specialize into.
     // Only does a single left->right direction of lookup.
-    pub fn find_specializing(&self, literal: &Literal) -> Vec<&T> {
-        let fingerprint = LiteralFingerprint::new(literal);
+    pub fn find_specializing(&self, left: &Term, right: &Term) -> Vec<&T> {
+        let fingerprint = LiteralFingerprint::new(left, right);
         let mut result = vec![];
 
-        let tree = match self.trees.get(&literal.left.get_term_type()) {
+        let tree = match self.trees.get(&left.get_term_type()) {
             Some(tree) => tree,
             None => return result,
         };
