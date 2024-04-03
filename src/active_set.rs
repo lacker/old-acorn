@@ -17,10 +17,10 @@ pub struct ActiveSet {
     // A vector for indexed reference
     steps: Vec<ProofStep>,
 
-    // The long clauses (ie more than one literal) that we already know
+    // The long clauses (ie more than one literal) that we have proven.
     long_clauses: HashSet<Clause>,
 
-    // For checking specific literals we already know, including generalization
+    // The short clauses (ie just one literal) that we have proven.
     literal_tree: LiteralSet,
 
     // An index of all the subterms that can be rewritten.

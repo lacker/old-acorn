@@ -256,7 +256,7 @@ impl TermComponent {
     }
 }
 
-// A rewrite tree is a "perfect discrimination tree" specifically designed to rewrite
+// A pattern tree is a "perfect discrimination tree" specifically designed to rewrite
 // terms into simplified versions.
 // Each path from the root to a leaf is a series of edges that represents a term or a literal.
 // The first edge determines the type, and literal vs term.
@@ -547,11 +547,11 @@ impl<T> PatternTree<T> {
 
     // Finds a single match, if possible.
     // Returns the value id of the match, and the set of replacements used for the match.
-    pub fn find_one_match<'a>(
+    pub fn find_one_match<'a, 'b>(
         &'a self,
         key: &mut Vec<u8>,
-        term: &'a [TermComponent],
-    ) -> Option<(&T, Vec<&'a [TermComponent]>)> {
+        term: &'b [TermComponent],
+    ) -> Option<(&'a T, Vec<&'b [TermComponent]>)> {
         let mut replacements = vec![];
         let mut found_id = None;
         self.find_matches_while(key, term, &mut replacements, &mut |value_id, _| {
@@ -560,6 +560,15 @@ impl<T> PatternTree<T> {
         });
         match found_id {
             Some(value_id) => Some((&self.values[value_id], replacements)),
+            None => None,
+        }
+    }
+
+    fn find_pair<'a>(&'a self, left: &Term, right: &Term) -> Option<&'a T> {
+        let flat = TermComponent::flatten_pair(left, right);
+        let mut key = literal_key_prefix(left.term_type);
+        match self.find_one_match(&mut key, &flat) {
+            Some((value, _)) => Some(value),
             None => None,
         }
     }
@@ -596,7 +605,7 @@ impl LiteralSet {
     }
 
     // Inserts a literal along with its id.
-    // This only inserts the given direction.
+    // This only inserts the left->right direction.
     // Overwrites if the negation already exists.
     pub fn insert(&mut self, literal: &Literal, id: usize) {
         self.tree
@@ -605,15 +614,13 @@ impl LiteralSet {
 
     // Checks whether any literal in the tree is a generalization of the provided literal.
     // If so, returns a pair with:
-    //   1. whether the sign of the provided literal and the generalization match
+    //   1. whether the sign of the generalization matches the literal
     //   2. the id of the generalization
     //
-    // TODO: we just don't handle flipping literals around. That seems relevant though.
+    // This only searches the left->right direction.
     pub fn find_generalization(&self, literal: &Literal) -> Option<(bool, usize)> {
-        let flat = TermComponent::flatten_pair(&literal.left, &literal.right);
-        let mut key = literal_key_prefix(literal.left.term_type);
-        match self.tree.find_one_match(&mut key, &flat) {
-            Some(((positive, id), _)) => Some((positive == &literal.positive, *id)),
+        match self.tree.find_pair(&literal.left, &literal.right) {
+            Some(&(sign, id)) => Some((sign == literal.positive, id)),
             None => None,
         }
     }
