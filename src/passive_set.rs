@@ -2,7 +2,6 @@ use std::collections::BTreeSet;
 
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintSpecializer;
-use crate::literal::Literal;
 use crate::proof_step::{ProofStep, Score, Truthiness};
 use crate::specializer::Specializer;
 use crate::term::Term;
@@ -112,15 +111,12 @@ impl PassiveSet {
     // Called when we activate a new true literal.
     // Simplifies the passive set by removing literals that are now known to be true.
     // Checks both directions.
-    pub fn simplify(
-        &mut self,
-        activated_id: usize,
-        activated_truthiness: Truthiness,
-        literal: &Literal,
-    ) {
+    pub fn simplify(&mut self, activated_id: usize, step: &ProofStep) {
+        assert!(step.clause.literals.len() == 1);
+        let literal = &step.clause.literals[0];
         self.simplify_one_direction(
             activated_id,
-            activated_truthiness,
+            step.truthiness,
             &literal.left,
             &literal.right,
             literal.positive,
@@ -129,7 +125,7 @@ impl PassiveSet {
             let (right, left) = literal.normalized_reversed();
             self.simplify_one_direction(
                 activated_id,
-                activated_truthiness,
+                step.truthiness,
                 &right,
                 &left,
                 literal.positive,

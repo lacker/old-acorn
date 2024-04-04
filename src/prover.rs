@@ -401,8 +401,7 @@ impl Prover {
         let (activated_id, generated_clauses) = self.active_set.generate(activated_step);
         let step = self.active_set.get_step(activated_id);
         if step.clause.literals.len() == 1 {
-            self.passive_set
-                .simplify(activated_id, step.truthiness, &step.clause.literals[0]);
+            self.passive_set.simplify(activated_id, step);
         }
 
         let print_limit = 30;
