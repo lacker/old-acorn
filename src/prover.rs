@@ -368,38 +368,7 @@ impl Prover {
         let tracing = self.is_tracing(&step.clause);
         let verbose = self.verbose || tracing;
 
-        let mut original_clause_string = "".to_string();
-        let mut simplified_clause_string = "".to_string();
-        if verbose {
-            original_clause_string = self.display(&step.clause).to_string();
-        }
-
-        // TODO: this simplification is only needed because we don't simplify
-        // the passive set. Once we *do* simplify the passive set, we can remove this.
-        let step = match self.active_set.simplify(step) {
-            Some(i) => i,
-            None => {
-                // The clause is redundant, so skip it.
-                if verbose {
-                    cprintln!(self, "redundant: {}", original_clause_string);
-                }
-                return Outcome::Unknown;
-            }
-        };
-        let clause = &step.clause;
-        if verbose {
-            simplified_clause_string = self.display(clause).to_string();
-            if simplified_clause_string != original_clause_string {
-                cprintln!(
-                    self,
-                    "simplified: {} => {}",
-                    original_clause_string,
-                    simplified_clause_string,
-                );
-            }
-        }
-
-        if clause.is_impossible() {
+        if step.clause.is_impossible() {
             return self.report_contradiction(step);
         }
 
@@ -415,7 +384,7 @@ impl Prover {
                     }
                 }
             };
-            cprintln!(self, "activating{}: {}", prefix, simplified_clause_string);
+            cprintln!(self, "activating{}: {}", prefix, self.display(&step.clause));
         }
         self.activate(step, verbose, tracing)
     }
