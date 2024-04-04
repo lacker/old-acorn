@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintSpecializer;
+use crate::literal::Literal;
 use crate::proof_step::{ProofStep, Score, Truthiness};
 use crate::specializer::Specializer;
 use crate::term::Term;
@@ -27,10 +28,47 @@ pub struct PassiveSet {
 }
 
 // Whether (left1, right2) can be specialized to get (left2, right2).
+// Only tries this direction.
 // Terms do not have to have variables normalized.
 fn pair_specializes(left1: &Term, right1: &Term, left2: &Term, right2: &Term) -> bool {
     let mut s = Specializer::new();
     s.match_terms(left1, left2) && s.match_terms(right1, right2)
+}
+
+// Tries both directions
+fn pair_specializes_either_way(left: &Term, right: &Term, literal: &Literal) -> bool {
+    if left.term_type != literal.left.term_type {
+        return false;
+    }
+    if pair_specializes(left, right, &literal.left, &literal.right) {
+        return true;
+    }
+    pair_specializes(left, right, &literal.right, &literal.left)
+}
+
+// Makes a new clause by simplifying a bunch of literals with respect to a given literal.
+// left and right do not have to have variables normalized.
+// We already know literals[index] is a specialization of the given literal.
+// Returns None if the clause is tautologically implied by the literal we are simplifying with.
+fn make_simplified(
+    left: &Term,
+    right: &Term,
+    positive: bool,
+    index: usize,
+    literals: Vec<Literal>,
+) -> Option<Clause> {
+    if literals[index].positive == positive {
+        return None;
+    }
+    let mut new_literals = vec![];
+    for (i, literal) in literals.into_iter().enumerate() {
+        if i == index {
+            continue;
+        }
+        // TODO
+        new_literals.push(literal);
+    }
+    Some(Clause::new(new_literals))
 }
 
 impl PassiveSet {
@@ -71,8 +109,8 @@ impl PassiveSet {
         positive: bool,
     ) {
         let mut new_steps = vec![];
-        for (clause_id, literal_index) in self.literals.find_specializing(left, right) {
-            let step = match &self.clauses[*clause_id] {
+        for &(clause_id, literal_index) in self.literals.find_specializing(left, right) {
+            let step = match &self.clauses[clause_id] {
                 Some((step, _)) => step,
                 None => {
                     // The clause was already removed, so this is a dead reference.
@@ -80,7 +118,7 @@ impl PassiveSet {
                     continue;
                 }
             };
-            let literal = &step.clause.literals[*literal_index];
+            let literal = &step.clause.literals[literal_index];
             let literal_positive = literal.positive;
 
             // We've only checked fingerprints. We need to check if they actually match.
@@ -89,20 +127,24 @@ impl PassiveSet {
             }
 
             // It matches. So we're definitely removing the existing clause.
-            let (mut step, score) = self.clauses[*clause_id].take().unwrap();
-            self.queue.remove(&(score, *clause_id));
+            let (mut step, score) = self.clauses[clause_id].take().unwrap();
+            self.queue.remove(&(score, clause_id));
 
             if positive == literal_positive {
                 // The whole passive clause is implied by the activated clause.
                 // So it's just redundant. We can forget about it.
                 continue;
             }
-
-            // We can simplify the passive clause by removing the literal that matches
-            // the activated one.
-            let mut new_literals = std::mem::take(&mut step.clause.literals);
-            new_literals.remove(*literal_index);
-            let new_clause = Clause::new(new_literals);
+            let new_clause = match make_simplified(
+                left,
+                right,
+                positive,
+                literal_index,
+                std::mem::take(&mut step.clause.literals),
+            ) {
+                Some(clause) => clause,
+                None => continue,
+            };
             let new_truthiness = activated_truthiness.combine(step.truthiness);
             new_steps.push(step.simplify(new_clause, vec![activated_id], new_truthiness));
         }
