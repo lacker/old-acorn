@@ -65,7 +65,14 @@ fn make_simplified(
         if i == index {
             continue;
         }
-        // TODO
+        if pair_specializes_either_way(left, right, &literal) {
+            if literal.positive == positive {
+                // The whole clause is implied by the literal we are simplifying with.
+                return None;
+            }
+            // This specific literal is unsatisfiable.
+            continue;
+        }
         new_literals.push(literal);
     }
     Some(Clause::new(new_literals))
@@ -211,6 +218,7 @@ mod tests {
     fn test_passive_set_simplification() {
         let mut passive_set = PassiveSet::new();
         passive_set.push(ProofStep::mock("c0(c1) | c0(c2)"));
+        // This should match *both* the literals in our existing clause
         passive_set.simplify(3, &ProofStep::mock("!c0(x0)"));
         let step = passive_set.pop().unwrap();
         assert_eq!(step.clause.to_string(), "<empty>");
