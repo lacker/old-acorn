@@ -26,6 +26,13 @@ pub struct PassiveSet {
     literals: FingerprintSpecializer<(usize, usize)>,
 }
 
+// Whether (left1, right2) can be specialized to get (left2, right2).
+// Terms do not have to have variables normalized.
+fn pair_specializes(left1: &Term, right1: &Term, left2: &Term, right2: &Term) -> bool {
+    let mut s = Specializer::new();
+    s.match_terms(left1, left2) && s.match_terms(right1, right2)
+}
+
 impl PassiveSet {
     pub fn new() -> PassiveSet {
         PassiveSet {
@@ -77,11 +84,7 @@ impl PassiveSet {
             let literal_positive = literal.positive;
 
             // We've only checked fingerprints. We need to check if they actually match.
-            let mut s = Specializer::new();
-            if !s.match_terms(left, &literal.left) {
-                continue;
-            }
-            if !s.match_terms(right, &literal.right) {
+            if !pair_specializes(left, right, &literal.left, &literal.right) {
                 continue;
             }
 
@@ -166,7 +169,8 @@ mod tests {
     fn test_passive_set_simplification() {
         let mut passive_set = PassiveSet::new();
         passive_set.push(ProofStep::mock("c0(c1) | c0(c2)"));
-
-        // TODO: simplify against c0(x0)
+        passive_set.simplify(3, &ProofStep::mock("!c0(x0)"));
+        let step = passive_set.pop().unwrap();
+        assert_eq!(step.clause.to_string(), "<empty>");
     }
 }
