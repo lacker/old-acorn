@@ -22,8 +22,8 @@ axiom neg_or_pos(a: Int): a = from_nat(abs(a)) | a = negate(from_nat(abs(a)))
 
 axiom fix_neg(a: Int): negate(a) = a -> a = 0
 
-// Subtraction that casts into integers
-define sub_nat_nat(m: Nat, n: Nat) -> Int = if nat.lte(n, m) {
+// Subtraction that goes from naturals into integers
+define sub_nat(m: Nat, n: Nat) -> Int = if nat.lte(n, m) {
     from_nat(subtraction.sub(m, n))
     } else {
     negate(from_nat(subtraction.sub(n, m)))
@@ -31,26 +31,67 @@ define sub_nat_nat(m: Nat, n: Nat) -> Int = if nat.lte(n, m) {
 
 theorem abs_zero: abs(0) = nat.0
 
-theorem sub_nat_nat_zero_right(n: Nat): sub_nat_nat(n, nat.0) = from_nat(n)
+theorem sub_nat_zero_right(n: Nat): sub_nat(n, nat.0) = from_nat(n)
 
-theorem sub_nat_nat_zero_left(n: Nat): sub_nat_nat(nat.0, n) = negate(from_nat(n))
+theorem sub_nat_zero_left(n: Nat): sub_nat(nat.0, n) = negate(from_nat(n))
 
-theorem sub_nat_nat_self(n: Nat): sub_nat_nat(n, n) = 0
+theorem sub_nat_self(n: Nat): sub_nat(n, n) = 0
 
-theorem neg_sub_nat_nat(m: Nat, n: Nat): sub_nat_nat(m, n) = negate(sub_nat_nat(n, m)) by {
+theorem neg_sub_nat(m: Nat, n: Nat): sub_nat(m, n) = negate(sub_nat(n, m)) by {
     if m = n {
-        sub_nat_nat(m, n) = 0
-        sub_nat_nat(m, n) = negate(0)
-        sub_nat_nat(m, n) = negate(sub_nat_nat(n, m))
+        sub_nat(m, n) = 0
+        sub_nat(m, n) = negate(0)
+        sub_nat(m, n) = negate(sub_nat(n, m))
     } else {
         if nat.lte(n, m) {
             !nat.lte(m, n)
-            sub_nat_nat(m, n) = negate(sub_nat_nat(n, m))
+            sub_nat(m, n) = negate(sub_nat(n, m))
         } else {
-            sub_nat_nat(m, n) = negate(sub_nat_nat(n, m))
+            sub_nat(m, n) = negate(sub_nat(n, m))
         }
     }
 }
+
+// Half of a "without loss of generality" sort of reasoning
+theorem sub_nat_eq_helper(m: Nat, n: Nat, p: Nat, q: Nat):
+    nat.add(m, n) = nat.add(p, q) & nat.lte(p, m) -> sub_nat(m, p) = sub_nat(q, n) by {
+    exists(d: Nat) { nat.add(p, d) = m }
+    sub_nat(m, p) = from_nat(d)
+    nat.add(m, n) = nat.add(nat.add(p, d), n)
+    nat.add(p, q) = nat.add(nat.add(p, d), n)
+    nat.add(p, q) = nat.add(p, nat.add(d, n))
+    q = nat.add(d, n)
+    sub_nat(q, n) = from_nat(d)
+    sub_nat(m, p) = sub_nat(q, n)
+}
+
+theorem sub_nat_eq(m: Nat, n: Nat, p: Nat, q: Nat): nat.add(m, n) = nat.add(p, q) -> sub_nat(m, p) = sub_nat(q, n) by {
+    if nat.lte(p, m) {
+        sub_nat(m, p) = sub_nat(q, n)
+    } else {
+        nat.lte(m, p)
+        sub_nat(m, p) = sub_nat(q, n)
+    }
+}
+
+// Can we prove this with sub_nat_eq ?
+theorem sub_nat_cancel_right(m: Nat, n: Nat, k: Nat): sub_nat(m, n) = sub_nat(nat.add(m, k), nat.add(n, k)) by {
+    if nat.lte(n, m) {
+        nat.lte(nat.add(n, k), nat.add(m, k))
+        sub_nat(m, n) = from_nat(subtraction.sub(m, n))
+        sub_nat(nat.add(m, k), nat.add(n, k)) = from_nat(subtraction.sub(nat.add(m, k), nat.add(n, k)))
+        subtraction.sub(m, n) = subtraction.sub(nat.add(m, k), nat.add(n, k))
+        sub_nat(m, n) = sub_nat(nat.add(m, k), nat.add(n, k))
+    } else {
+        !nat.lte(nat.add(n, k), nat.add(m, k))
+        sub_nat(m, n) = negate(from_nat(subtraction.sub(n, m)))
+        sub_nat(nat.add(m, k), nat.add(n, k)) = negate(from_nat(subtraction.sub(nat.add(n, k), nat.add(m, k))))
+        subtraction.sub(n, m) = subtraction.sub(nat.add(n, k), nat.add(m, k))
+        sub_nat(m, n) = sub_nat(nat.add(m, k), nat.add(n, k))
+    }
+}
+
+theorem sub_nat_cancel_left(m: Nat, n: Nat, k: Nat): sub_nat(m, n) = sub_nat(nat.add(k, m), nat.add(k, n))
 
 define is_nonnegative(a: Int) -> bool = a = from_nat(abs(a))
 
@@ -72,48 +113,62 @@ theorem not_neg_imp_nonneg(a: Int): !is_negative(a) -> is_nonnegative(a) by {
     }
 }
 
-define add_nat_int(n: Nat, a: Int) -> Int = if is_nonnegative(a) {
-    from_nat(nat.add(n, abs(a)))
+define pos_part(a: Int) -> Nat = if is_nonnegative(a) {
+    abs(a)
 } else {
-    sub_nat_nat(n, abs(a))
+    nat.0
 }
 
-theorem add_nat_int_zero_right(n: Nat): add_nat_int(n, 0) = from_nat(n)
+define neg_part(a: Int) -> Nat = if is_nonnegative(a) {
+    nat.0
+} else {
+    abs(a)
+}
 
-theorem add_nat_int_zero_left(a: Int): add_nat_int(nat.0, a) = a by {
+theorem combine_parts(a: Int): sub_nat(pos_part(a), neg_part(a)) = a by {
     if is_nonnegative(a) {
-        add_nat_int(nat.0, a) = a
+        sub_nat(abs(a), nat.0) = a
+        sub_nat(pos_part(a), neg_part(a)) = a
     } else {
-        add_nat_int(nat.0, a) = negate(from_nat(abs(a)))
-        is_negative(a)
-        add_nat_int(nat.0, a) = a
+        sub_nat(nat.0, abs(a)) = a
+        sub_nat(pos_part(a), neg_part(a)) = a
     }
 }
 
-define add(a: Int, b: Int) -> Int = if is_nonnegative(a) {
-    add_nat_int(abs(a), b)
-} else {
-    negate(add_nat_int(abs(a), negate(b)))
+define add(a: Int, b: Int) -> Int = sub_nat(nat.add(pos_part(a), pos_part(b)), nat.add(neg_part(a), neg_part(b)))
+
+theorem pos_part_neg(a: Int): pos_part(negate(a)) = neg_part(a) by {
+    if is_nonnegative(a) {
+        neg_part(a) = nat.0
+        pos_part(negate(a)) = nat.0
+        pos_part(negate(a)) = neg_part(a)
+    } else {
+        neg_part(a) = abs(a)
+        is_nonnegative(negate(a))
+        pos_part(negate(a)) = abs(a)
+        pos_part(negate(a)) = neg_part(a)
+    }
+
 }
+
+theorem neg_part_neg(a: Int): neg_part(negate(a)) = pos_part(a)
 
 define sub(a: Int, b: Int) -> Int = add(a, negate(b))
 
-theorem add_zero_right(a: Int): add(a, 0) = a by {
-    if is_nonnegative(a) {
-        add(a, 0) = a
-    } else {
-        add(a, 0) = negate(add_nat_int(abs(a), 0))
-        add(a, 0) = negate(from_nat(abs(a)))
-        from_nat(abs(a)) != a
-        is_negative(a)
-        add(a, 0) = a
-    }
+theorem add_zero_left(a: Int): add(0, a) = a by {
+    pos_part(0) = nat.0
+    neg_part(0) = nat.0
+    nat.add(pos_part(0), pos_part(a)) = pos_part(a)
+    nat.add(neg_part(0), neg_part(a)) = neg_part(a)
+    add(0, a) = sub_nat(pos_part(a), neg_part(a))
 }
 
-theorem add_zero_left(a: Int): add(0, a) = a by {
-    is_nonnegative(0)
-    add(0, a) = add_nat_int(abs(0), a)
-    add(0, a) = a
+theorem add_zero_right(a: Int): add(a, 0) = a by {
+    pos_part(0) = nat.0
+    neg_part(0) = nat.0
+    nat.add(pos_part(a), pos_part(0)) = pos_part(a)
+    nat.add(neg_part(a), neg_part(0)) = neg_part(a)
+    add(a, 0) = sub_nat(pos_part(a), neg_part(a))
 }
 
 theorem sub_zero(a: Int): sub(a, 0) = a by {
@@ -122,52 +177,34 @@ theorem sub_zero(a: Int): sub(a, 0) = a by {
     sub(a, 0) = a
 }
 
-theorem add_pos_pos(a: Int, b: Int): is_nonnegative(a) & is_nonnegative(b) -> add(a, b) = from_nat(nat.add(abs(a), abs(b)))
-
-theorem add_pos_neg(a: Int, b: Int): is_nonnegative(a) & is_negative(b) -> add(a, b) = sub_nat_nat(abs(a), abs(b))
-
-theorem add_neg_pos(a: Int, b: Int): is_negative(a) & is_nonnegative(b) -> add(a, b) = sub_nat_nat(abs(b), abs(a)) by {
-    add(a, b) = negate(add_nat_int(abs(a), negate(b)))
-    if b = 0 {
-        add(a, b) = negate(add_nat_int(abs(a), 0))
-        add(a, b) = negate(from_nat(abs(a)))
-        add(a, b) = sub_nat_nat(nat.0, abs(a))
-        add(a, b) = sub_nat_nat(abs(b), abs(a))
-    } else {
-        !is_nonnegative(negate(b))
-        add_nat_int(abs(a), negate(b)) = sub_nat_nat(abs(a), abs(b))
-        add(a, b) = negate(sub_nat_nat(abs(a), abs(b)))
-        add(a, b) = sub_nat_nat(abs(b), abs(a))
-    }
-}
-
-theorem add_neg_neg(a: Int, b: Int):
-    is_negative(a) & is_negative(b) -> add(a, b) = negate(from_nat(nat.add(abs(a), abs(b)))) by {
-    add(a, b) = negate(add_nat_int(abs(a), negate(b)))
-    is_nonnegative(negate(b))
-    add_nat_int(abs(a), negate(b)) = from_nat(nat.add(abs(a), abs(b)))
+theorem zero_sub(a: Int): sub(0, a) = negate(a) by {
+    sub(0, a) = add(0, negate(a))
+    sub(0, a) = negate(a)
 }
 
 theorem add_comm(a: Int, b: Int): add(a, b) = add(b, a) by {
-    if is_nonnegative(a) {
-        if is_nonnegative(b) {
-            from_nat(nat.add(abs(a), abs(b))) = add(a, b)
-            from_nat(nat.add(abs(b), abs(a))) = add(a, b)
-            add(a, b) = add(b, a)
-        } else {
-            add(a, b) = add(b, a)
-        }
-        add(a, b) = add(b, a)
-    } else {
-        if is_nonnegative(b) {
-            add(a, b) = add(b, a)
-        } else {
-            is_negative(a)
-            is_negative(b)
-            add(a, b) = negate(from_nat(nat.add(abs(a), abs(b))))
-            add(b, a) = negate(from_nat(nat.add(abs(b), abs(a))))
-            add(a, b) = add(b, a)
-        }
-        add(a, b) = add(b, a)
-    }
+    add(a, b) = sub_nat(nat.add(pos_part(b), pos_part(a)), nat.add(neg_part(a), neg_part(b)))
 }
+
+theorem neg_distrib(a: Int, b: Int): negate(add(a, b)) = add(negate(a), negate(b)) by {
+    nat.add(pos_part(negate(a)), pos_part(negate(b))) = nat.add(neg_part(a), neg_part(b))
+    nat.add(neg_part(negate(a)), neg_part(negate(b))) = nat.add(pos_part(a), pos_part(b))
+    add(negate(a), negate(b)) = sub_nat(nat.add(pos_part(negate(a)), pos_part(negate(b))),
+                                        nat.add(neg_part(negate(a)), neg_part(negate(b))))
+    add(negate(a), negate(b)) = sub_nat(nat.add(neg_part(a), neg_part(b)),
+                                        nat.add(pos_part(a), pos_part(b)))
+    add(negate(a), negate(b)) = negate(sub_nat(nat.add(pos_part(a), pos_part(b)), nat.add(neg_part(a), neg_part(b))))
+}
+
+theorem sub_anticomm(a: Int, b: Int): sub(a, b) = negate(sub(b, a)) by {
+    negate(sub(b, a)) = negate(add(b, negate(a)))
+    negate(sub(b, a)) = add(negate(b), negate(negate(a)))
+    negate(sub(b, a)) = add(negate(b), a)
+    negate(sub(b, a)) = add(a, negate(b))
+}
+
+// theorem add_assoc(a: Int, b: Int, c: Int): add(a, add(b, c)) = add(add(a, b), c) by {
+//     add(b, c) = sub_nat(nat.add(pos_part(b), pos_part(c)), nat.add(neg_part(b), neg_part(c)))
+// }
+
+

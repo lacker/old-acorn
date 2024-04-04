@@ -747,3 +747,11 @@ theorem divides_symm(a: Nat, b: Nat): divides(a, b) & divides(b, a) -> a = b by 
         a = b
     }
 }
+
+theorem cross_sum_lte(a: Nat, b: Nat, c: Nat, d: Nat): add(a, b) = add(c, d) & lte(a, c) -> lte(d, b) by {
+    exists(e: Nat) { add(a, e) = c }
+    add(a, b) = add(add(a, e), d)
+    add(a, b) = add(a, add(e, d))
+    b = add(e, d)
+    lte(d, b)
+}
