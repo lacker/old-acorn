@@ -579,4 +579,12 @@ mod tests {
         let mut u = Unifier::new();
         assert!(!u.unify(Scope::Left, &first, Scope::Left, &second));
     }
+
+    #[test]
+    fn test_self_reference_invalid() {
+        let first = Term::parse("g2(x0, x0)");
+        let second = Term::parse("g2(g2(g1(c0, x0), x0), g2(x1, x1))");
+        let mut u = Unifier::new();
+        assert!(!u.unify(Scope::Left, &first, Scope::Right, &second));
+    }
 }

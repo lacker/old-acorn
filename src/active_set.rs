@@ -961,9 +961,7 @@ mod tests {
         set.insert(ProofStep::mock("g2(x0, x0) = g0"), 0);
         let mut step = ProofStep::mock("g2(g2(g1(c0, x0), x0), g2(x1, x1)) != g0");
         step.truthiness = Truthiness::Counterfactual;
-        let (_, steps) = set.generate(step);
-        for step in &steps {
-            assert!(!step.clause.is_impossible());
-        }
+        let new_steps = set.find_resolutions(1, &step);
+        assert_eq!(new_steps.len(), 0);
     }
 }
