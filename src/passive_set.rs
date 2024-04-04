@@ -161,3 +161,16 @@ impl PassiveSet {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_passive_set_simplification() {
+        let mut passive_set = PassiveSet::new();
+        passive_set.push(ProofStep::mock("c0(c1) | c0(c2)"));
+
+        // TODO: simplify against c0(x0)
+    }
+}
