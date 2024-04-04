@@ -1,12 +1,48 @@
 import nat
+import subtraction
 type Nat: nat.Nat
 type Int: axiom
 
 let from_nat: Nat -> Int = axiom
 let negate: Int -> Int = axiom
+let abs: Int -> Nat = axiom
 
 let 0: Int = from_nat(nat.0)
 
 axiom negate_zero: negate(0) = 0
 
-axiom negate_negate(x: Int): negate(negate(x)) = x
+axiom negate_negate(a: Int): negate(negate(a)) = a
+
+axiom abs_negate(a: Int): abs(negate(a)) = abs(a)
+
+axiom abs_from_nat(n: Nat): abs(from_nat(n)) = n
+
+axiom fixed_negate(a: Int): negate(a) = a -> a = 0
+
+// Subtraction that casts into integers
+define sub_nat_nat(m: Nat, n: Nat) -> Int = if nat.lte(n, m) {
+    from_nat(subtraction.sub(m, n))
+    } else {
+    negate(from_nat(subtraction.sub(n, m)))
+}
+
+define is_nonnegative(a: Int) -> bool = from_nat(abs(a)) = a
+
+define is_positive(a: Int) -> bool = a != 0 & is_nonnegative(a)
+
+define is_negative(a: Int) -> bool = is_positive(negate(a))
+
+define add_nat_int(n: Nat, a: Int) -> Int = if is_nonnegative(a) {
+    from_nat(nat.add(n, abs(a)))
+    } else {
+    sub_nat_nat(n, abs(a))
+}
+
+define add(a: Int, b: Int) -> Int = if is_nonnegative(a) {
+    add_nat_int(abs(a), b)
+} else {
+    negate(add_nat_int(abs(a), negate(b)))
+}
+
+// TODO: define integer addition
+
