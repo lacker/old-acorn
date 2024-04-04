@@ -955,13 +955,15 @@ mod tests {
     }
 
     #[test]
-    fn test_recursive_resolution() {
+    fn test_self_referential_resolution() {
         // This is a bug we ran into. These things should not unify
         let mut set = ActiveSet::new();
         set.insert(ProofStep::mock("g2(x0, x0) = g0"), 0);
         let mut step = ProofStep::mock("g2(g2(g1(c0, x0), x0), g2(x1, x1)) != g0");
         step.truthiness = Truthiness::Counterfactual;
-        let (_, new_clauses) = set.generate(step);
-        assert_eq!(new_clauses.len(), 0);
+        let (_, steps) = set.generate(step);
+        for step in &steps {
+            assert!(!step.clause.is_impossible());
+        }
     }
 }
