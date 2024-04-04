@@ -8,6 +8,7 @@ let negate: Int -> Int = axiom
 let abs: Int -> Nat = axiom
 
 let 0: Int = from_nat(nat.0)
+let 1: Int = from_nat(nat.1)
 
 axiom negate_zero: negate(0) = 0
 
@@ -25,6 +26,8 @@ define sub_nat_nat(m: Nat, n: Nat) -> Int = if nat.lte(n, m) {
     } else {
     negate(from_nat(subtraction.sub(n, m)))
 }
+
+theorem sub_nat_nat_zero_right(n: Nat): sub_nat_nat(n, nat.0) = from_nat(n)
 
 define is_nonnegative(a: Int) -> bool = from_nat(abs(a)) = a
 
@@ -44,5 +47,12 @@ define add(a: Int, b: Int) -> Int = if is_nonnegative(a) {
     negate(add_nat_int(abs(a), negate(b)))
 }
 
-// TODO: define integer addition
+define sub(a: Int, b: Int) -> Int = add(a, negate(b))
 
+theorem add_zero_right(a: Int): add(a, 0) = a by {
+    if is_nonnegative(a) {
+        add(a, 0) = a
+    } else {
+        add(a, 0) = a
+    }
+}
