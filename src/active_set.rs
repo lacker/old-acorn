@@ -945,13 +945,23 @@ mod tests {
         let mut set = ActiveSet::new();
 
         // Nonreflexive rule of less-than
-        let mut step = ProofStep::mock("!c1(x0, x0)");
-        step.truthiness = Truthiness::Factual;
+        let step = ProofStep::mock("!c1(x0, x0)");
         set.insert(step, 1);
 
         // Trichotomy
         let clause = Clause::parse("c1(x0, x1) | c1(x1, x0) | x0 = x1");
         let output = ActiveSet::equality_factoring(&clause);
         assert_eq!(output[0].to_string(), "c1(x0, x0) | x0 = x0");
+    }
+
+    #[test]
+    fn test_recursive_resolution() {
+        // This is a bug we ran into. These things should not unify
+        let mut set = ActiveSet::new();
+        set.insert(ProofStep::mock("g2(x0, x0) = g0"), 0);
+        let mut step = ProofStep::mock("g2(g2(g1(c0, x0), x0), g2(x1, x1)) != g0");
+        step.truthiness = Truthiness::Counterfactual;
+        let (_, new_clauses) = set.generate(step);
+        assert_eq!(new_clauses.len(), 0);
     }
 }

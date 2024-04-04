@@ -608,6 +608,7 @@ mod tests {
             Some(proof) => proof.to_code(&env.bindings),
             None => Err(CodeGenError::NoProof),
         };
+        prover.print_proof();
         (outcome, code)
     }
 
