@@ -9,5 +9,6 @@
     "a11y-click-events-have-key-events": "ignore",
     "a11y-no-static-element-interactions": "ignore",
     "a11y-missing-attribute": "ignore"
-  }
+  },
+  "rust-analyzer.linkedProjects": ["./Cargo.toml"]
 }
