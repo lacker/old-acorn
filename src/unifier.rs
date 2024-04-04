@@ -228,7 +228,7 @@ impl Unifier {
                 // Let's keep this id and remap the other one instead
                 let mut new_term = term.clone();
                 new_term.head = Atom::Variable(id);
-                return self.remap(other_id, &new_term);
+                return self.unify_variable(Scope::Output, other_id, Scope::Output, &new_term);
             }
         }
         let term = self.apply(Scope::Output, term);
@@ -581,7 +581,7 @@ mod tests {
     }
 
     #[test]
-    fn test_self_reference_invalid() {
+    fn test_recursive_reference_in_output() {
         let first = Term::parse("g2(x0, x0)");
         let second = Term::parse("g2(g2(g1(c0, x0), x0), g2(x1, x1))");
         let mut u = Unifier::new();

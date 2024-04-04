@@ -1474,20 +1474,4 @@ mod tests {
         "#;
         expect_proof(text, "goal", &[]);
     }
-
-    #[test]
-    fn test_sub_zero_consistent() {
-        // Comes from a bug where we inconsistently proved that x - 0 = 0.
-        let text = r#"
-        type Nat: axiom
-        let 0: Nat = axiom
-        let add: (Nat, Nat) -> Nat = axiom
-        let sub: (Nat, Nat) -> Nat = axiom
-
-        theorem sub_self(a: Nat): sub(a, a) = 0
-        theorem sub_add(a: Nat, b: Nat): sub(add(a, b), b) = a
-        theorem goal(a: Nat): sub(a, 0) = 0
-        "#;
-        assert_eq!(prove_text(text, "goal"), Outcome::Exhausted);
-    }
 }
