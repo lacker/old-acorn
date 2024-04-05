@@ -441,3 +441,17 @@ theorem sub_anticomm(a: Int, b: Int): sub(a, b) = negate(sub(b, a)) by {
 theorem sub_self(a: Int): sub(a, a) = 0
 
 theorem sub_eq_zero(a: Int, b: Int): sub(a, b) = 0 -> a = b
+
+// Multiplication, and theorems about multiplication
+
+define mul_nat(a: Int, n: Nat) -> Int = if is_nonnegative(a) {
+    from_nat(nat.mul(abs(a), n))
+} else {
+    negate(from_nat(nat.mul(abs(a), n)))
+}
+
+define mul(a: Int, b: Int) -> Int = if is_nonnegative(b) {
+    mul_nat(a, abs(b))
+} else {
+    negate(mul_nat(a, abs(b)))
+}
