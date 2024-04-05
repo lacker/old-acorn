@@ -455,3 +455,24 @@ define mul(a: Int, b: Int) -> Int = if is_nonnegative(b) {
 } else {
     negate(mul_nat(a, abs(b)))
 }
+
+theorem mul_pos_pos(a: Int, b: Int):
+    is_nonnegative(a) & is_nonnegative(b) -> mul(a, b) = from_nat(nat.mul(abs(a), abs(b))) by {
+    mul(a, b) = mul_nat(a, abs(b))
+}
+
+theorem mul_pos_neg(a: Int, b: Int):
+    is_nonnegative(a) & is_negative(b) -> mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b)))) by {
+    mul(a, b) = negate(mul_nat(a, abs(b)))
+}
+
+theorem mul_neg_pos(a: Int, b: Int):
+    is_negative(a) & is_nonnegative(b) -> mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b)))) by {
+    mul(a, b) = mul_nat(a, abs(b))
+}
+
+theorem mul_neg_neg(a: Int, b: Int):
+    is_negative(a) & is_negative(b) -> mul(a, b) = from_nat(nat.mul(abs(a), abs(b))) by {
+    mul(a, b) = negate(mul_nat(a, abs(b)))
+    mul(a, b) = negate(negate(from_nat(nat.mul(abs(a), abs(b)))))
+}
