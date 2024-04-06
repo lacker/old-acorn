@@ -450,6 +450,18 @@ define mul_nat(a: Int, n: Nat) -> Int = if is_nonnegative(a) {
     negate(from_nat(nat.mul(abs(a), n)))
 }
 
+theorem mul_nat_zero_right(a: Int): mul_nat(a, nat.0) = 0 by {
+    if is_nonnegative(a) {
+        mul_nat(a, nat.0) = 0
+    } else {
+        mul_nat(a, nat.0) = 0
+    }
+}
+
+theorem mul_nat_zero_left(n: Nat): mul_nat(0, n) = 0 by {
+    from_nat(nat.mul(nat.0, n)) = 0
+}
+
 define mul(a: Int, b: Int) -> Int = if is_nonnegative(b) {
     mul_nat(a, abs(b))
 } else {
@@ -476,3 +488,10 @@ theorem mul_neg_neg(a: Int, b: Int):
     mul(a, b) = negate(mul_nat(a, abs(b)))
     mul(a, b) = negate(negate(from_nat(nat.mul(abs(a), abs(b)))))
 }
+
+theorem mul_zero_right(a: Int): mul(a, 0) = 0 by {
+    is_nonnegative(0)
+    mul(a, 0) = mul_nat(a, nat.0)
+}
+
+theorem mul_zero_left(a: Int): mul(0, a) = 0
