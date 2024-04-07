@@ -495,3 +495,29 @@ theorem mul_zero_right(a: Int): mul(a, 0) = 0 by {
 }
 
 theorem mul_zero_left(a: Int): mul(0, a) = 0
+
+theorem mul_comm(a: Int, b: Int): mul(a, b) = mul(b, a) by {
+    if is_nonnegative(a) {
+        if is_nonnegative(b) {
+            mul(a, b) = from_nat(nat.mul(abs(a), abs(b)))
+            mul(b, a) = from_nat(nat.mul(abs(b), abs(a)))
+            mul(a, b) = mul(b, a)
+        } else {
+            mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b))))
+            mul(b, a) = negate(from_nat(nat.mul(abs(b), abs(a))))
+            mul(a, b) = mul(b, a)
+        }
+        mul(a, b) = mul(b, a)
+    } else {
+        if is_nonnegative(b) {
+            mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b))))
+            mul(b, a) = negate(from_nat(nat.mul(abs(b), abs(a))))
+            mul(a, b) = mul(b, a)
+        } else {
+            mul(a, b) = from_nat(nat.mul(abs(a), abs(b)))
+            mul(b, a) = from_nat(nat.mul(abs(b), abs(a)))
+            mul(a, b) = mul(b, a)
+        }
+        mul(a, b) = mul(b, a)
+    }
+}
