@@ -521,3 +521,17 @@ theorem mul_comm(a: Int, b: Int): mul(a, b) = mul(b, a) by {
         mul(a, b) = mul(b, a)
     }
 }
+
+theorem mul_one_right(a: Int): mul(a, 1) = a by {
+    is_nonnegative(1)
+    mul(a, 1) = mul_nat(a, nat.1)
+    if is_nonnegative(a) {
+        mul(a, 1) = from_nat(nat.mul(abs(a), nat.1))
+        mul(a, 1) = from_nat(abs(a))
+        mul(a, 1) = a
+    } else {
+        mul(a, 1) = negate(from_nat(nat.mul(abs(a), nat.1)))
+        mul(a, 1) = negate(from_nat(abs(a)))
+        mul(a, 1) = a
+    }
+}
