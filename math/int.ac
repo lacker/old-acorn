@@ -535,3 +535,5 @@ theorem mul_one_right(a: Int): mul(a, 1) = a by {
         mul(a, 1) = a
     }
 }
+
+theorem mul_one_left(a: Int): mul(1, a) = a
