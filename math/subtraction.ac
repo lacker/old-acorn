@@ -11,7 +11,7 @@ let lte: (Nat, Nat) -> bool = nat.lte
 let mul: (Nat, Nat) -> Nat = nat.mul
 let divides: (Nat, Nat) -> bool = nat.divides
 
-define find<T>(f: T -> bool) -> T = axiom
+define find<T>(f: T -> bool) -> T: axiom
 
 // The axiom of choice.
 // It's simplest to just make this a normal axiom.
@@ -19,7 +19,7 @@ axiom choice<T>(f: T -> bool): exists(x: T) { f(x) } -> f(find(f))
 
 // is_sub(a, b)(x) tells you whether a - b = x.
 // This is a "bounded" version of subtraction that returns 0 instead of negative numbers.
-define is_sub(a: Nat, b: Nat) -> (Nat -> bool) = function(x: Nat) {
+define is_sub(a: Nat, b: Nat) -> (Nat -> bool): function(x: Nat) {
     // Defining sub(a, b) = x
     if lt(a, b) {
         x = 0
@@ -38,7 +38,7 @@ theorem sub_def(a: Nat, b: Nat): exists(x: Nat) { is_sub(a, b)(x) } by {
     }
 }
 
-define sub(a: Nat, b: Nat) -> Nat = find(is_sub(a, b))
+define sub(a: Nat, b: Nat) -> Nat: find(is_sub(a, b))
 
 theorem sub_is_sub(a: Nat, b: Nat): is_sub(a, b)(sub(a, b)) by {
     let f: Nat -> bool = is_sub(a, b)
@@ -65,7 +65,7 @@ theorem sub_zero(a: Nat): sub(a, 0) = a
 theorem add_imp_sub(a: Nat, b: Nat, c: Nat): add(a, b) = c -> sub(c, b) = a
 
 // Let's define mod similarly to how we defined sub.
-define is_mod(a: Nat, m: Nat) -> (Nat -> bool) = function(r: Nat) {
+define is_mod(a: Nat, m: Nat) -> (Nat -> bool): function(r: Nat) {
     if m != 0 {
         lt(r, m) & exists(q: Nat) { add(mul(q, m), r) = a }
     } else {
@@ -87,7 +87,7 @@ theorem mod_def(a: Nat, m: Nat): exists(r: Nat) { is_mod(a, m)(r) } by {
     }
 }
 
-define mod(a: Nat, m: Nat) -> Nat = find(is_mod(a, m))
+define mod(a: Nat, m: Nat) -> Nat: find(is_mod(a, m))
 
 theorem mod_is_mod(a: Nat, m: Nat): is_mod(a, m)(mod(a, m)) by {
     let f: Nat -> bool = is_mod(a, m)

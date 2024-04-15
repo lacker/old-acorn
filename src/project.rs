@@ -277,6 +277,7 @@ impl Project {
                         ..Diagnostic::default()
                     };
                     handler(BuildEvent {
+                        log_message: Some(format!("fatal error: {}", e)),
                         diagnostic: Some((target.to_string(), Some(diagnostic))),
                         ..BuildEvent::default()
                     });
@@ -678,7 +679,7 @@ mod tests {
     type AlsoFoo: Foo
     type NotFoo: axiom
     let foo: Foo = axiom
-    define fooify(x: Foo) -> Foo = foo
+    define fooify(x: Foo) -> Foo: foo
     "#;
 
     #[test]

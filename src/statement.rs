@@ -304,7 +304,7 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
             "only one type parameter is supported",
         ));
     }
-    let (return_type, _) = Expression::parse(tokens, false, |t| t == TokenType::Equals)?;
+    let (return_type, _) = Expression::parse(tokens, false, |t| t == TokenType::Colon)?;
     let (return_value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
     let ds = DefineStatement {
         name,
@@ -539,7 +539,7 @@ impl Statement {
                 write!(f, "define {}", ds.name)?;
                 write_type_params(f, &ds.type_params)?;
                 write_args(f, &ds.args)?;
-                write!(f, " -> {} = {}", ds.return_type, ds.return_value)
+                write!(f, " -> {}: {}", ds.return_type, ds.return_value)
             }
 
             StatementInfo::Theorem(ts) => {
@@ -768,9 +768,9 @@ mod tests {
         ok("let f: int -> bool = compose(g, h)");
         ok("let f: int -> int = x -> x + 1");
         ok("let g: (int, int, int) -> bool = swap(h)");
-        ok("define or(p: bool, q: bool) -> bool = (!p -> q)");
-        ok("define and(p: bool, q: bool) -> bool = !(p -> !q)");
-        ok("define iff(p: bool, q: bool) -> bool = (p -> q) & (q -> p)");
+        ok("define or(p: bool, q: bool) -> bool: (!p -> q)");
+        ok("define and(p: bool, q: bool) -> bool: !(p -> !q)");
+        ok("define iff(p: bool, q: bool) -> bool: (p -> q) & (q -> p)");
     }
 
     #[test]
@@ -813,10 +813,10 @@ mod tests {
         ok("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         ok("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         ok("axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> f(n)");
-        ok("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
+        ok("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
         ok("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
         ok("axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))");
-        ok("define add(x: Nat, y: Nat) -> Nat = recursion(Suc, x, y)");
+        ok("define add(x: Nat, y: Nat) -> Nat: recursion(Suc, x, y)");
         ok("theorem add_zero_right(a: Nat): add(a, 0) = a");
         ok("theorem add_zero_left(a: Nat): add(0, a) = a");
         ok("theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))");
@@ -904,7 +904,7 @@ mod tests {
 
     #[test]
     fn test_parametric_definition() {
-        ok("define recursion<T>(f: T -> T, a: T, n: Nat) -> Nat = axiom");
+        ok("define recursion<T>(f: T -> T, a: T, n: Nat) -> Nat: axiom");
     }
 
     #[test]

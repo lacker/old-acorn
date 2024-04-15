@@ -321,6 +321,12 @@ fn parse_partial_expressions(
             continue;
         }
         if token.token_type.is_binary() {
+            if !is_value {
+                match token.token_type {
+                    TokenType::Comma | TokenType::RightArrow | TokenType::Colon => {}
+                    _ => return Err(Error::new(&token, "expected a type expression")),
+                }
+            }
             partials.push_back(PartialExpression::Binary(token));
             continue;
         }

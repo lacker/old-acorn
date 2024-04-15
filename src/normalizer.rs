@@ -571,7 +571,7 @@ mod tests {
         );
         env.expect_type("induction", "Nat -> bool -> bool");
 
-        env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat = axiom");
+        env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
@@ -639,11 +639,11 @@ mod tests {
             r#"
             type Nat: axiom
             let borf: (Nat, Nat, Nat) -> bool = axiom
-            define also_borf(a: Nat, b: Nat, c: Nat) -> bool = borf(a, b, c)
+            define also_borf(a: Nat, b: Nat, c: Nat) -> bool: borf(a, b, c)
             let bb: Nat = axiom
             let cc: Nat = axiom
-            define specific_borf(x: Nat) -> bool = also_borf(x, bb, cc)
-            define always_true(f: Nat -> bool) -> bool = forall(n: Nat) { f(n) }
+            define specific_borf(x: Nat) -> bool: also_borf(x, bb, cc)
+            define always_true(f: Nat -> bool) -> bool: forall(n: Nat) { f(n) }
             theorem goal: !always_true(specific_borf)
         "#,
         );
@@ -692,7 +692,7 @@ mod tests {
             r#"
             type Nat: axiom
             let add: (Nat, Nat) -> Nat = axiom
-            define adder(a: Nat) -> (Nat -> Nat) = function(b: Nat) { add(a, b) }
+            define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { add(a, b) }
             theorem goal(a: Nat, b: Nat): adder(a)(b) = adder(b)(a)
             "#,
         );
@@ -707,7 +707,7 @@ mod tests {
             r#"
             type Nat: axiom
             let 0: Nat = axiom
-            define zerof(a: Nat) -> (Nat -> Nat) = function(b: Nat) { 0 }
+            define zerof(a: Nat) -> (Nat -> Nat): function(b: Nat) { 0 }
             theorem goal(a: Nat, b: Nat): zerof(a) = zerof(b)
             "#,
         );
