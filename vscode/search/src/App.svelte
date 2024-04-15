@@ -130,22 +130,24 @@
     {#if searchResponse.result !== null}
       {#if searchResponse.result.steps === null}
         <pre>No proof found.</pre>
+      {:else if nontrivial.length === 0}
+        <div class="mono">The proposition follows trivially.</div>
+      {:else if searchResponse.proofInsertionLine === null}
+        <div class="mono">
+          The proposition is not trivial. To insert a proof, add a "by" block.
+        </div>
       {:else if searchResponse.result.code === null}
         <pre>Code generation failed:</pre>
         <pre>    {searchResponse.result.codeError}</pre>
       {:else if searchResponse.result.code.length === 0}
-        {#if nontrivial.length === 0}
-          <div class="mono">The proposition follows trivially.</div>
-        {:else}
-          <div class="mono">
-            The proposition follows
-            {#each nontrivial as step, i}
-              {#if i > 0}
-                {" and "}
-              {/if}
-              <Rule {step} {showLocation} />{/each}.
-          </div>
-        {/if}
+        <div class="mono">
+          The proposition follows
+          {#each nontrivial as step, i}
+            {#if i > 0}
+              {" and "}
+            {/if}
+            <Rule {step} {showLocation} />{/each}.
+        </div>
       {:else}
         <pre>{["Proof found:\n"]
             .concat(searchResponse.result.code)

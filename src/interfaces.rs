@@ -164,8 +164,9 @@ pub struct SearchResponse {
     // The text output will keep growing as the search task runs.
     pub text_output: Vec<String>,
 
-    // The line where we would insert a proof for this goal
-    pub proof_insertion_line: u32,
+    // The line where we would insert a proof for this goal.
+    // None if there isn't a location to insert the proof because there is no "by" block.
+    pub proof_insertion_line: Option<u32>,
 
     // The result of the search process.
     // If it has not completed yet, this is None.
@@ -186,7 +187,7 @@ impl SearchResponse {
             goal_range: None,
             text_output: vec![],
             result: None,
-            proof_insertion_line: 0,
+            proof_insertion_line: None,
             id: params.id,
         }
     }

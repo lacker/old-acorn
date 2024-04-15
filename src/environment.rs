@@ -1167,6 +1167,7 @@ impl Environment {
         let mut env = self;
         let mut it = path.iter().peekable();
         let mut global = true;
+        let mut depth = 0;
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
                 let fact = env.inline_theorems(project, &previous_prop.claim);
@@ -1201,13 +1202,21 @@ impl Environment {
                         prop.name(),
                         block.env.inline_theorems(project, &claim),
                         prop.claim.source.range,
-                        block.env.last_line(),
+                        Some(block.env.last_line()),
                     ));
                 }
+                depth += 1;
                 env = &block.env;
             } else {
                 // If there's no block on this prop, this must be the last element of the path
                 assert!(it.peek().is_none());
+
+                // We don't want to insert proofs at the top level.
+                let proof_insertion_line = if depth == 0 {
+                    None
+                } else {
+                    Some(prop.claim.source.range.start.line)
+                };
 
                 return Ok(GoalContext::new(
                     &env,
@@ -1216,7 +1225,7 @@ impl Environment {
                     prop.name(),
                     env.inline_theorems(project, &prop.claim),
                     prop.claim.source.range,
-                    prop.claim.source.range.start.line,
+                    proof_insertion_line,
                 ));
             }
         }

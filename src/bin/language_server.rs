@@ -95,7 +95,7 @@ struct SearchTask {
     superseded: Arc<AtomicBool>,
 
     // Zero-based line where we would insert a proof for this goal
-    proof_insertion_line: u32,
+    proof_insertion_line: Option<u32>,
 
     // The search id set by the extenson for the original search that created this task.
     // The extension may send new searches with essentially the same parameters, that we

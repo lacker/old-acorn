@@ -428,6 +428,27 @@ theorem add_assoc(a: Int, b: Int, c: Int): add(a, add(b, c)) = add(add(a, b), c)
     add_sub_nat_assoc(pos_part(a), neg_part(a), pos_part(b), neg_part(b), pos_part(c), neg_part(c))
 }
 
+theorem add_from_nat(a: Nat, b: Nat): add(from_nat(a), from_nat(b)) = from_nat(nat.add(a, b))
+
+theorem add_pos_nonneg(a: Int, b: Int): is_positive(a) & !is_negative(b) -> is_positive(add(a, b)) by {
+    if b = 0 {
+        add(a, b) = a
+        is_positive(add(a, b))
+    } else {
+        is_positive(b)
+        a = from_nat(abs(a))
+        b = from_nat(abs(b))
+        add(a, b) = from_nat(nat.add(abs(a), abs(b)))
+        is_positive(add(a, b))
+    }
+}
+
+theorem add_neg_nonpos(a: Int, b: Int): is_negative(a) & !is_positive(b) -> is_negative(add(a, b))
+
+theorem add_nonneg_nonneg(a: Int, b: Int): !is_negative(a) & !is_negative(b) -> !is_negative(add(a, b))
+
+theorem add_nonpos_nonpos(a: Int, b: Int): !is_positive(a) & !is_positive(b) -> !is_positive(add(a, b))
+
 // Subtraction, and theorems about subtraction
 
 define sub(a: Int, b: Int) -> Int: add(a, negate(b))
@@ -453,6 +474,24 @@ theorem sub_anticomm(a: Int, b: Int): sub(a, b) = negate(sub(b, a)) by {
 theorem sub_self(a: Int): sub(a, a) = 0
 
 theorem sub_eq_zero(a: Int, b: Int): sub(a, b) = 0 -> a = b
+
+theorem sub_add_left(a: Int, b: Int): sub(add(a, b), b) = a
+
+theorem neg_sub(a: Int, b: Int): negate(sub(a, b)) = sub(b, a)
+
+theorem sub_add_right(a: Int, b: Int): sub(a, add(a, b)) = negate(b)
+
+theorem sub_imp_add(a: Int, b: Int, c: Int): sub(a, b) = c -> add(b, c) = a
+
+theorem sub_negate_imp_add(a: Int, b: Int, c: Int): sub(a, b) = negate(c) -> add(a, c) = b
+
+theorem sub_cancel_right(a: Int, b: Int, c: Int): sub(a, c) = sub(b, c) -> a = b
+
+theorem sub_cancel_left(a: Int, b: Int, c: Int): sub(a, b) = sub(a, c) -> b = c
+
+theorem sub_add_cancel_left(a: Int, b: Int, c: Int): sub(add(a, b), add(a, c)) = sub(b, c)
+
+theorem sub_add_cancel_right(a: Int, b: Int, c: Int): sub(add(a, c), add(b, c)) = sub(a, b)
 
 // Integer-natural multiplication
 
@@ -678,4 +717,94 @@ theorem mul_distrib_left(a: Int, b: Int, c: Int): mul(a, add(b, c)) = add(mul(a,
     mul(a, add(b, c)) = mul(add(b, c), a)
     mul(a, add(b, c)) = add(mul(b, a), mul(c, a))
     mul(a, add(b, c)) = add(mul(a, b), mul(c, a))
+}
+
+// Comparison operators
+
+define lt(a: Int, b: Int) -> bool: is_positive(sub(b, a))
+
+define lte(a: Int, b: Int) -> bool: lt(a, b) | a = b
+
+theorem lt_not_ref(a: Int): !lt(a, a) by {
+    if lt(a, a) {
+        is_positive(sub(a, a))
+        is_positive(0)
+        false
+    }
+}
+
+theorem lte_ref(a: Int): lte(a, a)
+
+theorem zero_lt_pos(a: Int): is_positive(a) -> lt(0, a)
+
+theorem neg_lt_zero(a: Int): is_negative(a) -> lt(a, 0)
+
+theorem lt_add_left(a: Int, b: Int, c: Int): lt(b, c) -> lt(add(a, b), add(a, c)) by {
+    is_positive(sub(c, b))
+    sub(add(a, c), add(a, b)) = sub(c, b)
+    is_positive(sub(add(a, c), add(a, b)))
+}
+
+theorem lte_add_left(a: Int, b: Int, c: Int): lte(b, c) -> lte(add(a, b), add(a, c))
+
+theorem abs_add_nonneg(a: Int, b: Int):
+    !is_negative(a) & !is_negative(b) -> abs(add(a, b)) = nat.add(abs(a), abs(b)) by {
+    from_nat(abs(a)) = a
+    from_nat(abs(b)) = b
+    add(from_nat(abs(a)), from_nat(abs(b))) = from_nat(nat.add(abs(a), abs(b)))
+    add(a, from_nat(abs(b))) = from_nat(nat.add(abs(a), abs(b)))
+    add(a, b) = from_nat(nat.add(abs(a), abs(b)))
+}
+
+theorem abs_add_nonpos(a: Int, b: Int):
+    !is_positive(a) & !is_positive(b) -> abs(add(a, b)) = nat.add(abs(a), abs(b)) by {
+    // TODO
+}
+
+// One case of the triangle inequality
+theorem triangle_nonpos_lte_nonneg(a: Int, b: Int):
+    !is_negative(a) & !is_positive(b) & nat.lte(abs(b), abs(a)) -> nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b))) by {
+    exists(n: Nat) { nat.add(n, abs(b)) = abs(a) }
+    add(from_nat(n), from_nat(abs(b))) = from_nat(abs(a))
+    add(from_nat(n), negate(b)) = from_nat(abs(a))
+    add(from_nat(n), negate(b)) = a
+    add(a, b) = from_nat(n)
+    abs(add(a, b)) = n
+    nat.lte(n, abs(a))
+    nat.lte(abs(a), nat.add(abs(a), abs(b)))
+    nat.lte(n, nat.add(abs(a), abs(b)))
+}
+
+theorem triangle_nonneg_nonpos(a: Int, b: Int):
+    !is_negative(a) & !is_positive(b) -> nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b))) by {
+    if nat.lte(abs(b), abs(a)) {
+        nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b)))
+    } else {
+        nat.lte(abs(a), abs(b))
+        nat.lte(abs(negate(a)), abs(negate(b)))
+        !is_negative(negate(b))
+        !is_positive(negate(a))
+        nat.lte(abs(add(negate(b), negate(a))), nat.add(abs(negate(b)), abs(negate(a))))
+        nat.lte(abs(negate(add(b, a))), nat.add(abs(negate(b)), abs(negate(a))))
+        nat.lte(abs(add(b, a)), nat.add(abs(negate(b)), abs(negate(a))))
+        nat.lte(abs(add(b, a)), nat.add(abs(b), abs(a)))
+        nat.lte(abs(add(a, b)), nat.add(abs(b), abs(a)))        
+        nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b)))
+    }
+}
+
+theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b))) by {
+    if is_negative(a) {
+        if is_negative(b) {
+            nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b)))
+        } else {
+            nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b)))
+        }
+    } else {
+        if is_negative(b) {
+            nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b)))
+        } else {
+            nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b)))
+        }
+    }
 }

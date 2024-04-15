@@ -30,8 +30,9 @@ pub struct GoalContext<'a> {
     pub range: Range,
 
     // The zero-based line where we would insert a proof for this goal.
+    // None if we do not want to insert a proof for this goal.
     // Code already on that line would be moved down.
-    pub proof_insertion_line: u32,
+    pub proof_insertion_line: Option<u32>,
 }
 
 impl GoalContext<'_> {
@@ -42,7 +43,7 @@ impl GoalContext<'_> {
         name: String,
         goal: Proposition,
         range: Range,
-        proof_insertion_line: u32,
+        proof_insertion_line: Option<u32>,
     ) -> GoalContext {
         GoalContext {
             env,
