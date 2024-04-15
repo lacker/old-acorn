@@ -478,6 +478,9 @@ impl Environment {
     // Adds a conditional block to the environment.
     // Takes the condition, the range to associate with the condition, the first line of
     // the conditional block, and finally the body itself.
+    // If this is an "else" block, we pass in the claim from the "if" part of the block.
+    // This way, if the claim is the same, we can simplify by combining them when exported.
+    // Returns the last claim in the block, if we didn't have an if-claim to match against.
     fn add_conditional(
         &mut self,
         project: &mut Project,
@@ -485,10 +488,11 @@ impl Environment {
         range: Range,
         first_line: u32,
         body: &Body,
-    ) -> token::Result<()> {
+        if_claim: Option<AcornValue>,
+    ) -> token::Result<Option<AcornValue>> {
         if body.statements.is_empty() {
             // Conditional blocks with an empty body can just be ignored
-            return Ok(());
+            return Ok(None);
         }
         let block = self.new_block(
             project,
@@ -509,14 +513,30 @@ impl Environment {
         };
         // The last claim in the block is exported to the outside environment.
         let outer_claim = block.export_bool(&self, inner_claim);
-        let claim = AcornValue::Binary(
-            BinaryOp::Implies,
-            Box::new(condition),
-            Box::new(outer_claim.clone()),
-        );
+        let matching_branches = if let Some(if_claim) = if_claim {
+            if outer_claim == if_claim {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        let (external_claim, last_claim) = if matching_branches {
+            (outer_claim, None)
+        } else {
+            (
+                AcornValue::Binary(
+                    BinaryOp::Implies,
+                    Box::new(condition),
+                    Box::new(outer_claim.clone()),
+                ),
+                Some(outer_claim),
+            )
+        };
         let prop = PropositionTree {
             proven: false,
-            claim: Proposition::anonymous(claim, self.module_id, claim_range),
+            claim: Proposition::anonymous(external_claim, self.module_id, claim_range),
             block: Some(block),
         };
         let index = self.add_proposition(prop);
@@ -525,7 +545,7 @@ impl Environment {
             first_line,
             body.right_brace.line_number,
         );
-        Ok(())
+        Ok(last_claim)
     }
 
     // Adds a statement to the environment.
@@ -793,12 +813,13 @@ impl Environment {
                     self.bindings
                         .evaluate_value(project, &is.condition, Some(&AcornType::Bool))?;
                 let range = is.condition.range();
-                self.add_conditional(
+                let if_claim = self.add_conditional(
                     project,
                     condition.clone(),
                     range,
                     statement.first_line(),
                     &is.body,
+                    None,
                 )?;
                 if let Some(else_body) = &is.else_body {
                     self.add_conditional(
@@ -807,6 +828,7 @@ impl Environment {
                         range,
                         else_body.left_brace.line_number as u32,
                         else_body,
+                        if_claim,
                     )?;
                 }
                 Ok(())

@@ -1474,4 +1474,22 @@ mod tests {
         "#;
         expect_proof(text, "goal", &[]);
     }
+
+    #[test]
+    fn test_nested_if_else() {
+        let text = r#"
+        let a: bool = axiom
+        let b: bool = axiom
+        let c: bool = axiom
+        if a {
+            if b {
+                c
+            } else {
+                c
+            }
+        }
+        theorem goal: a -> c
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
 }
