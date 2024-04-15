@@ -161,9 +161,9 @@ theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
 theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
     add(add(a, b), add(c, d)) = add(add(a, c), add(b, d))
 
-theorem add_left_distrib(a: Nat, b: Nat, c: Nat):
+theorem distrib_left(a: Nat, b: Nat, c: Nat):
     mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
-    define f(x: Nat) -> bool = add_left_distrib(x, b, c)
+    define f(x: Nat) -> bool = distrib_left(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -183,7 +183,7 @@ theorem add_left_distrib(a: Nat, b: Nat, c: Nat):
     }
 }
 
-theorem add_right_distrib(a: Nat, b: Nat, c: Nat):
+theorem distrib_right(a: Nat, b: Nat, c: Nat):
     mul(add(a, b), c) = add(mul(a, c), mul(b, c))
 
 theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c)) by {
