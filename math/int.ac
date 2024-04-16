@@ -1,3 +1,4 @@
+import gcd
 import nat
 import subtraction
 type Nat: nat.Nat
@@ -966,7 +967,21 @@ theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(add(a, b)), nat.add(abs(a), a
     }
 }
 
-// Divisors
+theorem lt_mul_pos(a: Int, b: Int, c: Int): lt(a, b) & is_positive(c) -> lt(mul(a, c), mul(b, c)) by {
+    sub(mul(b, c), mul(a, c)) = mul(c, sub(b, a))
+    is_positive(sub(b, a))
+    is_positive(sub(mul(b, c), mul(a, c)))
+}
+
+theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(mul(b, c), mul(a, c)) by {
+    sub(mul(a, c), mul(b, c)) = mul(c, sub(a, b))
+    is_positive(sub(b, a))
+    is_negative(sub(a, b))
+    is_positive(mul(c, sub(a, b)))
+    is_positive(sub(mul(a, c), mul(b, c)))
+}
+
+// Units and dividing
 
 define is_unit(a: Int) -> bool: abs(a) = nat.1
 
@@ -978,6 +993,13 @@ theorem unit_squared(u: Int): is_unit(u) -> mul(u, u) = 1 by {
     } else {
         mul(u, u) = 1
     }
+}
+
+theorem mul_units(u: Int, v: Int): is_unit(u) & is_unit(v) -> is_unit(mul(u, v)) by {
+    abs(mul(u, v)) = nat.mul(abs(u), abs(v))
+    abs(u) = nat.1
+    abs(v) = nat.1
+    abs(mul(u, v)) = nat.1
 }
 
 // Like the sign function, but we force it to be a unit, by considering 0 to have sign 1
@@ -1018,20 +1040,6 @@ theorem div_trans(a: Int, b: Int, c: Int): divides(a, b) & divides(b, c) -> divi
     divides(a, c)
 }
 
-// theorem abs_eq_imp_div(a: Int, b: Int): abs(a) = abs(b) -> divides(a, b) by {
-//     a = mul(unit_sign(a), from_nat(abs(a)))
-//     mul(unit_sign(a), a) = mul(unit_sign(a), mul(unit_sign(a), from_nat(abs(a))))
-//     mul(unit_sign(a), a) = mul(mul(unit_sign(a), unit_sign(a)), from_nat(abs(a)))
-//     is_unit(unit_sign(a))
-//     mul(unit_sign(a), unit_sign(a)) = 1
-//     mul(unit_sign(a), a) = mul(1, from_nat(abs(a)))
-//     mul(unit_sign(a), a) = from_nat(abs(a))
-//     divides(a, from_nat(abs(a)))
-//     divides(a, from_nat(abs(b)))
-//     b = mul(unit_sign(b), from_nat(abs(b)))
-//     divides(from_nat(abs(b)), b)
-// }
-
 theorem div_imp_div_abs(a: Int, b: Int): divides(a, b) -> nat.divides(abs(a), abs(b)) by {
     exists(d: Int) { mul(d, a) = b }
     nat.mul(abs(d), abs(a)) = abs(b)
@@ -1053,4 +1061,36 @@ theorem div_abs_imp_div(a: Int, b: Int): nat.divides(abs(a), abs(b)) -> divides(
     divides(a, from_nat(abs(a)))
     divides(a, from_nat(abs(b)))
     divides(from_nat(abs(b)), b)
+}
+
+theorem abs_eq_imp_unit(a: Int, b: Int): abs(a) = abs(b) -> exists(u: Int) { is_unit(u) & mul(u, a) = b } by {
+    from_nat(abs(a)) = from_nat(abs(b))
+    mul(unit_sign(a), a) = from_nat(abs(a))
+    b = mul(unit_sign(b), from_nat(abs(b)))
+    b = mul(unit_sign(b), from_nat(abs(a)))
+    b = mul(unit_sign(b), mul(unit_sign(a), a))
+    b = mul(mul(unit_sign(b), unit_sign(a)), a)
+    is_unit(unit_sign(b))
+    is_unit(unit_sign(a))
+    is_unit(mul(unit_sign(b), unit_sign(a)))
+}
+
+theorem abs_eq_imp_div(a: Int, b: Int): abs(a) = abs(b) -> divides(a, b) by {
+    exists(u: Int) { is_unit(u) & mul(u, a) = b }
+}
+
+// Theorems that relate to the GCD
+
+define gcd(a: Int, b: Int) -> Int: from_nat(nat.gcd(abs(a), abs(b)))
+
+theorem gcd_comm(a: Int, b: Int): gcd(a, b) = gcd(b, a) by {
+    from_nat(nat.gcd(abs(a), abs(b))) = from_nat(nat.gcd(abs(b), abs(a)))
+}
+
+theorem gcd_div_left(a: Int, b: Int): divides(gcd(a, b), a)
+
+theorem gcd_div_right(a: Int, b: Int): divides(gcd(a, b), b)
+
+theorem gcd_is_gcd(a: Int, b: Int, d: Int): a != 0 & b != 0 & divides(d, a) & divides(d, b) -> lte(d, gcd(a, b)) by {
+    //
 }
