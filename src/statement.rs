@@ -241,9 +241,18 @@ fn parse_theorem_statement(
         ));
     }
     Token::skip_newlines(tokens);
-    let (claim, terminator) = Expression::parse(tokens, true, |t| {
+    let (claim, mut terminator) = Expression::parse(tokens, true, |t| {
         t == TokenType::NewLine || t == TokenType::By
     })?;
+    // Let the "by" be after one newline
+    match tokens.peek() {
+        Some(token) => {
+            if token.token_type == TokenType::By {
+                terminator = tokens.next().unwrap();
+            }
+        }
+        None => {}
+    };
     let (body, last_token) = if terminator.token_type == TokenType::By {
         let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
         let (statements, right_brace) = parse_block(tokens)?;
