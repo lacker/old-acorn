@@ -296,6 +296,8 @@ theorem neg_distrib(a: Int, b: Int): negate(add(a, b)) = add(negate(a), negate(b
     add(negate(a), negate(b)) = sub_nat(nat.add(pos_part(negate(a)), pos_part(negate(b))),
                                         nat.add(neg_part(negate(a)), neg_part(negate(b))))
     add(negate(a), negate(b)) = sub_nat(nat.add(neg_part(a), neg_part(b)),
+                                        nat.add(neg_part(negate(a)), neg_part(negate(b))))                                        
+    add(negate(a), negate(b)) = sub_nat(nat.add(neg_part(a), neg_part(b)),
                                         nat.add(pos_part(a), pos_part(b)))
     add(negate(a), negate(b)) = negate(sub_nat(nat.add(pos_part(a), pos_part(b)), nat.add(neg_part(a), neg_part(b))))
 }
