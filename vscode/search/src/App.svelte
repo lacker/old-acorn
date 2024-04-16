@@ -132,13 +132,15 @@
         <pre>No proof found.</pre>
       {:else if nontrivial.length === 0}
         <div class="mono">The proposition follows trivially.</div>
-      {:else if searchResponse.proofInsertionLine === null}
-        <div class="mono">
-          The proposition is not trivial. To insert a proof, add a "by" block.
-        </div>
       {:else if searchResponse.result.code === null}
-        <pre>Code generation failed:</pre>
-        <pre>    {searchResponse.result.codeError}</pre>
+        {#if searchResponse.proofInsertionLine === null}
+          <div class="mono">
+            The proof is nontrivial. To generate code, add a "by" block.
+          </div>
+        {:else}
+          <pre>Code generation failed:</pre>
+          <pre>    {searchResponse.result.codeError}</pre>
+        {/if}
       {:else if searchResponse.result.code.length === 0}
         <div class="mono">
           The proposition follows
@@ -153,7 +155,11 @@
             .concat(searchResponse.result.code)
             .join("\n\t")
             .replace(/\t/g, spaces(4))}</pre>
-        <button on:click={insertProof}>Insert proof</button>
+        {#if searchResponse.proofInsertionLine === null}
+          <div class="mono">To insert the proof, add a "by" block.</div>
+        {:else}
+          <button on:click={insertProof}>Insert proof</button>
+        {/if}
       {/if}
 
       {#if searchResponse.result.steps !== null}

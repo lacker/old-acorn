@@ -202,7 +202,9 @@ theorem distrib_left(a: Nat, b: Nat, c: Nat):
 }
 
 theorem distrib_right(a: Nat, b: Nat, c: Nat):
-    mul(add(a, b), c) = add(mul(a, c), mul(b, c))
+    mul(add(a, b), c) = add(mul(a, c), mul(b, c)) by {
+    add(mul(c, a), mul(b, c)) = mul(c, add(a, b))
+}
 
 theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c)) by {
     define f(x: Nat) -> bool: mul_assoc(x, b, c)
@@ -362,7 +364,9 @@ theorem add_cancels_right(a: Nat, b: Nat, c: Nat): add(b, a) = add(c, a) -> b = 
     b = c
 }
 
-theorem add_identity_right(a: Nat, b: Nat): add(a, b) = a -> b = 0
+theorem add_identity_right(a: Nat, b: Nat): add(a, b) = a -> b = 0 by {
+    // TODO: generate a concrete step here
+}
 
 theorem lt_add_suc(a: Nat, b: Nat): lt(a, add(a, Suc(b))) by {
     lte(a, add(a, Suc(b)))
@@ -391,7 +395,13 @@ theorem lt_suc_left(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
     }
 }
 
-theorem lt_suc_right(a: Nat, b: Nat): lt(a, Suc(b)) -> a = b | lt(a, b)
+theorem lt_suc_right(a: Nat, b: Nat): lt(a, Suc(b)) -> a = b | lt(a, b) by {
+    if a != b {
+        Suc(b) != Suc(a)
+        lt(Suc(a), Suc(b))
+        lt(a, b)
+    }
+}
 
 theorem lt_add_left(a: Nat, b: Nat, c: Nat): lt(b, c) -> lt(add(a, b), add(a, c)) by {
     exists(d: Nat) { add(b, d) = c }
@@ -430,7 +440,12 @@ theorem lt_or_lte(a: Nat, b: Nat): lt(a, b) | lte(b, a) by {
     }
 }
 
-theorem lt_imp_lte_suc(a: Nat, b: Nat): lt(a, b) -> lte(Suc(a), b)
+theorem lt_imp_lte_suc(a: Nat, b: Nat): lt(a, b) -> lte(Suc(a), b) by {
+    if !lte(Suc(a), b) {
+        Suc(a) = b
+        false
+    }
+}
 
 theorem lte_imp_not_lt(a: Nat, b: Nat): lte(a, b) -> !lt(b, a) by {
     if a = b {
@@ -661,7 +676,9 @@ theorem divides_factorial(k: Nat, n: Nat):
     }
 }
 
-theorem factorial_nondecreasing(n: Nat): lte(factorial(n), factorial(Suc(n)))
+theorem factorial_nondecreasing(n: Nat): lte(factorial(n), factorial(Suc(n))) by {
+    lte(factorial(n), mul(Suc(n), factorial(n)))
+}
 
 theorem lte_one_factorial(a: Nat): lte(1, factorial(a)) by {
     induction(lte_one_factorial)
