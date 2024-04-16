@@ -844,6 +844,20 @@ mod tests {
     }
 
     #[test]
+    fn test_by_on_next_line() {
+        let statement = should_parse(indoc! {"
+            theorem foo: bar
+            by {
+                baz
+            }"});
+        let expected = indoc! {"
+        theorem foo: bar by {
+            baz
+        }"};
+        assert_eq!(expected, statement.to_string());
+    }
+
+    #[test]
     fn test_statement_errors() {
         fail("+ + +");
         fail("let p: bool =");
