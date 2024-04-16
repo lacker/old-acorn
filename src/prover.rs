@@ -1338,7 +1338,7 @@ mod tests {
             axiom gimph: forall(x: Nat) { g(x) -> h(x) }
             theorem goal: forall(x: Nat) { f(x) -> h(x) }
         "#;
-        expect_code_gen_error(text, "goal", "ExplicitGoal");
+        expect_code_gen_error(text, "goal", "Skolem");
     }
 
     #[test]

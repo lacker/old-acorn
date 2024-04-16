@@ -722,17 +722,14 @@ impl Environment {
                     Some(lambda_claim.clone()),
                 );
 
-                let block = match &ts.body {
-                    Some(body) => Some(self.new_block(
-                        project,
-                        type_params,
-                        block_args,
-                        BlockParams::Theorem(&ts.name, premise, goal),
-                        statement.first_line(),
-                        Some(&body),
-                    )?),
-                    None => None,
-                };
+                let block = self.new_block(
+                    project,
+                    type_params,
+                    block_args,
+                    BlockParams::Theorem(&ts.name, premise, goal),
+                    statement.first_line(),
+                    ts.body.as_ref(),
+                )?;
 
                 let tree = PropositionTree {
                     proven: ts.axiomatic,
@@ -743,7 +740,7 @@ impl Environment {
                         range,
                         ts.name.to_string(),
                     ),
-                    block,
+                    block: Some(block),
                 };
                 let index = self.add_proposition(tree);
                 self.add_prop_lines(index, statement);
