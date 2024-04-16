@@ -1,4 +1,4 @@
-import gcd
+import nat_gcd
 import nat
 import subtraction
 type Nat: nat.Nat
@@ -721,6 +721,7 @@ theorem mul_distrib_nonneg_right(a: Int, b: Int, c: Int):
     !is_negative(c) -> mul(add(a, b), c) = add(mul(a, c), mul(b, c)) by {
     mul(add(a, b), c) = mul_nat(add(a, b), abs(c))
     mul(add(a, b), c) = add(mul_nat(a, abs(c)), mul_nat(b, abs(c)))
+    mul(add(a, b), c) = add(mul(a, c), mul_nat(b, abs(c)))
     mul(add(a, b), c) = add(mul(a, c), mul(b, c))
 }
 
@@ -891,6 +892,14 @@ theorem zero_lt_pos(a: Int): is_positive(a) -> lt(0, a)
 
 theorem neg_lt_zero(a: Int): is_negative(a) -> lt(a, 0)
 
+theorem nonpos_lt_pos(a: Int, b: Int): !is_positive(a) & is_positive(b) -> lt(a, b)
+
+theorem neg_lt_nonneg(a: Int, b: Int): is_negative(a) & !is_negative(b) -> lt(a, b)
+
+theorem nonpos_lte_nonneg(a: Int, b: Int): !is_positive(a) & !is_negative(b) -> lte(a, b)
+
+theorem lte_abs(a: Int): lte(a, from_nat(abs(a)))
+
 theorem lt_add_left(a: Int, b: Int, c: Int): lt(b, c) -> lt(add(a, b), add(a, c)) by {
     is_positive(sub(c, b))
     sub(add(a, c), add(a, b)) = sub(c, b)
@@ -979,6 +988,61 @@ theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(mul(
     is_negative(sub(a, b))
     is_positive(mul(c, sub(a, b)))
     is_positive(sub(mul(a, c), mul(b, c)))
+}
+
+theorem lt_trans(a: Int, b: Int, c: Int): lt(a, b) & lt(b, c) -> lt(a, c) by {
+    is_positive(sub(b, a))
+    is_positive(sub(c, b))
+    is_positive(sub(c, a))
+}
+
+theorem lte_trans(a: Int, b: Int, c: Int): lte(a, b) & lte(b, c) -> lte(a, c) by {
+    if a = b {
+        lte(a, c)
+    } else {
+        lt(a, b)
+        if b = c {
+            lte(a, c)
+        } else {
+            lt(b, c)
+            lt(a, c)
+            lte(a, c)
+        }
+    }
+}
+
+theorem lt_and_lte(a: Int, b: Int, c: Int): lt(a, b) & lte(b, c) -> lt(a, c) by {
+    if b = c {
+        lt(a, c)
+    } else {
+        lt(a, c)
+    }
+}
+
+theorem lte_and_lt(a: Int, b: Int, c: Int): lte(a, b) & lt(b, c) -> lt(a, c) by {
+    if a = b {
+        lt(a, c)
+    } else {
+        lt(a, c)
+    }
+}
+
+theorem lt_from_nat(j: Nat, k: Nat): nat.lt(j, k) -> lt(from_nat(j), from_nat(k)) by {
+    exists(d: Nat) { nat.add(d, j) = k & d != nat.0 }
+    add(from_nat(d), from_nat(j)) = from_nat(k)
+    sub(from_nat(k), from_nat(j)) = from_nat(d)
+    is_positive(from_nat(d))
+}
+
+theorem lte_from_nat(j: Nat, k: Nat): nat.lte(j, k) -> lte(from_nat(j), from_nat(k)) by {
+    if j = k {
+        from_nat(j) = from_nat(k)
+        lte(from_nat(j), from_nat(k))
+    } else {
+        nat.lt(j, k)
+        lt(from_nat(j), from_nat(k))
+        lte(from_nat(j), from_nat(k))
+    }
 }
 
 // Units and dividing
@@ -1079,18 +1143,45 @@ theorem abs_eq_imp_div(a: Int, b: Int): abs(a) = abs(b) -> divides(a, b) by {
     exists(u: Int) { is_unit(u) & mul(u, a) = b }
 }
 
+theorem div_pos_imp_lte(a: Int, b: Int): divides(a, b) & is_positive(b) -> lte(a, b) by {
+    divides(from_nat(abs(a)), b)
+    lte(from_nat(abs(a)), b)
+    lte(a, from_nat(abs(a)))
+    lte(a, b)
+}
+
 // Theorems that relate to the GCD
 
-define gcd(a: Int, b: Int) -> Int: from_nat(nat.gcd(abs(a), abs(b)))
+define gcd(a: Int, b: Int) -> Int: from_nat(nat_gcd.gcd(abs(a), abs(b)))
+
+theorem gcd_nonneg(a: Int, b: Int): !is_negative(gcd(a, b))
 
 theorem gcd_comm(a: Int, b: Int): gcd(a, b) = gcd(b, a) by {
-    from_nat(nat.gcd(abs(a), abs(b))) = from_nat(nat.gcd(abs(b), abs(a)))
+    from_nat(nat_gcd.gcd(abs(a), abs(b))) = from_nat(nat_gcd.gcd(abs(b), abs(a)))
 }
 
 theorem gcd_div_left(a: Int, b: Int): divides(gcd(a, b), a)
 
 theorem gcd_div_right(a: Int, b: Int): divides(gcd(a, b), b)
 
-theorem gcd_is_gcd(a: Int, b: Int, d: Int): a != 0 & b != 0 & divides(d, a) & divides(d, b) -> lte(d, gcd(a, b)) by {
-    //
+theorem divides_gcd(a: Int, b: Int, d: Int): divides(d, a) & divides(d, b) -> divides(d, gcd(a, b)) by {
+    nat.divides(abs(d), abs(a))
+    nat.divides(abs(d), abs(b))
+    nat.divides(abs(d), nat_gcd.gcd(abs(a), abs(b)))
+    divides(d, from_nat(nat_gcd.gcd(abs(a), abs(b))))
+    divides(d, gcd(a, b))
 }
+
+theorem gcd_pos(a: Int, b: Int): a != 0 & b != 0 -> is_positive(gcd(a, b)) by {
+    abs(a) != nat.0
+    abs(b) != nat.0
+    nat_gcd.gcd(abs(a), abs(b)) != nat.0
+    gcd(a, b) != 0
+}
+
+theorem gcd_is_gcd(a: Int, b: Int, d: Int): a != 0 & b != 0 & divides(d, a) & divides(d, b) -> lte(d, gcd(a, b)) by {
+    is_positive(gcd(a, b))
+    divides(d, gcd(a, b))
+}
+
+// Theorems about the span of a linear combination
