@@ -270,6 +270,7 @@ impl Environment {
     // Using different data structures should improve this when we need to.
     //
     // The types in args must be generic when type params are provided.
+    // If no body is provided, the block has no statements in it.
     fn new_block(
         &self,
         project: &mut Project,
@@ -277,7 +278,7 @@ impl Environment {
         args: Vec<(String, AcornType)>,
         params: BlockParams,
         first_line: u32,
-        body: &Body,
+        body: Option<&Body>,
     ) -> token::Result<Block> {
         let mut subenv = Environment {
             module_id: self.module_id,
@@ -366,19 +367,21 @@ impl Environment {
             BlockParams::ForAll => None,
         };
 
-        subenv.add_line_types(
-            LineType::Opening,
-            first_line,
-            body.left_brace.line_number as u32,
-        );
-        for s in &body.statements {
-            subenv.add_statement(project, s)?;
+        if let Some(body) = body {
+            subenv.add_line_types(
+                LineType::Opening,
+                first_line,
+                body.left_brace.line_number as u32,
+            );
+            for s in &body.statements {
+                subenv.add_statement(project, s)?;
+            }
+            subenv.add_line_types(
+                LineType::Closing,
+                body.right_brace.line_number as u32,
+                body.right_brace.line_number as u32,
+            );
         }
-        subenv.add_line_types(
-            LineType::Closing,
-            body.right_brace.line_number as u32,
-            body.right_brace.line_number as u32,
-        );
         Ok(Block {
             type_params,
             args,
@@ -500,7 +503,7 @@ impl Environment {
             vec![],
             BlockParams::Conditional(&condition, range),
             first_line,
-            body,
+            Some(body),
         )?;
         let (inner_claim, claim_range) = match block.env.propositions.last() {
             Some(p) => (&p.claim.value, p.claim.source.range),
@@ -726,7 +729,7 @@ impl Environment {
                         block_args,
                         BlockParams::Theorem(&ts.name, premise, goal),
                         statement.first_line(),
-                        &body,
+                        Some(&body),
                     )?),
                     None => None,
                 };
@@ -784,7 +787,7 @@ impl Environment {
                     args,
                     BlockParams::ForAll,
                     statement.first_line(),
-                    &fas.body,
+                    Some(&fas.body),
                 )?;
 
                 // The last claim in the block is exported to the outside environment.
