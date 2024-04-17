@@ -92,7 +92,7 @@ impl<'a> ProofNode<'a> {
             NodeValue::Clause(clause) => {
                 let mut value = normalizer.denormalize(clause);
                 if self.negated {
-                    value = value.negate();
+                    value = value.pretty_negate();
                 }
                 bindings.value_to_code(&value, next_k)
             }

@@ -461,6 +461,7 @@ theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
 } by {
     define f(x: Nat) -> bool: division_theorem(x, n)
     induction(f)
+    exists(k0: Nat) { mul(k0, n) = 0 }
     f(0)
     forall(x: Nat) {
         if f(x) {
@@ -493,8 +494,8 @@ define is_composite(a: Nat) -> bool: exists(b: Nat, c: Nat) {
 theorem mul_to_zero(a: Nat, b: Nat): mul(a, b) = 0 -> a = 0 | b = 0 by {
     if a != 0 & b != 0 {
         exists(pred_a: Nat) { Suc(pred_a) = a }
-        exists(pred_b: Nat) { Suc(pred_b) = b }
-        mul(Suc(pred_a), Suc(pred_b)) = 0
+        mul(Suc(pred_a), b) = 0
+        add(b, mul(pred_a, b)) = 0
         false
     }
 }

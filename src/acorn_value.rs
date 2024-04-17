@@ -333,6 +333,19 @@ impl AcornValue {
         }
     }
 
+    // Negates, but avoids creating !forall or !exists expressions.
+    pub fn pretty_negate(self) -> AcornValue {
+        match self {
+            AcornValue::ForAll(quants, value) => {
+                AcornValue::Exists(quants, Box::new(value.negate()))
+            }
+            AcornValue::Exists(quants, value) => {
+                AcornValue::ForAll(quants, Box::new(value.negate()))
+            }
+            _ => self.negate(),
+        }
+    }
+
     // If this value can be represented as just a term, with perhaps a negation, return it.
     // Removes negation if it's present.
     // The boolean is whether the term was negated.
