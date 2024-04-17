@@ -1036,7 +1036,7 @@ impl BindingMap {
 
     // We use variables named x0, x1, x2, etc when new temporary variables are needed.
     // Find the next one that's available.
-    fn next_temp_var_name(&self, next_x: &mut u32) -> String {
+    fn next_var_name(&self, next_x: &mut u32) -> String {
         loop {
             let name = format!("x{}", next_x);
             *next_x += 1;
@@ -1046,12 +1046,28 @@ impl BindingMap {
         }
     }
 
+    // We use variables named k0, k1, k2, etc when new constant names are needed.
+    // Find the next one that's available.
+    fn next_constant_name(&self, next_k: &mut u32) -> String {
+        loop {
+            let name = format!("k{}", next_k);
+            *next_k += 1;
+            if !self.name_in_use(&name) {
+                return name;
+            }
+        }
+    }
+
     // If this value cannot be expressed in a single chunk of code, returns an error.
     // For example, it might refer to a constant that is not in scope.
-    pub fn value_to_code(&self, value: &AcornValue) -> Result<String, CodeGenError> {
+    pub fn value_to_code(
+        &self,
+        value: &AcornValue,
+        next_k: &mut u32,
+    ) -> Result<String, CodeGenError> {
         let mut var_names = vec![];
         let mut next_x = 0;
-        self.value_to_code_helper(value, &mut var_names, &mut next_x)
+        self.value_to_code_helper(value, &mut var_names, &mut next_x, next_k)
     }
 
     // Given a module and a name, find a way for us to describe the name with our bindings.
@@ -1094,37 +1110,38 @@ impl BindingMap {
         value: &AcornValue,
         var_names: &mut Vec<String>,
         next_x: &mut u32,
+        next_k: &mut u32,
     ) -> Result<String, CodeGenError> {
         match value {
             AcornValue::Variable(i, _) => Ok(var_names[*i as usize].clone()),
             AcornValue::Constant(module, name, _, _) => self.name_to_code(*module, name),
             AcornValue::Application(fa) => {
-                let f = self.value_to_code_helper(&fa.function, var_names, next_x)?;
+                let f = self.value_to_code_helper(&fa.function, var_names, next_x, next_k)?;
                 let mut args = vec![];
                 for arg in &fa.args {
-                    args.push(self.value_to_code_helper(arg, var_names, next_x)?);
+                    args.push(self.value_to_code_helper(arg, var_names, next_x, next_k)?);
                 }
                 Ok(format!("{}({})", f, args.join(", ")))
             }
             AcornValue::Binary(op, left, right) => {
-                let left = self.value_to_code_helper(left, var_names, next_x)?;
-                let right = self.value_to_code_helper(right, var_names, next_x)?;
+                let left = self.value_to_code_helper(left, var_names, next_x, next_k)?;
+                let right = self.value_to_code_helper(right, var_names, next_x, next_k)?;
                 Ok(format!("{} {} {}", left, op, right))
             }
             AcornValue::Not(x) => {
-                let x = self.value_to_code_helper(x, var_names, next_x)?;
+                let x = self.value_to_code_helper(x, var_names, next_x, next_k)?;
                 Ok(format!("!{}", x))
             }
             AcornValue::ForAll(quants, value) => {
                 let initial_var_names_len = var_names.len();
                 let mut args = vec![];
                 for arg_type in quants {
-                    let var_name = self.next_temp_var_name(next_x);
+                    let var_name = self.next_var_name(next_x);
                     let type_name = self.type_to_code(arg_type)?;
                     args.push(format!("{}: {}", var_name, type_name));
                     var_names.push(var_name);
                 }
-                let subresult = self.value_to_code_helper(value, var_names, next_x);
+                let subresult = self.value_to_code_helper(value, var_names, next_x, next_k);
                 var_names.truncate(initial_var_names_len);
                 Ok(format!("forall({}) {{ {} }}", args.join(", "), subresult?))
             }

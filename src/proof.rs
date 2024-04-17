@@ -86,6 +86,7 @@ impl<'a> ProofNode<'a> {
         &self,
         normalizer: &Normalizer,
         bindings: &BindingMap,
+        next_k: &mut u32,
     ) -> Result<String, CodeGenError> {
         match &self.value {
             NodeValue::Clause(clause) => {
@@ -93,7 +94,7 @@ impl<'a> ProofNode<'a> {
                 if self.negated {
                     value = value.negate();
                 }
-                bindings.value_to_code(&value)
+                bindings.value_to_code(&value, next_k)
             }
             NodeValue::Contradiction => Ok("false".to_string()),
             NodeValue::NegatedGoal => Err(CodeGenError::ExplicitGoal),
@@ -501,6 +502,7 @@ impl<'a> Proof<'a> {
             Some(id) => id,
             None => return Err(CodeGenError::ExplicitGoal),
         };
+        let mut next_k = 0;
         let mut output = vec![];
         self.to_code_helper(
             self.normalizer,
@@ -508,6 +510,7 @@ impl<'a> Proof<'a> {
             goal_id,
             0,
             true,
+            &mut next_k,
             &mut HashSet::new(),
             &mut output,
         )?;
@@ -522,6 +525,7 @@ impl<'a> Proof<'a> {
         node_id: NodeId,
         tab_level: usize,
         node_is_goal: bool,
+        next_k: &mut u32,
         proven: &mut HashSet<NodeId>,
         output: &mut Vec<String>,
     ) -> Result<(), CodeGenError> {
@@ -534,7 +538,7 @@ impl<'a> Proof<'a> {
 
         if node.starts_reduction() {
             proven.insert(node_id);
-            let condition = node.to_code(normalizer, bindings)?;
+            let condition = node.to_code(normalizer, bindings, next_k)?;
             output.push(format!("{}if {} {{", "\t".repeat(tab_level), condition));
             let contradiction = match self.find_contradiction(node_id) {
                 Some(id) => id,
@@ -550,6 +554,7 @@ impl<'a> Proof<'a> {
                 contradiction,
                 tab_level + 1,
                 false,
+                next_k,
                 proven,
                 output,
             )?;
@@ -564,6 +569,7 @@ impl<'a> Proof<'a> {
                 *premise_id,
                 tab_level,
                 false,
+                next_k,
                 proven,
                 output,
             )?;
@@ -571,7 +577,7 @@ impl<'a> Proof<'a> {
         proven.insert(node_id);
         // We don't need to put the goal in the proof because it's already expressed in the code
         if !node_is_goal {
-            let code = node.to_code(normalizer, bindings)?;
+            let code = node.to_code(normalizer, bindings, next_k)?;
             output.push(format!("{}{}", "\t".repeat(tab_level), code));
         }
         Ok(())
