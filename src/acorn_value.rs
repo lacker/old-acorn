@@ -333,16 +333,33 @@ impl AcornValue {
         }
     }
 
-    // Negates, but avoids creating !forall or !exists expressions.
+    // Negates, but pushes the negation inwards when possible.
     pub fn pretty_negate(self) -> AcornValue {
         match self {
+            AcornValue::Not(x) => *x,
+            AcornValue::Binary(BinaryOp::Equals, x, y) => {
+                AcornValue::Binary(BinaryOp::NotEquals, x, y)
+            }
+            AcornValue::Binary(BinaryOp::NotEquals, x, y) => {
+                AcornValue::Binary(BinaryOp::Equals, x, y)
+            }
+            AcornValue::Binary(BinaryOp::Or, x, y) => {
+                AcornValue::new_and(x.pretty_negate(), y.pretty_negate())
+            }
+            AcornValue::Binary(BinaryOp::And, x, y) => {
+                AcornValue::new_or(x.pretty_negate(), y.pretty_negate())
+            }
+            AcornValue::Binary(BinaryOp::Implies, x, y) => {
+                AcornValue::new_and(*x, y.pretty_negate())
+            }
+            AcornValue::Bool(b) => AcornValue::Bool(!b),
             AcornValue::ForAll(quants, value) => {
-                AcornValue::Exists(quants, Box::new(value.negate()))
+                AcornValue::new_exists(quants, value.pretty_negate())
             }
             AcornValue::Exists(quants, value) => {
-                AcornValue::ForAll(quants, Box::new(value.negate()))
+                AcornValue::new_forall(quants, value.pretty_negate())
             }
-            _ => self.negate(),
+            _ => AcornValue::Not(Box::new(self)),
         }
     }
 

@@ -304,9 +304,9 @@ impl ActiveSet {
         let neg_clause = &neg_step.clause;
         assert!(!neg_clause.literals[neg_index].positive);
 
-        // We want to only use reductive operations that are reductive because all the literals
-        // in the shorter clause are either non-variable dupes or the one that is being canceled.
-        // Let's be sure those are the only ones we are using.
+        // We want to only do resolution when the shorter clause can be entirely eliminated.
+        // Thus, we check that all the literals in the shorter clause are either duplicates of
+        // literals in the longer clause, or being canceled in the resolution.
         let (short_clause, short_index, long_clause, long_index) =
             if pos_clause.len() < neg_clause.len() {
                 (pos_clause, pos_index, neg_clause, neg_index)

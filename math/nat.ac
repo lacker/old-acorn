@@ -688,6 +688,7 @@ theorem lte_one_factorial(a: Nat): lte(1, factorial(a)) by {
         if lte_one_factorial(x) {
             lte(1, factorial(x))
             lte(factorial(x), factorial(Suc(x)))
+            lte(1, factorial(Suc(x)))
             lte_one_factorial(Suc(x))
         }
     }
@@ -747,6 +748,7 @@ theorem mul_to_one(a: Nat, b: Nat): mul(a, b) = 1 -> a = 1 by {
 }
 
 theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, Suc(b)) -> a = 1 by {
+    exists(k0: Nat) { mul(a, k0) != 0 }
     a != 0
     exists(c: Nat) { mul(a, c) = b }
     exists(d: Nat) { mul(a, d) = Suc(b) }
@@ -756,6 +758,7 @@ theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, Suc(b)) -> a = 1
     mul(a, add(c, e)) = Suc(b)
     add(mul(a, c), mul(a, e)) = Suc(b)
     add(b, mul(a, e)) = Suc(b)
+    add(b, mul(a, e)) = add(b, 1)
     mul(a, e) = 1
 }
 
