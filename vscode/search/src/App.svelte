@@ -80,8 +80,7 @@
       searchResponse === null ||
       searchResponse.result === null ||
       searchResponse.result.code === null ||
-      searchResponse.result.code.length === 0 ||
-      searchResponse.proofInsertionLine === null
+      searchResponse.result.code.length === 0
     ) {
       console.log("cannot insert proof");
       return;
@@ -134,14 +133,8 @@
       {:else if nontrivial.length === 0}
         <div class="mono">The proposition follows trivially.</div>
       {:else if searchResponse.result.code === null}
-        {#if searchResponse.proofInsertionLine === null}
-          <div class="mono">
-            The proof is nontrivial. To generate code, add a "by" block.
-          </div>
-        {:else}
-          <pre>Code generation failed:</pre>
-          <pre>    {searchResponse.result.codeError}</pre>
-        {/if}
+        <pre>Code generation failed:</pre>
+        <pre>    {searchResponse.result.codeError}</pre>
       {:else if searchResponse.result.code.length === 0}
         <div class="mono">
           The proposition follows
@@ -156,11 +149,7 @@
             .concat(searchResponse.result.code)
             .join("\n\t")
             .replace(/\t/g, spaces(4))}</pre>
-        {#if searchResponse.proofInsertionLine === null}
-          <div class="mono">To insert the proof, add a "by" block.</div>
-        {:else}
-          <button on:click={insertProof}>Insert proof</button>
-        {/if}
+        <button on:click={insertProof}>Insert proof</button>
       {/if}
 
       {#if searchResponse.result.steps !== null}
