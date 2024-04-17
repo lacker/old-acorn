@@ -244,10 +244,10 @@ impl<'a> Proof<'a> {
         proof
     }
 
-    // If this node only uses a single source, and no premises, remove it.
-    // Any consequences will use the source instead.
-    // Recursively removes any nodes that become single-source as a result.
-    fn remove_single_source(&mut self, node_id: NodeId) {
+    // If this node is cheap and uses only sources, no premises, remove it.
+    // Any consequences should use the sources directly instead.
+    // Recursively prunes any nodes that become eligible as a result.
+    fn prune(&mut self, node_id: NodeId) {
         if node_id == 0 {
             // We should never remove the goal
             return;
@@ -269,29 +269,28 @@ impl<'a> Proof<'a> {
         }
 
         for consequence_id in &consequences {
-            self.remove_single_source(*consequence_id);
+            self.prune(*consequence_id);
         }
     }
 
-    // Removes all single-source nodes from the graph.
-    fn remove_all_single_source(&mut self) {
+    // Prunes all eligible nodes from the graph.
+    fn prune_all(&mut self) {
         for node_id in 1..self.nodes.len() as NodeId {
-            self.remove_single_source(node_id);
+            self.prune(node_id);
         }
     }
 
     // Sometimes when we have a line of reasoning
     // A & B -> C -> D
-    // we can remove the interior C node and replace with
+    // we can contract the interior C node by replacing it with
     // A & B -> D
     //
-    // In order to remove a node, we need:
+    // In order to contract an interior node, we need:
     //   1. The node has a single consequence.
-    //   2. The removal would not leave the consequence with multiple dependencies on named theorems.
+    //   2. The contraction would not combine multiple expensive reasoning steps.
     //
-    // This method removes the interior node if possible.
-    // It does not recurse because this removal cannot improve the eligibility of other nodes.
-    fn remove_single_consequence(&mut self, node_id: NodeId) {
+    // This method contracts the interior node if possible and recurses on any newly eligible nodes.
+    fn contract(&mut self, node_id: NodeId) {
         if node_id == 0 {
             // We should never remove the goal
             return;
@@ -320,13 +319,13 @@ impl<'a> Proof<'a> {
         // After we do this removal, it's possible that some of the premises can now be removed,
         // because we could have combined multiple consequences into one.
         for &premise_id in &premises {
-            self.remove_single_consequence(premise_id);
+            self.contract(premise_id);
         }
     }
 
-    fn remove_all_single_consequence(&mut self) {
+    fn contract_all(&mut self) {
         for node_id in 1..self.nodes.len() as NodeId {
-            self.remove_single_consequence(node_id);
+            self.contract(node_id);
         }
     }
 
@@ -452,8 +451,8 @@ impl<'a> Proof<'a> {
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
         // This might not be the best sequencing.
-        self.remove_all_single_source();
-        self.remove_all_single_consequence();
+        self.prune_all();
+        self.contract_all();
         self.remove_conditional(0);
     }
 

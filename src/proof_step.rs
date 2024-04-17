@@ -171,6 +171,18 @@ pub struct ProofStep {
     // This also ignores rewrites, which may or may not be the ideal behavior.
     proof_size: u32,
 
+    // Whether this proof step is considered "cheap".
+    // Cheapness can be amortized. We don't want it to be possible to create an infinite
+    // chain of cheap proof steps.
+    // The idea is that in the future, we can consider more and more steps to be "cheap".
+    // Any step that the AI considers to be "obvious", we can call it "cheap".
+    cheap: bool,
+
+    // The depth is the number of non-cheap steps it takes to reach this step.
+    // A proof of depth 1 is "basic".
+    // A proof of depth 0 is "trivial".
+    depth: u32,
+
     // Cached for simplicity
     atom_count: u32,
 }
@@ -204,6 +216,8 @@ impl ProofStep {
         rule: Rule,
         simplification_rules: Vec<usize>,
         proof_size: u32,
+        cheap: bool,
+        depth: u32,
     ) -> ProofStep {
         let atom_count = clause.atom_count();
         ProofStep {
@@ -212,13 +226,15 @@ impl ProofStep {
             rule,
             simplification_rules,
             proof_size,
+            cheap,
+            depth,
             atom_count,
         }
     }
 
     // Construct a new assumption ProofStep that is not dependent on any other steps.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness, rule: Rule) -> ProofStep {
-        ProofStep::new(clause, truthiness, rule, vec![], 0)
+        ProofStep::new(clause, truthiness, rule, vec![], 0, true, 0)
     }
 
     // Construct a new ProofStep that is a direct implication of a single activated step,
@@ -230,6 +246,8 @@ impl ProofStep {
             rule,
             vec![],
             activated_step.proof_size + 1,
+            true,
+            activated_step.depth,
         )
     }
 
@@ -245,12 +263,23 @@ impl ProofStep {
             positive_id,
             negative_id,
         });
+
+        // When the output of a resolution still has multiple literals, it can only be used
+        // for further resolution steps, and these resolution chains are limited.
+        // So we only need to consider a resolution to be expensive when its output is
+        // a single literal.
+        let cheap = clause.literals.len() > 1;
+        let depth =
+            std::cmp::max(positive_step.depth, negative_step.depth) + if cheap { 0 } else { 1 };
+
         ProofStep::new(
             clause,
             positive_step.truthiness.combine(negative_step.truthiness),
             rule,
             vec![],
             positive_step.proof_size + negative_step.proof_size + 1,
+            cheap,
+            depth,
         )
     }
 
@@ -270,16 +299,25 @@ impl ProofStep {
             target_truthiness: target_step.truthiness,
             exact,
         });
+
+        // TODO: consider the reductive sort of rewrite to be cheap.
+        let cheap = false;
+        let depth =
+            std::cmp::max(pattern_step.depth, target_step.depth) + if cheap { 0 } else { 1 };
+
         ProofStep::new(
             clause,
             pattern_step.truthiness.combine(target_step.truthiness),
             rule,
             vec![],
             pattern_step.proof_size + target_step.proof_size + 1,
+            cheap,
+            depth,
         )
     }
 
     // Create a replacement for this clause that has extra simplification rules
+    // TODO: logically it seems like we should be updating depth.
     pub fn simplify(
         self,
         new_clause: Clause,
@@ -298,6 +336,8 @@ impl ProofStep {
             self.rule,
             rules,
             self.proof_size,
+            self.cheap,
+            self.depth,
         )
     }
 
@@ -309,6 +349,8 @@ impl ProofStep {
             Truthiness::Factual,
             Rule::Assumption(Source::mock()),
             vec![],
+            0,
+            false,
             0,
         )
     }
