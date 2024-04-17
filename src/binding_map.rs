@@ -1036,7 +1036,7 @@ impl BindingMap {
 
     // We use variables named x0, x1, x2, etc when new temporary variables are needed.
     // Find the next one that's available.
-    fn next_var_name(&self, next_x: &mut u32) -> String {
+    fn next_x_var(&self, next_x: &mut u32) -> String {
         loop {
             let name = format!("x{}", next_x);
             *next_x += 1;
@@ -1048,7 +1048,7 @@ impl BindingMap {
 
     // We use variables named k0, k1, k2, etc when new constant names are needed.
     // Find the next one that's available.
-    fn next_constant_name(&self, next_k: &mut u32) -> String {
+    fn next_k_var(&self, next_k: &mut u32) -> String {
         loop {
             let name = format!("k{}", next_k);
             *next_k += 1;
@@ -1103,8 +1103,8 @@ impl BindingMap {
     }
 
     // Helper that handles temporary variable naming.
-    // var_names are the names of the variables that we have already allocated.
-    // next_x is the next number to try using.
+    // var_names are the names of the variables that we have already named.
+    // next_x and next_k are the next names to give out.
     fn value_to_code_helper(
         &self,
         value: &AcornValue,
@@ -1136,7 +1136,7 @@ impl BindingMap {
                 let initial_var_names_len = var_names.len();
                 let mut args = vec![];
                 for arg_type in quants {
-                    let var_name = self.next_var_name(next_x);
+                    let var_name = self.next_x_var(next_x);
                     let type_name = self.type_to_code(arg_type)?;
                     args.push(format!("{}: {}", var_name, type_name));
                     var_names.push(var_name);
@@ -1144,6 +1144,19 @@ impl BindingMap {
                 let subresult = self.value_to_code_helper(value, var_names, next_x, next_k);
                 var_names.truncate(initial_var_names_len);
                 Ok(format!("forall({}) {{ {} }}", args.join(", "), subresult?))
+            }
+            AcornValue::Exists(quants, value) => {
+                let initial_var_names_len = var_names.len();
+                let mut args = vec![];
+                for arg_type in quants {
+                    let var_name = self.next_k_var(next_k);
+                    let type_name = self.type_to_code(arg_type)?;
+                    args.push(format!("{}: {}", var_name, type_name));
+                    var_names.push(var_name);
+                }
+                let subresult = self.value_to_code_helper(value, var_names, next_x, next_k);
+                var_names.truncate(initial_var_names_len);
+                Ok(format!("exists({}) {{ {} }}", args.join(", "), subresult?))
             }
             AcornValue::Bool(b) => {
                 if *b {
@@ -1162,7 +1175,6 @@ impl BindingMap {
             // Currently, I don't think these code paths are ever hit.
             AcornValue::IfThenElse(..) => Err(CodeGenError::unhandled_value("if-then-else")),
             AcornValue::Lambda(..) => Err(CodeGenError::unhandled_value("lambda")),
-            AcornValue::Exists(..) => Err(CodeGenError::unhandled_value("exists")),
         }
     }
 
