@@ -792,11 +792,8 @@ theorem divides_mul(a: Nat, b: Nat, d: Nat): divides(d, a) -> divides(d, mul(a, 
     mul(d, mul(q, b)) = mul(a, b)
 }
 
-theorem lte_mul(a: Nat, b: Nat): b != 0 -> lte(a, mul(a, b)) by {
-    lt(0, b)
-    lte(1, b)
-    lte(mul(a, 1), mul(a, b))
-}
+theorem lte_mul(a: Nat, b: Nat):
+    b != 0 -> lte(a, mul(a, b))
 
 theorem divides_lte(a: Nat, b: Nat): divides(a, b) -> b = 0 | lte(a, b) by {
     if b != 0 {

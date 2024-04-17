@@ -165,8 +165,12 @@ pub struct SearchResponse {
     pub text_output: Vec<String>,
 
     // The line where we would insert a proof for this goal.
-    // None if there isn't a location to insert the proof because there is no "by" block.
-    pub proof_insertion_line: Option<u32>,
+    // We insert proofs at the beginning of the line.
+    pub proof_insertion_line: u32,
+
+    // Whether the goal already has an appropriate block to put the proof in.
+    // If this is false, to create the proof we'll need to create a "by" block.
+    pub has_block: bool,
 
     // The result of the search process.
     // If it has not completed yet, this is None.
@@ -187,7 +191,8 @@ impl SearchResponse {
             goal_range: None,
             text_output: vec![],
             result: None,
-            proof_insertion_line: None,
+            proof_insertion_line: 0,
+            has_block: false,
             id: params.id,
         }
     }

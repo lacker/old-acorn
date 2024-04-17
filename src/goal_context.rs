@@ -31,8 +31,9 @@ pub struct GoalContext<'a> {
 
     // The zero-based line where we would insert a proof for this goal.
     // None if we do not want to insert a proof for this goal.
-    // Code already on that line would be moved down.
-    pub proof_insertion_line: Option<u32>,
+    // Logically, we think of it as inserting at the beginning of the line.
+    // Code already on that line should be moved down.
+    pub proof_insertion_line: u32,
 }
 
 impl GoalContext<'_> {
@@ -43,7 +44,7 @@ impl GoalContext<'_> {
         name: String,
         goal: Proposition,
         range: Range,
-        proof_insertion_line: Option<u32>,
+        proof_insertion_line: u32,
     ) -> GoalContext {
         GoalContext {
             env,
@@ -58,6 +59,10 @@ impl GoalContext<'_> {
 
     pub fn includes_explicit_false(&self) -> bool {
         self.env.includes_explicit_false
+    }
+
+    pub fn implicit_block(&self) -> bool {
+        self.env.implicit
     }
 
     pub fn module_id(&self) -> ModuleId {

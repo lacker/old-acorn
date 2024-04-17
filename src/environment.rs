@@ -67,6 +67,10 @@ pub struct Environment {
     // line_types[0] corresponds to first_line in the source document.
     first_line: u32,
     line_types: Vec<LineType>,
+
+    // Implicit blocks aren't written in the code; they are created for theorems that
+    // the user has asserted without proof.
+    pub implicit: bool,
 }
 
 // A proposition, as well as any subpropositions that need to be proved to establish this one.
@@ -204,6 +208,7 @@ impl Environment {
             includes_explicit_false: false,
             first_line: 0,
             line_types: Vec::new(),
+            implicit: false,
         }
     }
 
@@ -227,6 +232,7 @@ impl Environment {
     }
 
     // Add line types for the given range, inserting empties as needed.
+    // If the line already has a type, do nothing.
     fn add_line_types(&mut self, line_type: LineType, first: u32, last: u32) {
         while self.next_line() < first {
             self.line_types.push(LineType::Empty);
@@ -278,6 +284,7 @@ impl Environment {
         args: Vec<(String, AcornType)>,
         params: BlockParams,
         first_line: u32,
+        last_line: u32,
         body: Option<&Body>,
     ) -> token::Result<Block> {
         let mut subenv = Environment {
@@ -288,6 +295,7 @@ impl Environment {
             includes_explicit_false: false,
             first_line,
             line_types: Vec::new(),
+            implicit: body.is_none(),
         };
 
         // Inside the block, the type parameters are opaque data types.
@@ -367,21 +375,27 @@ impl Environment {
             BlockParams::ForAll => None,
         };
 
-        if let Some(body) = body {
-            subenv.add_line_types(
-                LineType::Opening,
-                first_line,
-                body.left_brace.line_number as u32,
-            );
-            for s in &body.statements {
-                subenv.add_statement(project, s)?;
+        match body {
+            Some(body) => {
+                subenv.add_line_types(
+                    LineType::Opening,
+                    first_line,
+                    body.left_brace.line_number as u32,
+                );
+                for s in &body.statements {
+                    subenv.add_statement(project, s)?;
+                }
+                subenv.add_line_types(
+                    LineType::Closing,
+                    body.right_brace.line_number as u32,
+                    body.right_brace.line_number as u32,
+                );
             }
-            subenv.add_line_types(
-                LineType::Closing,
-                body.right_brace.line_number as u32,
-                body.right_brace.line_number as u32,
-            );
-        }
+            None => {
+                // The subenv is an implicit block, so consider all the lines to be "opening".
+                subenv.add_line_types(LineType::Opening, first_line, last_line);
+            }
+        };
         Ok(Block {
             type_params,
             args,
@@ -490,6 +504,7 @@ impl Environment {
         condition: AcornValue,
         range: Range,
         first_line: u32,
+        last_line: u32,
         body: &Body,
         if_claim: Option<AcornValue>,
     ) -> token::Result<Option<AcornValue>> {
@@ -503,6 +518,7 @@ impl Environment {
             vec![],
             BlockParams::Conditional(&condition, range),
             first_line,
+            last_line,
             Some(body),
         )?;
         let (inner_claim, claim_range) = match block.env.propositions.last() {
@@ -728,6 +744,7 @@ impl Environment {
                     block_args,
                     BlockParams::Theorem(&ts.name, premise, goal),
                     statement.first_line(),
+                    statement.last_line(),
                     ts.body.as_ref(),
                 )?;
 
@@ -784,6 +801,7 @@ impl Environment {
                     args,
                     BlockParams::ForAll,
                     statement.first_line(),
+                    statement.last_line(),
                     Some(&fas.body),
                 )?;
 
@@ -818,6 +836,7 @@ impl Environment {
                     condition.clone(),
                     range,
                     statement.first_line(),
+                    statement.last_line(),
                     &is.body,
                     None,
                 )?;
@@ -827,6 +846,7 @@ impl Environment {
                         condition.negate(),
                         range,
                         else_body.left_brace.line_number as u32,
+                        else_body.right_brace.line_number as u32,
                         else_body,
                         if_claim,
                     )?;
@@ -1167,7 +1187,6 @@ impl Environment {
         let mut env = self;
         let mut it = path.iter().peekable();
         let mut global = true;
-        let mut depth = 0;
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
                 let fact = env.inline_theorems(project, &previous_prop.claim);
@@ -1195,6 +1214,15 @@ impl Environment {
                     } else {
                         return Err(format!("no internal claim at path {:?}", path));
                     };
+
+                    let proof_insertion_line = if block.env.implicit {
+                        // Insert the proof, along with an explicit block, after the statement
+                        block.env.last_line() + 1
+                    } else {
+                        // Insert the proof at the end of the existing block
+                        block.env.next_line()
+                    };
+
                     return Ok(GoalContext::new(
                         &block.env,
                         global_facts,
@@ -1202,21 +1230,13 @@ impl Environment {
                         prop.name(),
                         block.env.inline_theorems(project, &claim),
                         prop.claim.source.range,
-                        Some(block.env.last_line()),
+                        proof_insertion_line,
                     ));
                 }
-                depth += 1;
                 env = &block.env;
             } else {
                 // If there's no block on this prop, this must be the last element of the path
                 assert!(it.peek().is_none());
-
-                // We don't want to insert proofs at the top level.
-                let proof_insertion_line = if depth == 0 {
-                    None
-                } else {
-                    Some(prop.claim.source.range.start.line)
-                };
 
                 return Ok(GoalContext::new(
                     &env,
@@ -1225,7 +1245,7 @@ impl Environment {
                     prop.name(),
                     env.inline_theorems(project, &prop.claim),
                     prop.claim.source.range,
-                    proof_insertion_line,
+                    prop.claim.source.range.start.line,
                 ));
             }
         }

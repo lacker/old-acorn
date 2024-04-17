@@ -95,7 +95,10 @@ struct SearchTask {
     superseded: Arc<AtomicBool>,
 
     // Zero-based line where we would insert a proof for this goal
-    proof_insertion_line: Option<u32>,
+    proof_insertion_line: u32,
+
+    // Whether the goal already has an appropriate block to put the proof in.
+    has_block: bool,
 
     // The search id set by the extenson for the original search that created this task.
     // The extension may send new searches with essentially the same parameters, that we
@@ -126,6 +129,7 @@ impl SearchTask {
             text_output,
             result,
             proof_insertion_line: self.proof_insertion_line,
+            has_block: self.has_block,
             id: self.id,
         }
     }
@@ -517,6 +521,7 @@ impl Backend {
             result: Arc::new(OnceCell::new()),
             superseded: Arc::new(AtomicBool::new(false)),
             proof_insertion_line: goal_context.proof_insertion_line,
+            has_block: !goal_context.implicit_block(),
             id: params.id,
         };
 
