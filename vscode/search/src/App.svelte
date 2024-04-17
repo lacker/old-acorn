@@ -91,6 +91,7 @@
       uri: searchResponse.uri,
       version: searchResponse.version,
       line: searchResponse.proofInsertionLine,
+      addBlock: !searchResponse.hasBlock,
       code: searchResponse.result.code,
     });
   }

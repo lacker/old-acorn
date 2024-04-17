@@ -158,6 +158,7 @@ class SearchPanel implements Disposable {
           message.uri,
           message.version,
           message.line,
+          message.addBlock,
           message.code
         );
         return;
@@ -214,65 +215,11 @@ class SearchPanel implements Disposable {
     });
   }
 
-  // Inserts a proof at the given line.
-  // Code already at that line will be shifted down, so that it follows the inserted code.
-  async insertProof(
-    uri: string,
-    version: number,
-    line: number,
-    code: string[]
-  ) {
-    let parts = uri.split("/");
-    let filename = parts[parts.length - 1];
-
-    let editor = await this.focusEditor(uri);
-    if (!editor) {
-      window.showWarningMessage(`${filename} has been closed`);
-      return;
-    }
-
-    if (editor.document.version != version) {
-      window.showWarningMessage(`${filename} has pending changes`);
-      return;
-    }
-
-    if (line < 0 || line > editor.document.lineCount) {
-      window.showErrorMessage(`invalid line number: ${line}`);
-      return;
-    }
-
-    let config = workspace.getConfiguration("editor", editor.document.uri);
-    let tabSize = config.get("tabSize", 4);
-    let tab = " ".repeat(tabSize);
-    let lineText = editor.document.lineAt(line).text;
-
-    // Figure out how much to indent at the base level of the inserted code.
-    let indent = "";
-    for (let i = 0; i < lineText.length; i++) {
-      if (lineText[i] === " ") {
-        indent += " ";
-        continue;
-      }
-      if (lineText[i] === "\t") {
-        indent += tab;
-        continue;
-      }
-      if (lineText[i] === "}") {
-        // We're inserting into a block that this line closes.
-        // So we want the inserted code to be more indented than this line is.
-        indent += tab;
-      }
-      break;
-    }
-    let formatted = [];
-    for (let c of code) {
-      formatted.push(indent + c.replace(/\t/g, tab) + "\n");
-    }
-
+  async insertAtLineStart(editor: TextEditor, line: number, text: string) {
     let success = await editor.edit((edit) => {
       // Insert the new code itself.
       let insertPos = new Position(line, 0);
-      edit.insert(insertPos, formatted.join(""));
+      edit.insert(insertPos, text);
 
       // If the line before our insertion is empty, we want to delete it, so that
       // the net effect is inserting this code at the empty line.
@@ -301,6 +248,90 @@ class SearchPanel implements Disposable {
         window.showErrorMessage("failed to delete empty line");
         return;
       }
+    }
+  }
+
+  async insertAtLineEnd(editor: TextEditor, line: number, text: string) {
+    let success = await editor.edit((edit) => {
+      let insertPos = new Position(
+        line,
+        editor.document.lineAt(line).text.length
+      );
+      edit.insert(insertPos, text);
+    });
+
+    if (!success) {
+      window.showErrorMessage("failed to insert proof");
+      return;
+    }
+  }
+
+  // Inserts a proof at the given line.
+  // If addBlock is true, the inserted code will be wrapped in a "by" block.
+  // Code already at that line will be shifted down, so that it follows the inserted code.
+  async insertProof(
+    uri: string,
+    version: number,
+    line: number,
+    addBlock: boolean,
+    code: string[]
+  ) {
+    let parts = uri.split("/");
+    let filename = parts[parts.length - 1];
+
+    let editor = await this.focusEditor(uri);
+    if (!editor) {
+      window.showWarningMessage(`${filename} has been closed`);
+      return;
+    }
+
+    if (editor.document.version != version) {
+      window.showWarningMessage(`${filename} has pending changes`);
+      return;
+    }
+
+    if (line < 0 || line > editor.document.lineCount) {
+      window.showErrorMessage(`invalid line number: ${line}`);
+      return;
+    }
+
+    let config = workspace.getConfiguration("editor", editor.document.uri);
+    let tabSize = config.get("tabSize", 4);
+    let tab = " ".repeat(tabSize);
+    let lineText = editor.document.lineAt(line).text;
+
+    // Figure out how much to indent at the base level of the inserted code.
+    let indent = "";
+    if (addBlock) {
+      indent = tab;
+    } else {
+      for (let i = 0; i < lineText.length; i++) {
+        if (lineText[i] === " ") {
+          indent += " ";
+          continue;
+        }
+        if (lineText[i] === "\t") {
+          indent += tab;
+          continue;
+        }
+        if (lineText[i] === "}") {
+          // We're inserting into a block that this line closes.
+          // So we want the inserted code to be more indented than this line is.
+          indent += tab;
+        }
+        break;
+      }
+    }
+    let formatted = [];
+    for (let c of code) {
+      formatted.push(indent + c.replace(/\t/g, tab) + "\n");
+    }
+
+    if (addBlock) {
+      let text = " by {\n" + formatted.join("") + "}";
+      return this.insertAtLineEnd(editor, line - 1, text);
+    } else {
+      return this.insertAtLineStart(editor, line, formatted.join(""));
     }
   }
 
