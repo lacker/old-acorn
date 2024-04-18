@@ -824,6 +824,7 @@ theorem divides_add(a: Nat, b: Nat, d: Nat):
     exists(qb: Nat) { mul(qb, d) = b }
     mul(add(qa, qb), d) = add(mul(qa, d), b)
     mul(add(qa, qb), d) = add(a, b)
+    divides(d, mul(add(qa, qb), d))
 }
 
 

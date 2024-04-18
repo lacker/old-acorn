@@ -1220,7 +1220,7 @@ impl Environment {
                         block.env.last_line() + 1
                     } else {
                         // Insert the proof at the end of the existing block
-                        block.env.next_line()
+                        block.env.last_line()
                     };
 
                     return Ok(GoalContext::new(
