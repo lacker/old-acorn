@@ -187,7 +187,7 @@ pub struct ProofStep {
     atom_count: u32,
 }
 
-pub type Score = (i32, i32);
+pub type Score = (i32, i32, i32);
 
 impl Ord for ProofStep {
     // The heuristic used to decide which clause is the most promising.
@@ -408,14 +408,17 @@ impl ProofStep {
     }
 
     // The better the score, the more we want to activate this proof step.
-    // The first element of the score is the deterministic ordering:
+    //
+    // The first element of the score is the negative depth. (Larger scores are handled first.)
+    //
+    // The second element of the score is a deterministic ordering:
     //
     //   Global facts, both explicit and deductions
     //   The negated goal
     //   Explicit hypotheses
     //   Local deductions
     //
-    // The second element of the score is heuristic. Any value should work there.
+    // The third element of the score is heuristic.
     pub fn score(&self) -> Score {
         // Higher = more important, for the deterministic tier.
         let deterministic_tier = match self.truthiness {
@@ -443,7 +446,8 @@ impl ProofStep {
             heuristic -= 3;
         }
 
-        return (deterministic_tier, heuristic);
+        let first_element = if EXPERIMENT { -(self.depth as i32) } else { 0 };
+        return (first_element, deterministic_tier, heuristic);
     }
 
     // We have to strictly limit deduction that happens between two library facts, because
