@@ -176,12 +176,12 @@ pub struct ProofStep {
     // chain of cheap proof steps.
     // The idea is that in the future, we can consider more and more steps to be "cheap".
     // Any step that the AI considers to be "obvious", we can call it "cheap".
-    pub cheap: bool,
+    cheap: bool,
 
-    // The depth is the number of non-cheap steps it takes to reach this step.
+    // The depth is the number of serial non-cheap steps required to reach this step.
     // A proof of depth 1 is "basic".
     // A proof of depth 0 is "trivial".
-    depth: u32,
+    pub depth: u32,
 
     // Cached for simplicity
     atom_count: u32,

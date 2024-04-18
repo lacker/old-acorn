@@ -69,9 +69,8 @@ struct ProofNode<'a> {
     // The goal is treated as a node rather than as a source, for the purpose of the graph.
     sources: Vec<&'a Source>,
 
-    // A node is marked as cheap when it was not computationally expensive for the prover to create.
-    // Cheap nodes can generally be combined with other nodes.
-    cheap: bool,
+    // Once we prove everything of depth n, the nodes of depth n+1 have a basic proof.
+    depth: u32,
 }
 
 impl<'a> ProofNode<'a> {
@@ -200,7 +199,7 @@ impl<'a> Proof<'a> {
             premises: vec![],
             consequences: vec![],
             sources: vec![],
-            cheap: true,
+            depth: 0,
         };
         proof.nodes.push(negated_goal);
 
@@ -220,7 +219,7 @@ impl<'a> Proof<'a> {
                 premises: vec![],
                 consequences: vec![],
                 sources: vec![],
-                cheap: step.cheap,
+                depth: step.depth,
             });
 
             if let Rule::Assumption(source) = &step.rule {
@@ -250,17 +249,86 @@ impl<'a> Proof<'a> {
         proof
     }
 
+    // Contracts this node if possible.
+    // (The goal and contradictions cannot be contracted.)
+    //
+    // If we start with
+    // A & B -> C -> D & E
+    // then we replace each in+out pair of C edges with an edge that goes directly.
+    // A & B -> D & E
+    //
+    // Sources and premises are both copied to all consequences.
+    fn contract(&mut self, node_id: NodeId) {
+        let node = &self.nodes[node_id as usize];
+        match &node.value {
+            NodeValue::Clause(_) => {}
+            NodeValue::Contradiction | NodeValue::NegatedGoal => return,
+        };
+
+        // Remove the node from the graph.
+        let premises = std::mem::take(&mut self.nodes[node_id as usize].premises);
+        let consequences = std::mem::take(&mut self.nodes[node_id as usize].consequences);
+        let sources = std::mem::take(&mut self.nodes[node_id as usize].sources);
+
+        for premise_id in &premises {
+            self.nodes[*premise_id as usize]
+                .consequences
+                .retain(|x| *x != node_id);
+        }
+
+        for consequence_id in consequences {
+            self.nodes[consequence_id as usize]
+                .premises
+                .retain(|x| *x != node_id);
+
+            for premise_id in &premises {
+                insert_edge(&mut self.nodes, *premise_id, consequence_id);
+            }
+
+            for source in &sources {
+                self.nodes[consequence_id as usize].sources.push(source);
+            }
+        }
+    }
+
+    // Whether the node is only directly used as part of trivial reasoning.
+    // If all of a node's consequences have the same depth as it does, it's a trivial node.
+    // Contradictions are considered not trivial.
+    fn is_trivial(&self, node_id: NodeId) -> bool {
+        let node = &self.nodes[node_id as usize];
+        if matches!(node.value, NodeValue::Contradiction) {
+            return false;
+        }
+        for consequence_id in &node.consequences {
+            if self.nodes[*consequence_id as usize].depth != node.depth {
+                return false;
+            }
+        }
+        true
+    }
+
+    // Remove nodes that are only needed as part of trivial reasoning.
+    fn remove_trivial(&mut self) {
+        // Figure out which nodes are trivial.
+        let trivial = (0..self.nodes.len() as NodeId)
+            .filter(|node_id| self.is_trivial(*node_id))
+            .collect::<Vec<_>>();
+        for node_id in trivial {
+            self.contract(node_id)
+        }
+    }
+
     // If this node is cheap and uses only sources, no premises, remove it.
     // Any consequences should use the sources directly instead.
     // Recursively prunes any nodes that become eligible as a result.
-    fn prune(&mut self, node_id: NodeId) {
+    fn old_prune(&mut self, node_id: NodeId) {
         if node_id == 0 {
             // We should never remove the goal
             return;
         }
 
         let node = &self.nodes[node_id as usize];
-        if !node.cheap || node.premises.len() > 0 || node.sources.len() != 1 {
+        if node.premises.len() > 0 || node.sources.len() != 1 {
             return;
         }
 
@@ -275,14 +343,14 @@ impl<'a> Proof<'a> {
         }
 
         for consequence_id in &consequences {
-            self.prune(*consequence_id);
+            self.old_prune(*consequence_id);
         }
     }
 
     // Prunes all eligible nodes from the graph.
-    fn prune_all(&mut self) {
+    fn old_prune_all(&mut self) {
         for node_id in 1..self.nodes.len() as NodeId {
-            self.prune(node_id);
+            self.old_prune(node_id);
         }
     }
 
@@ -296,7 +364,7 @@ impl<'a> Proof<'a> {
     //   2. The contraction would not combine multiple expensive reasoning steps.
     //
     // This method contracts the interior node if possible and recurses on any newly eligible nodes.
-    fn contract(&mut self, node_id: NodeId) {
+    fn old_contract(&mut self, node_id: NodeId) {
         if node_id == 0 {
             // We should never remove the goal
             return;
@@ -325,13 +393,13 @@ impl<'a> Proof<'a> {
         // After we do this removal, it's possible that some of the premises can now be removed,
         // because we could have combined multiple consequences into one.
         for &premise_id in &premises {
-            self.contract(premise_id);
+            self.old_contract(premise_id);
         }
     }
 
-    fn contract_all(&mut self) {
+    fn old_contract_all(&mut self) {
         for node_id in 1..self.nodes.len() as NodeId {
-            self.contract(node_id);
+            self.old_contract(node_id);
         }
     }
 
@@ -457,8 +525,8 @@ impl<'a> Proof<'a> {
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
         // This might not be the best sequencing.
-        self.prune_all();
-        self.contract_all();
+        self.old_prune_all();
+        self.old_contract_all();
         self.remove_conditional(0);
     }
 
