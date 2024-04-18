@@ -109,4 +109,14 @@ impl Clause {
     pub fn num_positive_literals(&self) -> usize {
         self.literals.iter().filter(|x| x.positive).count()
     }
+
+    // We want this to be a well ordering. Ie, there should be no infinite chain of clauses,
+    // each one simpler than the previous.
+    pub fn is_simpler_than(&self, other: &Clause) -> bool {
+        if self.len() == other.len() {
+            self.literals[0].is_simpler_than(&other.literals[0])
+        } else {
+            self.len() < other.len()
+        }
+    }
 }

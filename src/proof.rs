@@ -291,13 +291,18 @@ impl<'a> Proof<'a> {
         }
     }
 
-    // Whether the node is only directly used as part of trivial reasoning.
+    // Whether the node can be eliminated without making any other node require more than
+    // basic reasoning.
     // If all of a node's consequences have the same depth as it does, it's a trivial node.
+    // Depth zero nodes are also trivial.
     // Contradictions are considered not trivial.
     fn is_trivial(&self, node_id: NodeId) -> bool {
         let node = &self.nodes[node_id as usize];
         if matches!(node.value, NodeValue::Contradiction) {
             return false;
+        }
+        if node.depth == 0 {
+            return true;
         }
         for consequence_id in &node.consequences {
             if self.nodes[*consequence_id as usize].depth != node.depth {
@@ -524,9 +529,13 @@ impl<'a> Proof<'a> {
 
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
-        // This might not be the best sequencing.
-        self.old_prune_all();
-        self.old_contract_all();
+        if true {
+            // TODO: do the other branch instead
+            self.old_prune_all();
+            self.old_contract_all();
+        } else {
+            self.remove_trivial();
+        }
         self.remove_conditional(0);
     }
 

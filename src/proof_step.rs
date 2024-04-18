@@ -176,7 +176,7 @@ pub struct ProofStep {
     // chain of cheap proof steps.
     // The idea is that in the future, we can consider more and more steps to be "cheap".
     // Any step that the AI considers to be "obvious", we can call it "cheap".
-    cheap: bool,
+    pub cheap: bool,
 
     // The depth is the number of serial non-cheap steps required to reach this step.
     // A proof of depth 1 is "basic".
@@ -266,9 +266,13 @@ impl ProofStep {
 
         // When the output of a resolution still has multiple literals, it can only be used
         // for further resolution steps, and these resolution chains are limited.
-        // So we only need to consider a resolution to be expensive when its output is
-        // a single literal.
-        let cheap = clause.literals.len() > 1;
+        // So resolution is always considered cheap when the output has multiple literals.
+        let cheap = if clause.literals.len() > 1 {
+            true
+        } else {
+            clause.is_simpler_than(&positive_step.clause)
+                && clause.is_simpler_than(&negative_step.clause)
+        };
         let depth =
             std::cmp::max(positive_step.depth, negative_step.depth) + if cheap { 0 } else { 1 };
 
@@ -300,8 +304,7 @@ impl ProofStep {
             exact,
         });
 
-        // TODO: consider the reductive sort of rewrite to be cheap.
-        let cheap = false;
+        let cheap = clause.is_simpler_than(&target_step.clause);
         let depth =
             std::cmp::max(pattern_step.depth, target_step.depth) + if cheap { 0 } else { 1 };
 

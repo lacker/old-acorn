@@ -199,6 +199,17 @@ impl Literal {
             );
         }
     }
+
+    // We want this to be a well ordering. Ie, there should be no infinite chain of literals,
+    // each one simpler than the previous.
+    // This ignores negation, to try to be invariant to negating things.
+    pub fn is_simpler_than(&self, other: &Literal) -> bool {
+        match self.left.cmp(&other.left) {
+            Ordering::Less => true,
+            Ordering::Greater => false,
+            Ordering::Equal => self.right.cmp(&other.right) == Ordering::Less,
+        }
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.
