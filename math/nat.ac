@@ -348,6 +348,7 @@ theorem add_cancels_left(a: Nat, b: Nat, c: Nat): add(a, b) = add(a, c) -> b = c
     forall(x: Nat) {
         if f(x) {
             if add(Suc(x), b) = add(Suc(x), c) {
+                Suc(add(x, c)) = add(Suc(x), b)
                 Suc(add(x, b)) = Suc(add(x, c))
                 add(x, b) = add(x, c)
                 b = c
@@ -364,9 +365,7 @@ theorem add_cancels_right(a: Nat, b: Nat, c: Nat): add(b, a) = add(c, a) -> b = 
     b = c
 }
 
-theorem add_identity_right(a: Nat, b: Nat): add(a, b) = a -> b = 0 by {
-    // TODO: generate a concrete step here
-}
+theorem add_identity_right(a: Nat, b: Nat): add(a, b) = a -> b = 0
 
 theorem lt_add_suc(a: Nat, b: Nat): lt(a, add(a, Suc(b))) by {
     lte(a, add(a, Suc(b)))
@@ -386,6 +385,7 @@ theorem lt_suc_left(a: Nat, b: Nat): lt(a, b) -> Suc(a) = b | lt(Suc(a), b) by {
     exists(c: Nat) { add(a, c) = b & c != 0 }
     exists(d: Nat) { Suc(d) = c }
     if d = 0 {
+        add(a, 1) = b
         Suc(a) = b
     } else {
         Suc(add(a, d)) = b
@@ -408,6 +408,7 @@ theorem lt_add_left(a: Nat, b: Nat, c: Nat): lt(b, c) -> lt(add(a, b), add(a, c)
     c != b
     d != 0
     add(add(a, b), d) = add(a, c)
+    lt(add(a, b), add(add(a, b), d))
     lt(add(a, b), add(a, c))
 }
 
@@ -660,6 +661,7 @@ theorem divides_factorial(k: Nat, n: Nat):
             lte(k, x) -> divides(k, factorial(x))
             if lte(k, Suc(x)) {
                 if k = Suc(x) {
+                    divides(Suc(x), factorial(Suc(x)))
                     divides(k, factorial(Suc(x)))
                 }
                 if k != Suc(x) {
@@ -740,6 +742,7 @@ theorem mul_to_one(a: Nat, b: Nat): mul(a, b) = 1 -> a = 1 by {
     b != 0
     if lt(1, a) {
         lt(mul(b, 1), mul(b, a))
+        lt(mul(b, 1), mul(a, b))
         lt(mul(b, 1), 1)
         mul(b, 1) = 0
         b = 0
@@ -748,7 +751,7 @@ theorem mul_to_one(a: Nat, b: Nat): mul(a, b) = 1 -> a = 1 by {
 }
 
 theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, Suc(b)) -> a = 1 by {
-    exists(k0: Nat) { mul(a, k0) != 0 }
+    exists(k0: Nat) { mul(a, k0) = Suc(b) }
     a != 0
     exists(c: Nat) { mul(a, c) = b }
     exists(d: Nat) { mul(a, d) = Suc(b) }
@@ -819,13 +822,14 @@ theorem divides_add(a: Nat, b: Nat, d: Nat):
     divides(d, a) & divides(d, b) -> divides(d, add(a, b)) by {
     exists(qa: Nat) { mul(qa, d) = a }
     exists(qb: Nat) { mul(qb, d) = b }
-    mul(add(qa, qb), d) = add(mul(qa, d), mul(qb, d))
+    mul(add(qa, qb), d) = add(mul(qa, d), b)
     mul(add(qa, qb), d) = add(a, b)
 }
 
 
 theorem divides_symm(a: Nat, b: Nat): divides(a, b) & divides(b, a) -> a = b by {
     if a = 0 {
+        divides(0, b)
         b = 0
         a = b
     } else {

@@ -530,7 +530,7 @@ impl<'a> Proof<'a> {
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
         // TODO: commit to the experiment
-        let experiment = false;
+        let experiment = true;
         if experiment {
             self.remove_trivial();
         } else {
