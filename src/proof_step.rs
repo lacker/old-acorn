@@ -232,6 +232,14 @@ impl ProofStep {
         }
     }
 
+    fn is_definition(&self) -> bool {
+        if let Rule::Assumption(source) = &self.rule {
+            matches!(source.source_type, SourceType::Definition(_))
+        } else {
+            false
+        }
+    }
+
     // Construct a new assumption ProofStep that is not dependent on any other steps.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness, rule: Rule) -> ProofStep {
         ProofStep::new(clause, truthiness, rule, vec![], 0, true, 0)
@@ -264,10 +272,13 @@ impl ProofStep {
             negative_id,
         });
 
-        // When the output of a resolution still has multiple literals, it can only be used
-        // for further resolution steps, and these resolution chains are limited.
-        // So resolution is always considered cheap when the output has multiple literals.
         let cheap = if clause.literals.len() > 1 {
+            // When the output of a resolution still has multiple literals, it can only be used
+            // for further resolution steps, and these resolution chains are limited.
+            // So resolution is always considered cheap when the output has multiple literals.
+            true
+        } else if positive_step.is_definition() || negative_step.is_definition() {
+            // Expanding and contracting definitions is cheap.
             true
         } else {
             clause.is_simpler_than(&positive_step.clause)
@@ -304,7 +315,13 @@ impl ProofStep {
             exact,
         });
 
-        let cheap = clause.is_simpler_than(&target_step.clause);
+        let cheap = if pattern_step.is_definition() || target_step.is_definition() {
+            // Expanding and contracting definitions is cheap.
+            true
+        } else {
+            // Rewriting can't form a new pattern, so just check target simplicity.
+            clause.is_simpler_than(&target_step.clause)
+        };
         let depth =
             std::cmp::max(pattern_step.depth, target_step.depth) + if cheap { 0 } else { 1 };
 
@@ -320,7 +337,7 @@ impl ProofStep {
     }
 
     // Create a replacement for this clause that has extra simplification rules
-    // TODO: logically it seems like we should be updating depth.
+    // TODO: should we be updating depth?
     pub fn simplify(
         self,
         new_clause: Clause,

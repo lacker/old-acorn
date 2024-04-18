@@ -529,12 +529,13 @@ impl<'a> Proof<'a> {
 
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
-        if true {
-            // TODO: do the other branch instead
+        // TODO: commit to the experiment
+        let experiment = false;
+        if experiment {
+            self.remove_trivial();
+        } else {
             self.old_prune_all();
             self.old_contract_all();
-        } else {
-            self.remove_trivial();
         }
         self.remove_conditional(0);
     }
