@@ -68,6 +68,10 @@ struct ProofNode<'a> {
     // What external sources this step depends on.
     // The goal is treated as a node rather than as a source, for the purpose of the graph.
     sources: Vec<&'a Source>,
+
+    // A node is marked as cheap when it was not computationally expensive for the prover to create.
+    // Cheap nodes can generally be combined with other nodes.
+    cheap: bool,
 }
 
 impl<'a> ProofNode<'a> {
@@ -196,6 +200,7 @@ impl<'a> Proof<'a> {
             premises: vec![],
             consequences: vec![],
             sources: vec![],
+            cheap: true,
         };
         proof.nodes.push(negated_goal);
 
@@ -215,6 +220,7 @@ impl<'a> Proof<'a> {
                 premises: vec![],
                 consequences: vec![],
                 sources: vec![],
+                cheap: step.cheap,
             });
 
             if let Rule::Assumption(source) = &step.rule {
@@ -254,11 +260,11 @@ impl<'a> Proof<'a> {
         }
 
         let node = &self.nodes[node_id as usize];
-        if node.premises.len() > 0 || node.sources.len() != 1 {
+        if !node.cheap || node.premises.len() > 0 || node.sources.len() != 1 {
             return;
         }
 
-        // This is in fact a single-source node, so we can remove it.
+        // This node can be pruned.
         let source = node.sources[0];
         let consequences = std::mem::take(&mut self.nodes[node_id as usize].consequences);
         for consequence_id in &consequences {
