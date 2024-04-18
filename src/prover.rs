@@ -663,11 +663,11 @@ mod tests {
     }
 
     // Expects the prover to find a proof but then fail to generate code.
-    fn expect_code_gen_error(text: &str, goal_name: &str, expected: &str) {
-        let (outcome, code) = prove_as_main(text, goal_name);
-        assert_eq!(outcome, Outcome::Success);
-        assert_eq!(code.unwrap_err().error_type(), expected);
-    }
+    // fn expect_code_gen_error(text: &str, goal_name: &str, expected: &str) {
+    //     let (outcome, code) = prove_as_main(text, goal_name);
+    //     assert_eq!(outcome, Outcome::Success);
+    //     assert_eq!(code.unwrap_err().error_type(), expected);
+    // }
 
     const THING: &str = r#"
     type Thing: axiom
@@ -887,7 +887,7 @@ mod tests {
             axiom a34(x: bool): f3(x) -> f4(x)
             theorem goal(x: bool): f4(b)
         "#;
-        expect_proof(text, "goal", &["f2(b)", "f3(b)"]);
+        expect_proof(text, "goal", &[]);
     }
 
     #[test]
@@ -1318,7 +1318,7 @@ mod tests {
     }
 
     #[test]
-    fn test_indirect_proof_extraction() {
+    fn test_indirect_proof_collapses() {
         let text = r#"
             let a: bool = axiom
             let b: bool = axiom
@@ -1326,7 +1326,7 @@ mod tests {
             axiom bimpna: b -> !a
             theorem goal: !b
         "#;
-        expect_proof(text, "goal", &["if b {", "\ta", "\tfalse", "}"]);
+        expect_proof(text, "goal", &[]);
     }
 
     #[test]
@@ -1340,7 +1340,7 @@ mod tests {
             axiom gimph: forall(x: Nat) { g(x) -> h(x) }
             theorem goal: forall(x: Nat) { f(x) -> h(x) }
         "#;
-        expect_code_gen_error(text, "goal", "Skolem");
+        expect_proof(text, "goal", &[]);
     }
 
     #[test]
@@ -1354,7 +1354,7 @@ mod tests {
         axiom fgimpb: forall(x: Nat) { f(x) | g(x) } -> b
         theorem goal: b
         "#;
-        expect_code_gen_error(text, "goal", "Skolem");
+        expect_proof(text, "goal", &[]);
     }
 
     #[test]
@@ -1388,7 +1388,7 @@ mod tests {
             theorem goal: foo(t1) -> foo(t3)
             "#;
 
-        expect_proof(text, "goal", &["foo(t2)"]);
+        expect_proof(text, "goal", &[]);
     }
 
     #[test]

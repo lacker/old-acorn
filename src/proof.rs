@@ -161,25 +161,6 @@ fn move_sources(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
     }
 }
 
-// A heuristic. We don't combine source lists when it means putting together two different
-// nontrivial sources that weren't together already.
-fn can_combine_sources<'a>(from_sources: &[&Source], to_sources: &[&Source]) -> bool {
-    for from_source in from_sources {
-        if from_source.is_trivial() {
-            continue;
-        }
-        for to_source in to_sources {
-            if to_source.is_trivial() {
-                continue;
-            }
-            if from_source != to_source {
-                return false;
-            }
-        }
-    }
-    true
-}
-
 impl<'a> Proof<'a> {
     // Creates a new proof, without condensing the proof graph.
     // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
@@ -323,91 +304,6 @@ impl<'a> Proof<'a> {
         }
     }
 
-    // If this node is cheap and uses only sources, no premises, remove it.
-    // Any consequences should use the sources directly instead.
-    // Recursively prunes any nodes that become eligible as a result.
-    fn old_prune(&mut self, node_id: NodeId) {
-        if node_id == 0 {
-            // We should never remove the goal
-            return;
-        }
-
-        let node = &self.nodes[node_id as usize];
-        if node.premises.len() > 0 || node.sources.len() != 1 {
-            return;
-        }
-
-        // This node can be pruned.
-        let source = node.sources[0];
-        let consequences = std::mem::take(&mut self.nodes[node_id as usize].consequences);
-        for consequence_id in &consequences {
-            self.nodes[*consequence_id as usize]
-                .premises
-                .retain(|x| *x != node_id);
-            self.nodes[*consequence_id as usize].sources.push(source);
-        }
-
-        for consequence_id in &consequences {
-            self.old_prune(*consequence_id);
-        }
-    }
-
-    // Prunes all eligible nodes from the graph.
-    fn old_prune_all(&mut self) {
-        for node_id in 1..self.nodes.len() as NodeId {
-            self.old_prune(node_id);
-        }
-    }
-
-    // Sometimes when we have a line of reasoning
-    // A & B -> C -> D
-    // we can contract the interior C node by replacing it with
-    // A & B -> D
-    //
-    // In order to contract an interior node, we need:
-    //   1. The node has a single consequence.
-    //   2. The contraction would not combine multiple expensive reasoning steps.
-    //
-    // This method contracts the interior node if possible and recurses on any newly eligible nodes.
-    fn old_contract(&mut self, node_id: NodeId) {
-        if node_id == 0 {
-            // We should never remove the goal
-            return;
-        }
-        let node = &self.nodes[node_id as usize];
-        if node.consequences.len() != 1 {
-            return;
-        }
-        let consequence_id = node.consequences[0];
-        let consequence = &self.nodes[consequence_id as usize];
-        if !can_combine_sources(&node.sources, &consequence.sources) {
-            return;
-        }
-
-        // We can remove the interior node.
-        let premises = std::mem::take(&mut self.nodes[node_id as usize].premises);
-        for &premise_id in &premises {
-            self.nodes[premise_id as usize]
-                .consequences
-                .retain(|x| *x != node_id);
-            insert_edge(&mut self.nodes, premise_id, consequence_id);
-        }
-        remove_edge(&mut self.nodes, node_id, consequence_id);
-        move_sources(&mut self.nodes, node_id, consequence_id);
-
-        // After we do this removal, it's possible that some of the premises can now be removed,
-        // because we could have combined multiple consequences into one.
-        for &premise_id in &premises {
-            self.old_contract(premise_id);
-        }
-    }
-
-    fn old_contract_all(&mut self) {
-        for node_id in 1..self.nodes.len() as NodeId {
-            self.old_contract(node_id);
-        }
-    }
-
     fn display(&self, value: &NodeValue) -> String {
         match value {
             NodeValue::Clause(clause) => format!(
@@ -529,14 +425,7 @@ impl<'a> Proof<'a> {
 
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
-        // TODO: commit to the experiment
-        let experiment = true;
-        if experiment {
-            self.remove_trivial();
-        } else {
-            self.old_prune_all();
-            self.old_contract_all();
-        }
+        self.remove_trivial();
         self.remove_conditional(0);
     }
 
