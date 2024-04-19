@@ -256,7 +256,14 @@ theorem pos_part_neg(a: Int): pos_part(negate(a)) = neg_part(a) by {
     }
 }
 
-theorem pos_part_from(n: Nat): pos_part(from_nat(n)) = n
+theorem pos_part_from(n: Nat): pos_part(from_nat(n)) = n by {
+    if n = nat.0 {
+        pos_part(from_nat(n)) = n
+    } else {
+        pos_part(from_nat(n)) = abs(from_nat(n))
+        pos_part(from_nat(n)) = n
+    }
+}
 
 theorem neg_part_from(n: Nat): neg_part(from_nat(n)) = nat.0
 
@@ -601,7 +608,9 @@ define mul(a: Int, b: Int) -> Int: if is_positive(b) {
     negate(mul_nat(a, abs(b)))
 }
 
-theorem mul_nat_from_nat_right(a: Int, n: Nat): mul_nat(a, n) = mul(a, from_nat(n))
+theorem mul_nat_from_nat_right(a: Int, n: Nat): mul_nat(a, n) = mul(a, from_nat(n)) by {
+    mul(a, from_nat(n)) = mul_nat(a, abs(from_nat(n)))
+}
 
 theorem mul_zero_right(a: Int): mul(a, 0) = 0 by {
     !is_positive(0)
@@ -750,15 +759,34 @@ theorem mul_distrib_left(a: Int, b: Int, c: Int): mul(a, add(b, c)) = add(mul(a,
     mul(a, add(b, c)) = add(mul(a, b), mul(c, a))
 }
 
+theorem mul_sub_distrib_right(a: Int, b: Int, c: Int): mul(sub(a, b), c) = sub(mul(a, c), mul(b, c)) by {
+    mul(sub(a, b), c) = mul(add(a, negate(b)), c)
+    mul(sub(a, b), c) = add(mul(a, c), mul(negate(b), c))
+    mul(sub(a, b), c) = add(mul(a, c), negate(mul(b, c)))
+    mul(sub(a, b), c) = sub(mul(a, c), mul(b, c))
+}
+
+theorem mul_sub_distrib_left(a: Int, b: Int, c: Int): mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c)) by {
+    mul(a, sub(b, c)) = mul(a, add(b, negate(c)))
+    mul(a, sub(b, c)) = add(mul(a, b), mul(a, negate(c)))
+    mul(a, sub(b, c)) = add(mul(a, b), negate(mul(a, c)))
+    mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c))
+}
+
 theorem abs_mul(a: Int, b: Int): abs(mul(a, b)) = nat.mul(abs(a), abs(b)) by {
     if is_positive(a) {
         if is_positive(b) {
             abs(mul(a, b)) = nat.mul(abs(a), abs(b))
         } else {
+            abs(mul_nat(a, abs(b))) = abs(mul(a, b))
             abs(mul(a, b)) = nat.mul(abs(a), abs(b))
         }
     } else {
         if is_positive(b) {
+            abs(mul(a, b)) = abs(mul(b, a))
+            nat.mul(abs(a), abs(b)) = nat.mul(abs(b), abs(a))
+            abs(mul_nat(b, abs(a))) = abs(mul(b, a))
+            nat.mul(pos_part(b), abs(a)) = abs(mul(a, b))
             abs(mul(a, b)) = nat.mul(abs(a), abs(b))
         } else {
             abs(mul(a, b)) = nat.mul(abs(a), abs(b))
@@ -775,6 +803,8 @@ theorem mul_from_nat(j: Nat, k: Nat): mul(from_nat(j), from_nat(k)) = from_nat(n
     from_nat(abs(mul(from_nat(j), from_nat(k)))) = mul(from_nat(j), from_nat(k))
     mul(from_nat(j), from_nat(k)) = from_nat(nat.mul(abs(from_nat(j)), abs(from_nat(k))))
 }
+
+theorem abs_zero_imp_zero(a: Int): abs(a) = nat.0 -> a = 0
 
 theorem mul_zero_imp_factor_zero(a: Int, b: Int): mul(a, b) = 0 -> a = 0 | b = 0 by {
     nat.mul(abs(a), abs(b)) = nat.0
@@ -969,6 +999,8 @@ theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(add(a, b)), nat.add(abs(a), a
             abs(add(a, b)) = nat.add(abs(a), abs(b))
             nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b)))
         } else {
+            nat.lte(abs(add(b, a)), nat.add(abs(b), abs(a)))
+            nat.lte(abs(add(b, a)), nat.add(abs(a), abs(b)))
             nat.lte(abs(add(a, b)), nat.add(abs(a), abs(b)))
         }
     } else {
@@ -982,6 +1014,7 @@ theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(add(a, b)), nat.add(abs(a), a
 }
 
 theorem lt_mul_pos(a: Int, b: Int, c: Int): lt(a, b) & is_positive(c) -> lt(mul(a, c), mul(b, c)) by {
+    sub(mul(b, c), mul(a, c)) = mul(sub(b, a), c)
     sub(mul(b, c), mul(a, c)) = mul(c, sub(b, a))
     is_positive(sub(b, a))
     is_positive(sub(mul(b, c), mul(a, c)))
@@ -1079,6 +1112,8 @@ define unit_sign(a: Int) -> Int: if is_negative(a) {
     1
 }
 
+theorem unit_sign_is_unit(a: Int): is_unit(unit_sign(a))
+
 theorem abs_decomp(a: Int): mul(unit_sign(a), from_nat(abs(a))) = a by {
     if is_negative(a) {
         unit_sign(a) = negate(1)
@@ -1166,7 +1201,9 @@ theorem gcd_comm(a: Int, b: Int): gcd(a, b) = gcd(b, a) by {
     from_nat(nat_gcd.gcd(abs(a), abs(b))) = from_nat(nat_gcd.gcd(abs(b), abs(a)))
 }
 
-theorem gcd_div_left(a: Int, b: Int): divides(gcd(a, b), a)
+theorem gcd_div_left(a: Int, b: Int): divides(gcd(a, b), a) by {
+    divides(from_nat(nat_gcd.gcd(abs(a), abs(b))), a)
+}
 
 theorem gcd_div_right(a: Int, b: Int): divides(gcd(a, b), b)
 
