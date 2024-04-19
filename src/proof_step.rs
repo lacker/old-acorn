@@ -187,7 +187,7 @@ pub struct ProofStep {
     atom_count: u32,
 }
 
-pub type Score = (i32, i32, i32);
+pub type Score = (bool, i32, i32, i32);
 
 impl Ord for ProofStep {
     // The heuristic used to decide which clause is the most promising.
@@ -399,6 +399,8 @@ impl ProofStep {
 
     // The better the score, the more we want to activate this proof step.
     //
+    // The first element of the score is a flag for whether this step ends the whole proof.
+    //
     // The first element of the score is the negative depth. (Larger scores are handled first.)
     //
     // The second element of the score is a deterministic ordering:
@@ -436,8 +438,9 @@ impl ProofStep {
             heuristic -= 3;
         }
 
+        let flag = self.clause.is_impossible();
         let first_element = if EXPERIMENT { -(self.depth as i32) } else { 0 };
-        return (first_element, deterministic_tier, heuristic);
+        return (flag, first_element, deterministic_tier, heuristic);
     }
 
     // We have to strictly limit deduction that happens between two library facts, because
