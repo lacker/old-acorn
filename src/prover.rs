@@ -560,6 +560,7 @@ impl Prover {
             rule,
             location,
             trivial,
+            depth: step.depth,
         }
     }
 

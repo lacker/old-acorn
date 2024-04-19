@@ -39,6 +39,7 @@ interface ProofStepInfo {
   rule: string;
   location: Location | null;
   trivial: boolean;
+  depth: number;
 }
 
 interface SearchResult {

@@ -89,7 +89,12 @@ pub struct ProofStepInfo {
     pub location: Option<Location>,
 
     // Whether the source of this step is a trivial one.
+    // This is an older concept of "trivial" that perhaps we should get rid of - it is only used to
+    // determine whether to describe a theorem dependency or not.
     pub trivial: bool,
+
+    // The depth of this proof step in the proof tree, counting only expensive deductions.
+    pub depth: u32,
 }
 
 // The SearchResult contains information that is produced once, when the search completes.
