@@ -50,8 +50,9 @@ pub struct SearchParams {
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClauseInfo {
-    // A format for the user to see
-    pub text: String,
+    // A format for the user to see.
+    // None if this is a contradiction.
+    pub text: Option<String>,
 
     // Only activated clauses have an id
     pub id: Option<usize>,

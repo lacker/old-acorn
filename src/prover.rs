@@ -505,19 +505,25 @@ impl Prover {
     }
 
     // Convert a clause to a jsonable form
-    pub fn to_clause_info(&self, id: usize, clause: &Clause) -> ClauseInfo {
-        let id = if id == FINAL_STEP { None } else { Some(id) };
-        ClauseInfo {
-            text: self.display(clause).to_string(),
-            id,
-        }
+    pub fn to_clause_info(&self, id: Option<usize>, clause: &Clause) -> ClauseInfo {
+        let text = if clause.is_impossible() {
+            None
+        } else {
+            Some(self.display(clause).to_string())
+        };
+        ClauseInfo { text, id }
     }
 
-    fn to_proof_step_info(&self, project: &Project, id: usize, step: &ProofStep) -> ProofStepInfo {
+    fn to_proof_step_info(
+        &self,
+        project: &Project,
+        id: Option<usize>,
+        step: &ProofStep,
+    ) -> ProofStepInfo {
         let clause = self.to_clause_info(id, &step.clause);
         let mut premises = vec![];
         for (description, i) in step.descriptive_dependencies() {
-            let clause = self.to_clause_info(i, self.active_set.get_clause(i));
+            let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
             premises.push((description, clause));
         }
         let (rule, location, trivial) = match &step.rule {
@@ -545,8 +551,9 @@ impl Prover {
 
     pub fn to_proof_info(&self, project: &Project, proof: &Proof) -> Vec<ProofStepInfo> {
         let mut result = vec![];
-        for (i, step) in proof.steps.iter() {
-            result.push(self.to_proof_step_info(project, *i, step));
+        for (&i, step) in proof.steps.iter() {
+            let id = if i == FINAL_STEP { None } else { Some(i) };
+            result.push(self.to_proof_step_info(project, id, step));
         }
         result
     }
@@ -558,24 +565,24 @@ impl Prover {
         if !self.active_set.has_step(id) {
             return None;
         }
-        let step = self.to_proof_step_info(project, id, self.active_set.get_step(id));
+        let step = self.to_proof_step_info(project, Some(id), self.active_set.get_step(id));
         let mut consequences = vec![];
 
         // Check if the final step is a consequence of this clause
         if let Some((final_step, _)) = &self.result {
             if final_step.depends_on(id) {
-                consequences.push(self.to_proof_step_info(project, FINAL_STEP, &final_step));
+                consequences.push(self.to_proof_step_info(project, None, &final_step));
             }
         }
 
         // Check the active set for consequences
         for (i, step) in self.active_set.find_consequences(id) {
-            consequences.push(self.to_proof_step_info(project, i, step));
+            consequences.push(self.to_proof_step_info(project, Some(i), step));
         }
 
         // Check the passive set for consequences
         for step in self.passive_set.find_consequences(id) {
-            consequences.push(self.to_proof_step_info(project, FINAL_STEP, step));
+            consequences.push(self.to_proof_step_info(project, None, step));
         }
 
         Some(InfoResult { step, consequences })
