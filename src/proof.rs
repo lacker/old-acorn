@@ -274,8 +274,7 @@ impl<'a> Proof<'a> {
 
     // Whether the node can be eliminated without making any other node require more than
     // basic reasoning.
-    // If all of a node's consequences have the same depth as it does, or are a contradiction,
-    // it's a trivial node.
+    // If all of a node's consequences have the same depth as it does, it's a trivial node.
     // Depth zero nodes are also trivial.
     // Contradictions are considered not trivial.
     fn is_trivial(&self, node_id: NodeId) -> bool {
@@ -288,9 +287,6 @@ impl<'a> Proof<'a> {
         }
         for consequence_id in &node.consequences {
             let consequence = &self.nodes[*consequence_id as usize];
-            if matches!(consequence.value, NodeValue::Contradiction) {
-                continue;
-            }
             if consequence.depth != node.depth {
                 return false;
             }

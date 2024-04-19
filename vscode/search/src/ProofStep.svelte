@@ -11,7 +11,7 @@
 </script>
 
 {#if step.clause.text === null}
-  Contradiction, <Rule {step} {showLocation} />.<br />
+  Contradiction, depth {step.depth}, <Rule {step} {showLocation} />.<br />
 {:else if step.clause.id === null}
   An unactivated clause, depth {step.depth}, <Rule {step} {showLocation} />.<br
   />
