@@ -1445,7 +1445,7 @@ mod tests {
             f(0)
         }
         "#;
-        expect_proof(text, "f(0)", &[]);
+        expect_proof(text, "f(0)", &["add_to_zero(0, b)"]);
     }
 
     #[test]

@@ -29,7 +29,7 @@ interface Location {
 }
 
 interface ClauseInfo {
-  text: string;
+  text: string | null;
   id: number | null;
 }
 

@@ -232,14 +232,6 @@ impl ProofStep {
         }
     }
 
-    fn is_definition(&self) -> bool {
-        if let Rule::Assumption(source) = &self.rule {
-            matches!(source.source_type, SourceType::Definition(_))
-        } else {
-            false
-        }
-    }
-
     // Construct a new assumption ProofStep that is not dependent on any other steps.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness, rule: Rule) -> ProofStep {
         ProofStep::new(clause, truthiness, rule, vec![], 0, true, 0)
@@ -305,11 +297,9 @@ impl ProofStep {
             exact,
         });
 
-        // I think rewriting according to definitions is finite, because we don't have
-        // recursive definitions. So we can generically allow those.
-        // Otherwise, rewriting can't form a pattern, so we just need to be monotonic
-        // in the targets.
-        let cheap = pattern_step.is_definition() || clause.is_simpler_than(&target_step.clause);
+        // TODO: I think we just need to be monotonic in the targets.
+        // Is that true, though?
+        let cheap = clause.is_simpler_than(&target_step.clause);
         let depth =
             std::cmp::max(pattern_step.depth, target_step.depth) + if cheap { 0 } else { 1 };
 
@@ -439,7 +429,14 @@ impl ProofStep {
         }
 
         let flag = self.clause.is_impossible();
-        let first_element = if EXPERIMENT { -(self.depth as i32) } else { 0 };
+
+        // TODO: do I even want to do this tiering?
+        let depth_tier = match self.depth {
+            0 => 2,
+            1 => 1,
+            _ => 0,
+        };
+        let first_element = if EXPERIMENT { depth_tier } else { 0 };
         return (flag, first_element, deterministic_tier, heuristic);
     }
 

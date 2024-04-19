@@ -183,6 +183,7 @@ theorem distrib_left(a: Nat, b: Nat, c: Nat):
     define f(x: Nat) -> bool: distrib_left(x, b, c)
     induction(f)
     add(mul(0, b), 0) = 0
+    distrib_left(0, b, c)
     f(0)
     forall(x: Nat) {
         if f(x) {

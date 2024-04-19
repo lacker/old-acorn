@@ -10,7 +10,9 @@
   }
 </script>
 
-{#if step.clause.id === null}
+{#if step.clause.text === null}
+  Contradiction, <Rule {step} {showLocation} />.<br />
+{:else if step.clause.id === null}
   An unactivated clause, <Rule {step} {showLocation} />.<br />
 {:else}
   Clause {step.clause.id},
