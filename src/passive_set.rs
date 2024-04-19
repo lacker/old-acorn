@@ -106,6 +106,14 @@ impl PassiveSet {
         }
     }
 
+    // Whether we have run out of basic clauses to process.
+    pub fn basic_exhausted(&self) -> bool {
+        match self.queue.last() {
+            None => true,
+            Some((score, _)) => !score.is_basic(),
+        }
+    }
+
     // Checks just the left->right direction for simplification.
     fn simplify_one_direction(
         &mut self,

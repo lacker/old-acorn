@@ -450,22 +450,36 @@ impl Prover {
     // A standard set of parameters, with a balance between speed and depth.
     // Useful for CLI or IDE when the user can wait a little bit.
     pub fn medium_search(&mut self) -> Outcome {
-        self.search_for_contradiction(5000, 5.0)
+        self.search_for_contradiction(5000, 5.0, false)
     }
 
     // A set of parameters to use when we want to find an answer very quickly.
     // Useful for unit tests.
-    // TODO: make this deterministic.
     pub fn quick_search(&mut self) -> Outcome {
-        self.search_for_contradiction(2000, 0.05)
+        self.search_for_contradiction(2000, 0.05, false)
     }
 
-    pub fn search_for_contradiction(&mut self, size: i32, seconds: f32) -> Outcome {
+    // The basicness should be the main limiter.
+    // If there is an error in the basicness, half a second should also work.
+    pub fn basic_search(&mut self) -> Outcome {
+        self.search_for_contradiction(10000, 0.5, true)
+    }
+
+    // If basic_only is set, we only search for a basic proof.
+    pub fn search_for_contradiction(
+        &mut self,
+        size: i32,
+        seconds: f32,
+        basic_only: bool,
+    ) -> Outcome {
         if self.error.is_some() {
             return Outcome::Error;
         }
         let start_time = std::time::Instant::now();
         loop {
+            if basic_only && self.passive_set.basic_exhausted() {
+                return Outcome::Exhausted;
+            }
             let outcome = self.activate_next();
             if outcome != Outcome::Unknown {
                 return outcome;

@@ -187,7 +187,33 @@ pub struct ProofStep {
     atom_count: u32,
 }
 
-pub type Score = (bool, i32, i32, i32);
+// The better the score, the more we want to activate this proof step.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Score {
+    // The first element of a regular score is the negative depth. (Larger scores are handled first.)
+    //
+    // The second element of the score is a deterministic ordering:
+    //
+    //   Global facts, both explicit and deductions
+    //   The negated goal
+    //   Explicit hypotheses
+    //   Local deductions
+    //
+    // The third element of the score is heuristic.
+    Regular(i32, i32, i32),
+
+    // Contradictions immediately end the proof and thus score highest.
+    Contradiction,
+}
+
+impl Score {
+    pub fn is_basic(&self) -> bool {
+        match self {
+            Score::Regular(negadepth, _, _) => *negadepth >= -1,
+            Score::Contradiction => true,
+        }
+    }
+}
 
 impl Ord for ProofStep {
     // The heuristic used to decide which clause is the most promising.
@@ -387,21 +413,12 @@ impl ProofStep {
         }
     }
 
-    // The better the score, the more we want to activate this proof step.
-    //
-    // The first element of the score is a flag for whether this step ends the whole proof.
-    //
-    // The first element of the score is the negative depth. (Larger scores are handled first.)
-    //
-    // The second element of the score is a deterministic ordering:
-    //
-    //   Global facts, both explicit and deductions
-    //   The negated goal
-    //   Explicit hypotheses
-    //   Local deductions
-    //
-    // The third element of the score is heuristic.
+    // A lot of heuristics here that perhaps could be simpler.
     pub fn score(&self) -> Score {
+        if self.clause.is_impossible() {
+            return Score::Contradiction;
+        }
+
         // Higher = more important, for the deterministic tier.
         let deterministic_tier = match self.truthiness {
             Truthiness::Counterfactual => {
@@ -428,16 +445,12 @@ impl ProofStep {
             heuristic -= 3;
         }
 
-        let flag = self.clause.is_impossible();
-
-        // TODO: do I even want to do this tiering?
         let depth_tier = match self.depth {
             0 => 2,
             1 => 1,
             _ => 0,
         };
-        let first_element = if EXPERIMENT { depth_tier } else { 0 };
-        return (flag, first_element, deterministic_tier, heuristic);
+        return Score::Regular(depth_tier, deterministic_tier, heuristic);
     }
 
     // We have to strictly limit deduction that happens between two library facts, because
