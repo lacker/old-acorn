@@ -232,14 +232,6 @@ impl ProofStep {
         }
     }
 
-    fn is_definition(&self) -> bool {
-        if let Rule::Assumption(source) = &self.rule {
-            matches!(source.source_type, SourceType::Definition(_))
-        } else {
-            false
-        }
-    }
-
     // Construct a new assumption ProofStep that is not dependent on any other steps.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness, rule: Rule) -> ProofStep {
         ProofStep::new(clause, truthiness, rule, vec![], 0, true, 0)
@@ -272,13 +264,8 @@ impl ProofStep {
             negative_id,
         });
 
-        let cheap = if positive_step.is_definition() || negative_step.is_definition() {
-            // Implications that are true by definition are cheap.
-            true
-        } else {
-            clause.is_simpler_than(&positive_step.clause)
-                && clause.is_simpler_than(&negative_step.clause)
-        };
+        let cheap = clause.is_simpler_than(&positive_step.clause)
+            && clause.is_simpler_than(&negative_step.clause);
         let depth =
             std::cmp::max(positive_step.depth, negative_step.depth) + if cheap { 0 } else { 1 };
 

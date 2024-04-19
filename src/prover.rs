@@ -1433,7 +1433,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proof_condensing_multiple_paths() {
+    fn test_proof_using_local_definition() {
         let text = r#"
         type Nat: axiom
         let 0: Nat = axiom
@@ -1445,7 +1445,7 @@ mod tests {
             f(0)
         }
         "#;
-        expect_proof(text, "f(0)", &[]);
+        expect_proof(text, "f(0)", &["add_to_zero(0, b)"]);
     }
 
     #[test]
