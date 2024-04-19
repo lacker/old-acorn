@@ -297,6 +297,10 @@ impl Prover {
         }
     }
 
+    pub fn num_activated(&self) -> usize {
+        self.active_set.len()
+    }
+
     pub fn print_proof(&self) {
         let final_step = if let Some((final_step, _)) = &self.result {
             final_step

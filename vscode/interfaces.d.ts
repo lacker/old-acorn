@@ -45,6 +45,7 @@ interface SearchResult {
   code: Array<string> | null;
   codeError: string | null;
   steps: Array<ProofStepInfo> | null;
+  numActivated: number;
 }
 
 interface SearchResponse {

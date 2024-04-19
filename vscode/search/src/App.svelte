@@ -110,6 +110,16 @@
     vscode.postMessage({ command: "infoRequest", params });
   }
 
+  function randomClause() {
+    if (searchResponse === null || searchResponse.result === null) {
+      return;
+    }
+
+    // Pick a random activated clause
+    let id = Math.floor(Math.random() * searchResponse.result.numActivated);
+    clauseClick(id);
+  }
+
   function showLocation(uri: string, range: Range) {
     vscode.postMessage({ command: "showLocation", uri, range });
   }
@@ -171,17 +181,28 @@
     <hr />
     <div class="mono">
       <br />
+      <button
+        on:click={() => {
+          infoResult = null;
+        }}>Text logs</button
+      >
+      <button on:click={randomClause}>Random clause</button>
+      <br /><br />
       {#if infoResult === null}
-        <span>Log output from the prover:</span>
+        <span>Plain text logs from the prover:</span>
         <pre>{"\n"}{searchResponse.textOutput.join("\n")}</pre>
       {:else}
         <ProofStep step={infoResult.step} {clauseClick} {showLocation} />
         <br />
-        Consequences:<br />
-        {#each infoResult.consequences as step}
-          <br />
-          <ProofStep {step} {clauseClick} {showLocation} />
-        {/each}
+        {#if infoResult.consequences.length === 0}
+          There are no consequences.
+        {:else}
+          Consequences:<br />
+          {#each infoResult.consequences as step}
+            <br />
+            <ProofStep {step} {clauseClick} {showLocation} />
+          {/each}
+        {/if}
       {/if}
     </div>
   {/if}

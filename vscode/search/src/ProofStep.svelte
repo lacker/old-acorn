@@ -11,7 +11,7 @@
 </script>
 
 {#if step.clause.id === null}
-  Contradiction, <Rule {step} {showLocation} />.<br />
+  An unactivated clause, <Rule {step} {showLocation} />.<br />
 {:else}
   Clause {step.clause.id},
   <Rule {step} {showLocation} />:<br />

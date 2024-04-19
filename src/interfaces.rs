@@ -105,32 +105,47 @@ pub struct SearchResult {
     // Steps in the proof, as we found them.
     // If we failed to find a proof, this is None.
     pub steps: Option<Vec<ProofStepInfo>>,
+
+    // How many clauses we have activated.
+    // Any id below this, we can handle info requests to provide information for it.
+    pub num_activated: usize,
 }
 
 impl SearchResult {
-    pub fn success(code: Vec<String>, steps: Vec<ProofStepInfo>) -> SearchResult {
+    pub fn success(
+        code: Vec<String>,
+        steps: Vec<ProofStepInfo>,
+        num_activated: usize,
+    ) -> SearchResult {
         SearchResult {
             code: Some(code),
             code_error: None,
             steps: Some(steps),
+            num_activated,
         }
     }
 
     // Indicate a failure during code generation.
-    pub fn code_gen_error(steps: Vec<ProofStepInfo>, error: String) -> SearchResult {
+    pub fn code_gen_error(
+        steps: Vec<ProofStepInfo>,
+        error: String,
+        num_activated: usize,
+    ) -> SearchResult {
         SearchResult {
             code: None,
             code_error: Some(error),
             steps: Some(steps),
+            num_activated,
         }
     }
 
     // Indicate that there is no proof.
-    pub fn no_proof() -> SearchResult {
+    pub fn no_proof(num_activated: usize) -> SearchResult {
         SearchResult {
             code: None,
             code_error: None,
             steps: None,
+            num_activated,
         }
     }
 }

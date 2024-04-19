@@ -5,7 +5,7 @@ use crate::clause::Clause;
 use crate::proposition::{Proposition, Source, SourceType};
 
 // Use this to toggle experimental algorithm mode
-pub const EXPERIMENT: bool = false;
+pub const EXPERIMENT: bool = true;
 
 // The "truthiness" categorizes the different types of true statements, relative to a proof.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -278,7 +278,7 @@ impl ProofStep {
             // So resolution is always considered cheap when the output has multiple literals.
             true
         } else if positive_step.is_definition() || negative_step.is_definition() {
-            // Expanding and contracting definitions is cheap.
+            // Implications that are true by definition are cheap.
             true
         } else {
             clause.is_simpler_than(&positive_step.clause)
@@ -315,13 +315,8 @@ impl ProofStep {
             exact,
         });
 
-        let cheap = if pattern_step.is_definition() || target_step.is_definition() {
-            // Expanding and contracting definitions is cheap.
-            true
-        } else {
-            // Rewriting can't form a new pattern, so just check target simplicity.
-            clause.is_simpler_than(&target_step.clause)
-        };
+        // Rewriting can't form a new pattern, so just check target simplicity.
+        let cheap = clause.is_simpler_than(&target_step.clause);
         let depth =
             std::cmp::max(pattern_step.depth, target_step.depth) + if cheap { 0 } else { 1 };
 
@@ -337,7 +332,9 @@ impl ProofStep {
     }
 
     // Create a replacement for this clause that has extra simplification rules
-    // TODO: should we be updating depth?
+    // We don't update depth.
+    // This might be a problem? It introduces an order dependency that we'd rather avoid, because
+    // proof steps appear to be shallower when we find their simplifications ahead of time.
     pub fn simplify(
         self,
         new_clause: Clause,

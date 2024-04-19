@@ -158,6 +158,7 @@ impl SearchTask {
         prover.stop_flags.push(self.superseded.clone());
 
         let outcome = prover.medium_search();
+        let num_activated = prover.num_activated();
         self.queue.push("".to_string());
 
         let result = match outcome {
@@ -174,32 +175,32 @@ impl SearchTask {
                         for line in &code {
                             self.queue.push(line.to_string());
                         }
-                        SearchResult::success(code, steps)
+                        SearchResult::success(code, steps, num_activated)
                     }
                     Err(e) => {
                         self.queue
                             .push("Error converting proof to code:".to_string());
                         self.queue.push(e.to_string());
-                        SearchResult::code_gen_error(steps, e.to_string())
+                        SearchResult::code_gen_error(steps, e.to_string(), num_activated)
                     }
                 }
             }
             Outcome::Inconsistent => {
                 self.queue.push("Found inconsistency!".to_string());
                 prover.print_proof();
-                SearchResult::no_proof()
+                SearchResult::no_proof(num_activated)
             }
             Outcome::Exhausted => {
                 self.queue
                     .push("All possibilities have been exhausted.".to_string());
-                SearchResult::no_proof()
+                SearchResult::no_proof(num_activated)
             }
             Outcome::Unknown => {
                 // We failed. Let's add more information about the final state of the prover.
                 self.queue
                     .push("Timeout. The final passive set:".to_string());
                 prover.print_passive(None);
-                SearchResult::no_proof()
+                SearchResult::no_proof(num_activated)
             }
             Outcome::Interrupted => {
                 self.queue.push("Interrupted.".to_string());
