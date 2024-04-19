@@ -321,7 +321,7 @@ impl Project {
                 let start = std::time::Instant::now();
                 let goal_context = env.get_goal_context(&self, &path).unwrap();
                 let mut prover = Prover::new(&self, &goal_context, false, None);
-                let outcome = prover.medium_search();
+                let outcome = prover.basic_search();
                 let elapsed = duration_as_f64_secs(start.elapsed());
                 done += 1;
                 let mut exit_early = false;
@@ -337,7 +337,7 @@ impl Project {
                     }
                     Outcome::Exhausted => " is unprovable".to_string(),
                     Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
-                    Outcome::Unknown => " timed out".to_string(),
+                    Outcome::Unknown => " has no basic proof".to_string(),
                     Outcome::Interrupted => {
                         exit_early = true;
                         " was interrupted".to_string()
