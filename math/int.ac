@@ -492,7 +492,10 @@ theorem sub_cancel_right(a: Int, b: Int, c: Int): sub(a, c) = sub(b, c) -> a = b
 
 theorem sub_cancel_left(a: Int, b: Int, c: Int): sub(a, b) = sub(a, c) -> b = c
 
-theorem sub_add_cancel_left(a: Int, b: Int, c: Int): sub(add(a, b), add(a, c)) = sub(b, c)
+theorem sub_add_cancel_left(a: Int, b: Int, c: Int): sub(add(a, b), add(a, c)) = sub(b, c) by {
+    add(add(b, a), negate(add(a, c))) = sub(b, c)
+    add(add(a, b), negate(add(a, c))) = sub(b, c)
+}
 
 theorem sub_add_cancel_right(a: Int, b: Int, c: Int): sub(add(a, c), add(b, c)) = sub(a, b)
 
@@ -995,6 +998,7 @@ theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(mul(
 theorem lt_trans(a: Int, b: Int, c: Int): lt(a, b) & lt(b, c) -> lt(a, c) by {
     is_positive(sub(b, a))
     is_positive(sub(c, b))
+    exists(k0: Int) { lt(add(a, k0), add(c, k0)) }
     is_positive(sub(c, a))
 }
 
