@@ -272,12 +272,7 @@ impl ProofStep {
             negative_id,
         });
 
-        let cheap = if clause.literals.len() > 1 {
-            // When the output of a resolution still has multiple literals, it can only be used
-            // for further resolution steps, and these resolution chains are limited.
-            // So resolution is always considered cheap when the output has multiple literals.
-            true
-        } else if positive_step.is_definition() || negative_step.is_definition() {
+        let cheap = if positive_step.is_definition() || negative_step.is_definition() {
             // Implications that are true by definition are cheap.
             true
         } else {
