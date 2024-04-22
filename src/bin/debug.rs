@@ -1,4 +1,8 @@
 // Analyzes an acorn file interactively.
+//
+// The idea is that you could step through the prover's search like stepping through a debugger.
+// I'm not sure if this is useful any more, though, since proof search goes on so long.
+//
 // Try:
 //   cargo run --bin=debug nat.ac add_assoc
 

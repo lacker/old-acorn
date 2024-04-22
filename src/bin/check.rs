@@ -1,4 +1,7 @@
 // Checks an acorn file to see if it compiles.
+//
+// This is the CLI equivalent of what the IDE runs when you save.
+//
 // Try:
 //   cargo run --bin=check nat
 
