@@ -882,6 +882,10 @@ theorem mul_int_int_nat_assoc(a: Int, b: Int, n: Nat): mul_nat(mul(a, b), n) = m
         mul_nat(mul(a, b), n) = mul(a, mul_nat(negate(from_nat(abs(b))), n))
         mul_nat(mul(a, b), n) = mul(a, mul_nat(b, n))
     } else {
+        mul(a, b) = mul_nat(a, abs(b))
+        mul_nat(a, nat.mul(abs(b), n)) = mul_nat(mul(a, b), n)
+        from_nat(nat.mul(abs(b), n)) = mul_nat(b, n)
+        mul_nat(a, nat.mul(abs(b), n)) = mul(a, mul_nat(b, n))
         mul_nat(mul(a, b), n) = mul(a, mul_nat(b, n))
     }
 }
