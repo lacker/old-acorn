@@ -152,12 +152,17 @@ fn insert_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
     }
 }
 
-fn move_sources(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
+fn move_sources_and_premises(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
     let sources = std::mem::take(&mut nodes[from as usize].sources);
     for source in sources {
         if !nodes[to as usize].sources.contains(&source) {
             nodes[to as usize].sources.push(source);
         }
+    }
+    let premises = std::mem::take(&mut nodes[from as usize].premises);
+    for premise in premises {
+        nodes[premise as usize].consequences.retain(|x| *x != from);
+        insert_edge(nodes, premise, to);
     }
 }
 
@@ -415,18 +420,19 @@ impl<'a> Proof<'a> {
             }
 
             // We only use this node for one thing, so we can reverse the outgoing edge.
-            // Initially, the logic is that we assume "from", and prove "to".
-            // Afterwards, we are going to assume "to", and prove "!from".
+            // Initially, the logic is that we assume "from", prove "to", then prove a contradiction.
+            // Afterwards, we are going to assume "to", prove a contradiction, and conclude "!from".
             // Thus, we need to reverse the direction, negate from, and move all of to's sources
-            // to from.
-            // If to is a contradiction, we don't need the resulting edge at all.
+            // and premises to from.
+            // If to is a contradiction, we don't want the resulting edge.
             let to_id = counterfactual_consequences[0];
             remove_edge(&mut self.nodes, from_id, to_id);
+
+            self.nodes[from_id as usize].negated = true;
+            move_sources_and_premises(&mut self.nodes, to_id, from_id);
             if !matches!(self.nodes[to_id as usize].value, NodeValue::Contradiction) {
                 insert_edge(&mut self.nodes, to_id, from_id);
             }
-            self.nodes[from_id as usize].negated = true;
-            move_sources(&mut self.nodes, to_id, from_id);
 
             // Continue with the node that we just moved into the "if" condition
             from_id = to_id;
