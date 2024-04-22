@@ -500,13 +500,16 @@ impl Term {
     }
 
     pub fn complexity(&self) -> Complexity {
-        let mut num_vars = if self.head.is_variable() { 1 } else { 0 };
+        let mut least_unused_var = match self.head {
+            Atom::Variable(i) => i + 1,
+            _ => 0,
+        };
         let mut num_atoms = 1;
         let mut rightiness = 0;
 
         for (i, arg) in self.args.iter().enumerate() {
             let arg_complexity = arg.complexity();
-            num_vars += arg_complexity.num_vars;
+            least_unused_var = least_unused_var.max(arg_complexity.least_unused_var);
             num_atoms += arg_complexity.num_atoms;
 
             // Each of the atoms in this arg contributes i more to rightiness in the base term
@@ -515,7 +518,7 @@ impl Term {
         }
 
         Complexity {
-            num_vars,
+            least_unused_var,
             num_atoms,
             rightiness,
         }
@@ -641,8 +644,8 @@ impl Term {
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Complexity {
-    // How many variables are in this term
-    pub num_vars: u32,
+    // The lowest variable not used by this term
+    pub least_unused_var: u16,
 
     // How many atoms, variables or nonvariables, are in this term
     pub num_atoms: u32,
@@ -655,10 +658,14 @@ pub struct Complexity {
 impl Complexity {
     pub fn add(&self, other: &Complexity) -> Complexity {
         Complexity {
-            num_vars: self.num_vars + other.num_vars,
+            least_unused_var: self.least_unused_var.max(other.least_unused_var),
             num_atoms: self.num_atoms + other.num_atoms,
             rightiness: self.rightiness + other.rightiness,
         }
+    }
+
+    pub fn is_very_simple(&self) -> bool {
+        self.num_atoms <= 6
     }
 }
 

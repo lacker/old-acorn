@@ -205,12 +205,13 @@ impl Literal {
         self.left.complexity().add(&self.right.complexity())
     }
 
-    // We want this to be a well ordering. Ie, there should be no infinite chain of literals,
-    // each one simpler than the previous.
-    // This ignores negation, to try to be invariant to negating things.
-    pub fn is_simpler_than(&self, other: &Literal) -> bool {
+    // Whether it is cheap to conclude this literal from the other one.
+    // We don't want there to be extremely long chains of reasoning, each step of which it is
+    // cheap to conclude from the previous one.
+    pub fn is_cheap_conclusion_from(&self, other: &Literal) -> bool {
         if EXPERIMENT {
-            self.complexity() < other.complexity()
+            let self_complexity = self.complexity();
+            self_complexity.is_very_simple() || self_complexity < other.complexity()
         } else {
             match self.left.extended_kbo_cmp(&other.left) {
                 Ordering::Less => true,

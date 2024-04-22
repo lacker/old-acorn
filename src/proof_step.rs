@@ -290,8 +290,8 @@ impl ProofStep {
             negative_id,
         });
 
-        let cheap = clause.is_simpler_than(&positive_step.clause)
-            && clause.is_simpler_than(&negative_step.clause);
+        let cheap = clause.is_cheap_conclusion_from(&positive_step.clause)
+            && clause.is_cheap_conclusion_from(&negative_step.clause);
 
         let depth =
             std::cmp::max(positive_step.depth, negative_step.depth) + if cheap { 0 } else { 1 };
@@ -326,7 +326,7 @@ impl ProofStep {
 
         // TODO: I think we just need to be monotonic in the targets.
         // Is that true, though?
-        let cheap = clause.is_simpler_than(&target_step.clause);
+        let cheap = clause.is_cheap_conclusion_from(&target_step.clause);
         let depth =
             std::cmp::max(pattern_step.depth, target_step.depth) + if cheap { 0 } else { 1 };
 

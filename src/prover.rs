@@ -1466,17 +1466,7 @@ mod tests {
             f(0)
         }
         "#;
-        expect_proof(
-            text,
-            "f(0)",
-            &[
-                "if !add_to_zero(0, b) {",
-                "\tadd(0, b) = 0",
-                "\tb != 0",
-                "\tfalse",
-                "}",
-            ],
-        );
+        expect_proof(text, "f(0)", &[]);
     }
 
     #[test]

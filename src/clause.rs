@@ -110,11 +110,12 @@ impl Clause {
         self.literals.iter().filter(|x| x.positive).count()
     }
 
-    // We want this to be a well ordering. Ie, there should be no infinite chain of clauses,
-    // each one simpler than the previous.
-    pub fn is_simpler_than(&self, other: &Clause) -> bool {
+    // Whether it is cheap to conclude this clause from the other clause.
+    // We don't want there to be extremely long chains of reasoning, each step of which it is
+    // cheap to conclude from the previous one.
+    pub fn is_cheap_conclusion_from(&self, other: &Clause) -> bool {
         if self.len() == other.len() {
-            self.literals[0].is_simpler_than(&other.literals[0])
+            self.literals[0].is_cheap_conclusion_from(&other.literals[0])
         } else {
             self.len() < other.len()
         }
