@@ -6,7 +6,7 @@ use crate::clause::Clause;
 use crate::code_gen_error::CodeGenError;
 use crate::display::DisplayClause;
 use crate::normalizer::Normalizer;
-use crate::proof_step::{ProofStep, Rule};
+use crate::proof_step::{ProofStep, Rule, EXPERIMENT};
 use crate::proposition::{Source, SourceType};
 
 // A special id to indicate the final step of a proof.
@@ -272,12 +272,9 @@ impl<'a> Proof<'a> {
         }
     }
 
-    // Whether the node can be eliminated without making any other node require more than
-    // basic reasoning.
-    // If all of a node's consequences have the same depth as it does, it's a trivial node.
-    // Depth zero nodes are also trivial.
-    // Contradictions are considered not trivial.
-    fn is_trivial(&self, node_id: NodeId) -> bool {
+    // Whether the node can be contracted while maintaining... the properties we want.
+    // TODO: explain it better.
+    fn is_unnecessary(&self, node_id: NodeId) -> bool {
         let node = &self.nodes[node_id as usize];
         if matches!(node.value, NodeValue::Contradiction) {
             return false;
@@ -285,20 +282,32 @@ impl<'a> Proof<'a> {
         if node.depth == 0 {
             return true;
         }
-        for consequence_id in &node.consequences {
-            let consequence = &self.nodes[*consequence_id as usize];
-            if consequence.depth != node.depth {
-                return false;
+        if EXPERIMENT {
+            // Ditch all but the first nodes in a same-depth group.
+            for premise_id in &node.premises {
+                let premise = &self.nodes[*premise_id as usize];
+                if premise.depth != node.depth {
+                    return false;
+                }
             }
+            true
+        } else {
+            // Ditch all but the last nodes in a same-depth group.
+            for consequence_id in &node.consequences {
+                let consequence = &self.nodes[*consequence_id as usize];
+                if consequence.depth != node.depth {
+                    return false;
+                }
+            }
+            true
         }
-        true
     }
 
     // Remove nodes that are only needed as part of trivial reasoning.
-    fn remove_trivial(&mut self) {
+    fn remove_unnecessary(&mut self) {
         // Figure out which nodes are trivial.
         let trivial = (0..self.nodes.len() as NodeId)
-            .filter(|node_id| self.is_trivial(*node_id))
+            .filter(|node_id| self.is_unnecessary(*node_id))
             .collect::<Vec<_>>();
         for node_id in trivial {
             self.contract(node_id)
@@ -426,7 +435,7 @@ impl<'a> Proof<'a> {
 
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
-        self.remove_trivial();
+        self.remove_unnecessary();
         self.remove_conditional(0);
     }
 
