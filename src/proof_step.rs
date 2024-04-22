@@ -324,8 +324,7 @@ impl ProofStep {
             exact,
         });
 
-        // TODO: I think we just need to be monotonic in the targets.
-        // Is that true, though?
+        // We only compare against the target
         let cheap = clause.is_cheap_conclusion_from(&target_step.clause);
         let depth =
             std::cmp::max(pattern_step.depth, target_step.depth) + if cheap { 0 } else { 1 };

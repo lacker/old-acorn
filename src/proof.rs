@@ -6,7 +6,7 @@ use crate::clause::Clause;
 use crate::code_gen_error::CodeGenError;
 use crate::display::DisplayClause;
 use crate::normalizer::Normalizer;
-use crate::proof_step::{ProofStep, Rule, EXPERIMENT};
+use crate::proof_step::{ProofStep, Rule};
 use crate::proposition::{Source, SourceType};
 
 // A special id to indicate the final step of a proof.
@@ -287,25 +287,15 @@ impl<'a> Proof<'a> {
         if node.depth == 0 {
             return true;
         }
-        if EXPERIMENT {
-            // Ditch all but the first nodes in a same-depth group.
-            for premise_id in &node.premises {
-                let premise = &self.nodes[*premise_id as usize];
-                if premise.depth != node.depth {
-                    return false;
-                }
+
+        // Ditch all but the first nodes in a same-depth group.
+        for premise_id in &node.premises {
+            let premise = &self.nodes[*premise_id as usize];
+            if premise.depth != node.depth {
+                return false;
             }
-            true
-        } else {
-            // Ditch all but the last nodes in a same-depth group.
-            for consequence_id in &node.consequences {
-                let consequence = &self.nodes[*consequence_id as usize];
-                if consequence.depth != node.depth {
-                    return false;
-                }
-            }
-            true
         }
+        true
     }
 
     // Remove nodes that are only needed as part of trivial reasoning.
