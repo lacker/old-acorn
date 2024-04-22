@@ -3,8 +3,9 @@
 // This is the CLI equivalent of what the IDE runs when you click on a proposition.
 //
 // The user passes the line in externally-visible line number, which starts at 1.
+// Don't forget that the release build is much faster than debug.
 
-const USAGE: &str = "cargo run --bin=search <module name> <line number>";
+const USAGE: &str = "cargo run --release --bin=search <module name> <line number>";
 
 use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
@@ -32,7 +33,8 @@ async fn main() {
     };
 
     let goal_context = env.get_goal_context(&project, &path).unwrap();
-    let mut prover = Prover::new(&project, &goal_context, true, None);
+    println!("proving {} ...", goal_context.name);
+    let mut prover = Prover::new(&project, &goal_context, false, None);
     let outcome = prover.medium_search();
 
     match outcome {
