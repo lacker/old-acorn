@@ -499,6 +499,28 @@ impl Term {
         Ordering::Equal
     }
 
+    pub fn complexity(&self) -> Complexity {
+        let mut num_vars = if self.head.is_variable() { 1 } else { 0 };
+        let mut num_atoms = 1;
+        let mut rightiness = 0;
+
+        for (i, arg) in self.args.iter().enumerate() {
+            let arg_complexity = arg.complexity();
+            num_vars += arg_complexity.num_vars;
+            num_atoms += arg_complexity.num_atoms;
+
+            // Each of the atoms in this arg contributes i more to rightiness in the base term
+            // than it did in the arg.
+            rightiness += (i as u32) * arg_complexity.num_atoms + arg_complexity.rightiness;
+        }
+
+        Complexity {
+            num_vars,
+            num_atoms,
+            rightiness,
+        }
+    }
+
     pub fn get_term_at_path(&self, path: &[usize]) -> Option<&Term> {
         let mut current_term = self;
         for &i in path {
@@ -617,12 +639,35 @@ impl Term {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct Complexity {
+    // How many variables are in this term
+    pub num_vars: u32,
+
+    // How many atoms, variables or nonvariables, are in this term
+    pub num_atoms: u32,
+
+    // The rightiness of a path is the sum of all its indexes.
+    // The rightiness of a term is the sum of the rightiness of each of its leaves.
+    pub rightiness: u32,
+}
+
+impl Complexity {
+    pub fn add(&self, other: &Complexity) -> Complexity {
+        Complexity {
+            num_vars: self.num_vars + other.num_vars,
+            num_atoms: self.num_atoms + other.num_atoms,
+            rightiness: self.rightiness + other.rightiness,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_term_ordering() {
+    fn test_term_kbo_cmp() {
         assert_eq!(
             Term::parse("c0").extended_kbo_cmp(&Term::parse("c1")),
             Ordering::Less

@@ -2,7 +2,8 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::atom::{Atom, AtomId};
-use crate::term::Term;
+use crate::proof_step::EXPERIMENT;
+use crate::term::{Complexity, Term};
 use crate::type_map::TypeId;
 
 // Literals are always boolean-valued.
@@ -200,20 +201,30 @@ impl Literal {
         }
     }
 
+    pub fn complexity(&self) -> Complexity {
+        self.left.complexity().add(&self.right.complexity())
+    }
+
     // We want this to be a well ordering. Ie, there should be no infinite chain of literals,
     // each one simpler than the previous.
     // This ignores negation, to try to be invariant to negating things.
     pub fn is_simpler_than(&self, other: &Literal) -> bool {
-        match self.left.extended_kbo_cmp(&other.left) {
-            Ordering::Less => true,
-            Ordering::Greater => false,
-            Ordering::Equal => self.right.extended_kbo_cmp(&other.right) == Ordering::Less,
+        if EXPERIMENT {
+            self.complexity() < other.complexity()
+        } else {
+            match self.left.extended_kbo_cmp(&other.left) {
+                Ordering::Less => true,
+                Ordering::Greater => false,
+                Ordering::Equal => self.right.extended_kbo_cmp(&other.right) == Ordering::Less,
+            }
         }
     }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.
-// So, negative literals come first.
+// This is using a traditional saturation-based ordering, which might not really make sense.
+// Anyway.
+// Negative literals come first.
 // Then, we order backwards by term ordering for the left term.
 // Then, backwards (I guess?) for the right term.
 impl PartialOrd for Literal {
