@@ -762,6 +762,10 @@ impl ActiveSet {
         self.steps.push(step);
     }
 
+    pub fn next_id(&self) -> usize {
+        self.steps.len()
+    }
+
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
     // We do not simplify the inferences, but we do simplify the passive set using the new clause.
     // After generation, adds this clause to the active set.

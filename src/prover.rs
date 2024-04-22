@@ -404,11 +404,15 @@ impl Prover {
     // This double simplification ensures that every passive clause is always simplified with
     // respect to every active clause.
     fn activate(&mut self, activated_step: ProofStep, verbose: bool, tracing: bool) -> Outcome {
-        let (activated_id, generated_clauses) = self.active_set.generate(activated_step);
-        let step = self.active_set.get_step(activated_id);
-        if step.clause.literals.len() == 1 {
-            self.passive_set.simplify(activated_id, step);
+        // Use the step for simplification before we use it for generation
+        let activated_id = self.active_set.next_id();
+        if activated_step.clause.literals.len() == 1 {
+            self.passive_set.simplify(activated_id, &activated_step);
         }
+
+        // Generate new clauses
+        let (alt_activated_id, generated_clauses) = self.active_set.generate(activated_step);
+        assert_eq!(activated_id, alt_activated_id);
 
         let print_limit = 30;
         let len = generated_clauses.len();
