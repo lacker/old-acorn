@@ -62,30 +62,6 @@ impl fmt::Display for TermFormatter<'_> {
     }
 }
 
-// The comparison for terms is an extension of the Knuth-Bendix ordering.
-// This comparison is total, whereas the KBO is not.
-impl PartialOrd for Term {
-    fn partial_cmp(&self, other: &Term) -> Option<Ordering> {
-        let kbo_cmp = self.kbo_helper(other, false);
-        if kbo_cmp != Ordering::Equal {
-            return Some(kbo_cmp);
-        }
-
-        let tiebreak = self.partial_tiebreak(other);
-        if tiebreak != Ordering::Equal {
-            return Some(tiebreak);
-        }
-
-        Some(self.total_tiebreak(other))
-    }
-}
-
-impl Ord for Term {
-    fn cmp(&self, other: &Term) -> Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
-
 // Returns true if a[i] >= b[i] for all i, defaulting to zero.
 // Can be assumed the last element of each array is not zero.
 fn dominates(a: &Vec<u8>, b: &Vec<u8>) -> bool {
@@ -423,15 +399,6 @@ impl Term {
         answer
     }
 
-    // A "reduction order" is stable under variable substitution.
-    // This implements a Knuth-Bendix partial reduction ordering.
-    // Returns Greater if self > other.
-    // Returns Less if other > self.
-    // Returns Equal if they cannot be ordered. (This is not "Equal" in the usual sense.)
-    pub fn kbo(&self, other: &Term) -> Ordering {
-        self.kbo_helper(other, true)
-    }
-
     // Lets you extend the KBO ordering to skip the domination check.
     fn kbo_helper(&self, other: &Term, check_domination: bool) -> Ordering {
         let mut self_refcounts = vec![];
@@ -459,6 +426,31 @@ impl Term {
         }
 
         Ordering::Equal
+    }
+
+    // A "reduction order" is stable under variable substitution.
+    // This implements a Knuth-Bendix partial reduction ordering.
+    // Returns Greater if self > other.
+    // Returns Less if other > self.
+    // Returns Equal if they cannot be ordered. (This is not "Equal" in the usual sense.)
+    pub fn kbo_cmp(&self, other: &Term) -> Ordering {
+        self.kbo_helper(other, true)
+    }
+
+    // Extends the kbo comparison to be a total ordering, so that the only equal things
+    // are identical terms.
+    pub fn extended_kbo_cmp(&self, other: &Term) -> Ordering {
+        let kbo_cmp = self.kbo_helper(other, false);
+        if kbo_cmp != Ordering::Equal {
+            return kbo_cmp;
+        }
+
+        let tiebreak = self.partial_tiebreak(other);
+        if tiebreak != Ordering::Equal {
+            return tiebreak;
+        }
+
+        self.total_tiebreak(other)
     }
 
     // Does a partial ordering that is stable under variable renaming.
@@ -498,7 +490,7 @@ impl Term {
         assert!(self.args.len() == other.args.len());
 
         for (arg1, arg2) in self.args.iter().zip(other.args.iter()) {
-            let arg_cmp = arg1.cmp(arg2);
+            let arg_cmp = arg1.extended_kbo_cmp(arg2);
             if arg_cmp != Ordering::Equal {
                 return arg_cmp;
             }
@@ -631,9 +623,18 @@ mod tests {
 
     #[test]
     fn test_term_ordering() {
-        assert!(Term::parse("c0") < Term::parse("c1"));
-        assert!(Term::parse("c2") < Term::parse("c0(c1)"));
-        assert!(Term::parse("x0(x1)") < Term::parse("x0(c0(x0))"));
+        assert_eq!(
+            Term::parse("c0").extended_kbo_cmp(&Term::parse("c1")),
+            Ordering::Less
+        );
+        assert_eq!(
+            Term::parse("c2").extended_kbo_cmp(&Term::parse("c0(c1)")),
+            Ordering::Less
+        );
+        assert_eq!(
+            Term::parse("x0(x1)").extended_kbo_cmp(&Term::parse("x0(c0(x0))")),
+            Ordering::Less
+        );
     }
 
     #[test]

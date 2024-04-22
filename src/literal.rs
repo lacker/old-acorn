@@ -38,7 +38,7 @@ impl Literal {
     // Normalizes the direction.
     // The larger term should be on the left of the literal.
     pub fn new(positive: bool, left: Term, right: Term) -> Literal {
-        if left < right {
+        if left.extended_kbo_cmp(&right) == Ordering::Less {
             Literal {
                 positive,
                 left: right,
@@ -157,7 +157,7 @@ impl Literal {
 
     // Whether the components of this literal are strictly ordered according to the KBO.
     pub fn strict_kbo(&self) -> bool {
-        match self.left.kbo(&self.right) {
+        match self.left.kbo_cmp(&self.right) {
             Ordering::Less => panic!("kbo inconsistency"),
             Ordering::Equal => false,
             Ordering::Greater => true,
@@ -204,10 +204,10 @@ impl Literal {
     // each one simpler than the previous.
     // This ignores negation, to try to be invariant to negating things.
     pub fn is_simpler_than(&self, other: &Literal) -> bool {
-        match self.left.cmp(&other.left) {
+        match self.left.extended_kbo_cmp(&other.left) {
             Ordering::Less => true,
             Ordering::Greater => false,
-            Ordering::Equal => self.right.cmp(&other.right) == Ordering::Less,
+            Ordering::Equal => self.right.extended_kbo_cmp(&other.right) == Ordering::Less,
         }
     }
 }
@@ -223,12 +223,12 @@ impl PartialOrd for Literal {
             return Some(positive_cmp);
         }
 
-        let left_cmp = other.left.cmp(&self.left);
+        let left_cmp = other.left.extended_kbo_cmp(&self.left);
         if left_cmp != Ordering::Equal {
             return Some(left_cmp);
         }
 
-        Some(other.right.cmp(&self.right))
+        Some(other.right.extended_kbo_cmp(&self.right))
     }
 }
 

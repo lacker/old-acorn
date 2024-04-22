@@ -404,7 +404,7 @@ impl Prover {
     // This double simplification ensures that every passive clause is always simplified with
     // respect to every active clause.
     fn activate(&mut self, activated_step: ProofStep, verbose: bool, tracing: bool) -> Outcome {
-        // Use the step for simplification before we use it for generation
+        // Use the step for simplification
         let activated_id = self.active_set.next_id();
         if activated_step.clause.literals.len() == 1 {
             self.passive_set.simplify(activated_id, &activated_step);

@@ -292,6 +292,7 @@ impl ProofStep {
 
         let cheap = clause.is_simpler_than(&positive_step.clause)
             && clause.is_simpler_than(&negative_step.clause);
+
         let depth =
             std::cmp::max(positive_step.depth, negative_step.depth) + if cheap { 0 } else { 1 };
 
