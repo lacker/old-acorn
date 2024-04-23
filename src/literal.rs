@@ -200,15 +200,14 @@ impl Literal {
         }
     }
 
-    // Whether it is cheap to conclude this literal from the other one.
-    // We don't want there to be extremely long chains of reasoning, each step of which it is
-    // cheap to conclude from the previous one.
-    pub fn extended_kbo_less_than(&self, other: &Literal) -> bool {
-        match self.left.extended_kbo_cmp(&other.left) {
-            Ordering::Less => true,
-            Ordering::Greater => false,
-            Ordering::Equal => self.right.extended_kbo_cmp(&other.right) == Ordering::Less,
+    // An extension of the kbo ordering on literals.
+    // Ignores sign.
+    pub fn extended_kbo_cmp(&self, other: &Literal) -> Ordering {
+        let left_cmp = self.left.extended_kbo_cmp(&other.left);
+        if left_cmp != Ordering::Equal {
+            return left_cmp;
         }
+        self.right.extended_kbo_cmp(&other.right)
     }
 }
 

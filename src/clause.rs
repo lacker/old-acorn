@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt;
 
 use crate::atom::AtomId;
@@ -113,9 +114,9 @@ impl Clause {
     // Whether it is cheap to conclude this clause from the other clause.
     // We don't want there to be extremely long chains of reasoning, each step of which it is
     // cheap to conclude from the previous one.
-    pub fn is_cheap_conclusion_from(&self, other: &Clause) -> bool {
+    pub fn extended_kbo_less_than(&self, other: &Clause) -> bool {
         if self.len() == other.len() {
-            self.literals[0].extended_kbo_less_than(&other.literals[0])
+            self.literals[0].extended_kbo_cmp(&other.literals[0]) == Ordering::Less
         } else {
             self.len() < other.len()
         }

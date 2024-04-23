@@ -336,7 +336,7 @@ impl ProofStep {
         } else {
             assert_eq!(clause.literals.len(), 1);
             assert_eq!(target_step.clause.literals.len(), 1);
-            clause.literals[0].extended_kbo_less_than(&target_step.clause.literals[0])
+            clause.literals[0].extended_kbo_cmp(&target_step.clause.literals[0]) == Ordering::Less
         };
         let depth =
             std::cmp::max(pattern_step.depth, target_step.depth) + if cheap { 0 } else { 1 };
