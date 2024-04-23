@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::atom::{Atom, AtomId};
-use crate::proof_step::EXPERIMENT;
 use crate::term::{Complexity, Term};
 use crate::type_map::TypeId;
 
@@ -209,15 +208,10 @@ impl Literal {
     // We don't want there to be extremely long chains of reasoning, each step of which it is
     // cheap to conclude from the previous one.
     pub fn is_cheap_conclusion_from(&self, other: &Literal) -> bool {
-        if EXPERIMENT {
-            let self_complexity = self.complexity();
-            self_complexity.is_very_simple() || self_complexity < other.complexity()
-        } else {
-            match self.left.extended_kbo_cmp(&other.left) {
-                Ordering::Less => true,
-                Ordering::Greater => false,
-                Ordering::Equal => self.right.extended_kbo_cmp(&other.right) == Ordering::Less,
-            }
+        match self.left.extended_kbo_cmp(&other.left) {
+            Ordering::Less => true,
+            Ordering::Greater => false,
+            Ordering::Equal => self.right.extended_kbo_cmp(&other.right) == Ordering::Less,
         }
     }
 }
