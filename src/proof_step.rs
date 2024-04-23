@@ -345,10 +345,8 @@ impl ProofStep {
         )
     }
 
-    // Create a replacement for this clause that has extra simplification rules
-    // We don't update depth.
-    // This might be a problem? It introduces an order dependency that we'd rather avoid, because
-    // proof steps appear to be shallower when we find their simplifications ahead of time.
+    // Create a replacement for this clause that has extra simplification rules.
+    // It's hard to handle depth well, here.
     pub fn simplify(
         self,
         new_clause: Clause,
@@ -361,22 +359,14 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
-        let (cheap, depth) = if new_clause.is_impossible() && !self.cheap {
-            if self.depth == 0 {
-                panic!("expensive clause has zero depth");
-            }
-            (true, self.depth - 1)
-        } else {
-            (self.cheap, self.depth)
-        };
         ProofStep::new(
             new_clause,
             new_truthiness,
             self.rule,
             rules,
             self.proof_size,
-            cheap,
-            depth,
+            self.cheap,
+            self.depth,
         )
     }
 
