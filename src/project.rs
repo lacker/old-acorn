@@ -335,9 +335,9 @@ impl Project {
                             "".to_string()
                         }
                     }
-                    Outcome::Exhausted => " is unprovable".to_string(),
+                    Outcome::Exhausted => " has no basic proof".to_string(),
                     Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
-                    Outcome::Unknown => " has no basic proof".to_string(),
+                    Outcome::Unknown => " timed out".to_string(),
                     Outcome::Interrupted => {
                         exit_early = true;
                         " was interrupted".to_string()

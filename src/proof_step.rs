@@ -179,8 +179,6 @@ pub struct ProofStep {
     pub cheap: bool,
 
     // The depth is the number of serial non-cheap steps required to reach this step.
-    // A proof of depth 1 is "basic".
-    // A proof of depth 0 is "trivial".
     pub depth: u32,
 
     // Cached for simplicity
