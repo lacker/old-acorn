@@ -290,8 +290,16 @@ impl ProofStep {
             negative_id,
         });
 
-        let cheap = clause.is_cheap_conclusion_from(&positive_step.clause)
-            && clause.is_cheap_conclusion_from(&negative_step.clause);
+        let cheap = if clause.is_impossible() {
+            true
+        } else if positive_step.clause.len() > 1 {
+            assert_eq!(negative_step.clause.len(), 1);
+            matches!(negative_step.rule, Rule::Assumption(_))
+        } else {
+            assert_eq!(positive_step.clause.len(), 1);
+            assert!(negative_step.clause.len() > 1);
+            matches!(positive_step.rule, Rule::Assumption(_))
+        };
 
         let depth =
             std::cmp::max(positive_step.depth, negative_step.depth) + if cheap { 0 } else { 1 };
