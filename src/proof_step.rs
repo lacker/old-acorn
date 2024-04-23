@@ -292,13 +292,12 @@ impl ProofStep {
 
         let cheap = if clause.is_impossible() {
             true
-        } else if positive_step.clause.len() > 1 {
-            assert_eq!(negative_step.clause.len(), 1);
+        } else if negative_step.clause.len() < positive_step.clause.len() {
             matches!(negative_step.rule, Rule::Assumption(_))
-        } else {
-            assert_eq!(positive_step.clause.len(), 1);
-            assert!(negative_step.clause.len() > 1);
+        } else if positive_step.clause.len() < negative_step.clause.len() {
             matches!(positive_step.rule, Rule::Assumption(_))
+        } else {
+            false
         };
 
         let depth =
