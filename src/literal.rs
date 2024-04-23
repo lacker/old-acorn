@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::atom::{Atom, AtomId};
-use crate::term::{Complexity, Term};
+use crate::term::Term;
 use crate::type_map::TypeId;
 
 // Literals are always boolean-valued.
@@ -198,10 +198,6 @@ impl Literal {
                 self.left, self.left.term_type, self.right, self.right.term_type
             );
         }
-    }
-
-    pub fn complexity(&self) -> Complexity {
-        self.left.complexity().add(&self.right.complexity())
     }
 
     // Whether it is cheap to conclude this literal from the other one.
