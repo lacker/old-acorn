@@ -29,14 +29,18 @@ let 2: Nat = Suc(1)
 
 theorem one_plus_one: add(1, 1) = 2 by {
     Suc(recursion(Suc, 1, 0)) = 2
+    add(1, Suc(0)) = 2
 }
 
 theorem add_zero_left(a: Nat): add(0, a) = a by {
     induction(add_zero_left)
     add(0, 0) = 0
+    add_zero_left(0)
     forall(x: Nat) {
-        if add(0, x) = x {
+        if add_zero_left(x) {
+            add(0, x) = x
             add(0, Suc(x)) = Suc(x)
+            add_zero_left(Suc(x))
         }
     }
 }
@@ -46,9 +50,11 @@ theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
 theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b)) by {
     define f(x: Nat) -> bool: add_suc_left(a, x)
     induction(f)
+    add_suc_left(a, 0)
     f(0)
     forall(x: Nat) {
         if f(x) {
+            add_suc_left(a, Suc(x))
             f(Suc(x))
         }
     }
@@ -83,6 +89,7 @@ theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a by {
 theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a) by {
     define f(x: Nat) -> bool: add_comm(x, b)
     induction(f)
+    add_comm(0, b)
     f(0)
     forall(x: Nat) {
         if f(x) {
