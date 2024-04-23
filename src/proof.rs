@@ -277,9 +277,8 @@ impl<'a> Proof<'a> {
         }
     }
 
-    // Whether the node can be contracted while maintaining... the properties we want.
-    // TODO: explain it better.
-    fn is_unnecessary(&self, node_id: NodeId) -> bool {
+    // Whether this node was cheap to create in the first place.
+    fn is_cheap(&self, node_id: NodeId) -> bool {
         let node = &self.nodes[node_id as usize];
         if matches!(node.value, NodeValue::Contradiction) {
             return false;
@@ -298,14 +297,44 @@ impl<'a> Proof<'a> {
         true
     }
 
-    // Remove nodes that are only needed as part of trivial reasoning.
-    fn remove_unnecessary(&mut self) {
+    // Remove nodes that are cheap to regenerate.
+    fn remove_cheap(&mut self) {
         // Figure out which nodes are trivial.
         let trivial = (0..self.nodes.len() as NodeId)
-            .filter(|node_id| self.is_unnecessary(*node_id))
+            .filter(|node_id| self.is_cheap(*node_id))
             .collect::<Vec<_>>();
         for node_id in trivial {
             self.contract(node_id)
+        }
+    }
+
+    // We can skip an interior node that is only used once, if its inputs and outputs differ in depth
+    // by no more than two.
+    fn is_skippable(&self, node_id: NodeId) -> bool {
+        let node = &self.nodes[node_id as usize];
+        if matches!(node.value, NodeValue::NegatedGoal) {
+            return false;
+        }
+        if node.consequences.len() != 1 {
+            return false;
+        }
+        let consequence_id = node.consequences[0];
+        let consequence = &self.nodes[consequence_id as usize];
+        let consequence_depth = consequence.depth;
+        for premise_id in &node.premises {
+            let premise = &self.nodes[*premise_id as usize];
+            if premise.depth + 2 < consequence_depth {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn remove_skippable(&mut self) {
+        for node_id in (0..self.nodes.len() as NodeId).rev() {
+            if self.is_skippable(node_id) {
+                self.contract(node_id)
+            }
         }
     }
 
@@ -431,7 +460,8 @@ impl<'a> Proof<'a> {
 
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
-        self.remove_unnecessary();
+        self.remove_cheap();
+        self.remove_skippable();
         self.remove_conditional(0);
     }
 
