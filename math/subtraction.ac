@@ -104,7 +104,16 @@ theorem mod_is_mod(a: Nat, m: Nat): is_mod(a, m)(mod(a, m)) by {
     }
 }
 
-theorem add_mod(a: Nat, m: Nat): exists(q: Nat) { add(mul(q, m), mod(a, m)) = a }
+theorem add_mod(a: Nat, m: Nat): exists(q: Nat) { add(mul(q, m), mod(a, m)) = a } by {
+    if m = 0 {
+        mod(a, 0) = a
+        mul(0, 0) = 0
+        add(mul(0, 0), mod(a, 0)) = a
+        exists(q: Nat) { add(mul(q, m), mod(a, m)) = a }
+    } else {
+        exists(q: Nat) { add(mul(q, m), mod(a, m)) = a }
+    }
+}
 
 theorem mod_by_zero(a: Nat): mod(a, 0) = a
 

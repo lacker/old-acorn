@@ -464,9 +464,8 @@ impl Prover {
     }
 
     // The basicness should be the main limiter.
-    // If there is an error in the basicness, half a second should also work.
     pub fn basic_search(&mut self) -> Outcome {
-        self.search_for_contradiction(10000, 0.5, true)
+        self.search_for_contradiction(5000, 2.0, true)
     }
 
     // If basic_only is set, we only search for a basic proof.
