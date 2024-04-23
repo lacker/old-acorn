@@ -190,7 +190,8 @@ pub struct ProofStep {
 // The better the score, the more we want to activate this proof step.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Score {
-    // The first element of a regular score is the negative depth. (Larger scores are handled first.)
+    // The first element of a regular score is the negative depth.
+    // It's bounded at -2 so after that we don't use depth any more.
     //
     // The second element of the score is a deterministic ordering:
     //
@@ -466,12 +467,8 @@ impl ProofStep {
             heuristic -= 3;
         }
 
-        let depth_tier = match self.depth {
-            0 => 2,
-            1 => 1,
-            _ => 0,
-        };
-        return Score::Regular(depth_tier, deterministic_tier, heuristic);
+        let negadepth = -(self.depth as i32).max(-2);
+        return Score::Regular(negadepth, deterministic_tier, heuristic);
     }
 
     // We have to strictly limit deduction that happens between two library facts, because
