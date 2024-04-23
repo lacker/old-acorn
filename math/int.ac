@@ -33,6 +33,10 @@ theorem from_eq_neg_from(p: Nat, q: Nat): from_nat(p) = negate(from_nat(q)) -> p
 
 theorem abs_zero: abs(0) = nat.0
 
+theorem one_neq_zero: 1 != 0 by {
+    abs(from_nat(nat.1)) != nat.0
+}
+
 // Subtraction that goes from naturals into integers.
 // We will use this as the primary representation for proving things about integers, so we prove
 // as many useful things about sub_nat as we can, before defining more stuff.
@@ -44,7 +48,15 @@ define sub_nat(m: Nat, n: Nat) -> Int: if nat.lte(n, m) {
 
 theorem sub_nat_zero_right(n: Nat): sub_nat(n, nat.0) = from_nat(n)
 
-theorem sub_nat_zero_left(n: Nat): sub_nat(nat.0, n) = negate(from_nat(n))
+theorem sub_nat_zero_left(n: Nat): sub_nat(nat.0, n) = negate(from_nat(n)) by {
+    if n = nat.0 {
+        sub_nat(nat.0, n) = 0
+        sub_nat(nat.0, n) = negate(0)
+        sub_nat(nat.0, n) = negate(from_nat(n))
+    } else {
+        sub_nat(nat.0, n) = negate(from_nat(n))
+    }
+}
 
 theorem sub_nat_self(n: Nat): sub_nat(n, n) = 0
 
@@ -205,6 +217,11 @@ theorem zero_not_pos: !is_positive(0) by {
     !is_negative(negate(0))
 }
 
+theorem one_pos: is_positive(1) by {
+    is_negative(negate(from_nat(nat.1)))
+    is_negative(negate(1))
+}
+
 theorem nonzero_pos_or_neg(a: Int): a != 0 -> is_positive(a) | is_negative(a) by {
     if !is_positive(a) {
         is_negative(a)
@@ -251,6 +268,7 @@ theorem pos_part_neg(a: Int): pos_part(negate(a)) = neg_part(a) by {
     } else {
         neg_part(a) = abs(a)
         !is_negative(negate(a))
+        pos_part(negate(a)) = abs(negate(a))
         pos_part(negate(a)) = abs(a)
         pos_part(negate(a)) = neg_part(a)
     }
@@ -449,11 +467,18 @@ theorem add_pos_nonneg(a: Int, b: Int): is_positive(a) & !is_negative(b) -> is_p
         a = from_nat(abs(a))
         b = from_nat(abs(b))
         add(a, b) = from_nat(nat.add(abs(a), abs(b)))
+        nat.add(abs(a), abs(b)) != nat.0
+        is_positive(from_nat(nat.add(abs(a), abs(b))))
         is_positive(add(a, b))
     }
 }
 
-theorem add_neg_nonpos(a: Int, b: Int): is_negative(a) & !is_positive(b) -> is_negative(add(a, b))
+theorem add_neg_nonpos(a: Int, b: Int): is_negative(a) & !is_positive(b) -> is_negative(add(a, b)) by {
+    is_positive(negate(a))
+    !is_negative(negate(b))
+    is_positive(add(negate(a), negate(b)))
+    is_positive(negate(add(a, b)))
+}
 
 theorem add_nonneg_nonneg(a: Int, b: Int): !is_negative(a) & !is_negative(b) -> !is_negative(add(a, b))
 
@@ -598,7 +623,13 @@ theorem mul_nat_distrib_right(a: Int, b: Int, n: Nat): mul_nat(add(a, b), n) = a
     }
 }
 
-theorem mul_nat_from_nat_left(a: Nat, b: Nat): mul_nat(from_nat(a), b) = from_nat(nat.mul(a, b))
+theorem mul_nat_from_nat_left(a: Nat, b: Nat): mul_nat(from_nat(a), b) = from_nat(nat.mul(a, b)) by {
+    if a = nat.0 {
+        mul_nat(from_nat(a), b) = from_nat(nat.mul(a, b))
+    } else {
+        mul_nat(from_nat(a), b) = from_nat(nat.mul(a, b))
+    }
+}
 
 // Integer-integer multiplication
 
@@ -609,7 +640,11 @@ define mul(a: Int, b: Int) -> Int: if is_positive(b) {
 }
 
 theorem mul_nat_from_nat_right(a: Int, n: Nat): mul_nat(a, n) = mul(a, from_nat(n)) by {
-    mul(a, from_nat(n)) = mul_nat(a, abs(from_nat(n)))
+    if n = nat.0 {
+        mul(a, from_nat(n)) = mul_nat(a, abs(from_nat(n)))
+    } else {
+        mul(a, from_nat(n)) = mul_nat(a, abs(from_nat(n)))
+    }
 }
 
 theorem mul_zero_right(a: Int): mul(a, 0) = 0 by {
@@ -838,7 +873,12 @@ theorem mul_pos_neg(a: Int, b: Int): is_positive(a) & is_negative(b) -> is_negat
 
 theorem mul_neg_pos(a: Int, b: Int): is_negative(a) & is_positive(b) -> is_negative(mul(a, b))
 
-theorem mul_neg_neg(a: Int, b: Int): is_negative(a) & is_negative(b) -> is_positive(mul(a, b))
+theorem mul_neg_neg(a: Int, b: Int): is_negative(a) & is_negative(b) -> is_positive(mul(a, b)) by {
+    is_positive(negate(a))
+    is_negative(mul(negate(a), b))
+    is_negative(negate(mul(a, b)))
+    is_positive(mul(a, b))
+}
 
 theorem mul_int_nat_nat_assoc(a: Int, j: Nat, k: Nat): mul_nat(a, nat.mul(j, k)) = mul_nat(mul_nat(a, j), k) by {
     if is_negative(a) {
@@ -937,7 +977,13 @@ theorem neg_lt_nonneg(a: Int, b: Int): is_negative(a) & !is_negative(b) -> lt(a,
 
 theorem nonpos_lte_nonneg(a: Int, b: Int): !is_positive(a) & !is_negative(b) -> lte(a, b)
 
-theorem lte_abs(a: Int): lte(a, from_nat(abs(a)))
+theorem lte_abs(a: Int): lte(a, from_nat(abs(a))) by {
+    if is_negative(a) {
+        lte(a, from_nat(abs(a)))
+    } else {
+        lte(a, from_nat(abs(a)))
+    }
+}
 
 theorem lt_add_left(a: Int, b: Int, c: Int): lt(b, c) -> lt(add(a, b), add(a, c)) by {
     is_positive(sub(c, b))
@@ -1116,7 +1162,17 @@ define unit_sign(a: Int) -> Int: if is_negative(a) {
     1
 }
 
-theorem unit_sign_is_unit(a: Int): is_unit(unit_sign(a))
+theorem unit_sign_is_unit(a: Int): is_unit(unit_sign(a)) by {
+    if is_negative(a) {
+        unit_sign(a) = negate(1)
+        abs(negate(1)) = nat.1
+        is_unit(unit_sign(a))
+    } else {
+        unit_sign(a) = 1
+        abs(1) = nat.1
+        is_unit(unit_sign(a))
+    }
+}
 
 theorem abs_decomp(a: Int): mul(unit_sign(a), from_nat(abs(a))) = a by {
     if is_negative(a) {
@@ -1189,7 +1245,8 @@ theorem abs_eq_imp_div(a: Int, b: Int): abs(a) = abs(b) -> divides(a, b) by {
 }
 
 theorem div_pos_imp_lte(a: Int, b: Int): divides(a, b) & is_positive(b) -> lte(a, b) by {
-    divides(from_nat(abs(a)), b)
+    nat.divides(abs(a), abs(b))
+    lte(from_nat(abs(a)), from_nat(abs(b)))
     lte(from_nat(abs(a)), b)
     lte(a, from_nat(abs(a)))
     lte(a, b)
