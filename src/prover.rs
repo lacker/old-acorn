@@ -916,7 +916,7 @@ mod tests {
             axiom a34(x: bool): f3(x) -> f4(x)
             theorem goal(x: bool): f4(b)
         "#;
-        expect_proof(text, "goal", &[]);
+        expect_proof(text, "goal", &["f3(b)"]);
     }
 
     #[test]
@@ -1465,7 +1465,7 @@ mod tests {
             f(0)
         }
         "#;
-        expect_proof(text, "f(0)", &[]);
+        expect_proof(text, "f(0)", &["add_to_zero(0, b)"]);
     }
 
     #[test]

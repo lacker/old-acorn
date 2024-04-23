@@ -278,18 +278,19 @@ impl<'a> Proof<'a> {
     }
 
     // Whether this node was cheap to create in the first place.
+    // TODO: "cheap" isn't the right word.
     fn is_cheap(&self, node_id: NodeId) -> bool {
         let node = &self.nodes[node_id as usize];
         if matches!(node.value, NodeValue::Contradiction) {
             return false;
         }
-        if node.depth == 0 {
-            return true;
-        }
 
         // Ditch all but the first nodes in a same-depth group.
         for premise_id in &node.premises {
             let premise = &self.nodes[*premise_id as usize];
+            if matches!(premise.value, NodeValue::NegatedGoal) {
+                return false;
+            }
             if premise.depth != node.depth {
                 return false;
             }
@@ -299,11 +300,10 @@ impl<'a> Proof<'a> {
 
     // Remove nodes that are cheap to regenerate.
     fn remove_cheap(&mut self) {
-        // Figure out which nodes are trivial.
-        let trivial = (0..self.nodes.len() as NodeId)
+        let cheap = (0..self.nodes.len() as NodeId)
             .filter(|node_id| self.is_cheap(*node_id))
             .collect::<Vec<_>>();
-        for node_id in trivial {
+        for node_id in cheap {
             self.contract(node_id)
         }
     }
