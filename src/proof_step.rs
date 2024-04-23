@@ -370,14 +370,22 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
+        let (cheap, depth) = if new_clause.is_impossible() && !self.cheap {
+            if self.depth == 0 {
+                panic!("expensive clause has zero depth");
+            }
+            (true, self.depth - 1)
+        } else {
+            (self.cheap, self.depth)
+        };
         ProofStep::new(
             new_clause,
             new_truthiness,
             self.rule,
             rules,
             self.proof_size,
-            self.cheap,
-            self.depth,
+            cheap,
+            depth,
         )
     }
 
@@ -390,7 +398,7 @@ impl ProofStep {
             Rule::Assumption(Source::mock()),
             vec![],
             0,
-            false,
+            true,
             0,
         )
     }
