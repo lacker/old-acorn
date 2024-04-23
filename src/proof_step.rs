@@ -208,7 +208,7 @@ pub enum Score {
 impl Score {
     pub fn is_basic(&self) -> bool {
         match self {
-            Score::Regular(negadepth, _, _) => *negadepth >= -1,
+            Score::Regular(negadepth, _, _) => *negadepth >= -2,
             Score::Contradiction => true,
         }
     }
@@ -289,15 +289,8 @@ impl ProofStep {
             negative_id,
         });
 
-        let cheap = if clause.is_impossible() {
-            true
-        } else if negative_step.clause.len() < positive_step.clause.len() {
-            matches!(negative_step.rule, Rule::Assumption(_))
-        } else if positive_step.clause.len() < negative_step.clause.len() {
-            matches!(positive_step.rule, Rule::Assumption(_))
-        } else {
-            false
-        };
+        let cheap =
+            positive_step.clause.contains(&clause) || negative_step.clause.contains(&clause);
 
         let depth =
             std::cmp::max(positive_step.depth, negative_step.depth) + if cheap { 0 } else { 1 };
@@ -465,7 +458,7 @@ impl ProofStep {
             heuristic -= 3;
         }
 
-        let negadepth = -(self.depth as i32).max(-2);
+        let negadepth = -(self.depth as i32).max(-3);
         return Score::Regular(negadepth, deterministic_tier, heuristic);
     }
 

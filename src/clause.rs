@@ -121,4 +121,14 @@ impl Clause {
             self.len() < other.len()
         }
     }
+
+    // Whether every literal in this clause is exactly contained by the other clause.
+    pub fn contains(&self, other: &Clause) -> bool {
+        for literal in &other.literals {
+            if !self.literals.iter().any(|x| x == literal) {
+                return false;
+            }
+        }
+        true
+    }
 }
