@@ -50,7 +50,7 @@ async fn main() {
                     }
                 }
                 Err(e) => {
-                    eprintln!("error generating code: {}", e);
+                    eprintln!("\nerror generating code: {}", e);
                 }
             }
         }
