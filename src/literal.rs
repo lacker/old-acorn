@@ -203,7 +203,7 @@ impl Literal {
     // Whether it is cheap to conclude this literal from the other one.
     // We don't want there to be extremely long chains of reasoning, each step of which it is
     // cheap to conclude from the previous one.
-    pub fn is_cheap_conclusion_from(&self, other: &Literal) -> bool {
+    pub fn extended_kbo_less_than(&self, other: &Literal) -> bool {
         match self.left.extended_kbo_cmp(&other.left) {
             Ordering::Less => true,
             Ordering::Greater => false,

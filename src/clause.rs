@@ -115,7 +115,7 @@ impl Clause {
     // cheap to conclude from the previous one.
     pub fn is_cheap_conclusion_from(&self, other: &Clause) -> bool {
         if self.len() == other.len() {
-            self.literals[0].is_cheap_conclusion_from(&other.literals[0])
+            self.literals[0].extended_kbo_less_than(&other.literals[0])
         } else {
             self.len() < other.len()
         }
