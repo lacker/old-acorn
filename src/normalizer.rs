@@ -730,4 +730,21 @@ mod tests {
         let mut norm = Normalizer::new();
         norm.check(&env, "goal", &["add(s0, 0) = 1"]);
     }
+
+    #[test]
+    fn test_denormalizing_disjunction() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            let 1: Nat = axiom
+            let lt: (Nat, Nat) -> bool = axiom
+            let add: (Nat, Nat) -> Nat = axiom
+            theorem foo(x0: Nat, x1: Nat): add(add(x0, 0), x1) != 0 | lt(x1, 0)
+            "#,
+        );
+        let mut norm = Normalizer::new();
+        norm.check(&env, "foo", &["add(add(x0, 0), x1) != 0 | lt(x1, 0)"]);
+    }
 }
