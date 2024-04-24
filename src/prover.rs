@@ -2,7 +2,7 @@ use std::fmt;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use crossbeam::queue::SegQueue;
+use tokio::sync::RwLock;
 use tower_lsp::lsp_types::Url;
 
 use crate::acorn_type::AcornType;
@@ -34,8 +34,8 @@ pub struct Prover {
     // A verbose prover prints out a lot of stuff.
     pub verbose: bool,
 
-    // When print queue is set, we send print statements here, instead of to stdout.
-    pub print_queue: Option<Arc<SegQueue<String>>>,
+    // Status is updated intermittently with information about the state of the prover.
+    pub status: Arc<RwLock<Status>>,
 
     // If a trace string is set, we print out what happens with the clause matching it, regardless
     // of verbosity.
@@ -50,27 +50,14 @@ pub struct Prover {
     // Setting any of these flags to true externally will stop the prover.
     pub stop_flags: Vec<Arc<AtomicBool>>,
 
-    // Whether we should report Outcome::Inconsistent or just treat it as a success.
+    // Whether we should report Outcome::Inconsistent when our assumptions lead to a
+    // contradiction. Otherwise we just treat it as a success.
     report_inconsistency: bool,
 
     // When this error message is set, it indicates a problem that needs to be reported upstream
     // to the user.
-    // It's better to catch errors before proving, and maybe in the ideal world we always would,
-    // but right now we don't.
+    // It's better to catch errors before proving, but sometimes we don't.
     pub error: Option<String>,
-}
-
-macro_rules! cprintln {
-    ($obj:expr, $($arg:tt)*) => {
-        match &$obj.print_queue {
-            Some(queue) => {
-                queue.push(format!($($arg)*));
-            }
-            None => {
-                println!($($arg)*);
-            }
-        }
-    };
 }
 
 // The outcome of a prover operation.
@@ -123,7 +110,7 @@ impl Status {
         }
     }
 
-    pub fn to_status_result(&self) -> StatusResult {
+    pub fn to_result(&self) -> StatusResult {
         StatusResult {
             outcome: match self.outcome {
                 Some(oc) => oc.to_string(),
@@ -139,15 +126,14 @@ impl Prover {
         project: &'a Project,
         goal_context: &'a GoalContext<'a>,
         verbose: bool,
-        print_queue: Option<Arc<SegQueue<String>>>,
     ) -> Prover {
         let mut p = Prover {
             normalizer: Normalizer::new(),
             active_set: ActiveSet::new(),
             passive_set: PassiveSet::new(),
             verbose,
-            print_queue,
             trace: None,
+            status: Arc::new(RwLock::new(Status::default())),
             hit_trace: false,
             result: None,
             stop_flags: vec![project.build_stopped.clone()],
@@ -240,12 +226,8 @@ impl Prover {
     }
 
     pub fn print_stats(&self) {
-        cprintln!(self, "{} clauses in the active set", self.active_set.len());
-        cprintln!(
-            self,
-            "{} clauses in the passive set",
-            self.passive_set.len()
-        );
+        println!("{} clauses in the active set", self.active_set.len());
+        println!("{} clauses in the passive set", self.passive_set.len());
     }
 
     // Prints out the entire active set
@@ -259,12 +241,12 @@ impl Prover {
                 }
             }
             count += 1;
-            cprintln!(self, "{}", clause);
+            println!("{}", clause);
         }
         if let Some(substr) = substr {
-            cprintln!(self, "{} active clauses matched {}", count, substr);
+            println!("{} active clauses matched {}", count, substr);
         } else {
-            cprintln!(self, "{} clauses total in the active set", count);
+            println!("{} clauses total in the active set", count);
         }
     }
 
@@ -280,16 +262,16 @@ impl Prover {
                 }
             }
             count += 1;
-            cprintln!(self, "{}", clause);
-            cprintln!(self, "  {}", step);
+            println!("{}", clause);
+            println!("  {}", step);
         }
         if let Some(substr) = substr {
-            cprintln!(self, "{} passive clauses matched {}", count, substr);
+            println!("{} passive clauses matched {}", count, substr);
         } else {
             if steps.len() > count {
-                cprintln!(self, "  ...omitting {} more", steps.len() - count);
+                println!("  ...omitting {} more", steps.len() - count);
             }
-            cprintln!(self, "{} clauses total in the passive set", steps.len());
+            println!("{} clauses total in the passive set", steps.len());
         }
     }
 
@@ -299,12 +281,11 @@ impl Prover {
         for clause in self.active_set.iter_clauses() {
             let clause_str = self.display(clause).to_string();
             if clause_str.contains(s) {
-                cprintln!(self, "{}", clause_str);
+                println!("{}", clause_str);
                 count += 1;
             }
         }
-        cprintln!(
-            self,
+        println!(
             "{} clause{} matched",
             count,
             if count == 1 { "" } else { "s" }
@@ -312,8 +293,7 @@ impl Prover {
     }
 
     fn print_proof_step(&self, preface: &str, step: &ProofStep) {
-        cprintln!(
-            self,
+        println!(
             "\n{}{} generated ({}. depth {}):\n    {}",
             preface,
             step.rule.name(),
@@ -324,7 +304,7 @@ impl Prover {
 
         for (description, i) in step.descriptive_dependencies() {
             let c = self.display(self.active_set.get_clause(i));
-            cprintln!(self, "  using {} {}:\n    {}", description, i, c);
+            println!("  using {} {}:\n    {}", description, i, c);
         }
     }
 
@@ -336,17 +316,16 @@ impl Prover {
         let final_step = if let Some((final_step, _)) = &self.result {
             final_step
         } else {
-            cprintln!(self, "we do not have a proof");
+            println!("we do not have a proof");
             return;
         };
-        cprintln!(
-            self,
+        println!(
             "in total, we activated {} proof steps.",
             self.active_set.len()
         );
 
         let indices = self.active_set.find_upstream(&final_step);
-        cprintln!(self, "the proof uses {} steps:", indices.len());
+        println!("the proof uses {} steps:", indices.len());
         for i in indices {
             let step = self.active_set.get_step(i);
             let preface = if step.is_negated_goal() {
@@ -422,7 +401,7 @@ impl Prover {
                     }
                 }
             };
-            cprintln!(self, "activating{}: {}", prefix, self.display(&step.clause));
+            println!("activating{}: {}", prefix, self.display(&step.clause));
         }
         self.activate(step, verbose, tracing)
     }
@@ -456,8 +435,7 @@ impl Prover {
         let print_limit = 30;
         let len = generated_clauses.len();
         if verbose && len > 0 {
-            cprintln!(
-                self,
+            println!(
                 "generated {} new clauses{}:",
                 len,
                 if len > print_limit { ", eg" } else { "" }
@@ -475,7 +453,7 @@ impl Prover {
             if tracing {
                 self.print_proof_step("", &step);
             } else if verbose && (i < print_limit) {
-                cprintln!(self, "  {}", self.display(&step.clause));
+                println!("  {}", self.display(&step.clause));
             } else if self.is_tracing(&step.clause) {
                 self.print_proof_step("", &step);
             }
@@ -535,19 +513,15 @@ impl Prover {
             }
             if self.active_set.len() >= size as usize {
                 if self.verbose {
-                    cprintln!(
-                        self,
-                        "active set size hit the limit: {}",
-                        self.active_set.len()
-                    );
+                    println!("active set size hit the limit: {}", self.active_set.len());
                 }
                 break;
             }
             let elapsed = start_time.elapsed().as_secs_f32();
             if elapsed >= seconds {
                 if self.verbose {
-                    cprintln!(self, "active set size: {}", self.active_set.len());
-                    cprintln!(self, "prover hit time limit after {} seconds", elapsed);
+                    println!("active set size: {}", self.active_set.len());
+                    println!("prover hit time limit after {} seconds", elapsed);
                 }
                 break;
             }
@@ -670,7 +644,7 @@ mod tests {
             _ => panic!("unexpected get_module result"),
         };
         let goal_context = env.get_goal_context_by_name(project, goal_name);
-        let mut prover = Prover::new(&project, &goal_context, false, None);
+        let mut prover = Prover::new(&project, &goal_context, false);
         prover.verbose = true;
         let outcome = prover.quick_search();
         if outcome == Outcome::Error {
@@ -711,7 +685,7 @@ mod tests {
             let goal_context = env.get_goal_context(&project, &path).unwrap();
             assert_eq!(prop.source.range, goal_context.range);
             println!("proving: {}", goal_context.name);
-            let mut prover = Prover::new(&project, &goal_context, false, None);
+            let mut prover = Prover::new(&project, &goal_context, false);
             prover.verbose = true;
             let outcome = prover.quick_search();
             if outcome != Outcome::Success {

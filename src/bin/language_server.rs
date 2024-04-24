@@ -139,7 +139,7 @@ impl SearchTask {
 
         // Get the specific goal to prove
         let goal_context = env.get_goal_context(&project, &self.path).unwrap();
-        let mut prover = Prover::new(&project, &goal_context, false, None);
+        let mut prover = Prover::new(&project, &goal_context, false);
 
         // By default, the prover will stop if the build is stopped.
         // We also want to stop it if we get a subsequent search request, to work on something else.

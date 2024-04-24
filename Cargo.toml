@@ -8,7 +8,6 @@ default-run = "debug"
 
 [dependencies]
 chrono = "0.4.31"
-crossbeam = "0.8.2"
 dashmap = "5.5.3"
 fxhash = "0.2.1"
 indoc = "1.0.8"

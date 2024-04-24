@@ -49,7 +49,7 @@ fn main() {
             return;
         }
     };
-    let mut prover = Prover::new(&project, &goals[current], true, None);
+    let mut prover = Prover::new(&project, &goals[current], true);
     println!("loaded {}", goals[current].name);
 
     loop {
@@ -105,13 +105,13 @@ fn main() {
                     println!("already at the last proposition");
                 } else {
                     current = current + 1;
-                    prover = Prover::new(&project, &goals[current], false, None);
+                    prover = Prover::new(&project, &goals[current], false);
                     println!("loaded {}", goals[current].name);
                 }
             }
 
             "reset" => {
-                prover = Prover::new(&project, &goals[current], false, None);
+                prover = Prover::new(&project, &goals[current], false);
                 println!("loaded {}", goals[current].name);
             }
 
