@@ -89,24 +89,6 @@ impl fmt::Display for Outcome {
     }
 }
 
-// The status of a prover.
-pub struct Status {
-    // outcome is None while the prover is still working.
-    pub outcome: Option<Outcome>,
-
-    // The number of clauses that have been activated.
-    pub num_activated: usize,
-}
-
-impl Status {
-    pub fn default() -> Status {
-        Status {
-            outcome: None,
-            num_activated: 0,
-        }
-    }
-}
-
 impl Prover {
     pub fn new<'a>(
         project: &'a Project,
@@ -154,14 +136,10 @@ impl Prover {
         p
     }
 
-    pub fn get_status(&self) -> Status {
-        let outcome = match &self.result {
+    pub fn get_outcome(&self) -> Option<Outcome> {
+        match &self.result {
             Some((_, outcome)) => Some(*outcome),
             None => None,
-        };
-        Status {
-            outcome,
-            num_activated: self.num_activated(),
         }
     }
 

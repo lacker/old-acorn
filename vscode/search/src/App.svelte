@@ -39,8 +39,8 @@
     searchResponse = response;
     infoResult = null;
     nontrivial = [];
-    if (response.result !== null && response.result.steps !== null) {
-      for (let step of response.result.steps) {
+    if (response.status.steps !== null) {
+      for (let step of response.status.steps) {
         if (step.trivial || stepsContain(nontrivial, step)) {
           continue;
         }
@@ -78,9 +78,8 @@
   function insertProof() {
     if (
       searchResponse === null ||
-      searchResponse.result === null ||
-      searchResponse.result.code === null ||
-      searchResponse.result.code.length === 0
+      searchResponse.status.code === null ||
+      searchResponse.status.code.length === 0
     ) {
       console.log("cannot insert proof");
       return;
@@ -91,7 +90,7 @@
       version: searchResponse.version,
       line: searchResponse.proofInsertionLine,
       addBlock: !searchResponse.hasBlock,
-      code: searchResponse.result.code,
+      code: searchResponse.status.code,
     });
   }
 
@@ -111,12 +110,12 @@
   }
 
   function randomClause() {
-    if (searchResponse === null || searchResponse.result === null) {
+    if (searchResponse === null || searchResponse.status.numActivated === 0) {
       return;
     }
 
     // Pick a random activated clause
-    let id = Math.floor(Math.random() * searchResponse.result.numActivated);
+    let id = Math.floor(Math.random() * searchResponse.status.numActivated);
     clauseClick(id);
   }
 
@@ -137,45 +136,45 @@
     <Goal {searchResponse} {showLocation} />
     <hr />
     <br />
-    {#if searchResponse.result !== null}
-      {#if searchResponse.result.steps === null}
-        <pre>No proof found.</pre>
-      {:else if nontrivial.length === 0}
-        <div class="mono">The proposition follows trivially.</div>
-      {:else if searchResponse.result.code === null}
-        <pre>Code generation failed:</pre>
-        <pre>    {searchResponse.result.codeError}</pre>
-      {:else if searchResponse.result.code.length === 0}
-        <div class="mono">
-          The proposition follows
-          {#each nontrivial as step, i}
-            {#if i > 0}
-              {" and "}
-            {/if}
-            <Rule {step} {showLocation} />{/each}.
-        </div>
-      {:else}
-        <pre>{["Proof found:\n"]
-            .concat(searchResponse.result.code)
-            .join("\n\t")
-            .replace(/\t/g, spaces(4))}</pre>
-        <button on:click={insertProof}>Insert proof</button>
-      {/if}
+    {#if searchResponse.status.outcome === null}
+      <pre>Working...</pre>
+    {:else if searchResponse.status.steps === null}
+      <pre>Proof search failed.</pre>
+    {:else if nontrivial.length === 0}
+      <div class="mono">The proposition follows trivially.</div>
+    {:else if searchResponse.status.code === null}
+      <pre>Code generation failed:</pre>
+      <pre>    {searchResponse.status.codeError}</pre>
+    {:else if searchResponse.status.code.length === 0}
+      <div class="mono">
+        The proposition follows
+        {#each nontrivial as step, i}
+          {#if i > 0}
+            {" and "}
+          {/if}
+          <Rule {step} {showLocation} />{/each}.
+      </div>
+    {:else}
+      <pre>{["Proof found:\n"]
+          .concat(searchResponse.status.code)
+          .join("\n\t")
+          .replace(/\t/g, spaces(4))}</pre>
+      <button on:click={insertProof}>Insert proof</button>
+    {/if}
 
-      {#if searchResponse.result.steps !== null}
-        <div class="mono">
+    {#if searchResponse.status.steps !== null}
+      <div class="mono">
+        <br />
+        The full proof has {pluralize(
+          searchResponse.status.steps.length,
+          "step"
+        )}:
+        <br />
+        {#each searchResponse.status.steps as step}
           <br />
-          The full proof has {pluralize(
-            searchResponse.result.steps.length,
-            "step"
-          )}:
-          <br />
-          {#each searchResponse.result.steps as step}
-            <br />
-            <ProofStep {step} {clauseClick} {showLocation} />
-          {/each}
-        </div>
-      {/if}
+          <ProofStep {step} {clauseClick} {showLocation} />
+        {/each}
+      </div>
     {/if}
     <br />
     <hr />
@@ -184,14 +183,18 @@
       <button
         on:click={() => {
           infoResult = null;
-        }}>Text logs</button
+        }}>Statistics</button
       >
       <button on:click={randomClause}>Random clause</button>
       <br /><br />
       {#if infoResult === null}
-        <span>Prover status: TODO</span>
+        <span
+          >Prover status: {searchResponse.status.outcome === null
+            ? "Working..."
+            : searchResponse.status.outcome}</span
+        >
         <br />
-        <span>Activated clauses: TODO</span>
+        <span>Activated clauses: {searchResponse.status.numActivated}</span>
       {:else}
         <ProofStep step={infoResult.step} {clauseClick} {showLocation} />
         <br />

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use acorn::interfaces::{
     InfoParams, InfoResponse, ProgressParams, ProgressResponse, SearchParams, SearchResponse,
-    SearchResult,
+    SearchStatus,
 };
 use acorn::module::Module;
 use acorn::project::Project;
@@ -12,7 +12,7 @@ use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
 use dashmap::DashMap;
-use tokio::sync::{mpsc, Mutex, OnceCell, RwLock, RwLockWriteGuard};
+use tokio::sync::{mpsc, Mutex, RwLock, RwLockWriteGuard};
 use tower_lsp::jsonrpc;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -86,8 +86,9 @@ struct SearchTask {
     // The range of the goal in the document
     goal_range: Range,
 
-    // The SearchResult can indicate either partial progress or completion.
-    result: Arc<OnceCell<SearchResult>>,
+    // The Status is periodically updated by the task.
+    // It can indicate either partial progress or completion.
+    status: Arc<RwLock<SearchStatus>>,
 
     // Set this flag to true when a subsequent search task has been created
     superseded: Arc<AtomicBool>,
@@ -109,7 +110,7 @@ struct SearchTask {
 impl SearchTask {
     // Makes a response based on the current state of the task
     async fn response(&self) -> SearchResponse {
-        let result = self.result.get().map(|r| r.clone());
+        let status = self.status.read().await.clone();
         SearchResponse {
             uri: self.document.url.clone(),
             version: self.document.version,
@@ -117,7 +118,7 @@ impl SearchTask {
             loading: false,
             goal_name: Some(self.goal_name.clone()),
             goal_range: Some(self.goal_range.clone()),
-            result,
+            status,
             proof_insertion_line: self.proof_insertion_line,
             has_block: self.has_block,
             id: self.id,
@@ -139,20 +140,21 @@ impl SearchTask {
 
         log(&format!("running search task for {}", self.goal_name));
 
-        let result = loop {
+        loop {
+            log(&format!("at start of main loop for {}", self.goal_name));
+
             // Each iteration through the loop reacquires the write lock on the prover.
             // This lets other threads access the prover in between iterations.
             let mut prover = self.prover.write().await;
             let outcome = prover.partial_search();
-            let status = prover.get_status();
-            let result = match outcome {
+            let status = match outcome {
                 Outcome::Success => {
                     let proof = prover.get_proof().unwrap();
                     let steps = prover.to_proof_info(&project, &proof);
 
                     match proof.to_code(&env.bindings) {
-                        Ok(code) => SearchResult::success(code, steps, &status),
-                        Err(e) => SearchResult::code_gen_error(steps, e.to_string(), &status),
+                        Ok(code) => SearchStatus::success(code, steps, &prover),
+                        Err(e) => SearchStatus::code_gen_error(steps, e.to_string(), &prover),
                     }
                 }
 
@@ -160,24 +162,27 @@ impl SearchTask {
                 | Outcome::Exhausted
                 | Outcome::Timeout
                 | Outcome::Constrained
-                | Outcome::Error => SearchResult::no_proof(&status),
+                | Outcome::Error => SearchStatus::no_proof(&prover),
 
                 Outcome::Interrupted => {
                     // No point in providing a result for this task, since nobody is listening.
+                    log(&format!("goal {} interrupted", self.goal_name));
                     return;
                 }
             };
 
-            if outcome == Outcome::Timeout {
-                // Keep trying
-                continue;
+            // Update the status
+            let mut locked_status = self.status.write().await;
+            *locked_status = status;
+
+            if outcome != Outcome::Timeout {
+                // We're done
+                log(&format!("search task for {} completed", self.goal_name));
+                break;
             }
 
-            break result;
-        };
-
-        log(&format!("search task for {} completed", self.goal_name));
-        self.result.set(result).expect("result was already set");
+            log(&format!("at end of main loop for {}", self.goal_name));
+        }
     }
 }
 
@@ -468,6 +473,7 @@ impl Backend {
         let superseded = Arc::new(AtomicBool::new(false));
         let mut prover = Prover::new(&project, &goal_context, false);
         prover.stop_flags.push(superseded.clone());
+        let status = SearchStatus::no_proof(&prover);
 
         // Create a new search task
         let new_task = SearchTask {
@@ -479,7 +485,7 @@ impl Backend {
             path,
             goal_name: goal_context.name.clone(),
             goal_range: goal_context.goal.source.range,
-            result: Arc::new(OnceCell::new()),
+            status: Arc::new(RwLock::new(status)),
             superseded,
             proof_insertion_line: goal_context.proof_insertion_line,
             has_block: !goal_context.implicit_block(),

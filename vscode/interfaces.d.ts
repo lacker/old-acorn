@@ -42,7 +42,7 @@ interface ProofStepInfo {
   depth: number;
 }
 
-interface SearchResult {
+interface SearchStatus {
   code: Array<string> | null;
   codeError: string | null;
   steps: Array<ProofStepInfo> | null;
@@ -59,7 +59,7 @@ interface SearchResponse {
   goalRange: Range | null;
   proofInsertionLine: number;
   hasBlock: boolean;
-  result: SearchResult | null;
+  status: SearchStatus;
   id: number;
 }
 

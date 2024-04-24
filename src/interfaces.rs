@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::{Range, Url};
 
-use crate::prover::Status;
+use crate::prover::Prover;
 
 // The language server stores one progress struct, and returns it at any time.
 // 0/0 only occurs at initialization. It means "there have never been any progress bars".
@@ -100,10 +100,11 @@ pub struct ProofStepInfo {
     pub depth: u32,
 }
 
-// The SearchResult contains information about a search which may be finished, or may be in progress.
+// The SearchStatus contains information about a search which may be finished, or may be in progress.
+// outcome is None while the search is in progress.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SearchResult {
+pub struct SearchStatus {
     // Code for the proof that can be inserted.
     // If we don't have a proof, this is None.
     pub code: Option<Vec<String>>,
@@ -123,39 +124,49 @@ pub struct SearchResult {
     pub num_activated: usize,
 }
 
-impl SearchResult {
+impl SearchStatus {
+    pub fn default() -> SearchStatus {
+        SearchStatus {
+            code: None,
+            code_error: None,
+            steps: None,
+            outcome: None,
+            num_activated: 0,
+        }
+    }
+
     fn new(
         code: Option<Vec<String>>,
         code_error: Option<String>,
         steps: Option<Vec<ProofStepInfo>>,
-        status: &Status,
-    ) -> SearchResult {
-        SearchResult {
+        prover: &Prover,
+    ) -> SearchStatus {
+        SearchStatus {
             code,
             code_error,
             steps,
-            outcome: status.outcome.map(|o| o.to_string()),
-            num_activated: status.num_activated,
+            outcome: prover.get_outcome().map(|o| o.to_string()),
+            num_activated: prover.num_activated(),
         }
     }
 
     // Indicate that the search found a proof
-    pub fn success(code: Vec<String>, steps: Vec<ProofStepInfo>, status: &Status) -> SearchResult {
-        SearchResult::new(Some(code), None, Some(steps), status)
+    pub fn success(code: Vec<String>, steps: Vec<ProofStepInfo>, prover: &Prover) -> SearchStatus {
+        SearchStatus::new(Some(code), None, Some(steps), prover)
     }
 
     // Indicate a failure during code generation.
     pub fn code_gen_error(
         steps: Vec<ProofStepInfo>,
         error: String,
-        status: &Status,
-    ) -> SearchResult {
-        SearchResult::new(None, Some(error), Some(steps), status)
+        prover: &Prover,
+    ) -> SearchStatus {
+        SearchStatus::new(None, Some(error), Some(steps), prover)
     }
 
     // Indicate that the search does not have a proof.
-    pub fn no_proof(status: &Status) -> SearchResult {
-        SearchResult::new(None, None, None, status)
+    pub fn no_proof(prover: &Prover) -> SearchStatus {
+        SearchStatus::new(None, None, None, prover)
     }
 }
 
@@ -193,9 +204,9 @@ pub struct SearchResponse {
     // If this is false, to create the proof we'll need to create a "by" block.
     pub has_block: bool,
 
-    // The result of the search process.
+    // The status of the search process.
     // If it has not completed yet, this is None.
-    pub result: Option<SearchResult>,
+    pub status: SearchStatus,
 
     // The id for the search, provided by the extension
     pub id: i32,
@@ -210,7 +221,7 @@ impl SearchResponse {
             loading: false,
             goal_name: None,
             goal_range: None,
-            result: None,
+            status: SearchStatus::default(),
             proof_insertion_line: 0,
             has_block: false,
             id: params.id,

@@ -137,11 +137,13 @@ class SearchPanel implements Disposable {
       if (!response.loading) {
         this.panel.webview.postMessage({ type: "search", response });
       }
-      if (response.result) {
+
+      if (response.status.outcome !== null) {
+        // The search is complete.
         return;
       }
 
-      // The search response is not complete. Send another request after waiting a bit.
+      // The search is not complete. Send another request after waiting a bit.
       let ms = 100;
       await new Promise((resolve) => setTimeout(resolve, ms));
       if (!this.panel || params.id != this.currentSearchId) {
