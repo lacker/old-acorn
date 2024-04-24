@@ -110,11 +110,11 @@ impl PassiveSet {
         self.queue.is_empty()
     }
 
-    // Whether we have run out of basic clauses to process.
-    pub fn not_has_basic(&self) -> bool {
+    // Whether we have more basic clauses to process.
+    pub fn has_basic(&self) -> bool {
         match self.queue.last() {
-            None => true,
-            Some((score, _)) => !score.is_basic(),
+            None => false,
+            Some((score, _)) => score.is_basic(),
         }
     }
 

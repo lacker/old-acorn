@@ -522,7 +522,7 @@ impl Prover {
         }
         let start_time = std::time::Instant::now();
         loop {
-            if basic_only && self.passive_set.not_has_basic() {
+            if basic_only && !self.passive_set.has_basic() {
                 return Outcome::Exhausted;
             }
             if let Some(outcome) = self.activate_next() {
