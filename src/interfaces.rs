@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::{Range, Url};
 
-use crate::prover::Outcome;
+use crate::prover::Status;
 
 // The language server stores one progress struct, and returns it at any time.
 // 0/0 only occurs at initialization. It means "there have never been any progress bars".
@@ -100,7 +100,7 @@ pub struct ProofStepInfo {
     pub depth: u32,
 }
 
-// The SearchResult contains information about a search which may be in progress.
+// The SearchResult contains information about a search which may be finished, or may be in progress.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
@@ -124,46 +124,38 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
-    pub fn success(
-        code: Vec<String>,
-        steps: Vec<ProofStepInfo>,
-        outcome: Outcome,
-        num_activated: usize,
+    fn new(
+        code: Option<Vec<String>>,
+        code_error: Option<String>,
+        steps: Option<Vec<ProofStepInfo>>,
+        status: &Status,
     ) -> SearchResult {
         SearchResult {
-            code: Some(code),
-            code_error: None,
-            steps: Some(steps),
-            outcome: Some(outcome.to_string()),
-            num_activated,
+            code,
+            code_error,
+            steps,
+            outcome: status.outcome.map(|o| o.to_string()),
+            num_activated: status.num_activated,
         }
+    }
+
+    // Indicate that the search found a proof
+    pub fn success(code: Vec<String>, steps: Vec<ProofStepInfo>, status: &Status) -> SearchResult {
+        SearchResult::new(Some(code), None, Some(steps), status)
     }
 
     // Indicate a failure during code generation.
     pub fn code_gen_error(
         steps: Vec<ProofStepInfo>,
         error: String,
-        outcome: Outcome,
-        num_activated: usize,
+        status: &Status,
     ) -> SearchResult {
-        SearchResult {
-            code: None,
-            code_error: Some(error),
-            steps: Some(steps),
-            outcome: Some(outcome.to_string()),
-            num_activated,
-        }
+        SearchResult::new(None, Some(error), Some(steps), status)
     }
 
-    // Indicate that there is no proof.
-    pub fn no_proof(outcome: Outcome, num_activated: usize) -> SearchResult {
-        SearchResult {
-            code: None,
-            code_error: None,
-            steps: None,
-            outcome: Some(outcome.to_string()),
-            num_activated,
-        }
+    // Indicate that the search does not have a proof.
+    pub fn no_proof(status: &Status) -> SearchResult {
+        SearchResult::new(None, None, None, status)
     }
 }
 

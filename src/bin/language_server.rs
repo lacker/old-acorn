@@ -8,7 +8,7 @@ use acorn::interfaces::{
 };
 use acorn::module::Module;
 use acorn::project::Project;
-use acorn::prover::{Outcome, Prover, Status};
+use acorn::prover::{Outcome, Prover};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
 use dashmap::DashMap;
@@ -64,6 +64,9 @@ impl Document {
 struct SearchTask {
     project: Arc<RwLock<Project>>,
     document: Arc<Document>,
+
+    // Currently prover is only set once the search task completes.
+    // TODO: improve this
     prover: Arc<RwLock<Option<Prover>>>,
 
     // The module that we're searching for a proof in
@@ -80,9 +83,6 @@ struct SearchTask {
 
     // The range of the goal in the document
     goal_range: Range,
-
-    // Information about the search task that gets updated as the search progresses
-    status: Arc<RwLock<Status>>,
 
     // Final result of the search, if it has completed
     result: Arc<OnceCell<SearchResult>>,
@@ -145,29 +145,38 @@ impl SearchTask {
         // We also want to stop it if we get a subsequent search request, to work on something else.
         prover.stop_flags.push(self.superseded.clone());
 
-        let outcome = prover.medium_search();
-        let num_activated = prover.num_activated();
+        let result = loop {
+            let outcome = prover.partial_search();
+            let status = prover.get_status();
+            let result = match outcome {
+                Outcome::Success => {
+                    let proof = prover.get_proof().unwrap();
+                    let steps = prover.to_proof_info(&project, &proof);
 
-        let result = match outcome {
-            Outcome::Success => {
-                prover.print_proof();
-                let proof = prover.get_proof().unwrap();
-                let steps = prover.to_proof_info(&project, &proof);
-
-                match proof.to_code(&env.bindings) {
-                    Ok(code) => SearchResult::success(code, steps, outcome, num_activated),
-                    Err(e) => {
-                        SearchResult::code_gen_error(steps, e.to_string(), outcome, num_activated)
+                    match proof.to_code(&env.bindings) {
+                        Ok(code) => SearchResult::success(code, steps, &status),
+                        Err(e) => SearchResult::code_gen_error(steps, e.to_string(), &status),
                     }
                 }
+
+                Outcome::Inconsistent
+                | Outcome::Exhausted
+                | Outcome::Timeout
+                | Outcome::Constrained
+                | Outcome::Error => SearchResult::no_proof(&status),
+
+                Outcome::Interrupted => {
+                    // No point in providing a result for this task, since nobody is listening.
+                    return;
+                }
+            };
+
+            if outcome == Outcome::Timeout {
+                // Keep trying
+                continue;
             }
-            Outcome::Inconsistent
-            | Outcome::Exhausted
-            | Outcome::Timeout
-            | Outcome::Constrained => SearchResult::no_proof(outcome, num_activated),
-            Outcome::Interrupted | Outcome::Error => {
-                return;
-            }
+
+            break result;
         };
 
         log(&format!("search task for {} completed", self.goal_name));
@@ -471,7 +480,6 @@ impl Backend {
             path,
             goal_name: goal_context.name.clone(),
             goal_range: goal_context.goal.source.range,
-            status: Arc::new(RwLock::new(Status::default())),
             result: Arc::new(OnceCell::new()),
             superseded: Arc::new(AtomicBool::new(false)),
             proof_insertion_line: goal_context.proof_insertion_line,
