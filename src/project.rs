@@ -321,7 +321,7 @@ impl Project {
                 let start = std::time::Instant::now();
                 let goal_context = env.get_goal_context(&self, &path).unwrap();
                 let mut prover = Prover::new(&self, &goal_context, false, None);
-                let outcome = prover.basic_search();
+                let outcome = prover.standard_search();
                 let elapsed = duration_as_f64_secs(start.elapsed());
                 done += 1;
                 let mut exit_early = false;

@@ -453,19 +453,22 @@ impl Prover {
 
     // A standard set of parameters, with a balance between speed and depth.
     // Useful for CLI or IDE when the user can wait a little bit.
+    // TODO: we should make this go even deeper. We need UI improvements though.
     pub fn medium_search(&mut self) -> Outcome {
         self.search_for_contradiction(5000, 5.0, false)
     }
 
     // A set of parameters to use when we want to find an answer very quickly.
-    // Useful for unit tests.
+    // Good for unit tests, to keep them fast and focused.
     pub fn quick_search(&mut self) -> Outcome {
-        self.search_for_contradiction(2000, 0.05, false)
+        self.search_for_contradiction(500, 0.05, false)
     }
 
-    // The basicness should be the main limiter.
-    pub fn basic_search(&mut self) -> Outcome {
-        self.search_for_contradiction(5000, 2.0, true)
+    // The standard search is the standard for what is acceptable acorn code.
+    // The time-based limit is set high enough so that hopefully it will not apply,
+    // because we want the standard to be deterministic.
+    pub fn standard_search(&mut self) -> Outcome {
+        self.search_for_contradiction(3000, 4.0, true)
     }
 
     // If basic_only is set, we only search for a basic proof.

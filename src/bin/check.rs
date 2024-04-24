@@ -1,4 +1,4 @@
-// Checks an acorn file to see if it compiles.
+// Checks an acorn file, or the whole project, to see if it compiles.
 //
 // This is the CLI equivalent of what the IDE runs when you save.
 //
