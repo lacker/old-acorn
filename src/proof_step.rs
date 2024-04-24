@@ -205,10 +205,13 @@ pub enum Score {
     Contradiction,
 }
 
+// Don't bother differentiating depth for score purposes after this point.
+const MAX_DEPTH: i32 = 3;
+
 impl Score {
     pub fn is_basic(&self) -> bool {
         match self {
-            Score::Regular(negadepth, _, _) => *negadepth >= -2,
+            Score::Regular(negadepth, _, _) => *negadepth > -MAX_DEPTH,
             Score::Contradiction => true,
         }
     }
@@ -448,7 +451,7 @@ impl ProofStep {
             heuristic -= 3;
         }
 
-        let negadepth = -(self.depth as i32).max(-3);
+        let negadepth = -(self.depth as i32).max(-MAX_DEPTH);
         return Score::Regular(negadepth, deterministic_tier, heuristic);
     }
 
