@@ -189,8 +189,9 @@
       <button on:click={randomClause}>Random clause</button>
       <br /><br />
       {#if infoResult === null}
-        <span>Plain text logs from the prover:</span>
-        <pre>{"\n"}{searchResponse.textOutput.join("\n")}</pre>
+        <span>Prover status: TODO</span>
+        <br />
+        <span>Activated clauses: TODO</span>
       {:else}
         <ProofStep step={infoResult.step} {clauseClick} {showLocation} />
         <br />

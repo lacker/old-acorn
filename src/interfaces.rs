@@ -89,12 +89,24 @@ pub struct ProofStepInfo {
     pub location: Option<Location>,
 
     // Whether the source of this step is a trivial one.
-    // This is an older concept of "trivial" that perhaps we should get rid of - it is only used to
-    // determine whether to describe a theorem dependency or not.
+    // TODO: this is an older concept of "trivial" that perhaps we should get rid of.
+    // It is only used to determine whether to describe a theorem dependency or not.
     pub trivial: bool,
 
     // The depth of this proof step in the proof tree, counting only expensive deductions.
+    // TODO: should we get rid of this?
     pub depth: u32,
+}
+
+// Information about a proof search in progress.
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatusResult {
+    // A stringification of the prover's Outcome.
+    pub outcome: String,
+
+    // The number of clauses that have been activated.
+    pub num_activated: usize,
 }
 
 // The SearchResult contains information that is produced once, when the search completes.
@@ -182,9 +194,6 @@ pub struct SearchResponse {
     pub goal_name: Option<String>,
     pub goal_range: Option<Range>,
 
-    // The text output will keep growing as the search task runs.
-    pub text_output: Vec<String>,
-
     // The line where we would insert a proof for this goal.
     // We insert proofs at the beginning of the line.
     pub proof_insertion_line: u32,
@@ -210,7 +219,6 @@ impl SearchResponse {
             loading: false,
             goal_name: None,
             goal_range: None,
-            text_output: vec![],
             result: None,
             proof_insertion_line: 0,
             has_block: false,

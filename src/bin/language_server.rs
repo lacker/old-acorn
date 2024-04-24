@@ -8,10 +8,9 @@ use acorn::interfaces::{
 };
 use acorn::module::Module;
 use acorn::project::Project;
-use acorn::prover::{Outcome, Prover};
+use acorn::prover::{Outcome, Prover, Status};
 use acorn::token::{Token, LSP_TOKEN_TYPES};
 use chrono;
-use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
 use tokio::sync::{mpsc, Mutex, OnceCell, RwLock, RwLockWriteGuard};
 use tower_lsp::jsonrpc;
@@ -82,11 +81,8 @@ struct SearchTask {
     // The range of the goal in the document
     goal_range: Range,
 
-    // The queue of pending text output from the search task
-    queue: Arc<SegQueue<String>>,
-
-    // Unstructured partial output of the search process
-    text_output: Arc<RwLock<Vec<String>>>,
+    // Information about the search task that gets updated as the search progresses
+    status: Arc<RwLock<Status>>,
 
     // Final result of the search, if it has completed
     result: Arc<OnceCell<SearchResult>>,
@@ -111,13 +107,6 @@ struct SearchTask {
 impl SearchTask {
     // Makes a response based on the current state of the task
     async fn response(&self) -> SearchResponse {
-        let text_output = {
-            let mut locked_text_output = self.text_output.write().await;
-            while let Some(line) = self.queue.pop() {
-                locked_text_output.push(line);
-            }
-            locked_text_output.clone()
-        };
         let result = self.result.get().map(|r| r.clone());
         SearchResponse {
             uri: self.document.url.clone(),
@@ -126,7 +115,6 @@ impl SearchTask {
             loading: false,
             goal_name: Some(self.goal_name.clone()),
             goal_range: Some(self.goal_range.clone()),
-            text_output,
             result,
             proof_insertion_line: self.proof_insertion_line,
             has_block: self.has_block,
@@ -151,7 +139,7 @@ impl SearchTask {
 
         // Get the specific goal to prove
         let goal_context = env.get_goal_context(&project, &self.path).unwrap();
-        let mut prover = Prover::new(&project, &goal_context, true, Some(self.queue.clone()));
+        let mut prover = Prover::new(&project, &goal_context, false, None);
 
         // By default, the prover will stop if the build is stopped.
         // We also want to stop it if we get a subsequent search request, to work on something else.
@@ -159,59 +147,22 @@ impl SearchTask {
 
         let outcome = prover.medium_search();
         let num_activated = prover.num_activated();
-        self.queue.push("".to_string());
 
         let result = match outcome {
             Outcome::Success => {
-                self.queue.push("Success!".to_string());
                 prover.print_proof();
-                self.queue.push("".to_string());
                 let proof = prover.get_proof().unwrap();
                 let steps = prover.to_proof_info(&project, &proof);
 
                 match proof.to_code(&env.bindings) {
-                    Ok(code) => {
-                        self.queue.push("Proof converted to code:".to_string());
-                        for line in &code {
-                            self.queue.push(line.to_string());
-                        }
-                        SearchResult::success(code, steps, num_activated)
-                    }
-                    Err(e) => {
-                        self.queue
-                            .push("Error converting proof to code:".to_string());
-                        self.queue.push(e.to_string());
-                        SearchResult::code_gen_error(steps, e.to_string(), num_activated)
-                    }
+                    Ok(code) => SearchResult::success(code, steps, num_activated),
+                    Err(e) => SearchResult::code_gen_error(steps, e.to_string(), num_activated),
                 }
             }
-            Outcome::Inconsistent => {
-                self.queue.push("Found inconsistency!".to_string());
-                prover.print_proof();
+            Outcome::Inconsistent | Outcome::Exhausted | Outcome::Unknown => {
                 SearchResult::no_proof(num_activated)
             }
-            Outcome::Exhausted => {
-                self.queue
-                    .push("All possibilities have been exhausted.".to_string());
-                SearchResult::no_proof(num_activated)
-            }
-            Outcome::Unknown => {
-                // We failed. Let's add more information about the final state of the prover.
-                self.queue
-                    .push("Timeout. The final passive set:".to_string());
-                prover.print_passive(None);
-                SearchResult::no_proof(num_activated)
-            }
-            Outcome::Interrupted => {
-                self.queue.push("Interrupted.".to_string());
-                return;
-            }
-            Outcome::Error => {
-                self.queue.push(format!(
-                    "Error: {}",
-                    prover.error.unwrap_or("?".to_string())
-                ));
-
+            Outcome::Interrupted | Outcome::Error => {
                 return;
             }
         };
@@ -517,8 +468,7 @@ impl Backend {
             path,
             goal_name: goal_context.name.clone(),
             goal_range: goal_context.goal.source.range,
-            queue: Arc::new(SegQueue::new()),
-            text_output: Arc::new(RwLock::new(vec![])),
+            status: Arc::new(RwLock::new(Status::default())),
             result: Arc::new(OnceCell::new()),
             superseded: Arc::new(AtomicBool::new(false)),
             proof_insertion_line: goal_context.proof_insertion_line,

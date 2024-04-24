@@ -11,7 +11,7 @@ use crate::active_set::ActiveSet;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::GoalContext;
-use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
+use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo, StatusResult};
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
@@ -99,6 +99,34 @@ impl fmt::Display for Outcome {
             Outcome::Interrupted => write!(f, "Interrupted"),
             Outcome::Unknown => write!(f, "Unknown"),
             Outcome::Error => write!(f, "Error"),
+        }
+    }
+}
+
+// The status of a prover.
+pub struct Status {
+    // outcome is None while the prover is still working.
+    pub outcome: Option<Outcome>,
+
+    // The number of clauses that have been activated.
+    pub num_activated: usize,
+}
+
+impl Status {
+    pub fn default() -> Status {
+        Status {
+            outcome: None,
+            num_activated: 0,
+        }
+    }
+
+    pub fn to_status_result(&self) -> StatusResult {
+        StatusResult {
+            outcome: match self.outcome {
+                Some(oc) => oc.to_string(),
+                None => "In Progress".to_string(),
+            },
+            num_activated: self.num_activated,
         }
     }
 }
