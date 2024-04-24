@@ -189,7 +189,7 @@ pub struct ProofStep {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Score {
     // The first element of a regular score is the negative depth.
-    // It's bounded at -2 so after that we don't use depth any more.
+    // It's bounded at -MAX_DEPTH so after that we don't use depth for scoring any more.
     //
     // The second element of the score is a deterministic ordering:
     //
