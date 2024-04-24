@@ -65,9 +65,11 @@ struct SearchTask {
     project: Arc<RwLock<Project>>,
     document: Arc<Document>,
 
-    // Currently prover is only set once the search task completes.
-    // TODO: improve this
-    prover: Arc<RwLock<Option<Prover>>>,
+    // While we are proving, most of the time the thread running the 'run' method
+    // will hold a write lock on the prover.
+    // The task will release and reacquire the lock intermittently, and the RwLock is fair so other
+    // theads get a chance to use the prover.
+    prover: Arc<RwLock<Prover>>,
 
     // The module that we're searching for a proof in
     module_name: String,
@@ -84,7 +86,7 @@ struct SearchTask {
     // The range of the goal in the document
     goal_range: Range,
 
-    // Final result of the search, if it has completed
+    // The SearchResult can indicate either partial progress or completion.
     result: Arc<OnceCell<SearchResult>>,
 
     // Set this flag to true when a subsequent search task has been created
@@ -123,9 +125,9 @@ impl SearchTask {
     }
 
     // Runs the search task.
-    // This holds a read lock on the project the whole time.
     async fn run(&self) {
-        // Get the environment for this module
+        // This holds a read lock on the project the whole time.
+        // It seems like we should be able to avoid this, but maybe it's just fine.
         let project = self.project.read().await;
         let env = match project.get_env_by_name(&self.module_name) {
             Some(env) => env,
@@ -137,15 +139,10 @@ impl SearchTask {
 
         log(&format!("running search task for {}", self.goal_name));
 
-        // Get the specific goal to prove
-        let goal_context = env.get_goal_context(&project, &self.path).unwrap();
-        let mut prover = Prover::new(&project, &goal_context, false);
-
-        // By default, the prover will stop if the build is stopped.
-        // We also want to stop it if we get a subsequent search request, to work on something else.
-        prover.stop_flags.push(self.superseded.clone());
-
         let result = loop {
+            // Each iteration through the loop reacquires the write lock on the prover.
+            // This lets other threads access the prover in between iterations.
+            let mut prover = self.prover.write().await;
             let outcome = prover.partial_search();
             let status = prover.get_status();
             let result = match outcome {
@@ -180,7 +177,6 @@ impl SearchTask {
         };
 
         log(&format!("search task for {} completed", self.goal_name));
-        self.prover.write().await.replace(prover);
         self.result.set(result).expect("result was already set");
     }
 }
@@ -469,19 +465,22 @@ impl Backend {
             Ok(goal_context) => goal_context,
             Err(s) => return self.search_fail(params, &s),
         };
+        let superseded = Arc::new(AtomicBool::new(false));
+        let mut prover = Prover::new(&project, &goal_context, false);
+        prover.stop_flags.push(superseded.clone());
 
         // Create a new search task
         let new_task = SearchTask {
             project: self.project.clone(),
             document: doc.clone(),
-            prover: Arc::new(RwLock::new(None)),
+            prover: Arc::new(RwLock::new(prover)),
             module_name,
             selected_line: params.selected_line,
             path,
             goal_name: goal_context.name.clone(),
             goal_range: goal_context.goal.source.range,
             result: Arc::new(OnceCell::new()),
-            superseded: Arc::new(AtomicBool::new(false)),
+            superseded,
             proof_insertion_line: goal_context.proof_insertion_line,
             has_block: !goal_context.implicit_block(),
             id: params.id,
@@ -518,12 +517,8 @@ impl Backend {
             );
             return self.info_fail(params, &failure);
         }
-        let locked_prover = task.prover.read().await;
-        let prover = match locked_prover.as_ref() {
-            Some(prover) => prover,
-            None => return self.info_fail(params, "no prover available"),
-        };
         let project = self.project.read().await;
+        let prover = task.prover.read().await;
         let result = prover.info_result(&project, params.clause_id);
         let failure = match result {
             Some(_) => None,
