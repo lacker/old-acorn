@@ -122,30 +122,34 @@ fn main() {
                 loop {
                     let outcome = prover.activate_next();
                     match outcome {
-                        Outcome::Success => {
+                        Some(Outcome::Success) => {
                             println!("Success! ({}s)", start_time.elapsed().as_secs_f32());
                             prover.print_proof();
                             break;
                         }
-                        Outcome::Exhausted => {
+                        Some(Outcome::Exhausted) => {
                             println!("Failure!");
                             break;
                         }
-                        Outcome::Inconsistent => {
+                        Some(Outcome::Inconsistent) => {
                             println!("Inconsistency detected!");
                             break;
                         }
-                        Outcome::Unknown => {
+                        Some(Outcome::Timeout) | None => {
                             if prover.hit_trace {
                                 println!("trace found!");
                                 break;
                             }
                         }
-                        Outcome::Interrupted => {
+                        Some(Outcome::Interrupted) => {
                             panic!("Interrupted!");
                         }
-                        Outcome::Error => {
+                        Some(Outcome::Error) => {
                             panic!("Error!");
+                        }
+                        Some(Outcome::Constrained) => {
+                            println!("Constrained!");
+                            break;
                         }
                     }
                     if start_time.elapsed().as_secs_f32() > 10.0 {
@@ -158,12 +162,8 @@ fn main() {
             "" => {
                 // Hitting enter does one step of proving.
                 prover.verbose = true;
-                let outcome = prover.activate_next();
-                match outcome {
-                    Outcome::Unknown => (),
-                    _ => {
-                        println!("{}!", outcome);
-                    }
+                if let Some(outcome) = prover.activate_next() {
+                    println!("{}!", outcome);
                 }
                 prover.verbose = false;
             }

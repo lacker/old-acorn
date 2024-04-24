@@ -159,9 +159,10 @@ impl SearchTask {
                     Err(e) => SearchResult::code_gen_error(steps, e.to_string(), num_activated),
                 }
             }
-            Outcome::Inconsistent | Outcome::Exhausted | Outcome::Unknown => {
-                SearchResult::no_proof(num_activated)
-            }
+            Outcome::Inconsistent
+            | Outcome::Exhausted
+            | Outcome::Timeout
+            | Outcome::Constrained => SearchResult::no_proof(num_activated),
             Outcome::Interrupted | Outcome::Error => {
                 return;
             }

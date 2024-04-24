@@ -78,7 +78,8 @@ macro_rules! cprintln {
 // "Exhausted" means we tried every possibility and couldn't prove it.
 // "Inconsistent" means that we found a contradiction just in our initial assumptions.
 // "Interrupted" means that the prover was explicitly stopped.
-// "Unknown" means that we could keep working longer at it.
+// "Timeout" means that we hit a nondeterministic timing limit.
+// "Constrained" means that we hit some deterministic limit.
 // "Error" means that we found a problem in the code that needs to be fixed by the user.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Outcome {
@@ -86,7 +87,8 @@ pub enum Outcome {
     Exhausted,
     Inconsistent,
     Interrupted,
-    Unknown,
+    Timeout,
+    Constrained,
     Error,
 }
 
@@ -97,7 +99,8 @@ impl fmt::Display for Outcome {
             Outcome::Exhausted => write!(f, "Exhausted"),
             Outcome::Inconsistent => write!(f, "Inconsistent"),
             Outcome::Interrupted => write!(f, "Interrupted"),
-            Outcome::Unknown => write!(f, "Unknown"),
+            Outcome::Timeout => write!(f, "Timeout"),
+            Outcome::Constrained => write!(f, "Constrained"),
             Outcome::Error => write!(f, "Error"),
         }
     }
@@ -386,16 +389,17 @@ impl Prover {
     }
 
     // Activates the next clause from the queue, unless we're already done.
-    pub fn activate_next(&mut self) -> Outcome {
+    // Returns the outcome if the prover finished, otherwise None.
+    pub fn activate_next(&mut self) -> Option<Outcome> {
         if let Some((_, outcome)) = &self.result {
-            return *outcome;
+            return Some(*outcome);
         }
 
         let step = match self.passive_set.pop() {
             Some(step) => step,
             None => {
                 // We're out of clauses to process, so we can't make any more progress.
-                return Outcome::Exhausted;
+                return Some(Outcome::Exhausted);
             }
         };
 
@@ -403,7 +407,7 @@ impl Prover {
         let verbose = self.verbose || tracing;
 
         if step.clause.is_impossible() {
-            return self.report_contradiction(step);
+            return Some(self.report_contradiction(step));
         }
 
         if verbose {
@@ -431,7 +435,14 @@ impl Prover {
     //
     // This double simplification ensures that every passive clause is always simplified with
     // respect to every active clause.
-    fn activate(&mut self, activated_step: ProofStep, verbose: bool, tracing: bool) -> Outcome {
+    //
+    // Returns the outcome if the prover finished, otherwise None.
+    fn activate(
+        &mut self,
+        activated_step: ProofStep,
+        verbose: bool,
+        tracing: bool,
+    ) -> Option<Outcome> {
         // Use the step for simplification
         let activated_id = self.active_set.next_id();
         if activated_step.clause.literals.len() == 1 {
@@ -454,7 +465,7 @@ impl Prover {
         }
         for (i, step) in generated_clauses.into_iter().enumerate() {
             if step.finishes_proof() {
-                return self.report_contradiction(step);
+                return Some(self.report_contradiction(step));
             }
 
             if step.automatic_reject() {
@@ -471,12 +482,12 @@ impl Prover {
 
             if let Some(simple_step) = self.active_set.simplify(step) {
                 if simple_step.clause.is_impossible() {
-                    return self.report_contradiction(simple_step);
+                    return Some(self.report_contradiction(simple_step));
                 }
                 self.passive_set.push(simple_step);
             }
         }
-        Outcome::Unknown
+        None
     }
 
     // A standard set of parameters, with a balance between speed and depth.
@@ -511,11 +522,10 @@ impl Prover {
         }
         let start_time = std::time::Instant::now();
         loop {
-            if basic_only && self.passive_set.basic_exhausted() {
+            if basic_only && self.passive_set.not_has_basic() {
                 return Outcome::Exhausted;
             }
-            let outcome = self.activate_next();
-            if outcome != Outcome::Unknown {
+            if let Some(outcome) = self.activate_next() {
                 return outcome;
             }
             for stop_flag in &self.stop_flags {
@@ -542,7 +552,7 @@ impl Prover {
                 break;
             }
         }
-        Outcome::Unknown
+        Outcome::Timeout
     }
 
     fn display<'a>(&'a self, clause: &'a Clause) -> DisplayClause<'a> {

@@ -61,11 +61,14 @@ async fn main() {
         Outcome::Exhausted => {
             println!("All possibilities have been exhausted.");
         }
-        Outcome::Unknown => {
+        Outcome::Timeout => {
             println!("Timeout.");
         }
         Outcome::Interrupted => {
             println!("Interrupted.");
+        }
+        Outcome::Constrained => {
+            println!("Constrained.");
         }
         Outcome::Error => {
             println!(

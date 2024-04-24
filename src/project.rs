@@ -323,13 +323,14 @@ impl Project {
                 let mut prover = Prover::new(&self, &goal_context, false, None);
                 let outcome = prover.standard_search();
                 let elapsed = duration_as_f64_secs(start.elapsed());
+                let elapsed_str = format!("{:.3}s", elapsed);
                 done += 1;
                 let mut exit_early = false;
                 let mut success = false;
                 let description = match outcome {
                     Outcome::Success => {
                         if self.warn_when_slow && elapsed > 0.1 {
-                            format!(" took {:.3}s", elapsed)
+                            format!(" took {}", elapsed_str)
                         } else {
                             success = true;
                             "".to_string()
@@ -337,7 +338,7 @@ impl Project {
                     }
                     Outcome::Exhausted => " has no basic proof".to_string(),
                     Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
-                    Outcome::Unknown => " timed out".to_string(),
+                    Outcome::Timeout => format!(" timed out after {}", elapsed_str),
                     Outcome::Interrupted => {
                         exit_early = true;
                         " was interrupted".to_string()
@@ -346,6 +347,7 @@ impl Project {
                         exit_early = true;
                         " had an error".to_string()
                     }
+                    Outcome::Constrained => " stopped after hitting constraints".to_string(),
                 };
 
                 let (diagnostic, log_message) = if !success {
