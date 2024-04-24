@@ -155,14 +155,16 @@ impl SearchTask {
                 let steps = prover.to_proof_info(&project, &proof);
 
                 match proof.to_code(&env.bindings) {
-                    Ok(code) => SearchResult::success(code, steps, num_activated),
-                    Err(e) => SearchResult::code_gen_error(steps, e.to_string(), num_activated),
+                    Ok(code) => SearchResult::success(code, steps, outcome, num_activated),
+                    Err(e) => {
+                        SearchResult::code_gen_error(steps, e.to_string(), outcome, num_activated)
+                    }
                 }
             }
             Outcome::Inconsistent
             | Outcome::Exhausted
             | Outcome::Timeout
-            | Outcome::Constrained => SearchResult::no_proof(num_activated),
+            | Outcome::Constrained => SearchResult::no_proof(outcome, num_activated),
             Outcome::Interrupted | Outcome::Error => {
                 return;
             }

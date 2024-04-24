@@ -2,7 +2,6 @@ use std::fmt;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
 use tower_lsp::lsp_types::Url;
 
 use crate::acorn_type::AcornType;
@@ -11,7 +10,7 @@ use crate::active_set::ActiveSet;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::GoalContext;
-use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo, StatusResult};
+use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
@@ -33,9 +32,6 @@ pub struct Prover {
 
     // A verbose prover prints out a lot of stuff.
     pub verbose: bool,
-
-    // Status is updated intermittently with information about the state of the prover.
-    pub status: Arc<RwLock<Status>>,
 
     // If a trace string is set, we print out what happens with the clause matching it, regardless
     // of verbosity.
@@ -109,16 +105,6 @@ impl Status {
             num_activated: 0,
         }
     }
-
-    pub fn to_result(&self) -> StatusResult {
-        StatusResult {
-            outcome: match self.outcome {
-                Some(oc) => oc.to_string(),
-                None => "In Progress".to_string(),
-            },
-            num_activated: self.num_activated,
-        }
-    }
 }
 
 impl Prover {
@@ -133,7 +119,6 @@ impl Prover {
             passive_set: PassiveSet::new(),
             verbose,
             trace: None,
-            status: Arc::new(RwLock::new(Status::default())),
             hit_trace: false,
             result: None,
             stop_flags: vec![project.build_stopped.clone()],
@@ -167,6 +152,17 @@ impl Prover {
             Truthiness::Counterfactual,
         );
         p
+    }
+
+    pub fn get_status(&self) -> Status {
+        let outcome = match &self.result {
+            Some((_, outcome)) => Some(*outcome),
+            None => None,
+        };
+        Status {
+            outcome,
+            num_activated: self.num_activated(),
+        }
     }
 
     pub fn set_trace(&mut self, trace: &str) {
@@ -468,9 +464,16 @@ impl Prover {
         None
     }
 
+    // Searches with a short duration.
+    // Designed to be called multiple times in succession.
+    // The time-based limit is set low, so that it feels interactive.
+    pub fn partial_search(&mut self) -> Outcome {
+        self.search_for_contradiction(10000, 0.1, false)
+    }
+
     // A standard set of parameters, with a balance between speed and depth.
     // Useful for CLI or IDE when the user can wait a little bit.
-    // TODO: we should make this go even deeper. We need UI improvements though.
+    // TODO: replace with multiple calls to partial search.
     pub fn medium_search(&mut self) -> Outcome {
         self.search_for_contradiction(5000, 5.0, false)
     }

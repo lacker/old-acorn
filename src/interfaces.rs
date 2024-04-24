@@ -7,6 +7,8 @@
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::{Range, Url};
 
+use crate::prover::Outcome;
+
 // The language server stores one progress struct, and returns it at any time.
 // 0/0 only occurs at initialization. It means "there have never been any progress bars".
 // Once we ever show a progress bar, we leave it at the previous finished state.
@@ -98,23 +100,12 @@ pub struct ProofStepInfo {
     pub depth: u32,
 }
 
-// Information about a proof search in progress.
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StatusResult {
-    // A stringification of the prover's Outcome.
-    pub outcome: String,
-
-    // The number of clauses that have been activated.
-    pub num_activated: usize,
-}
-
-// The SearchResult contains information that is produced once, when the search completes.
+// The SearchResult contains information about a search which may be in progress.
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     // Code for the proof that can be inserted.
-    // If we failed to find a proof, this is None.
+    // If we don't have a proof, this is None.
     pub code: Option<Vec<String>>,
 
     // If we failed to generate the "code" field, this is the error message.
@@ -123,6 +114,9 @@ pub struct SearchResult {
     // Steps in the proof, as we found them.
     // If we failed to find a proof, this is None.
     pub steps: Option<Vec<ProofStepInfo>>,
+
+    // A stringification of the prover's Outcome, if it has finished.
+    pub outcome: Option<String>,
 
     // How many clauses we have activated.
     // Any id below this, we can handle info requests to provide information for it.
@@ -133,12 +127,14 @@ impl SearchResult {
     pub fn success(
         code: Vec<String>,
         steps: Vec<ProofStepInfo>,
+        outcome: Outcome,
         num_activated: usize,
     ) -> SearchResult {
         SearchResult {
             code: Some(code),
             code_error: None,
             steps: Some(steps),
+            outcome: Some(outcome.to_string()),
             num_activated,
         }
     }
@@ -147,22 +143,25 @@ impl SearchResult {
     pub fn code_gen_error(
         steps: Vec<ProofStepInfo>,
         error: String,
+        outcome: Outcome,
         num_activated: usize,
     ) -> SearchResult {
         SearchResult {
             code: None,
             code_error: Some(error),
             steps: Some(steps),
+            outcome: Some(outcome.to_string()),
             num_activated,
         }
     }
 
     // Indicate that there is no proof.
-    pub fn no_proof(num_activated: usize) -> SearchResult {
+    pub fn no_proof(outcome: Outcome, num_activated: usize) -> SearchResult {
         SearchResult {
             code: None,
             code_error: None,
             steps: None,
+            outcome: Some(outcome.to_string()),
             num_activated,
         }
     }
