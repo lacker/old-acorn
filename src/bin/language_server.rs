@@ -141,8 +141,6 @@ impl SearchTask {
         log(&format!("running search task for {}", self.goal_name));
 
         loop {
-            log(&format!("at start of main loop for {}", self.goal_name));
-
             // Each iteration through the loop reacquires the write lock on the prover.
             // This lets other threads access the prover in between iterations.
             let mut prover = self.prover.write().await;
@@ -180,8 +178,6 @@ impl SearchTask {
                 log(&format!("search task for {} completed", self.goal_name));
                 break;
             }
-
-            log(&format!("at end of main loop for {}", self.goal_name));
         }
     }
 }
