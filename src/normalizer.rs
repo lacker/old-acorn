@@ -449,10 +449,12 @@ impl Normalizer {
     // TODO: what cases does this not handle? skolem functions?
     pub fn denormalize(&self, clause: &Clause) -> AcornValue {
         let mut var_types = vec![];
-        let last_index = clause.literals.len() - 1;
-        let mut answer = self.denormalize_literal(&clause.literals[last_index], &mut var_types);
-        for i in (0..last_index).rev() {
-            let subvalue = self.denormalize_literal(&clause.literals[i], &mut var_types);
+        let mut denormalized_literals = vec![];
+        for literal in &clause.literals {
+            denormalized_literals.push(self.denormalize_literal(literal, &mut var_types));
+        }
+        let mut answer = denormalized_literals.pop().unwrap();
+        for subvalue in denormalized_literals.into_iter().rev() {
             answer = AcornValue::new_or(subvalue, answer);
         }
         AcornValue::new_forall(var_types, answer)
