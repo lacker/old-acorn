@@ -126,6 +126,7 @@ class SearchPanel implements Disposable {
         "acorn/search",
         params
       );
+
       if (!this.panel || params.id != this.currentSearchId) {
         // The request is no longer relevant
         return;
@@ -144,7 +145,7 @@ class SearchPanel implements Disposable {
       }
 
       // The search is not complete. Send another request after waiting a bit.
-      let ms = 100;
+      let ms = 50;
       await new Promise((resolve) => setTimeout(resolve, ms));
       if (!this.panel || params.id != this.currentSearchId) {
         return;

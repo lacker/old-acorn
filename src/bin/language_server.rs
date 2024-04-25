@@ -489,7 +489,8 @@ impl Backend {
         };
 
         // A minimal response before any data has been collected
-        let response = new_task.response().await;
+        let mut response = new_task.response().await;
+        response.loading = true;
 
         self.set_search_task(Some(new_task)).await;
 

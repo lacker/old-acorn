@@ -95,6 +95,7 @@ theorem mod_is_mod(a: Nat, m: Nat): is_mod(a, m)(mod(a, m)) by {
         is_mod(a, m)(a)
         is_mod(a, m)(mod(a, m))
     } else {
+        lt(0, m)
         exists(q: Nat, r: Nat) { lt(r, m) & add(mul(q, m), r) = a }
         is_mod(a, m)(r)
         f(r)
