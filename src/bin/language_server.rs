@@ -192,8 +192,13 @@ struct Backend {
     // Search tasks update it as they go.
     progress: Arc<Mutex<ProgressResponse>>,
 
-    // Maps uri to the most recent version of a document
+    // Maps uri to the most recent version of a document we have
     documents: DashMap<Url, Arc<Document>>,
+
+    // Maps uri to the most recent version of a document the user has.
+    // This can be ahead of the version in documents, because we don't necessarily get the
+    // most up-to-date version while the user is typing.
+    versions: DashMap<Url, i32>,
 
     // The current search task, if any
     search_task: Arc<RwLock<Option<SearchTask>>>,
@@ -206,6 +211,7 @@ impl Backend {
             client,
             progress: Arc::new(Mutex::new(ProgressResponse::default())),
             documents: DashMap::new(),
+            versions: DashMap::new(),
             search_task: Arc::new(RwLock::new(None)),
         }
     }
@@ -277,12 +283,27 @@ impl Backend {
         });
     }
 
+    fn update_version(&self, url: Url, version: i32) {
+        self.versions.insert(url, version);
+    }
+
+    async fn update_text(&self, url: Url, text: String, event: &str) {
+        let version = match self.versions.get(&url) {
+            Some(v) => *v,
+            None => 0,
+        };
+
+        self.update_doc_in_backend(url.clone(), text, version, event);
+        self.update_doc_in_project(&url).await;
+        self.spawn_build();
+    }
+
     // This updates a document in the backend, but not in the project.
     // The backend tracks every single change; the project only gets them when we want it to use them.
     // This means that typing a little bit doesn't necessarily cancel an ongoing build.
-    fn update_doc_in_backend(&self, url: Url, text: String, version: i32, tag: &str) {
+    fn update_doc_in_backend(&self, url: Url, text: String, version: i32, event: &str) {
         let new_doc = Document::new(url.clone(), text, version);
-        new_doc.log(&format!("did_{}; updating document", tag));
+        new_doc.log(&format!("did_{}; updating document", event));
         if let Some(old_doc) = self.documents.get(&url) {
             old_doc.log(&format!("superseded by v{}", version));
             old_doc
@@ -545,9 +566,9 @@ impl LanguageServer for Backend {
                 text_document_sync: Some(TextDocumentSyncCapability::Options(
                     TextDocumentSyncOptions {
                         open_close: Some(true),
-                        change: Some(TextDocumentSyncKind::FULL),
+                        change: Some(TextDocumentSyncKind::INCREMENTAL),
                         save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
-                            include_text: Some(false),
+                            include_text: Some(true),
                         })),
                         ..TextDocumentSyncOptions::default()
                     },
@@ -583,27 +604,30 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        log("did_save");
-        self.update_doc_in_project(&params.text_document.uri).await;
-        self.spawn_build();
+        let uri = params.text_document.uri;
+        let text = match params.text {
+            Some(text) => text,
+            None => {
+                log("no text available in did_save");
+                return;
+            }
+        };
+        self.update_text(uri, text, "save").await;
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri;
         let text = params.text_document.text;
         let version = params.text_document.version;
-        self.update_doc_in_backend(uri.clone(), text, version, "open");
-        self.update_doc_in_project(&uri).await;
-        self.spawn_build();
+        self.update_version(uri.clone(), version);
+        self.update_text(uri, text, "open").await;
     }
 
-    // TODO: Note that this does not cancel any ongoing search tasks.
-    // It does make the result of any ongoing search tasks unusable, though.
-    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
+    // Just updates the current version
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
-        let text = std::mem::take(&mut params.content_changes[0].text);
         let version = params.text_document.version;
-        self.update_doc_in_backend(uri, text, version, "change");
+        self.update_version(uri, version);
     }
 
     async fn shutdown(&self) -> jsonrpc::Result<()> {
