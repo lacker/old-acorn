@@ -2,6 +2,7 @@ import {
   commands,
   Disposable,
   ExtensionContext,
+  languages,
   Position,
   ProgressLocation,
   Range,

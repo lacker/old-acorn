@@ -240,6 +240,7 @@ theorem mul_one_left(a: Nat): mul(1, a) = a
 
 // Comparisons
 
+
 define lte(a: Nat, b: Nat) -> bool: exists(c: Nat) { add(a, c) = b }
 
 define lt(a: Nat, b: Nat) -> bool: lte(a, b) & a != b

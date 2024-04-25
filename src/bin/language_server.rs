@@ -595,7 +595,7 @@ impl LanguageServer for Backend {
         );
 
         // Toggle whether we do semantic tokens
-        let do_semantic_tokens = true;
+        let do_semantic_tokens = false;
         let semantic_tokens_provider = if do_semantic_tokens {
             Some(semantic_options)
         } else {

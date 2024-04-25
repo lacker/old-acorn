@@ -20,6 +20,13 @@
         "configuration": "./language-configuration.json"
       }
     ],
+    "grammars": [
+      {
+        "language": "acorn",
+        "scopeName": "source.acorn",
+        "path": "./syntaxes/acorn.tmLanguage.json"
+      }
+    ],
     "commands": [
       {
         "category": "Acorn",
