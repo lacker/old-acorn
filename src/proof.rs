@@ -277,64 +277,79 @@ impl<'a> Proof<'a> {
         }
     }
 
-    // Whether this node was cheap to create in the first place.
-    // TODO: "cheap" isn't the right word.
+    // Whether this node was cheap to create.
     fn is_cheap(&self, node_id: NodeId) -> bool {
         let node = &self.nodes[node_id as usize];
-        if matches!(node.value, NodeValue::Contradiction) {
-            return false;
+        match node.value {
+            NodeValue::Contradiction | NodeValue::NegatedGoal => return false,
+            _ => {}
+        };
+
+        if node.depth == 0 {
+            return true;
         }
 
-        // Ditch all but the first nodes in a same-depth group.
         for premise_id in &node.premises {
             let premise = &self.nodes[*premise_id as usize];
-            if matches!(premise.value, NodeValue::NegatedGoal) {
-                return false;
-            }
-            if premise.depth != node.depth {
-                return false;
+            if premise.depth == node.depth {
+                return true;
             }
         }
-        true
+
+        false
     }
 
     // Remove nodes that are cheap to regenerate.
     fn remove_cheap(&mut self) {
-        let cheap = (0..self.nodes.len() as NodeId)
-            .filter(|node_id| self.is_cheap(*node_id))
-            .collect::<Vec<_>>();
-        for node_id in cheap {
-            self.contract(node_id)
-        }
-    }
-
-    // We can skip an interior node that is only used once, if its inputs and outputs differ in depth
-    // by no more than two.
-    fn is_skippable(&self, node_id: NodeId) -> bool {
-        let node = &self.nodes[node_id as usize];
-        if matches!(node.value, NodeValue::NegatedGoal) {
-            return false;
-        }
-        if node.consequences.len() != 1 {
-            return false;
-        }
-        let consequence_id = node.consequences[0];
-        let consequence = &self.nodes[consequence_id as usize];
-        let consequence_depth = consequence.depth;
-        for premise_id in &node.premises {
-            let premise = &self.nodes[*premise_id as usize];
-            if premise.depth + 2 < consequence_depth {
-                return false;
-            }
-        }
-        true
-    }
-
-    fn remove_skippable(&mut self) {
-        for node_id in (0..self.nodes.len() as NodeId).rev() {
-            if self.is_skippable(node_id) {
+        for node_id in 0..self.nodes.len() as NodeId {
+            if self.is_cheap(node_id) {
                 self.contract(node_id)
             }
+        }
+    }
+
+    // This is really just a heuristic.
+    fn is_ugly(&self, node_id: NodeId) -> bool {
+        let node = &self.nodes[node_id as usize];
+        let clause = match &node.value {
+            NodeValue::Contradiction | NodeValue::NegatedGoal => return false,
+            NodeValue::Clause(clause) => clause,
+        };
+
+        if clause.has_any_variable() {
+            // Unbound variables are ugly because we'll have to stick in extra "forall" and "exists".
+            return true;
+        }
+
+        false
+    }
+
+    fn remove_ugly(&mut self) {
+        for node_id in 0..self.nodes.len() as NodeId {
+            if self.is_ugly(node_id) {
+                self.contract(node_id)
+            }
+        }
+    }
+
+    // Some nodes in an indirect proof cannot be turned into nodes in a direct proof.
+    // This happens when we assume the goal is false, use it to prove both A and B,
+    // and then together A plus B lead to a contradiction.
+    // A and B cannot be directly proven from our assumptions; they are only true in the
+    // context of a proof by contradiction.
+    // Since we want don't want to express "the negative goal" itself in our proof, we
+    // eliminate this sort of node that is adjacent to the negative goal until we find
+    // at least one node whose negation can be directly proven.
+    //
+    // This algorithm relies on the ordering of the nodes, that consequences must come
+    // after premises. This method must be called before directing the proof.
+    fn contract_indirect(&mut self) {
+        while self.nodes[0].consequences.len() > 1 {
+            assert!(matches!(self.nodes[0].value, NodeValue::NegatedGoal));
+
+            // Find the earliest consequence, the min on consequnces
+            let consequence_id = self.nodes[0].consequences.iter().min().unwrap();
+            self.contract(*consequence_id);
         }
     }
 
@@ -352,7 +367,8 @@ impl<'a> Proof<'a> {
         }
     }
 
-    pub fn print_graph(&self) {
+    pub fn print_graph(&self, message: &str) {
+        println!("\n{}", message);
         println!("\nProof graph:");
         for (i, node) in self.nodes.iter().enumerate() {
             if node.is_isolated() {
@@ -460,8 +476,9 @@ impl<'a> Proof<'a> {
 
     // Reduce the graph as much as possible.
     fn condense(&mut self) {
+        self.remove_ugly();
         self.remove_cheap();
-        self.remove_skippable();
+        self.contract_indirect();
         self.remove_conditional(0);
     }
 
@@ -583,11 +600,23 @@ impl<'a> Proof<'a> {
             )?;
         }
         proven.insert(node_id);
+
         // We don't need to put the goal in the proof because it's already expressed in the code
-        if !node_is_goal {
-            let code = node.to_code(normalizer, bindings, next_k)?;
-            output.push(format!("{}{}", "\t".repeat(tab_level), code));
+        if node_is_goal {
+            return Ok(());
         }
-        Ok(())
+
+        match node.to_code(normalizer, bindings, next_k) {
+            Ok(code) => {
+                output.push(format!("{}{}", "\t".repeat(tab_level), code));
+                Ok(())
+            }
+            Err(CodeGenError::Skolem(_)) => {
+                // Just ignore these and don't generate the skolem lines.
+                // Maybe the other lines are good enough.
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     }
 }
