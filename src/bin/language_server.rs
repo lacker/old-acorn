@@ -560,44 +560,53 @@ impl Backend {
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> jsonrpc::Result<InitializeResult> {
         log("initializing...");
+
+        let sync_options = TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
+            open_close: Some(true),
+            change: Some(TextDocumentSyncKind::INCREMENTAL),
+            save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+                include_text: Some(true),
+            })),
+            ..TextDocumentSyncOptions::default()
+        });
+
+        let semantic_options = SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
+            SemanticTokensRegistrationOptions {
+                text_document_registration_options: {
+                    TextDocumentRegistrationOptions {
+                        document_selector: Some(vec![DocumentFilter {
+                            language: Some("acorn".to_string()),
+                            scheme: Some("file".to_string()),
+                            pattern: None,
+                        }]),
+                    }
+                },
+                semantic_tokens_options: SemanticTokensOptions {
+                    work_done_progress_options: WorkDoneProgressOptions::default(),
+                    legend: SemanticTokensLegend {
+                        token_types: LSP_TOKEN_TYPES.into(),
+                        token_modifiers: vec![],
+                    },
+                    range: Some(false),
+                    full: Some(SemanticTokensFullOptions::Bool(true)),
+                },
+                static_registration_options: StaticRegistrationOptions::default(),
+            },
+        );
+
+        // Toggle whether we do semantic tokens
+        let do_semantic_tokens = true;
+        let semantic_tokens_provider = if do_semantic_tokens {
+            Some(semantic_options)
+        } else {
+            None
+        };
+
         Ok(InitializeResult {
             server_info: None,
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Options(
-                    TextDocumentSyncOptions {
-                        open_close: Some(true),
-                        change: Some(TextDocumentSyncKind::INCREMENTAL),
-                        save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
-                            include_text: Some(true),
-                        })),
-                        ..TextDocumentSyncOptions::default()
-                    },
-                )),
-                semantic_tokens_provider: Some(
-                    SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
-                        SemanticTokensRegistrationOptions {
-                            text_document_registration_options: {
-                                TextDocumentRegistrationOptions {
-                                    document_selector: Some(vec![DocumentFilter {
-                                        language: Some("acorn".to_string()),
-                                        scheme: Some("file".to_string()),
-                                        pattern: None,
-                                    }]),
-                                }
-                            },
-                            semantic_tokens_options: SemanticTokensOptions {
-                                work_done_progress_options: WorkDoneProgressOptions::default(),
-                                legend: SemanticTokensLegend {
-                                    token_types: LSP_TOKEN_TYPES.into(),
-                                    token_modifiers: vec![],
-                                },
-                                range: Some(false),
-                                full: Some(SemanticTokensFullOptions::Bool(true)),
-                            },
-                            static_registration_options: StaticRegistrationOptions::default(),
-                        },
-                    ),
-                ),
+                text_document_sync: Some(sync_options),
+                semantic_tokens_provider,
                 ..ServerCapabilities::default()
             },
         })
