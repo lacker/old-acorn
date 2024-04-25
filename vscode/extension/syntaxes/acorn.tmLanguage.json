@@ -30,6 +30,14 @@
     {
       "match": "\\b(true|false)\\b",
       "name": "keyword.constant"
+    },
+    {
+      "match": "\\b[0-9]+\\b",
+      "name": "constant.numeric"
+    },
+    {
+      "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+      "name": "variable"
     }
   ]
 }
