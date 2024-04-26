@@ -925,10 +925,10 @@ mod tests {
         let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
-            let Suc: Nat -> Nat = axiom
+            let suc: Nat -> Nat = axiom
             define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom
             axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
-            define add(a: Nat, b: Nat) -> Nat: recursion(Suc, a, b)
+            define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)
             theorem add_zero_right(a: Nat): add(a, 0) = a
         "#;
         expect_proof(text, "add_zero_right", &[]);
@@ -973,10 +973,10 @@ mod tests {
             type Nat: axiom
             let 0: Nat = axiom
             let 1: Nat = axiom
-            let Suc: Nat -> Nat = axiom
-            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
+            let suc: Nat -> Nat = axiom
+            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = suc(b) }
             axiom one_neq_zero: 1 != 0
-            theorem goal: exists(x: Nat) { 1 = Suc(x) }
+            theorem goal: exists(x: Nat) { 1 = suc(x) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -986,9 +986,9 @@ mod tests {
         let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
-            let Suc: Nat -> Nat = axiom
+            let suc: Nat -> Nat = axiom
             let y: Nat = axiom
-            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
+            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = suc(b) }
             theorem goal: zero_or_suc(y)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
@@ -999,9 +999,9 @@ mod tests {
         let text = r#"
             type Nat: axiom
             let 0: Nat = axiom
-            let Suc: Nat -> Nat = axiom
+            let suc: Nat -> Nat = axiom
             let y: Nat = axiom
-            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) }
+            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = suc(b) }
             axiom y_not_zero: y != 0
             theorem goal: zero_or_suc(y)
         "#;
@@ -1199,13 +1199,13 @@ mod tests {
             r#"
             type Nat: axiom
             let 0: Nat = axiom
-            let Suc: Nat -> Nat = axiom
+            let suc: Nat -> Nat = axiom
             let add: (Nat, Nat) -> Nat = axiom
             let mul: (Nat, Nat) -> Nat = axiom
-            axiom add_suc(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))
-            axiom suc_ne(a: Nat): Suc(a) != a
-            axiom mul_suc(a: Nat, b: Nat): add(a, mul(a, b)) = mul(a, Suc(b))
-            theorem goal(a: Nat): Suc(a) != a
+            axiom add_suc(a: Nat, b: Nat): add(suc(a), b) = suc(add(a, b))
+            axiom suc_ne(a: Nat): suc(a) != a
+            axiom mul_suc(a: Nat, b: Nat): add(a, mul(a, b)) = mul(a, suc(b))
+            theorem goal(a: Nat): suc(a) != a
         "#,
         );
     }
@@ -1320,11 +1320,11 @@ mod tests {
         prove_all_succeeds(
             r#"
             type Nat: axiom
-            let Suc: Nat -> Nat = axiom
-            axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
+            let suc: Nat -> Nat = axiom
+            axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y
             let n: Nat = axiom
-            axiom hyp: Suc(n) != n
-            theorem goal: Suc(Suc(n)) != Suc(n)
+            axiom hyp: suc(n) != n
+            theorem goal: suc(suc(n)) != suc(n)
         "#,
         )
     }
@@ -1479,9 +1479,9 @@ mod tests {
         let text = r#"
         type Nat: axiom
         let 0: Nat = axiom
-        let Suc: Nat -> Nat = axiom
+        let suc: Nat -> Nat = axiom
         axiom induction(f: Nat -> Bool):
-            f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
+            f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
         let foo: Nat -> Bool = axiom
         theorem goal: induction(foo)
         "#;
