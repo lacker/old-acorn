@@ -792,7 +792,7 @@ mod tests {
         ok("theorem and_assoc: (p & q) & r <-> p & (q & r)");
         ok("theorem or_comm: p | q <-> q | p");
         ok("theorem or_assoc: (p | q) | r <-> p | (q | r)");
-        ok("theorem suc_gt_zero(x: nat): Suc(x) > 0");
+        ok("theorem suc_gt_zero(x: nat): suc(x) > 0");
     }
 
     #[test]
@@ -804,7 +804,7 @@ mod tests {
     fn test_forall_statements() {
         ok(indoc! {"
             forall(x: Nat) {
-                f(x) -> f(Suc(x))
+                f(x) -> f(suc(x))
             }"});
     }
 
@@ -817,19 +817,19 @@ mod tests {
     fn test_nat_ac_statements() {
         ok("type Nat: axiom");
         ok("let 0: Nat = axiom");
-        ok("let Suc: Nat -> Nat = axiom");
-        ok("let 1: Nat = Suc(0)");
-        ok("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
-        ok("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        ok("axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> f(n)");
+        ok("let suc: Nat -> Nat = axiom");
+        ok("let 1: Nat = suc(0)");
+        ok("axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y");
+        ok("axiom suc_neq_zero(x: Nat): suc(x) != 0");
+        ok("axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)");
         ok("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
         ok("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        ok("axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, Suc(n)) = f(recursion(f, a, n))");
-        ok("define add(x: Nat, y: Nat) -> Nat: recursion(Suc, x, y)");
+        ok("axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, suc(n)) = f(recursion(f, a, n))");
+        ok("define add(x: Nat, y: Nat) -> Nat: recursion(suc, x, y)");
         ok("theorem add_zero_right(a: Nat): add(a, 0) = a");
         ok("theorem add_zero_left(a: Nat): add(0, a) = a");
-        ok("theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))");
-        ok("theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b))");
+        ok("theorem add_suc_right(a: Nat, b: Nat): add(a, suc(b)) = suc(add(a, b))");
+        ok("theorem add_suc_left(a: Nat, b: Nat): add(suc(a), b) = suc(add(a, b))");
         ok("theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)");
         ok("theorem add_assoc(a: Nat, b: Nat, c: Nat): add(a, add(b, c)) = add(add(a, b), c)");
     }
@@ -882,7 +882,7 @@ mod tests {
 
     #[test]
     fn test_single_line_forall() {
-        should_parse("forall(x: Nat) { f(x) -> f(Suc(x)) }");
+        should_parse("forall(x: Nat) { f(x) -> f(suc(x)) }");
     }
 
     #[test]

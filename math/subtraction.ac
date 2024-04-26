@@ -2,7 +2,7 @@ import nat
 
 // Would be nicer to have a way to import all of these at once.
 type Nat: nat.Nat
-let Suc: Nat -> Nat = nat.Suc
+let suc: Nat -> Nat = nat.suc
 let 0: Nat = nat.0
 let 1: Nat = nat.1
 let add: (Nat, Nat) -> Nat = nat.add

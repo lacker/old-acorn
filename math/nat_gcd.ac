@@ -3,7 +3,7 @@ import subtraction
 
 // Would be nicer to have a way to import all of these at once.
 type Nat: nat.Nat
-let Suc: Nat -> Nat = nat.Suc
+let suc: Nat -> Nat = nat.suc
 let 0: Nat = nat.0
 let 1: Nat = nat.1
 let add: (Nat, Nat) -> Nat = nat.add
@@ -60,13 +60,13 @@ theorem has_min(f: Nat -> Bool, n: Nat): f(n) -> exists(m: Nat) { is_min(f)(m) }
 
 // A decreasing_to_zero function strictly decreases until it hits zero.
 define decreasing_to_zero(f: Nat -> Nat) -> Bool: forall(x: Nat) {
-    f(x) = 0 | lt(f(Suc(x)), f(x))
+    f(x) = 0 | lt(f(suc(x)), f(x))
 }
 
-theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(Suc(x))) } by {
+theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(suc(x))) } by {
     if !no_infinite_decreasing(f) {
         forall(x: Nat) {
-            !lte(f(x), f(Suc(x)))
+            !lte(f(x), f(suc(x)))
         }
         let h: Nat -> Bool = function(x: Nat) { lte(add(x, f(x)), f(0)) }
         nat.induction(h)
@@ -75,33 +75,33 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(Suc(
         forall(x: Nat) {
             if h(x) {
                 lte(add(x, f(x)), f(0))
-                !lte(f(x), f(Suc(x)))
-                lt(f(Suc(x)), f(x))
-                lt(add(x, f(Suc(x))), add(x, f(x)))
-                lte(Suc(add(x, f(Suc(x)))), add(x, f(x)))
-                lte(add(Suc(x), f(Suc(x))), add(x, f(x)))
-                lte(add(Suc(x), f(Suc(x))), f(0))
-                h(Suc(x))
+                !lte(f(x), f(suc(x)))
+                lt(f(suc(x)), f(x))
+                lt(add(x, f(suc(x))), add(x, f(x)))
+                lte(suc(add(x, f(suc(x)))), add(x, f(x)))
+                lte(add(suc(x), f(suc(x))), add(x, f(x)))
+                lte(add(suc(x), f(suc(x))), f(0))
+                h(suc(x))
             }
         }
         forall(x: Nat) {
             h(x)
         }
-        h(Suc(f(0)))
-        lte(add(Suc(f(0)), f(Suc(f(0)))), f(0))
-        lte(Suc(f(0)), add(Suc(f(0)), f(Suc(f(0)))))
-        let z: Nat = add(Suc(f(0)), f(Suc(f(0))))
+        h(suc(f(0)))
+        lte(add(suc(f(0)), f(suc(f(0)))), f(0))
+        lte(suc(f(0)), add(suc(f(0)), f(suc(f(0)))))
+        let z: Nat = add(suc(f(0)), f(suc(f(0))))
         lte(z, f(0))
-        lte(Suc(f(0)), z)
-        lte(Suc(f(0)), f(0))
+        lte(suc(f(0)), z)
+        lte(suc(f(0)), f(0))
         false
     }    
 }
 
 theorem dtz_terminates(f: Nat -> Nat):
     decreasing_to_zero(f) -> exists(n: Nat) { f(n) = 0 } by {
-    exists(n: Nat) { lte(f(n), f(Suc(n))) }
-    f(n) = 0 | lt(f(Suc(n)), f(n))
+    exists(n: Nat) { lte(f(n), f(suc(n))) }
+    f(n) = 0 | lt(f(suc(n)), f(n))
     f(n) = 0
 }
 
@@ -110,16 +110,16 @@ theorem gcd_terminates(p: NatPair): exists(n: Nat) { NatPair.second(gcd_step_n(p
     forall(x: Nat) {
         if f(x) != 0 {
             let q: NatPair = gcd_step_n(p, x)
-            gcd_step_n(p, Suc(x)) = gcd_step(gcd_step_n(p, x))
-            gcd_step_n(p, Suc(x)) = gcd_step(q)
-            f(Suc(x)) = NatPair.second(gcd_step_n(p, Suc(x)))
-            f(Suc(x)) = NatPair.second(gcd_step(q))
+            gcd_step_n(p, suc(x)) = gcd_step(gcd_step_n(p, x))
+            gcd_step_n(p, suc(x)) = gcd_step(q)
+            f(suc(x)) = NatPair.second(gcd_step_n(p, suc(x)))
+            f(suc(x)) = NatPair.second(gcd_step(q))
             NatPair.second(q) != 0
             gcd_step(q) = NatPair.new(NatPair.second(q), mod(NatPair.first(q), NatPair.second(q)))
-            f(Suc(x)) = mod(NatPair.first(q), NatPair.second(q))
-            f(Suc(x)) = mod(NatPair.first(q), f(x))
+            f(suc(x)) = mod(NatPair.first(q), NatPair.second(q))
+            f(suc(x)) = mod(NatPair.first(q), f(x))
             lt(mod(NatPair.first(q), f(x)), f(x))
-            lt(f(Suc(x)), f(x))
+            lt(f(suc(x)), f(x))
         }
     }
     decreasing_to_zero(f)
@@ -171,8 +171,8 @@ theorem divides_gcd_step_n(d: Nat, p: NatPair, n: Nat):
     forall(x: Nat) {
         if f(x) {
             divides_both(d, gcd_step_n(p, x))
-            divides_both(d, gcd_step_n(p, Suc(x)))
-            f(Suc(x))
+            divides_both(d, gcd_step_n(p, suc(x)))
+            f(suc(x))
         }
     }
     divides_both(d, gcd_step_n(p, n))
@@ -209,11 +209,11 @@ theorem divides_gcd_step_n_converse(d: Nat, p: NatPair, n: Nat):
     f(0)
     forall(x: Nat) {
         if f(x) {
-            if divides_both(d, gcd_step_n(p, Suc(x))) {
+            if divides_both(d, gcd_step_n(p, suc(x))) {
                 divides_both(d, p)
             }
-            divides_gcd_step_n_converse(d, p, Suc(x))
-            f(Suc(x))
+            divides_gcd_step_n_converse(d, p, suc(x))
+            f(suc(x))
         }
     }
 }

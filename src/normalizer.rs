@@ -546,29 +546,29 @@ mod tests {
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
         env.expect_type("0", "Nat");
-        env.add("let Suc: Nat -> Nat = axiom");
-        env.expect_type("Suc", "Nat -> Nat");
-        env.add("let 1: Nat = Suc(0)");
+        env.add("let suc: Nat -> Nat = axiom");
+        env.expect_type("suc", "Nat -> Nat");
+        env.add("let 1: Nat = suc(0)");
         env.expect_type("1", "Nat");
 
-        env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
-        norm.check(&env, "suc_injective", &["Suc(x0) != Suc(x1) | x0 = x1"]);
+        env.add("axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y");
+        norm.check(&env, "suc_injective", &["suc(x0) != suc(x1) | x0 = x1"]);
         env.expect_type("suc_injective", "(Nat, Nat) -> Bool");
 
-        env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
-        norm.check(&env, "suc_neq_zero", &["0 != Suc(x0)"]);
+        env.add("axiom suc_neq_zero(x: Nat): suc(x) != 0");
+        norm.check(&env, "suc_neq_zero", &["0 != suc(x0)"]);
         env.expect_type("suc_neq_zero", "Nat -> Bool");
 
         env.add(
             "axiom induction(f: Nat -> Bool):\
-            f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }",
+            f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }",
         );
         norm.check(
             &env,
             "induction",
             &[
                 "!x0(0) | x0(s0(x0)) | x0(x1)",
-                "!x0(Suc(s0(x0))) | !x0(0) | x0(x1)",
+                "!x0(suc(s0(x0))) | !x0(0) | x0(x1)",
             ],
         );
         env.expect_type("induction", "Nat -> Bool -> Bool");
@@ -582,13 +582,13 @@ mod tests {
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
-            recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
+            recursion(f, a, suc(n)) = f(recursion(f, a, n))",
         );
         env.expect_type("recursion_step", "(Nat -> Nat, Nat, Nat) -> Bool");
         norm.check(
             &env,
             "recursion_step",
-            &["recursion(x0, x1, Suc(x2)) = x0(recursion(x0, x1, x2))"],
+            &["recursion(x0, x1, suc(x2)) = x0(recursion(x0, x1, x2))"],
         );
     }
 

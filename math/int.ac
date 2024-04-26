@@ -573,23 +573,23 @@ theorem mul_nat_negate_left(a: Int, n: Nat): mul_nat(negate(a), n) = negate(mul_
     }
 }
 
-theorem mul_nat_nonneg_suc(a: Int, n: Nat): !is_negative(a) -> mul_nat(a, nat.Suc(n)) = add(mul_nat(a, n), a) by {
-    mul_nat(a, nat.Suc(n)) = from_nat(nat.mul(abs(a), nat.Suc(n)))
-    mul_nat(a, nat.Suc(n)) = from_nat(nat.add(nat.mul(abs(a), n), abs(a)))
-    mul_nat(a, nat.Suc(n)) = add(from_nat(nat.mul(abs(a), n)), from_nat(abs(a)))
-    mul_nat(a, nat.Suc(n)) = add(mul_nat(a, n), a)
+theorem mul_nat_nonneg_suc(a: Int, n: Nat): !is_negative(a) -> mul_nat(a, nat.suc(n)) = add(mul_nat(a, n), a) by {
+    mul_nat(a, nat.suc(n)) = from_nat(nat.mul(abs(a), nat.suc(n)))
+    mul_nat(a, nat.suc(n)) = from_nat(nat.add(nat.mul(abs(a), n), abs(a)))
+    mul_nat(a, nat.suc(n)) = add(from_nat(nat.mul(abs(a), n)), from_nat(abs(a)))
+    mul_nat(a, nat.suc(n)) = add(mul_nat(a, n), a)
 }
 
-theorem mul_nat_suc(a: Int, n: Nat): mul_nat(a, nat.Suc(n)) = add(mul_nat(a, n), a) by {
+theorem mul_nat_suc(a: Int, n: Nat): mul_nat(a, nat.suc(n)) = add(mul_nat(a, n), a) by {
     if is_negative(a) {
         is_positive(negate(a))
-        mul_nat(a, nat.Suc(n)) = negate(mul_nat(negate(a), nat.Suc(n)))
-        mul_nat(a, nat.Suc(n)) = negate(add(mul_nat(negate(a), n), negate(a)))
-        mul_nat(a, nat.Suc(n)) = negate(add(negate(mul_nat(a, n)), negate(a)))
-        mul_nat(a, nat.Suc(n)) = negate(negate(add(mul_nat(a, n), a)))
-        mul_nat(a, nat.Suc(n)) = add(mul_nat(a, n), a)
+        mul_nat(a, nat.suc(n)) = negate(mul_nat(negate(a), nat.suc(n)))
+        mul_nat(a, nat.suc(n)) = negate(add(mul_nat(negate(a), n), negate(a)))
+        mul_nat(a, nat.suc(n)) = negate(add(negate(mul_nat(a, n)), negate(a)))
+        mul_nat(a, nat.suc(n)) = negate(negate(add(mul_nat(a, n), a)))
+        mul_nat(a, nat.suc(n)) = add(mul_nat(a, n), a)
     } else {
-        mul_nat(a, nat.Suc(n)) = add(mul_nat(a, n), a)
+        mul_nat(a, nat.suc(n)) = add(mul_nat(a, n), a)
     }
 }
 
@@ -609,16 +609,16 @@ theorem mul_nat_distrib_right(a: Int, b: Int, n: Nat): mul_nat(add(a, b), n) = a
     forall(x: Nat) {
         if f(x) {
             mul_nat(add(a, b), x) = add(mul_nat(a, x), mul_nat(b, x))
-            mul_nat(add(a, b), nat.Suc(x)) = add(mul_nat(add(a, b), x), add(a, b))
-            mul_nat(add(a, b), nat.Suc(x)) = add(add(mul_nat(a, x), mul_nat(b, x)), add(a, b))
-            mul_nat(add(a, b), nat.Suc(x)) = add(mul_nat(a, x), add(mul_nat(b, x), add(a, b)))
-            mul_nat(add(a, b), nat.Suc(x)) = add(mul_nat(a, x), add(add(mul_nat(b, x), a), b))
-            mul_nat(add(a, b), nat.Suc(x)) = add(mul_nat(a, x), add(add(a, mul_nat(b, x)), b))
-            mul_nat(add(a, b), nat.Suc(x)) = add(mul_nat(a, x), add(a, add(mul_nat(b, x), b)))
-            mul_nat(add(a, b), nat.Suc(x)) = add(add(mul_nat(a, x), a), add(mul_nat(b, x), b))
-            mul_nat(add(a, b), nat.Suc(x)) = add(mul_nat(a, nat.Suc(x)), add(mul_nat(b, x), b))
-            mul_nat(add(a, b), nat.Suc(x)) = add(mul_nat(a, nat.Suc(x)), mul_nat(b, nat.Suc(x)))
-            f(nat.Suc(x))
+            mul_nat(add(a, b), nat.suc(x)) = add(mul_nat(add(a, b), x), add(a, b))
+            mul_nat(add(a, b), nat.suc(x)) = add(add(mul_nat(a, x), mul_nat(b, x)), add(a, b))
+            mul_nat(add(a, b), nat.suc(x)) = add(mul_nat(a, x), add(mul_nat(b, x), add(a, b)))
+            mul_nat(add(a, b), nat.suc(x)) = add(mul_nat(a, x), add(add(mul_nat(b, x), a), b))
+            mul_nat(add(a, b), nat.suc(x)) = add(mul_nat(a, x), add(add(a, mul_nat(b, x)), b))
+            mul_nat(add(a, b), nat.suc(x)) = add(mul_nat(a, x), add(a, add(mul_nat(b, x), b)))
+            mul_nat(add(a, b), nat.suc(x)) = add(add(mul_nat(a, x), a), add(mul_nat(b, x), b))
+            mul_nat(add(a, b), nat.suc(x)) = add(mul_nat(a, nat.suc(x)), add(mul_nat(b, x), b))
+            mul_nat(add(a, b), nat.suc(x)) = add(mul_nat(a, nat.suc(x)), mul_nat(b, nat.suc(x)))
+            f(nat.suc(x))
         }
     }
 }

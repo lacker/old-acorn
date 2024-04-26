@@ -569,7 +569,7 @@ mod tests {
 
     #[test]
     fn test_quantifiers() {
-        check_value("forall(x: nat) { (Suc(x) = x + 1) }");
+        check_value("forall(x: nat) { (suc(x) = x + 1) }");
         check_value("exists(x: nat) { (x = 0) }");
         check_value("exists(f: (nat, nat) -> nat) { (f(0, 0) = 0) }");
     }
