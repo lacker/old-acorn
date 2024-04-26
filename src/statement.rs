@@ -233,6 +233,9 @@ fn parse_theorem_statement(
 ) -> Result<Statement> {
     let token = Token::expect_type(tokens, TokenType::Identifier)?;
     let name = token.text().to_string();
+    if !Token::is_valid_variable_name(&name) {
+        return Err(Error::new(&token, "invalid theorem name"));
+    }
     let (type_params, args, _) = parse_args(tokens, TokenType::Colon)?;
     if type_params.len() > 1 {
         return Err(Error::new(
@@ -283,9 +286,11 @@ fn parse_theorem_statement(
 
 // Parses a let statement where the "let" keyword has already been found.
 fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name = Token::expect_type(tokens, TokenType::Identifier)?
-        .text()
-        .to_string();
+    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name = name_token.text().to_string();
+    if !Token::is_valid_variable_name(&name) {
+        return Err(Error::new(&keyword, "invalid variable name"));
+    }
     Token::expect_type(tokens, TokenType::Colon)?;
     let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::Equals)?;
     let (value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
@@ -303,9 +308,11 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
 
 // Parses a define statement where the "define" keyword has already been found.
 fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name = Token::expect_type(tokens, TokenType::Identifier)?
-        .text()
-        .to_string();
+    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name = name_token.text().to_string();
+    if !Token::is_valid_variable_name(&name) {
+        return Err(Error::new(&keyword, "invalid variable name"));
+    }
     let (type_params, args, _) = parse_args(tokens, TokenType::RightArrow)?;
     if type_params.len() > 1 {
         return Err(Error::new(
@@ -332,9 +339,11 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 
 // Parses a type statement where the "type" keyword has already been found.
 fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name = Token::expect_type(tokens, TokenType::Identifier)?
-        .text()
-        .to_string();
+    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name = name_token.text().to_string();
+    if !Token::is_valid_type_name(&name) {
+        return Err(Error::new(&name_token, "invalid type name"));
+    }
     Token::expect_type(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
     let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::NewLine)?;
@@ -466,9 +475,12 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
             }
             TokenType::Identifier => {
                 Token::expect_type(tokens, TokenType::Colon)?;
-                let (type_expr, _) = Expression::parse(tokens, false, |t| {
+                let (type_expr, t) = Expression::parse(tokens, false, |t| {
                     t == TokenType::NewLine || t == TokenType::RightBrace
                 })?;
+                if t.token_type == TokenType::RightBrace {
+                    return Err(Error::new(&t, "field declarations must end with a newline"));
+                }
                 fields.push((token, type_expr));
             }
             _ => {
@@ -768,7 +780,9 @@ mod tests {
 
     // Expects an error parsing the input into a statement, but not a lex error
     fn fail(input: &str) {
-        assert!(Statement::parse_str(input).is_err());
+        if Statement::parse_str(input).is_ok() {
+            panic!("statement parsed okay but we expected error:\n{}\n", input);
+        }
     }
 
     #[test]
@@ -837,7 +851,7 @@ mod tests {
     #[test]
     fn test_multiline_at_colon() {
         Statement::parse_str("type Nat:\n  axiom").unwrap();
-        Statement::parse_str("theorem foo(b: bool):\nb | !b").unwrap();
+        Statement::parse_str("theorem foo(b: Bool):\nb | !b").unwrap();
     }
 
     #[test]
@@ -869,10 +883,46 @@ mod tests {
     #[test]
     fn test_statement_errors() {
         fail("+ + +");
-        fail("let p: bool =");
-        fail("let p: bool = (");
-        fail("let p: bool = (x + 2");
-        fail("let p: bool = x + 2)");
+        fail("let p: Bool =");
+        fail("let p: Bool = (");
+        fail("let p: Bool = (x + 2");
+        fail("let p: Bool = x + 2)");
+    }
+
+    #[test]
+    fn test_declared_variable_names_lowercased() {
+        ok("let p: Bool = true");
+        fail("let P: Bool = true");
+    }
+
+    #[test]
+    fn test_defined_variable_names_lowercased() {
+        ok("define foo(x: Bool) -> Bool: true");
+        fail("define Foo(x: Bool) -> Bool: true");
+    }
+
+    #[test]
+    fn test_theorem_names_lowercased() {
+        ok("theorem foo: true");
+        fail("theorem Foo: true");
+    }
+
+    #[test]
+    fn test_struct_names_titlecased() {
+        ok(indoc! {"
+        struct Foo {
+            bar: Nat
+        }"});
+        fail(indoc! {"
+        struct foo {
+            bar: Nat
+        }"});
+    }
+
+    #[test]
+    fn test_type_names_titlecased() {
+        ok("type Foo: axiom");
+        fail("type foo: axiom");
     }
 
     #[test]
@@ -918,6 +968,11 @@ mod tests {
     #[test]
     fn test_no_empty_structs() {
         fail("struct Foo {}");
+    }
+
+    #[test]
+    fn test_struct_fields_need_newlines() {
+        fail("struct Foo { bar: Nat }");
     }
 
     #[test]

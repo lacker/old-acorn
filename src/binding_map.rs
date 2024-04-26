@@ -425,6 +425,9 @@ impl BindingMap {
                         ));
                     }
                     let name = left.token().text().to_string();
+                    if !Token::is_valid_variable_name(&name) {
+                        return Err(Error::new(left.token(), "invalid variable name"));
+                    }
                     let acorn_type = self.evaluate_type(project, right)?;
                     Ok((name, acorn_type))
                 }

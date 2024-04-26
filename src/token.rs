@@ -479,6 +479,15 @@ impl Token {
         }
         name.chars().all(|c| c.is_alphanumeric())
     }
+
+    // Includes numeric constants like 5
+    pub fn is_valid_variable_name(name: &str) -> bool {
+        // Get the first character
+        match name.chars().next() {
+            None => false,
+            Some(c) => c.is_ascii_lowercase() || c.is_ascii_digit(),
+        }
+    }
 }
 
 #[derive(Debug)]

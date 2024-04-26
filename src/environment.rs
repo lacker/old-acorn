@@ -587,7 +587,7 @@ impl Environment {
                 if !Token::is_valid_type_name(&ts.name) {
                     return Err(Error::new(
                         &ts.type_expr.token(),
-                        &format!("invalid type name '{}'", ts.name),
+                        &format!("invalid type name '{}'.", ts.name),
                     ));
                 }
 
@@ -1990,5 +1990,20 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         }
         "#,
         );
+    }
+
+    #[test]
+    fn test_arg_names_lowercased() {
+        let mut env = Environment::new_test();
+        env.bad("let f: Bool -> Bool = function(A: Bool) { true }");
+        env.add("let f: Bool -> Bool = function(a: Bool) { true }");
+        env.bad("forall(A: Bool) { true }");
+        env.add("forall(a: Bool) { true }");
+        env.bad("define foo(X: Bool) -> Bool: true");
+        env.add("define foo(x: Bool) -> Bool: true");
+        env.bad("theorem bar(X: Bool): true");
+        env.add("theorem bar(x: Bool): true");
+        env.bad("exists(A: Bool) { true }");
+        env.add("exists(a: Bool) { true }");
     }
 }
