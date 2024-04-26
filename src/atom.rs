@@ -28,6 +28,10 @@ pub enum Atom {
     // We drop the variable name. Instead we track an id.
     // This does mean that you must be careful when moving values between different environments.
     Variable(AtomId),
+
+    // A skolem function or skolem constant is created by the normalizer to eliminate existential
+    // clauses. It can't be referred to directly in code.
+    Skolem(AtomId),
 }
 
 impl fmt::Display for Atom {
@@ -38,6 +42,7 @@ impl fmt::Display for Atom {
             Atom::LocalConstant(i) => write!(f, "c{}", i),
             Atom::Monomorph(i) => write!(f, "m{}", i),
             Atom::Variable(i) => write!(f, "x{}", i),
+            Atom::Skolem(i) => write!(f, "s{}", i),
         }
     }
 }

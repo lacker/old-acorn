@@ -276,8 +276,9 @@ const GLOBAL_CONSTANT: u8 = 102;
 const LOCAL_CONSTANT: u8 = 103;
 const MONOMORPH: u8 = 104;
 const VARIABLE: u8 = 105;
-const TERM: u8 = 106;
-const LITERAL: u8 = 107;
+const SKOLEM: u8 = 106;
+const TERM: u8 = 107;
+const LITERAL: u8 = 108;
 
 #[derive(Debug)]
 enum Edge {
@@ -303,6 +304,7 @@ impl Edge {
                 Atom::LocalConstant(_) => LOCAL_CONSTANT,
                 Atom::Monomorph(_) => MONOMORPH,
                 Atom::Variable(_) => VARIABLE,
+                Atom::Skolem(_) => SKOLEM,
             },
             Edge::Term(..) => TERM,
             Edge::Literal(..) => LITERAL,
@@ -319,6 +321,7 @@ impl Edge {
                 Atom::LocalConstant(c) => *c,
                 Atom::Monomorph(m) => *m,
                 Atom::Variable(i) => *i,
+                Atom::Skolem(s) => *s,
             },
             Edge::Term(t) => *t,
             Edge::Literal(t) => *t,
@@ -334,6 +337,7 @@ impl Edge {
             LOCAL_CONSTANT => Edge::Atom(Atom::LocalConstant(id)),
             MONOMORPH => Edge::Atom(Atom::Monomorph(id)),
             VARIABLE => Edge::Atom(Atom::Variable(id)),
+            SKOLEM => Edge::Atom(Atom::Skolem(id)),
             LITERAL => Edge::Literal(id),
             num_args => {
                 if num_args > MAX_ARGS {

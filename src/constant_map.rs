@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::atom::{Atom, AtomId};
-use crate::module::ModuleId;
+use crate::module::{ModuleId, SKOLEM};
 
 // The ConstantKey identifies a constant in the Acorn language.
 #[derive(Hash, Debug, Eq, PartialEq, Clone)]
@@ -40,6 +40,9 @@ impl ConstantMap {
 
     // Assigns an id to this (module, name) pair if it doesn't already have one.
     pub fn add_constant(&mut self, module: ModuleId, name: &str, local: bool) -> Atom {
+        if module == SKOLEM {
+            panic!("skolem constants should not be stored in the ConstantMap");
+        }
         let key = ConstantKey {
             module,
             name: name.to_string(),

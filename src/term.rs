@@ -381,6 +381,10 @@ impl Term {
                 weight1 += 1;
                 weight2 += 2 + 4 * i as u32;
             }
+            Atom::Skolem(i) => {
+                weight1 += 1;
+                weight2 += 3 + 4 * i as u32;
+            }
         }
         for arg in &self.args {
             let (w1, w2) = arg.multi_weight(refcounts);

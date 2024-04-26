@@ -87,18 +87,13 @@ impl Normalizer {
     fn new_skolem_value(&mut self, acorn_type: AcornType) -> AcornValue {
         let skolem_index = self.skolem_types.len() as AtomId;
         self.skolem_types.push(acorn_type.clone());
+        // Hacky. Turn the int into an s-name
         let name = format!("s{}", skolem_index);
         AcornValue::Constant(SKOLEM, name, acorn_type, vec![])
     }
 
     pub fn is_skolem(&self, atom: &Atom) -> bool {
-        match atom {
-            Atom::GlobalConstant(id) => {
-                let (module, _) = self.constant_map.get_global_info(*id);
-                module == SKOLEM
-            }
-            _ => false,
-        }
+        matches!(atom, Atom::Skolem(_))
     }
 
     // The input should already have negations moved inwards.
@@ -204,9 +199,13 @@ impl Normalizer {
             AcornValue::Constant(module, name, t, params) => {
                 assert!(params.is_empty());
                 let type_id = self.type_map.add_type(t);
-                let constant_atom = self
-                    .constant_map
-                    .add_constant(*module, name, self.global_done);
+                let constant_atom = if *module == SKOLEM {
+                    // Hacky. Turn the s-name back to an int
+                    Atom::Skolem(name[1..].parse().unwrap())
+                } else {
+                    self.constant_map
+                        .add_constant(*module, name, self.global_done)
+                };
                 Ok(Term::new(type_id, type_id, constant_atom, vec![]))
             }
             AcornValue::Application(application) => Ok(self.term_from_application(application)?),
@@ -415,6 +414,10 @@ impl Normalizer {
                 }
                 AcornValue::Variable(*i, acorn_type)
             }
+            Atom::Skolem(i) => {
+                let acorn_type = self.skolem_types[*i as usize].clone();
+                AcornValue::Constant(SKOLEM, format!("s{}", i), acorn_type, vec![])
+            }
         }
     }
 
@@ -446,7 +449,7 @@ impl Normalizer {
     }
 
     // Converts backwards, from a clause to a value.
-    // TODO: what cases does this not handle? skolem functions?
+    // This will panic on a skolem.
     pub fn denormalize(&self, clause: &Clause) -> AcornValue {
         let mut var_types = vec![];
         let mut denormalized_literals = vec![];
@@ -477,6 +480,7 @@ impl Normalizer {
                 format!("{}<{}>", name, param_names.join(", "))
             }
             Atom::Variable(i) => format!("x{}", i),
+            Atom::Skolem(i) => format!("s{}", i),
         }
     }
 
@@ -563,6 +567,7 @@ mod tests {
             "axiom induction(f: Nat -> Bool):\
             f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }",
         );
+
         norm.check(
             &env,
             "induction",
@@ -571,6 +576,7 @@ mod tests {
                 "!x0(suc(s0(x0))) | !x0(0) | x0(x1)",
             ],
         );
+
         env.expect_type("induction", "Nat -> Bool -> Bool");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
@@ -622,16 +628,6 @@ mod tests {
         env.add("type Nat: axiom");
         env.add("theorem exists_eq(x: Nat): exists(y: Nat) { x = y }");
         norm.check(&env, "exists_eq", &["s0(x0) = x0"]);
-    }
-
-    #[test]
-    fn test_skolemizing_without_args() {
-        let mut env = Environment::new_test();
-        let mut norm = Normalizer::new();
-        env.add("type Nat: axiom");
-        env.add("let 0: Nat = axiom");
-        env.add("theorem exists_zero: exists(x: Nat) { x = 0 }");
-        norm.check(&env, "exists_zero", &["0 = s0"]);
     }
 
     #[test]

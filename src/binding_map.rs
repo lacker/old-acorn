@@ -5,7 +5,7 @@ use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::code_gen_error::CodeGenError;
 use crate::expression::Expression;
-use crate::module::{Module, ModuleId, FIRST_NORMAL, SKOLEM};
+use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::project::Project;
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
@@ -1077,10 +1077,6 @@ impl BindingMap {
     fn name_to_code(&self, module: ModuleId, name: &str) -> Result<String, CodeGenError> {
         if module == self.module {
             return Ok(name.to_string());
-        }
-
-        if module == SKOLEM {
-            return Err(CodeGenError::skolem(name));
         }
 
         // Check if there's a local alias for this constant.
