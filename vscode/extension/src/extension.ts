@@ -31,16 +31,6 @@ const showLocationDecoration = window.createTextEditorDecorationType({
   backgroundColor: "rgba(246, 185, 77, 0.3)",
 });
 
-// Whether these search params will definitely yield the same result, just based
-// on the local information we have.
-function searchParamsEquivalent(a: SearchParams, b: SearchParams) {
-  return (
-    a.uri === b.uri &&
-    a.selectedLine === b.selectedLine &&
-    a.version === b.version
-  );
-}
-
 class SearchPanel implements Disposable {
   panel: WebviewPanel;
   listener: Disposable;
@@ -67,14 +57,19 @@ class SearchPanel implements Disposable {
           e.kind === TextEditorSelectionChangeKind.Keyboard
         ) {
           // We only want to trigger on explicit user actions.
-          await this.updateSelection();
+          await this.searchOnSelection(false);
         }
+      }),
+      workspace.onDidSaveTextDocument(async () => {
+        await this.searchOnSelection(true);
       }),
     ];
   }
 
-  // Handles any change in the selection.
-  async updateSelection() {
+  // Runs a new search based on the current selection.
+  // If 'force' is true, we always do it.
+  // Otherwise, we only do it if the selection has changed.
+  async searchOnSelection(force: Boolean) {
     try {
       let editor = window.activeTextEditor;
       if (!editor) {
@@ -94,15 +89,18 @@ class SearchPanel implements Disposable {
       let selectedLine = editor.selection.start.line;
       let version = editor.document.version;
 
-      // No need to send the request if nothing has changed.
-      let id = this.currentSearchId + 1;
-      let params: SearchParams = { uri, selectedLine, version, id };
+      // Check if the new request would be essentially the same as the last one.
       if (
+        !force &&
         this.currentParams &&
-        searchParamsEquivalent(this.currentParams, params)
+        this.currentParams.uri === uri &&
+        this.currentParams.selectedLine === selectedLine
       ) {
         return;
       }
+
+      let id = this.currentSearchId + 1;
+      let params: SearchParams = { uri, selectedLine, version, id };
 
       // This view column is probably the one the user is actively writing in.
       // When in doubt, we can use this view column to do code-writing operations.
@@ -333,9 +331,9 @@ class SearchPanel implements Disposable {
 
     if (addBlock) {
       let text = " by {\n" + formatted.join("") + "}";
-      return this.insertAtLineEnd(editor, line - 1, text);
+      await this.insertAtLineEnd(editor, line - 1, text);
     } else {
-      return this.insertAtLineStart(editor, line, formatted.join(""));
+      await this.insertAtLineStart(editor, line, formatted.join(""));
     }
   }
 
@@ -394,9 +392,9 @@ class SearchPanel implements Disposable {
     );
     this.panel.webview.html = injected;
 
-    // Always reissue the search request on panel open
+    // Always reissue the search request on panel open.
     this.currentParams = null;
-    this.updateSelection();
+    this.searchOnSelection(true);
   }
 
   toggle(editor: TextEditor) {
