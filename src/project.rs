@@ -238,6 +238,21 @@ impl Project {
         }
     }
 
+    pub fn close_file(&mut self, path: PathBuf) {
+        if !self.open_files.contains_key(&path) {
+            // No need to do anything
+            return;
+        }
+        self.open_files.remove(&path);
+        let module_name = self.module_name_from_path(&path).unwrap();
+        self.drop_modules();
+        self.targets.remove(&module_name);
+        let targets = self.targets.clone();
+        for target in targets {
+            self.add_target(&target);
+        }
+    }
+
     // Builds all open modules, and calls the event handler on any build events.
     //
     // There are two ways a build can go wrong.

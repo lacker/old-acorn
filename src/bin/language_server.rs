@@ -298,6 +298,20 @@ impl Backend {
         self.spawn_build();
     }
 
+    // If there is a build happening, stops it.
+    // Acquires the write lock on the project.
+    // Returns a writable reference to the project.
+    async fn stop_build_and_get_project(&self) -> RwLockWriteGuard<Project> {
+        {
+            let project = self.project.read().await;
+            project.stop_build();
+        }
+        // Reallow the build once we acquire the write lock
+        let mut project = self.project.write().await;
+        project.allow_build();
+        project
+    }
+
     // This updates a document in the backend, but not in the project.
     // The backend tracks every single change; the project only gets them when we want it to use them.
     // This means that typing a little bit doesn't necessarily cancel an ongoing build.
@@ -311,20 +325,6 @@ impl Backend {
                 .store(true, std::sync::atomic::Ordering::Relaxed);
         }
         self.documents.insert(url.clone(), Arc::new(new_doc));
-    }
-
-    // If there is a build happening, stops it.
-    // Acquires the write lock on the project.
-    // Returns a writable reference to the project.
-    async fn stop_build_and_get_project(&self) -> RwLockWriteGuard<Project> {
-        {
-            let project = self.project.read().await;
-            project.stop_build();
-        }
-        // Reallow the build once we acquire the write lock
-        let mut project = self.project.write().await;
-        project.allow_build();
-        project
     }
 
     // This updates a document in the project, based on the state in the backend.
@@ -632,11 +632,24 @@ impl LanguageServer for Backend {
         self.update_text(uri, text, "open").await;
     }
 
-    // Just updates the current version
+    // Just updates the current version, doesn't rebuild anything
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
         let version = params.text_document.version;
         self.update_version(uri, version);
+    }
+
+    async fn did_close(&self, params: DidCloseTextDocumentParams) {
+        let uri = params.text_document.uri;
+        if let Some(old_doc) = self.documents.get(&uri) {
+            old_doc.log("closed");
+            old_doc
+                .superseded
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        self.documents.remove(&uri);
+        let mut project = self.stop_build_and_get_project().await;
+        project.close_file(uri.to_file_path().unwrap());
     }
 
     async fn shutdown(&self) -> jsonrpc::Result<()> {
