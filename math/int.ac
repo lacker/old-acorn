@@ -484,6 +484,11 @@ theorem add_nonneg_nonneg(a: Int, b: Int): !is_negative(a) & !is_negative(b) -> 
 
 theorem add_nonpos_nonpos(a: Int, b: Int): !is_positive(a) & !is_positive(b) -> !is_positive(add(a, b))
 
+theorem add_comm_4(a: Int, b: Int, c: Int, d: Int):
+    add(add(a, b), add(c, d)) = add(add(a, c), add(b, d)) by {
+    add(a, add(b, c)) = add(add(a, c), b)
+}
+
 // Subtraction, and theorems about subtraction
 
 define sub(a: Int, b: Int) -> Int: add(a, negate(b))
@@ -1289,3 +1294,51 @@ theorem gcd_is_gcd(a: Int, b: Int, d: Int): a != 0 & b != 0 & divides(d, a) & di
 }
 
 // Theorems about the span of a linear combination
+
+define spans(a: Int, b: Int, c: Int) -> Bool: exists(d: Int, e: Int) {
+    add(mul(d, a), mul(e, b)) = c
+}
+
+theorem spans_zero(a: Int, b: Int): spans(a, b, 0) by {
+    add(mul(0, a), mul(0, b)) = 0
+}
+
+theorem spans_left(a: Int, b: Int): spans(a, b, a) by {
+    add(mul(1, a), mul(0, b)) = a
+}
+
+theorem spans_comm(a: Int, b: Int, c: Int): spans(a, b, c) -> spans(b, a, c) by {
+    exists(d: Int, e: Int) { add(mul(d, a), mul(e, b)) = c }
+    add(mul(e, b), mul(d, a)) = c
+}
+
+theorem spans_right(a: Int, b: Int): spans(a, b, b) by {
+    add(mul(0, a), mul(1, b)) = b
+}
+
+theorem spans_mul_left(a: Int, b: Int, c: Int): spans(a, b, mul(c, a)) by {
+    add(mul(c, a), mul(0, b)) = mul(c, a)
+}
+
+theorem spans_div_left(a: Int, b: Int, c: Int): divides(a, c) -> spans(a, b, c)
+
+theorem spans_mul_right(a: Int, b: Int, c: Int): spans(a, b, mul(c, b))
+
+theorem spans_div_right(a: Int, b: Int, c: Int): divides(b, c) -> spans(a, b, c) by {
+    spans(b, a, c)
+}
+
+theorem spans_add(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) & spans(a, b, d) -> spans(a, b, add(c, d)) by {
+    exists(e: Int, f: Int) { add(mul(e, a), mul(f, b)) = c }
+    exists(g: Int, h: Int) { add(mul(g, a), mul(h, b)) = d }
+    add(c, d) = add(add(mul(e, a), mul(f, b)), add(mul(g, a), mul(h, b)))
+    add(c, d) = add(add(mul(e, a), mul(g, a)), add(mul(f, b), mul(h, b)))
+    add(c, d) = add(mul(add(e, g), a), mul(add(f, h), b))
+}
+
+define spans_nat(a: Int, b: Int, n: Nat) -> Bool: spans(a, b, from_nat(n))
+
+
+
+// Bezout's identity
+theorem spans_gcd(a: Int, b: Int): spans(a, b, gcd(a, b))
