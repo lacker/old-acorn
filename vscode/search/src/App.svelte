@@ -11,7 +11,6 @@
   // These are updated to reflect the last valid responses from the extension.
   let searchResponse: SearchResponse | null = null;
   let infoResult: InfoResult | null = null;
-  let nontrivial: Array<ProofStepInfo> = [];
 
   function stepsContain(
     steps: Array<ProofStepInfo>,
@@ -38,15 +37,6 @@
     // New search responses also invalidate the info result
     searchResponse = response;
     infoResult = null;
-    nontrivial = [];
-    if (response.status.steps !== null) {
-      for (let step of response.status.steps) {
-        if (step.trivial || stepsContain(nontrivial, step)) {
-          continue;
-        }
-        nontrivial.push(step);
-      }
-    }
   }
 
   function handleInfoResponse(response: InfoResponse) {
@@ -140,20 +130,11 @@
       <pre>Working...</pre>
     {:else if searchResponse.status.steps === null}
       <pre>Proof search failed.</pre>
-    {:else if nontrivial.length === 0}
-      <div class="mono">The proposition follows trivially.</div>
     {:else if searchResponse.status.code === null}
       <pre>Code generation failed:</pre>
       <pre>    {searchResponse.status.codeError}</pre>
     {:else if searchResponse.status.code.length === 0}
-      <div class="mono">
-        The proposition follows
-        {#each nontrivial as step, i}
-          {#if i > 0}
-            {" and "}
-          {/if}
-          <Rule {step} {showLocation} />{/each}.
-      </div>
+      <div class="mono">The proposition follows trivially.</div>
     {:else}
       <pre>{["Proof found:\n"]
           .concat(searchResponse.status.code)

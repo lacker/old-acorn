@@ -38,7 +38,6 @@ interface ProofStepInfo {
   premises: Array<[String, ClauseInfo]>;
   rule: string;
   location: Location | null;
-  trivial: boolean;
   depth: number;
 }
 

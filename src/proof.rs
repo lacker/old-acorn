@@ -316,6 +316,11 @@ impl<'a> Proof<'a> {
             NodeValue::Clause(clause) => clause,
         };
 
+        if clause.len() > 1 {
+            // Clauses with a bunch of literals are ugly because they are hard to read.
+            return true;
+        }
+
         if clause.has_any_variable() {
             // Unbound variables are ugly because we'll have to stick in extra "forall" and "exists".
             return true;

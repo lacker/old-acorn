@@ -539,7 +539,7 @@ impl Prover {
             let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
             premises.push((description, clause));
         }
-        let (rule, location, trivial) = match &step.rule {
+        let (rule, location) = match &step.rule {
             Rule::Assumption(source) => {
                 let location = project
                     .path_from_module(source.module)
@@ -549,16 +549,15 @@ impl Prover {
                         range: source.range,
                     });
 
-                (source.description(), location, source.is_trivial())
+                (source.description(), location)
             }
-            _ => (step.rule.name().to_lowercase(), None, true),
+            _ => (step.rule.name().to_lowercase(), None),
         };
         ProofStepInfo {
             clause,
             premises,
             rule,
             location,
-            trivial,
             depth: step.depth,
         }
     }

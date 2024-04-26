@@ -1328,6 +1328,13 @@ theorem spans_div_right(a: Int, b: Int, c: Int): divides(b, c) -> spans(a, b, c)
     spans(b, a, c)
 }
 
+theorem spans_mul(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) -> spans(a, b, mul(d, c)) by {
+    exists(e: Int, f: Int) { add(mul(e, a), mul(f, b)) = c }
+    mul(d, c) = mul(d, add(mul(e, a), mul(f, b)))
+    mul(d, c) = add(mul(d, mul(e, a)), mul(d, mul(f, b)))
+    mul(d, c) = add(mul(mul(d, e), a), mul(mul(d, f), b)) 
+}
+
 theorem spans_add(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) & spans(a, b, d) -> spans(a, b, add(c, d)) by {
     exists(e: Int, f: Int) { add(mul(e, a), mul(f, b)) = c }
     exists(g: Int, h: Int) { add(mul(g, a), mul(h, b)) = d }
@@ -1336,9 +1343,31 @@ theorem spans_add(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) & spans(a, b, 
     add(c, d) = add(mul(add(e, g), a), mul(add(f, h), b))
 }
 
-define spans_nat(a: Int, b: Int, n: Nat) -> Bool: spans(a, b, from_nat(n))
+theorem spans_negate(a: Int, b: Int, c: Int): spans(a, b, c) -> spans(a, b, negate(c)) by {
+    mul(negate(1), c) = negate(c)
+    spans(a, b, mul(negate(1), c))
+}
 
+let mod: (Nat, Nat) -> Nat = subtraction.mod
 
+theorem spans_nat_mod(a: Int, b: Int, k: Nat, m: Nat):
+    spans(a, b, from_nat(k)) & spans(a, b, from_nat(m)) -> spans(a, b, from_nat(mod(k, m)))
+by {
+    exists(d: Nat) { nat.add(nat.mul(d, m), mod(k, m)) = k }
+    add(from_nat(nat.mul(d, m)), from_nat(mod(k, m))) = from_nat(k)
+    add(mul(from_nat(d), from_nat(m)), from_nat(mod(k, m))) = from_nat(k)
+    from_nat(mod(k, m)) = add(from_nat(k), negate(mul(from_nat(d), from_nat(m))))
+    spans(a, b, negate(mul(from_nat(d), from_nat(m))))
+    spans(a, b, from_nat(mod(k, m)))
+}
 
 // Bezout's identity
-theorem spans_gcd(a: Int, b: Int): spans(a, b, gcd(a, b))
+theorem spans_gcd(a: Int, b: Int): spans(a, b, gcd(a, b)) by {
+    let f: Nat -> Bool = function(n: Nat) {
+        spans(a, b, from_nat(n))
+    }
+    nat_gcd.mod_maintains(f)
+    f(abs(a))
+    f(abs(b))
+    spans(a, b, from_nat(nat_gcd.gcd(abs(a), abs(b))))
+}

@@ -291,22 +291,24 @@ theorem mod_maintains_imp_gcd(f: Nat -> Bool, a: Nat, b: Nat): mod_maintains(f) 
     g(0)
     forall(x: Nat) {
         if g(x) {
-            let c: Nat = NatPair.first(gcd_step_n(p, x))
-            let d: Nat = NatPair.second(gcd_step_n(p, x))
             gcd_step_n(p, suc(x)) = gcd_step(gcd_step_n(p, x))
+            f(NatPair.first(gcd_step_n(p, x)))
+            f(NatPair.second(gcd_step_n(p, x)))
 
-            if d = 0 {
+            if NatPair.second(gcd_step_n(p, x)) = 0 {
                 NatPair.second(gcd_step_n(p, x)) = 0
                 gcd_step_n(p, suc(x)) = gcd_step_n(p, x)
-                gcd_step_n(p, suc(x)) = NatPair.new(c, d)
+                f(NatPair.first(gcd_step_n(p, suc(x))))
+                f(NatPair.second(gcd_step_n(p, suc(x))))
                 g(suc(x))
             } else {
                 NatPair.second(gcd_step_n(p, x)) != 0
                 NatPair.first(gcd_step_n(p, suc(x))) = NatPair.second(gcd_step_n(p, x))
-                NatPair.first(gcd_step_n(p, suc(x))) = d
+                NatPair.new(NatPair.second(gcd_step_n(p, x)), mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x)))) = gcd_step(gcd_step_n(p, x))
                 NatPair.second(gcd_step_n(p, suc(x))) = mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x)))
-                NatPair.second(gcd_step_n(p, suc(x))) = mod(c, d)
-                gcd_step_n(p, suc(x)) = NatPair.new(d, mod(c, d))
+                f(NatPair.first(gcd_step_n(p, suc(x))))
+                f(mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x))))
+                f(NatPair.second(gcd_step_n(p, suc(x))))
                 g(suc(x))
             }
         }

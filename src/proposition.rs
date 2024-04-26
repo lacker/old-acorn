@@ -63,17 +63,6 @@ impl Source {
         }
     }
 
-    // "Trivial" sources are ones that typically don't need to be mentioned explicitly.
-    // Axioms and theorems are nontrivial.
-    // Definitions and propositions that are already expressed locally are trivial.
-    // This is a heuristic.
-    pub fn is_trivial(&self) -> bool {
-        match self.source_type {
-            SourceType::Theorem(_) | SourceType::Axiom(_) => false,
-            _ => true,
-        }
-    }
-
     pub fn is_axiom(&self) -> bool {
         match self.source_type {
             SourceType::Axiom(_) => true,

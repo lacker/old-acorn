@@ -90,11 +90,6 @@ pub struct ProofStepInfo {
     // and we can find a location for it.
     pub location: Option<Location>,
 
-    // Whether the source of this step is a trivial one.
-    // TODO: this is an older concept of "trivial" that perhaps we should get rid of.
-    // It is only used to determine whether to describe a theorem dependency or not.
-    pub trivial: bool,
-
     // The depth of this proof step in the proof tree, counting only expensive deductions.
     // TODO: should we get rid of this?
     pub depth: u32,
