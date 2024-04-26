@@ -117,7 +117,7 @@ impl BindingMap {
             modules: BTreeMap::new(),
             reverse_modules: HashMap::new(),
         };
-        answer.add_type_alias("bool", AcornType::Bool);
+        answer.add_type_alias("Bool", AcornType::Bool);
         answer
     }
 
@@ -1232,12 +1232,12 @@ mod tests {
     #[test]
     fn test_env_types() {
         let mut b = BindingMap::new(FIRST_NORMAL);
-        b.assert_type_ok("bool");
-        b.assert_type_ok("bool -> bool");
-        b.assert_type_ok("bool -> (bool -> bool)");
-        b.assert_type_ok("(bool -> bool) -> (bool -> bool)");
-        b.assert_type_ok("(bool, bool) -> bool");
-        b.assert_type_bad("bool, bool -> bool");
-        b.assert_type_bad("(bool, bool)");
+        b.assert_type_ok("Bool");
+        b.assert_type_ok("Bool -> Bool");
+        b.assert_type_ok("Bool -> (Bool -> Bool)");
+        b.assert_type_ok("(Bool -> Bool) -> (Bool -> Bool)");
+        b.assert_type_ok("(Bool, Bool) -> Bool");
+        b.assert_type_bad("Bool, Bool -> Bool");
+        b.assert_type_bad("(Bool, Bool)");
     }
 }

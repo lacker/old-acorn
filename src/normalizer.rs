@@ -553,14 +553,14 @@ mod tests {
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
         norm.check(&env, "suc_injective", &["Suc(x0) != Suc(x1) | x0 = x1"]);
-        env.expect_type("suc_injective", "(Nat, Nat) -> bool");
+        env.expect_type("suc_injective", "(Nat, Nat) -> Bool");
 
         env.add("axiom suc_neq_zero(x: Nat): Suc(x) != 0");
         norm.check(&env, "suc_neq_zero", &["0 != Suc(x0)"]);
-        env.expect_type("suc_neq_zero", "Nat -> bool");
+        env.expect_type("suc_neq_zero", "Nat -> Bool");
 
         env.add(
-            "axiom induction(f: Nat -> bool):\
+            "axiom induction(f: Nat -> Bool):\
             f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }",
         );
         norm.check(
@@ -571,20 +571,20 @@ mod tests {
                 "!x0(Suc(s0(x0))) | !x0(0) | x0(x1)",
             ],
         );
-        env.expect_type("induction", "Nat -> bool -> bool");
+        env.expect_type("induction", "Nat -> Bool -> Bool");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        env.expect_type("recursion_base", "(Nat -> Nat, Nat) -> bool");
+        env.expect_type("recursion_base", "(Nat -> Nat, Nat) -> Bool");
         norm.check(&env, "recursion_base", &["recursion(x0, x1, 0) = x1"]);
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
             recursion(f, a, Suc(n)) = f(recursion(f, a, n))",
         );
-        env.expect_type("recursion_step", "(Nat -> Nat, Nat, Nat) -> bool");
+        env.expect_type("recursion_step", "(Nat -> Nat, Nat, Nat) -> Bool");
         norm.check(
             &env,
             "recursion_step",
@@ -596,10 +596,10 @@ mod tests {
     fn test_bool_formulas() {
         let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
-        env.add("theorem one(a: bool): a -> a | (a | a)");
+        env.add("theorem one(a: Bool): a -> a | (a | a)");
         norm.check(&env, "one", &["!x0 | x0"]);
 
-        env.add("theorem two(a: bool): a -> a & (a & a)");
+        env.add("theorem two(a: Bool): a -> a & (a & a)");
         norm.check(&env, "two", &["!x0 | x0", "!x0 | x0", "!x0 | x0"]);
     }
 
@@ -640,12 +640,12 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            let borf: (Nat, Nat, Nat) -> bool = axiom
-            define also_borf(a: Nat, b: Nat, c: Nat) -> bool: borf(a, b, c)
+            let borf: (Nat, Nat, Nat) -> Bool = axiom
+            define also_borf(a: Nat, b: Nat, c: Nat) -> Bool: borf(a, b, c)
             let bb: Nat = axiom
             let cc: Nat = axiom
-            define specific_borf(x: Nat) -> bool: also_borf(x, bb, cc)
-            define always_true(f: Nat -> bool) -> bool: forall(n: Nat) { f(n) }
+            define specific_borf(x: Nat) -> Bool: also_borf(x, bb, cc)
+            define always_true(f: Nat -> Bool) -> Bool: forall(n: Nat) { f(n) }
             theorem goal: !always_true(specific_borf)
         "#,
         );
@@ -741,7 +741,7 @@ mod tests {
             type Nat: axiom
             let 0: Nat = axiom
             let 1: Nat = axiom
-            let lt: (Nat, Nat) -> bool = axiom
+            let lt: (Nat, Nat) -> Bool = axiom
             let add: (Nat, Nat) -> Nat = axiom
             theorem foo(x0: Nat, x1: Nat): add(add(x0, 0), x1) != 0 | lt(x1, 0)
             "#,

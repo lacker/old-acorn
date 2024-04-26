@@ -8,7 +8,7 @@ use crate::type_map::{TypeId, BOOL, EMPTY};
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Term {
     // The term type is the type of the entire term.
-    // For example "2 < 3" has type "bool".
+    // For example "2 < 3" has type "Bool".
     pub term_type: TypeId,
 
     // The head type is the type of just the head atom.

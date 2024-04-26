@@ -320,7 +320,7 @@ impl AcornType {
 impl fmt::Display for AcornType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            AcornType::Bool => write!(f, "bool"),
+            AcornType::Bool => write!(f, "Bool"),
             AcornType::Data(_, name) => write!(f, "{}", name),
             AcornType::Parameter(name) => write!(f, "{}", name),
             AcornType::Function(function_type) => write!(f, "{}", function_type),

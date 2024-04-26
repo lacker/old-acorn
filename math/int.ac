@@ -205,11 +205,11 @@ theorem sub_nat_double_cancel_right(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat):
 // Now that we've proven a bunch of stuff about sub_nat, we define the positive and negative parts so that we can
 // represent each integer as a sub_nat, and start defining useful functions on integers.
 
-define is_negative(a: Int) -> bool: a != from_nat(abs(a))
+define is_negative(a: Int) -> Bool: a != from_nat(abs(a))
 
 theorem zero_not_neg: !is_negative(0)
 
-define is_positive(a: Int) -> bool: is_negative(negate(a))
+define is_positive(a: Int) -> Bool: is_negative(negate(a))
 
 theorem zero_not_pos: !is_positive(0) by {
     negate(0) = 0
@@ -594,7 +594,7 @@ theorem mul_nat_suc(a: Int, n: Nat): mul_nat(a, nat.Suc(n)) = add(mul_nat(a, n),
 }
 
 theorem mul_nat_distrib_right(a: Int, b: Int, n: Nat): mul_nat(add(a, b), n) = add(mul_nat(a, n), mul_nat(b, n)) by {
-    define f(x: Nat) -> bool: mul_nat_distrib_right(a, b, x)
+    define f(x: Nat) -> Bool: mul_nat_distrib_right(a, b, x)
     nat.induction(f)
 
     // Prove the base case
@@ -953,9 +953,9 @@ theorem mul_assoc(a: Int, b: Int, c: Int): mul(mul(a, b), c) = mul(a, mul(b, c))
 
 // Comparison operators
 
-define lt(a: Int, b: Int) -> bool: is_positive(sub(b, a))
+define lt(a: Int, b: Int) -> Bool: is_positive(sub(b, a))
 
-define lte(a: Int, b: Int) -> bool: lt(a, b) | a = b
+define lte(a: Int, b: Int) -> Bool: lt(a, b) | a = b
 
 theorem lt_not_ref(a: Int): !lt(a, a) by {
     if lt(a, a) {
@@ -1136,7 +1136,7 @@ theorem lte_from_nat(j: Nat, k: Nat): nat.lte(j, k) -> lte(from_nat(j), from_nat
 
 // Units and dividing
 
-define is_unit(a: Int) -> bool: abs(a) = nat.1
+define is_unit(a: Int) -> Bool: abs(a) = nat.1
 
 theorem two_units(u: Int): is_unit(u) -> u = 1 | u = negate(1)
 
@@ -1195,7 +1195,7 @@ theorem abs_alt_decomp(a: Int): mul(unit_sign(a), a) = from_nat(abs(a)) by {
     mul(unit_sign(a), a) = mul(1, from_nat(abs(a)))
 }
 
-define divides(a: Int, b: Int) -> bool: exists(d: Int) { mul(d, a) = b }
+define divides(a: Int, b: Int) -> Bool: exists(d: Int) { mul(d, a) = b }
 
 theorem div_trans(a: Int, b: Int, c: Int): divides(a, b) & divides(b, c) -> divides(a, c) by {
     exists(d: Int) { mul(d, a) = b }

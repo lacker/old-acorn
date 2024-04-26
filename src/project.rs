@@ -756,7 +756,7 @@ mod tests {
             type MyFoo: foo.AlsoFoo
             let x: foo.Foo = axiom
             let y: MyFoo = axiom
-            let z: bool = (x = y)
+            let z: Bool = (x = y)
         "#,
         );
         p.expect_ok("main");
@@ -773,7 +773,7 @@ mod tests {
             type MyFoo: foo.NotFoo
             let x: foo.Foo = axiom
             let y: MyFoo = axiom
-            let z: bool = (x = y)
+            let z: Bool = (x = y)
         "#,
         );
         p.expect_module_err("main");
@@ -789,7 +789,7 @@ mod tests {
             import foo
             let x: foo.Foo = axiom
             let y: foo.Foo = foo.foo
-            let z: bool = (x = y)
+            let z: Bool = (x = y)
         "#,
         );
         p.expect_ok("main");
@@ -815,15 +815,15 @@ mod tests {
         p.mock(
             "/mock/stuff.ac",
             r#"
-            let thing1: bool = axiom
-            let thing2: bool = axiom
+            let thing1: Bool = axiom
+            let thing2: Bool = axiom
         "#,
         );
         p.mock(
             "/mock/main.ac",
             r#"
             import stuff
-            let st1: bool = stuff.thing1
+            let st1: Bool = stuff.thing1
         "#,
         );
         p.check_code_into("main", "stuff.thing1", "st1");
@@ -863,8 +863,8 @@ mod tests {
             "/mock/boolpair.ac",
             r#"
             struct BoolPair {
-                first: bool
-                second: bool
+                first: Bool
+                second: Bool
             }
         "#,
         );
@@ -873,7 +873,7 @@ mod tests {
             r#"
             import boolpair
             type BoolPair: boolpair.BoolPair
-            let first: BoolPair -> bool = BoolPair.first
+            let first: BoolPair -> Bool = BoolPair.first
         "#,
         );
         p.expect_ok("main");
@@ -892,7 +892,7 @@ mod tests {
             "/mock/stuff.ac",
             r#"
             struct Foo {
-                member: bool
+                member: Bool
             }
             type Bar: Foo
         "#,

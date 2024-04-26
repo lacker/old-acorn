@@ -1444,10 +1444,10 @@ mod tests {
     #[test]
     fn test_fn_equality() {
         let mut env = Environment::new_test();
-        env.add("define idb1(x: bool) -> bool: x");
-        env.expect_type("idb1", "bool -> bool");
-        env.add("define idb2(y: bool) -> bool: y");
-        env.expect_type("idb2", "bool -> bool");
+        env.add("define idb1(x: Bool) -> Bool: x");
+        env.expect_type("idb1", "Bool -> Bool");
+        env.add("define idb2(y: Bool) -> Bool: y");
+        env.expect_type("idb2", "Bool -> Bool");
         env.assert_def_eq("idb1", "idb2");
 
         env.add("type Nat: axiom");
@@ -1459,64 +1459,64 @@ mod tests {
     #[test]
     fn test_forall_equality() {
         let mut env = Environment::new_test();
-        env.add("let bsym1: bool = forall(x: bool) { x = x }");
-        env.expect_type("bsym1", "bool");
-        env.add("let bsym2: bool = forall(y: bool) { y = y }");
-        env.expect_type("bsym2", "bool");
+        env.add("let bsym1: Bool = forall(x: Bool) { x = x }");
+        env.expect_type("bsym1", "Bool");
+        env.add("let bsym2: Bool = forall(y: Bool) { y = y }");
+        env.expect_type("bsym2", "Bool");
         env.assert_def_eq("bsym1", "bsym2");
 
         env.add("type Nat: axiom");
-        env.add("let nsym1: bool = forall(x: Nat) { x = x }");
-        env.expect_type("nsym1", "bool");
+        env.add("let nsym1: Bool = forall(x: Nat) { x = x }");
+        env.expect_type("nsym1", "Bool");
         env.assert_def_ne("bsym1", "nsym1");
     }
 
     #[test]
     fn test_exists_equality() {
         let mut env = Environment::new_test();
-        env.add("let bex1: bool = exists(x: bool) { x = x }");
-        env.add("let bex2: bool = exists(y: bool) { y = y }");
+        env.add("let bex1: Bool = exists(x: Bool) { x = x }");
+        env.add("let bex2: Bool = exists(y: Bool) { y = y }");
         env.assert_def_eq("bex1", "bex2");
 
         env.add("type Nat: axiom");
-        env.add("let nex1: bool = exists(x: Nat) { x = x }");
+        env.add("let nex1: Bool = exists(x: Nat) { x = x }");
         env.assert_def_ne("bex1", "nex1");
     }
 
     #[test]
     fn test_arg_binding() {
         let mut env = Environment::new_test();
-        env.bad("define qux(x: bool, x: bool) -> bool: x");
+        env.bad("define qux(x: Bool, x: Bool) -> Bool: x");
         assert!(!env.bindings.has_identifier("x"));
-        env.add("define qux(x: bool, y: bool) -> bool: x");
-        env.expect_type("qux", "(bool, bool) -> bool");
+        env.add("define qux(x: Bool, y: Bool) -> Bool: x");
+        env.expect_type("qux", "(Bool, Bool) -> Bool");
 
-        env.bad("theorem foo(x: bool, x: bool): x");
+        env.bad("theorem foo(x: Bool, x: Bool): x");
         assert!(!env.bindings.has_identifier("x"));
-        env.add("theorem foo(x: bool, y: bool): x");
-        env.expect_type("foo", "(bool, bool) -> bool");
+        env.add("theorem foo(x: Bool, y: Bool): x");
+        env.expect_type("foo", "(Bool, Bool) -> Bool");
 
-        env.bad("let bar: bool = forall(x: bool, x: bool) { x = x }");
+        env.bad("let bar: Bool = forall(x: Bool, x: Bool) { x = x }");
         assert!(!env.bindings.has_identifier("x"));
-        env.add("let bar: bool = forall(x: bool, y: bool) { x = x }");
+        env.add("let bar: Bool = forall(x: Bool, y: Bool) { x = x }");
 
-        env.bad("let baz: bool = exists(x: bool, x: bool) { x = x }");
+        env.bad("let baz: Bool = exists(x: Bool, x: Bool) { x = x }");
         assert!(!env.bindings.has_identifier("x"));
-        env.add("let baz: bool = exists(x: bool, y: bool) { x = x }");
+        env.add("let baz: Bool = exists(x: Bool, y: Bool) { x = x }");
     }
 
     #[test]
     fn test_no_double_grouped_arg_list() {
         let mut env = Environment::new_test();
-        env.add("define foo(x: bool, y: bool) -> bool: x");
-        env.add("let b: bool = axiom");
+        env.add("define foo(x: Bool, y: Bool) -> Bool: x");
+        env.add("let b: Bool = axiom");
         env.bad("foo((b, b))");
     }
 
     #[test]
     fn test_argless_theorem() {
         let mut env = Environment::new_test();
-        env.add("let b: bool = axiom");
+        env.add("let b: Bool = axiom");
         env.add("theorem foo: b | !b");
         env.expect_def("foo", "(b | !b)");
     }
@@ -1524,24 +1524,24 @@ mod tests {
     #[test]
     fn test_forall_value() {
         let mut env = Environment::new_test();
-        env.add("let p: bool = forall(x: bool) { x | !x }");
-        env.expect_def("p", "forall(x0: bool) { (x0 | !x0) }");
+        env.add("let p: Bool = forall(x: Bool) { x | !x }");
+        env.expect_def("p", "forall(x0: Bool) { (x0 | !x0) }");
     }
 
     #[test]
     fn test_inline_function_value() {
         let mut env = Environment::new_test();
-        env.add("define ander(a: bool) -> (bool -> bool): function(b: bool) { a & b }");
+        env.add("define ander(a: Bool) -> (Bool -> Bool): function(b: Bool) { a & b }");
         env.expect_def(
             "ander",
-            "function(x0: bool) { function(x1: bool) { (x0 & x1) } }",
+            "function(x0: Bool) { function(x1: Bool) { (x0 & x1) } }",
         );
     }
 
     #[test]
     fn test_empty_if_block() {
         let mut env = Environment::new_test();
-        env.add("let b: bool = axiom");
+        env.add("let b: Bool = axiom");
         env.add("if b {}");
     }
 
@@ -1549,7 +1549,7 @@ mod tests {
     fn test_empty_forall_statement() {
         // Allowed as statement but not as an expression.
         let mut env = Environment::new_test();
-        env.add("forall(b: bool) {}");
+        env.add("forall(b: Bool) {}");
     }
 
     #[test]
@@ -1562,7 +1562,7 @@ mod tests {
         env.expect_def("1", "Suc(0)");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y");
-        env.expect_type("suc_injective", "(Nat, Nat) -> bool");
+        env.expect_type("suc_injective", "(Nat, Nat) -> Bool");
         env.expect_def(
             "suc_injective",
             "function(x0: Nat, x1: Nat) { ((Suc(x0) = Suc(x1)) -> (x0 = x1)) }",
@@ -1587,10 +1587,10 @@ mod tests {
         assert!(!env.bindings.has_identifier("foo"));
 
         env.add(
-            "axiom induction(f: Nat -> bool, n: Nat):
+            "axiom induction(f: Nat -> Bool, n: Nat):
             f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> f(n)",
         );
-        env.expect_def("induction", "function(x0: Nat -> bool, x1: Nat) { ((x0(0) & forall(x2: Nat) { (x0(x2) -> x0(Suc(x2))) }) -> x0(x1)) }");
+        env.expect_def("induction", "function(x0: Nat -> Bool, x1: Nat) { ((x0(0) & forall(x2: Nat) { (x0(x2) -> x0(Suc(x2))) }) -> x0(x1)) }");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
@@ -1631,7 +1631,7 @@ axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
 
 axiom suc_neq_zero(x: Nat): Suc(x) != 0
 
-axiom induction(f: Nat -> bool): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
+axiom induction(f: Nat -> Bool): f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
 
 // The old version. In the modern codebase these are parametric.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom
@@ -1665,7 +1665,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             type Nat: axiom
             theorem foo(a: Nat, b: Nat): a = b by {
                 let c: Nat = a
-                define d(e: Nat) -> bool: foo(e, b)
+                define d(e: Nat) -> Bool: foo(e, b)
             }
             "#,
         );
@@ -1705,7 +1705,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add(
             r#"
             type Nat: axiom
-            define foo(x: Nat) -> bool: axiom
+            define foo(x: Nat) -> Bool: axiom
             exists(z: Nat) { foo(z) }
             foo(z)
         "#,
@@ -1718,10 +1718,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         p.mock(
             "/mock/main.ac",
             r#"
-            let a: bool = axiom
+            let a: Bool = axiom
             theorem goal: a by {
                 if a {
-                    exists(b: bool) { b = b }
+                    exists(b: Bool) { b = b }
                 }
             }
             "#,
@@ -1739,10 +1739,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         p.mock(
             "/mock/main.ac",
             r#"
-            let a: bool = axiom
+            let a: Bool = axiom
             theorem goal: a by {
-                forall(b: bool) {
-                    exists(c: bool) { c = c }
+                forall(b: Bool) {
+                    exists(c: Bool) { c = c }
                 }
             }
             "#,
@@ -1760,8 +1760,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add(
             r#"
         struct BoolPair {
-            first: bool
-            second: bool
+            first: Bool
+            second: Bool
         }
         theorem goal(p: BoolPair): p = BoolPair.new(BoolPair.first(p), BoolPair.second(p))
         "#,
@@ -1777,7 +1777,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.bad(
             r#"
         struct InfiniteBools {
-            head: bool
+            head: Bool
             tail: InfiniteBools
         }
         "#,
@@ -1790,7 +1790,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.bad(
             r#"
         struct NaiveSet {
-            set: NaiveSet -> bool 
+            set: NaiveSet -> Bool 
         }
         "#,
         );
@@ -1799,13 +1799,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     #[test]
     fn test_parametric_types_required_in_function_args() {
         let mut env = Environment::new_test();
-        env.bad("define foo<T>(a: bool) -> bool = a");
+        env.bad("define foo<T>(a: Bool) -> Bool = a");
     }
 
     #[test]
     fn test_parametric_types_required_in_theorem_args() {
         let mut env = Environment::new_test();
-        env.bad("theorem foo<T>(a: bool): a | !a");
+        env.bad("theorem foo<T>(a: Bool): a | !a");
     }
 
     #[test]
@@ -1813,7 +1813,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
-        env.add("define eq<T>(a: T, b: T) -> bool: a = b");
+        env.add("define eq<T>(a: T, b: T) -> Bool: a = b");
         env.add("eq(0, 0)");
         env.add("eq(0 = 0, 0 = 0)");
         env.add("eq(0 = 0, eq(0, 0))");
@@ -1824,7 +1824,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     #[test]
     fn test_type_params_cleaned_up() {
         let mut env = Environment::new_test();
-        env.add("define foo<T>(a: T) -> bool: axiom");
+        env.add("define foo<T>(a: T) -> Bool: axiom");
         assert!(env.bindings.get_type_for_name("T").is_none());
     }
 
@@ -1833,7 +1833,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
-        env.add("let b: bool = axiom");
+        env.add("let b: Bool = axiom");
         env.add("if b { 0 = 0 }");
         env.bad("if 0 { 0 = 0 }");
     }
@@ -1842,13 +1842,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_reusing_type_name_as_var_name() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("let Nat: bool = axiom");
+        env.bad("let Nat: Bool = axiom");
     }
 
     #[test]
     fn test_reusing_var_name_as_type_name() {
         let mut env = Environment::new_test();
-        env.add("let x: bool = axiom");
+        env.add("let x: Bool = axiom");
         env.bad("type x: axiom");
     }
 
@@ -1856,47 +1856,47 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_reusing_type_name_as_fn_name() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("define Nat(x: bool) -> bool: x");
+        env.bad("define Nat(x: Bool) -> Bool: x");
     }
 
     #[test]
     fn test_reusing_type_name_as_theorem_name() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("theorem Nat(x: bool): x = x");
+        env.bad("theorem Nat(x: Bool): x = x");
     }
 
     #[test]
     fn test_reusing_type_name_as_exists_arg() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("let b: bool = exists(x: bool, Nat: bool) { x = x }");
+        env.bad("let b: Bool = exists(x: Bool, Nat: Bool) { x = x }");
     }
 
     #[test]
     fn test_reusing_type_name_as_forall_arg() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("let b: bool = forall(x: bool, Nat: bool) { x = x }");
+        env.bad("let b: Bool = forall(x: Bool, Nat: Bool) { x = x }");
     }
 
     #[test]
     fn test_reusing_type_name_as_lambda_arg() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("let f: (bool, bool) -> bool = function(x: bool, Nat: bool) { x = x }");
+        env.bad("let f: (bool, bool) -> Bool = function(x: Bool, Nat: Bool) { x = x }");
     }
 
     #[test]
     fn test_parsing_true_false_keywords() {
         let mut env = Environment::new_test();
-        env.add("let b: bool = true | false");
+        env.add("let b: Bool = true | false");
     }
 
     #[test]
     fn test_nothing_after_explicit_false() {
         let mut env = Environment::new_test();
-        env.add("let b: bool = axiom");
+        env.add("let b: Bool = axiom");
         env.bad(
             r#"
             if b = !b {
@@ -1926,13 +1926,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("let Suc: Nat -> Nat = axiom");
         env.add(
             r#"
-            axiom induction(f: Nat -> bool):
+            axiom induction(f: Nat -> Bool):
                 f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
             "#,
         );
         env.add(
             r#"
-            forall(f: (Nat, bool) -> bool) {
+            forall(f: (Nat, Bool) -> Bool) {
                 induction(function(x: Nat) { f(x, true) })
             }
         "#,
@@ -1945,7 +1945,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.bad(
             r#"
             struct foo {
-                bar: bool
+                bar: Bool
             }
         "#,
         );
@@ -1961,7 +1961,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_functional_definition_typechecking() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("define foo(f: Nat -> Nat) -> bool: function(x: Nat) { true }");
+        env.bad("define foo(f: Nat -> Nat) -> Bool: function(x: Nat) { true }");
     }
 
     #[test]
@@ -1981,7 +1981,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new_test();
         env.add(
             r#"
-        let b: bool = axiom
+        let b: Bool = axiom
         if b {
             b
         }

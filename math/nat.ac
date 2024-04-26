@@ -12,7 +12,7 @@ axiom suc_injective(x: Nat, y: Nat): Suc(x) = Suc(y) -> x = y
 
 axiom suc_neq_zero(x: Nat): Suc(x) != 0
 
-axiom induction(f: Nat -> bool):
+axiom induction(f: Nat -> Bool):
     f(0) & forall(k: Nat) { f(k) -> f(Suc(k)) } -> forall(n: Nat) { f(n) }
 
 define recursion<T>(f: T -> T, a: T, n: Nat) -> T: axiom
@@ -48,7 +48,7 @@ theorem add_zero_left(a: Nat): add(0, a) = a by {
 theorem add_suc_right(a: Nat, b: Nat): add(a, Suc(b)) = Suc(add(a, b))
 
 theorem add_suc_left(a: Nat, b: Nat): add(Suc(a), b) = Suc(add(a, b)) by {
-    define f(x: Nat) -> bool: add_suc_left(a, x)
+    define f(x: Nat) -> Bool: add_suc_left(a, x)
     induction(f)
     add_suc_left(a, 0)
     f(0)
@@ -87,7 +87,7 @@ theorem suc_suc_ne(a: Nat): Suc(Suc(a)) != a by {
 }
 
 theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a) by {
-    define f(x: Nat) -> bool: add_comm(x, b)
+    define f(x: Nat) -> Bool: add_comm(x, b)
     induction(f)
     add_comm(0, b)
     f(0)
@@ -100,7 +100,7 @@ theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a) by {
 }
 
 theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c)) by {
-    define f(x: Nat) -> bool: add_assoc(x, b, c) 
+    define f(x: Nat) -> Bool: add_assoc(x, b, c) 
     induction(f)
     forall(x: Nat) {
         if f(x) {
@@ -132,7 +132,7 @@ theorem mul_zero_left(a: Nat): mul(0, a) = 0 by {
 theorem mul_suc_right(a: Nat, b: Nat): mul(a, Suc(b)) = add(a, mul(a, b))
 
 theorem mul_suc_left(a: Nat, b: Nat): mul(Suc(a), b) = add(b, mul(a, b)) by {
-    define f(x: Nat) -> bool: mul_suc_left(a, x)
+    define f(x: Nat) -> Bool: mul_suc_left(a, x)
     induction(f)
     add(0, mul(a, 0)) = 0
     f(0)
@@ -165,7 +165,7 @@ theorem mul_one_one: mul(1, 1) = 1 by {
 }
 
 theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
-    define f(x: Nat) -> bool: mul_comm(x, b)
+    define f(x: Nat) -> Bool: mul_comm(x, b)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -187,7 +187,7 @@ theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
 
 theorem distrib_left(a: Nat, b: Nat, c: Nat):
     mul(a, add(b, c)) = add(mul(a, b), mul(a, c)) by {
-    define f(x: Nat) -> bool: distrib_left(x, b, c)
+    define f(x: Nat) -> Bool: distrib_left(x, b, c)
     induction(f)
     add(mul(0, b), 0) = 0
     distrib_left(0, b, c)
@@ -216,7 +216,7 @@ theorem distrib_right(a: Nat, b: Nat, c: Nat):
 }
 
 theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c)) by {
-    define f(x: Nat) -> bool: mul_assoc(x, b, c)
+    define f(x: Nat) -> Bool: mul_assoc(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -241,16 +241,16 @@ theorem mul_one_left(a: Nat): mul(1, a) = a
 // Comparisons
 
 
-define lte(a: Nat, b: Nat) -> bool: exists(c: Nat) { add(a, c) = b }
+define lte(a: Nat, b: Nat) -> Bool: exists(c: Nat) { add(a, c) = b }
 
-define lt(a: Nat, b: Nat) -> bool: lte(a, b) & a != b
+define lt(a: Nat, b: Nat) -> Bool: lte(a, b) & a != b
 
 theorem lt_not_ref(a: Nat): !lt(a, a)
 
 theorem lte_ref(a: Nat): lte(a, a)
 
 theorem add_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0 by {
-    define f(x: Nat) -> bool: add_to_zero(x, b)
+    define f(x: Nat) -> Bool: add_to_zero(x, b)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -264,7 +264,7 @@ theorem only_zero_lte_zero(a: Nat): lte(a, 0) -> a = 0
 theorem not_lt_zero(a: Nat): !lt(a, 0)
 
 theorem zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = Suc(b) } by {
-    define f(x: Nat) -> bool: a = 0 | exists(b: Nat) { a = Suc(b) }
+    define f(x: Nat) -> Bool: a = 0 | exists(b: Nat) { a = Suc(b) }
     induction(f)
 }
 
@@ -279,7 +279,7 @@ theorem lte_cancel_suc(a: Nat, b: Nat): lte(Suc(a), Suc(b)) -> lte(a, b) by {
 theorem lt_cancel_suc(a: Nat, b: Nat): lt(Suc(a), Suc(b)) -> lt(a, b)
 
 theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
-    define f(x: Nat) -> bool: forall(y: Nat) { lt_not_symm(x, y) }
+    define f(x: Nat) -> Bool: forall(y: Nat) { lt_not_symm(x, y) }
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -309,7 +309,7 @@ theorem lt_diff(a: Nat, b: Nat): lt(a, b) -> exists(c: Nat) { add(a, c) = b & c 
 }
 
 theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by {
-    define f(z: Nat) -> bool: forall(x: Nat, y: Nat) { lte_trans(x, y, z) }
+    define f(z: Nat) -> Bool: forall(x: Nat, y: Nat) { lte_trans(x, y, z) }
     induction(f)
     forall(x: Nat, y: Nat) {
         lte_trans(x, y, 0)
@@ -356,7 +356,7 @@ theorem lt_trans(a: Nat, b: Nat, c: Nat): lt(a, b) & lt(b, c) -> lt(a, c) by {
 }
 
 theorem add_cancels_left(a: Nat, b: Nat, c: Nat): add(a, b) = add(a, c) -> b = c by {
-    define f(x: Nat) -> bool: add_cancels_left(x, b, c)
+    define f(x: Nat) -> Bool: add_cancels_left(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
@@ -427,7 +427,7 @@ theorem lt_add_left(a: Nat, b: Nat, c: Nat): lt(b, c) -> lt(add(a, b), add(a, c)
 }
 
 theorem trichotomy(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b by {
-    define f(x: Nat) -> bool: trichotomy(a, x)
+    define f(x: Nat) -> Bool: trichotomy(a, x)
     induction(f)
     trichotomy(a, 0)
     f(0)
@@ -475,7 +475,7 @@ theorem lte_imp_not_lt(a: Nat, b: Nat): lte(a, b) -> !lt(b, a) by {
 theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
     lt(r, n) & m = add(mul(q, n), r)
 } by {
-    define f(x: Nat) -> bool: division_theorem(x, n)
+    define f(x: Nat) -> Bool: division_theorem(x, n)
     induction(f)
     exists(k0: Nat) { mul(k0, n) = 0 }
     f(0)
@@ -504,7 +504,7 @@ theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
     division_theorem(m, n)
 }
 
-define is_composite(a: Nat) -> bool: exists(b: Nat, c: Nat) {
+define is_composite(a: Nat) -> Bool: exists(b: Nat, c: Nat) {
     lt(1, b) & lt(1, c) & a = mul(b, c)
 }
 
@@ -528,18 +528,18 @@ theorem divisor_lt(a: Nat, b: Nat, c: Nat):
     a != c
 }
 
-define is_prime(a: Nat) -> bool: lt(1, a) & !is_composite(a)
+define is_prime(a: Nat) -> Bool: lt(1, a) & !is_composite(a)
 
-define divides(a: Nat, b: Nat) -> bool: exists(c: Nat) { mul(a, c) = b }
+define divides(a: Nat, b: Nat) -> Bool: exists(c: Nat) { mul(a, c) = b }
 
 theorem divides_self(a: Nat): divides(a, a)
 
-define true_below(f: Nat -> bool, n: Nat) -> bool: forall(x: Nat) { lt(x, n) -> f(x) }
+define true_below(f: Nat -> Bool, n: Nat) -> Bool: forall(x: Nat) { lt(x, n) -> f(x) }
 
-theorem strong_induction(f: Nat -> bool): forall(k: Nat) {
+theorem strong_induction(f: Nat -> Bool): forall(k: Nat) {
     true_below(f, k) -> f(k)
 } -> forall(n: Nat) { f(n) } by {
-    define g(x: Nat) -> bool: true_below(f, x)
+    define g(x: Nat) -> Bool: true_below(f, x)
     induction(g)
     g(0)
     forall(x: Nat) {
@@ -669,7 +669,7 @@ theorem factorial_step(n: Nat): factorial(Suc(n)) = mul(Suc(n), factorial(n)) by
 
 theorem divides_factorial(k: Nat, n: Nat):
     k != 0 & lte(k, n) -> divides(k, factorial(n)) by {
-    define f(x: Nat) -> bool: divides_factorial(k, x)
+    define f(x: Nat) -> Bool: divides_factorial(k, x)
     induction(f)
     f(0)
     forall(x: Nat) {

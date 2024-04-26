@@ -20,7 +20,7 @@
       "name": "keyword.declaration"
     },
     {
-      "match": "\\bbool\\b",
+      "match": "\\bBool\\b",
       "name": "keyword.type"
     },
     {
