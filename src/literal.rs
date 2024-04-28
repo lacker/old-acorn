@@ -209,6 +209,10 @@ impl Literal {
         }
         self.right.extended_kbo_cmp(&other.right)
     }
+
+    pub fn has_skolem(&self) -> bool {
+        self.left.has_skolem() || self.right.has_skolem()
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.
