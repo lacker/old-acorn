@@ -8,7 +8,8 @@ fn main() {
     let mut project = Project::new("math");
     assert!(project.add_target("nat"));
     assert!(project.add_target("subtraction"));
-    assert!(project.add_target("gcd"));
+    assert!(project.add_target("nat_gcd"));
+    assert!(project.add_target("int"));
     project.build(&mut |event| {
         if let Some(m) = event.log_message {
             println!("{}", m);
