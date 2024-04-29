@@ -13,8 +13,9 @@
 {#if step.clause.text === null}
   Contradiction, depth {step.depth}, <Rule {step} {showLocation} />.<br />
 {:else if step.clause.id === null}
-  An unactivated clause, depth {step.depth}, <Rule {step} {showLocation} />.<br
+  An unactivated clause, depth {step.depth}, <Rule {step} {showLocation} />:<br
   />
+  <Clause clause={step.clause} /><br />
 {:else}
   Clause {step.clause.id}, depth {step.depth},
   <Rule {step} {showLocation} />:<br />

@@ -1,6 +1,6 @@
 <script lang="ts">
   export let clause: ClauseInfo;
-  export let onClick: (id: number) => void;
+  export let onClick: null | ((id: number) => void) = null;
   export let indent: number = 4;
 
   function spaces(n: number): string {
@@ -13,7 +13,7 @@
     {spaces(indent)}<span
       class="clause-link"
       on:click={() => {
-        if (clause.id !== null) {
+        if (clause.id !== null && onClick !== null) {
           onClick(clause.id);
         }
       }}>{clause.text}</span
