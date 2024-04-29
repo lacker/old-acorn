@@ -636,7 +636,10 @@ theorem fac_pair_first(n: Nat): NatPair.first(fac_pair(n)) = n by {
     fac_pair_first(0)
     forall(x: Nat) {
         if fac_pair_first(x) {
-            exists(a: Nat) { fac_pair(x) = NatPair.new(x, a) }
+            x = NatPair.first(fac_pair(x))
+            let a: Nat = NatPair.second(fac_pair(x))
+            NatPair.new(NatPair.first(fac_pair(x)), a) = fac_pair(x)
+            fac_pair(x) = NatPair.new(x, a)
             fac_pair(suc(x)) = fac_helper(fac_pair(x))
             fac_pair(suc(x)) = NatPair.new(suc(x), mul(suc(x), a))
             let b: Nat = mul(suc(x), a)
