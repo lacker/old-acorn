@@ -26,6 +26,7 @@ pub mod rewrite_tree;
 pub mod specializer;
 pub mod statement;
 pub mod term;
+pub mod term_graph;
 pub mod token;
 pub mod type_map;
 pub mod unifier;
