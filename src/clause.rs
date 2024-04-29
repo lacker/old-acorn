@@ -103,6 +103,10 @@ impl Clause {
         self.literals.iter().any(|x| x.has_any_variable())
     }
 
+    pub fn has_skolem(&self) -> bool {
+        self.literals.iter().any(|x| x.has_skolem())
+    }
+
     pub fn has_local_constant(&self) -> bool {
         self.literals.iter().any(|x| x.has_local_constant())
     }

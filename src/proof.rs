@@ -326,6 +326,11 @@ impl<'a> Proof<'a> {
             return true;
         }
 
+        if clause.has_skolem() {
+            // Skolem constants are ugly because they don't have a user-visible name.
+            return true;
+        }
+
         false
     }
 
