@@ -205,7 +205,7 @@ impl Term {
     }
 
     pub fn has_any_variable(&self) -> bool {
-        if self.is_variable() {
+        if self.head.is_variable() {
             return true;
         }
         for arg in &self.args {

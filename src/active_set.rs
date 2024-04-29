@@ -404,6 +404,7 @@ impl ActiveSet {
     }
 
     // Look for ways to rewrite a literal that is not yet in the active set.
+    // The literal must be concrete.
     pub fn activate_rewrite_target(
         &self,
         target_id: usize,
@@ -412,25 +413,21 @@ impl ActiveSet {
         let mut results = vec![];
         assert!(target_step.clause.len() == 1);
         let target_literal = &target_step.clause.literals[0];
-        let next_var = target_literal.least_unused_variable();
+
         for (_, u, v) in target_literal.both_term_pairs() {
             let u_subterms = u.rewritable_subterms();
 
             for (path, u_subterm) in u_subterms {
-                if target_literal.positive && path.is_empty() {
-                    // The "transitive equality" case.
-                    // We know a = b and we are activating b = c.
-                    // This will be caught twice, because b = c could be either pattern or target.
-                    // So, we don't bother catching it here.
-                    continue;
-                }
-
                 // Look for ways to rewrite u_subterm.
                 // No global-global rewriting
                 let allow_factual = target_step.truthiness != Truthiness::Factual;
+
+                // We can assume next_var is zero since we only rewrite concrete literals.
+                let next_var = 0;
                 let rewrites =
                     self.rewrite_patterns
                         .get_rewrites(u_subterm, allow_factual, next_var);
+
                 for (step_index, _, new_subterm) in rewrites {
                     let pattern_step = self.get_step(step_index);
                     let new_u = u.replace_at_path(&path, new_subterm);
@@ -739,7 +736,10 @@ impl ActiveSet {
         if clause.literals.len() == 1 {
             let literal = &clause.literals[0];
 
-            self.add_rewrite_targets(step_index, literal);
+            // Only rewrite concrete literals.
+            if !literal.has_any_variable() {
+                self.add_rewrite_targets(step_index, literal);
+            }
 
             // When a literal is created via rewrite, we don't need to add it as a rewrite pattern.
             // At some point we might want to do it anyway.
@@ -799,16 +799,19 @@ impl ActiveSet {
         }
 
         if activated_step.clause.len() == 1 {
-            if activated_step.clause.literals[0].positive {
+            let literal = &activated_step.clause.literals[0];
+            if literal.positive {
                 // The activated step could be used as a rewrite pattern.
                 for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
                     generated_steps.push(step);
                 }
             }
 
-            // The activated step could be rewritten itself.
-            for step in self.activate_rewrite_target(activated_id, &activated_step) {
-                generated_steps.push(step);
+            if !literal.has_any_variable() {
+                // The activated step could be rewritten itself.
+                for step in self.activate_rewrite_target(activated_id, &activated_step) {
+                    generated_steps.push(step);
+                }
             }
         }
 

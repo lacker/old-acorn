@@ -644,18 +644,18 @@ define mul(a: Int, b: Int) -> Int: if is_positive(b) {
     negate(mul_nat(a, abs(b)))
 }
 
+theorem mul_zero_right(a: Int): mul(a, 0) = 0 by {
+    !is_positive(0)
+    mul(a, 0) = negate(mul_nat(a, nat.0))
+    mul(a, 0) = negate(0)
+}
+
 theorem mul_nat_from_nat_right(a: Int, n: Nat): mul_nat(a, n) = mul(a, from_nat(n)) by {
     if n = nat.0 {
         mul(a, from_nat(n)) = mul_nat(a, abs(from_nat(n)))
     } else {
         mul(a, from_nat(n)) = mul_nat(a, abs(from_nat(n)))
     }
-}
-
-theorem mul_zero_right(a: Int): mul(a, 0) = 0 by {
-    !is_positive(0)
-    mul(a, 0) = negate(mul_nat(a, nat.0))
-    mul(a, 0) = negate(0)
 }
 
 theorem mul_nonneg_right(a: Int, b: Int): !is_negative(b) -> mul(a, b) = mul_nat(a, abs(b)) by {
