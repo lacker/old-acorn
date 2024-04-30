@@ -316,7 +316,7 @@ impl TermGraph {
                 self.pending.push((edge.result, *result_group));
                 self.edges[edge_id as usize] = None;
             } else {
-                self.edge_map.insert(edge.key.clone(), edge_id);
+                self.edge_map.insert(edge.key.clone(), edge.result);
                 keep_edges.push(edge_id);
             }
         }
@@ -383,6 +383,32 @@ impl TermGraph {
             }
         }
     }
+
+    #[cfg(test)]
+    fn insert_str(&mut self, s: &str) -> TermId {
+        self.insert_term(&Term::parse(s))
+    }
+
+    #[cfg(test)]
+    fn assert_eq(&self, t1: TermId, t2: TermId) {
+        assert_eq!(self.get_group(t1), self.get_group(t2));
+    }
+
+    #[cfg(test)]
+    fn set_eq(&mut self, t1: TermId, t2: TermId) {
+        self.set_groups_equal(self.get_group(t1), self.get_group(t2));
+        self.assert_eq(t1, t2);
+    }
+
+    #[cfg(test)]
+    fn assert_ne(&self, t1: TermId, t2: TermId) {
+        assert_ne!(self.get_group(t1), self.get_group(t2));
+    }
+
+    #[cfg(test)]
+    fn get_str(&self, s: &str) -> TermId {
+        self.get_term_id(&Term::parse(s)).unwrap()
+    }
 }
 
 #[cfg(test)]
@@ -390,22 +416,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_identifying_subterms() {
+    fn test_identifying_atomic_subterms() {
         let mut g = TermGraph::new();
-        let term1 = Term::parse("c1(c2, c3)");
-        let id1 = g.insert_term(&term1);
-        let term2 = Term::parse("c1(c4, c3)");
-        let id2 = g.insert_term(&term2);
-        assert_ne!(g.get_group(id1), g.get_group(id2));
-        g.show_graph();
-        let c2id = g.get_term_id(&Term::parse("c2")).unwrap();
-        let c4id = g.get_term_id(&Term::parse("c4")).unwrap();
-        let c2group = g.get_group(c2id);
-        let c4group = g.get_group(c4id);
-        assert_ne!(c2group, c4group);
-        g.set_groups_equal(c2group, c4group);
-        g.show_graph();
-        assert_eq!(g.get_group(c2id), g.get_group(c4id));
-        assert_eq!(g.get_group(id1), g.get_group(id2));
+        let id1 = g.insert_str("c1(c2, c3)");
+        let id2 = g.insert_str("c1(c4, c3)");
+        g.assert_ne(id1, id2);
+        let c2id = g.get_str("c2");
+        let c4id = g.get_str("c4");
+        g.assert_ne(c2id, c4id);
+        g.set_eq(c2id, c4id);
+        g.assert_eq(id1, id2);
+    }
+
+    #[test]
+    fn test_multilevel_cascade() {
+        let mut g = TermGraph::new();
+        let term1 = g.insert_str("c1(c2(c3, c4), c2(c4, c3))");
+        let term2 = g.insert_str("c1(c5, c5)");
+        g.assert_ne(term1, term2);
+        let sub1 = g.insert_str("c2(c3, c3)");
+        let sub2 = g.get_str("c5");
+        g.assert_ne(sub1, sub2);
+        g.set_eq(sub1, sub2);
+        let c3 = g.get_str("c3");
+        let c4 = g.get_str("c4");
+        g.assert_ne(c3, c4);
+        g.set_eq(c3, c4);
+        g.assert_eq(term1, term2);
     }
 }
