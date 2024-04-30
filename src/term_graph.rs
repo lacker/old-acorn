@@ -9,6 +9,10 @@ use crate::term::Term;
 // relationships between them.
 type TermId = u32;
 
+// To the term graph, the StepId is an opaque identifier used to refer to the reasoning for an action.
+// The term graph uses it to provide a history of the reasoning that led to a conclusion.
+// type StepId = usize;
+
 // Each term has a Decomposition that describes how it is created.
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
 enum Decomposition {
@@ -30,8 +34,15 @@ type GroupId = u32;
 
 // When groups are combined, we point the old one to the new one
 enum GroupInfoReference {
-    Remapped(GroupId),
+    // The new group, along with the reasoning for the remap
+    Remapped(RemapInfo),
+
+    // The information for the existing group
     Present(GroupInfo),
+}
+
+struct RemapInfo {
+    new_group: GroupId,
 }
 
 struct GroupInfo {
@@ -305,7 +316,10 @@ impl TermGraph {
     // Turn the small group into part of the large group.
     // Returns true if it's okay; return false if we ran into a contradiction.
     fn remap_group(&mut self, small_group: GroupId, large_group: GroupId) -> bool {
-        let mut info_ref = GroupInfoReference::Remapped(large_group);
+        let remap_info = RemapInfo {
+            new_group: large_group,
+        };
+        let mut info_ref = GroupInfoReference::Remapped(remap_info);
         std::mem::swap(&mut self.groups[small_group as usize], &mut info_ref);
         let info = match info_ref {
             GroupInfoReference::Remapped(_) => panic!("remapped from a remapped group"),
@@ -367,14 +381,14 @@ impl TermGraph {
     // Returns true if it's okay; return false if we ran into a contradiction.
     pub fn set_groups_equal_once(&mut self, group1: GroupId, group2: GroupId) -> bool {
         let size1 = match &self.groups[group1 as usize] {
-            GroupInfoReference::Remapped(new_group1) => {
-                return self.set_groups_equal_once(*new_group1, group2);
+            GroupInfoReference::Remapped(info1) => {
+                return self.set_groups_equal_once(info1.new_group, group2);
             }
             GroupInfoReference::Present(info) => info.heuristic_size(),
         };
         let size2 = match &self.groups[group2 as usize] {
-            GroupInfoReference::Remapped(new_group2) => {
-                return self.set_groups_equal_once(group1, *new_group2);
+            GroupInfoReference::Remapped(info2) => {
+                return self.set_groups_equal_once(group1, info2.new_group);
             }
             GroupInfoReference::Present(info) => info.heuristic_size(),
         };
@@ -423,8 +437,8 @@ impl TermGraph {
 
         for (group_id, group_info) in self.groups.iter().enumerate() {
             let group_info = match group_info {
-                GroupInfoReference::Remapped(new_group) => {
-                    assert!(*new_group <= self.groups.len() as GroupId);
+                GroupInfoReference::Remapped(remap_info) => {
+                    assert!(remap_info.new_group <= self.groups.len() as GroupId);
                     continue;
                 }
                 GroupInfoReference::Present(info) => info,
