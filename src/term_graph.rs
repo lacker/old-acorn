@@ -280,109 +280,56 @@ impl TermGraph {
     // If we should combine groups, add them to the pending list.
     fn insert_edge(&mut self, head: GroupId, args: Vec<GroupId>, result: GroupId) {
         let key = EdgeKey { head, args };
-        let existing_result = match self.edge_map.get(&key) {
-            Some(&id) => id,
-            None => {
-                // We need to make a new edge
-                let edge_info = EdgeInfo {
-                    key: key.clone(),
-                    result,
-                };
-                for group in edge_info.groups() {
-                    match &mut self.groups[group as usize] {
-                        GroupInfoReference::Remapped(_) => {
-                            panic!("edge refers to a remapped group");
-                        }
-                        GroupInfoReference::Present(info) => {
-                            info.edges.push(self.edges.len() as EdgeId);
-                        }
-                    }
-                }
-                self.edges.push(Some(edge_info));
-                self.edge_map.insert(key, result);
-                return;
+        if let Some(&existing_result) = self.edge_map.get(&key) {
+            if existing_result != result {
+                self.pending.push((existing_result, result));
             }
-        };
-
-        if existing_result == result {
-            // This exact edge is already there
             return;
         }
 
-        self.pending.push((existing_result, result));
+        // We need to make a new edge
+        let edge_info = EdgeInfo {
+            key: key.clone(),
+            result,
+        };
+        for group in edge_info.groups() {
+            match &mut self.groups[group as usize] {
+                GroupInfoReference::Remapped(_) => {
+                    panic!("edge refers to a remapped group");
+                }
+                GroupInfoReference::Present(info) => {
+                    info.edges.push(self.edges.len() as EdgeId);
+                }
+            }
+        }
+        self.edges.push(Some(edge_info));
+        self.edge_map.insert(key, result);
+        return;
     }
 
     // Inserts a term.
     // Makes a new term, group, and edge if necessary.
     pub fn insert_term(&mut self, term: &Term) -> TermId {
-        let head = self.insert_head(term);
+        let head_term_id = self.insert_head(term);
         if term.args.is_empty() {
-            return head;
+            return head_term_id;
         }
-        let mut arg_ids = vec![];
-        let mut arg_groups = vec![];
+        let head_group_id = self.get_group(head_term_id);
+
+        let mut arg_term_ids = vec![];
+        let mut arg_group_ids = vec![];
         for arg in &term.args {
-            let arg_id = self.insert_term(arg);
-            arg_ids.push(arg_id);
-            let arg_group = self.terms[arg_id as usize].group;
-            arg_groups.push(arg_group);
+            let arg_term_id = self.insert_term(arg);
+            arg_term_ids.push(arg_term_id);
+            let arg_group_id = self.get_group(arg_term_id);
+            arg_group_ids.push(arg_group_id);
         }
-        let key = Decomposition::Compound(head, arg_ids);
-        if let Some(&id) = self.decompositions.get(&key) {
-            return id;
-        }
-        let term_id = self.terms.len() as TermId;
-        let head_group = self.terms[head as usize].group;
-        let edge_key = EdgeKey {
-            head: head_group,
-            args: arg_groups,
-        };
 
-        let group_id = if let Some(&id) = self.edge_map.get(&edge_key) {
-            // We already have an appropriate group and edge
-            id
-        } else {
-            // We need to make a new group and edge
-            let group_id = self.groups.len() as GroupId;
-            let edge_id = self.edges.len() as EdgeId;
-            let group_info = GroupInfo {
-                terms: vec![term_id],
-                edges: vec![edge_id],
-            };
-            self.groups.push(GroupInfoReference::Present(group_info));
-
-            // Add references to this edge, to the old groups
-            for g in edge_key.groups() {
-                match &mut self.groups[g as usize] {
-                    GroupInfoReference::Remapped(_) => {
-                        panic!("unhandled case");
-                    }
-                    GroupInfoReference::Present(info) => {
-                        info.edges.push(edge_id);
-                    }
-                }
-            }
-            let edge_info = EdgeInfo {
-                key: edge_key.clone(),
-                result: group_id,
-            };
-            self.edges.push(Some(edge_info));
-            self.edge_map.insert(edge_key, group_id);
-
-            group_id
-        };
-
-        let term_info = TermInfo {
-            term: term.clone(),
-            group: group_id,
-
-            // TODO: this data is wrong
-            original_group: 0,
-            decomp: key,
-        };
-        self.terms.push(term_info);
-
-        term_id
+        let result_term_id = self.insert_compound(term, head_term_id, arg_term_ids);
+        let result_group_id = self.get_group(result_term_id);
+        self.insert_edge(head_group_id, arg_group_ids, result_group_id);
+        self.clear_pending();
+        result_term_id
     }
 
     // Turn the small group into part of the large group.
