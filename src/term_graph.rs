@@ -37,21 +37,35 @@ type GroupId = u32;
 // When groups are combined, we point the old one to the new one
 enum GroupInfoReference {
     // The new group, along with the reasoning for the remap
-    Remapped(RemapInfo),
+    Remapped(Reasoning),
 
     // The information for the existing group
     Present(GroupInfo),
 }
 
-struct RemapInfo {
+// The reasoning that led us to combine two groups.
+// Reasoning is always based on terms. When we learn that two terms from different groups are
+// identical, we combine the groups that they belong to.
+struct Reasoning {
+    // The old group is the one we eliminated, and the old term is the representative we used.
+    old_term: TermId,
+    old_group: GroupId,
+
+    // The new group is the one that we created, and the new term is the representative we used.
+    new_term: TermId,
     new_group: GroupId,
+
+    // If step is set, we combined these groups because we were explicitly instructed in this step
+    // that these two terms are equal.
+    // If step is not set, this is a recursive reasoning based on the decomposition of the terms.
+    step: Option<StepId>,
 }
 
 struct GroupInfo {
     // All of the terms that belong to this group, in the order they were added.
     terms: Vec<TermId>,
 
-    // All of the adjacent edges, in any direction.
+    // All of the edges that use this group in the key.
     // This might include references to deleted edges. They are only cleaned up lazily.
     edges: Vec<EdgeId>,
 }
@@ -120,34 +134,12 @@ impl fmt::Display for EdgeKey {
 
 struct EdgeInfo {
     key: EdgeKey,
-    original_term: TermId,
-    result: GroupId,
-}
-
-impl EdgeInfo {
-    fn remap_group(&mut self, small_group: GroupId, large_group: GroupId) {
-        self.key.remap_group(small_group, large_group);
-        if self.result == small_group {
-            self.result = large_group;
-        }
-    }
-
-    fn touches_group(&self, group: GroupId) -> bool {
-        self.key.touches_group(group) || self.result == group
-    }
-
-    fn groups(&self) -> Vec<GroupId> {
-        let mut answer = self.key.groups();
-        answer.push(self.result);
-        answer.sort();
-        answer.dedup();
-        answer
-    }
+    result_term: TermId,
 }
 
 impl fmt::Display for EdgeInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} -> {}", self.key, self.result)
+        write!(f, "key {} -> term {}", self.key, self.result_term)
     }
 }
 
@@ -165,7 +157,7 @@ pub struct TermGraph {
     edges: Vec<Option<EdgeInfo>>,
 
     // An alternate way of keying the information in edges, by head+args.
-    edge_map: HashMap<EdgeKey, GroupId>,
+    edge_map: HashMap<EdgeKey, TermId>,
 
     // Each term has its decomposition stored so that we can look it back up again
     decompositions: HashMap<Decomposition, TermId>,
@@ -212,12 +204,6 @@ impl TermGraph {
 
     pub fn get_group_id(&self, term_id: TermId) -> GroupId {
         self.terms[term_id as usize].group
-    }
-
-    // This is not the correct thing to do in any situation.
-    // TODO: stop doing it
-    fn get_wrong_term(&self, group_id: GroupId) -> TermId {
-        self.get_group_info(group_id).terms[0]
     }
 
     fn get_group_info(&self, group_id: GroupId) -> &GroupInfo {
@@ -295,10 +281,10 @@ impl TermGraph {
     fn insert_edge(&mut self, head: GroupId, args: Vec<GroupId>, result_term: TermId) {
         let result_group = self.get_group_id(result_term);
         let key = EdgeKey { head, args };
-        if let Some(&existing_result) = self.edge_map.get(&key) {
-            if existing_result != result_group {
-                let existing_term = self.get_wrong_term(existing_result);
-                self.pending.push((existing_term, result_term));
+        if let Some(&existing_result_term) = self.edge_map.get(&key) {
+            let existing_result_group = self.get_group_id(existing_result_term);
+            if existing_result_group != result_group {
+                self.pending.push((existing_result_term, result_term));
             }
             return;
         }
@@ -306,10 +292,9 @@ impl TermGraph {
         // We need to make a new edge
         let edge_info = EdgeInfo {
             key: key.clone(),
-            result: result_group,
-            original_term: result_term,
+            result_term,
         };
-        for group in edge_info.groups() {
+        for group in key.groups() {
             match &mut self.groups[group as usize] {
                 GroupInfoReference::Remapped(_) => {
                     panic!("edge refers to a remapped group");
@@ -320,7 +305,7 @@ impl TermGraph {
             }
         }
         self.edges.push(Some(edge_info));
-        self.edge_map.insert(key, result_group);
+        self.edge_map.insert(key, result_term);
         return;
     }
 
@@ -348,21 +333,31 @@ impl TermGraph {
         result_term_id
     }
 
-    // Turn the small group into part of the large group.
-    // Returns true if it's okay; return false if we ran into a contradiction.
-    fn remap_group(&mut self, small_group: GroupId, large_group: GroupId) -> bool {
-        let remap_info = RemapInfo {
-            new_group: large_group,
+    // Merge the small group into the large group.
+    fn remap_group(
+        &mut self,
+        old_term: TermId,
+        old_group: GroupId,
+        new_term: TermId,
+        new_group: GroupId,
+        step: Option<StepId>,
+    ) {
+        let reasoning = Reasoning {
+            old_term,
+            old_group,
+            new_term,
+            new_group,
+            step,
         };
-        let mut info_ref = GroupInfoReference::Remapped(remap_info);
-        std::mem::swap(&mut self.groups[small_group as usize], &mut info_ref);
+        let mut info_ref = GroupInfoReference::Remapped(reasoning);
+        std::mem::swap(&mut self.groups[old_group as usize], &mut info_ref);
         let info = match info_ref {
             GroupInfoReference::Remapped(_) => panic!("remapped from a remapped group"),
             GroupInfoReference::Present(info) => info,
         };
 
         for &term_id in &info.terms {
-            self.terms[term_id as usize].group = large_group;
+            self.terms[term_id as usize].group = new_group;
         }
 
         let mut keep_edges = vec![];
@@ -377,55 +372,51 @@ impl TermGraph {
                     }
                 };
                 self.edge_map.remove(&edge.key);
-                edge.remap_group(small_group, large_group);
+                edge.key.remap_group(old_group, new_group);
             }
             let edge = match &self.edges[edge_id as usize] {
                 Some(edge) => edge,
                 None => panic!("how does this happen"),
             };
-            if let Some(result_group) = self.edge_map.get(&edge.key) {
+            if let Some(&existing_result_term) = self.edge_map.get(&edge.key) {
                 // An edge for the new relationship already exists.
                 // Instead of inserting edge.result, we need to delete this edge, and merge the
                 // intended result with result_group.
-                let edge_result_term = self.get_wrong_term(edge.result);
-                let result_term = self.get_wrong_term(*result_group);
-                self.pending.push((edge_result_term, result_term));
+                self.pending.push((edge.result_term, existing_result_term));
                 self.edges[edge_id as usize] = None;
             } else {
-                self.edge_map.insert(edge.key.clone(), edge.result);
+                self.edge_map.insert(edge.key.clone(), edge.result_term);
                 keep_edges.push(edge_id);
             }
         }
 
-        match &mut self.groups[large_group as usize] {
+        match &mut self.groups[new_group as usize] {
             GroupInfoReference::Remapped(_) => panic!("remapped into a remapped group"),
             GroupInfoReference::Present(large_info) => {
                 large_info.terms.extend(info.terms);
                 large_info.edges.extend(keep_edges);
             }
         }
-
-        true
     }
 
     fn clear_pending(&mut self) {
         while let Some((term1, term2)) = self.pending.pop() {
-            self.set_terms_equal_once(term1, term2)
+            self.set_terms_equal_once(term1, term2, None)
         }
     }
 
     // Set two terms to be equal.
     // Doesn't repeat to find the logical closure.
     // For that, use identify_terms.
-    fn set_terms_equal_once(&mut self, term1: TermId, term2: TermId) {
+    fn set_terms_equal_once(&mut self, term1: TermId, term2: TermId, step: Option<StepId>) {
         let group1 = self.get_group_id(term1);
         let info1 = self.get_group_info(group1);
         let group2 = self.get_group_id(term2);
         let info2 = self.get_group_info(group2);
         if info1.heuristic_size() < info2.heuristic_size() {
-            self.remap_group(group1, group2)
+            self.remap_group(term1, group1, term2, group2, step)
         } else {
-            self.remap_group(group2, group1)
+            self.remap_group(term2, group2, term1, group1, step)
         };
     }
 
@@ -467,8 +458,11 @@ impl TermGraph {
 
         for (group_id, group_info) in self.groups.iter().enumerate() {
             let group_info = match group_info {
-                GroupInfoReference::Remapped(remap_info) => {
-                    assert!(remap_info.new_group <= self.groups.len() as GroupId);
+                GroupInfoReference::Remapped(reasoning) => {
+                    assert_eq!(reasoning.old_group, group_id as GroupId);
+                    let current1 = self.get_group_id(reasoning.old_term);
+                    let current2 = self.get_group_id(reasoning.new_term);
+                    assert_eq!(current1, current2);
                     continue;
                 }
                 GroupInfoReference::Present(info) => info,
@@ -483,7 +477,7 @@ impl TermGraph {
                     Some(edge) => edge,
                     None => continue,
                 };
-                assert!(edge.touches_group(group_id as GroupId));
+                assert!(edge.key.touches_group(group_id as GroupId));
             }
         }
 
@@ -492,7 +486,7 @@ impl TermGraph {
                 Some(edge) => edge,
                 None => continue,
             };
-            let groups = edge.groups();
+            let groups = edge.key.groups();
             for group in groups {
                 let info = self.validate_group_id(group);
                 assert!(info.edges.contains(&(edge_id as EdgeId)));
