@@ -79,6 +79,13 @@ impl EdgeKey {
         answer.dedup();
         answer
     }
+
+    fn touches_group(&self, group: GroupId) -> bool {
+        if self.head == group {
+            return true;
+        }
+        self.args.contains(&group)
+    }
 }
 
 impl fmt::Display for EdgeKey {
@@ -109,6 +116,18 @@ impl EdgeInfo {
         if self.result == small_group {
             self.result = large_group;
         }
+    }
+
+    fn touches_group(&self, group: GroupId) -> bool {
+        self.key.touches_group(group) || self.result == group
+    }
+
+    fn groups(&self) -> Vec<GroupId> {
+        let mut answer = self.key.groups();
+        answer.push(self.result);
+        answer.sort();
+        answer.dedup();
+        answer
     }
 }
 
@@ -384,9 +403,64 @@ impl TermGraph {
         }
     }
 
+    // Checks that the group id has not been remapped
+    fn validate_group_id(&self, group_id: GroupId) -> &GroupInfo {
+        assert!(group_id < self.groups.len() as GroupId);
+        match &self.groups[group_id as usize] {
+            GroupInfoReference::Remapped(_) => {
+                panic!("group {} is remapped", group_id)
+            }
+            GroupInfoReference::Present(info) => info,
+        }
+    }
+
+    // Panics if it finds a consistency problem.
+    pub fn validate(&self) {
+        for (term_id, term_info) in self.terms.iter().enumerate() {
+            let info = self.validate_group_id(term_info.group);
+            assert!(info.terms.contains(&(term_id as TermId)));
+        }
+
+        for (group_id, group_info) in self.groups.iter().enumerate() {
+            let group_info = match group_info {
+                GroupInfoReference::Remapped(new_group) => {
+                    assert!(*new_group <= self.groups.len() as GroupId);
+                    continue;
+                }
+                GroupInfoReference::Present(info) => info,
+            };
+            for term_id in &group_info.terms {
+                let term_group = self.terms[*term_id as usize].group;
+                assert_eq!(term_group, group_id as GroupId);
+            }
+            for edge_id in &group_info.edges {
+                let edge = &self.edges[*edge_id as usize];
+                let edge = match edge {
+                    Some(edge) => edge,
+                    None => continue,
+                };
+                assert!(edge.touches_group(group_id as GroupId));
+            }
+        }
+
+        for (edge_id, edge) in self.edges.iter().enumerate() {
+            let edge = match edge {
+                Some(edge) => edge,
+                None => continue,
+            };
+            let groups = edge.groups();
+            for group in groups {
+                let info = self.validate_group_id(group);
+                assert!(info.edges.contains(&(edge_id as EdgeId)));
+            }
+        }
+    }
+
     #[cfg(test)]
     fn insert_str(&mut self, s: &str) -> TermId {
-        self.insert_term(&Term::parse(s))
+        let id = self.insert_term(&Term::parse(s));
+        self.validate();
+        id
     }
 
     #[cfg(test)]
@@ -397,6 +471,7 @@ impl TermGraph {
     #[cfg(test)]
     fn set_eq(&mut self, t1: TermId, t2: TermId) {
         self.set_groups_equal(self.get_group(t1), self.get_group(t2));
+        self.validate();
         self.assert_eq(t1, t2);
     }
 
