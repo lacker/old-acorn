@@ -11,7 +11,7 @@ type TermId = u32;
 
 // To the term graph, the StepId is an opaque identifier used to refer to the reasoning for an action.
 // The term graph uses it to provide a history of the reasoning that led to a conclusion.
-// type StepId = usize;
+type StepId = usize;
 
 // Each term has a Decomposition that describes how it is created.
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
@@ -120,6 +120,7 @@ impl fmt::Display for EdgeKey {
 
 struct EdgeInfo {
     key: EdgeKey,
+    original_term: TermId,
     result: GroupId,
 }
 
@@ -278,11 +279,12 @@ impl TermGraph {
 
     // Adds an edge to the graph.
     // If we should combine groups, add them to the pending list.
-    fn insert_edge(&mut self, head: GroupId, args: Vec<GroupId>, result: GroupId) {
+    fn insert_edge(&mut self, head: GroupId, args: Vec<GroupId>, result_term: TermId) {
+        let result_group = self.get_group(result_term);
         let key = EdgeKey { head, args };
         if let Some(&existing_result) = self.edge_map.get(&key) {
-            if existing_result != result {
-                self.pending.push((existing_result, result));
+            if existing_result != result_group {
+                self.pending.push((existing_result, result_group));
             }
             return;
         }
@@ -290,7 +292,8 @@ impl TermGraph {
         // We need to make a new edge
         let edge_info = EdgeInfo {
             key: key.clone(),
-            result,
+            result: result_group,
+            original_term: result_term,
         };
         for group in edge_info.groups() {
             match &mut self.groups[group as usize] {
@@ -303,7 +306,7 @@ impl TermGraph {
             }
         }
         self.edges.push(Some(edge_info));
-        self.edge_map.insert(key, result);
+        self.edge_map.insert(key, result_group);
         return;
     }
 
@@ -326,8 +329,7 @@ impl TermGraph {
         }
 
         let result_term_id = self.insert_compound(term, head_term_id, arg_term_ids);
-        let result_group_id = self.get_group(result_term_id);
-        self.insert_edge(head_group_id, arg_group_ids, result_group_id);
+        self.insert_edge(head_group_id, arg_group_ids, result_term_id);
         self.clear_pending();
         result_term_id
     }
@@ -398,7 +400,7 @@ impl TermGraph {
     // Doesn't repeat to find the logical closure.
     // For that, use set_groups_equal.
     // Returns true if it's okay; return false if we ran into a contradiction.
-    pub fn set_groups_equal_once(&mut self, group1: GroupId, group2: GroupId) -> bool {
+    fn set_groups_equal_once(&mut self, group1: GroupId, group2: GroupId) -> bool {
         let size1 = match &self.groups[group1 as usize] {
             GroupInfoReference::Remapped(info1) => {
                 return self.set_groups_equal_once(info1.new_group, group2);
@@ -418,9 +420,15 @@ impl TermGraph {
         }
     }
 
-    pub fn set_groups_equal(&mut self, group1: GroupId, group2: GroupId) {
+    fn set_groups_equal(&mut self, group1: GroupId, group2: GroupId) {
         self.pending.push((group1, group2));
         self.clear_pending();
+    }
+
+    pub fn identify_terms(&mut self, term1: TermId, term2: TermId, step: StepId) {
+        let group1 = self.get_group(term1);
+        let group2 = self.get_group(term2);
+        self.set_groups_equal(group1, group2);
     }
 
     pub fn show_graph(&self) {
@@ -502,8 +510,8 @@ impl TermGraph {
     }
 
     #[cfg(test)]
-    fn set_eq(&mut self, t1: TermId, t2: TermId) {
-        self.set_groups_equal(self.get_group(t1), self.get_group(t2));
+    fn set_eq(&mut self, t1: TermId, t2: TermId, step: usize) {
+        self.identify_terms(t1, t2, step);
         self.validate();
         self.assert_eq(t1, t2);
     }
@@ -532,7 +540,7 @@ mod tests {
         let c2id = g.get_str("c2");
         let c4id = g.get_str("c4");
         g.assert_ne(c2id, c4id);
-        g.set_eq(c2id, c4id);
+        g.set_eq(c2id, c4id, 0);
         g.assert_eq(id1, id2);
     }
 
@@ -545,11 +553,11 @@ mod tests {
         let sub1 = g.insert_str("c2(c3, c3)");
         let sub2 = g.get_str("c5");
         g.assert_ne(sub1, sub2);
-        g.set_eq(sub1, sub2);
+        g.set_eq(sub1, sub2, 0);
         let c3 = g.get_str("c3");
         let c4 = g.get_str("c4");
         g.assert_ne(c3, c4);
-        g.set_eq(c3, c4);
+        g.set_eq(c3, c4, 1);
         g.assert_eq(term1, term2);
     }
 
@@ -561,7 +569,7 @@ mod tests {
         g.assert_ne(id1, id2);
         let c1 = g.get_str("c1");
         let c4 = g.get_str("c4");
-        g.set_eq(c1, c4);
+        g.set_eq(c1, c4, 0);
         g.assert_eq(id1, id2);
     }
 }
