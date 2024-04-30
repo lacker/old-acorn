@@ -163,7 +163,7 @@ pub struct TermGraph {
     decompositions: HashMap<Decomposition, TermId>,
 
     // Pairs of terms that we have discovered are identical
-    pending: Vec<(TermId, TermId)>,
+    pending: Vec<(TermId, TermId, Option<StepId>)>,
 }
 
 impl TermGraph {
@@ -284,7 +284,7 @@ impl TermGraph {
         if let Some(&existing_result_term) = self.edge_map.get(&key) {
             let existing_result_group = self.get_group_id(existing_result_term);
             if existing_result_group != result_group {
-                self.pending.push((existing_result_term, result_term));
+                self.pending.push((existing_result_term, result_term, None));
             }
             return;
         }
@@ -382,7 +382,8 @@ impl TermGraph {
                 // An edge for the new relationship already exists.
                 // Instead of inserting edge.result, we need to delete this edge, and merge the
                 // intended result with result_group.
-                self.pending.push((edge.result_term, existing_result_term));
+                self.pending
+                    .push((edge.result_term, existing_result_term, None));
                 self.edges[edge_id as usize] = None;
             } else {
                 self.edge_map.insert(edge.key.clone(), edge.result_term);
@@ -400,8 +401,8 @@ impl TermGraph {
     }
 
     fn clear_pending(&mut self) {
-        while let Some((term1, term2)) = self.pending.pop() {
-            self.set_terms_equal_once(term1, term2, None)
+        while let Some((term1, term2, step)) = self.pending.pop() {
+            self.set_terms_equal_once(term1, term2, step)
         }
     }
 
@@ -421,7 +422,7 @@ impl TermGraph {
     }
 
     pub fn identify_terms(&mut self, term1: TermId, term2: TermId, step: StepId) {
-        self.pending.push((term1, term2));
+        self.pending.push((term1, term2, Some(step)));
         self.clear_pending();
     }
 
