@@ -519,4 +519,16 @@ mod tests {
         g.set_eq(c3, c4);
         g.assert_eq(term1, term2);
     }
+
+    #[test]
+    fn test_identifying_heads() {
+        let mut g = TermGraph::new();
+        let id1 = g.insert_str("c1(c2, c3)");
+        let id2 = g.insert_str("c4(c2, c3)");
+        g.assert_ne(id1, id2);
+        let c1 = g.get_str("c1");
+        let c4 = g.get_str("c4");
+        g.set_eq(c1, c4);
+        g.assert_eq(id1, id2);
+    }
 }
