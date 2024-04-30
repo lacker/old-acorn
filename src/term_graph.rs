@@ -26,6 +26,8 @@ enum Decomposition {
 struct TermInfo {
     term: Term,
     group: GroupId,
+    original_group: GroupId,
+    decomp: Decomposition,
 }
 
 // Each term belongs to a group.
@@ -46,7 +48,7 @@ struct RemapInfo {
 }
 
 struct GroupInfo {
-    // All of the terms that belong to this group.
+    // All of the terms that belong to this group, in the order they were added.
     terms: Vec<TermId>,
 
     // All of the adjacent edges, in any direction.
@@ -233,6 +235,8 @@ impl TermGraph {
         let term_info = TermInfo {
             term: head,
             group: group_id,
+            original_group: group_id,
+            decomp: key.clone(),
         };
         self.terms.push(term_info);
         let group_info = GroupInfoReference::Present(GroupInfo {
@@ -242,6 +246,70 @@ impl TermGraph {
         self.groups.push(group_info);
         self.decompositions.insert(key, term_id);
         term_id
+    }
+
+    // Inserts a compound term.
+    // If it's already in the graph, return the existing term id.
+    // Otherwise, make a new term and group.
+    fn insert_compound(&mut self, term: &Term, head: TermId, args: Vec<TermId>) -> TermId {
+        let key = Decomposition::Compound(head, args);
+        if let Some(&id) = self.decompositions.get(&key) {
+            return id;
+        }
+
+        // Make a new term and group
+        let term_id = self.terms.len() as TermId;
+        let group_id = self.groups.len() as GroupId;
+        let term_info = TermInfo {
+            term: term.clone(),
+            group: group_id,
+            original_group: group_id,
+            decomp: key.clone(),
+        };
+        self.terms.push(term_info);
+        let group_info = GroupInfoReference::Present(GroupInfo {
+            terms: vec![term_id],
+            edges: vec![],
+        });
+        self.groups.push(group_info);
+        self.decompositions.insert(key, term_id);
+        term_id
+    }
+
+    // Adds an edge to the graph.
+    // If we should combine groups, add them to the pending list.
+    fn insert_edge(&mut self, head: GroupId, args: Vec<GroupId>, result: GroupId) {
+        let key = EdgeKey { head, args };
+        let existing_result = match self.edge_map.get(&key) {
+            Some(&id) => id,
+            None => {
+                // We need to make a new edge
+                let edge_info = EdgeInfo {
+                    key: key.clone(),
+                    result,
+                };
+                for group in edge_info.groups() {
+                    match &mut self.groups[group as usize] {
+                        GroupInfoReference::Remapped(_) => {
+                            panic!("edge refers to a remapped group");
+                        }
+                        GroupInfoReference::Present(info) => {
+                            info.edges.push(self.edges.len() as EdgeId);
+                        }
+                    }
+                }
+                self.edges.push(Some(edge_info));
+                self.edge_map.insert(key, result);
+                return;
+            }
+        };
+
+        if existing_result == result {
+            // This exact edge is already there
+            return;
+        }
+
+        self.pending.push((existing_result, result));
     }
 
     // Inserts a term.
@@ -307,6 +375,10 @@ impl TermGraph {
         let term_info = TermInfo {
             term: term.clone(),
             group: group_id,
+
+            // TODO: this data is wrong
+            original_group: 0,
+            decomp: key,
         };
         self.terms.push(term_info);
 
