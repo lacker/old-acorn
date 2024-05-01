@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt;
+use std::hash::Hash;
 
 use crate::atom::Atom;
 use crate::term::Term;
@@ -28,6 +29,10 @@ struct TermInfo {
     group: GroupId,
     original_group: GroupId,
     decomp: Decomposition,
+
+    // The terms that this one can be directly turned into.
+    // When the step id is not provided, we concluded it from composition.
+    adjacent: Vec<(TermId, Option<StepId>)>,
 }
 
 // Each term belongs to a group.
@@ -238,6 +243,7 @@ impl TermGraph {
             group: group_id,
             original_group: group_id,
             decomp: key.clone(),
+            adjacent: vec![],
         };
         self.terms.push(term_info);
         let group_info = GroupInfoReference::Present(GroupInfo {
@@ -266,6 +272,7 @@ impl TermGraph {
             group: group_id,
             original_group: group_id,
             decomp: key.clone(),
+            adjacent: vec![],
         };
         self.terms.push(term_info);
         let group_info = GroupInfoReference::Present(GroupInfo {
@@ -400,6 +407,13 @@ impl TermGraph {
                 large_info.compounds.extend(keep_compounds);
             }
         }
+
+        self.terms[old_term as usize]
+            .adjacent
+            .push((new_term, step));
+        self.terms[new_term as usize]
+            .adjacent
+            .push((old_term, step));
     }
 
     fn clear_pending(&mut self) {
@@ -428,115 +442,84 @@ impl TermGraph {
         self.clear_pending();
     }
 
-    // The reasoning for why this term is in its current group.
-    // This is a list of Reasoning objects. Its properties are a bit confusing.
-    //
-    // For each pair (r1, r2) of consecutive Reasoning objects, r1.new_term = r2.old_term.
-    // In the final Reasoning object, new_term is the representative term for the group.
-    //
-    // This is the shortest path between the term and the representative, among paths
-    // that can be represented this way as sequences of Reasoning objects.
-    // That's because the reasoning is a tree, and so any path that doesn't backtrack is
-    // a shortest path.
-    fn get_reasoning(&self, term: TermId) -> Vec<&Reasoning> {
-        let mut answer = vec![];
+    fn as_compound(&self, term: TermId) -> (TermId, &Vec<TermId>) {
+        match &self.terms[term as usize].decomp {
+            Decomposition::Compound(head, args) => (*head, args),
+            _ => panic!("not a compound"),
+        }
+    }
 
-        let mut term = term;
+    // Gets a step of edges that demonstrate that term1 and term2 are equal.
+    // Panics if there is no path.
+    fn get_path(&self, term1: TermId, term2: TermId) -> Vec<(TermId, TermId, Option<StepId>)> {
+        if term1 == term2 {
+            return vec![];
+        }
 
-        loop {
-            let original_group = self.terms[term as usize].original_group;
-            match &self.groups[original_group as usize] {
-                GroupInfoReference::Remapped(reasoning) => {
-                    answer.push(reasoning);
-                    assert_eq!(reasoning.old_term, term);
-                    term = reasoning.new_term;
+        // Find paths that lead to term2 from everywhere.
+        // predecessor maps term_a -> (term_b, step) where the edge
+        //   (term_a, term_b, step)
+        // is the first edge to get to term2 from term_a.
+        let mut next_edge = HashMap::new();
+
+        let mut queue = vec![term2];
+        'outer: loop {
+            let term_b = match queue.pop() {
+                Some(term_b) => term_b,
+                None => panic!("no path between terms"),
+            };
+            for (term_a, step) in &self.terms[term_b as usize].adjacent {
+                if next_edge.contains_key(term_a) {
+                    // We already have a way to get from term_a to term2
+                    continue;
                 }
-                GroupInfoReference::Present(_) => {
-                    break;
+                next_edge.insert(*term_a, (term_b, *step));
+                if *term_a == term1 {
+                    break 'outer;
                 }
+                queue.push(*term_a);
             }
+        }
+
+        let mut answer = vec![];
+        let mut term_a = term1;
+        while term_a != term2 {
+            let (term_b, step) = next_edge[&term_a];
+            answer.push((term_a, term_b, step));
+            term_a = term_b;
         }
         answer
     }
 
-    // Find a chain of reasoning that leads us to believe that these two terms are equal,
-    // and add its steps to the provided vector.
-    fn get_equality_steps(&self, term1: TermId, term2: TermId, steps: &mut Vec<StepId>) {
+    fn get_steps_helper(&self, term1: TermId, term2: TermId, answer: &mut BTreeSet<StepId>) {
         if term1 == term2 {
             return;
         }
-
-        let mut reasoning1 = self.get_reasoning(term1);
-        let mut reasoning2 = self.get_reasoning(term2);
-
-        // Eliminate backtracking. That makes this the shortest path.
-        loop {
-            match (reasoning1.last(), reasoning2.last()) {
-                (Some(r1), Some(r2)) => {
-                    if r1.old_group == r2.old_group {
-                        // We don't need this last step, because it's the same for both.
-                        reasoning1.pop();
-                        reasoning2.pop();
-                        continue;
+        let path = self.get_path(term1, term2);
+        for (term_a, term_b, step) in path {
+            match step {
+                Some(step) => {
+                    answer.insert(step);
+                }
+                None => {
+                    let (head_a, args_a) = self.as_compound(term_a);
+                    let (head_b, args_b) = self.as_compound(term_b);
+                    assert_eq!(args_a.len(), args_b.len());
+                    self.get_steps_helper(head_a, head_b, answer);
+                    for (arg_a, arg_b) in args_a.iter().zip(args_b.iter()) {
+                        self.get_steps_helper(*arg_a, *arg_b, answer);
                     }
                 }
-                _ => {}
-            };
-            break;
-        }
-
-        println!(
-            "XXX reasoning for t{} = t{}: {:?} + {:?}",
-            term1, term2, reasoning1, reasoning2
-        );
-
-        for r in reasoning1 {
-            self.get_reasoning_steps(&r, steps);
-        }
-        for r in reasoning2 {
-            self.get_reasoning_steps(&r, steps);
-        }
-    }
-
-    // Panics if called on a non-compound term
-    fn as_compound(&self, term_id: TermId) -> (TermId, &Vec<TermId>) {
-        match &self.terms[term_id as usize].decomp {
-            Decomposition::Atomic(_) => panic!("not a compound term"),
-            Decomposition::Compound(head, args) => (*head, &args),
-        }
-    }
-
-    // Extract a list of steps that we used for this reasoning.
-    // Does not deduplicate.
-    fn get_reasoning_steps(&self, reasoning: &Reasoning, steps: &mut Vec<StepId>) {
-        if let Some(step) = reasoning.step {
-            // This is a direct step
-            steps.push(step);
-            return;
-        }
-
-        // This is an indirect step, using the decompositions to prove these terms
-        // are equal.
-        // Recurse based on the decompositions.
-        let (old_head, old_args) = self.as_compound(reasoning.old_term);
-        let (new_head, new_args) = self.as_compound(reasoning.new_term);
-        if old_args.len() != new_args.len() {
-            panic!("different number of arguments");
-        }
-        self.get_equality_steps(old_head, new_head, steps);
-        for (old_arg, new_arg) in old_args.iter().zip(new_args.iter()) {
-            self.get_equality_steps(*old_arg, *new_arg, steps);
+            }
         }
     }
 
     // Extract a list of steps that we used to prove that these two terms are equal.
     // This does deduplicate.
     pub fn get_steps(&self, term1: TermId, term2: TermId) -> Vec<StepId> {
-        let mut answer = vec![];
-        self.get_equality_steps(term1, term2, &mut answer);
-        answer.sort();
-        answer.dedup();
-        answer
+        let mut answer = BTreeSet::new();
+        self.get_steps_helper(term1, term2, &mut answer);
+        answer.into_iter().collect()
     }
 
     pub fn show_graph(&self) {
