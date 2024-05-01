@@ -27,7 +27,6 @@ enum Decomposition {
 struct TermInfo {
     term: Term,
     group: GroupId,
-    original_group: GroupId,
     decomp: Decomposition,
 
     // The terms that this one can be directly turned into.
@@ -241,7 +240,6 @@ impl TermGraph {
         let term_info = TermInfo {
             term: head,
             group: group_id,
-            original_group: group_id,
             decomp: key.clone(),
             adjacent: vec![],
         };
@@ -270,7 +268,6 @@ impl TermGraph {
         let term_info = TermInfo {
             term: term.clone(),
             group: group_id,
-            original_group: group_id,
             decomp: key.clone(),
             adjacent: vec![],
         };
