@@ -41,29 +41,10 @@ type GroupId = u32;
 // When groups are combined, we point the old one to the new one
 enum GroupInfoReference {
     // The new group, along with the reasoning for the remap
-    Remapped(Reasoning),
+    Remapped,
 
     // The information for the existing group
     Present(GroupInfo),
-}
-
-// The reasoning that led us to combine two groups.
-// Reasoning is always based on terms. When we learn that two terms from different groups are
-// identical, we combine the groups that they belong to.
-#[derive(Debug, Clone)]
-struct Reasoning {
-    // The old group is the one we eliminated, and the old term is the representative we used.
-    old_term: TermId,
-    old_group: GroupId,
-
-    // The new group is the one that we created, and the new term is the representative we used.
-    new_term: TermId,
-    new_group: GroupId,
-
-    // If step is set, we combined these groups because we were explicitly instructed in this step
-    // that these two terms are equal.
-    // If step is not set, this is a recursive reasoning based on the decomposition of the terms.
-    step: Option<StepId>,
 }
 
 struct GroupInfo {
@@ -213,7 +194,7 @@ impl TermGraph {
 
     fn get_group_info(&self, group_id: GroupId) -> &GroupInfo {
         match &self.groups[group_id as usize] {
-            GroupInfoReference::Remapped(_) => panic!("group is remapped"),
+            GroupInfoReference::Remapped => panic!("group is remapped"),
             GroupInfoReference::Present(info) => info,
         }
     }
@@ -301,7 +282,7 @@ impl TermGraph {
         };
         for group in key.groups() {
             match &mut self.groups[group as usize] {
-                GroupInfoReference::Remapped(_) => {
+                GroupInfoReference::Remapped => {
                     panic!("compound info refers to a remapped group");
                 }
                 GroupInfoReference::Present(info) => {
@@ -347,17 +328,10 @@ impl TermGraph {
         new_group: GroupId,
         step: Option<StepId>,
     ) {
-        let reasoning = Reasoning {
-            old_term,
-            old_group,
-            new_term,
-            new_group,
-            step,
-        };
-        let mut info_ref = GroupInfoReference::Remapped(reasoning);
+        let mut info_ref = GroupInfoReference::Remapped;
         std::mem::swap(&mut self.groups[old_group as usize], &mut info_ref);
         let info = match info_ref {
-            GroupInfoReference::Remapped(_) => panic!("remapped from a remapped group"),
+            GroupInfoReference::Remapped => panic!("remapped from a remapped group"),
             GroupInfoReference::Present(info) => info,
         };
 
@@ -398,7 +372,7 @@ impl TermGraph {
         }
 
         match &mut self.groups[new_group as usize] {
-            GroupInfoReference::Remapped(_) => panic!("remapped into a remapped group"),
+            GroupInfoReference::Remapped => panic!("remapped into a remapped group"),
             GroupInfoReference::Present(large_info) => {
                 large_info.terms.extend(info.terms);
                 large_info.compounds.extend(keep_compounds);
@@ -536,25 +510,10 @@ impl TermGraph {
     fn validate_group_id(&self, group_id: GroupId) -> &GroupInfo {
         assert!(group_id < self.groups.len() as GroupId);
         match &self.groups[group_id as usize] {
-            GroupInfoReference::Remapped(_) => {
+            GroupInfoReference::Remapped => {
                 panic!("group {} is remapped", group_id)
             }
             GroupInfoReference::Present(info) => info,
-        }
-    }
-
-    // Finds the current group id for a group that might have been remapped.
-    fn current_group_id(&self, group_id: GroupId) -> GroupId {
-        let mut answer = group_id;
-        loop {
-            match &self.groups[answer as usize] {
-                GroupInfoReference::Remapped(reasoning) => {
-                    answer = reasoning.new_group;
-                }
-                GroupInfoReference::Present(_) => {
-                    return answer;
-                }
-            }
         }
     }
 
@@ -567,12 +526,7 @@ impl TermGraph {
 
         for (group_id, group_info) in self.groups.iter().enumerate() {
             let group_info = match group_info {
-                GroupInfoReference::Remapped(reasoning) => {
-                    assert_eq!(reasoning.old_group, group_id as GroupId);
-                    let current1 = self.get_group_id(reasoning.old_term);
-                    let current2 = self.get_group_id(reasoning.new_term);
-                    assert_eq!(current1, current2);
-                    assert_eq!(current1, self.current_group_id(reasoning.new_group));
+                GroupInfoReference::Remapped => {
                     continue;
                 }
                 GroupInfoReference::Present(info) => info,
