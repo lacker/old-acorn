@@ -66,29 +66,29 @@ struct GroupInfo {
     // All of the terms that belong to this group, in the order they were added.
     terms: Vec<TermId>,
 
-    // All of the edges that use this group in the key.
-    // This might include references to deleted edges. They are only cleaned up lazily.
-    edges: Vec<EdgeId>,
+    // Each way to create a term of this group by composing subterms from other groups.
+    // This might include references to deleted compounds. They are only cleaned up lazily.
+    compounds: Vec<CompoundId>,
 }
 
 impl GroupInfo {
     fn heuristic_size(&self) -> usize {
-        self.terms.len() + self.edges.len()
+        self.terms.len() + self.compounds.len()
     }
 }
 
-// Each relation between terms implies a relation between groups.
-// The relation among groups is called an "edge".
-// You could call it a "hyperedge" but that feels a bit too fancy.
-type EdgeId = u32;
+// Each composition relation between terms implies a composition relation between groups.
+// The composition relations between groups each get their own id, so we can update them when
+// we combine groups.
+type CompoundId = u32;
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
-struct EdgeKey {
+struct CompoundKey {
     head: GroupId,
     args: Vec<GroupId>,
 }
 
-impl EdgeKey {
+impl CompoundKey {
     fn remap_group(&mut self, small_group: GroupId, large_group: GroupId) {
         if self.head == small_group {
             self.head = large_group;
@@ -116,7 +116,7 @@ impl EdgeKey {
     }
 }
 
-impl fmt::Display for EdgeKey {
+impl fmt::Display for CompoundKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.head)?;
         if !self.args.is_empty() {
@@ -133,12 +133,12 @@ impl fmt::Display for EdgeKey {
     }
 }
 
-struct EdgeInfo {
-    key: EdgeKey,
+struct CompoundInfo {
+    key: CompoundKey,
     result_term: TermId,
 }
 
-impl fmt::Display for EdgeInfo {
+impl fmt::Display for CompoundInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "key {} -> term {}", self.key, self.result_term)
     }
@@ -153,12 +153,12 @@ pub struct TermGraph {
     // groups maps GroupId to GroupInfo.
     groups: Vec<GroupInfoReference>,
 
-    // edges maps EdgeId to EdgeInfo.
-    // When an edge is deleted, we replace it with None.
-    edges: Vec<Option<EdgeInfo>>,
+    // compounds maps CompoundId to CompoundInfo.
+    // When a compound is deleted, we replace it with None.
+    compounds: Vec<Option<CompoundInfo>>,
 
-    // An alternate way of keying the information in edges, by head+args.
-    edge_map: HashMap<EdgeKey, TermId>,
+    // Keying the compounds so that we can check if a composition belongs to an existing group.
+    compound_map: HashMap<CompoundKey, TermId>,
 
     // Each term has its decomposition stored so that we can look it back up again
     decompositions: HashMap<Decomposition, TermId>,
@@ -172,8 +172,8 @@ impl TermGraph {
         TermGraph {
             terms: Vec::new(),
             groups: Vec::new(),
-            edges: Vec::new(),
-            edge_map: HashMap::new(),
+            compounds: Vec::new(),
+            compound_map: HashMap::new(),
             decompositions: HashMap::new(),
             pending: Vec::new(),
         }
@@ -242,17 +242,17 @@ impl TermGraph {
         self.terms.push(term_info);
         let group_info = GroupInfoReference::Present(GroupInfo {
             terms: vec![term_id],
-            edges: vec![],
+            compounds: vec![],
         });
         self.groups.push(group_info);
         self.decompositions.insert(key, term_id);
         term_id
     }
 
-    // Inserts a compound term.
+    // Inserts a term composition relationship.
     // If it's already in the graph, return the existing term id.
     // Otherwise, make a new term and group.
-    fn insert_compound(&mut self, term: &Term, head: TermId, args: Vec<TermId>) -> TermId {
+    fn insert_term_compound(&mut self, term: &Term, head: TermId, args: Vec<TermId>) -> TermId {
         let key = Decomposition::Compound(head, args);
         if let Some(&id) = self.decompositions.get(&key) {
             return id;
@@ -270,19 +270,19 @@ impl TermGraph {
         self.terms.push(term_info);
         let group_info = GroupInfoReference::Present(GroupInfo {
             terms: vec![term_id],
-            edges: vec![],
+            compounds: vec![],
         });
         self.groups.push(group_info);
         self.decompositions.insert(key, term_id);
         term_id
     }
 
-    // Adds an edge to the graph.
+    // Adds a group composition relationship.
     // If we should combine groups, add them to the pending list.
-    fn insert_edge(&mut self, head: GroupId, args: Vec<GroupId>, result_term: TermId) {
+    fn insert_group_compound(&mut self, head: GroupId, args: Vec<GroupId>, result_term: TermId) {
         let result_group = self.get_group_id(result_term);
-        let key = EdgeKey { head, args };
-        if let Some(&existing_result_term) = self.edge_map.get(&key) {
+        let key = CompoundKey { head, args };
+        if let Some(&existing_result_term) = self.compound_map.get(&key) {
             let existing_result_group = self.get_group_id(existing_result_term);
             if existing_result_group != result_group {
                 self.pending.push((existing_result_term, result_term, None));
@@ -290,28 +290,28 @@ impl TermGraph {
             return;
         }
 
-        // We need to make a new edge
-        let edge_info = EdgeInfo {
+        // We need to make a new relatinoship
+        let compound_info = CompoundInfo {
             key: key.clone(),
             result_term,
         };
         for group in key.groups() {
             match &mut self.groups[group as usize] {
                 GroupInfoReference::Remapped(_) => {
-                    panic!("edge refers to a remapped group");
+                    panic!("compound info refers to a remapped group");
                 }
                 GroupInfoReference::Present(info) => {
-                    info.edges.push(self.edges.len() as EdgeId);
+                    info.compounds.push(self.compounds.len() as CompoundId);
                 }
             }
         }
-        self.edges.push(Some(edge_info));
-        self.edge_map.insert(key, result_term);
+        self.compounds.push(Some(compound_info));
+        self.compound_map.insert(key, result_term);
         return;
     }
 
     // Inserts a term.
-    // Makes a new term, group, and edge if necessary.
+    // Makes a new term, group, and compound if necessary.
     pub fn insert_term(&mut self, term: &Term) -> TermId {
         let head_term_id = self.insert_head(term);
         if term.args.is_empty() {
@@ -328,8 +328,8 @@ impl TermGraph {
             arg_group_ids.push(arg_group_id);
         }
 
-        let result_term_id = self.insert_compound(term, head_term_id, arg_term_ids);
-        self.insert_edge(head_group_id, arg_group_ids, result_term_id);
+        let result_term_id = self.insert_term_compound(term, head_term_id, arg_term_ids);
+        self.insert_group_compound(head_group_id, arg_group_ids, result_term_id);
         self.clear_pending();
         result_term_id
     }
@@ -361,34 +361,35 @@ impl TermGraph {
             self.terms[term_id as usize].group = new_group;
         }
 
-        let mut keep_edges = vec![];
-        for edge_id in info.edges {
+        let mut keep_compounds = vec![];
+        for compound_id in info.compounds {
             {
-                let edge = match &mut self.edges[edge_id as usize] {
-                    Some(edge) => edge,
+                let compound = match &mut self.compounds[compound_id as usize] {
+                    Some(compound) => compound,
                     None => {
-                        // This edge has already been deleted.
+                        // This compound has already been deleted.
                         // Time to lazily delete the reference to it.
                         continue;
                     }
                 };
-                self.edge_map.remove(&edge.key);
-                edge.key.remap_group(old_group, new_group);
+                self.compound_map.remove(&compound.key);
+                compound.key.remap_group(old_group, new_group);
             }
-            let edge = match &self.edges[edge_id as usize] {
-                Some(edge) => edge,
+            let compound = match &self.compounds[compound_id as usize] {
+                Some(compound) => compound,
                 None => panic!("how does this happen"),
             };
-            if let Some(&existing_result_term) = self.edge_map.get(&edge.key) {
-                // An edge for the new relationship already exists.
-                // Instead of inserting edge.result, we need to delete this edge, and merge the
+            if let Some(&existing_result_term) = self.compound_map.get(&compound.key) {
+                // An compound for the new relationship already exists.
+                // Instead of inserting compound.result, we need to delete this compound, and merge the
                 // intended result with result_group.
                 self.pending
-                    .push((edge.result_term, existing_result_term, None));
-                self.edges[edge_id as usize] = None;
+                    .push((compound.result_term, existing_result_term, None));
+                self.compounds[compound_id as usize] = None;
             } else {
-                self.edge_map.insert(edge.key.clone(), edge.result_term);
-                keep_edges.push(edge_id);
+                self.compound_map
+                    .insert(compound.key.clone(), compound.result_term);
+                keep_compounds.push(compound_id);
             }
         }
 
@@ -396,7 +397,7 @@ impl TermGraph {
             GroupInfoReference::Remapped(_) => panic!("remapped into a remapped group"),
             GroupInfoReference::Present(large_info) => {
                 large_info.terms.extend(info.terms);
-                large_info.edges.extend(keep_edges);
+                large_info.compounds.extend(keep_compounds);
             }
         }
     }
@@ -447,6 +448,7 @@ impl TermGraph {
             match &self.groups[original_group as usize] {
                 GroupInfoReference::Remapped(reasoning) => {
                     answer.push(reasoning);
+                    assert_eq!(reasoning.old_term, term);
                     term = reasoning.new_term;
                 }
                 GroupInfoReference::Present(_) => {
@@ -482,6 +484,11 @@ impl TermGraph {
             };
             break;
         }
+
+        println!(
+            "XXX reasoning for t{} = t{}: {:?} + {:?}",
+            term1, term2, reasoning1, reasoning2
+        );
 
         for r in reasoning1 {
             self.get_reasoning_steps(&r, steps);
@@ -537,10 +544,10 @@ impl TermGraph {
         for (i, term_info) in self.terms.iter().enumerate() {
             println!("term {}, group {}: {}", i, term_info.group, term_info.term);
         }
-        println!("edges:");
-        for edge in &self.edges {
-            if let Some(edge) = edge {
-                println!("{}", edge);
+        println!("compounds:");
+        for compound in &self.compounds {
+            if let Some(compound) = compound {
+                println!("{}", compound);
             }
         }
     }
@@ -594,25 +601,25 @@ impl TermGraph {
                 let term_group = self.terms[*term_id as usize].group;
                 assert_eq!(term_group, group_id as GroupId);
             }
-            for edge_id in &group_info.edges {
-                let edge = &self.edges[*edge_id as usize];
-                let edge = match edge {
-                    Some(edge) => edge,
+            for compound_id in &group_info.compounds {
+                let compound = &self.compounds[*compound_id as usize];
+                let compound = match compound {
+                    Some(compound) => compound,
                     None => continue,
                 };
-                assert!(edge.key.touches_group(group_id as GroupId));
+                assert!(compound.key.touches_group(group_id as GroupId));
             }
         }
 
-        for (edge_id, edge) in self.edges.iter().enumerate() {
-            let edge = match edge {
-                Some(edge) => edge,
+        for (compound_id, compound) in self.compounds.iter().enumerate() {
+            let compound = match compound {
+                Some(compound) => compound,
                 None => continue,
             };
-            let groups = edge.key.groups();
+            let groups = compound.key.groups();
             for group in groups {
                 let info = self.validate_group_id(group);
-                assert!(info.edges.contains(&(edge_id as EdgeId)));
+                assert!(info.compounds.contains(&(compound_id as CompoundId)));
             }
         }
     }
@@ -662,6 +669,7 @@ mod tests {
         g.assert_ne(c2id, c4id);
         g.set_eq(c2id, c4id, 0);
         g.assert_eq(id1, id2);
+        assert_eq!(g.get_steps(id1, id2), vec![0]);
     }
 
     #[test]
@@ -679,6 +687,7 @@ mod tests {
         g.assert_ne(c3, c4);
         g.set_eq(c3, c4, 1);
         g.assert_eq(term1, term2);
+        assert_eq!(g.get_steps(term1, term2), vec![0, 1]);
     }
 
     #[test]
@@ -691,5 +700,24 @@ mod tests {
         let c4 = g.get_str("c4");
         g.set_eq(c1, c4, 0);
         g.assert_eq(id1, id2);
+        assert_eq!(g.get_steps(id1, id2), vec![0]);
+    }
+
+    #[test]
+    fn test_skipping_unneeded_steps() {
+        let mut g = TermGraph::new();
+        let c0 = g.insert_str("c0");
+        let c1 = g.insert_str("c1");
+        let c2 = g.insert_str("c2");
+        let c3 = g.insert_str("c3");
+        let c4 = g.insert_str("c4");
+        let c5 = g.insert_str("c5");
+        g.set_eq(c1, c2, 0);
+        g.set_eq(c4, c5, 1);
+        g.set_eq(c0, c1, 2);
+        g.set_eq(c3, c4, 3);
+        g.set_eq(c0, c3, 4);
+        g.show_graph();
+        assert_eq!(g.get_steps(c0, c3), vec![4]);
     }
 }
