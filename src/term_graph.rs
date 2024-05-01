@@ -38,15 +38,6 @@ struct TermInfo {
 // Terms that belong to the same group are equal.
 type GroupId = u32;
 
-// When groups are combined, we point the old one to the new one
-enum GroupInfoReference {
-    // The new group, along with the reasoning for the remap
-    Remapped,
-
-    // The information for the existing group
-    Present(GroupInfo),
-}
-
 struct GroupInfo {
     // All of the terms that belong to this group, in the order they were added.
     terms: Vec<TermId>,
@@ -136,7 +127,7 @@ pub struct TermGraph {
     terms: Vec<TermInfo>,
 
     // groups maps GroupId to GroupInfo.
-    groups: Vec<GroupInfoReference>,
+    groups: Vec<Option<GroupInfo>>,
 
     // compounds maps CompoundId to CompoundInfo.
     // When a compound is deleted, we replace it with None.
@@ -194,8 +185,8 @@ impl TermGraph {
 
     fn get_group_info(&self, group_id: GroupId) -> &GroupInfo {
         match &self.groups[group_id as usize] {
-            GroupInfoReference::Remapped => panic!("group is remapped"),
-            GroupInfoReference::Present(info) => info,
+            None => panic!("group is remapped"),
+            Some(info) => info,
         }
     }
 
@@ -225,7 +216,7 @@ impl TermGraph {
             adjacent: vec![],
         };
         self.terms.push(term_info);
-        let group_info = GroupInfoReference::Present(GroupInfo {
+        let group_info = Some(GroupInfo {
             terms: vec![term_id],
             compounds: vec![],
         });
@@ -253,7 +244,7 @@ impl TermGraph {
             adjacent: vec![],
         };
         self.terms.push(term_info);
-        let group_info = GroupInfoReference::Present(GroupInfo {
+        let group_info = Some(GroupInfo {
             terms: vec![term_id],
             compounds: vec![],
         });
@@ -282,10 +273,10 @@ impl TermGraph {
         };
         for group in key.groups() {
             match &mut self.groups[group as usize] {
-                GroupInfoReference::Remapped => {
+                None => {
                     panic!("compound info refers to a remapped group");
                 }
-                GroupInfoReference::Present(info) => {
+                Some(info) => {
                     info.compounds.push(self.compounds.len() as CompoundId);
                 }
             }
@@ -328,11 +319,11 @@ impl TermGraph {
         new_group: GroupId,
         step: Option<StepId>,
     ) {
-        let mut info_ref = GroupInfoReference::Remapped;
+        let mut info_ref = None;
         std::mem::swap(&mut self.groups[old_group as usize], &mut info_ref);
         let info = match info_ref {
-            GroupInfoReference::Remapped => panic!("remapped from a remapped group"),
-            GroupInfoReference::Present(info) => info,
+            None => panic!("remapped from a remapped group"),
+            Some(info) => info,
         };
 
         for &term_id in &info.terms {
@@ -372,8 +363,8 @@ impl TermGraph {
         }
 
         match &mut self.groups[new_group as usize] {
-            GroupInfoReference::Remapped => panic!("remapped into a remapped group"),
-            GroupInfoReference::Present(large_info) => {
+            None => panic!("remapped into a remapped group"),
+            Some(large_info) => {
                 large_info.terms.extend(info.terms);
                 large_info.compounds.extend(keep_compounds);
             }
@@ -510,10 +501,10 @@ impl TermGraph {
     fn validate_group_id(&self, group_id: GroupId) -> &GroupInfo {
         assert!(group_id < self.groups.len() as GroupId);
         match &self.groups[group_id as usize] {
-            GroupInfoReference::Remapped => {
+            None => {
                 panic!("group {} is remapped", group_id)
             }
-            GroupInfoReference::Present(info) => info,
+            Some(info) => info,
         }
     }
 
@@ -526,10 +517,10 @@ impl TermGraph {
 
         for (group_id, group_info) in self.groups.iter().enumerate() {
             let group_info = match group_info {
-                GroupInfoReference::Remapped => {
+                None => {
                     continue;
                 }
-                GroupInfoReference::Present(info) => info,
+                Some(info) => info,
             };
             for term_id in &group_info.terms {
                 let term_group = self.terms[*term_id as usize].group;
