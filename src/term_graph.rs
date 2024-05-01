@@ -46,6 +46,7 @@ enum GroupInfoReference {
 // The reasoning that led us to combine two groups.
 // Reasoning is always based on terms. When we learn that two terms from different groups are
 // identical, we combine the groups that they belong to.
+#[derive(Debug, Clone)]
 struct Reasoning {
     // The old group is the one we eliminated, and the old term is the representative we used.
     old_term: TermId,
@@ -426,6 +427,111 @@ impl TermGraph {
         self.clear_pending();
     }
 
+    // The reasoning for why this term is in its current group.
+    // This is a list of Reasoning objects. Its properties are a bit confusing.
+    //
+    // For each pair (r1, r2) of consecutive Reasoning objects, r1.new_term = r2.old_term.
+    // In the final Reasoning object, new_term is the representative term for the group.
+    //
+    // This is the shortest path between the term and the representative, among paths
+    // that can be represented this way as sequences of Reasoning objects.
+    // That's because the reasoning is a tree, and so any path that doesn't backtrack is
+    // a shortest path.
+    fn get_reasoning(&self, term: TermId) -> Vec<&Reasoning> {
+        let mut answer = vec![];
+
+        let mut term = term;
+
+        loop {
+            let original_group = self.terms[term as usize].original_group;
+            match &self.groups[original_group as usize] {
+                GroupInfoReference::Remapped(reasoning) => {
+                    answer.push(reasoning);
+                    term = reasoning.new_term;
+                }
+                GroupInfoReference::Present(_) => {
+                    break;
+                }
+            }
+        }
+        answer
+    }
+
+    // Find a chain of reasoning that leads us to believe that these two terms are equal,
+    // and add its steps to the provided vector.
+    fn get_equality_steps(&self, term1: TermId, term2: TermId, steps: &mut Vec<StepId>) {
+        if term1 == term2 {
+            return;
+        }
+
+        let mut reasoning1 = self.get_reasoning(term1);
+        let mut reasoning2 = self.get_reasoning(term2);
+
+        // Eliminate backtracking. That makes this the shortest path.
+        loop {
+            match (reasoning1.last(), reasoning2.last()) {
+                (Some(r1), Some(r2)) => {
+                    if r1.old_group == r2.old_group {
+                        // We don't need this last step, because it's the same for both.
+                        reasoning1.pop();
+                        reasoning2.pop();
+                        continue;
+                    }
+                }
+                _ => {}
+            };
+            break;
+        }
+
+        for r in reasoning1 {
+            self.get_reasoning_steps(&r, steps);
+        }
+        for r in reasoning2 {
+            self.get_reasoning_steps(&r, steps);
+        }
+    }
+
+    // Panics if called on a non-compound term
+    fn as_compound(&self, term_id: TermId) -> (TermId, &Vec<TermId>) {
+        match &self.terms[term_id as usize].decomp {
+            Decomposition::Atomic(_) => panic!("not a compound term"),
+            Decomposition::Compound(head, args) => (*head, &args),
+        }
+    }
+
+    // Extract a list of steps that we used for this reasoning.
+    // Does not deduplicate.
+    fn get_reasoning_steps(&self, reasoning: &Reasoning, steps: &mut Vec<StepId>) {
+        if let Some(step) = reasoning.step {
+            // This is a direct step
+            steps.push(step);
+            return;
+        }
+
+        // This is an indirect step, using the decompositions to prove these terms
+        // are equal.
+        // Recurse based on the decompositions.
+        let (old_head, old_args) = self.as_compound(reasoning.old_term);
+        let (new_head, new_args) = self.as_compound(reasoning.new_term);
+        if old_args.len() != new_args.len() {
+            panic!("different number of arguments");
+        }
+        self.get_equality_steps(old_head, new_head, steps);
+        for (old_arg, new_arg) in old_args.iter().zip(new_args.iter()) {
+            self.get_equality_steps(*old_arg, *new_arg, steps);
+        }
+    }
+
+    // Extract a list of steps that we used to prove that these two terms are equal.
+    // This does deduplicate.
+    pub fn get_steps(&self, term1: TermId, term2: TermId) -> Vec<StepId> {
+        let mut answer = vec![];
+        self.get_equality_steps(term1, term2, &mut answer);
+        answer.sort();
+        answer.dedup();
+        answer
+    }
+
     pub fn show_graph(&self) {
         println!("terms:");
         for (i, term_info) in self.terms.iter().enumerate() {
@@ -450,6 +556,21 @@ impl TermGraph {
         }
     }
 
+    // Finds the current group id for a group that might have been remapped.
+    fn current_group_id(&self, group_id: GroupId) -> GroupId {
+        let mut answer = group_id;
+        loop {
+            match &self.groups[answer as usize] {
+                GroupInfoReference::Remapped(reasoning) => {
+                    answer = reasoning.new_group;
+                }
+                GroupInfoReference::Present(_) => {
+                    return answer;
+                }
+            }
+        }
+    }
+
     // Panics if it finds a consistency problem.
     pub fn validate(&self) {
         for (term_id, term_info) in self.terms.iter().enumerate() {
@@ -464,6 +585,7 @@ impl TermGraph {
                     let current1 = self.get_group_id(reasoning.old_term);
                     let current2 = self.get_group_id(reasoning.new_term);
                     assert_eq!(current1, current2);
+                    assert_eq!(current1, self.current_group_id(reasoning.new_group));
                     continue;
                 }
                 GroupInfoReference::Present(info) => info,
