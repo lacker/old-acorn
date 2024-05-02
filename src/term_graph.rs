@@ -45,6 +45,11 @@ struct GroupInfo {
     // Each way to create a term of this group by composing subterms from other groups.
     // This might include references to deleted compounds. They are only cleaned up lazily.
     compounds: Vec<CompoundId>,
+
+    // The other groups that we know are not equal to this one.
+    // For each inequality, we store the two terms that we know are not equal,
+    // along with the step that we know it from.
+    inequalities: HashMap<GroupId, (TermId, TermId, StepId)>,
 }
 
 impl GroupInfo {
@@ -219,6 +224,7 @@ impl TermGraph {
         let group_info = Some(GroupInfo {
             terms: vec![term_id],
             compounds: vec![],
+            inequalities: HashMap::new(),
         });
         self.groups.push(group_info);
         self.decompositions.insert(key, term_id);
@@ -247,6 +253,7 @@ impl TermGraph {
         let group_info = Some(GroupInfo {
             terms: vec![term_id],
             compounds: vec![],
+            inequalities: HashMap::new(),
         });
         self.groups.push(group_info);
         self.decompositions.insert(key, term_id);
@@ -319,19 +326,16 @@ impl TermGraph {
         new_group: GroupId,
         step: Option<StepId>,
     ) {
-        let mut info_ref = None;
-        std::mem::swap(&mut self.groups[old_group as usize], &mut info_ref);
-        let info = match info_ref {
-            None => panic!("remapped from a remapped group"),
-            Some(info) => info,
-        };
+        let old_info = self.groups[old_group as usize]
+            .take()
+            .expect("group is remapped");
 
-        for &term_id in &info.terms {
+        for &term_id in &old_info.terms {
             self.terms[term_id as usize].group = new_group;
         }
 
         let mut keep_compounds = vec![];
-        for compound_id in info.compounds {
+        for compound_id in old_info.compounds {
             {
                 let compound = match &mut self.compounds[compound_id as usize] {
                     Some(compound) => compound,
@@ -344,10 +348,10 @@ impl TermGraph {
                 self.compound_map.remove(&compound.key);
                 compound.key.remap_group(old_group, new_group);
             }
-            let compound = match &self.compounds[compound_id as usize] {
-                Some(compound) => compound,
-                None => panic!("how does this happen"),
-            };
+            let compound = self.compounds[compound_id as usize]
+                .as_ref()
+                .expect("how does this happen?");
+
             if let Some(&existing_result_term) = self.compound_map.get(&compound.key) {
                 // An compound for the new relationship already exists.
                 // Instead of inserting compound.result, we need to delete this compound, and merge the
@@ -362,13 +366,25 @@ impl TermGraph {
             }
         }
 
-        match &mut self.groups[new_group as usize] {
-            None => panic!("remapped into a remapped group"),
-            Some(large_info) => {
-                large_info.terms.extend(info.terms);
-                large_info.compounds.extend(keep_compounds);
-            }
+        // Rekey the inequalities that refer to this group from elsewhere
+        for &unequal_group in old_info.inequalities.keys() {
+            let unequal_info = self.groups[unequal_group as usize]
+                .as_mut()
+                .expect("group is remapped");
+            let value = unequal_info
+                .inequalities
+                .remove(&old_group)
+                .expect("inequality not there");
+            unequal_info.inequalities.insert(new_group, value);
         }
+
+        // Merge the old info into the new info
+        let new_info = self.groups[new_group as usize]
+            .as_mut()
+            .expect("group is remapped");
+        new_info.terms.extend(old_info.terms);
+        new_info.compounds.extend(keep_compounds);
+        new_info.inequalities.extend(old_info.inequalities);
 
         self.terms[old_term as usize]
             .adjacent
@@ -426,10 +442,7 @@ impl TermGraph {
 
         let mut queue = vec![term2];
         'outer: loop {
-            let term_b = match queue.pop() {
-                Some(term_b) => term_b,
-                None => panic!("no path between terms"),
-            };
+            let term_b = queue.pop().expect("no path between terms");
             for (term_a, step) in &self.terms[term_b as usize].adjacent {
                 if next_edge.contains_key(term_a) {
                     // We already have a way to get from term_a to term2
