@@ -415,9 +415,13 @@ impl TermGraph {
         };
     }
 
-    pub fn identify_terms(&mut self, term1: TermId, term2: TermId, step: StepId) {
+    pub fn set_terms_equal(&mut self, term1: TermId, term2: TermId, step: StepId) {
         self.pending.push((term1, term2, Some(step)));
         self.clear_pending();
+    }
+
+    pub fn set_terms_not_equal(&mut self, term1: TermId, term2: TermId, step: StepId) {
+        todo!("XXX");
     }
 
     fn as_compound(&self, term: TermId) -> (TermId, &Vec<TermId>) {
@@ -576,7 +580,7 @@ impl TermGraph {
 
     #[cfg(test)]
     fn set_eq(&mut self, t1: TermId, t2: TermId, step: usize) {
-        self.identify_terms(t1, t2, step);
+        self.set_terms_equal(t1, t2, step);
         self.validate();
         self.assert_eq(t1, t2);
     }
