@@ -385,7 +385,9 @@ impl TermGraph {
                 .inequalities
                 .remove(&old_group)
                 .expect("inequality not there");
-            unequal_info.inequalities.insert(new_group, value);
+            if !unequal_info.inequalities.contains_key(&new_group) {
+                unequal_info.inequalities.insert(new_group, value);
+            }
         }
 
         // Merge the old info into the new info
@@ -394,7 +396,11 @@ impl TermGraph {
             .expect("group is remapped");
         new_info.terms.extend(old_info.terms);
         new_info.compounds.extend(keep_compounds);
-        new_info.inequalities.extend(old_info.inequalities);
+        for (group, value) in old_info.inequalities {
+            if !new_info.inequalities.contains_key(&group) {
+                new_info.inequalities.insert(group, value);
+            }
+        }
 
         self.terms[old_term as usize]
             .adjacent
