@@ -4,9 +4,10 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
+use crate::term_graph::TermGraph;
 use crate::unifier::{Scope, Unifier};
 
 // The ActiveSet stores a bunch of clauses that are indexed for various efficient lookups.
@@ -34,6 +35,9 @@ pub struct ActiveSet {
 
     // An index of all the negative literals that we can do resolution with.
     negative_res_targets: FingerprintUnifier<ResolutionTarget>,
+
+    // A graph that encodes equalities and inequalities between terms.
+    graph: TermGraph,
 }
 
 // A ResolutionTarget represents a literal that we could do resolution with.
@@ -77,6 +81,7 @@ impl ActiveSet {
             rewrite_patterns: RewriteTree::new(),
             positive_res_targets: FingerprintUnifier::new(),
             negative_res_targets: FingerprintUnifier::new(),
+            graph: TermGraph::new(),
         }
     }
 
@@ -800,6 +805,18 @@ impl ActiveSet {
 
         if activated_step.clause.len() == 1 {
             let literal = &activated_step.clause.literals[0];
+
+            if EXPERIMENT && !literal.has_any_variable() {
+                // Add this to the term graph.
+                let left = self.graph.insert_term(&literal.left);
+                let right = self.graph.insert_term(&literal.right);
+                if literal.positive {
+                    self.graph.set_terms_equal(left, right, activated_id);
+                } else {
+                    self.graph.set_terms_not_equal(left, right, activated_id);
+                }
+            }
+
             if literal.positive {
                 // The activated step could be used as a rewrite pattern.
                 for step in self.activate_rewrite_pattern(activated_id, &activated_step) {

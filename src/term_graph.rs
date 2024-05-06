@@ -425,10 +425,16 @@ impl TermGraph {
     // For that, use identify_terms.
     fn set_terms_equal_once(&mut self, term1: TermId, term2: TermId, step: Option<StepId>) {
         let group1 = self.get_group_id(term1);
-        let info1 = self.get_group_info(group1);
         let group2 = self.get_group_id(term2);
+        if group1 == group2 {
+            // They already are equal
+            return;
+        }
+        let info1 = self.get_group_info(group1);
         let info2 = self.get_group_info(group2);
-        if info1.heuristic_size() < info2.heuristic_size() {
+
+        // Keep around the smaller number, as a tiebreak
+        if (info1.heuristic_size(), group2) < (info2.heuristic_size(), group1) {
             self.remap_group(term1, group1, term2, group2, step)
         } else {
             self.remap_group(term2, group2, term1, group1, step)
