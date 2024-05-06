@@ -198,6 +198,13 @@ impl TermGraph {
         self.contradiction.is_some()
     }
 
+    // Returns Some((negative_id, positive_ids)) if there is a contradiction.
+    pub fn explain_contradiction(&self) -> Option<(StepId, Vec<StepId>)> {
+        let (term1, term2, step) = self.contradiction?;
+        let steps = self.get_steps(term1, term2);
+        Some((step, steps))
+    }
+
     fn get_group_info(&self, group_id: GroupId) -> &GroupInfo {
         match &self.groups[group_id as usize] {
             None => panic!("group is remapped"),

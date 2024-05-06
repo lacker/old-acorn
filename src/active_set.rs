@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::term_graph::TermGraph;
@@ -817,7 +817,7 @@ impl ActiveSet {
         if activated_step.clause.len() == 1 {
             let literal = &activated_step.clause.literals[0];
 
-            if EXPERIMENT && !literal.has_any_variable() {
+            if !literal.has_any_variable() {
                 // Add this to the term graph.
                 let left = self.graph.insert_term(&literal.left);
                 let right = self.graph.insert_term(&literal.right);
