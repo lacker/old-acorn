@@ -171,10 +171,15 @@ impl ActiveSet {
                     self.clause_str(info.negative_id, extra)
                 );
             }
-            Rule::TermGraph(ids) => {
+            Rule::TermGraph(negative_id, positive_ids) => {
                 println!("  rule: term graph");
-                for id in ids {
-                    println!("  clause {}: {}", id, self.clause_str(*id, extra));
+                println!(
+                    "  negative clause {}: {}",
+                    negative_id,
+                    self.clause_str(*negative_id, extra)
+                );
+                for id in positive_ids {
+                    println!("  positive clause {}: {}", id, self.clause_str(*id, extra));
                 }
             }
         }

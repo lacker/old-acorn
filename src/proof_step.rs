@@ -79,8 +79,10 @@ pub enum Rule {
     FunctionElimination(usize),
 
     // A somewhat opaque output of the term graph.
-    // We only know the list of clauses that were used to generate it.
-    TermGraph(Vec<usize>),
+    // Always a contradiction.
+    // We store the ids of the negative literal (always exactly one) and the positive clauses
+    // that were used to generate it.
+    TermGraph(usize, Vec<usize>),
 }
 
 impl Rule {
@@ -93,7 +95,11 @@ impl Rule {
             Rule::EqualityFactoring(rewritten)
             | Rule::EqualityResolution(rewritten)
             | Rule::FunctionElimination(rewritten) => vec![*rewritten],
-            Rule::TermGraph(ids) => ids.clone(),
+            Rule::TermGraph(negative_id, positive_ids) => {
+                let mut ids = positive_ids.clone();
+                ids.push(*negative_id);
+                ids
+            }
         }
     }
 
@@ -115,9 +121,10 @@ impl Rule {
             | Rule::FunctionElimination(source) => {
                 answer.push(("source".to_string(), *source));
             }
-            Rule::TermGraph(ids) => {
-                for id in ids {
-                    answer.push(("graph edge".to_string(), *id));
+            Rule::TermGraph(negative_id, positive_ids) => {
+                answer.push(("negative edge".to_string(), *negative_id));
+                for positive_id in positive_ids {
+                    answer.push(("positive edge".to_string(), *positive_id));
                 }
             }
         }
@@ -133,7 +140,7 @@ impl Rule {
             Rule::EqualityFactoring(_) => "Equality Factoring",
             Rule::EqualityResolution(_) => "Equality Resolution",
             Rule::FunctionElimination(_) => "Function Elimination",
-            Rule::TermGraph(_) => "Term Graph",
+            Rule::TermGraph(..) => "Term Graph",
         }
     }
 
@@ -360,8 +367,12 @@ impl ProofStep {
     }
 
     // A proof step for when the term graph tells us it found a contradiction.
-    pub fn new_term_graph_contradiction(last_step: &ProofStep, ids: Vec<usize>) -> ProofStep {
-        let rule = Rule::TermGraph(ids);
+    pub fn new_term_graph_contradiction(
+        last_step: &ProofStep,
+        negative_id: usize,
+        positive_ids: Vec<usize>,
+    ) -> ProofStep {
+        let rule = Rule::TermGraph(negative_id, positive_ids);
         ProofStep::new(
             Clause::impossible(),
             Truthiness::Counterfactual,
