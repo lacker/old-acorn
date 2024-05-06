@@ -385,6 +385,10 @@ impl TermGraph {
                 .inequalities
                 .remove(&old_group)
                 .expect("inequality not there");
+            if unequal_group == new_group {
+                // We found a contradiction.
+                self.contradiction = Some(value);
+            }
             if !unequal_info.inequalities.contains_key(&new_group) {
                 unequal_info.inequalities.insert(new_group, value);
             }
