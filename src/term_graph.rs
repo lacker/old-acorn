@@ -146,6 +146,11 @@ pub struct TermGraph {
 
     // Pairs of terms that we have discovered are identical
     pending: Vec<(TermId, TermId, Option<StepId>)>,
+
+    // Set when we discover a contradiction.
+    // The provided step sets these terms to be unequal. However, the term graph also
+    // knows that they are equal. This is a contradiction.
+    contradiction: Option<(TermId, TermId, StepId)>,
 }
 
 impl TermGraph {
@@ -157,6 +162,7 @@ impl TermGraph {
             compound_map: HashMap::new(),
             decompositions: HashMap::new(),
             pending: Vec::new(),
+            contradiction: None,
         }
     }
 
@@ -186,6 +192,10 @@ impl TermGraph {
 
     pub fn get_group_id(&self, term_id: TermId) -> GroupId {
         self.terms[term_id as usize].group
+    }
+
+    pub fn has_contradiction(&self) -> bool {
+        self.contradiction.is_some()
     }
 
     fn get_group_info(&self, group_id: GroupId) -> &GroupInfo {
@@ -313,7 +323,7 @@ impl TermGraph {
 
         let result_term_id = self.insert_term_compound(term, head_term_id, arg_term_ids);
         self.insert_group_compound(head_group_id, arg_group_ids, result_term_id);
-        self.clear_pending();
+        self.process_pending();
         result_term_id
     }
 
@@ -394,7 +404,7 @@ impl TermGraph {
             .push((old_term, step));
     }
 
-    fn clear_pending(&mut self) {
+    fn process_pending(&mut self) {
         while let Some((term1, term2, step)) = self.pending.pop() {
             self.set_terms_equal_once(term1, term2, step)
         }
@@ -417,11 +427,31 @@ impl TermGraph {
 
     pub fn set_terms_equal(&mut self, term1: TermId, term2: TermId, step: StepId) {
         self.pending.push((term1, term2, Some(step)));
-        self.clear_pending();
+        self.process_pending();
     }
 
     pub fn set_terms_not_equal(&mut self, term1: TermId, term2: TermId, step: StepId) {
-        todo!("XXX");
+        let group1 = self.get_group_id(term1);
+        let group2 = self.get_group_id(term2);
+        if group1 == group2 {
+            self.contradiction = Some((term1, term2, step));
+            return;
+        }
+
+        let info1 = &mut self.groups[group1 as usize]
+            .as_mut()
+            .expect("group is remapped");
+        if info1.inequalities.contains_key(&group2) {
+            return;
+        }
+        info1.inequalities.insert(group2, (term1, term2, step));
+        let info2 = &mut self.groups[group2 as usize]
+            .as_mut()
+            .expect("group is remapped");
+        let prev = info2.inequalities.insert(group1, (term1, term2, step));
+        if prev.is_some() {
+            panic!("asymmetry in group inequalities");
+        }
     }
 
     fn as_compound(&self, term: TermId) -> (TermId, &Vec<TermId>) {
