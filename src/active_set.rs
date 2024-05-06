@@ -826,6 +826,13 @@ impl ActiveSet {
                 } else {
                     self.graph.set_terms_not_equal(left, right, activated_id);
                 }
+                if let Some((negative_id, positive_ids)) = self.graph.explain_contradiction() {
+                    generated_steps.push(ProofStep::new_term_graph_contradiction(
+                        &activated_step,
+                        negative_id,
+                        positive_ids,
+                    ));
+                }
             }
 
             if literal.positive {
