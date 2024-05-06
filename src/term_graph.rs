@@ -702,4 +702,25 @@ mod tests {
         g.show_graph();
         assert_eq!(g.get_steps(c0, c3), vec![4]);
     }
+
+    #[test]
+    fn test_finding_contradiction() {
+        let mut g = TermGraph::new();
+        let term1 = g.insert_str("c1(c2, c3)");
+        let term2 = g.insert_str("c4(c5, c6)");
+        g.set_terms_not_equal(term1, term2, 0);
+        assert!(!g.has_contradiction());
+        let c1 = g.get_str("c1");
+        let c4 = g.get_str("c4");
+        g.set_eq(c1, c4, 1);
+        assert!(!g.has_contradiction());
+        let c2 = g.get_str("c2");
+        let c5 = g.get_str("c5");
+        g.set_eq(c2, c5, 2);
+        assert!(!g.has_contradiction());
+        let c3 = g.get_str("c3");
+        let c6 = g.get_str("c6");
+        g.set_eq(c3, c6, 3);
+        assert!(g.has_contradiction());
+    }
 }
