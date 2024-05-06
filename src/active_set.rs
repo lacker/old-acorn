@@ -171,6 +171,38 @@ impl ActiveSet {
                     self.clause_str(info.negative_id, extra)
                 );
             }
+            Rule::Specialization(info) => {
+                println!(
+                    "  rule: specialization with general {}, motivation {}",
+                    info.general_id, info.motivation_id
+                );
+                println!(
+                    "  general clause {}: {}",
+                    info.general_id,
+                    self.clause_str(info.general_id, extra)
+                );
+                println!(
+                    "  motivated by clause {}: {}",
+                    info.motivation_id,
+                    self.clause_str(info.motivation_id, extra)
+                );
+            }
+            Rule::Substitution(info) => {
+                println!(
+                    "  rule: substitution with original {}, substituting {}",
+                    info.original_id, info.substitution_id
+                );
+                println!(
+                    "  general clause {}: {}",
+                    info.original_id,
+                    self.clause_str(info.original_id, extra)
+                );
+                println!(
+                    "  substituting clause {}: {}",
+                    info.substitution_id,
+                    self.clause_str(info.substitution_id, extra)
+                );
+            }
             Rule::TermGraph(negative_id, positive_ids) => {
                 println!("  rule: term graph");
                 println!(

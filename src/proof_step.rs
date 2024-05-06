@@ -64,6 +64,34 @@ pub struct RewriteInfo {
     exact: bool,
 }
 
+// Information about a specialization inference.
+// The general is the clause that is being specialized, and the motivation is the clause that contains
+// the subterm that the specialization is trying to match.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpecializationInfo {
+    // Which clauses were used as the sources.
+    pub general_id: usize,
+    pub motivation_id: usize,
+
+    // The truthiness of the source clauses.
+    general_truthiness: Truthiness,
+    motivation_truthiness: Truthiness,
+}
+
+// Information about a substitution inference.
+// The original is the clause we started with, and the substitution is the equality clause that
+// we used to substitute.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubstitutionInfo {
+    // Which clauses were used as the sources.
+    pub original_id: usize,
+    pub substitution_id: usize,
+
+    // The truthiness of the source clauses.
+    original_truthiness: Truthiness,
+    substitution_truthiness: Truthiness,
+}
+
 // The rules that can generate new clauses, along with the clause ids used to generate.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Rule {
@@ -72,14 +100,15 @@ pub enum Rule {
     // Rules based on multiple source clauses
     Resolution(ResolutionInfo),
     Rewrite(RewriteInfo),
+    Specialization(SpecializationInfo),
+    Substitution(SubstitutionInfo),
 
     // Rules with only one source clause
     EqualityFactoring(usize),
     EqualityResolution(usize),
     FunctionElimination(usize),
 
-    // A somewhat opaque output of the term graph.
-    // Always a contradiction.
+    // A contradiction found by the term graph.
     // We store the ids of the negative literal (always exactly one) and the positive clauses
     // that were used to generate it.
     TermGraph(usize, Vec<usize>),
@@ -92,6 +121,8 @@ impl Rule {
             Rule::Assumption(_) => vec![],
             Rule::Resolution(info) => vec![info.positive_id, info.negative_id],
             Rule::Rewrite(info) => vec![info.pattern_id, info.target_id],
+            Rule::Specialization(info) => vec![info.general_id, info.motivation_id],
+            Rule::Substitution(info) => vec![info.original_id, info.substitution_id],
             Rule::EqualityFactoring(rewritten)
             | Rule::EqualityResolution(rewritten)
             | Rule::FunctionElimination(rewritten) => vec![*rewritten],
@@ -116,6 +147,14 @@ impl Rule {
                 answer.push(("pattern".to_string(), info.pattern_id));
                 answer.push(("target".to_string(), info.target_id));
             }
+            Rule::Specialization(info) => {
+                answer.push(("general".to_string(), info.general_id));
+                answer.push(("motivation".to_string(), info.motivation_id));
+            }
+            Rule::Substitution(info) => {
+                answer.push(("original".to_string(), info.original_id));
+                answer.push(("substitution".to_string(), info.substitution_id));
+            }
             Rule::EqualityFactoring(source)
             | Rule::EqualityResolution(source)
             | Rule::FunctionElimination(source) => {
@@ -137,6 +176,8 @@ impl Rule {
             Rule::Assumption(_) => "Assumption",
             Rule::Resolution(_) => "Resolution",
             Rule::Rewrite(_) => "Rewrite",
+            Rule::Specialization(_) => "Specialization",
+            Rule::Substitution(_) => "Substitution",
             Rule::EqualityFactoring(_) => "Equality Factoring",
             Rule::EqualityResolution(_) => "Equality Resolution",
             Rule::FunctionElimination(_) => "Function Elimination",
