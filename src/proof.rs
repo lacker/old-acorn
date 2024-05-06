@@ -217,7 +217,7 @@ impl<'a> Proof<'a> {
             }
 
             for i in step.dependencies() {
-                insert_edge(&mut proof.nodes, id_map[i], node_id);
+                insert_edge(&mut proof.nodes, id_map[&i], node_id);
             }
 
             id_map.insert(clause_id, node_id);

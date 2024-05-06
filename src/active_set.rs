@@ -171,6 +171,12 @@ impl ActiveSet {
                     self.clause_str(info.negative_id, extra)
                 );
             }
+            Rule::TermGraph(ids) => {
+                println!("  rule: term graph");
+                for id in ids {
+                    println!("  clause {}: {}", id, self.clause_str(*id, extra));
+                }
+            }
         }
     }
 
@@ -849,7 +855,7 @@ impl ActiveSet {
         let mut pending = Vec::<usize>::new();
         let mut seen = HashSet::new();
         for i in step.dependencies() {
-            pending.push(*i);
+            pending.push(i);
         }
         while !pending.is_empty() {
             let i = pending.pop().unwrap();
@@ -858,7 +864,7 @@ impl ActiveSet {
             }
             seen.insert(i);
             for j in self.get_step(i).dependencies() {
-                pending.push(*j);
+                pending.push(j);
             }
         }
 

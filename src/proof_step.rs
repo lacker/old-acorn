@@ -77,18 +77,23 @@ pub enum Rule {
     EqualityFactoring(usize),
     EqualityResolution(usize),
     FunctionElimination(usize),
+
+    // A somewhat opaque output of the term graph.
+    // We only know the list of clauses that were used to generate it.
+    TermGraph(Vec<usize>),
 }
 
 impl Rule {
     // The ids of the clauses that this rule directly depends on.
-    fn premises(&self) -> impl Iterator<Item = &usize> {
+    fn premises(&self) -> Vec<usize> {
         match self {
-            Rule::Assumption(_) => vec![].into_iter(),
-            Rule::Resolution(info) => vec![&info.positive_id, &info.negative_id].into_iter(),
-            Rule::Rewrite(info) => vec![&info.pattern_id, &info.target_id].into_iter(),
+            Rule::Assumption(_) => vec![],
+            Rule::Resolution(info) => vec![info.positive_id, info.negative_id],
+            Rule::Rewrite(info) => vec![info.pattern_id, info.target_id],
             Rule::EqualityFactoring(rewritten)
             | Rule::EqualityResolution(rewritten)
-            | Rule::FunctionElimination(rewritten) => vec![rewritten].into_iter(),
+            | Rule::FunctionElimination(rewritten) => vec![*rewritten],
+            Rule::TermGraph(ids) => ids.clone(),
         }
     }
 
@@ -110,6 +115,11 @@ impl Rule {
             | Rule::FunctionElimination(source) => {
                 answer.push(("source".to_string(), *source));
             }
+            Rule::TermGraph(ids) => {
+                for id in ids {
+                    answer.push(("graph edge".to_string(), *id));
+                }
+            }
         }
         answer
     }
@@ -123,6 +133,7 @@ impl Rule {
             Rule::EqualityFactoring(_) => "Equality Factoring",
             Rule::EqualityResolution(_) => "Equality Resolution",
             Rule::FunctionElimination(_) => "Function Elimination",
+            Rule::TermGraph(_) => "Term Graph",
         }
     }
 
@@ -348,6 +359,20 @@ impl ProofStep {
         )
     }
 
+    // A proof step for when the term graph tells us it found a contradiction.
+    pub fn new_term_graph_contradiction(last_step: &ProofStep, ids: Vec<usize>) -> ProofStep {
+        let rule = Rule::TermGraph(ids);
+        ProofStep::new(
+            Clause::impossible(),
+            Truthiness::Counterfactual,
+            rule,
+            vec![],
+            last_step.proof_size + 1,
+            true,
+            last_step.depth,
+        )
+    }
+
     // Create a replacement for this clause that has extra simplification rules.
     // It's hard to handle depth well, here.
     pub fn simplify(
@@ -388,12 +413,16 @@ impl ProofStep {
     }
 
     // The ids of the other clauses that this clause depends on.
-    pub fn dependencies(&self) -> impl Iterator<Item = &usize> {
-        self.rule.premises().chain(self.simplification_rules.iter())
+    pub fn dependencies(&self) -> Vec<usize> {
+        let mut answer = self.rule.premises();
+        for rule in &self.simplification_rules {
+            answer.push(*rule);
+        }
+        answer
     }
 
     pub fn depends_on(&self, id: usize) -> bool {
-        self.dependencies().any(|i| *i == id)
+        self.dependencies().iter().any(|i| *i == id)
     }
 
     // (description, id) for every clause this rule depends on.
