@@ -44,7 +44,7 @@ pub struct ActiveSet {
     substitution_targets: HashMap<Term, Vec<SubtermReference>>,
 
     // A map from terms to all the substitutions that can be made for those terms.
-    substitutions: HashMap<Term, Substitution>,
+    substitutions: HashMap<Term, Vec<Substitution>>,
 }
 
 // A ResolutionTarget represents a literal that we could do resolution with.
@@ -82,8 +82,8 @@ struct Substitution {
     // Which proof step we are using for substitution
     step_index: usize,
 
-    // The new term that we are substituting in.
-    term: Term,
+    // If the literal is u = v, 'forwards' means this represents u -> v (as opposed to v -> u).
+    forwards: bool,
 }
 
 impl ActiveSet {
@@ -587,6 +587,39 @@ impl ActiveSet {
             }
         }
 
+        results
+    }
+
+    // Find all ways to substitute out one subterm of this literal.
+    pub fn activate_original(
+        &self,
+        original_id: usize,
+        original_step: &ProofStep,
+    ) -> Vec<ProofStep> {
+        let mut results = vec![];
+        assert!(original_step.clause.len() == 1);
+        let original_literal = &original_step.clause.literals[0];
+
+        for (original_left, s, _) in original_literal.both_term_pairs() {
+            let subterms = s.rewritable_subterms();
+            for (path, subterm) in subterms {
+                if let Some(subs) = self.substitutions.get(&subterm) {
+                    for sub in subs {
+                        if let Some(ps) = ActiveSet::try_substitute(
+                            sub.step_index,
+                            self.get_step(sub.step_index),
+                            sub.forwards,
+                            original_id,
+                            original_step,
+                            original_left,
+                            &path,
+                        ) {
+                            results.push(ps);
+                        }
+                    }
+                }
+            }
+        }
         results
     }
 
