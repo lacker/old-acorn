@@ -541,46 +541,31 @@ impl Term {
     }
 
     // Finds all rewritable subterms of this term, and with their paths, appends to "answer".
-    //
-    // The rules for rewriting:
-    //
-    //   1. Plain variables and "true" can never be rewritten
-    //   2. Non-root terms that contain variables cannot be rewritten
-    //
-    // I'm not entirely sure about the second rule.
-    //
-    // Prepends "prefix" to all paths.
-    // Returns whether there are any variables in this term.
+    // It is an error to call this on any variables.
+    // Otherwise, any term is rewritable except for "true".
     fn push_rewritable_subterms<'a>(
         &'a self,
-        is_root: bool,
         prefix: &mut Vec<usize>,
         answer: &mut Vec<(Vec<usize>, &'a Term)>,
-    ) -> bool {
+    ) {
         if self.is_true() {
-            return false;
+            return;
         }
         if self.is_variable() {
-            return true;
+            panic!("expected no variables");
         }
-        let mut contains_variable = false;
         for (i, arg) in self.args.iter().enumerate() {
             prefix.push(i);
-            if arg.push_rewritable_subterms(false, prefix, answer) {
-                contains_variable = true;
-            }
+            arg.push_rewritable_subterms(prefix, answer);
             prefix.pop();
         }
-        if is_root || !contains_variable {
-            answer.push((prefix.clone(), self));
-        }
-        contains_variable
+        answer.push((prefix.clone(), self));
     }
 
     pub fn rewritable_subterms(&self) -> Vec<(Vec<usize>, &Term)> {
         let mut answer = vec![];
         let mut prefix = vec![];
-        self.push_rewritable_subterms(true, &mut prefix, &mut answer);
+        self.push_rewritable_subterms(&mut prefix, &mut answer);
         answer
     }
 
