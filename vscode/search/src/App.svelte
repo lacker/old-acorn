@@ -34,9 +34,12 @@
       return;
     }
 
-    // New search responses also invalidate the info result
+    if (searchResponse !== null && searchResponse.id !== response.id) {
+      // Invalidate the info result
+      infoResult = null;
+    }
+
     searchResponse = response;
-    infoResult = null;
   }
 
   function handleInfoResponse(response: InfoResponse) {
