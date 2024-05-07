@@ -977,6 +977,16 @@ impl ActiveSet {
     fn add_rewrite_targets(&mut self, step_index: usize, literal: &Literal) {
         for (forwards, from, _) in literal.both_term_pairs() {
             for (path, subterm) in from.rewritable_subterms() {
+                if EXPERIMENT {
+                    self.substitution_targets
+                        .entry(subterm.clone())
+                        .or_insert_with(Vec::new)
+                        .push(SubtermReference {
+                            step_index,
+                            left: forwards,
+                            path: path.clone(),
+                        });
+                }
                 self.rewrite_targets.insert(
                     subterm,
                     SubtermReference {
@@ -986,6 +996,19 @@ impl ActiveSet {
                     },
                 );
             }
+        }
+    }
+
+    // Adds a substitution for both forwards and backwards
+    fn add_substitutions(&mut self, step_index: usize, literal: &Literal) {
+        for (forwards, from, _) in literal.both_term_pairs() {
+            self.substitutions
+                .entry(from.clone())
+                .or_insert_with(Vec::new)
+                .push(Substitution {
+                    step_index,
+                    forwards,
+                });
         }
     }
 
@@ -1023,47 +1046,57 @@ impl ActiveSet {
         let clause = &step.clause;
         let step_index = self.steps.len();
 
-        if step.rule.is_specialization() {
-            assert!(EXPERIMENT);
-            todo!();
-        } else {
+        if !step.rule.is_specialization() {
             // Add resolution targets for the new clause.
-            // Any literal can be used for resolution.
+            // We don't need to do resolution against specializations, because we
+            // can achieve the same result by resolving against the general form.
             for (i, literal) in clause.literals.iter().enumerate() {
                 self.add_resolution_targets(step_index, i, literal);
             }
+        }
 
-            // Add rewrite targets for the new clause.
-            // Only single-literal clauses can be used for rewriting.
-            if clause.literals.len() == 1 {
-                let literal = &clause.literals[0];
+        // Add rewrite targets for the new clause.
+        // Only single-literal clauses can be used for rewriting.
+        if clause.literals.len() == 1 {
+            let literal = &clause.literals[0];
 
-                // Only rewrite concrete literals.
-                if !literal.has_any_variable() {
-                    self.add_rewrite_targets(step_index, literal);
-                }
+            // Only rewrite concrete literals.
+            if !literal.has_any_variable() {
+                self.add_rewrite_targets(step_index, literal);
+            }
 
-                // When a literal is created via rewrite, we don't need to add it as
-                // a rewrite pattern.
-                // At some point we might want to do it anyway.
-                // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
-                // to simplify everything, without going through the intermediate steps.
-                // But, for now, we just don't do it.
-                // NOTE: this does speed things up, but it's inconsistent, because we are willing
-                // to use these as a rewrite against literals that are already active, just not
-                // new literals.
-                if literal.positive && !step.rule.is_rewrite() {
+            // When a literal is created via rewrite or substitution, we don't need to add it as
+            // a rewrite pattern.
+            // At some point we might want to do it anyway.
+            // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
+            // to simplify everything, without going through the intermediate steps.
+            // But, for now, we just don't do it.
+            // NOTE: this does speed things up, but it's inconsistent, because we are willing
+            // to use these as a rewrite against literals that are already active, just not
+            // new literals.
+            if literal.positive && !step.rule.is_rewrite() && !step.rule.is_substitution() {
+                if EXPERIMENT {
+                    if literal.has_any_variable() {
+                        self.rewrite_patterns.insert_literal(
+                            step_index,
+                            step.truthiness == Truthiness::Factual,
+                            literal,
+                        );
+                    } else {
+                        self.add_substitutions(step_index, literal);
+                    }
+                } else {
                     self.rewrite_patterns.insert_literal(
                         step_index,
                         step.truthiness == Truthiness::Factual,
                         literal,
                     );
                 }
-
-                self.literal_set.insert(&clause.literals[0], id);
-            } else {
-                self.long_clauses.insert(clause.clone());
             }
+
+            self.literal_set.insert(&clause.literals[0], id);
+        } else {
+            self.long_clauses.insert(clause.clone());
         }
 
         self.steps.push(step);
@@ -1132,9 +1165,23 @@ impl ActiveSet {
             }
 
             if literal.positive {
-                // The activated step could be used as a rewrite pattern.
-                for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
-                    generated_steps.push(step);
+                if EXPERIMENT {
+                    if literal.has_any_variable() {
+                        // The activated step could be used as a rewrite pattern.
+                        for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
+                            generated_steps.push(step);
+                        }
+                    } else {
+                        // The activated step could be used as a substitution.
+                        for step in self.activate_substitution(activated_id, &activated_step) {
+                            generated_steps.push(step);
+                        }
+                    }
+                } else {
+                    // The activated step could be used as a rewrite pattern.
+                    for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
+                        generated_steps.push(step);
+                    }
                 }
             }
         }
