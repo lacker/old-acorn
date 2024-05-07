@@ -865,18 +865,16 @@ impl ActiveSet {
                         positive_ids,
                     ));
                 }
+
+                // The activated step could be rewritten itself.
+                for step in self.activate_rewrite_target(activated_id, &activated_step) {
+                    generated_steps.push(step);
+                }
             }
 
             if literal.positive {
                 // The activated step could be used as a rewrite pattern.
                 for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
-                    generated_steps.push(step);
-                }
-            }
-
-            if !literal.has_any_variable() {
-                // The activated step could be rewritten itself.
-                for step in self.activate_rewrite_target(activated_id, &activated_step) {
                     generated_steps.push(step);
                 }
             }
