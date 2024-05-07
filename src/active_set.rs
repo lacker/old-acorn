@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::term_graph::TermGraph;
@@ -924,38 +924,44 @@ impl ActiveSet {
         let clause = &step.clause;
         let step_index = self.steps.len();
 
-        // Add resolution targets for the new clause.
-        // Any literal can be used for resolution.
-        for (i, literal) in clause.literals.iter().enumerate() {
-            self.add_resolution_targets(step_index, i, literal);
-        }
-
-        // Add rewrite targets for the new clause.
-        // Only single-literal clauses can be used for rewriting.
-        if clause.literals.len() == 1 {
-            let literal = &clause.literals[0];
-
-            // Only rewrite concrete literals.
-            if !literal.has_any_variable() {
-                self.add_rewrite_targets(step_index, literal);
-            }
-
-            // When a literal is created via rewrite, we don't need to add it as a rewrite pattern.
-            // At some point we might want to do it anyway.
-            // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
-            // to simplify everything, without going through the intermediate steps.
-            // But, for now, we just don't do it.
-            if literal.positive && !step.rule.is_rewrite() {
-                self.rewrite_patterns.insert_literal(
-                    step_index,
-                    step.truthiness == Truthiness::Factual,
-                    literal,
-                );
-            }
-
-            self.literal_set.insert(&clause.literals[0], id);
+        if step.rule.is_specialization() {
+            assert!(EXPERIMENT);
+            todo!();
         } else {
-            self.long_clauses.insert(clause.clone());
+            // Add resolution targets for the new clause.
+            // Any literal can be used for resolution.
+            for (i, literal) in clause.literals.iter().enumerate() {
+                self.add_resolution_targets(step_index, i, literal);
+            }
+
+            // Add rewrite targets for the new clause.
+            // Only single-literal clauses can be used for rewriting.
+            if clause.literals.len() == 1 {
+                let literal = &clause.literals[0];
+
+                // Only rewrite concrete literals.
+                if !literal.has_any_variable() {
+                    self.add_rewrite_targets(step_index, literal);
+                }
+
+                // When a literal is created via rewrite or substitution, we don't need to add it as
+                // a rewrite pattern.
+                // At some point we might want to do it anyway.
+                // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
+                // to simplify everything, without going through the intermediate steps.
+                // But, for now, we just don't do it.
+                if literal.positive && !step.rule.is_rewrite() {
+                    self.rewrite_patterns.insert_literal(
+                        step_index,
+                        step.truthiness == Truthiness::Factual,
+                        literal,
+                    );
+                }
+
+                self.literal_set.insert(&clause.literals[0], id);
+            } else {
+                self.long_clauses.insert(clause.clone());
+            }
         }
 
         self.steps.push(step);

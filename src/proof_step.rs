@@ -5,7 +5,7 @@ use crate::clause::Clause;
 use crate::proposition::{Proposition, Source, SourceType};
 
 // Use this to toggle experimental algorithm mode
-pub const EXPERIMENT: bool = true;
+pub const EXPERIMENT: bool = false;
 
 // The "truthiness" categorizes the different types of true statements, relative to a proof.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
