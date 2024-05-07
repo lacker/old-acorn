@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::term_graph::TermGraph;
@@ -973,20 +973,18 @@ impl ActiveSet {
         Some(step.simplify(simplified_clause, new_rules, new_truthiness))
     }
 
-    // Add all the rewrite targets for a given literal.
-    fn add_rewrite_targets(&mut self, step_index: usize, literal: &Literal) {
+    // Add both substitution and rewrite targets for a given literal.
+    fn add_subterm_targets(&mut self, step_index: usize, literal: &Literal) {
         for (forwards, from, _) in literal.both_term_pairs() {
             for (path, subterm) in from.rewritable_subterms() {
-                if EXPERIMENT {
-                    self.substitution_targets
-                        .entry(subterm.clone())
-                        .or_insert_with(Vec::new)
-                        .push(SubtermReference {
-                            step_index,
-                            left: forwards,
-                            path: path.clone(),
-                        });
-                }
+                self.substitution_targets
+                    .entry(subterm.clone())
+                    .or_insert_with(Vec::new)
+                    .push(SubtermReference {
+                        step_index,
+                        left: forwards,
+                        path: path.clone(),
+                    });
                 self.rewrite_targets.insert(
                     subterm,
                     SubtermReference {
@@ -1062,7 +1060,7 @@ impl ActiveSet {
 
             // Only rewrite concrete literals.
             if !literal.has_any_variable() {
-                self.add_rewrite_targets(step_index, literal);
+                self.add_subterm_targets(step_index, literal);
             }
 
             // When a literal is created via rewrite or substitution, we don't need to add it as
@@ -1075,22 +1073,14 @@ impl ActiveSet {
             // to use these as a rewrite against literals that are already active, just not
             // new literals.
             if literal.positive && !step.rule.is_rewrite() && !step.rule.is_substitution() {
-                if EXPERIMENT {
-                    if literal.has_any_variable() {
-                        self.rewrite_patterns.insert_literal(
-                            step_index,
-                            step.truthiness == Truthiness::Factual,
-                            literal,
-                        );
-                    } else {
-                        self.add_substitutions(step_index, literal);
-                    }
-                } else {
+                if literal.has_any_variable() {
                     self.rewrite_patterns.insert_literal(
                         step_index,
                         step.truthiness == Truthiness::Factual,
                         literal,
                     );
+                } else {
+                    self.add_substitutions(step_index, literal);
                 }
             }
 
@@ -1162,30 +1152,21 @@ impl ActiveSet {
                 for step in self.activate_rewrite_target(activated_id, &activated_step) {
                     generated_steps.push(step);
                 }
-                if EXPERIMENT {
-                    // The activated step could be substituted into.
-                    for step in self.activate_original(activated_id, &activated_step) {
-                        generated_steps.push(step);
-                    }
+                // The activated step could be substituted into.
+                for step in self.activate_original(activated_id, &activated_step) {
+                    generated_steps.push(step);
                 }
             }
 
             if literal.positive {
-                if EXPERIMENT {
-                    if literal.has_any_variable() {
-                        // The activated step could be used as a rewrite pattern.
-                        for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
-                            generated_steps.push(step);
-                        }
-                    } else {
-                        // The activated step could be used as a substitution.
-                        for step in self.activate_substitution(activated_id, &activated_step) {
-                            generated_steps.push(step);
-                        }
-                    }
-                } else {
+                if literal.has_any_variable() {
                     // The activated step could be used as a rewrite pattern.
                     for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
+                        generated_steps.push(step);
+                    }
+                } else {
+                    // The activated step could be used as a substitution.
+                    for step in self.activate_substitution(activated_id, &activated_step) {
                         generated_steps.push(step);
                     }
                 }
