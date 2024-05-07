@@ -199,6 +199,20 @@ impl Rule {
         }
     }
 
+    pub fn is_specialization(&self) -> bool {
+        match self {
+            Rule::Specialization(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_substitution(&self) -> bool {
+        match self {
+            Rule::Substitution(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn new_assumption(prop: &Proposition) -> Rule {
         Rule::Assumption(prop.source.clone())
     }

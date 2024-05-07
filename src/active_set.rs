@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
@@ -25,7 +25,7 @@ pub struct ActiveSet {
     literal_set: LiteralSet,
 
     // An index of all the subterms that can be rewritten.
-    rewrite_targets: FingerprintUnifier<RewriteTarget>,
+    rewrite_targets: FingerprintUnifier<SubtermReference>,
 
     // An index of all the ways to rewrite subterms.
     rewrite_patterns: RewriteTree,
@@ -38,6 +38,13 @@ pub struct ActiveSet {
 
     // A graph that encodes equalities and inequalities between terms.
     graph: TermGraph,
+
+    // An index of all the subterms that can be substituted out.
+    // Values in the key should all be concrete.
+    substitution_targets: HashMap<Term, Vec<SubtermReference>>,
+
+    // A map from terms to all the substitutions that can be made for those terms.
+    substitutions: HashMap<Term, Substitution>,
 }
 
 // A ResolutionTarget represents a literal that we could do resolution with.
@@ -53,22 +60,30 @@ struct ResolutionTarget {
     left: bool,
 }
 
-// A RewriteTarget represents a subterm within an active clause, that could be rewritten.
-// So, in foo(bar(x)) = baz, bar(x) could be a rewrite target.
-// We only rewrite within single literals.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct RewriteTarget {
-    // Which proof step the rewrite target is in.
+// A SubtermReference represents a subterm within an active clause, for rewrites or
+// substitutions.
+// Subterms must be in concrete single-literal clauses, left or right, either positive or negative.
+struct SubtermReference {
+    // Which proof step the subterm is in.
     // The literal can be either positive or negative.
     step_index: usize,
 
-    // Whether we are rewriting the left term of the literal.
+    // Whether the subterm is in the left term of the literal.
     // (As opposed to the right one.)
     left: bool,
 
-    // We rewrite subterms. This is the path from the root term to the subterm.
-    // An empty path means rewrite at the root.
+    // This is the path from the root term to the subterm.
+    // An empty path means the root, so the whole term is the relevant subterm.
     path: Vec<usize>,
+}
+
+// A Substitution represents a term that we could substitute into another term.
+struct Substitution {
+    // Which proof step we are using for substitution
+    step_index: usize,
+
+    // The new term that we are substituting in.
+    term: Term,
 }
 
 impl ActiveSet {
@@ -82,6 +97,8 @@ impl ActiveSet {
             positive_res_targets: FingerprintUnifier::new(),
             negative_res_targets: FingerprintUnifier::new(),
             graph: TermGraph::new(),
+            substitution_targets: HashMap::new(),
+            substitutions: HashMap::new(),
         }
     }
 
@@ -93,7 +110,7 @@ impl ActiveSet {
         clause.literals.len() > 1 && self.long_clauses.contains(clause)
     }
 
-    fn get_subterm(&self, target: &RewriteTarget) -> &Term {
+    fn get_subterm(&self, target: &SubtermReference) -> &Term {
         let clause = self.get_clause(target.step_index);
         let literal = &clause.literals[0];
         let mut term = if target.left {
@@ -430,7 +447,7 @@ impl ActiveSet {
                 continue;
             }
 
-            // Look for resolution targets that match s
+            // Look for rewrite targets that match s
             let targets = self.rewrite_targets.find_unifying(s);
             for target in targets {
                 let subterm = self.get_subterm(target);
@@ -729,7 +746,7 @@ impl ActiveSet {
             for (path, subterm) in from.rewritable_subterms() {
                 self.rewrite_targets.insert(
                     subterm,
-                    RewriteTarget {
+                    SubtermReference {
                         step_index,
                         left: forwards,
                         path,
