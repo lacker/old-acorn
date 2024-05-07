@@ -563,6 +563,39 @@ impl ActiveSet {
         results
     }
 
+    // When we have a new general literal, find all the specializations for it.
+    pub fn activate_general(&self, general_id: usize, general_step: &ProofStep) -> Vec<ProofStep> {
+        let mut results = vec![];
+        assert!(general_step.clause.len() == 1);
+        let general_literal = &general_step.clause.literals[0];
+        assert!(general_literal.positive);
+
+        for (general_left, u, _) in general_literal.both_term_pairs() {
+            if !u.has_any_variable() {
+                // We can't specialize a concrete term.
+                continue;
+            }
+
+            // Look for motivation literals that match u
+            let motivations = self.rewrite_targets.find_unifying(u);
+            for motivation in motivations {
+                let subterm = self.get_subterm(motivation);
+                if let Some(ps) = ActiveSet::try_specialize(
+                    general_id,
+                    general_step,
+                    general_left,
+                    motivation.step_index,
+                    self.get_step(motivation.step_index),
+                    subterm,
+                ) {
+                    results.push(ps);
+                }
+            }
+        }
+
+        results
+    }
+
     // Look for ways to rewrite a literal that is not yet in the active set.
     // The literal must be concrete.
     pub fn activate_rewrite_target(
@@ -608,6 +641,12 @@ impl ActiveSet {
         }
 
         results
+    }
+
+    // When we have a new literal that can be substituted into, find all of the
+    // specializations that it can motivate.
+    pub fn activate_motivation(&self, motivation_id: usize, motivation_step: &ProofStep) {
+        todo!();
     }
 
     // Tries to do inference using the equality resolution (ER) rule.
