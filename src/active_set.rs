@@ -1162,6 +1162,12 @@ impl ActiveSet {
                 for step in self.activate_rewrite_target(activated_id, &activated_step) {
                     generated_steps.push(step);
                 }
+                if EXPERIMENT {
+                    // The activated step could be substituted into.
+                    for step in self.activate_original(activated_id, &activated_step) {
+                        generated_steps.push(step);
+                    }
+                }
             }
 
             if literal.positive {
