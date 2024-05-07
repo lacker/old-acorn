@@ -308,12 +308,6 @@ impl ActiveSet {
         subterm: &Term,
     ) -> Option<ProofStep> {
         assert!(!subterm.has_any_variable());
-        if general_step.truthiness == Truthiness::Factual
-            && motivation_step.truthiness == Truthiness::Factual
-        {
-            // No global-global specialization
-            return None;
-        }
         let general_literal = &general_step.clause.literals[0];
         assert!(general_literal.positive);
         let (s, t) = if general_left {
@@ -654,8 +648,30 @@ impl ActiveSet {
         assert!(motivation_step.clause.len() == 1);
         let motivation_literal = &motivation_step.clause.literals[0];
         assert!(!motivation_literal.has_any_variable());
-        for (motivation_left, term, _) in motivation_literal.both_term_pairs() {
-            todo!();
+        for (_, term, _) in motivation_literal.both_term_pairs() {
+            let subterms = term.rewritable_subterms();
+            for (_, subterm) in subterms {
+                if self.substitutions.contains_key(&subterm) {
+                    // We have already been motivated by this subterm elsewhere.
+                    continue;
+                }
+
+                let rewrites = self.rewrite_patterns.get_rewrites(subterm, true, 0);
+                for (general_id, _, new_subterm) in rewrites {
+                    let general_step = self.get_step(general_id);
+                    let new_literal = Literal::equals(subterm.clone(), new_subterm.clone());
+                    let new_clause = Clause::new(vec![new_literal]);
+                    let ps = ProofStep::new_specialization(
+                        general_id,
+                        general_step,
+                        motivation_id,
+                        motivation_step,
+                        new_clause,
+                    );
+
+                    results.push(ps);
+                }
+            }
         }
         results
     }
