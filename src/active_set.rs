@@ -292,6 +292,101 @@ impl ActiveSet {
         ))
     }
 
+    // Tries to specialize a general literal, with the motivation of matching some existing subterm.
+    // The "indexing" type stuff happens outside this function.
+    //
+    // subterm is a subterm of the motivation literal.
+    // general_left tells us whether we are matching the left of the general literal.
+    //
+    // Returns None if the specialization doesn't work, either mechanically or heuristically.
+    fn try_specialize(
+        general_id: usize,
+        general_step: &ProofStep,
+        general_left: bool,
+        motivation_id: usize,
+        motivation_step: &ProofStep,
+        subterm: &Term,
+    ) -> Option<ProofStep> {
+        assert!(!subterm.has_any_variable());
+        if general_step.truthiness == Truthiness::Factual
+            && motivation_step.truthiness == Truthiness::Factual
+        {
+            // No global-global specialization
+            return None;
+        }
+        let general_literal = &general_step.clause.literals[0];
+        assert!(general_literal.positive);
+        let (s, t) = if general_left {
+            (&general_literal.left, &general_literal.right)
+        } else {
+            (&general_literal.right, &general_literal.left)
+        };
+
+        let mut unifier = Unifier::new();
+        // The general literal is in "left" scope and the motivation literal is in "right" scope
+        // regardless of whether they are the actual left or right of their literals.
+        if !unifier.unify(Scope::Left, s, Scope::Right, subterm) {
+            return None;
+        }
+        let new_t = unifier.apply(Scope::Left, t);
+        let new_literal = Literal::new(general_literal.positive, subterm.clone(), new_t);
+        let new_clause = Clause::new(vec![new_literal]);
+        Some(ProofStep::new_specialization(
+            general_id,
+            general_step,
+            motivation_id,
+            motivation_step,
+            new_clause,
+        ))
+    }
+
+    // Replaces a subterm in a clause with a new term.
+    // Returns None if this doesn't work heuristically.
+    // The caller should ensure that it works mechanically.
+    fn try_substitute(
+        substitution_id: usize,
+        substitution_step: &ProofStep,
+        substitution_forwards: bool,
+        original_id: usize,
+        original_step: &ProofStep,
+        original_left: bool,
+        path: &[usize],
+    ) -> Option<ProofStep> {
+        if substitution_step.truthiness == Truthiness::Factual
+            && original_step.truthiness == Truthiness::Factual
+        {
+            // No global-global substitution
+            return None;
+        }
+        assert_eq!(substitution_step.clause.literals.len(), 1);
+        let substitution_literal = &substitution_step.clause.literals[0];
+        assert!(substitution_literal.positive);
+        let new_subterm = if substitution_forwards {
+            &substitution_literal.right
+        } else {
+            &substitution_literal.left
+        };
+
+        // Replace part of s, keep t
+        assert_eq!(original_step.clause.literals.len(), 1);
+        let original_literal = &original_step.clause.literals[0];
+        let (s, t) = if original_left {
+            (&original_literal.left, &original_literal.right)
+        } else {
+            (&original_literal.right, &original_literal.left)
+        };
+        let new_s = s.replace_at_path(path, new_subterm.clone());
+        let new_literal = Literal::new(original_literal.positive, new_s, t.clone());
+        let new_clause = Clause::new(vec![new_literal]);
+        Some(ProofStep::new_substitution(
+            original_id,
+            original_step,
+            substitution_id,
+            substitution_step,
+            new_clause,
+        ))
+    }
+
     // Finds all resolutions that can be done with a given proof step.
     // The "new clause" is the one that is being activated, and the "old clause" is the existing one.
     pub fn find_resolutions(&self, new_step_id: usize, new_step: &ProofStep) -> Vec<ProofStep> {

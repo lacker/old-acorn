@@ -421,6 +421,75 @@ impl ProofStep {
         )
     }
 
+    // Construct a new ProofStep via specialization.
+    pub fn new_specialization(
+        general_id: usize,
+        general_step: &ProofStep,
+        motivation_id: usize,
+        motivation_step: &ProofStep,
+        clause: Clause,
+    ) -> ProofStep {
+        let rule = Rule::Specialization(SpecializationInfo {
+            general_id,
+            motivation_id,
+            general_truthiness: general_step.truthiness,
+            motivation_truthiness: motivation_step.truthiness,
+        });
+
+        // Specializations are always considered cheap, and do not add to proof size for
+        // historical reasons.
+        let depth = std::cmp::max(general_step.depth, motivation_step.depth);
+
+        ProofStep::new(
+            clause,
+            general_step.truthiness.combine(motivation_step.truthiness),
+            rule,
+            vec![],
+            general_step.proof_size + motivation_step.proof_size,
+            true,
+            depth,
+        )
+    }
+
+    pub fn new_substitution(
+        original_id: usize,
+        original_step: &ProofStep,
+        substitution_id: usize,
+        substitution_step: &ProofStep,
+        clause: Clause,
+    ) -> ProofStep {
+        let rule = Rule::Substitution(SubstitutionInfo {
+            original_id,
+            substitution_id,
+            original_truthiness: original_step.truthiness,
+            substitution_truthiness: substitution_step.truthiness,
+        });
+
+        // We only compare against the original
+        // TODO: could this just be forward/backward?
+        let cheap = if clause.is_impossible() {
+            true
+        } else {
+            assert_eq!(clause.literals.len(), 1);
+            assert_eq!(original_step.clause.literals.len(), 1);
+            clause.literals[0].extended_kbo_cmp(&original_step.clause.literals[0]) == Ordering::Less
+        };
+        let depth =
+            std::cmp::max(substitution_step.depth, original_step.depth) + if cheap { 0 } else { 1 };
+
+        ProofStep::new(
+            clause,
+            original_step
+                .truthiness
+                .combine(substitution_step.truthiness),
+            rule,
+            vec![],
+            original_step.proof_size + substitution_step.proof_size + 1,
+            cheap,
+            depth,
+        )
+    }
+
     // A proof step for when the term graph tells us it found a contradiction.
     pub fn new_term_graph_contradiction(
         last_step: &ProofStep,
