@@ -645,8 +645,19 @@ impl ActiveSet {
 
     // When we have a new literal that can be substituted into, find all of the
     // specializations that it can motivate.
-    pub fn activate_motivation(&self, motivation_id: usize, motivation_step: &ProofStep) {
-        todo!();
+    pub fn activate_motivation(
+        &self,
+        motivation_id: usize,
+        motivation_step: &ProofStep,
+    ) -> Vec<ProofStep> {
+        let mut results = vec![];
+        assert!(motivation_step.clause.len() == 1);
+        let motivation_literal = &motivation_step.clause.literals[0];
+        assert!(!motivation_literal.has_any_variable());
+        for (motivation_left, term, _) in motivation_literal.both_term_pairs() {
+            todo!();
+        }
+        results
     }
 
     // Tries to do inference using the equality resolution (ER) rule.
@@ -944,12 +955,15 @@ impl ActiveSet {
                     self.add_rewrite_targets(step_index, literal);
                 }
 
-                // When a literal is created via rewrite or substitution, we don't need to add it as
+                // When a literal is created via rewrite, we don't need to add it as
                 // a rewrite pattern.
                 // At some point we might want to do it anyway.
                 // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
                 // to simplify everything, without going through the intermediate steps.
                 // But, for now, we just don't do it.
+                // NOTE: this does speed things up, but it's inconsistent, because we are willing
+                // to use these as a rewrite against literals that are already active, just not
+                // new literals.
                 if literal.positive && !step.rule.is_rewrite() {
                     self.rewrite_patterns.insert_literal(
                         step_index,
