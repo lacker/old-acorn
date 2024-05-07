@@ -1260,11 +1260,15 @@ mod tests {
         let step = ProofStep::mock("c1 = c3");
         set.insert(step, 0);
 
-        // We should be able to rewrite c0(c3) = c2 to get c0(c1) = c2
+        // We want to use c0(c3) = c2 to get c0(c1) = c2.
+        // But this isn't a rewrite target...
         let mut target_step = ProofStep::mock("c0(c3) = c2");
         target_step.truthiness = Truthiness::Hypothetical;
         let result = set.activate_rewrite_target(0, &target_step);
+        assert_eq!(result.len(), 0);
 
+        // It's an "original" for a substitution.
+        let result = set.activate_original(0, &target_step);
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
             Term::parse("c0(c1)"),
