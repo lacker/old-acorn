@@ -709,6 +709,45 @@ impl ActiveSet {
         results
     }
 
+    pub fn activate_substitution(
+        &self,
+        substitution_id: usize,
+        substitution_step: &ProofStep,
+    ) -> Vec<ProofStep> {
+        let mut results = vec![];
+        assert!(substitution_step.clause.len() == 1);
+        let substitution_literal = &substitution_step.clause.literals[0];
+        assert!(!substitution_literal.has_any_variable());
+        assert!(substitution_literal.positive);
+        for (substitution_forwards, s, _) in substitution_literal.both_term_pairs() {
+            if s.is_true() {
+                // Don't substitute "true"
+                continue;
+            }
+
+            let subterm_refs = match self.substitution_targets.get(&s) {
+                Some(x) => x,
+                None => continue,
+            };
+
+            for subterm_ref in subterm_refs {
+                if let Some(ps) = ActiveSet::try_substitute(
+                    substitution_id,
+                    substitution_step,
+                    substitution_forwards,
+                    subterm_ref.step_index,
+                    self.get_step(subterm_ref.step_index),
+                    subterm_ref.left,
+                    &subterm_ref.path,
+                ) {
+                    results.push(ps);
+                }
+            }
+        }
+
+        results
+    }
+
     // Tries to do inference using the equality resolution (ER) rule.
     // This assumes we are operating on the first literal.
     // Specifically, when the first literal is of the form
