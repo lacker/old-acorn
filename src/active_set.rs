@@ -1104,34 +1104,43 @@ impl ActiveSet {
         let mut generated_steps = vec![];
         let activated_id = self.steps.len();
 
-        if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
-            generated_steps.push(ProofStep::new_direct(
-                &activated_step,
-                Rule::EqualityResolution(activated_id),
-                new_clause,
-            ));
-        }
+        if !activated_step.rule.is_specialization() {
+            // Unification-based inferences don't need to be done on specialization, because
+            // they can operate directly on the general form.
 
-        for clause in ActiveSet::equality_factoring(&activated_step.clause) {
-            generated_steps.push(ProofStep::new_direct(
-                &activated_step,
-                Rule::EqualityFactoring(activated_id),
-                clause,
-            ));
-        }
+            if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
+                generated_steps.push(ProofStep::new_direct(
+                    &activated_step,
+                    Rule::EqualityResolution(activated_id),
+                    new_clause,
+                ));
+            }
 
-        for clause in ActiveSet::function_elimination(&activated_step.clause) {
-            generated_steps.push(ProofStep::new_direct(
-                &activated_step,
-                Rule::FunctionElimination(activated_id),
-                clause,
-            ));
+            for clause in ActiveSet::equality_factoring(&activated_step.clause) {
+                generated_steps.push(ProofStep::new_direct(
+                    &activated_step,
+                    Rule::EqualityFactoring(activated_id),
+                    clause,
+                ));
+            }
+
+            for clause in ActiveSet::function_elimination(&activated_step.clause) {
+                generated_steps.push(ProofStep::new_direct(
+                    &activated_step,
+                    Rule::FunctionElimination(activated_id),
+                    clause,
+                ));
+            }
+
+            for step in self.find_resolutions(activated_id, &activated_step) {
+                generated_steps.push(step);
+            }
         }
 
         if activated_step.clause.len() == 1 {
             let literal = &activated_step.clause.literals[0];
 
-            if !literal.has_any_variable() {
+            if !literal.has_any_variable() && !activated_step.rule.is_specialization() {
                 // Add this to the term graph.
                 let left = self.graph.insert_term(&literal.left);
                 let right = self.graph.insert_term(&literal.right);
@@ -1185,10 +1194,6 @@ impl ActiveSet {
                     }
                 }
             }
-        }
-
-        for step in self.find_resolutions(activated_id, &activated_step) {
-            generated_steps.push(step);
         }
 
         self.insert(activated_step, activated_id);
