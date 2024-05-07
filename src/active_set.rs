@@ -917,6 +917,7 @@ impl ActiveSet {
 
     // Simplifies the clause based on both structural rules and the active set.
     // If the result is redundant given what's already known, return None.
+    // Specializations are allowed, though, even if they're redundant.
     // If the result is an impossibility, return an empty clause.
     pub fn simplify(&self, mut step: ProofStep) -> Option<ProofStep> {
         if step.clause.is_tautology() {
@@ -934,9 +935,14 @@ impl ActiveSet {
         for literal in std::mem::take(&mut step.clause.literals) {
             match self.evaluate_literal(&literal) {
                 Some((true, _)) => {
-                    // This literal is already known to be true.
-                    // Thus, the whole clause is a tautology.
-                    return None;
+                    if step.rule.is_specialization() {
+                        // We allow specializations even if they're redundant.
+                        output_literals.push(literal);
+                    } else {
+                        // This literal is already known to be true.
+                        // Thus, the whole clause is a tautology.
+                        return None;
+                    }
                 }
                 Some((false, id)) => {
                     // This literal is already known to be false.
