@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::term_graph::TermGraph;
@@ -1148,9 +1148,16 @@ impl ActiveSet {
                     ));
                 }
 
-                // The activated step could be rewritten itself.
-                for step in self.activate_rewrite_target(activated_id, &activated_step) {
-                    generated_steps.push(step);
+                if EXPERIMENT {
+                    // The activated step could be used as a motivation.
+                    for step in self.activate_motivation(activated_id, &activated_step) {
+                        generated_steps.push(step);
+                    }
+                } else {
+                    // The activated step could be rewritten itself.
+                    for step in self.activate_rewrite_target(activated_id, &activated_step) {
+                        generated_steps.push(step);
+                    }
                 }
                 // The activated step could be substituted into.
                 for step in self.activate_original(activated_id, &activated_step) {
@@ -1160,9 +1167,16 @@ impl ActiveSet {
 
             if literal.positive {
                 if literal.has_any_variable() {
-                    // The activated step could be used as a rewrite pattern.
-                    for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
-                        generated_steps.push(step);
+                    if EXPERIMENT {
+                        // The activated step could be used as a general form for specialization.
+                        for step in self.activate_general(activated_id, &activated_step) {
+                            generated_steps.push(step);
+                        }
+                    } else {
+                        // The activated step could be used as a rewrite pattern.
+                        for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
+                            generated_steps.push(step);
+                        }
                     }
                 } else {
                     // The activated step could be used as a substitution.
