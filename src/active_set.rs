@@ -764,9 +764,9 @@ impl ActiveSet {
     }
 
     // Indexes a clause so that it becomes available for future proof step generation.
-    fn insert(&mut self, step: ProofStep, id: usize) {
+    fn insert(&mut self, step: ProofStep, step_index: usize) {
         let clause = &step.clause;
-        let step_index = self.steps.len();
+        assert_eq!(step_index, self.steps.len());
 
         // Add resolution targets for the new clause.
         // We don't need to do resolution against specializations, because we
@@ -802,7 +802,7 @@ impl ActiveSet {
                 );
             }
 
-            self.literal_set.insert(&clause.literals[0], id);
+            self.literal_set.insert(&clause.literals[0], step_index);
         } else {
             self.long_clauses.insert(clause.clone());
         }
@@ -1014,7 +1014,7 @@ mod tests {
 
         // Nonreflexive rule of less-than
         let step = ProofStep::mock("!c1(x0, x0)");
-        set.insert(step, 1);
+        set.insert(step, 0);
 
         // Trichotomy
         let clause = Clause::parse("c1(x0, x1) | c1(x1, x0) | x0 = x1");
