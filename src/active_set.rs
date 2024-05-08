@@ -769,7 +769,6 @@ impl ActiveSet {
     fn insert(&mut self, step: ProofStep) -> usize {
         let step_index = self.next_id();
         let clause = &step.clause;
-        assert_eq!(step_index, self.steps.len());
 
         // Add resolution targets for the new clause.
         // We don't need to do resolution against specializations, because we
@@ -780,33 +779,7 @@ impl ActiveSet {
 
         // Add rewrite targets for the new clause.
         // Only single-literal clauses can be used for rewriting.
-        if clause.literals.len() == 1 {
-            let literal = &clause.literals[0];
-
-            // Only rewrite concrete literals.
-            if !literal.has_any_variable() {
-                self.index_subterms(step_index, literal);
-            }
-
-            // When a literal is created via rewrite, we don't need to add it as
-            // a rewrite pattern.
-            // At some point we might want to do it anyway.
-            // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
-            // to simplify everything, without going through the intermediate steps.
-            // But, for now, we just don't do it.
-            // NOTE: this does speed things up, but it's inconsistent, because we are willing
-            // to use these as a rewrite against literals that are already active, just not
-            // new literals.
-            if literal.positive && !step.rule.is_rewrite() {
-                self.rewrite_tree.insert_literal(
-                    step_index,
-                    step.truthiness == Truthiness::Factual,
-                    literal,
-                );
-            }
-
-            self.literal_set.insert(&clause.literals[0], step_index);
-        } else {
+        if clause.literals.len() > 1 {
             self.long_clauses.insert(clause.clone());
         }
 
@@ -853,6 +826,30 @@ impl ActiveSet {
                 output.push(step);
             }
         }
+
+        // Only rewrite concrete literals.
+        if !literal.has_any_variable() {
+            self.index_subterms(activated_id, literal);
+        }
+
+        // When a literal is created via rewrite, we don't need to add it as
+        // a rewrite pattern.
+        // At some point we might want to do it anyway.
+        // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
+        // to simplify everything, without going through the intermediate steps.
+        // But, for now, we just don't do it.
+        // NOTE: this does speed things up, but it's inconsistent, because we are willing
+        // to use these as a rewrite against literals that are already active, just not
+        // new literals.
+        if literal.positive && !activated_step.rule.is_rewrite() {
+            self.rewrite_tree.insert_literal(
+                activated_id,
+                activated_step.truthiness == Truthiness::Factual,
+                literal,
+            );
+        }
+
+        self.literal_set.insert(&literal, activated_id);
     }
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
@@ -941,7 +938,7 @@ mod tests {
         let mut set = ActiveSet::new();
         let mut step = ProofStep::mock("c0(c3) = c2");
         step.truthiness = Truthiness::Hypothetical;
-        set.insert(step);
+        set.activate(step);
 
         // We should be able replace c1 with c3 in "c0(c3) = c2"
         let pattern_step = ProofStep::mock("c1 = c3");
@@ -960,7 +957,7 @@ mod tests {
         // Create an active set that knows c1 = c3
         let mut set = ActiveSet::new();
         let step = ProofStep::mock("c1 = c3");
-        set.insert(step);
+        set.activate(step);
 
         // We want to use c0(c3) = c2 to get c0(c1) = c2.
         let mut target_step = ProofStep::mock("c0(c3) = c2");
