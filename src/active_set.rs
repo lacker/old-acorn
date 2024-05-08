@@ -771,14 +771,11 @@ impl ActiveSet {
         let clause = &step.clause;
 
         // Add resolution targets for the new clause.
-        // We don't need to do resolution against specializations, because we
-        // can achieve the same result by resolving against the general form.
         for (i, literal) in clause.literals.iter().enumerate() {
             self.add_resolution_targets(step_index, i, literal);
         }
 
-        // Add rewrite targets for the new clause.
-        // Only single-literal clauses can be used for rewriting.
+        // Store long clauses here. Short clauses will be kept in the literal set.
         if clause.literals.len() > 1 {
             self.long_clauses.insert(clause.clone());
         }
