@@ -691,6 +691,9 @@ impl ActiveSet {
 
                 let rewrites = self.rewrite_patterns.get_rewrites(subterm, true, 0);
                 for (general_id, _, new_subterm) in rewrites {
+                    if new_subterm.has_any_variable() {
+                        continue;
+                    }
                     let general_step = self.get_step(general_id);
                     let new_literal = Literal::equals(subterm.clone(), new_subterm.clone());
                     let new_clause = Clause::new(vec![new_literal]);
@@ -1356,6 +1359,16 @@ mod tests {
         let mut step = ProofStep::mock("g2(g2(g1(c0, x0), x0), g2(x1, x1)) != g0");
         step.truthiness = Truthiness::Counterfactual;
         let new_steps = set.find_resolutions(1, &step);
+        assert_eq!(new_steps.len(), 0);
+    }
+
+    #[test]
+    fn test_specialize_must_bind_all_variables() {
+        let mut set = ActiveSet::new();
+        set.insert(ProofStep::mock("g0 = g1(x0)"), 0);
+        let mut step = ProofStep::mock("g0 = g2");
+        step.truthiness = Truthiness::Counterfactual;
+        let new_steps = set.activate_motivation(1, &step);
         assert_eq!(new_steps.len(), 0);
     }
 }
