@@ -58,10 +58,6 @@ pub struct RewriteInfo {
     // The truthiness of the source clauses.
     pattern_truthiness: Truthiness,
     target_truthiness: Truthiness,
-
-    // An exact rewrite is when A = B, B ?= C, therefore A ?= C.
-    // Inexact rewrites only operate on subterms.
-    exact: bool,
 }
 
 // Information about a substitution inference.
@@ -86,7 +82,6 @@ pub enum Rule {
     // Rules based on multiple source clauses
     Resolution(ResolutionInfo),
     Rewrite(RewriteInfo),
-    Substitution(SubstitutionInfo),
 
     // Rules with only one source clause
     EqualityFactoring(usize),
@@ -106,7 +101,6 @@ impl Rule {
             Rule::Assumption(_) => vec![],
             Rule::Resolution(info) => vec![info.positive_id, info.negative_id],
             Rule::Rewrite(info) => vec![info.pattern_id, info.target_id],
-            Rule::Substitution(info) => vec![info.original_id, info.substitution_id],
             Rule::EqualityFactoring(rewritten)
             | Rule::EqualityResolution(rewritten)
             | Rule::FunctionElimination(rewritten) => vec![*rewritten],
@@ -131,10 +125,6 @@ impl Rule {
                 answer.push(("pattern".to_string(), info.pattern_id));
                 answer.push(("target".to_string(), info.target_id));
             }
-            Rule::Substitution(info) => {
-                answer.push(("original".to_string(), info.original_id));
-                answer.push(("substitution".to_string(), info.substitution_id));
-            }
             Rule::EqualityFactoring(source)
             | Rule::EqualityResolution(source)
             | Rule::FunctionElimination(source) => {
@@ -156,7 +146,6 @@ impl Rule {
             Rule::Assumption(_) => "Assumption",
             Rule::Resolution(_) => "Resolution",
             Rule::Rewrite(_) => "Rewrite",
-            Rule::Substitution(_) => "Substitution",
             Rule::EqualityFactoring(_) => "Equality Factoring",
             Rule::EqualityResolution(_) => "Equality Resolution",
             Rule::FunctionElimination(_) => "Function Elimination",
@@ -174,13 +163,6 @@ impl Rule {
     pub fn is_assumption(&self) -> bool {
         match self {
             Rule::Assumption(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_substitution(&self) -> bool {
-        match self {
-            Rule::Substitution(_) => true,
             _ => false,
         }
     }
@@ -361,14 +343,12 @@ impl ProofStep {
         target_id: usize,
         target_step: &ProofStep,
         clause: Clause,
-        exact: bool,
     ) -> ProofStep {
         let rule = Rule::Rewrite(RewriteInfo {
             pattern_id,
             target_id,
             pattern_truthiness: pattern_step.truthiness,
             target_truthiness: target_step.truthiness,
-            exact,
         });
 
         // We only compare against the target
@@ -388,45 +368,6 @@ impl ProofStep {
             rule,
             vec![],
             pattern_step.proof_size + target_step.proof_size + 1,
-            cheap,
-            depth,
-        )
-    }
-
-    pub fn new_substitution(
-        original_id: usize,
-        original_step: &ProofStep,
-        substitution_id: usize,
-        substitution_step: &ProofStep,
-        clause: Clause,
-    ) -> ProofStep {
-        let rule = Rule::Substitution(SubstitutionInfo {
-            original_id,
-            substitution_id,
-            original_truthiness: original_step.truthiness,
-            substitution_truthiness: substitution_step.truthiness,
-        });
-
-        // We only compare against the original
-        // TODO: could this just be forward/backward?
-        let cheap = if clause.is_impossible() {
-            true
-        } else {
-            assert_eq!(clause.literals.len(), 1);
-            assert_eq!(original_step.clause.literals.len(), 1);
-            clause.literals[0].extended_kbo_cmp(&original_step.clause.literals[0]) == Ordering::Less
-        };
-        let depth =
-            std::cmp::max(substitution_step.depth, original_step.depth) + if cheap { 0 } else { 1 };
-
-        ProofStep::new(
-            clause,
-            original_step
-                .truthiness
-                .combine(substitution_step.truthiness),
-            rule,
-            vec![],
-            original_step.proof_size + substitution_step.proof_size + 1,
             cheap,
             depth,
         )

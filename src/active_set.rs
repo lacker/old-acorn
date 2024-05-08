@@ -188,22 +188,6 @@ impl ActiveSet {
                     self.clause_str(info.negative_id, extra)
                 );
             }
-            Rule::Substitution(info) => {
-                println!(
-                    "  rule: substitution with original {}, substituting {}",
-                    info.original_id, info.substitution_id
-                );
-                println!(
-                    "  general clause {}: {}",
-                    info.original_id,
-                    self.clause_str(info.original_id, extra)
-                );
-                println!(
-                    "  substituting clause {}: {}",
-                    info.substitution_id,
-                    self.clause_str(info.substitution_id, extra)
-                );
-            }
             Rule::TermGraph(negative_id, positive_ids) => {
                 println!("  rule: term graph");
                 println!(
@@ -272,7 +256,6 @@ impl ActiveSet {
             target_id,
             target_step,
             new_clause,
-            path.is_empty(),
         ))
     }
 
@@ -314,11 +297,11 @@ impl ActiveSet {
         let new_s = s.replace_at_path(path, new_subterm.clone());
         let new_literal = Literal::new(original_literal.positive, new_s, t.clone());
         let new_clause = Clause::new(vec![new_literal]);
-        Some(ProofStep::new_substitution(
-            original_id,
-            original_step,
+        Some(ProofStep::new_rewrite(
             substitution_id,
             substitution_step,
+            original_id,
+            original_step,
             new_clause,
         ))
     }
@@ -569,7 +552,6 @@ impl ActiveSet {
                         target_id,
                         target_step,
                         new_clause,
-                        path.is_empty(),
                     );
                     results.push(ps);
                 }
@@ -932,7 +914,7 @@ impl ActiveSet {
                 self.add_subterm_targets(step_index, literal);
             }
 
-            // When a literal is created via rewrite or substitution, we don't need to add it as
+            // When a literal is created via rewrite, we don't need to add it as
             // a rewrite pattern.
             // At some point we might want to do it anyway.
             // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
@@ -941,7 +923,7 @@ impl ActiveSet {
             // NOTE: this does speed things up, but it's inconsistent, because we are willing
             // to use these as a rewrite against literals that are already active, just not
             // new literals.
-            if literal.positive && !step.rule.is_rewrite() && !step.rule.is_substitution() {
+            if literal.positive && !step.rule.is_rewrite() {
                 if literal.has_any_variable() {
                     self.rewrite_patterns.insert_literal(
                         step_index,
