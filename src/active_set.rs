@@ -262,7 +262,8 @@ impl ActiveSet {
 
     // Finds all resolutions that can be done with a given proof step.
     // The "new clause" is the one that is being activated, and the "old clause" is the existing one.
-    pub fn find_resolutions(&self, new_step_id: usize, new_step: &ProofStep) -> Vec<ProofStep> {
+    pub fn find_resolutions(&self, new_step: &ProofStep) -> Vec<ProofStep> {
+        let new_step_id = self.next_id();
         let mut results = vec![];
         for (i, new_literal) in new_step.clause.literals.iter().enumerate() {
             let target_map = if new_literal.positive {
@@ -764,7 +765,9 @@ impl ActiveSet {
     }
 
     // Indexes a clause so that it becomes available for future proof step generation.
-    fn insert(&mut self, step: ProofStep, step_index: usize) {
+    // Return its id.
+    fn insert(&mut self, step: ProofStep) -> usize {
+        let step_index = self.next_id();
         let clause = &step.clause;
         assert_eq!(step_index, self.steps.len());
 
@@ -808,24 +811,63 @@ impl ActiveSet {
         }
 
         self.steps.push(step);
+        step_index
     }
 
     pub fn next_id(&self) -> usize {
         self.steps.len()
     }
 
+    // Inference that is specific to literals.
+    fn activate_literal(&mut self, activated_step: &ProofStep, output: &mut Vec<ProofStep>) {
+        let activated_id = self.next_id();
+        assert_eq!(activated_step.clause.len(), 1);
+        let literal = &activated_step.clause.literals[0];
+
+        if !literal.has_any_variable() {
+            // Add this to the term graph.
+            let left = self.graph.insert_term(&literal.left);
+            let right = self.graph.insert_term(&literal.right);
+            if literal.positive {
+                self.graph.set_terms_equal(left, right, activated_id);
+            } else {
+                self.graph.set_terms_not_equal(left, right, activated_id);
+            }
+            if let Some((negative_id, positive_ids)) = self.graph.explain_contradiction() {
+                output.push(ProofStep::new_term_graph_contradiction(
+                    &activated_step,
+                    negative_id,
+                    positive_ids,
+                ));
+            }
+
+            // The activated step could be rewritten itself.
+            for step in self.activate_rewrite_target(activated_id, &activated_step) {
+                output.push(step);
+            }
+        }
+
+        if literal.positive {
+            // The activated step could be used as a rewrite pattern.
+            for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
+                output.push(step);
+            }
+        }
+    }
+
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
-    // We do not simplify the inferences, but we do simplify the passive set using the new clause.
+    // We do not simplify the inferences.
+    // (However, the prover will simplify the passive set using the new clause.)
     // After generation, adds this clause to the active set.
     // Returns the id of the new clause, and pairs describing how the generated clauses were proved.
-    pub fn generate(&mut self, activated_step: ProofStep) -> (usize, Vec<ProofStep>) {
-        let mut generated_steps = vec![];
-        let activated_id = self.steps.len();
+    pub fn activate(&mut self, activated_step: ProofStep) -> (usize, Vec<ProofStep>) {
+        let mut output = vec![];
+        let activated_id = self.next_id();
 
         // Unification-based inferences don't need to be done on specialization, because
         // they can operate directly on the general form.
         if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
-            generated_steps.push(ProofStep::new_direct(
+            output.push(ProofStep::new_direct(
                 &activated_step,
                 Rule::EqualityResolution(activated_id),
                 new_clause,
@@ -833,7 +875,7 @@ impl ActiveSet {
         }
 
         for clause in ActiveSet::equality_factoring(&activated_step.clause) {
-            generated_steps.push(ProofStep::new_direct(
+            output.push(ProofStep::new_direct(
                 &activated_step,
                 Rule::EqualityFactoring(activated_id),
                 clause,
@@ -841,53 +883,23 @@ impl ActiveSet {
         }
 
         for clause in ActiveSet::function_elimination(&activated_step.clause) {
-            generated_steps.push(ProofStep::new_direct(
+            output.push(ProofStep::new_direct(
                 &activated_step,
                 Rule::FunctionElimination(activated_id),
                 clause,
             ));
         }
 
-        for step in self.find_resolutions(activated_id, &activated_step) {
-            generated_steps.push(step);
+        for step in self.find_resolutions(&activated_step) {
+            output.push(step);
         }
 
         if activated_step.clause.len() == 1 {
-            let literal = &activated_step.clause.literals[0];
-
-            if !literal.has_any_variable() {
-                // Add this to the term graph.
-                let left = self.graph.insert_term(&literal.left);
-                let right = self.graph.insert_term(&literal.right);
-                if literal.positive {
-                    self.graph.set_terms_equal(left, right, activated_id);
-                } else {
-                    self.graph.set_terms_not_equal(left, right, activated_id);
-                }
-                if let Some((negative_id, positive_ids)) = self.graph.explain_contradiction() {
-                    generated_steps.push(ProofStep::new_term_graph_contradiction(
-                        &activated_step,
-                        negative_id,
-                        positive_ids,
-                    ));
-                }
-
-                // The activated step could be rewritten itself.
-                for step in self.activate_rewrite_target(activated_id, &activated_step) {
-                    generated_steps.push(step);
-                }
-            }
-
-            if literal.positive {
-                // The activated step could be used as a rewrite pattern.
-                for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
-                    generated_steps.push(step);
-                }
-            }
+            self.activate_literal(&activated_step, &mut output);
         }
 
-        self.insert(activated_step, activated_id);
-        (activated_id, generated_steps)
+        self.insert(activated_step);
+        (activated_id, output)
     }
 
     pub fn iter_clauses(&self) -> impl Iterator<Item = &Clause> {
@@ -929,7 +941,7 @@ mod tests {
         let mut set = ActiveSet::new();
         let mut step = ProofStep::mock("c0(c3) = c2");
         step.truthiness = Truthiness::Hypothetical;
-        set.insert(step, 0);
+        set.insert(step);
 
         // We should be able replace c1 with c3 in "c0(c3) = c2"
         let pattern_step = ProofStep::mock("c1 = c3");
@@ -948,7 +960,7 @@ mod tests {
         // Create an active set that knows c1 = c3
         let mut set = ActiveSet::new();
         let step = ProofStep::mock("c1 = c3");
-        set.insert(step, 0);
+        set.insert(step);
 
         // We want to use c0(c3) = c2 to get c0(c1) = c2.
         let mut target_step = ProofStep::mock("c0(c3) = c2");
@@ -996,10 +1008,10 @@ mod tests {
         let mut set = ActiveSet::new();
         let mut step = ProofStep::mock("!c2(c0(c0(x0))) | c1(x0) != x0");
         step.truthiness = Truthiness::Factual;
-        set.insert(step, 0);
+        set.insert(step);
         let mut step = ProofStep::mock("c1(c3) = c3");
         step.truthiness = Truthiness::Counterfactual;
-        let (_, new_clauses) = set.generate(step);
+        let (_, new_clauses) = set.activate(step);
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(
             new_clauses[0].clause.to_string(),
@@ -1014,7 +1026,7 @@ mod tests {
 
         // Nonreflexive rule of less-than
         let step = ProofStep::mock("!c1(x0, x0)");
-        set.insert(step, 0);
+        set.insert(step);
 
         // Trichotomy
         let clause = Clause::parse("c1(x0, x1) | c1(x1, x0) | x0 = x1");
@@ -1026,10 +1038,10 @@ mod tests {
     fn test_self_referential_resolution() {
         // This is a bug we ran into. These things should not unify
         let mut set = ActiveSet::new();
-        set.insert(ProofStep::mock("g2(x0, x0) = g0"), 0);
+        set.insert(ProofStep::mock("g2(x0, x0) = g0"));
         let mut step = ProofStep::mock("g2(g2(g1(c0, x0), x0), g2(x1, x1)) != g0");
         step.truthiness = Truthiness::Counterfactual;
-        let new_steps = set.find_resolutions(1, &step);
+        let new_steps = set.find_resolutions(&step);
         assert_eq!(new_steps.len(), 0);
     }
 }

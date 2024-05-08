@@ -403,7 +403,7 @@ impl Prover {
         }
 
         // Generate new clauses
-        let (alt_activated_id, generated_clauses) = self.active_set.generate(activated_step);
+        let (alt_activated_id, generated_clauses) = self.active_set.activate(activated_step);
         assert_eq!(activated_id, alt_activated_id);
 
         let print_limit = 30;
