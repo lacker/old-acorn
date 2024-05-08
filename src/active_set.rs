@@ -207,63 +207,6 @@ impl ActiveSet {
         }
     }
 
-    // Tries to do a rewrite, but may fail or decline.
-    // The "indexing" type stuff happens outside this function.
-    //
-    // We are using the equality "pattern" to rewrite "target".
-    // pattern_forwards is the rewrite direction, ie forwards is using "s = t" to rewrite s -> t.
-    // target_left tells us whether we are rewriting the left or right of the target literal.
-    // subterm is the subterm of the target literal that we are rewriting.
-    // path is the subpath at which subterm exists in the target term.
-    //
-    // Returns None if the rewrite doesn't work, either mechanically or heuristically.
-    fn try_rewrite(
-        pattern_id: usize,
-        pattern_step: &ProofStep,
-        pattern_forwards: bool,
-        target_id: usize,
-        target_step: &ProofStep,
-        target_left: bool,
-        subterm: &Term,
-        path: &[usize],
-    ) -> Option<ProofStep> {
-        if pattern_step.truthiness == Truthiness::Factual
-            && target_step.truthiness == Truthiness::Factual
-        {
-            // No global-global rewriting
-            return None;
-        }
-        let pattern_literal = &pattern_step.clause.literals[0];
-        let (s, t) = if pattern_forwards {
-            (&pattern_literal.left, &pattern_literal.right)
-        } else {
-            (&pattern_literal.right, &pattern_literal.left)
-        };
-        let target_literal = &target_step.clause.literals[0];
-
-        let mut unifier = Unifier::new();
-        // s/t are in "left" scope and u/v are in "right" scope regardless of whether they are
-        // the actual left or right of their normalized literals.
-        if !unifier.unify(Scope::Left, s, Scope::Right, subterm) {
-            return None;
-        }
-
-        // This constraint makes superposition only handle the "rewrite" case.
-        if !unifier.right_reversible() {
-            return None;
-        }
-
-        let literal = unifier.superpose_literals(t, path, &target_literal, target_left);
-        let new_clause = Clause::new(vec![literal]);
-        Some(ProofStep::new_rewrite(
-            pattern_id,
-            pattern_step,
-            target_id,
-            target_step,
-            new_clause,
-        ))
-    }
-
     // Finds all resolutions that can be done with a given proof step.
     // The "new clause" is the one that is being activated, and the "old clause" is the existing one.
     pub fn find_resolutions(&self, new_step: &ProofStep) -> Vec<ProofStep> {
@@ -403,50 +346,6 @@ impl ActiveSet {
         Some(step)
     }
 
-    // When we have a new rewrite pattern, find everything that we can rewrite with it.
-    pub fn activate_rewrite_pattern(
-        &self,
-        pattern_id: usize,
-        pattern_step: &ProofStep,
-    ) -> Vec<ProofStep> {
-        let mut results = vec![];
-        assert!(pattern_step.clause.len() == 1);
-        let pattern_literal = &pattern_step.clause.literals[0];
-        assert!(pattern_literal.positive);
-
-        for (pattern_forwards, s, _) in pattern_literal.both_term_pairs() {
-            if s.is_true() {
-                // Don't rewrite from "true"
-                continue;
-            }
-
-            // Look for existing subterms that match s
-            let subterm_ids = self.subterm_unifier.find_unifying(s);
-            for subterm_id in subterm_ids {
-                let subterm_info = &self.subterms[*subterm_id];
-                for location in &subterm_info.locations {
-                    if location.step_index == pattern_id {
-                        // Don't rewrite the pattern with itself
-                        continue;
-                    }
-                    if let Some(ps) = ActiveSet::try_rewrite(
-                        pattern_id,
-                        pattern_step,
-                        pattern_forwards,
-                        location.step_index,
-                        self.get_step(location.step_index),
-                        location.left,
-                        &subterm_info.term,
-                        &location.path,
-                    ) {
-                        results.push(ps);
-                    }
-                }
-            }
-        }
-        results
-    }
-
     // Look for ways to rewrite a literal that is not yet in the active set.
     // The literal must be concrete.
     pub fn activate_rewrite_target(
@@ -469,14 +368,14 @@ impl ActiveSet {
                 // We can assume next_var is zero since we only rewrite concrete literals.
                 let rewrites = self.rewrite_tree.get_rewrites(u_subterm, allow_factual, 0);
 
-                for (step_index, _, new_subterm) in rewrites {
-                    let pattern_step = self.get_step(step_index);
+                for (pattern_id, _, new_subterm) in rewrites {
+                    let pattern_step = self.get_step(pattern_id);
                     let new_u = u.replace_at_path(&path, new_subterm);
                     let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
                     new_literal.validate_type();
                     let new_clause = Clause::new(vec![new_literal]);
                     let ps = ProofStep::new_rewrite(
-                        step_index,
+                        pattern_id,
                         pattern_step,
                         target_id,
                         target_step,
@@ -487,6 +386,92 @@ impl ActiveSet {
             }
         }
 
+        results
+    }
+
+    // Index the subterms of a literal so that we can match it against future rewrite rules.
+    fn index_subterms(&mut self, step_index: usize, literal: &Literal) {
+        for (forwards, from, _) in literal.both_term_pairs() {
+            for (path, subterm) in from.rewritable_subterms() {
+                let subterm_id = match self.subterm_map.get(&subterm) {
+                    Some(id) => *id,
+                    None => {
+                        let id = self.subterms.len();
+                        self.subterms.push(SubtermInfo {
+                            term: subterm.clone(),
+                            locations: vec![],
+                            rewrites: vec![],
+                        });
+                        self.subterm_map.insert(subterm.clone(), id);
+                        self.subterm_unifier.insert(subterm, id);
+                        id
+                    }
+                };
+                self.subterms[subterm_id].locations.push(SubtermLocation {
+                    step_index,
+                    left: forwards,
+                    path,
+                });
+            }
+        }
+    }
+
+    // When we have a new rewrite pattern, find everything that we can rewrite with it.
+    pub fn activate_rewrite_pattern(
+        &self,
+        pattern_id: usize,
+        pattern_step: &ProofStep,
+    ) -> Vec<ProofStep> {
+        let mut results = vec![];
+        assert!(pattern_step.clause.len() == 1);
+        let pattern_literal = &pattern_step.clause.literals[0];
+        assert!(pattern_literal.positive);
+
+        for (_, s, t) in pattern_literal.both_term_pairs() {
+            if s.is_true() {
+                // Don't rewrite from "true"
+                continue;
+            }
+
+            // Look for existing subterms that match s
+            let subterm_ids = self.subterm_unifier.find_unifying(s);
+            for subterm_id in subterm_ids {
+                let subterm_info = &self.subterms[*subterm_id];
+                for location in &subterm_info.locations {
+                    if location.step_index == pattern_id {
+                        // Don't rewrite the pattern with itself
+                        continue;
+                    }
+                    let target_id = location.step_index;
+                    let target_step = self.get_step(target_id);
+                    let target_literal = &target_step.clause.literals[0];
+                    let target_left = location.left;
+                    let subterm = &subterm_info.term;
+                    if pattern_step.truthiness == Truthiness::Factual
+                        && target_step.truthiness == Truthiness::Factual
+                    {
+                        // No global-global rewriting
+                        continue;
+                    }
+                    let mut unifier = Unifier::new();
+                    if !unifier.unify(Scope::Left, s, Scope::Right, subterm) {
+                        continue;
+                    }
+
+                    let literal =
+                        unifier.superpose_literals(t, &location.path, &target_literal, target_left);
+                    let new_clause = Clause::new(vec![literal]);
+                    let ps = ProofStep::new_rewrite(
+                        pattern_id,
+                        pattern_step,
+                        target_id,
+                        target_step,
+                        new_clause,
+                    );
+                    results.push(ps);
+                }
+            }
+        }
         results
     }
 
@@ -714,33 +699,6 @@ impl ActiveSet {
             new_truthiness = new_truthiness.combine(rewrite_step.truthiness);
         }
         Some(step.simplify(simplified_clause, new_rules, new_truthiness))
-    }
-
-    // Index the subterms of a literal so that we can match it against future rewrite rules.
-    fn index_subterms(&mut self, step_index: usize, literal: &Literal) {
-        for (forwards, from, _) in literal.both_term_pairs() {
-            for (path, subterm) in from.rewritable_subterms() {
-                let subterm_id = match self.subterm_map.get(&subterm) {
-                    Some(id) => *id,
-                    None => {
-                        let id = self.subterms.len();
-                        self.subterms.push(SubtermInfo {
-                            term: subterm.clone(),
-                            locations: vec![],
-                            rewrites: vec![],
-                        });
-                        self.subterm_map.insert(subterm.clone(), id);
-                        self.subterm_unifier.insert(subterm, id);
-                        id
-                    }
-                };
-                self.subterms[subterm_id].locations.push(SubtermLocation {
-                    step_index,
-                    left: forwards,
-                    path,
-                });
-            }
-        }
     }
 
     fn add_resolution_targets(
