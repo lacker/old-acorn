@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
@@ -37,11 +37,14 @@ pub struct ActiveSet {
     // except "true".
     subterms: Vec<SubtermInfo>,
 
-    // An index to find matching subterms given a pattern.
-    rewrite_targets: FingerprintUnifier<SubtermLocation>,
+    // An index to find the id of a subterm for an exact match.
+    subterm_map: HashMap<Term, usize>,
+
+    // An index to find the id of subterms for a pattern match.
+    subterm_unifier: FingerprintUnifier<SubtermLocation>,
 
     // A data structure to do the mechanical rewriting of subterms.
-    rewrite_patterns: RewriteTree,
+    rewrite_tree: RewriteTree,
 }
 
 // A ResolutionTarget represents a literal that we could do resolution with.
@@ -107,8 +110,9 @@ impl ActiveSet {
             negative_res_targets: FingerprintUnifier::new(),
             graph: TermGraph::new(),
             subterms: vec![],
-            rewrite_targets: FingerprintUnifier::new(),
-            rewrite_patterns: RewriteTree::new(),
+            subterm_map: HashMap::new(),
+            subterm_unifier: FingerprintUnifier::new(),
+            rewrite_tree: RewriteTree::new(),
         }
     }
 
@@ -425,7 +429,7 @@ impl ActiveSet {
             }
 
             // Look for rewrite targets that match s
-            let targets = self.rewrite_targets.find_unifying(s);
+            let targets = self.subterm_unifier.find_unifying(s);
             for target in targets {
                 let subterm = self.get_subterm(target);
                 if let Some(ps) = ActiveSet::try_rewrite(
@@ -465,9 +469,7 @@ impl ActiveSet {
                 let allow_factual = target_step.truthiness != Truthiness::Factual;
 
                 // We can assume next_var is zero since we only rewrite concrete literals.
-                let rewrites = self
-                    .rewrite_patterns
-                    .get_rewrites(u_subterm, allow_factual, 0);
+                let rewrites = self.rewrite_tree.get_rewrites(u_subterm, allow_factual, 0);
 
                 for (step_index, _, new_subterm) in rewrites {
                     let pattern_step = self.get_step(step_index);
@@ -716,11 +718,11 @@ impl ActiveSet {
         Some(step.simplify(simplified_clause, new_rules, new_truthiness))
     }
 
-    // Add rewrite targets for a given literal.
-    fn add_rewrite_targets(&mut self, step_index: usize, literal: &Literal) {
+    // Index the subterms of a literal so that we can match it against future rewrite rules.
+    fn index_subterms(&mut self, step_index: usize, literal: &Literal) {
         for (forwards, from, _) in literal.both_term_pairs() {
             for (path, subterm) in from.rewritable_subterms() {
-                self.rewrite_targets.insert(
+                self.subterm_unifier.insert(
                     subterm,
                     SubtermLocation {
                         step_index,
@@ -780,7 +782,7 @@ impl ActiveSet {
 
             // Only rewrite concrete literals.
             if !literal.has_any_variable() {
-                self.add_rewrite_targets(step_index, literal);
+                self.index_subterms(step_index, literal);
             }
 
             // When a literal is created via rewrite, we don't need to add it as
@@ -793,7 +795,7 @@ impl ActiveSet {
             // to use these as a rewrite against literals that are already active, just not
             // new literals.
             if literal.positive && !step.rule.is_rewrite() {
-                self.rewrite_patterns.insert_literal(
+                self.rewrite_tree.insert_literal(
                     step_index,
                     step.truthiness == Truthiness::Factual,
                     literal,
