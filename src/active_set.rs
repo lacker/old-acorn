@@ -69,7 +69,8 @@ struct SubtermInfo {
     locations: Vec<SubtermLocation>,
 
     // The possible terms that this subterm can be rewritten to.
-    // Note that this contains duplicates. Maybe we don't want that.
+    // Note that this contains duplicates.
+    // We do use duplicates to prevent factual-factual rewrites, but it is displeasing.
     rewrites: Vec<SubtermRewrite>,
 }
 
