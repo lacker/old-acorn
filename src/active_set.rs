@@ -1068,7 +1068,7 @@ impl ActiveSet {
             let literal = &clause.literals[0];
 
             // Only rewrite concrete literals.
-            if !literal.has_any_variable() {
+            if !literal.has_any_variable() && !step.rule.is_specialization() {
                 self.add_subterm_targets(step_index, literal);
             }
 

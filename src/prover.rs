@@ -607,7 +607,6 @@ mod tests {
     use crate::code_gen_error::CodeGenError;
     use crate::module::Module;
     use crate::project::Project;
-    use crate::proof_step::EXPERIMENT;
 
     use super::*;
 
@@ -1461,21 +1460,18 @@ mod tests {
             f(0)
         }
         "#;
-        if EXPERIMENT {
-            expect_proof(text, "f(0)", &[]);
-        } else {
-            expect_proof(
-                text,
-                "f(0)",
-                &[
-                    "if !add_to_zero(0, b) {",
-                    "\tadd(0, b) = 0",
-                    "\tb != 0",
-                    "\tfalse",
-                    "}",
-                ],
-            );
-        }
+
+        expect_proof(
+            text,
+            "f(0)",
+            &[
+                "if !add_to_zero(0, b) {",
+                "\tadd(0, b) = 0",
+                "\tb != 0",
+                "\tfalse",
+                "}",
+            ],
+        );
     }
 
     #[test]
