@@ -79,7 +79,7 @@ struct SubtermInfo {
 struct SubtermLocation {
     // Which proof step the subterm is in.
     // The literal can be either positive or negative.
-    step_index: usize,
+    target_id: usize,
 
     // Whether the subterm is in the left term of the literal.
     // (As opposed to the right one.)
@@ -92,8 +92,8 @@ struct SubtermLocation {
 
 // A SubtermRewrite represents a new subterm that we could substitute for an existing one.
 struct SubtermRewrite {
-    // Which proof step we are using to prove the validity of this substitution
-    step_index: usize,
+    // Which proof step we are using as the pattern for this rewrite
+    pattern_id: usize,
 
     // If the literal is u = v, 'forwards' means this represents u -> v (as opposed to v -> u).
     forwards: bool,
@@ -349,7 +349,7 @@ impl ActiveSet {
     // Look for ways to rewrite a literal that is not yet in the active set.
     // The literal must be concrete.
     pub fn activate_rewrite_target(
-        &self,
+        &mut self,
         target_id: usize,
         target_step: &ProofStep,
     ) -> Vec<ProofStep> {
@@ -386,12 +386,7 @@ impl ActiveSet {
             }
         }
 
-        results
-    }
-
-    // Index the subterms of a literal so that we can match it against future rewrite rules.
-    fn index_subterms(&mut self, step_index: usize, literal: &Literal) {
-        for (forwards, from, _) in literal.both_term_pairs() {
+        for (forwards, from, _) in target_literal.both_term_pairs() {
             for (path, subterm) in from.rewritable_subterms() {
                 let subterm_id = match self.subterm_map.get(&subterm) {
                     Some(id) => *id,
@@ -408,17 +403,19 @@ impl ActiveSet {
                     }
                 };
                 self.subterms[subterm_id].locations.push(SubtermLocation {
-                    step_index,
+                    target_id,
                     left: forwards,
                     path,
                 });
             }
         }
+
+        results
     }
 
     // When we have a new rewrite pattern, find everything that we can rewrite with it.
     pub fn activate_rewrite_pattern(
-        &self,
+        &mut self,
         pattern_id: usize,
         pattern_step: &ProofStep,
     ) -> Vec<ProofStep> {
@@ -427,7 +424,7 @@ impl ActiveSet {
         let pattern_literal = &pattern_step.clause.literals[0];
         assert!(pattern_literal.positive);
 
-        for (_, s, t) in pattern_literal.both_term_pairs() {
+        for (forwards, s, t) in pattern_literal.both_term_pairs() {
             if s.is_true() {
                 // Don't rewrite from "true"
                 continue;
@@ -446,14 +443,12 @@ impl ActiveSet {
                 let new_subterm = unifier.apply(Scope::Left, t);
 
                 for location in &subterm_info.locations {
-                    if location.step_index == pattern_id {
+                    if location.target_id == pattern_id {
                         // Don't rewrite the pattern with itself
                         continue;
                     }
-                    let target_id = location.step_index;
+                    let target_id = location.target_id;
                     let target_step = self.get_step(target_id);
-                    let target_literal = &target_step.clause.literals[0];
-                    let target_left = location.left;
 
                     if pattern_step.truthiness == Truthiness::Factual
                         && target_step.truthiness == Truthiness::Factual
@@ -462,7 +457,8 @@ impl ActiveSet {
                         continue;
                     }
 
-                    let (u, v) = if target_left {
+                    let target_literal = &target_step.clause.literals[0];
+                    let (u, v) = if location.left {
                         (&target_literal.left, &target_literal.right)
                     } else {
                         (&target_literal.right, &target_literal.left)
@@ -480,6 +476,12 @@ impl ActiveSet {
                     );
                     results.push(ps);
                 }
+
+                self.subterms[*subterm_id].rewrites.push(SubtermRewrite {
+                    pattern_id,
+                    forwards,
+                    term: new_subterm,
+                });
             }
         }
         results
@@ -793,9 +795,6 @@ impl ActiveSet {
             for step in self.activate_rewrite_target(activated_id, &activated_step) {
                 output.push(step);
             }
-
-            // Index it so that it can be rewritten in the future.
-            self.index_subterms(activated_id, literal);
         }
 
         // Using the literal as a rewrite pattern.
