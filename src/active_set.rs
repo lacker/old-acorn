@@ -41,7 +41,7 @@ pub struct ActiveSet {
     subterm_map: HashMap<Term, usize>,
 
     // An index to find the id of subterms for a pattern match.
-    subterm_unifier: FingerprintUnifier<SubtermLocation>,
+    subterm_unifier: FingerprintUnifier<usize>,
 
     // A data structure to do the mechanical rewriting of subterms.
     rewrite_tree: RewriteTree,
@@ -122,20 +122,6 @@ impl ActiveSet {
 
     fn is_known_long_clause(&self, clause: &Clause) -> bool {
         clause.literals.len() > 1 && self.long_clauses.contains(clause)
-    }
-
-    fn get_subterm(&self, target: &SubtermLocation) -> &Term {
-        let clause = self.get_clause(target.step_index);
-        let literal = &clause.literals[0];
-        let mut term = if target.left {
-            &literal.left
-        } else {
-            &literal.right
-        };
-        for i in &target.path {
-            term = &term.args[*i];
-        }
-        term
     }
 
     // A helper to print a clause that may not yet be inserted.
@@ -428,21 +414,23 @@ impl ActiveSet {
                 continue;
             }
 
-            // Look for rewrite targets that match s
-            let targets = self.subterm_unifier.find_unifying(s);
-            for target in targets {
-                let subterm = self.get_subterm(target);
-                if let Some(ps) = ActiveSet::try_rewrite(
-                    pattern_id,
-                    pattern_step,
-                    pattern_forwards,
-                    target.step_index,
-                    self.get_step(target.step_index),
-                    target.left,
-                    subterm,
-                    &target.path,
-                ) {
-                    results.push(ps);
+            // Look for existing subterms that match s
+            let subterm_ids = self.subterm_unifier.find_unifying(s);
+            for subterm_id in subterm_ids {
+                let subterm_info = &self.subterms[*subterm_id];
+                for location in &subterm_info.locations {
+                    if let Some(ps) = ActiveSet::try_rewrite(
+                        pattern_id,
+                        pattern_step,
+                        pattern_forwards,
+                        location.step_index,
+                        self.get_step(location.step_index),
+                        location.left,
+                        &subterm_info.term,
+                        &location.path,
+                    ) {
+                        results.push(ps);
+                    }
                 }
             }
         }
@@ -722,14 +710,25 @@ impl ActiveSet {
     fn index_subterms(&mut self, step_index: usize, literal: &Literal) {
         for (forwards, from, _) in literal.both_term_pairs() {
             for (path, subterm) in from.rewritable_subterms() {
-                self.subterm_unifier.insert(
-                    subterm,
-                    SubtermLocation {
-                        step_index,
-                        left: forwards,
-                        path,
-                    },
-                );
+                let subterm_id = match self.subterm_map.get(&subterm) {
+                    Some(id) => *id,
+                    None => {
+                        let id = self.subterms.len();
+                        self.subterms.push(SubtermInfo {
+                            term: subterm.clone(),
+                            locations: vec![],
+                            rewrites: vec![],
+                        });
+                        self.subterm_map.insert(subterm.clone(), id);
+                        self.subterm_unifier.insert(subterm, id);
+                        id
+                    }
+                };
+                self.subterms[subterm_id].locations.push(SubtermLocation {
+                    step_index,
+                    left: forwards,
+                    path,
+                });
             }
         }
     }
