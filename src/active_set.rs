@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::rewrite_tree::RewriteTree;
 use crate::term::Term;
 use crate::term_graph::TermGraph;
@@ -188,22 +188,6 @@ impl ActiveSet {
                     self.clause_str(info.negative_id, extra)
                 );
             }
-            Rule::Specialization(info) => {
-                println!(
-                    "  rule: specialization with general {}, motivation {}",
-                    info.general_id, info.motivation_id
-                );
-                println!(
-                    "  general clause {}: {}",
-                    info.general_id,
-                    self.clause_str(info.general_id, extra)
-                );
-                println!(
-                    "  motivated by clause {}: {}",
-                    info.motivation_id,
-                    self.clause_str(info.motivation_id, extra)
-                );
-            }
             Rule::Substitution(info) => {
                 println!(
                     "  rule: substitution with original {}, substituting {}",
@@ -289,48 +273,6 @@ impl ActiveSet {
             target_step,
             new_clause,
             path.is_empty(),
-        ))
-    }
-
-    // Tries to specialize a general literal, with the motivation of matching some existing subterm.
-    // The "indexing" type stuff happens outside this function.
-    //
-    // subterm is a subterm of the motivation literal.
-    // general_left tells us whether we are matching the left of the general literal.
-    //
-    // Returns None if the specialization doesn't work, either mechanically or heuristically.
-    fn try_specialize(
-        general_id: usize,
-        general_step: &ProofStep,
-        general_left: bool,
-        motivation_id: usize,
-        motivation_step: &ProofStep,
-        subterm: &Term,
-    ) -> Option<ProofStep> {
-        assert!(!subterm.has_any_variable());
-        let general_literal = &general_step.clause.literals[0];
-        assert!(general_literal.positive);
-        let (s, t) = if general_left {
-            (&general_literal.left, &general_literal.right)
-        } else {
-            (&general_literal.right, &general_literal.left)
-        };
-
-        let mut unifier = Unifier::new();
-        // The general literal is in "left" scope and the motivation literal is in "right" scope
-        // regardless of whether they are the actual left or right of their literals.
-        if !unifier.unify(Scope::Left, s, Scope::Right, subterm) {
-            return None;
-        }
-        let new_t = unifier.apply(Scope::Left, t);
-        let new_literal = Literal::new(general_literal.positive, subterm.clone(), new_t);
-        let new_clause = Clause::new(vec![new_literal]);
-        Some(ProofStep::new_specialization(
-            general_id,
-            general_step,
-            motivation_id,
-            motivation_step,
-            new_clause,
         ))
     }
 
@@ -557,39 +499,6 @@ impl ActiveSet {
         results
     }
 
-    // When we have a new general literal, find all the specializations for it.
-    pub fn activate_general(&self, general_id: usize, general_step: &ProofStep) -> Vec<ProofStep> {
-        let mut results = vec![];
-        assert!(general_step.clause.len() == 1);
-        let general_literal = &general_step.clause.literals[0];
-        assert!(general_literal.positive);
-
-        for (general_left, u, _) in general_literal.both_term_pairs() {
-            if !u.has_any_variable() {
-                // We can't specialize a concrete term.
-                continue;
-            }
-
-            // Look for motivation literals that match u
-            let motivations = self.rewrite_targets.find_unifying(u);
-            for motivation in motivations {
-                let subterm = self.get_subterm(motivation);
-                if let Some(ps) = ActiveSet::try_specialize(
-                    general_id,
-                    general_step,
-                    general_left,
-                    motivation.step_index,
-                    self.get_step(motivation.step_index),
-                    subterm,
-                ) {
-                    results.push(ps);
-                }
-            }
-        }
-
-        results
-    }
-
     // Find all ways to substitute out one subterm of this literal.
     pub fn activate_original(
         &self,
@@ -667,48 +576,6 @@ impl ActiveSet {
             }
         }
 
-        results
-    }
-
-    // When we have a new literal that can be substituted into, find all of the
-    // specializations that it can motivate.
-    pub fn activate_motivation(
-        &self,
-        motivation_id: usize,
-        motivation_step: &ProofStep,
-    ) -> Vec<ProofStep> {
-        let mut results = vec![];
-        assert!(motivation_step.clause.len() == 1);
-        let motivation_literal = &motivation_step.clause.literals[0];
-        assert!(!motivation_literal.has_any_variable());
-        for (_, term, _) in motivation_literal.both_term_pairs() {
-            let subterms = term.rewritable_subterms();
-            for (_, subterm) in subterms {
-                if self.substitutions.contains_key(&subterm) {
-                    // We have already been motivated by this subterm elsewhere.
-                    continue;
-                }
-
-                let rewrites = self.rewrite_patterns.get_rewrites(subterm, true, 0);
-                for (general_id, _, new_subterm) in rewrites {
-                    if new_subterm.has_any_variable() {
-                        continue;
-                    }
-                    let general_step = self.get_step(general_id);
-                    let new_literal = Literal::equals(subterm.clone(), new_subterm.clone());
-                    let new_clause = Clause::new(vec![new_literal]);
-                    let ps = ProofStep::new_specialization(
-                        general_id,
-                        general_step,
-                        motivation_id,
-                        motivation_step,
-                        new_clause,
-                    );
-
-                    results.push(ps);
-                }
-            }
-        }
         results
     }
 
@@ -938,14 +805,9 @@ impl ActiveSet {
         for literal in std::mem::take(&mut step.clause.literals) {
             match self.evaluate_literal(&literal) {
                 Some((true, _)) => {
-                    if step.rule.is_specialization() {
-                        // We allow specializations even if they're redundant.
-                        output_literals.push(literal);
-                    } else {
-                        // This literal is already known to be true.
-                        // Thus, the whole clause is a tautology.
-                        return None;
-                    }
+                    // This literal is already known to be true.
+                    // Thus, the whole clause is a tautology.
+                    return None;
                 }
                 Some((false, id)) => {
                     // This literal is already known to be false.
@@ -1053,13 +915,11 @@ impl ActiveSet {
         let clause = &step.clause;
         let step_index = self.steps.len();
 
-        if !step.rule.is_specialization() {
-            // Add resolution targets for the new clause.
-            // We don't need to do resolution against specializations, because we
-            // can achieve the same result by resolving against the general form.
-            for (i, literal) in clause.literals.iter().enumerate() {
-                self.add_resolution_targets(step_index, i, literal);
-            }
+        // Add resolution targets for the new clause.
+        // We don't need to do resolution against specializations, because we
+        // can achieve the same result by resolving against the general form.
+        for (i, literal) in clause.literals.iter().enumerate() {
+            self.add_resolution_targets(step_index, i, literal);
         }
 
         // Add rewrite targets for the new clause.
@@ -1068,7 +928,7 @@ impl ActiveSet {
             let literal = &clause.literals[0];
 
             // Only rewrite concrete literals.
-            if !literal.has_any_variable() && !step.rule.is_specialization() {
+            if !literal.has_any_variable() {
                 self.add_subterm_targets(step_index, literal);
             }
 
@@ -1113,43 +973,40 @@ impl ActiveSet {
         let mut generated_steps = vec![];
         let activated_id = self.steps.len();
 
-        if !activated_step.rule.is_specialization() {
-            // Unification-based inferences don't need to be done on specialization, because
-            // they can operate directly on the general form.
+        // Unification-based inferences don't need to be done on specialization, because
+        // they can operate directly on the general form.
+        if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
+            generated_steps.push(ProofStep::new_direct(
+                &activated_step,
+                Rule::EqualityResolution(activated_id),
+                new_clause,
+            ));
+        }
 
-            if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
-                generated_steps.push(ProofStep::new_direct(
-                    &activated_step,
-                    Rule::EqualityResolution(activated_id),
-                    new_clause,
-                ));
-            }
+        for clause in ActiveSet::equality_factoring(&activated_step.clause) {
+            generated_steps.push(ProofStep::new_direct(
+                &activated_step,
+                Rule::EqualityFactoring(activated_id),
+                clause,
+            ));
+        }
 
-            for clause in ActiveSet::equality_factoring(&activated_step.clause) {
-                generated_steps.push(ProofStep::new_direct(
-                    &activated_step,
-                    Rule::EqualityFactoring(activated_id),
-                    clause,
-                ));
-            }
+        for clause in ActiveSet::function_elimination(&activated_step.clause) {
+            generated_steps.push(ProofStep::new_direct(
+                &activated_step,
+                Rule::FunctionElimination(activated_id),
+                clause,
+            ));
+        }
 
-            for clause in ActiveSet::function_elimination(&activated_step.clause) {
-                generated_steps.push(ProofStep::new_direct(
-                    &activated_step,
-                    Rule::FunctionElimination(activated_id),
-                    clause,
-                ));
-            }
-
-            for step in self.find_resolutions(activated_id, &activated_step) {
-                generated_steps.push(step);
-            }
+        for step in self.find_resolutions(activated_id, &activated_step) {
+            generated_steps.push(step);
         }
 
         if activated_step.clause.len() == 1 {
             let literal = &activated_step.clause.literals[0];
 
-            if !literal.has_any_variable() && !activated_step.rule.is_specialization() {
+            if !literal.has_any_variable() {
                 // Add this to the term graph.
                 let left = self.graph.insert_term(&literal.left);
                 let right = self.graph.insert_term(&literal.right);
@@ -1166,16 +1023,9 @@ impl ActiveSet {
                     ));
                 }
 
-                if EXPERIMENT {
-                    // The activated step could be used as a motivation.
-                    for step in self.activate_motivation(activated_id, &activated_step) {
-                        generated_steps.push(step);
-                    }
-                } else {
-                    // The activated step could be rewritten itself.
-                    for step in self.activate_rewrite_target(activated_id, &activated_step) {
-                        generated_steps.push(step);
-                    }
+                // The activated step could be rewritten itself.
+                for step in self.activate_rewrite_target(activated_id, &activated_step) {
+                    generated_steps.push(step);
                 }
                 // The activated step could be substituted into.
                 for step in self.activate_original(activated_id, &activated_step) {
@@ -1185,16 +1035,9 @@ impl ActiveSet {
 
             if literal.positive {
                 if literal.has_any_variable() {
-                    if EXPERIMENT {
-                        // The activated step could be used as a general form for specialization.
-                        for step in self.activate_general(activated_id, &activated_step) {
-                            generated_steps.push(step);
-                        }
-                    } else {
-                        // The activated step could be used as a rewrite pattern.
-                        for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
-                            generated_steps.push(step);
-                        }
+                    // The activated step could be used as a rewrite pattern.
+                    for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
+                        generated_steps.push(step);
                     }
                 } else {
                     // The activated step could be used as a substitution.
@@ -1359,16 +1202,6 @@ mod tests {
         let mut step = ProofStep::mock("g2(g2(g1(c0, x0), x0), g2(x1, x1)) != g0");
         step.truthiness = Truthiness::Counterfactual;
         let new_steps = set.find_resolutions(1, &step);
-        assert_eq!(new_steps.len(), 0);
-    }
-
-    #[test]
-    fn test_specialize_must_bind_all_variables() {
-        let mut set = ActiveSet::new();
-        set.insert(ProofStep::mock("g0 = g1(x0)"), 0);
-        let mut step = ProofStep::mock("g0 = g2");
-        step.truthiness = Truthiness::Counterfactual;
-        let new_steps = set.activate_motivation(1, &step);
         assert_eq!(new_steps.len(), 0);
     }
 }

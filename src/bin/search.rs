@@ -34,7 +34,7 @@ async fn main() {
 
     let goal_context = env.get_goal_context(&project, &path).unwrap();
     println!("proving {} ...", goal_context.name);
-    let mut prover = Prover::new(&project, &goal_context, true);
+    let mut prover = Prover::new(&project, &goal_context, false);
     let outcome = prover.medium_search();
 
     match outcome {
