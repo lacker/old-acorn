@@ -421,6 +421,10 @@ impl ActiveSet {
             for subterm_id in subterm_ids {
                 let subterm_info = &self.subterms[*subterm_id];
                 for location in &subterm_info.locations {
+                    if location.step_index == pattern_id {
+                        // Don't rewrite the pattern with itself
+                        continue;
+                    }
                     if let Some(ps) = ActiveSet::try_rewrite(
                         pattern_id,
                         pattern_step,
@@ -817,16 +821,16 @@ impl ActiveSet {
             }
         }
 
+        // Only rewrite concrete literals.
+        if !literal.has_any_variable() {
+            self.index_subterms(activated_id, literal);
+        }
+
         if literal.positive {
             // The activated step could be used as a rewrite pattern.
             for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
                 output.push(step);
             }
-        }
-
-        // Only rewrite concrete literals.
-        if !literal.has_any_variable() {
-            self.index_subterms(activated_id, literal);
         }
 
         // When a literal is created via rewrite, we don't need to add it as
@@ -939,7 +943,7 @@ mod tests {
 
         // We should be able replace c1 with c3 in "c0(c3) = c2"
         let pattern_step = ProofStep::mock("c1 = c3");
-        let result = set.activate_rewrite_pattern(0, &pattern_step);
+        let result = set.activate_rewrite_pattern(1, &pattern_step);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
