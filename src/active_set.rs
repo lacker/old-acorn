@@ -1005,7 +1005,7 @@ mod tests {
         let mut set = ActiveSet::new();
         let mut step = ProofStep::mock("!c2(c0(c0(x0))) | c1(x0) != x0");
         step.truthiness = Truthiness::Factual;
-        set.insert(step);
+        set.activate(step);
         let mut step = ProofStep::mock("c1(c3) = c3");
         step.truthiness = Truthiness::Counterfactual;
         let (_, new_clauses) = set.activate(step);
@@ -1023,7 +1023,7 @@ mod tests {
 
         // Nonreflexive rule of less-than
         let step = ProofStep::mock("!c1(x0, x0)");
-        set.insert(step);
+        set.activate(step);
 
         // Trichotomy
         let clause = Clause::parse("c1(x0, x1) | c1(x1, x0) | x0 = x1");
@@ -1035,7 +1035,7 @@ mod tests {
     fn test_self_referential_resolution() {
         // This is a bug we ran into. These things should not unify
         let mut set = ActiveSet::new();
-        set.insert(ProofStep::mock("g2(x0, x0) = g0"));
+        set.activate(ProofStep::mock("g2(x0, x0) = g0"));
         let mut step = ProofStep::mock("g2(g2(g1(c0, x0), x0), g2(x1, x1)) != g0");
         step.truthiness = Truthiness::Counterfactual;
         let new_steps = set.find_resolutions(&step);
