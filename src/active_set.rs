@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
@@ -37,18 +37,11 @@ pub struct ActiveSet {
     // except "true".
     subterms: Vec<SubtermInfo>,
 
-    // An index of all the subterms that can be rewritten.
+    // An index to find matching subterms given a pattern.
     rewrite_targets: FingerprintUnifier<SubtermLocation>,
 
     // A data structure to do the mechanical rewriting of subterms.
     rewrite_patterns: RewriteTree,
-
-    // An index of all the subterms that can be substituted out.
-    // Values in the key should all be concrete.
-    substitution_targets: HashMap<Term, Vec<SubtermLocation>>,
-
-    // A map from terms to all the substitutions that can be made for those terms.
-    substitutions: HashMap<Term, Vec<RewriteInfo>>,
 }
 
 // A ResolutionTarget represents a literal that we could do resolution with.
@@ -74,7 +67,7 @@ struct SubtermInfo {
 
     // The possible terms that this subterm can be rewritten to.
     // Note that this contains duplicates. Maybe we don't want that.
-    rewrites: Vec<RewriteInfo>,
+    rewrites: Vec<SubtermRewrite>,
 }
 
 // A SubtermLocation describes somewhere that the subterm exists among the activated clauses.
@@ -93,13 +86,15 @@ struct SubtermLocation {
     path: Vec<usize>,
 }
 
-// A RewriteInfo represents a term that we could substitute in for another term.
-struct RewriteInfo {
-    // Which proof step we are using to enable this substitution
+// A SubtermRewrite represents a new subterm that we could substitute for an existing one.
+struct SubtermRewrite {
+    // Which proof step we are using to prove the validity of this substitution
     step_index: usize,
 
     // If the literal is u = v, 'forwards' means this represents u -> v (as opposed to v -> u).
     forwards: bool,
+
+    term: Term,
 }
 
 impl ActiveSet {
@@ -114,8 +109,6 @@ impl ActiveSet {
             subterms: vec![],
             rewrite_targets: FingerprintUnifier::new(),
             rewrite_patterns: RewriteTree::new(),
-            substitution_targets: HashMap::new(),
-            substitutions: HashMap::new(),
         }
     }
 
@@ -272,53 +265,6 @@ impl ActiveSet {
             pattern_step,
             target_id,
             target_step,
-            new_clause,
-        ))
-    }
-
-    // Replaces a subterm in a clause with a new term.
-    // Returns None if this doesn't work heuristically.
-    // The caller should ensure that it works mechanically.
-    fn try_substitute(
-        substitution_id: usize,
-        substitution_step: &ProofStep,
-        substitution_forwards: bool,
-        original_id: usize,
-        original_step: &ProofStep,
-        original_left: bool,
-        path: &[usize],
-    ) -> Option<ProofStep> {
-        if substitution_step.truthiness == Truthiness::Factual
-            && original_step.truthiness == Truthiness::Factual
-        {
-            // No global-global substitution
-            return None;
-        }
-        assert_eq!(substitution_step.clause.literals.len(), 1);
-        let substitution_literal = &substitution_step.clause.literals[0];
-        assert!(substitution_literal.positive);
-        let new_subterm = if substitution_forwards {
-            &substitution_literal.right
-        } else {
-            &substitution_literal.left
-        };
-
-        // Replace part of s, keep t
-        assert_eq!(original_step.clause.literals.len(), 1);
-        let original_literal = &original_step.clause.literals[0];
-        let (s, t) = if original_left {
-            (&original_literal.left, &original_literal.right)
-        } else {
-            (&original_literal.right, &original_literal.left)
-        };
-        let new_s = s.replace_at_path(path, new_subterm.clone());
-        let new_literal = Literal::new(original_literal.positive, new_s, t.clone());
-        let new_clause = Clause::new(vec![new_literal]);
-        Some(ProofStep::new_rewrite(
-            substitution_id,
-            substitution_step,
-            original_id,
-            original_step,
             new_clause,
         ))
     }
@@ -499,39 +445,6 @@ impl ActiveSet {
         results
     }
 
-    // Find all ways to substitute out one subterm of this literal.
-    pub fn activate_original(
-        &self,
-        original_id: usize,
-        original_step: &ProofStep,
-    ) -> Vec<ProofStep> {
-        let mut results = vec![];
-        assert!(original_step.clause.len() == 1);
-        let original_literal = &original_step.clause.literals[0];
-
-        for (original_left, s, _) in original_literal.both_term_pairs() {
-            let subterms = s.rewritable_subterms();
-            for (path, subterm) in subterms {
-                if let Some(subs) = self.substitutions.get(&subterm) {
-                    for sub in subs {
-                        if let Some(ps) = ActiveSet::try_substitute(
-                            sub.step_index,
-                            self.get_step(sub.step_index),
-                            sub.forwards,
-                            original_id,
-                            original_step,
-                            original_left,
-                            &path,
-                        ) {
-                            results.push(ps);
-                        }
-                    }
-                }
-            }
-        }
-        results
-    }
-
     // Look for ways to rewrite a literal that is not yet in the active set.
     // The literal must be concrete.
     pub fn activate_rewrite_target(
@@ -569,45 +482,6 @@ impl ActiveSet {
                         target_step,
                         new_clause,
                     );
-                    results.push(ps);
-                }
-            }
-        }
-
-        results
-    }
-
-    pub fn activate_substitution(
-        &self,
-        substitution_id: usize,
-        substitution_step: &ProofStep,
-    ) -> Vec<ProofStep> {
-        let mut results = vec![];
-        assert!(substitution_step.clause.len() == 1);
-        let substitution_literal = &substitution_step.clause.literals[0];
-        assert!(!substitution_literal.has_any_variable());
-        assert!(substitution_literal.positive);
-        for (substitution_forwards, s, _) in substitution_literal.both_term_pairs() {
-            if s.is_true() {
-                // Don't substitute "true"
-                continue;
-            }
-
-            let subterm_refs = match self.substitution_targets.get(&s) {
-                Some(x) => x,
-                None => continue,
-            };
-
-            for subterm_ref in subterm_refs {
-                if let Some(ps) = ActiveSet::try_substitute(
-                    substitution_id,
-                    substitution_step,
-                    substitution_forwards,
-                    subterm_ref.step_index,
-                    self.get_step(subterm_ref.step_index),
-                    subterm_ref.left,
-                    &subterm_ref.path,
-                ) {
                     results.push(ps);
                 }
             }
@@ -842,18 +716,10 @@ impl ActiveSet {
         Some(step.simplify(simplified_clause, new_rules, new_truthiness))
     }
 
-    // Add both substitution and rewrite targets for a given literal.
-    fn add_subterm_targets(&mut self, step_index: usize, literal: &Literal) {
+    // Add rewrite targets for a given literal.
+    fn add_rewrite_targets(&mut self, step_index: usize, literal: &Literal) {
         for (forwards, from, _) in literal.both_term_pairs() {
             for (path, subterm) in from.rewritable_subterms() {
-                self.substitution_targets
-                    .entry(subterm.clone())
-                    .or_insert_with(Vec::new)
-                    .push(SubtermLocation {
-                        step_index,
-                        left: forwards,
-                        path: path.clone(),
-                    });
                 self.rewrite_targets.insert(
                     subterm,
                     SubtermLocation {
@@ -863,19 +729,6 @@ impl ActiveSet {
                     },
                 );
             }
-        }
-    }
-
-    // Adds a substitution for both forwards and backwards
-    fn add_substitutions(&mut self, step_index: usize, literal: &Literal) {
-        for (forwards, from, _) in literal.both_term_pairs() {
-            self.substitutions
-                .entry(from.clone())
-                .or_insert_with(Vec::new)
-                .push(RewriteInfo {
-                    step_index,
-                    forwards,
-                });
         }
     }
 
@@ -927,7 +780,7 @@ impl ActiveSet {
 
             // Only rewrite concrete literals.
             if !literal.has_any_variable() {
-                self.add_subterm_targets(step_index, literal);
+                self.add_rewrite_targets(step_index, literal);
             }
 
             // When a literal is created via rewrite, we don't need to add it as
@@ -940,15 +793,11 @@ impl ActiveSet {
             // to use these as a rewrite against literals that are already active, just not
             // new literals.
             if literal.positive && !step.rule.is_rewrite() {
-                if literal.has_any_variable() {
-                    self.rewrite_patterns.insert_literal(
-                        step_index,
-                        step.truthiness == Truthiness::Factual,
-                        literal,
-                    );
-                } else {
-                    self.add_substitutions(step_index, literal);
-                }
+                self.rewrite_patterns.insert_literal(
+                    step_index,
+                    step.truthiness == Truthiness::Factual,
+                    literal,
+                );
             }
 
             self.literal_set.insert(&clause.literals[0], id);
@@ -1025,23 +874,12 @@ impl ActiveSet {
                 for step in self.activate_rewrite_target(activated_id, &activated_step) {
                     generated_steps.push(step);
                 }
-                // The activated step could be substituted into.
-                for step in self.activate_original(activated_id, &activated_step) {
-                    generated_steps.push(step);
-                }
             }
 
             if literal.positive {
-                if literal.has_any_variable() {
-                    // The activated step could be used as a rewrite pattern.
-                    for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
-                        generated_steps.push(step);
-                    }
-                } else {
-                    // The activated step could be used as a substitution.
-                    for step in self.activate_substitution(activated_id, &activated_step) {
-                        generated_steps.push(step);
-                    }
+                // The activated step could be used as a rewrite pattern.
+                for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
+                    generated_steps.push(step);
                 }
             }
         }
@@ -1111,20 +949,10 @@ mod tests {
         set.insert(step, 0);
 
         // We want to use c0(c3) = c2 to get c0(c1) = c2.
-        // But this isn't a rewrite target...
         let mut target_step = ProofStep::mock("c0(c3) = c2");
         target_step.truthiness = Truthiness::Hypothetical;
         let result = set.activate_rewrite_target(0, &target_step);
-        assert_eq!(result.len(), 0);
-
-        // It's an "original" for a substitution.
-        let result = set.activate_original(0, &target_step);
         assert_eq!(result.len(), 1);
-        let expected = Clause::new(vec![Literal::equals(
-            Term::parse("c0(c1)"),
-            Term::parse("c2"),
-        )]);
-        assert_eq!(result[0].clause, expected);
     }
 
     #[test]
