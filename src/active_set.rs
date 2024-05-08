@@ -98,6 +98,10 @@ struct SubtermRewrite {
     // If the literal is u = v, 'forwards' means this represents u -> v (as opposed to v -> u).
     forwards: bool,
 
+    // The term that we are rewriting into.
+    // This can have variables, starting at zero.
+    // We only rewrite subterms of concrete literals, so there will be no other variables for
+    // these to conflict with.
     term: Term,
 }
 
@@ -798,8 +802,10 @@ impl ActiveSet {
         assert_eq!(activated_step.clause.len(), 1);
         let literal = &activated_step.clause.literals[0];
 
+        // Using the literal as a rewrite target.
         if !literal.has_any_variable() {
             // Add this to the term graph.
+            // TODO: add even more stuff to the term graph.
             let left = self.graph.insert_term(&literal.left);
             let right = self.graph.insert_term(&literal.right);
             if literal.positive {
@@ -815,34 +821,23 @@ impl ActiveSet {
                 ));
             }
 
-            // The activated step could be rewritten itself.
+            // The activated step could be rewritten immediately.
             for step in self.activate_rewrite_target(activated_id, &activated_step) {
                 output.push(step);
             }
-        }
 
-        // Only rewrite concrete literals.
-        if !literal.has_any_variable() {
+            // Index it so that it can be rewritten in the future.
             self.index_subterms(activated_id, literal);
         }
 
-        if literal.positive {
-            // The activated step could be used as a rewrite pattern.
+        // Using the literal as a rewrite pattern.
+        if literal.positive && !activated_step.rule.is_rewrite() {
+            // The activated step could be used as a rewrite pattern immediately.
             for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
                 output.push(step);
             }
-        }
 
-        // When a literal is created via rewrite, we don't need to add it as
-        // a rewrite pattern.
-        // At some point we might want to do it anyway.
-        // Ie, if we prove that a = b after five steps of rewrites, we might want to use that
-        // to simplify everything, without going through the intermediate steps.
-        // But, for now, we just don't do it.
-        // NOTE: this does speed things up, but it's inconsistent, because we are willing
-        // to use these as a rewrite against literals that are already active, just not
-        // new literals.
-        if literal.positive && !activated_step.rule.is_rewrite() {
+            // Index it so that it can be used as a rewrite pattern in the future.
             self.rewrite_tree.insert_literal(
                 activated_id,
                 activated_step.truthiness == Truthiness::Factual,
