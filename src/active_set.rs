@@ -24,12 +24,6 @@ pub struct ActiveSet {
     // The short clauses (ie just one literal) that we have proven.
     literal_set: LiteralSet,
 
-    // An index of all the subterms that can be rewritten.
-    rewrite_targets: FingerprintUnifier<SubtermReference>,
-
-    // An index of all the ways to rewrite subterms.
-    rewrite_patterns: RewriteTree,
-
     // An index of all the positive literals that we can do resolution with.
     positive_res_targets: FingerprintUnifier<ResolutionTarget>,
 
@@ -39,12 +33,22 @@ pub struct ActiveSet {
     // A graph that encodes equalities and inequalities between terms.
     graph: TermGraph,
 
+    // Information about every subterm that appears in an activated concrete literal,
+    // except "true".
+    subterms: Vec<SubtermInfo>,
+
+    // An index of all the subterms that can be rewritten.
+    rewrite_targets: FingerprintUnifier<SubtermLocation>,
+
+    // A data structure to do the mechanical rewriting of subterms.
+    rewrite_patterns: RewriteTree,
+
     // An index of all the subterms that can be substituted out.
     // Values in the key should all be concrete.
-    substitution_targets: HashMap<Term, Vec<SubtermReference>>,
+    substitution_targets: HashMap<Term, Vec<SubtermLocation>>,
 
     // A map from terms to all the substitutions that can be made for those terms.
-    substitutions: HashMap<Term, Vec<Substitution>>,
+    substitutions: HashMap<Term, Vec<RewriteInfo>>,
 }
 
 // A ResolutionTarget represents a literal that we could do resolution with.
@@ -60,10 +64,22 @@ struct ResolutionTarget {
     left: bool,
 }
 
-// A SubtermReference represents a subterm within an active clause, for rewrites or
-// substitutions.
-// Subterms must be in concrete single-literal clauses, left or right, either positive or negative.
-struct SubtermReference {
+// Information about a subterm that appears in an activated concrete literal.
+struct SubtermInfo {
+    // The subterm itself
+    term: Term,
+
+    // Where the subterm occurs, in activated concrete literals.
+    locations: Vec<SubtermLocation>,
+
+    // The possible terms that this subterm can be rewritten to.
+    // Note that this contains duplicates. Maybe we don't want that.
+    rewrites: Vec<RewriteInfo>,
+}
+
+// A SubtermLocation describes somewhere that the subterm exists among the activated clauses.
+// Subterm locations always refer to concrete single-literal clauses.
+struct SubtermLocation {
     // Which proof step the subterm is in.
     // The literal can be either positive or negative.
     step_index: usize,
@@ -77,9 +93,9 @@ struct SubtermReference {
     path: Vec<usize>,
 }
 
-// A Substitution represents a term that we could substitute into another term.
-struct Substitution {
-    // Which proof step we are using for substitution
+// A RewriteInfo represents a term that we could substitute in for another term.
+struct RewriteInfo {
+    // Which proof step we are using to enable this substitution
     step_index: usize,
 
     // If the literal is u = v, 'forwards' means this represents u -> v (as opposed to v -> u).
@@ -92,11 +108,12 @@ impl ActiveSet {
             steps: vec![],
             long_clauses: HashSet::new(),
             literal_set: LiteralSet::new(),
-            rewrite_targets: FingerprintUnifier::new(),
-            rewrite_patterns: RewriteTree::new(),
             positive_res_targets: FingerprintUnifier::new(),
             negative_res_targets: FingerprintUnifier::new(),
             graph: TermGraph::new(),
+            subterms: vec![],
+            rewrite_targets: FingerprintUnifier::new(),
+            rewrite_patterns: RewriteTree::new(),
             substitution_targets: HashMap::new(),
             substitutions: HashMap::new(),
         }
@@ -110,7 +127,7 @@ impl ActiveSet {
         clause.literals.len() > 1 && self.long_clauses.contains(clause)
     }
 
-    fn get_subterm(&self, target: &SubtermReference) -> &Term {
+    fn get_subterm(&self, target: &SubtermLocation) -> &Term {
         let clause = self.get_clause(target.step_index);
         let literal = &clause.literals[0];
         let mut term = if target.left {
@@ -535,10 +552,9 @@ impl ActiveSet {
                 let allow_factual = target_step.truthiness != Truthiness::Factual;
 
                 // We can assume next_var is zero since we only rewrite concrete literals.
-                let next_var = 0;
-                let rewrites =
-                    self.rewrite_patterns
-                        .get_rewrites(u_subterm, allow_factual, next_var);
+                let rewrites = self
+                    .rewrite_patterns
+                    .get_rewrites(u_subterm, allow_factual, 0);
 
                 for (step_index, _, new_subterm) in rewrites {
                     let pattern_step = self.get_step(step_index);
@@ -833,14 +849,14 @@ impl ActiveSet {
                 self.substitution_targets
                     .entry(subterm.clone())
                     .or_insert_with(Vec::new)
-                    .push(SubtermReference {
+                    .push(SubtermLocation {
                         step_index,
                         left: forwards,
                         path: path.clone(),
                     });
                 self.rewrite_targets.insert(
                     subterm,
-                    SubtermReference {
+                    SubtermLocation {
                         step_index,
                         left: forwards,
                         path,
@@ -856,7 +872,7 @@ impl ActiveSet {
             self.substitutions
                 .entry(from.clone())
                 .or_insert_with(Vec::new)
-                .push(Substitution {
+                .push(RewriteInfo {
                     step_index,
                     forwards,
                 });
