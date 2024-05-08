@@ -458,9 +458,16 @@ impl ActiveSet {
                         continue;
                     }
 
-                    let literal =
-                        unifier.superpose_literals(t, &location.path, &target_literal, target_left);
-                    let new_clause = Clause::new(vec![literal]);
+                    let new_subterm = unifier.apply(Scope::Left, t);
+                    let (u, v) = if target_left {
+                        (&target_literal.left, &target_literal.right)
+                    } else {
+                        (&target_literal.right, &target_literal.left)
+                    };
+                    let new_u = u.replace_at_path(&location.path, new_subterm);
+                    let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
+
+                    let new_clause = Clause::new(vec![new_literal]);
                     let ps = ProofStep::new_rewrite(
                         pattern_id,
                         pattern_step,

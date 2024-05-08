@@ -844,7 +844,10 @@ theorem mul_from_nat(j: Nat, k: Nat): mul(from_nat(j), from_nat(k)) = from_nat(n
     mul(from_nat(j), from_nat(k)) = from_nat(nat.mul(abs(from_nat(j)), abs(from_nat(k))))
 }
 
-theorem abs_zero_imp_zero(a: Int): abs(a) = nat.0 -> a = 0
+theorem abs_zero_imp_zero(a: Int): abs(a) = nat.0 -> a = 0 by {
+    !is_negative(a)
+    !is_positive(a)
+}
 
 theorem mul_zero_imp_factor_zero(a: Int, b: Int): mul(a, b) = 0 -> a = 0 | b = 0 by {
     nat.mul(abs(a), abs(b)) = nat.0
