@@ -437,6 +437,14 @@ impl ActiveSet {
             let subterm_ids = self.subterm_unifier.find_unifying(s);
             for subterm_id in subterm_ids {
                 let subterm_info = &self.subterms[*subterm_id];
+                let subterm = &subterm_info.term;
+
+                let mut unifier = Unifier::new();
+                if !unifier.unify(Scope::Left, s, Scope::Right, subterm) {
+                    continue;
+                }
+                let new_subterm = unifier.apply(Scope::Left, t);
+
                 for location in &subterm_info.locations {
                     if location.step_index == pattern_id {
                         // Don't rewrite the pattern with itself
@@ -446,25 +454,20 @@ impl ActiveSet {
                     let target_step = self.get_step(target_id);
                     let target_literal = &target_step.clause.literals[0];
                     let target_left = location.left;
-                    let subterm = &subterm_info.term;
+
                     if pattern_step.truthiness == Truthiness::Factual
                         && target_step.truthiness == Truthiness::Factual
                     {
                         // No global-global rewriting
                         continue;
                     }
-                    let mut unifier = Unifier::new();
-                    if !unifier.unify(Scope::Left, s, Scope::Right, subterm) {
-                        continue;
-                    }
 
-                    let new_subterm = unifier.apply(Scope::Left, t);
                     let (u, v) = if target_left {
                         (&target_literal.left, &target_literal.right)
                     } else {
                         (&target_literal.right, &target_literal.left)
                     };
-                    let new_u = u.replace_at_path(&location.path, new_subterm);
+                    let new_u = u.replace_at_path(&location.path, new_subterm.clone());
                     let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
 
                     let new_clause = Clause::new(vec![new_literal]);
