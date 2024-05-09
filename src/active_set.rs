@@ -346,6 +346,7 @@ impl ActiveSet {
 
     // Look for ways to rewrite a literal that is not yet in the active set.
     // The literal must be concrete.
+    // The naming convention is that we use the pattern s->t to rewrite u in u ?= v.
     pub fn activate_rewrite_target(
         &mut self,
         target_id: usize,
@@ -355,7 +356,7 @@ impl ActiveSet {
         assert!(target_step.clause.len() == 1);
         let target_literal = &target_step.clause.literals[0];
 
-        for (_, u, v) in target_literal.both_term_pairs() {
+        for (forwards, u, v) in target_literal.both_term_pairs() {
             let u_subterms = u.rewritable_subterms();
 
             for (path, u_subterm) in u_subterms {
@@ -384,23 +385,24 @@ impl ActiveSet {
             }
         }
 
-        for (forwards, from, _) in target_literal.both_term_pairs() {
-            for (path, subterm) in from.rewritable_subterms() {
-                let subterm_id = match self.subterm_map.get(&subterm) {
+        for (forwards, u, v) in target_literal.both_term_pairs() {
+            let u_subterms = u.rewritable_subterms();
+            for (path, u_subterm) in u_subterms {
+                let u_subterm_id = match self.subterm_map.get(&u_subterm) {
                     Some(id) => *id,
                     None => {
                         let id = self.subterms.len();
                         self.subterms.push(SubtermInfo {
-                            term: subterm.clone(),
+                            term: u_subterm.clone(),
                             locations: vec![],
                             rewrites: vec![],
                         });
-                        self.subterm_map.insert(subterm.clone(), id);
-                        self.subterm_unifier.insert(subterm, id);
+                        self.subterm_map.insert(u_subterm.clone(), id);
+                        self.subterm_unifier.insert(u_subterm, id);
                         id
                     }
                 };
-                self.subterms[subterm_id].locations.push(SubtermLocation {
+                self.subterms[u_subterm_id].locations.push(SubtermLocation {
                     target_id,
                     left: forwards,
                     path,
@@ -410,6 +412,7 @@ impl ActiveSet {
     }
 
     // When we have a new rewrite pattern, find everything that we can rewrite with it.
+    // The naming convention is that we use the pattern s->t to rewrite u in u ?= v.
     pub fn activate_rewrite_pattern(
         &mut self,
         pattern_id: usize,
