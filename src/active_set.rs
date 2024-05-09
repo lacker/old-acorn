@@ -209,9 +209,8 @@ impl ActiveSet {
 
     // Finds all resolutions that can be done with a given proof step.
     // The "new clause" is the one that is being activated, and the "old clause" is the existing one.
-    pub fn find_resolutions(&self, new_step: &ProofStep) -> Vec<ProofStep> {
+    pub fn find_resolutions(&self, new_step: &ProofStep, output: &mut Vec<ProofStep>) {
         let new_step_id = self.next_id();
-        let mut results = vec![];
         for (i, new_literal) in new_step.clause.literals.iter().enumerate() {
             let target_map = if new_literal.positive {
                 &self.negative_res_targets
@@ -254,11 +253,10 @@ impl ActiveSet {
                 };
 
                 if let Some(step) = step {
-                    results.push(step);
+                    output.push(step);
                 }
             }
         }
-        results
     }
 
     // Tries to do a resolution from two clauses. This works when two literals can be unified
@@ -352,8 +350,8 @@ impl ActiveSet {
         &mut self,
         target_id: usize,
         target_step: &ProofStep,
-    ) -> Vec<ProofStep> {
-        let mut results = vec![];
+        output: &mut Vec<ProofStep>,
+    ) {
         assert!(target_step.clause.len() == 1);
         let target_literal = &target_step.clause.literals[0];
 
@@ -381,7 +379,7 @@ impl ActiveSet {
                         target_step,
                         new_clause,
                     );
-                    results.push(ps);
+                    output.push(ps);
                 }
             }
         }
@@ -409,8 +407,6 @@ impl ActiveSet {
                 });
             }
         }
-
-        results
     }
 
     // When we have a new rewrite pattern, find everything that we can rewrite with it.
@@ -418,8 +414,8 @@ impl ActiveSet {
         &mut self,
         pattern_id: usize,
         pattern_step: &ProofStep,
-    ) -> Vec<ProofStep> {
-        let mut results = vec![];
+        output: &mut Vec<ProofStep>,
+    ) {
         assert!(pattern_step.clause.len() == 1);
         let pattern_literal = &pattern_step.clause.literals[0];
         assert!(pattern_literal.positive);
@@ -474,7 +470,7 @@ impl ActiveSet {
                         target_step,
                         new_clause,
                     );
-                    results.push(ps);
+                    output.push(ps);
                 }
 
                 self.subterms[*subterm_id].rewrites.push(SubtermRewrite {
@@ -484,7 +480,6 @@ impl ActiveSet {
                 });
             }
         }
-        results
     }
 
     // Tries to do inference using the equality resolution (ER) rule.
@@ -792,17 +787,13 @@ impl ActiveSet {
             }
 
             // The activated step could be rewritten immediately.
-            for step in self.activate_rewrite_target(activated_id, &activated_step) {
-                output.push(step);
-            }
+            self.activate_rewrite_target(activated_id, &activated_step, output);
         }
 
         // Using the literal as a rewrite pattern.
         if literal.positive && !activated_step.rule.is_rewrite() {
             // The activated step could be used as a rewrite pattern immediately.
-            for step in self.activate_rewrite_pattern(activated_id, &activated_step) {
-                output.push(step);
-            }
+            self.activate_rewrite_pattern(activated_id, &activated_step, output);
 
             // Index it so that it can be used as a rewrite pattern in the future.
             self.rewrite_tree.insert_literal(
@@ -850,9 +841,7 @@ impl ActiveSet {
             ));
         }
 
-        for step in self.find_resolutions(&activated_step) {
-            output.push(step);
-        }
+        self.find_resolutions(&activated_step, &mut output);
 
         if activated_step.clause.len() == 1 {
             self.activate_literal(&activated_step, &mut output);
@@ -905,7 +894,8 @@ mod tests {
 
         // We should be able replace c1 with c3 in "c0(c3) = c2"
         let pattern_step = ProofStep::mock("c1 = c3");
-        let result = set.activate_rewrite_pattern(1, &pattern_step);
+        let mut result = vec![];
+        set.activate_rewrite_pattern(1, &pattern_step, &mut result);
 
         assert_eq!(result.len(), 1);
         let expected = Clause::new(vec![Literal::equals(
@@ -925,7 +915,8 @@ mod tests {
         // We want to use c0(c3) = c2 to get c0(c1) = c2.
         let mut target_step = ProofStep::mock("c0(c3) = c2");
         target_step.truthiness = Truthiness::Hypothetical;
-        let result = set.activate_rewrite_target(0, &target_step);
+        let mut result = vec![];
+        set.activate_rewrite_target(0, &target_step, &mut result);
         assert_eq!(result.len(), 1);
     }
 
@@ -1001,7 +992,8 @@ mod tests {
         set.activate(ProofStep::mock("g2(x0, x0) = g0"));
         let mut step = ProofStep::mock("g2(g2(g1(c0, x0), x0), g2(x1, x1)) != g0");
         step.truthiness = Truthiness::Counterfactual;
-        let new_steps = set.find_resolutions(&step);
-        assert_eq!(new_steps.len(), 0);
+        let mut results = vec![];
+        set.find_resolutions(&step, &mut results);
+        assert_eq!(results.len(), 0);
     }
 }
