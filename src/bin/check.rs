@@ -30,11 +30,14 @@ async fn main() {
         }
     }
 
-    let mut all_ok = true;
+    let mut failures = 0;
     project.build(&mut |event| {
         if let Some(m) = event.log_message {
             if let Some((target, diagnostic)) = event.diagnostic {
                 if let Some(diagnostic) = diagnostic {
+                    if !event.is_slow_warning {
+                        failures += 1;
+                    }
                     println!(
                         "{}, line {}: {}",
                         target,
@@ -47,11 +50,14 @@ async fn main() {
             } else {
                 println!("{}", m);
             }
-            all_ok = false;
         }
         if let Some((d, t)) = event.progress {
             if d == t {
-                println!("{}/{} OK", d, t);
+                if failures == 0 {
+                    println!("{}/{} OK", d, t);
+                } else {
+                    println!("FAILED");
+                }
             }
         }
     });

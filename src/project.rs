@@ -76,6 +76,9 @@ pub struct BuildEvent {
     // Human-readable
     pub log_message: Option<String>,
 
+    // Whether this event is a slowness warning
+    pub is_slow_warning: bool,
+
     // Whenever we run into a problem, report the module name, plus the diagnostic itself.
     // If we prove everything in a module without any problems, report a None diagnostic.
     pub diagnostic: Option<(String, Option<Diagnostic>)>,
@@ -86,6 +89,7 @@ impl BuildEvent {
         BuildEvent {
             progress: None,
             log_message: None,
+            is_slow_warning: false,
             diagnostic: None,
         }
     }
@@ -342,9 +346,11 @@ impl Project {
                 done += 1;
                 let mut exit_early = false;
                 let mut success = false;
+                let mut is_slow_warning = false;
                 let description = match outcome {
                     Outcome::Success => {
                         if self.warn_when_slow && elapsed > 0.1 {
+                            is_slow_warning = true;
                             format!(" took {}", elapsed_str)
                         } else {
                             success = true;
@@ -393,6 +399,7 @@ impl Project {
                     handler(BuildEvent {
                         progress: Some((total, total)),
                         log_message,
+                        is_slow_warning,
                         diagnostic,
                     });
                     return false;
@@ -401,6 +408,7 @@ impl Project {
                 handler(BuildEvent {
                     progress: Some((done, total)),
                     log_message,
+                    is_slow_warning,
                     diagnostic,
                 });
             }

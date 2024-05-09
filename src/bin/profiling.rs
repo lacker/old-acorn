@@ -16,7 +16,7 @@ fn main() {
         }
         if let Some((d, t)) = event.progress {
             if d == t {
-                println!("{}/{} OK", d, t);
+                println!("{}/{} done", d, t);
             }
         }
     });
