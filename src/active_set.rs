@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
 use crate::rewrite_tree::{Rewrite, RewriteTree};
 use crate::term::Term;
 use crate::term_graph::{TermGraph, TermId};
@@ -350,8 +350,26 @@ impl ActiveSet {
                     *id
                 } else {
                     // We've never seen this subterm before.
-                    // We need to populate the possible rewrites for it.
+                    // We need to find all the possible rewrites for it.
                     let rewrites = self.rewrite_tree.get_rewrites(u_subterm, 0);
+
+                    // Add these rewrites to the term graph
+                    if EXPERIMENT {
+                        let id1 = self.graph.insert_term(&u);
+                        for rewrite in &rewrites {
+                            let id2 = self.graph.insert_term(&rewrite.term);
+                            self.add_to_term_graph(
+                                rewrite.pattern_id,
+                                &target_step,
+                                id1,
+                                id2,
+                                true,
+                                output,
+                            );
+                        }
+                    }
+
+                    // Populate the subterm info.
                     let id = self.subterms.len();
                     self.subterms.push(SubtermInfo {
                         term: u_subterm.clone(),
@@ -745,9 +763,10 @@ impl ActiveSet {
         self.steps.len()
     }
 
+    // TODO: The activated step is used for depth and proof size, which is inaccurate.
     fn add_to_term_graph(
         &mut self,
-        activated_id: usize,
+        pattern_id: usize,
         activated_step: &ProofStep,
         term1: TermId,
         term2: TermId,
@@ -755,9 +774,9 @@ impl ActiveSet {
         output: &mut Vec<ProofStep>,
     ) {
         if equal {
-            self.graph.set_terms_equal(term1, term2, activated_id);
+            self.graph.set_terms_equal(term1, term2, pattern_id);
         } else {
-            self.graph.set_terms_not_equal(term1, term2, activated_id);
+            self.graph.set_terms_not_equal(term1, term2, pattern_id);
         }
         if let Some((negative_id, positive_ids)) = self.graph.explain_contradiction() {
             output.push(ProofStep::new_term_graph_contradiction(
