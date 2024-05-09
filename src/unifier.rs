@@ -198,26 +198,6 @@ impl Unifier {
         literal.map(&mut |term| self.apply(scope, term))
     }
 
-    // Whether the changes this unifier makes on the right scope are reversible.
-    // Reversible changes mean that every variable maps to another variable, and they are distinct.
-    pub fn right_reversible(&self) -> bool {
-        let mut outvars = vec![];
-        for term in &self.right {
-            if let Some(term) = term {
-                match term.atomic_variable() {
-                    Some(i) => {
-                        if outvars.contains(&i) {
-                            return false;
-                        }
-                        outvars.push(i);
-                    }
-                    None => return false,
-                }
-            }
-        }
-        true
-    }
-
     // Replace variable i in the output scope with the given term (which is also in the output scope).
     // If they're both variables, keep the one with the lower id.
     // Returns whether this succeeded.

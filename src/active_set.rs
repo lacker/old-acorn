@@ -5,7 +5,7 @@ use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
-use crate::rewrite_tree::RewriteTree;
+use crate::rewrite_tree::{Rewrite, RewriteTree};
 use crate::term::Term;
 use crate::term_graph::TermGraph;
 use crate::unifier::{Scope, Unifier};
@@ -71,7 +71,7 @@ struct SubtermInfo {
     // The possible terms that this subterm can be rewritten to.
     // Note that this contains duplicates.
     // We do use duplicates to prevent factual-factual rewrites, but it is displeasing.
-    rewrites: Vec<SubtermRewrite>,
+    rewrites: Vec<Rewrite>,
 }
 
 // A SubtermLocation describes somewhere that the subterm exists among the activated clauses.
@@ -88,21 +88,6 @@ struct SubtermLocation {
     // This is the path from the root term to the subterm.
     // An empty path means the root, so the whole term is the relevant subterm.
     path: Vec<usize>,
-}
-
-// A SubtermRewrite represents a new subterm that we could substitute for an existing one.
-struct SubtermRewrite {
-    // Which proof step we are using as the pattern for this rewrite
-    pattern_id: usize,
-
-    // If the literal is u = v, 'forwards' means this represents u -> v (as opposed to v -> u).
-    forwards: bool,
-
-    // The term that we are rewriting into.
-    // This can have variables, starting at zero.
-    // We only rewrite subterms of concrete literals, so there will be no other variables for
-    // these to conflict with.
-    term: Term,
 }
 
 impl ActiveSet {
@@ -366,17 +351,7 @@ impl ActiveSet {
                 } else {
                     // We've never seen this subterm before.
                     // We need to populate the possible rewrites for it.
-                    let mut rewrites = vec![];
-                    let rewrite_tuples = self.rewrite_tree.get_rewrites(u_subterm, true, 0);
-                    for (pattern_id, forwards, new_subterm) in rewrite_tuples {
-                        let rewrite = SubtermRewrite {
-                            pattern_id,
-                            forwards,
-                            term: new_subterm,
-                        };
-                        rewrites.push(rewrite);
-                    }
-
+                    let rewrites = self.rewrite_tree.get_rewrites(u_subterm, true, 0);
                     let id = self.subterms.len();
                     self.subterms.push(SubtermInfo {
                         term: u_subterm.clone(),
@@ -491,7 +466,7 @@ impl ActiveSet {
                     output.push(ps);
                 }
 
-                self.subterms[*subterm_id].rewrites.push(SubtermRewrite {
+                self.subterms[*subterm_id].rewrites.push(Rewrite {
                     pattern_id,
                     forwards,
                     term: new_subterm,

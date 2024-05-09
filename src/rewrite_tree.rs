@@ -8,9 +8,10 @@ use crate::term::Term;
 use crate::type_map::TypeId;
 
 // Each term can correspond with multiple RewriteValues.
+// This is the internal representation of the pattern, before it has been applied to a term.
 struct RewriteValue {
     // Which rule this rewrite is generated from
-    rule_id: usize,
+    pattern_id: usize,
 
     // Truthiness of the rule
     factual: bool,
@@ -18,9 +19,21 @@ struct RewriteValue {
     // For an s = t rule, "forwards" is rewriting s -> t, "backwards" is rewriting t -> s
     forwards: bool,
 
-    // The term that we are rewriting into.
-    // The term that we are rewriting *from* is kept in the key.
+    // The pattern that we are rewriting into.
+    // The pattern that we are rewriting *from* is kept in the key.
     output: Vec<TermComponent>,
+}
+
+// The external representation of a rewrite, after it has been applied to a particular term.
+pub struct Rewrite {
+    // Which rule this rewrite is generated from
+    pub pattern_id: usize,
+
+    // For an s = t rule, "forwards" is rewriting s -> t, "backwards" is rewriting t -> s
+    pub forwards: bool,
+
+    // The term that we are rewriting into.
+    pub term: Term,
 }
 
 pub struct RewriteTree {
@@ -38,7 +51,7 @@ impl RewriteTree {
     // NOTE: The input term's variable ids must be normalized.
     pub fn insert_terms(
         &mut self,
-        rule_id: usize,
+        pattern_id: usize,
         factual: bool,
         input_term: &Term,
         output_term: &Term,
@@ -48,7 +61,7 @@ impl RewriteTree {
             panic!("cannot rewrite true to something else");
         }
         let value = RewriteValue {
-            rule_id,
+            pattern_id,
             factual,
             forwards,
             output: TermComponent::flatten_term(output_term),
@@ -58,13 +71,13 @@ impl RewriteTree {
 
     // Inserts both directions.
     // NOTE: The input term's variable ids must be normalized.
-    pub fn insert_literal(&mut self, rule_id: usize, factual: bool, literal: &Literal) {
+    pub fn insert_literal(&mut self, pattern_id: usize, factual: bool, literal: &Literal) {
         // Already normalized
-        self.insert_terms(rule_id, factual, &literal.left, &literal.right, true);
+        self.insert_terms(pattern_id, factual, &literal.left, &literal.right, true);
 
         if !literal.right.is_true() {
             let (right, left) = literal.normalized_reversed();
-            self.insert_terms(rule_id, factual, &right, &left, false);
+            self.insert_terms(pattern_id, factual, &right, &left, false);
         }
     }
 
@@ -95,7 +108,7 @@ impl RewriteTree {
                         replacements,
                         Some(next_var),
                     );
-                    callback(value.rule_id, value.forwards, &new_components);
+                    callback(value.pattern_id, value.forwards, &new_components);
                 }
                 true
             },
@@ -107,13 +120,13 @@ impl RewriteTree {
     // Sometimes rewrites have to create a new variable.
     // When we create new variables, we start numbering from next_var.
     //
-    // Returns a list of (rule_id, forwards, new_term) tuples.
+    // Returns a list of (pattern_id, forwards, new_term) tuples.
     pub fn get_rewrites(
         &self,
         input_term: &Term,
         allow_factual: bool,
         next_var: AtomId,
-    ) -> Vec<(usize, bool, Term)> {
+    ) -> Vec<Rewrite> {
         let mut answer = vec![];
         let components = TermComponent::flatten_term(input_term);
         self.find_rewrites(
@@ -121,9 +134,13 @@ impl RewriteTree {
             &components,
             allow_factual,
             next_var,
-            &mut |rule_id, forwards, new_components| {
-                let new_term = TermComponent::unflatten_term(new_components);
-                answer.push((rule_id, forwards, new_term));
+            &mut |pattern_id, forwards, new_components| {
+                let term = TermComponent::unflatten_term(new_components);
+                answer.push(Rewrite {
+                    pattern_id,
+                    forwards,
+                    term,
+                });
             },
         );
         answer
@@ -142,7 +159,7 @@ mod tests {
         tree.insert_terms(0, false, &Term::parse("c1"), &Term::parse("c0"), true);
         let rewrites = tree.get_rewrites(&Term::parse("c1"), true, 0);
         assert_eq!(rewrites.len(), 1);
-        assert_eq!(rewrites[0].2, Term::parse("c0"));
+        assert_eq!(rewrites[0].term, Term::parse("c0"));
     }
 
     #[test]
@@ -157,7 +174,7 @@ mod tests {
         );
         let rewrites = tree.get_rewrites(&Term::parse("c1(c2)"), true, 0);
         assert_eq!(rewrites.len(), 1);
-        assert_eq!(rewrites[0].2, Term::parse("c0(c2)"));
+        assert_eq!(rewrites[0].term, Term::parse("c0(c2)"));
     }
 
     #[test]
@@ -179,8 +196,8 @@ mod tests {
         );
         let rewrites = tree.get_rewrites(&Term::parse("c1(c2, c2)"), true, 0);
         assert_eq!(rewrites.len(), 2);
-        assert_eq!(rewrites[0].2, Term::parse("c3(c2)"));
-        assert_eq!(rewrites[1].2, Term::parse("c4(c2)"));
+        assert_eq!(rewrites[0].term, Term::parse("c3(c2)"));
+        assert_eq!(rewrites[1].term, Term::parse("c4(c2)"));
     }
 
     #[test]
@@ -196,7 +213,7 @@ mod tests {
         tree.insert_literal(0, false, &Literal::parse("c1(x0) = c0"));
         let rewrites = tree.get_rewrites(&Term::parse("c0"), true, 1);
         assert_eq!(rewrites.len(), 1);
-        assert_eq!(rewrites[0].2, Term::parse("c1(x1)"));
+        assert_eq!(rewrites[0].term, Term::parse("c1(x1)"));
     }
 
     #[test]
