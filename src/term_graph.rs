@@ -8,7 +8,7 @@ use crate::term::Term;
 // Each term has a unique id.
 // We never invent new terms. We only make copies of terms that the caller created and find
 // relationships between them.
-type TermId = u32;
+pub type TermId = u32;
 
 // Every time we set two terms equal or not equal, that action is tagged with a StepId.
 // The term graph uses it to provide a history of the reasoning that led to a conclusion.

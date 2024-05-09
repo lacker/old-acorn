@@ -7,7 +7,7 @@ use crate::pattern_tree::LiteralSet;
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::rewrite_tree::{Rewrite, RewriteTree};
 use crate::term::Term;
-use crate::term_graph::TermGraph;
+use crate::term_graph::{TermGraph, TermId};
 use crate::unifier::{Scope, Unifier};
 
 // The ActiveSet stores a bunch of clauses that are indexed for various efficient lookups.
@@ -745,6 +745,29 @@ impl ActiveSet {
         self.steps.len()
     }
 
+    fn add_to_term_graph(
+        &mut self,
+        activated_id: usize,
+        activated_step: &ProofStep,
+        term1: TermId,
+        term2: TermId,
+        equal: bool,
+        output: &mut Vec<ProofStep>,
+    ) {
+        if equal {
+            self.graph.set_terms_equal(term1, term2, activated_id);
+        } else {
+            self.graph.set_terms_not_equal(term1, term2, activated_id);
+        }
+        if let Some((negative_id, positive_ids)) = self.graph.explain_contradiction() {
+            output.push(ProofStep::new_term_graph_contradiction(
+                &activated_step,
+                negative_id,
+                positive_ids,
+            ));
+        }
+    }
+
     // Inference that is specific to literals.
     fn activate_literal(&mut self, activated_step: &ProofStep, output: &mut Vec<ProofStep>) {
         let activated_id = self.next_id();
@@ -754,21 +777,16 @@ impl ActiveSet {
         // Using the literal as a rewrite target.
         if !literal.has_any_variable() {
             // Add this to the term graph.
-            // TODO: add even more stuff to the term graph.
             let left = self.graph.insert_term(&literal.left);
             let right = self.graph.insert_term(&literal.right);
-            if literal.positive {
-                self.graph.set_terms_equal(left, right, activated_id);
-            } else {
-                self.graph.set_terms_not_equal(left, right, activated_id);
-            }
-            if let Some((negative_id, positive_ids)) = self.graph.explain_contradiction() {
-                output.push(ProofStep::new_term_graph_contradiction(
-                    &activated_step,
-                    negative_id,
-                    positive_ids,
-                ));
-            }
+            self.add_to_term_graph(
+                activated_id,
+                activated_step,
+                left,
+                right,
+                literal.positive,
+                output,
+            );
 
             // The activated step could be rewritten immediately.
             self.activate_rewrite_target(activated_id, &activated_step, output);

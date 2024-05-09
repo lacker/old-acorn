@@ -390,6 +390,7 @@ impl ProofStep {
     }
 
     // A proof step for when the term graph tells us it found a contradiction.
+    // The proof size and depth seem kind of wrong.
     pub fn new_term_graph_contradiction(
         last_step: &ProofStep,
         negative_id: usize,
