@@ -365,35 +365,49 @@ impl ActiveSet {
                     *id
                 } else {
                     // We've never seen this subterm before.
-                    // We need to populate various data structures for it.
+                    // We need to populate the possible rewrites for it.
+                    let mut rewrites = vec![];
+                    let rewrite_tuples = self.rewrite_tree.get_rewrites(u_subterm, true, 0);
+                    for (pattern_id, forwards, new_subterm) in rewrite_tuples {
+                        let rewrite = SubtermRewrite {
+                            pattern_id,
+                            forwards,
+                            term: new_subterm,
+                        };
+                        rewrites.push(rewrite);
+                    }
+
                     let id = self.subterms.len();
                     self.subterms.push(SubtermInfo {
                         term: u_subterm.clone(),
                         locations: vec![],
-                        rewrites: vec![],
+                        rewrites,
                     });
                     self.subterm_map.insert(u_subterm.clone(), id);
                     self.subterm_unifier.insert(u_subterm, id);
                     id
                 };
 
-                // TODO: do this population once, into subterms, rather than many times
+                // Apply all the ways to rewrite u_subterm.
+                for rewrite in &self.subterms[u_subterm_id].rewrites {
+                    if target_id == rewrite.pattern_id {
+                        // Don't rewrite a literal with itself
+                        continue;
+                    }
 
-                // Look for ways to rewrite u_subterm.
-                // No global-global rewriting
-                let allow_factual = target_step.truthiness != Truthiness::Factual;
-
-                // We can assume next_var is zero since we only rewrite concrete literals.
-                let rewrites = self.rewrite_tree.get_rewrites(u_subterm, allow_factual, 0);
-
-                for (pattern_id, _, new_subterm) in rewrites {
-                    let pattern_step = self.get_step(pattern_id);
-                    let new_u = u.replace_at_path(&path, new_subterm);
+                    let pattern_step = self.get_step(rewrite.pattern_id);
+                    if target_step.truthiness == Truthiness::Factual
+                        && pattern_step.truthiness == Truthiness::Factual
+                    {
+                        // No global-global rewriting
+                        continue;
+                    }
+                    let new_u = u.replace_at_path(&path, rewrite.term.clone());
                     let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
                     new_literal.validate_type();
                     let new_clause = Clause::new(vec![new_literal]);
                     let ps = ProofStep::new_rewrite(
-                        pattern_id,
+                        rewrite.pattern_id,
                         pattern_step,
                         target_id,
                         target_step,
@@ -444,7 +458,7 @@ impl ActiveSet {
 
                 for location in &subterm_info.locations {
                     if location.target_id == pattern_id {
-                        // Don't rewrite the pattern with itself
+                        // Don't rewrite a literal with itself
                         continue;
                     }
                     let target_id = location.target_id;
@@ -920,7 +934,7 @@ mod tests {
         let mut target_step = ProofStep::mock("c0(c3) = c2");
         target_step.truthiness = Truthiness::Hypothetical;
         let mut result = vec![];
-        set.activate_rewrite_target(0, &target_step, &mut result);
+        set.activate_rewrite_target(1, &target_step, &mut result);
         assert_eq!(result.len(), 1);
     }
 
