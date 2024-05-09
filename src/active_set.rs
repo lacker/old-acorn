@@ -341,7 +341,7 @@ impl ActiveSet {
         assert!(target_step.clause.len() == 1);
         let target_literal = &target_step.clause.literals[0];
 
-        for (forwards, u, v) in target_literal.both_term_pairs() {
+        for (target_left, u, _) in target_literal.both_term_pairs() {
             let u_subterms = u.rewritable_subterms();
 
             for (path, u_subterm) in u_subterms {
@@ -351,7 +351,7 @@ impl ActiveSet {
                 } else {
                     // We've never seen this subterm before.
                     // We need to populate the possible rewrites for it.
-                    let rewrites = self.rewrite_tree.get_rewrites(u_subterm, true, 0);
+                    let rewrites = self.rewrite_tree.get_rewrites(u_subterm, 0);
                     let id = self.subterms.len();
                     self.subterms.push(SubtermInfo {
                         term: u_subterm.clone(),
@@ -377,16 +377,15 @@ impl ActiveSet {
                         // No global-global rewriting
                         continue;
                     }
-                    let new_u = u.replace_at_path(&path, rewrite.term.clone());
-                    let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
-                    new_literal.validate_type();
-                    let new_clause = Clause::new(vec![new_literal]);
+
                     let ps = ProofStep::new_rewrite(
                         rewrite.pattern_id,
-                        pattern_step,
+                        &pattern_step,
                         target_id,
                         target_step,
-                        new_clause,
+                        target_left,
+                        &path,
+                        &rewrite.term,
                     );
                     output.push(ps);
                 }
@@ -394,7 +393,7 @@ impl ActiveSet {
                 // Record the location of this subterm.
                 self.subterms[u_subterm_id].locations.push(SubtermLocation {
                     target_id,
-                    left: forwards,
+                    left: target_left,
                     path,
                 });
             }
@@ -446,22 +445,14 @@ impl ActiveSet {
                         continue;
                     }
 
-                    let target_literal = &target_step.clause.literals[0];
-                    let (u, v) = if location.left {
-                        (&target_literal.left, &target_literal.right)
-                    } else {
-                        (&target_literal.right, &target_literal.left)
-                    };
-                    let new_u = u.replace_at_path(&location.path, new_subterm.clone());
-                    let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
-
-                    let new_clause = Clause::new(vec![new_literal]);
                     let ps = ProofStep::new_rewrite(
                         pattern_id,
                         pattern_step,
                         target_id,
                         target_step,
-                        new_clause,
+                        location.left,
+                        &location.path,
+                        &new_subterm,
                     );
                     output.push(ps);
                 }
@@ -789,11 +780,7 @@ impl ActiveSet {
             self.activate_rewrite_pattern(activated_id, &activated_step, output);
 
             // Index it so that it can be used as a rewrite pattern in the future.
-            self.rewrite_tree.insert_literal(
-                activated_id,
-                activated_step.truthiness == Truthiness::Factual,
-                literal,
-            );
+            self.rewrite_tree.insert_literal(activated_id, literal);
         }
 
         self.literal_set.insert(&literal, activated_id);

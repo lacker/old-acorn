@@ -2,7 +2,9 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::clause::Clause;
+use crate::literal::Literal;
 use crate::proposition::{Proposition, Source, SourceType};
+use crate::term::Term;
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
@@ -337,13 +339,27 @@ impl ProofStep {
     }
 
     // Construct a new ProofStep via rewriting.
+    // We are replacing a subterm of the target literal with a new subterm.
     pub fn new_rewrite(
         pattern_id: usize,
         pattern_step: &ProofStep,
         target_id: usize,
         target_step: &ProofStep,
-        clause: Clause,
+        target_left: bool,
+        path: &[usize],
+        new_subterm: &Term,
     ) -> ProofStep {
+        assert_eq!(target_step.clause.literals.len(), 1);
+        let target_literal = &target_step.clause.literals[0];
+        let (u, v) = if target_left {
+            (&target_literal.left, &target_literal.right)
+        } else {
+            (&target_literal.right, &target_literal.left)
+        };
+        let new_u = u.replace_at_path(path, new_subterm.clone());
+        let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
+        let clause = Clause::new(vec![new_literal]);
+
         let rule = Rule::Rewrite(RewriteInfo {
             pattern_id,
             target_id,
