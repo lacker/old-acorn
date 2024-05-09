@@ -360,6 +360,25 @@ impl ActiveSet {
             let u_subterms = u.rewritable_subterms();
 
             for (path, u_subterm) in u_subterms {
+                let u_subterm_id = if let Some(id) = self.subterm_map.get(&u_subterm) {
+                    // We already have data for this subterm.
+                    *id
+                } else {
+                    // We've never seen this subterm before.
+                    // We need to populate various data structures for it.
+                    let id = self.subterms.len();
+                    self.subterms.push(SubtermInfo {
+                        term: u_subterm.clone(),
+                        locations: vec![],
+                        rewrites: vec![],
+                    });
+                    self.subterm_map.insert(u_subterm.clone(), id);
+                    self.subterm_unifier.insert(u_subterm, id);
+                    id
+                };
+
+                // TODO: do this population once, into subterms, rather than many times
+
                 // Look for ways to rewrite u_subterm.
                 // No global-global rewriting
                 let allow_factual = target_step.truthiness != Truthiness::Factual;
@@ -383,20 +402,7 @@ impl ActiveSet {
                     output.push(ps);
                 }
 
-                let u_subterm_id = match self.subterm_map.get(&u_subterm) {
-                    Some(id) => *id,
-                    None => {
-                        let id = self.subterms.len();
-                        self.subterms.push(SubtermInfo {
-                            term: u_subterm.clone(),
-                            locations: vec![],
-                            rewrites: vec![],
-                        });
-                        self.subterm_map.insert(u_subterm.clone(), id);
-                        self.subterm_unifier.insert(u_subterm, id);
-                        id
-                    }
-                };
+                // Record the location of this subterm.
                 self.subterms[u_subterm_id].locations.push(SubtermLocation {
                     target_id,
                     left: forwards,
