@@ -382,12 +382,7 @@ impl ActiveSet {
                     );
                     output.push(ps);
                 }
-            }
-        }
 
-        for (forwards, u, v) in target_literal.both_term_pairs() {
-            let u_subterms = u.rewritable_subterms();
-            for (path, u_subterm) in u_subterms {
                 let u_subterm_id = match self.subterm_map.get(&u_subterm) {
                     Some(id) => *id,
                     None => {
