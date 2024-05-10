@@ -94,7 +94,7 @@ pub enum Rule {
     // A contradiction found by the term graph.
     // We store the ids of the negative literal (always exactly one) and the positive clauses
     // that were used to generate it.
-    TermGraph(usize, Vec<usize>),
+    TermGraph(Justification),
 }
 
 impl Rule {
@@ -107,10 +107,10 @@ impl Rule {
             Rule::EqualityFactoring(rewritten)
             | Rule::EqualityResolution(rewritten)
             | Rule::FunctionElimination(rewritten) => vec![*rewritten],
-            Rule::TermGraph(negative_id, positive_ids) => {
-                let mut ids = positive_ids.clone();
-                ids.push(*negative_id);
-                ids
+            Rule::TermGraph(justification) => {
+                let mut premises = justification.rewrite_steps();
+                premises.push(justification.inequality_id);
+                premises
             }
         }
     }
@@ -133,10 +133,10 @@ impl Rule {
             | Rule::FunctionElimination(source) => {
                 answer.push(("source".to_string(), *source));
             }
-            Rule::TermGraph(negative_id, positive_ids) => {
-                answer.push(("negative edge".to_string(), *negative_id));
-                for positive_id in positive_ids {
-                    answer.push(("positive edge".to_string(), *positive_id));
+            Rule::TermGraph(justification) => {
+                answer.push(("inequality".to_string(), justification.inequality_id));
+                for step in justification.rewrite_steps() {
+                    answer.push(("rewrite".to_string(), step));
                 }
             }
         }
@@ -394,9 +394,9 @@ impl ProofStep {
     // The proof size and depth seem kind of wrong.
     pub fn new_term_graph_contradiction(
         last_step: &ProofStep,
-        justification: &Justification,
+        justification: Justification,
     ) -> ProofStep {
-        let rule = Rule::TermGraph(justification.inequality_id, justification.positive_ids());
+        let rule = Rule::TermGraph(justification);
         ProofStep::new(
             Clause::impossible(),
             Truthiness::Counterfactual,

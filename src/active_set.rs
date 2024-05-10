@@ -178,15 +178,21 @@ impl ActiveSet {
                     self.clause_str(info.negative_id, extra)
                 );
             }
-            Rule::TermGraph(negative_id, positive_ids) => {
+            Rule::TermGraph(justification) => {
                 println!("  rule: term graph");
                 println!(
-                    "  negative clause {}: {}",
-                    negative_id,
-                    self.clause_str(*negative_id, extra)
+                    "  inequality clause {}: {}",
+                    justification.inequality_id,
+                    self.clause_str(justification.inequality_id, extra)
                 );
-                for id in positive_ids {
-                    println!("  positive clause {}: {}", id, self.clause_str(*id, extra));
+                for (_, _, id) in &justification.rewrite_chain {
+                    if let Some(id) = id {
+                        println!(
+                            "  rewrite with clause {}: {}",
+                            id,
+                            self.clause_str(*id, extra)
+                        );
+                    }
                 }
             }
         }
@@ -780,7 +786,7 @@ impl ActiveSet {
         if let Some(justification) = self.graph.justify_contradiction() {
             output.push(ProofStep::new_term_graph_contradiction(
                 &activated_step,
-                &justification,
+                justification,
             ));
         }
     }

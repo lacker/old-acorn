@@ -17,18 +17,23 @@ type StepId = usize;
 // The goal of the TermGraph is to find a contradiction.
 // When we do, we need to explain to the outside world why this is actually a contradiction.
 // The Justification encodes this.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Justification {
     // Every contradiction is based on one inequality, plus a set of rewrites that turn
     // one site of the inequality into the other.
     pub inequality_id: StepId,
 
     // The rewrites that turn one side of the inequality into the other, in no particular order.
-    pub rewrite_id_set: BTreeSet<StepId>,
+    pub rewrite_chain: Vec<(Term, Term, Option<StepId>)>,
 }
 
 impl Justification {
-    pub fn positive_ids(&self) -> Vec<StepId> {
-        self.rewrite_id_set.iter().copied().collect()
+    // All steps used in the rewrite chain
+    pub fn rewrite_steps(&self) -> Vec<StepId> {
+        self.rewrite_chain
+            .iter()
+            .filter_map(|(_, _, step)| *step)
+            .collect()
     }
 }
 
@@ -220,11 +225,11 @@ impl TermGraph {
     // Returns Some((negative_id, positive_ids)), if there is a contradiction.
     pub fn justify_contradiction(&self) -> Option<Justification> {
         let (term1, term2, inequality_id) = self.contradiction?;
-        let mut rewrite_id_set = BTreeSet::new();
-        self.get_steps_helper(term1, term2, &mut rewrite_id_set);
+        let mut rewrite_chain = vec![];
+        self.expand_steps(term1, term2, &mut rewrite_chain);
         Some(Justification {
             inequality_id,
-            rewrite_id_set,
+            rewrite_chain,
         })
     }
 
@@ -547,7 +552,7 @@ impl TermGraph {
     }
 
     // For every step from term1 to term2, show the rewritten subterms, as well as the
-    // id of the rule that enabled it, if ther e is one.
+    // id of the rule that enabled it, if there is one.
     fn expand_steps(
         &self,
         term1: TermId,
