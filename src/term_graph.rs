@@ -30,10 +30,14 @@ pub struct Justification {
 impl Justification {
     // All steps used in the rewrite chain
     pub fn rewrite_steps(&self) -> Vec<StepId> {
-        self.rewrite_chain
+        let mut answer = self
+            .rewrite_chain
             .iter()
             .filter_map(|(_, _, step)| *step)
-            .collect()
+            .collect::<Vec<_>>();
+        answer.sort();
+        answer.dedup();
+        answer
     }
 }
 

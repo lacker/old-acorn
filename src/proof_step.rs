@@ -115,34 +115,6 @@ impl Rule {
         }
     }
 
-    // (description, id) for every clause this rule directly depends on.
-    pub fn descriptive_premises(&self) -> Vec<(String, usize)> {
-        let mut answer = vec![];
-        match self {
-            Rule::Assumption(_) => {}
-            Rule::Resolution(info) => {
-                answer.push(("positive resolver".to_string(), info.positive_id));
-                answer.push(("negative resolver".to_string(), info.negative_id));
-            }
-            Rule::Rewrite(info) => {
-                answer.push(("pattern".to_string(), info.pattern_id));
-                answer.push(("target".to_string(), info.target_id));
-            }
-            Rule::EqualityFactoring(source)
-            | Rule::EqualityResolution(source)
-            | Rule::FunctionElimination(source) => {
-                answer.push(("source".to_string(), *source));
-            }
-            Rule::TermGraph(justification) => {
-                answer.push(("inequality".to_string(), justification.inequality_id));
-                for step in justification.rewrite_steps() {
-                    answer.push(("rewrite".to_string(), step));
-                }
-            }
-        }
-        answer
-    }
-
     // Human-readable.
     pub fn name(&self) -> &str {
         match self {
@@ -455,15 +427,6 @@ impl ProofStep {
 
     pub fn depends_on(&self, id: usize) -> bool {
         self.dependencies().iter().any(|i| *i == id)
-    }
-
-    // (description, id) for every clause this rule depends on.
-    pub fn descriptive_dependencies(&self) -> Vec<(String, usize)> {
-        let mut answer = self.rule.descriptive_premises();
-        for rule in &self.simplification_rules {
-            answer.push(("simplification".to_string(), *rule));
-        }
-        answer
     }
 
     // Whether this is the last step of the proof

@@ -262,6 +262,40 @@ impl Prover {
         );
     }
 
+    // (description, id) for every clause this rule depends on.
+    // Entries with an id are references to clauses we are using.
+    // An entry with no id is like a comment, it won't be linked to anything.
+    fn descriptive_dependencies(&self, step: &ProofStep) -> Vec<(String, Option<usize>)> {
+        let mut answer = vec![];
+        match &step.rule {
+            Rule::Assumption(_) => {}
+            Rule::Resolution(info) => {
+                answer.push(("positive resolver".to_string(), Some(info.positive_id)));
+                answer.push(("negative resolver".to_string(), Some(info.negative_id)));
+            }
+            Rule::Rewrite(info) => {
+                answer.push(("pattern".to_string(), Some(info.pattern_id)));
+                answer.push(("target".to_string(), Some(info.target_id)));
+            }
+            Rule::EqualityFactoring(source)
+            | Rule::EqualityResolution(source)
+            | Rule::FunctionElimination(source) => {
+                answer.push(("source".to_string(), Some(*source)));
+            }
+            Rule::TermGraph(justification) => {
+                answer.push(("inequality".to_string(), Some(justification.inequality_id)));
+                for step in justification.rewrite_steps() {
+                    answer.push(("rewrite".to_string(), Some(step)));
+                }
+            }
+        }
+
+        for rule in &step.simplification_rules {
+            answer.push(("simplification".to_string(), Some(*rule)));
+        }
+        answer
+    }
+
     fn print_proof_step(&self, preface: &str, step: &ProofStep) {
         println!(
             "\n{}{} generated ({}. depth {}):\n    {}",
@@ -272,9 +306,13 @@ impl Prover {
             self.display(&step.clause)
         );
 
-        for (description, i) in step.descriptive_dependencies() {
-            let c = self.display(self.active_set.get_clause(i));
-            println!("  using {} {}:\n    {}", description, i, c);
+        for (description, i) in self.descriptive_dependencies(&step) {
+            if let Some(i) = i {
+                let c = self.display(self.active_set.get_clause(i));
+                println!("  using {} {}:\n    {}", description, i, c);
+            } else {
+                println!("  {}", description);
+            }
         }
     }
 
@@ -531,9 +569,13 @@ impl Prover {
     ) -> ProofStepInfo {
         let clause = self.to_clause_info(id, &step.clause);
         let mut premises = vec![];
-        for (description, i) in step.descriptive_dependencies() {
-            let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
-            premises.push((description, clause));
+        for (description, i) in self.descriptive_dependencies(&step) {
+            if let Some(i) = i {
+                let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
+                premises.push((description, clause));
+            } else {
+                // TODO: pass on the descriptions with no clauses
+            }
         }
         let (rule, location) = match &step.rule {
             Rule::Assumption(source) => {
