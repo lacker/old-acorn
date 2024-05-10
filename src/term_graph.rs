@@ -17,7 +17,7 @@ type StepId = usize;
 // The goal of the TermGraph is to find a contradiction.
 // When we do, we need to explain to the outside world why this is actually a contradiction.
 // The Justification encodes this.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Justification {
     // Every contradiction is based on one inequality, plus a set of rewrites that turn
     // one site of the inequality into the other.

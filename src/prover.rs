@@ -163,16 +163,12 @@ impl Prover {
     }
 
     fn add_assumption(&mut self, assumption: Proposition, truthiness: Truthiness) {
-        let rule = Rule::new_assumption(&assumption);
         let clauses = match self.normalize_proposition(assumption.value) {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
                 // We have a false assumption, so we're done already.
-                let final_step = ProofStep::new_assumption(
-                    Clause::impossible(),
-                    Truthiness::Factual,
-                    rule.clone(),
-                );
+                let final_step =
+                    ProofStep::new_assumption(Clause::impossible(), truthiness, &assumption.source);
                 self.report_contradiction(final_step);
                 return;
             }
@@ -182,7 +178,7 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let step = ProofStep::new_assumption(clause, truthiness, rule.clone());
+            let step = ProofStep::new_assumption(clause, truthiness, &assumption.source);
             self.passive_set.push(step);
         }
     }

@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::clause::Clause;
 use crate::literal::Literal;
-use crate::proposition::{Proposition, Source, SourceType};
+use crate::proposition::{Source, SourceType};
 use crate::term::Term;
 use crate::term_graph::Justification;
 
@@ -78,7 +78,7 @@ pub struct SubstitutionInfo {
 }
 
 // The rules that can generate new clauses, along with the clause ids used to generate.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Rule {
     Assumption(Source),
 
@@ -169,16 +169,12 @@ impl Rule {
             _ => false,
         }
     }
-
-    pub fn new_assumption(prop: &Proposition) -> Rule {
-        Rule::Assumption(prop.source.clone())
-    }
 }
 
 // A proof is made up of ProofSteps.
 // Each ProofStep contains an output clause, plus a bunch of heuristic information about it, to
 // decide if we should "activate" the proof step or not.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct ProofStep {
     // The proof step is primarily defined by a clause that it proves.
     // Semantically, this clause is implied by the input clauses (activated and existing).
@@ -291,7 +287,8 @@ impl ProofStep {
     }
 
     // Construct a new assumption ProofStep that is not dependent on any other steps.
-    pub fn new_assumption(clause: Clause, truthiness: Truthiness, rule: Rule) -> ProofStep {
+    pub fn new_assumption(clause: Clause, truthiness: Truthiness, source: &Source) -> ProofStep {
+        let rule = Rule::Assumption(source.clone());
         ProofStep::new(clause, truthiness, rule, vec![], 0, true, 0)
     }
 
