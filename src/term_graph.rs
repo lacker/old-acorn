@@ -557,6 +557,8 @@ impl TermGraph {
 
     // For every step from term1 to term2, show the rewritten subterms, as well as the
     // id of the rule that enabled it, if there is one.
+    // This is "postorder" in the sense that we show a rewritten compound term after showing
+    // the rewrites for the subterms.
     fn expand_steps(
         &self,
         term1: TermId,

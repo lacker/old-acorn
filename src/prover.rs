@@ -8,7 +8,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
 use crate::clause::Clause;
-use crate::display::DisplayClause;
+use crate::display::{DisplayClause, DisplayTerm};
 use crate::goal_context::GoalContext;
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::normalizer::{Normalization, Normalizer};
@@ -17,6 +17,7 @@ use crate::project::Project;
 use crate::proof::{Proof, FINAL_STEP};
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::proposition::Proposition;
+use crate::term::Term;
 
 pub struct Prover {
     // The normalizer is used when we are turning the facts and goals from the environment into
@@ -284,8 +285,18 @@ impl Prover {
             }
             Rule::TermGraph(justification) => {
                 answer.push(("inequality".to_string(), Some(justification.inequality_id)));
-                for step in justification.rewrite_steps() {
-                    answer.push(("rewrite".to_string(), Some(step)));
+                for (term1, term2, step_id) in &justification.rewrite_chain {
+                    if let Some(step_id) = step_id {
+                        answer.push(("pattern".to_string(), Some(*step_id)));
+                    }
+                    answer.push((
+                        format!(
+                            "{} => {}",
+                            self.display_term(term1),
+                            self.display_term(term2)
+                        ),
+                        None,
+                    ));
                 }
             }
         }
@@ -311,7 +322,7 @@ impl Prover {
                 let c = self.display(self.active_set.get_clause(i));
                 println!("  using {} {}:\n    {}", description, i, c);
             } else {
-                println!("  {}", description);
+                println!("  rewriting:\n    {}", description);
             }
         }
     }
@@ -547,6 +558,13 @@ impl Prover {
     fn display<'a>(&'a self, clause: &'a Clause) -> DisplayClause<'a> {
         DisplayClause {
             clause,
+            normalizer: &self.normalizer,
+        }
+    }
+
+    fn display_term<'a>(&'a self, term: &'a Term) -> DisplayTerm<'a> {
+        DisplayTerm {
+            term,
             normalizer: &self.normalizer,
         }
     }

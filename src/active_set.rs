@@ -277,7 +277,7 @@ impl ActiveSet {
 
                     // Add these rewrites to the term graph
                     if EXPERIMENT {
-                        let id1 = self.graph.insert_term(&u);
+                        let id1 = self.graph.insert_term(&u_subterm);
                         for rewrite in &rewrites {
                             let id2 = self.graph.insert_term(&rewrite.term);
                             self.add_to_term_graph(
@@ -718,6 +718,7 @@ impl ActiveSet {
             // Add this to the term graph.
             let left = self.graph.insert_term(&literal.left);
             let right = self.graph.insert_term(&literal.right);
+
             self.add_to_term_graph(
                 activated_id,
                 activated_step,

@@ -18,8 +18,8 @@ impl fmt::Display for DisplayAtom<'_> {
 }
 
 pub struct DisplayTerm<'a> {
-    term: &'a Term,
-    normalizer: &'a Normalizer,
+    pub term: &'a Term,
+    pub normalizer: &'a Normalizer,
 }
 
 impl fmt::Display for DisplayTerm<'_> {
