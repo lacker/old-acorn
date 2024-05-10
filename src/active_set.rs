@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
 use crate::rewrite_tree::{Rewrite, RewriteTree};
 use crate::term::Term;
 use crate::term_graph::{TermGraph, TermId};
@@ -357,9 +357,15 @@ impl ActiveSet {
             }
 
             // Look for existing subterms that match s
-            let subterm_ids = self.subterm_unifier.find_unifying(s);
+            let subterm_ids: Vec<usize> = self
+                .subterm_unifier
+                .find_unifying(s)
+                .iter()
+                .map(|&x| *x)
+                .collect();
+
             for subterm_id in subterm_ids {
-                let subterm_info = &self.subterms[*subterm_id];
+                let subterm_info = &self.subterms[subterm_id];
                 let subterm = &subterm_info.term;
 
                 let mut unifier = Unifier::new();
@@ -395,7 +401,14 @@ impl ActiveSet {
                     output.push(ps);
                 }
 
-                self.subterms[*subterm_id].rewrites.push(Rewrite {
+                if EXPERIMENT {
+                    // Add this rewrite to the term graph.
+                    let id1 = self.graph.insert_term(&subterm);
+                    let id2 = self.graph.insert_term(&new_subterm);
+                    self.add_to_term_graph(pattern_id, pattern_step, id1, id2, forwards, output);
+                }
+
+                self.subterms[subterm_id].rewrites.push(Rewrite {
                     pattern_id,
                     forwards,
                     term: new_subterm,
