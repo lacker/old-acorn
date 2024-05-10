@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintUnifier;
 use crate::literal::Literal;
 use crate::pattern_tree::LiteralSet;
-use crate::proof_step::{ProofStep, Rule, Truthiness, EXPERIMENT};
+use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::rewrite_tree::{Rewrite, RewriteTree};
 use crate::term::Term;
 use crate::term_graph::{TermGraph, TermId};
@@ -276,19 +276,17 @@ impl ActiveSet {
                     let rewrites = self.rewrite_tree.get_rewrites(u_subterm, 0);
 
                     // Add these rewrites to the term graph
-                    if EXPERIMENT {
-                        let id1 = self.graph.insert_term(&u_subterm);
-                        for rewrite in &rewrites {
-                            let id2 = self.graph.insert_term(&rewrite.term);
-                            self.add_to_term_graph(
-                                rewrite.pattern_id,
-                                &target_step,
-                                id1,
-                                id2,
-                                true,
-                                output,
-                            );
-                        }
+                    let id1 = self.graph.insert_term(&u_subterm);
+                    for rewrite in &rewrites {
+                        let id2 = self.graph.insert_term(&rewrite.term);
+                        self.add_to_term_graph(
+                            rewrite.pattern_id,
+                            &target_step,
+                            id1,
+                            id2,
+                            true,
+                            output,
+                        );
                     }
 
                     // Populate the subterm info.

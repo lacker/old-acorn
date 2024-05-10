@@ -455,7 +455,10 @@ impl TermGraph {
 
     fn process_pending(&mut self) {
         while let Some((term1, term2, step)) = self.pending.pop() {
-            self.set_terms_equal_once(term1, term2, step)
+            // We can stop processing when we find a contradiction.
+            if self.contradiction.is_none() {
+                self.set_terms_equal_once(term1, term2, step)
+            }
         }
     }
 
