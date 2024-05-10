@@ -546,7 +546,37 @@ impl TermGraph {
         answer
     }
 
-    fn get_steps_helper(&self, term1: TermId, term2: TermId, answer: &mut BTreeSet<StepId>) {
+    // For every step from term1 to term2, show the rewritten subterms, as well as the
+    // id of the rule that enabled it, if ther e is one.
+    fn expand_steps(
+        &self,
+        term1: TermId,
+        term2: TermId,
+        output: &mut Vec<(Term, Term, Option<StepId>)>,
+    ) {
+        if term1 == term2 {
+            return;
+        }
+        let path = self.get_path(term1, term2);
+        for (a_id, b_id, step) in path {
+            if step.is_none() {
+                // We have a compound relationship between a_id and b_id
+                let (head_a, args_a) = self.as_compound(a_id);
+                let (head_b, args_b) = self.as_compound(b_id);
+                assert_eq!(args_a.len(), args_b.len());
+                self.expand_steps(head_a, head_b, output);
+                for (arg_a, arg_b) in args_a.iter().zip(args_b.iter()) {
+                    self.expand_steps(*arg_a, *arg_b, output);
+                }
+            }
+
+            let term_a = self.get_term(a_id);
+            let term_b = self.get_term(b_id);
+            output.push((term_a.clone(), term_b.clone(), step));
+        }
+    }
+
+    fn get_steps_helper(&self, term1: TermId, term2: TermId, output: &mut BTreeSet<StepId>) {
         if term1 == term2 {
             return;
         }
@@ -554,15 +584,15 @@ impl TermGraph {
         for (term_a, term_b, step) in path {
             match step {
                 Some(step) => {
-                    answer.insert(step);
+                    output.insert(step);
                 }
                 None => {
                     let (head_a, args_a) = self.as_compound(term_a);
                     let (head_b, args_b) = self.as_compound(term_b);
                     assert_eq!(args_a.len(), args_b.len());
-                    self.get_steps_helper(head_a, head_b, answer);
+                    self.get_steps_helper(head_a, head_b, output);
                     for (arg_a, arg_b) in args_a.iter().zip(args_b.iter()) {
-                        self.get_steps_helper(*arg_a, *arg_b, answer);
+                        self.get_steps_helper(*arg_a, *arg_b, output);
                     }
                 }
             }
