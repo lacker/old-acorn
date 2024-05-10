@@ -763,7 +763,6 @@ impl ActiveSet {
         self.steps.len()
     }
 
-    // TODO: The activated step is used for depth and proof size, which is inaccurate.
     fn add_to_term_graph(
         &mut self,
         pattern_id: usize,
@@ -778,11 +777,10 @@ impl ActiveSet {
         } else {
             self.graph.set_terms_not_equal(term1, term2, pattern_id);
         }
-        if let Some((negative_id, positive_ids)) = self.graph.explain_contradiction() {
+        if let Some(justification) = self.graph.justify_contradiction() {
             output.push(ProofStep::new_term_graph_contradiction(
                 &activated_step,
-                negative_id,
-                positive_ids,
+                &justification,
             ));
         }
     }

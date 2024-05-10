@@ -5,6 +5,7 @@ use crate::clause::Clause;
 use crate::literal::Literal;
 use crate::proposition::{Proposition, Source, SourceType};
 use crate::term::Term;
+use crate::term_graph::Justification;
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
@@ -393,10 +394,9 @@ impl ProofStep {
     // The proof size and depth seem kind of wrong.
     pub fn new_term_graph_contradiction(
         last_step: &ProofStep,
-        negative_id: usize,
-        positive_ids: Vec<usize>,
+        justification: &Justification,
     ) -> ProofStep {
-        let rule = Rule::TermGraph(negative_id, positive_ids);
+        let rule = Rule::TermGraph(justification.inequality_id, justification.positive_ids());
         ProofStep::new(
             Clause::impossible(),
             Truthiness::Counterfactual,

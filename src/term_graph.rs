@@ -14,6 +14,24 @@ pub type TermId = u32;
 // The term graph uses it to provide a history of the reasoning that led to a conclusion.
 type StepId = usize;
 
+// The goal of the TermGraph is to find a contradiction.
+// When we do, we need to explain to the outside world why this is actually a contradiction.
+// The Justification encodes this.
+pub struct Justification {
+    // Every contradiction is based on one inequality, plus a set of rewrites that turn
+    // one site of the inequality into the other.
+    pub inequality_id: StepId,
+
+    // The rewrites that turn one side of the inequality into the other, in no particular order.
+    pub rewrite_id_set: BTreeSet<StepId>,
+}
+
+impl Justification {
+    pub fn positive_ids(&self) -> Vec<StepId> {
+        self.rewrite_id_set.iter().copied().collect()
+    }
+}
+
 // Each term has a Decomposition that describes how it is created.
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
 enum Decomposition {
@@ -198,11 +216,16 @@ impl TermGraph {
         self.contradiction.is_some()
     }
 
-    // Returns Some((negative_id, positive_ids)) if there is a contradiction.
-    pub fn explain_contradiction(&self) -> Option<(StepId, Vec<StepId>)> {
-        let (term1, term2, step) = self.contradiction?;
-        let steps = self.get_steps(term1, term2);
-        Some((step, steps))
+    // Used to explain which steps lead to a contradiction.
+    // Returns Some((negative_id, positive_ids)), if there is a contradiction.
+    pub fn justify_contradiction(&self) -> Option<Justification> {
+        let (term1, term2, inequality_id) = self.contradiction?;
+        let mut rewrite_id_set = BTreeSet::new();
+        self.get_steps_helper(term1, term2, &mut rewrite_id_set);
+        Some(Justification {
+            inequality_id,
+            rewrite_id_set,
+        })
     }
 
     fn get_group_info(&self, group_id: GroupId) -> &GroupInfo {
@@ -548,7 +571,7 @@ impl TermGraph {
 
     // Extract a list of steps that we used to prove that these two terms are equal.
     // This does deduplicate.
-    pub fn get_steps(&self, term1: TermId, term2: TermId) -> Vec<StepId> {
+    pub fn get_steps(&self, term1: TermId, term2: TermId) -> Vec<usize> {
         let mut answer = BTreeSet::new();
         self.get_steps_helper(term1, term2, &mut answer);
         answer.into_iter().collect()
