@@ -2006,4 +2006,20 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.bad("exists(A: Bool) { true }");
         env.add("exists(a: Bool) { true }");
     }
+
+    #[test]
+    fn test_class_variables() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                let 0: Nat = axiom
+                let 1: Nat = axiom
+            }
+
+            axiom zero_neq_one(x: Nat): Nat.0 = Nat.1
+        "#,
+        );
+    }
 }
