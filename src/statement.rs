@@ -528,6 +528,16 @@ fn parse_import_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     Ok(statement)
 }
 
+// Parses a class statement where the "class" keyword has already been found.
+fn parse_class_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name = name_token.text().to_string();
+    if !Token::is_valid_type_name(&name) {
+        return Err(Error::new(&name_token, "invalid class name"));
+    }
+    todo!("class statement parsing");
+}
+
 fn write_type_params(f: &mut fmt::Formatter, type_params: &[Token]) -> fmt::Result {
     if type_params.len() == 0 {
         return Ok(());
@@ -719,6 +729,11 @@ impl Statement {
                     TokenType::Import => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_import_statement(keyword, tokens)?;
+                        return Ok((Some(s), None));
+                    }
+                    TokenType::Class => {
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_class_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
                     _ => {

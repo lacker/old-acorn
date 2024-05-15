@@ -418,6 +418,7 @@ impl Token {
                             "true" => TokenType::True,
                             "false" => TokenType::False,
                             "else" => TokenType::Else,
+                            "class" => TokenType::Class,
                             _ => TokenType::Identifier,
                         }
                     }
