@@ -1062,9 +1062,34 @@ impl Environment {
 
             StatementInfo::Class(cs) => {
                 self.add_other_lines(statement);
-                if !self.bindings.has_type_name(&cs.name) {
-                    return Err(Error::new(&cs.name_token, "undefined class name"));
-                }
+                match self.bindings.get_type_for_name(&cs.name) {
+                    Some(AcornType::Data(module, name)) => {
+                        if module != &self.module_id {
+                            return Err(Error::new(
+                                &cs.name_token,
+                                "we can only bind members to types in the current module",
+                            ));
+                        }
+                        if name != &cs.name {
+                            return Err(Error::new(
+                                &cs.name_token,
+                                "we cannot bind members to type aliases",
+                            ));
+                        }
+                    }
+                    Some(_) => {
+                        return Err(Error::new(
+                            &cs.name_token,
+                            &format!("we can only bind members to data types"),
+                        ));
+                    }
+                    None => {
+                        return Err(Error::new(
+                            &cs.name_token,
+                            &format!("undefined type name '{}'", cs.name),
+                        ));
+                    }
+                };
                 for substatement in &cs.body.statements {
                     match &substatement.statement {
                         StatementInfo::Let(ls) => {
@@ -2098,5 +2123,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             }
         "#,
         );
+    }
+
+    #[test]
+    fn test_no_methods_on_type_aliases() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.add("type NatFn: Nat -> Nat");
+        env.bad("class NatFn {}");
     }
 }
