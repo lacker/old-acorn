@@ -1040,6 +1040,10 @@ impl Environment {
                 self.bindings.add_module(local_name, module_id);
                 Ok(())
             }
+
+            StatementInfo::Class(_) => {
+                todo!("handle class statements");
+            }
         }
     }
 

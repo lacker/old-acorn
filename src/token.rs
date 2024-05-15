@@ -45,6 +45,7 @@ pub enum TokenType {
     True,
     False,
     Else,
+    Class,
 }
 
 pub const MAX_PRECEDENCE: i8 = 100;
@@ -300,7 +301,8 @@ impl Token {
             | TokenType::Import
             | TokenType::True
             | TokenType::False
-            | TokenType::Else => Some(SemanticTokenType::KEYWORD),
+            | TokenType::Else
+            | TokenType::Class => Some(SemanticTokenType::KEYWORD),
 
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
@@ -310,7 +312,15 @@ impl Token {
                     None
                 }
             }
-            _ => None,
+
+            TokenType::Comma
+            | TokenType::Invalid
+            | TokenType::LeftParen
+            | TokenType::RightParen
+            | TokenType::LeftBrace
+            | TokenType::RightBrace
+            | TokenType::Colon
+            | TokenType::Dot => None,
         }
     }
 

@@ -101,6 +101,15 @@ pub struct ImportStatement {
     pub components: Vec<String>,
 }
 
+// A class statement defines some class variables and instance methods that are scoped to the class.
+pub struct ClassStatement {
+    pub name: String,
+    pub name_token: Token,
+
+    // The body of a class statement
+    pub body: Body,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Each type has its own struct.
 pub struct Statement {
@@ -121,6 +130,7 @@ pub enum StatementInfo {
     Exists(ExistsStatement),
     Struct(StructStatement),
     Import(ImportStatement),
+    Class(ClassStatement),
 }
 
 const ONE_INDENT: &str = "    ";
@@ -627,6 +637,11 @@ impl Statement {
 
             StatementInfo::Import(is) => {
                 write!(f, "import {}", is.components.join("."))
+            }
+
+            StatementInfo::Class(cs) => {
+                write!(f, "class {}", cs.name)?;
+                write_block(f, &cs.body.statements, indentation)
             }
         }
     }
