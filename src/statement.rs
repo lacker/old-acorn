@@ -24,6 +24,9 @@ pub struct LetStatement {
 //   define foo(a: int, b: int) -> int = a + a + b
 pub struct DefineStatement {
     pub name: String,
+    pub name_token: Token,
+
+    // For templated definitions
     pub type_params: Vec<Token>,
 
     // A list of the named arg types, like "a: int" and "b: int".
@@ -335,6 +338,7 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     let (return_value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
     let ds = DefineStatement {
         name,
+        name_token,
         type_params,
         args,
         return_type,

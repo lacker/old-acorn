@@ -647,7 +647,7 @@ impl Environment {
                 self.add_other_lines(statement);
                 if self.bindings.name_in_use(&ds.name) {
                     return Err(Error::new(
-                        &statement.first_token,
+                        &ds.name_token,
                         &format!("function name '{}' already defined in this scope", ds.name),
                     ));
                 }
@@ -2070,5 +2070,18 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
 
         // Class variables shouldn't get bound at module scope
         env.bad("let zero: Nat = 0");
+    }
+
+    #[test]
+    fn test_instance_methods() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define add(self: Nat, other: Nat) -> Nat: axiom
+            }
+        "#,
+        );
     }
 }
