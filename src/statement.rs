@@ -647,7 +647,7 @@ impl Statement {
     }
 
     // Tries to parse a single statement from the provided tokens.
-    // If in_block is true, a prop statement can also end with a right brace.
+    // If in_block is true, we might get a right brace instead of a statement.
     // Returns statement, as well as the right brace token, if the current block ended.
     //
     // Normally, this function consumes the final newline.
@@ -722,17 +722,14 @@ impl Statement {
                         return Ok((Some(s), None));
                     }
                     _ => {
+                        if !in_block {
+                            return Err(Error::new(token, "unexpected token at the top level"));
+                        }
                         let first_token = tokens.peek().unwrap().clone();
                         let (claim, token) = Expression::parse(tokens, true, |t| {
                             t == TokenType::NewLine || t == TokenType::RightBrace
                         })?;
                         let block_ended = token.token_type == TokenType::RightBrace;
-                        if block_ended && !in_block {
-                            return Err(Error::new(
-                                &token,
-                                "unmatched right brace after expression",
-                            ));
-                        }
                         let brace = if block_ended { Some(token) } else { None };
                         let last_token = claim.last_token().clone();
                         let se = StatementInfo::Prop(PropStatement { claim });
@@ -826,7 +823,10 @@ mod tests {
 
     #[test]
     fn test_prop_statements() {
-        ok("p -> p");
+        ok(indoc! {"
+        theorem goal: true by {
+            p -> p
+        }"});
     }
 
     #[test]

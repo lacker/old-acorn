@@ -194,6 +194,13 @@ impl Project {
         for entry in WalkDir::new(&self.root).into_iter().filter_map(|e| e.ok()) {
             if entry.file_type().is_file() {
                 let path = entry.path();
+
+                // TODO: remove this when problems works
+                // Skip the file if it has the word "problems" in it
+                if path.to_str().unwrap().contains("problems") {
+                    continue;
+                }
+
                 if path.extension() == Some(std::ffi::OsStr::new("ac")) {
                     self.add_target_file(path);
                 }

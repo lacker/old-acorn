@@ -1710,8 +1710,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             r#"
             type Nat: axiom
             define foo(x: Nat) -> Bool: axiom
-            exists(z: Nat) { foo(z) }
-            foo(z)
+            theorem goal: true by {
+                exists(z: Nat) { foo(z) }
+                foo(z)
+            }
         "#,
         );
     }
@@ -1818,11 +1820,11 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("type Nat: axiom");
         env.add("let 0: Nat = axiom");
         env.add("define eq<T>(a: T, b: T) -> Bool: a = b");
-        env.add("eq(0, 0)");
-        env.add("eq(0 = 0, 0 = 0)");
-        env.add("eq(0 = 0, eq(0, 0))");
-        env.bad("eq(0, 0 = 0)");
-        env.bad("0 = eq(0, 0)");
+        env.add("theorem t1: eq(0, 0)");
+        env.add("theorem t2: eq(0 = 0, 0 = 0)");
+        env.add("theorem t3: eq(0 = 0, eq(0, 0))");
+        env.bad("theorem t4: eq(0, 0 = 0)");
+        env.bad("theorem t5: 0 = eq(0, 0)");
     }
 
     #[test]
