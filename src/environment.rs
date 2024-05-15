@@ -10,7 +10,7 @@ use crate::goal_context::GoalContext;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::proposition::Proposition;
-use crate::statement::{Body, LetStatement, Statement, StatementInfo};
+use crate::statement::{Body, DefineStatement, LetStatement, Statement, StatementInfo};
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
 // Each line has a LineType, to handle line-based user interface.
@@ -567,7 +567,7 @@ impl Environment {
         Ok(last_claim)
     }
 
-    // Adds a "let" statement to the environment.
+    // Adds a "let" statement to the environment, that may be within a class block.
     fn add_let_statement(
         &mut self,
         project: &Project,
@@ -594,6 +594,50 @@ impl Environment {
         };
         self.bindings
             .add_constant(&name, vec![], acorn_type, Some(value));
+        self.definition_ranges.insert(name.clone(), range);
+        self.add_identity_props(&name);
+        Ok(())
+    }
+
+    // Adds a "define" statement to the environment, that may be within a class block.
+    fn add_define_statement(
+        &mut self,
+        project: &Project,
+        class: Option<&str>,
+        ds: &DefineStatement,
+        range: Range,
+    ) -> token::Result<()> {
+        let name = match class {
+            Some(c) => format!("{}.{}", c, ds.name),
+            None => ds.name.clone(),
+        };
+        if self.bindings.name_in_use(&name) {
+            return Err(Error::new(
+                &ds.name_token,
+                &format!("function name '{}' already defined in this scope", name),
+            ));
+        }
+
+        // Calculate the function value
+        let (param_names, _, arg_types, unbound_value, value_type) =
+            self.bindings.evaluate_subvalue(
+                project,
+                &ds.type_params,
+                &ds.args,
+                Some(&ds.return_type),
+                &ds.return_value,
+            )?;
+        if let Some(v) = unbound_value {
+            let fn_value = AcornValue::new_lambda(arg_types, v);
+            // Add the function value to the environment
+            self.bindings
+                .add_constant(&name, param_names, fn_value.get_type(), Some(fn_value));
+        } else {
+            let new_axiom_type = AcornType::new_functional(arg_types, value_type);
+            self.bindings
+                .add_constant(&name, param_names, new_axiom_type, None);
+        };
+
         self.definition_ranges.insert(name.clone(), range);
         self.add_identity_props(&name);
         Ok(())
@@ -645,41 +689,7 @@ impl Environment {
 
             StatementInfo::Define(ds) => {
                 self.add_other_lines(statement);
-                if self.bindings.name_in_use(&ds.name) {
-                    return Err(Error::new(
-                        &ds.name_token,
-                        &format!("function name '{}' already defined in this scope", ds.name),
-                    ));
-                }
-
-                // Calculate the function value
-                let (param_names, _, arg_types, unbound_value, value_type) =
-                    self.bindings.evaluate_subvalue(
-                        project,
-                        &ds.type_params,
-                        &ds.args,
-                        Some(&ds.return_type),
-                        &ds.return_value,
-                    )?;
-                if let Some(v) = unbound_value {
-                    let fn_value = AcornValue::new_lambda(arg_types, v);
-                    // Add the function value to the environment
-                    self.bindings.add_constant(
-                        &ds.name,
-                        param_names,
-                        fn_value.get_type(),
-                        Some(fn_value),
-                    );
-                } else {
-                    let new_axiom_type = AcornType::new_functional(arg_types, value_type);
-                    self.bindings
-                        .add_constant(&ds.name, param_names, new_axiom_type, None);
-                };
-
-                self.definition_ranges
-                    .insert(ds.name.clone(), statement.range());
-                self.add_identity_props(&ds.name);
-                Ok(())
+                self.add_define_statement(project, None, ds, statement.range())
             }
 
             StatementInfo::Theorem(ts) => {
