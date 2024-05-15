@@ -10,7 +10,7 @@ use crate::goal_context::GoalContext;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::proposition::Proposition;
-use crate::statement::{Body, Statement, StatementInfo};
+use crate::statement::{Body, LetStatement, Statement, StatementInfo};
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
 // Each line has a LineType, to handle line-based user interface.
@@ -567,6 +567,15 @@ impl Environment {
         Ok(last_claim)
     }
 
+    // Adds a "let" statement to the environment.
+    fn add_let_statement(
+        &mut self,
+        project: &Project,
+        statement: &LetStatement,
+    ) -> token::Result<()> {
+        todo!();
+    }
+
     // Adds a statement to the environment.
     // If the statement has a body, this call creates a sub-environment and adds the body
     // to that sub-environment.
@@ -1041,7 +1050,11 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::Class(_) => {
+            StatementInfo::Class(cs) => {
+                self.add_other_lines(statement);
+                if !self.bindings.has_type_name(&cs.name) {
+                    return Err(Error::new(&cs.name_token, "undefined class name"));
+                }
                 todo!("handle class statements");
             }
         }
@@ -2011,6 +2024,12 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("theorem bar(x: Bool): true");
         env.bad("exists(A: Bool) { true }");
         env.add("exists(a: Bool) { true }");
+    }
+
+    #[test]
+    fn test_undefined_class_name() {
+        let mut env = Environment::new_test();
+        env.bad("class Foo {}");
     }
 
     #[test]

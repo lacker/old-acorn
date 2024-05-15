@@ -535,7 +535,24 @@ fn parse_class_statement(keyword: Token, tokens: &mut TokenIter) -> Result<State
     if !Token::is_valid_type_name(&name) {
         return Err(Error::new(&name_token, "invalid class name"));
     }
-    todo!("class statement parsing");
+    let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+    let (statements, right_brace) = parse_block(tokens)?;
+    let body = Body {
+        left_brace,
+        statements,
+        right_brace: right_brace.clone(),
+    };
+    let cs = ClassStatement {
+        name,
+        name_token,
+        body,
+    };
+    let statement = Statement {
+        first_token: keyword,
+        last_token: right_brace,
+        statement: StatementInfo::Class(cs),
+    };
+    Ok(statement)
 }
 
 fn write_type_params(f: &mut fmt::Formatter, type_params: &[Token]) -> fmt::Result {
