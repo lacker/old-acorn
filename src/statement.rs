@@ -15,6 +15,7 @@ pub struct Body {
 //   let a: int = x + 2
 pub struct LetStatement {
     pub name: String,
+    pub name_token: Token,
     pub type_expr: Expression,
     pub value: Expression,
 }
@@ -89,7 +90,6 @@ pub struct ExistsStatement {
 // Struct statements define a new type
 pub struct StructStatement {
     pub name: String,
-
     pub name_token: Token,
 
     // Each field contains a field name-token and a type expression
@@ -306,6 +306,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
     let (value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
     let ls = LetStatement {
         name,
+        name_token,
         type_expr,
         value,
     };

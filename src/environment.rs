@@ -571,9 +571,32 @@ impl Environment {
     fn add_let_statement(
         &mut self,
         project: &Project,
-        statement: &LetStatement,
+        class: Option<&str>,
+        ls: &LetStatement,
+        range: Range,
     ) -> token::Result<()> {
-        todo!();
+        let name = match class {
+            Some(c) => format!("{}.{}", c, ls.name),
+            None => ls.name.clone(),
+        };
+        if self.bindings.name_in_use(&name) {
+            return Err(Error::new(
+                &ls.name_token,
+                &format!("constant name '{}' already defined in this scope", name),
+            ));
+        }
+        let acorn_type = self.bindings.evaluate_type(project, &ls.type_expr)?;
+        let value = if ls.value.token().token_type == TokenType::Axiom {
+            AcornValue::Constant(self.module_id, name.clone(), acorn_type.clone(), vec![])
+        } else {
+            self.bindings
+                .evaluate_value(project, &ls.value, Some(&acorn_type))?
+        };
+        self.bindings
+            .add_constant(&name, vec![], acorn_type, Some(value));
+        self.definition_ranges.insert(name.clone(), range);
+        self.add_identity_props(&name);
+        Ok(())
     }
 
     // Adds a statement to the environment.
@@ -617,30 +640,7 @@ impl Environment {
 
             StatementInfo::Let(ls) => {
                 self.add_other_lines(statement);
-                if self.bindings.name_in_use(&ls.name) {
-                    return Err(Error::new(
-                        &statement.first_token,
-                        &format!("variable name '{}' already defined in this scope", ls.name),
-                    ));
-                }
-                let acorn_type = self.bindings.evaluate_type(project, &ls.type_expr)?;
-                let value = if ls.value.token().token_type == TokenType::Axiom {
-                    AcornValue::Constant(
-                        self.module_id,
-                        ls.name.clone(),
-                        acorn_type.clone(),
-                        vec![],
-                    )
-                } else {
-                    self.bindings
-                        .evaluate_value(project, &ls.value, Some(&acorn_type))?
-                };
-                self.bindings
-                    .add_constant(&ls.name, vec![], acorn_type, Some(value));
-                self.definition_ranges
-                    .insert(ls.name.clone(), statement.range());
-                self.add_identity_props(&ls.name);
-                Ok(())
+                self.add_let_statement(project, None, ls, statement.range())
             }
 
             StatementInfo::Define(ds) => {
@@ -1055,7 +1055,28 @@ impl Environment {
                 if !self.bindings.has_type_name(&cs.name) {
                     return Err(Error::new(&cs.name_token, "undefined class name"));
                 }
-                todo!("handle class statements");
+                for substatement in &cs.body.statements {
+                    match &substatement.statement {
+                        StatementInfo::Let(ls) => {
+                            self.add_let_statement(
+                                project,
+                                Some(&cs.name),
+                                ls,
+                                substatement.range(),
+                            )?;
+                        }
+                        StatementInfo::Define(_ds) => {
+                            todo!("handle define statements in class bodies");
+                        }
+                        _ => {
+                            return Err(Error::new(
+                                &substatement.first_token,
+                                "only let and define statements are allowed in class bodies",
+                            ));
+                        }
+                    }
+                }
+                Ok(())
             }
         }
     }
@@ -2046,5 +2067,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             axiom zero_neq_one(x: Nat): Nat.0 = Nat.1
         "#,
         );
+
+        // Class variables shouldn't get bound at module scope
+        env.bad("let zero: Nat = 0");
     }
 }

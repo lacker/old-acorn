@@ -74,7 +74,7 @@ pub struct BindingMap {
     // Maps the name of a constant to information about it.
     // Doesn't handle variables defined on the stack, only ones that will be in scope for the
     // entirety of this environment.
-    // Includes "<datatype>.<constant>" for data type members.
+    // Includes "<datatype>.<constant>" for members.
     constants: HashMap<String, ConstantInfo>,
 
     // For constants in other modules that have a local name in this environment, we map
@@ -218,6 +218,8 @@ impl BindingMap {
         self.modules.values().copied().collect()
     }
 
+    // This can also add members, by providing a name like "Foo.bar".
+    // It would be nice to not use string manipulation for this behavior.
     pub fn add_constant(
         &mut self,
         name: &str,
