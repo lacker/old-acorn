@@ -1075,8 +1075,13 @@ impl Environment {
                                 substatement.range(),
                             )?;
                         }
-                        StatementInfo::Define(_ds) => {
-                            todo!("handle define statements in class bodies");
+                        StatementInfo::Define(ds) => {
+                            self.add_define_statement(
+                                project,
+                                Some(&ds.name),
+                                ds,
+                                substatement.range(),
+                            )?;
                         }
                         _ => {
                             return Err(Error::new(
