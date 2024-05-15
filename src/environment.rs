@@ -579,6 +579,12 @@ impl Environment {
             Some(c) => format!("{}.{}", c, ls.name),
             None => ls.name.clone(),
         };
+        if name == "self" {
+            return Err(Error::new(
+                &ls.name_token,
+                "cannot define a constant named 'self'",
+            ));
+        }
         if self.bindings.name_in_use(&name) {
             return Err(Error::new(
                 &ls.name_token,
@@ -626,6 +632,7 @@ impl Environment {
                 &ds.args,
                 Some(&ds.return_type),
                 &ds.return_value,
+                class.is_some(),
             )?;
         if let Some(v) = unbound_value {
             let fn_value = AcornValue::new_lambda(arg_types, v);
@@ -709,9 +716,15 @@ impl Environment {
                 };
                 self.definition_ranges.insert(ts.name.to_string(), range);
 
-                let (type_params, arg_names, arg_types, value, _) = self
-                    .bindings
-                    .evaluate_subvalue(project, &ts.type_params, &ts.args, None, &ts.claim)?;
+                let (type_params, arg_names, arg_types, value, _) =
+                    self.bindings.evaluate_subvalue(
+                        project,
+                        &ts.type_params,
+                        &ts.args,
+                        None,
+                        &ts.claim,
+                        false,
+                    )?;
 
                 let unbound_claim = if let Some(v) = value {
                     v
@@ -809,8 +822,9 @@ impl Environment {
                 }
                 let mut args = vec![];
                 for quantifier in &fas.quantifiers {
-                    let (arg_name, arg_type) =
-                        self.bindings.parse_declaration(project, quantifier)?;
+                    let (arg_name, arg_type) = self
+                        .bindings
+                        .parse_declaration(project, quantifier, false)?;
                     args.push((arg_name, arg_type));
                 }
 
@@ -878,7 +892,7 @@ impl Environment {
                 let mut stack = Stack::new();
                 let (quant_names, quant_types) =
                     self.bindings
-                        .bind_args(&mut stack, project, &es.quantifiers)?;
+                        .bind_args(&mut stack, project, &es.quantifiers, false)?;
                 let general_claim_value = self.bindings.evaluate_value_with_stack(
                     &mut stack,
                     project,
@@ -2131,5 +2145,69 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("type Nat: axiom");
         env.add("type NatFn: Nat -> Nat");
         env.bad("class NatFn {}");
+    }
+
+    #[test]
+    fn test_first_arg_must_be_self() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad(
+            r#"
+            class Nat {
+                define add(a: Nat, b: Nat) -> Nat: axiom
+            }
+            "#,
+        );
+    }
+
+    #[test]
+    fn test_no_self_variables() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("let foo: Bool = exists(self: Nat) { true }");
+        env.bad("let foo: Bool = forall(self: Nat) { true }");
+        env.bad("let self: Nat = axiom");
+    }
+
+    #[test]
+    fn test_no_self_args_outside_class() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("define foo(self: Nat) -> Bool: true");
+    }
+
+    #[test]
+    fn test_no_self_as_forall_arg() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("forall(self: Nat) { true }");
+    }
+
+    #[test]
+    fn test_no_self_as_exists_arg() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("exists(self: Nat) { true }");
+    }
+
+    #[test]
+    fn test_no_self_as_lambda_arg() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("let f: Nat -> Bool = lambda(self: Nat) { true }");
+    }
+
+    #[test]
+    fn test_infix_add() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define add(self: Nat, other: Nat) -> Nat: axiom
+            }
+            theorem goal(a: Nat): a + a = a + a
+        "#,
+        );
     }
 }

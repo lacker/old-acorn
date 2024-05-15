@@ -412,10 +412,12 @@ impl BindingMap {
     // Parses a declaration.
     // Must be in the form of "<name> : <type expression>"
     // For example, "x: Nat" or "f: Nat -> bool".
+    // expect_self is whether we expect this variable to be named "self" based on its position.
     pub fn parse_declaration(
         &self,
         project: &Project,
         declaration: &Expression,
+        expect_self: bool,
     ) -> token::Result<(String, AcornType)> {
         match declaration {
             Expression::Binary(left, token, right) => match token.token_type {
@@ -429,6 +431,18 @@ impl BindingMap {
                     let name = left.token().text().to_string();
                     if !Token::is_valid_variable_name(&name) {
                         return Err(Error::new(left.token(), "invalid variable name"));
+                    }
+                    if expect_self && name != "self" {
+                        return Err(Error::new(
+                            declaration.token(),
+                            "expected 'self' as the first argument",
+                        ));
+                    }
+                    if !expect_self && name == "self" {
+                        return Err(Error::new(
+                            declaration.token(),
+                            "cannot use 'self' as an argument name here",
+                        ));
                     }
                     let acorn_type = self.evaluate_type(project, right)?;
                     Ok((name, acorn_type))
@@ -445,14 +459,16 @@ impl BindingMap {
         stack: &mut Stack,
         project: &Project,
         declarations: I,
+        is_member_function: bool,
     ) -> token::Result<(Vec<String>, Vec<AcornType>)>
     where
         I: IntoIterator<Item = &'a Expression>,
     {
         let mut names = Vec::new();
         let mut types = Vec::new();
-        for declaration in declarations {
-            let (name, acorn_type) = self.parse_declaration(project, declaration)?;
+        for (i, declaration) in declarations.into_iter().enumerate() {
+            let expect_self = is_member_function && i == 0;
+            let (name, acorn_type) = self.parse_declaration(project, declaration, expect_self)?;
             if self.name_in_use(&name) {
                 return Err(Error::new(
                     declaration.token(),
@@ -813,7 +829,7 @@ impl BindingMap {
                         "binders must have at least one argument",
                     ));
                 }
-                let (arg_names, arg_types) = self.bind_args(stack, project, binder_args)?;
+                let (arg_names, arg_types) = self.bind_args(stack, project, binder_args, false)?;
                 let body_type = match token.token_type {
                     TokenType::ForAll => Some(&AcornType::Bool),
                     TokenType::Exists => Some(&AcornType::Bool),
@@ -888,6 +904,7 @@ impl BindingMap {
         arg_exprs: &[Expression],
         value_type_expr: Option<&Expression>,
         value_expr: &Expression,
+        is_member_function: bool,
     ) -> token::Result<(
         Vec<String>,
         Vec<String>,
@@ -911,7 +928,8 @@ impl BindingMap {
             type_param_names.push(token.text().to_string());
         }
         let mut stack = Stack::new();
-        let (arg_names, specific_arg_types) = self.bind_args(&mut stack, project, arg_exprs)?;
+        let (arg_names, specific_arg_types) =
+            self.bind_args(&mut stack, project, arg_exprs, is_member_function)?;
 
         // Check for possible errors in the specification.
         // Each type has to be used by some argument so that we know how to
