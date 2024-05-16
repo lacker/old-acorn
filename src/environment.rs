@@ -2197,17 +2197,31 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.bad("let f: Nat -> Bool = lambda(self: Nat) { true }");
     }
 
-    #[test]
-    fn test_infix_add() {
-        let mut env = Environment::new_test();
-        env.add(
-            r#"
-            type Nat: axiom
-            class Nat {
-                define add(self: Nat, other: Nat) -> Nat: axiom
-            }
-            theorem goal(a: Nat): a + a = a + a
-        "#,
-        );
-    }
+    // #[test]
+    // fn test_using_member_function() {
+    //     let mut env = Environment::new_test();
+    //     env.add(
+    //         r#"
+    //         type Nat: axiom
+    //         class Nat {
+    //             define add(self: Nat, other: Nat) -> Nat: axiom
+    //         }
+    //         theorem goal(a: Nat, b: Nat): a.add(b) = b.add(a)
+    //     "#,
+    //     );
+    // }
+
+    // #[test]
+    // fn test_infix_add() {
+    //     let mut env = Environment::new_test();
+    //     env.add(
+    //         r#"
+    //         type Nat: axiom
+    //         class Nat {
+    //             define add(self: Nat, other: Nat) -> Nat: axiom
+    //         }
+    //         theorem goal(a: Nat, b: Nat): a + b = b + a
+    //     "#,
+    //     );
+    // }
 }

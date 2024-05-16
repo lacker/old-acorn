@@ -104,6 +104,13 @@ struct ConstantInfo {
     theorem: bool,
 }
 
+// A name can refer to any of these things.
+enum NamedEntity {
+    Value(AcornValue),
+    Type(AcornType),
+    Module(ModuleId),
+}
+
 impl BindingMap {
     pub fn new(module: ModuleId) -> Self {
         assert!(module >= FIRST_NORMAL);
@@ -490,7 +497,7 @@ impl BindingMap {
         Ok((names, types))
     }
 
-    // Evaluates a value with an empty stack.
+    // Evaluates an expression that is supposed to describe a value, with an empty stack.
     pub fn evaluate_value(
         &self,
         project: &Project,
@@ -500,72 +507,98 @@ impl BindingMap {
         self.evaluate_value_with_stack(&mut Stack::new(), project, expression, expected_type)
     }
 
-    fn evaluate_name(&self, token: &Token, name: &str) -> token::Result<AcornValue> {
+    // Evaluates a single name, which may be namespaced to another named entity.
+    // In this situation, we don't know what sort of thing we expect the name to represent.
+    // We have the entity described by a chain of names, and we're adding one more name to the chain.
+    fn evaluate_name(
+        &self,
+        token: &Token,
+        project: &Project,
+        namespace: Option<NamedEntity>,
+        name: &str,
+    ) -> token::Result<NamedEntity> {
+        match namespace {
+            Some(NamedEntity::Value(_)) => {
+                todo!("instance variables");
+            }
+            Some(NamedEntity::Type(t)) => {
+                if let AcornType::Data(module, type_name) = t {
+                    let bindings = if module == self.module {
+                        &self
+                    } else {
+                        project.get_bindings(module).unwrap()
+                    };
+                    let constant_name = format!("{}.{}", type_name, name);
+                    match bindings.get_constant_value(&constant_name) {
+                        Some(value) => Ok(NamedEntity::Value(value)),
+                        None => Err(Error::new(
+                            token,
+                            &format!("unknown member '{}'", constant_name),
+                        )),
+                    }
+                } else {
+                    Err(Error::new(token, "expected a data type"))
+                }
+            }
+            Some(NamedEntity::Module(module)) => {
+                if let Some(bindings) = project.get_bindings(module) {
+                    bindings.evaluate_name(token, project, None, name)
+                } else {
+                    Err(Error::new(token, "could not load bindings for module"))
+                }
+            }
+            None => {
+                if self.is_module(name) {
+                    match self.modules.get(name) {
+                        Some(module) => Ok(NamedEntity::Module(*module)),
+                        None => Err(Error::new(token, "unknown module")),
+                    }
+                } else if self.is_type(name) {
+                    match self.get_type_for_name(name) {
+                        Some(t) => Ok(NamedEntity::Type(t.clone())),
+                        None => Err(Error::new(token, "unknown type")),
+                    }
+                } else if let Some(value) = self.get_constant_value(name) {
+                    Ok(NamedEntity::Value(value))
+                } else {
+                    Err(Error::new(token, &format!("unknown name: {}", name)))
+                }
+            }
+        }
+    }
+
+    fn evaluate_named_value(&self, token: &Token, name: &str) -> token::Result<AcornValue> {
         match self.get_constant_value(name) {
             Some(value) => Ok(value),
             None => Err(Error::new(token, &format!("unknown name '{}'", name))),
         }
     }
 
-    // Evaluates a name provided in dot-separated components.
-    // token is for reporting errors.
-    fn evaluate_name_components(
+    fn evaluate_dot_notation(
         &self,
         token: &Token,
         project: &Project,
         components: &[String],
     ) -> token::Result<AcornValue> {
-        assert!(components.len() > 0);
-        if components.len() == 1 {
-            return self.evaluate_name(token, &components[0]);
+        let mut entity: Option<NamedEntity> = None;
+        for component in components {
+            entity = Some(self.evaluate_name(token, project, entity, component)?);
         }
-
-        let namespace = components[0].as_ref();
-        if self.is_module(namespace) {
-            let bindings = self.get_imported_bindings(project, token, namespace)?;
-            return bindings.evaluate_name_components(token, project, &components[1..]);
+        match entity {
+            Some(NamedEntity::Value(value)) => Ok(value),
+            Some(NamedEntity::Type(_)) => Err(Error::new(
+                token,
+                "name refers to a type but we expected a value",
+            )),
+            Some(NamedEntity::Module(_)) => Err(Error::new(
+                token,
+                "name refers to a module but we expected a value",
+            )),
+            None => Err(Error::new(token, "unexpected error; empty dot notation")),
         }
-
-        if self.is_type(namespace) {
-            if components.len() != 2 {
-                return Err(Error::new(
-                    token,
-                    &format!("{} is unexpectedly deep", components.join(".")),
-                ));
-            }
-
-            match self.get_type_for_name(namespace) {
-                Some(AcornType::Data(module, type_name)) => {
-                    let bindings = if *module == self.module {
-                        &self
-                    } else {
-                        project.get_bindings(*module).unwrap()
-                    };
-                    let constant_name = format!("{}.{}", type_name, components[1]);
-                    return match bindings.get_constant_value(&constant_name) {
-                        Some(value) => Ok(value),
-                        None => Err(Error::new(
-                            token,
-                            &format!("unknown member '{}'", constant_name),
-                        )),
-                    };
-                }
-                t => {
-                    return Err(Error::new(
-                        token,
-                        &format!("type {:?} does not have members", t),
-                    ))
-                }
-            }
-        }
-
-        Err(Error::new(
-            token,
-            &format!("unknown namespace '{}'", namespace),
-        ))
     }
 
-    // Evaluates a value with a stack given as context.
+    // Evaluates an expression that describes a value, with a stack given as context.
     // A value expression could be either a value or an argument list.
     // Returns the value along with its type.
     pub fn evaluate_value_with_stack(
@@ -599,7 +632,7 @@ impl BindingMap {
                             return Ok(AcornValue::Variable(*i, t.clone()));
                         }
 
-                        let value = self.evaluate_name(token, token.text())?;
+                        let value = self.evaluate_named_value(token, token.text())?;
                         self.check_type(token, expected_type, &value.get_type())?;
                         Ok(value)
                     }
@@ -719,7 +752,7 @@ impl BindingMap {
                 }
                 TokenType::Dot => {
                     let components = expression.flatten_dots()?;
-                    let value = self.evaluate_name_components(token, project, &components)?;
+                    let value = self.evaluate_dot_notation(token, project, &components)?;
                     self.check_type(token, expected_type, &value.get_type())?;
                     Ok(value)
                 }
