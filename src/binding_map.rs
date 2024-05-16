@@ -104,11 +104,56 @@ struct ConstantInfo {
     theorem: bool,
 }
 
+// Return an error if the types don't match.
+// This doesn't do full polymorphic typechecking, but it will fail if there's no
+// way that the types can match, for example if a function expects T -> Nat and
+// the value provided is Nat.
+// actual_type should be non-generic here.
+// expected_type can be generic.
+pub fn check_type<'a>(
+    error_token: &Token,
+    expected_type: Option<&AcornType>,
+    actual_type: &AcornType,
+) -> token::Result<()> {
+    if let Some(e) = expected_type {
+        if e != actual_type {
+            return Err(Error::new(
+                error_token,
+                &format!("expected type {}, but got {}", e, actual_type),
+            ));
+        }
+    }
+    Ok(())
+}
+
 // A name can refer to any of these things.
 enum NamedEntity {
     Value(AcornValue),
     Type(AcornType),
     Module(ModuleId),
+}
+
+impl NamedEntity {
+    fn expect_type(
+        self,
+        expected_type: Option<&AcornType>,
+        token: &Token,
+    ) -> token::Result<AcornValue> {
+        match self {
+            NamedEntity::Value(value) => {
+                check_type(token, expected_type, &value.get_type())?;
+                Ok(value)
+            }
+            NamedEntity::Type(_) => Err(Error::new(
+                token,
+                "name refers to a type but we expected a value",
+            )),
+            NamedEntity::Module(_) => Err(Error::new(
+                token,
+                "name refers to a module but we expected a value",
+            )),
+        }
+    }
 }
 
 impl BindingMap {
@@ -301,29 +346,6 @@ impl BindingMap {
     ////////////////////////////////////////////////////////////////////////////////
     // Tools for parsing Expressions and similar structures
     ////////////////////////////////////////////////////////////////////////////////
-
-    // Return an error if the types don't match.
-    // This doesn't do full polymorphic typechecking, but it will fail if there's no
-    // way that the types can match, for example if a function expects T -> Nat and
-    // the value provided is Nat.
-    // actual_type should be non-generic here.
-    // expected_type can be generic.
-    pub fn check_type<'a>(
-        &self,
-        error_token: &Token,
-        expected_type: Option<&AcornType>,
-        actual_type: &AcornType,
-    ) -> token::Result<()> {
-        if let Some(e) = expected_type {
-            if e != actual_type {
-                return Err(Error::new(
-                    error_token,
-                    &format!("expected type {}, but got {}", e, actual_type),
-                ));
-            }
-        }
-        Ok(())
-    }
 
     fn get_imported_bindings<'a>(
         &self,
@@ -651,26 +673,13 @@ impl BindingMap {
                 }
 
                 TokenType::True | TokenType::False => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    check_type(token, expected_type, &AcornType::Bool)?;
                     Ok(AcornValue::Bool(token.token_type == TokenType::True))
                 }
 
                 TokenType::Identifier => {
                     let entity = self.evaluate_name(token, project, stack, None, token.text())?;
-                    match entity {
-                        NamedEntity::Value(value) => {
-                            self.check_type(token, expected_type, &value.get_type())?;
-                            Ok(value)
-                        }
-                        NamedEntity::Type(_) => Err(Error::new(
-                            token,
-                            "name refers to a type but we expected a value",
-                        )),
-                        NamedEntity::Module(_) => Err(Error::new(
-                            token,
-                            "name refers to a module but we expected a value",
-                        )),
-                    }
+                    Ok(entity.expect_type(expected_type, token)?)
                 }
                 _ => Err(Error::new(
                     token,
@@ -679,7 +688,7 @@ impl BindingMap {
             },
             Expression::Unary(token, expr) => match token.token_type {
                 TokenType::Exclam => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    check_type(token, expected_type, &AcornType::Bool)?;
                     let value = self.evaluate_value_with_stack(
                         stack,
                         project,
@@ -695,7 +704,7 @@ impl BindingMap {
             },
             Expression::Binary(left, token, right) => match token.token_type {
                 TokenType::RightArrow => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value_with_stack(
                         stack,
                         project,
@@ -716,7 +725,7 @@ impl BindingMap {
                     ))
                 }
                 TokenType::Equals => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value_with_stack(stack, project, left, None)?;
                     let right_value = self.evaluate_value_with_stack(
                         stack,
@@ -731,7 +740,7 @@ impl BindingMap {
                     ))
                 }
                 TokenType::NotEquals => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value_with_stack(stack, project, left, None)?;
                     let right_value = self.evaluate_value_with_stack(
                         stack,
@@ -746,7 +755,7 @@ impl BindingMap {
                     ))
                 }
                 TokenType::Ampersand => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value_with_stack(
                         stack,
                         project,
@@ -766,7 +775,7 @@ impl BindingMap {
                     ))
                 }
                 TokenType::Pipe => {
-                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value_with_stack(
                         stack,
                         project,
@@ -787,20 +796,7 @@ impl BindingMap {
                 }
                 TokenType::Dot => {
                     let entity = self.evaluate_dot_expression(stack, project, expression)?;
-                    match entity {
-                        NamedEntity::Value(value) => {
-                            self.check_type(token, expected_type, &value.get_type())?;
-                            Ok(value)
-                        }
-                        NamedEntity::Type(_) => Err(Error::new(
-                            token,
-                            "name refers to a type but we expected a value",
-                        )),
-                        NamedEntity::Module(_) => Err(Error::new(
-                            token,
-                            "name refers to a module but we expected a value",
-                        )),
-                    }
+                    Ok(entity.expect_type(expected_type, token)?)
                 }
                 _ => Err(Error::new(
                     token,
@@ -854,7 +850,7 @@ impl BindingMap {
 
                 // For non-polymorphic functions we are done
                 if mapping.is_empty() {
-                    self.check_type(function_expr.token(), expected_type, &applied_type)?;
+                    check_type(function_expr.token(), expected_type, &applied_type)?;
                     return Ok(AcornValue::new_apply(function, args));
                 }
 
@@ -885,7 +881,7 @@ impl BindingMap {
                 if expected_type.is_some() {
                     // Check the applied type
                     let specialized_type = applied_type.specialize(&params);
-                    self.check_type(function_expr.token(), expected_type, &specialized_type)?;
+                    check_type(function_expr.token(), expected_type, &specialized_type)?;
                 }
 
                 let specialized = AcornValue::Specialized(c_module, c_name, c_type, params);
@@ -925,7 +921,7 @@ impl BindingMap {
                 if token.token_type == TokenType::Function && expected_type.is_some() {
                     // We could check this before creating the value rather than afterwards.
                     // It seems theoretically faster but I'm not sure if there's any reason to.
-                    self.check_type(token, expected_type, &ret_val.as_ref().unwrap().get_type())?;
+                    check_type(token, expected_type, &ret_val.as_ref().unwrap().get_type())?;
                 }
                 ret_val
             }
