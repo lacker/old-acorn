@@ -222,29 +222,6 @@ impl Expression {
     pub fn expect_value(input: &str) -> Expression {
         Expression::expect_parse(input, true)
     }
-
-    // Turn an expression like foo.bar.baz into ["foo", "bar", "baz"]
-    pub fn flatten_dots(&self) -> Result<Vec<String>> {
-        match self {
-            Expression::Identifier(token) => Ok(vec![token.text().to_string()]),
-            Expression::Binary(left, token, right) => {
-                if token.token_type != TokenType::Dot {
-                    return Err(Error::new(
-                        token,
-                        &format!("expected dot operator but found: {}", token),
-                    ));
-                }
-                let mut left = left.flatten_dots()?;
-                let mut right = right.flatten_dots()?;
-                left.append(&mut right);
-                Ok(left)
-            }
-            _ => Err(Error::new(
-                self.token(),
-                &format!("expected namespaced identifier but found: {}", self),
-            )),
-        }
-    }
 }
 
 // In most situations we can parse left-to-right. Non-parenthesized operators are the exception.

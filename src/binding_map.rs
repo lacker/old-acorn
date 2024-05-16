@@ -5,7 +5,7 @@ use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::code_gen_error::CodeGenError;
 use crate::expression::Expression;
-use crate::module::{Module, ModuleId, FIRST_NORMAL};
+use crate::module::{ModuleId, FIRST_NORMAL};
 use crate::project::Project;
 use crate::token::{self, Error, Token, TokenIter, TokenType};
 
@@ -134,7 +134,7 @@ enum NamedEntity {
 }
 
 impl NamedEntity {
-    fn expect_type(
+    fn expect_value(
         self,
         expected_type: Option<&AcornType>,
         token: &Token,
@@ -151,6 +151,20 @@ impl NamedEntity {
             NamedEntity::Module(_) => Err(Error::new(
                 token,
                 "name refers to a module but we expected a value",
+            )),
+        }
+    }
+
+    fn expect_type(self, token: &Token) -> token::Result<AcornType> {
+        match self {
+            NamedEntity::Value(_) => Err(Error::new(
+                token,
+                "name refers to a value but we expected a type",
+            )),
+            NamedEntity::Type(t) => Ok(t),
+            NamedEntity::Module(_) => Err(Error::new(
+                token,
+                "name refers to a module but we expected a type",
             )),
         }
     }
@@ -347,30 +361,6 @@ impl BindingMap {
     // Tools for parsing Expressions and similar structures
     ////////////////////////////////////////////////////////////////////////////////
 
-    fn get_imported_bindings<'a>(
-        &self,
-        project: &'a Project,
-        token: &Token,
-        module_name: &str,
-    ) -> token::Result<&'a BindingMap> {
-        let module = match self.modules.get(module_name) {
-            Some(module) => *module,
-            None => {
-                return Err(Error::new(
-                    token,
-                    &format!("unknown module {}", module_name),
-                ));
-            }
-        };
-        match project.get_module(module) {
-            Module::Ok(env) => Ok(&env.bindings),
-            _ => Err(Error::new(
-                token,
-                &format!("error while importing module: {}", module_name),
-            )),
-        }
-    }
-
     // Evaluates an expression that represents a type.
     pub fn evaluate_type(
         &self,
@@ -406,21 +396,9 @@ impl BindingMap {
                     Ok(AcornType::new_functional(arg_types, return_type))
                 }
                 TokenType::Dot => {
-                    let components = expression.flatten_dots()?;
-                    if components.len() != 2 {
-                        return Err(Error::new(token, "expected <module>.<type> here"));
-                    }
-                    let module_name = &components[0];
-                    let type_name = &components[1];
-                    let bindings = self.get_imported_bindings(project, token, module_name)?;
-                    if let Some(acorn_type) = bindings.get_type_for_name(type_name) {
-                        Ok(acorn_type.clone())
-                    } else {
-                        Err(Error::new(
-                            token,
-                            &format!("unknown type {}.{}", module_name, type_name),
-                        ))
-                    }
+                    let entity =
+                        self.evaluate_dot_expression(&Stack::new(), project, expression)?;
+                    entity.expect_type(token)
                 }
                 _ => Err(Error::new(
                     token,
@@ -679,7 +657,7 @@ impl BindingMap {
 
                 TokenType::Identifier => {
                     let entity = self.evaluate_name(token, project, stack, None, token.text())?;
-                    Ok(entity.expect_type(expected_type, token)?)
+                    Ok(entity.expect_value(expected_type, token)?)
                 }
                 _ => Err(Error::new(
                     token,
@@ -796,7 +774,7 @@ impl BindingMap {
                 }
                 TokenType::Dot => {
                     let entity = self.evaluate_dot_expression(stack, project, expression)?;
-                    Ok(entity.expect_type(expected_type, token)?)
+                    Ok(entity.expect_value(expected_type, token)?)
                 }
                 _ => Err(Error::new(
                     token,
