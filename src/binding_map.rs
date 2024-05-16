@@ -514,6 +514,7 @@ impl BindingMap {
         &self,
         token: &Token,
         project: &Project,
+        stack: &Stack,
         namespace: Option<NamedEntity>,
         name: &str,
     ) -> token::Result<NamedEntity> {
@@ -542,7 +543,7 @@ impl BindingMap {
             }
             Some(NamedEntity::Module(module)) => {
                 if let Some(bindings) = project.get_bindings(module) {
-                    bindings.evaluate_name(token, project, None, name)
+                    bindings.evaluate_name(token, project, stack, None, name)
                 } else {
                     Err(Error::new(token, "could not load bindings for module"))
                 }
@@ -558,31 +559,25 @@ impl BindingMap {
                         Some(t) => Ok(NamedEntity::Type(t.clone())),
                         None => Err(Error::new(token, "unknown type")),
                     }
-                } else if let Some(value) = self.get_constant_value(name) {
-                    Ok(NamedEntity::Value(value))
                 } else {
-                    Err(Error::new(token, &format!("unknown name: {}", name)))
+                    let value = self.evaluate_identifier(token, stack, name)?;
+                    Ok(NamedEntity::Value(value))
                 }
             }
         }
     }
 
-    fn evaluate_named_value(&self, token: &Token, name: &str) -> token::Result<AcornValue> {
-        match self.get_constant_value(name) {
-            Some(value) => Ok(value),
-            None => Err(Error::new(token, &format!("unknown name '{}'", name))),
-        }
-    }
-
+    // Evaluates a chain of names, separated by dots.
     fn evaluate_dot_notation(
         &self,
         token: &Token,
         project: &Project,
+        stack: &Stack,
         components: &[String],
     ) -> token::Result<AcornValue> {
         let mut entity: Option<NamedEntity> = None;
         for component in components {
-            entity = Some(self.evaluate_name(token, project, entity, component)?);
+            entity = Some(self.evaluate_name(token, project, stack, entity, component)?);
         }
         match entity {
             Some(NamedEntity::Value(value)) => Ok(value),
@@ -598,6 +593,24 @@ impl BindingMap {
         }
     }
 
+    // Evaluates a single string identifier.
+    // Token is for error reporting, not necessarily the name itself
+    fn evaluate_identifier(
+        &self,
+        token: &Token,
+        stack: &Stack,
+        name: &str,
+    ) -> token::Result<AcornValue> {
+        // Check if this is a stack variable
+        if let Some((i, t)) = stack.get(name) {
+            return Ok(AcornValue::Variable(*i, t.clone()));
+        }
+        match self.get_constant_value(name) {
+            Some(value) => Ok(value),
+            None => Err(Error::new(token, &format!("unknown identifier '{}'", name))),
+        }
+    }
+
     // Evaluates an expression that describes a value, with a stack given as context.
     // A value expression could be either a value or an argument list.
     // Returns the value along with its type.
@@ -609,39 +622,31 @@ impl BindingMap {
         expected_type: Option<&AcornType>,
     ) -> token::Result<AcornValue> {
         match expression {
-            Expression::Identifier(token) => {
-                match token.token_type {
-                    TokenType::Axiom => panic!("axiomatic values should be handled elsewhere"),
+            Expression::Identifier(token) => match token.token_type {
+                TokenType::Axiom => panic!("axiomatic values should be handled elsewhere"),
 
-                    TokenType::ForAll | TokenType::Exists | TokenType::Function => {
-                        return Err(Error::new(
-                            token,
-                            "binder keywords cannot be used as values",
-                        ));
-                    }
-
-                    TokenType::True | TokenType::False => {
-                        self.check_type(token, expected_type, &AcornType::Bool)?;
-                        Ok(AcornValue::Bool(token.token_type == TokenType::True))
-                    }
-
-                    TokenType::Identifier => {
-                        // Check if this is a stack variable
-                        if let Some((i, t)) = stack.get(token.text()) {
-                            self.check_type(token, expected_type, t)?;
-                            return Ok(AcornValue::Variable(*i, t.clone()));
-                        }
-
-                        let value = self.evaluate_named_value(token, token.text())?;
-                        self.check_type(token, expected_type, &value.get_type())?;
-                        Ok(value)
-                    }
-                    _ => Err(Error::new(
+                TokenType::ForAll | TokenType::Exists | TokenType::Function => {
+                    return Err(Error::new(
                         token,
-                        "unexpected identifier in value expression",
-                    )),
+                        "binder keywords cannot be used as values",
+                    ));
                 }
-            }
+
+                TokenType::True | TokenType::False => {
+                    self.check_type(token, expected_type, &AcornType::Bool)?;
+                    Ok(AcornValue::Bool(token.token_type == TokenType::True))
+                }
+
+                TokenType::Identifier => {
+                    let value = self.evaluate_identifier(token, stack, token.text())?;
+                    self.check_type(token, expected_type, &value.get_type())?;
+                    Ok(value)
+                }
+                _ => Err(Error::new(
+                    token,
+                    "unexpected identifier in value expression",
+                )),
+            },
             Expression::Unary(token, expr) => match token.token_type {
                 TokenType::Exclam => {
                     self.check_type(token, expected_type, &AcornType::Bool)?;
@@ -752,7 +757,7 @@ impl BindingMap {
                 }
                 TokenType::Dot => {
                     let components = expression.flatten_dots()?;
-                    let value = self.evaluate_dot_notation(token, project, &components)?;
+                    let value = self.evaluate_dot_notation(token, project, stack, &components)?;
                     self.check_type(token, expected_type, &value.get_type())?;
                     Ok(value)
                 }
