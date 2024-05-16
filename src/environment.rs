@@ -1117,7 +1117,7 @@ impl Environment {
                         StatementInfo::Define(ds) => {
                             self.add_define_statement(
                                 project,
-                                Some(&ds.name),
+                                Some(&cs.name),
                                 ds,
                                 substatement.range(),
                             )?;

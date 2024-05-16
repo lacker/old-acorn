@@ -519,8 +519,30 @@ impl BindingMap {
         name: &str,
     ) -> token::Result<NamedEntity> {
         match namespace {
-            Some(NamedEntity::Value(_)) => {
-                todo!("instance variables");
+            Some(NamedEntity::Value(left_value)) => {
+                // This is <object>.<name> so we need to find the type of the object on the left.
+                let left_type = left_value.get_type();
+                if let AcornType::Data(module, type_name) = left_type {
+                    let bindings = if module == self.module {
+                        &self
+                    } else {
+                        project.get_bindings(module).unwrap()
+                    };
+                    let constant_name = format!("{}.{}", type_name, name);
+                    let function = match bindings.get_constant_value(&constant_name) {
+                        Some(value) => value,
+                        None => {
+                            return Err(Error::new(
+                                token,
+                                &format!("unknown member '{}'", constant_name),
+                            ))
+                        }
+                    };
+                    let applied_value = AcornValue::new_apply(function, vec![left_value]);
+                    Ok(NamedEntity::Value(applied_value))
+                } else {
+                    Err(Error::new(token, "type has no members"))
+                }
             }
             Some(NamedEntity::Type(t)) => {
                 if let AcornType::Data(module, type_name) = t {
@@ -559,55 +581,51 @@ impl BindingMap {
                         Some(t) => Ok(NamedEntity::Type(t.clone())),
                         None => Err(Error::new(token, "unknown type")),
                     }
-                } else {
-                    let value = self.evaluate_identifier(token, stack, name)?;
+                } else if let Some((i, t)) = stack.get(name) {
+                    // This is a stack variable
+                    Ok(NamedEntity::Value(AcornValue::Variable(*i, t.clone())))
+                } else if let Some(value) = self.get_constant_value(name) {
                     Ok(NamedEntity::Value(value))
+                } else {
+                    Err(Error::new(token, &format!("unknown identifier '{}'", name)))
                 }
             }
         }
     }
 
-    // Evaluates a chain of names, separated by dots.
-    fn evaluate_dot_notation(
+    // Evaluates a dot expression that could represent any sort of named entity.
+    fn evaluate_dot_expression(
         &self,
-        token: &Token,
+        stack: &Stack,
         project: &Project,
-        stack: &Stack,
-        components: &[String],
-    ) -> token::Result<AcornValue> {
-        let mut entity: Option<NamedEntity> = None;
-        for component in components {
-            entity = Some(self.evaluate_name(token, project, stack, entity, component)?);
-        }
-        match entity {
-            Some(NamedEntity::Value(value)) => Ok(value),
-            Some(NamedEntity::Type(_)) => Err(Error::new(
-                token,
-                "name refers to a type but we expected a value",
-            )),
-            Some(NamedEntity::Module(_)) => Err(Error::new(
-                token,
-                "name refers to a module but we expected a value",
-            )),
-            None => Err(Error::new(token, "unexpected error; empty dot notation")),
-        }
-    }
-
-    // Evaluates a single string identifier.
-    // Token is for error reporting, not necessarily the name itself
-    fn evaluate_identifier(
-        &self,
-        token: &Token,
-        stack: &Stack,
-        name: &str,
-    ) -> token::Result<AcornValue> {
-        // Check if this is a stack variable
-        if let Some((i, t)) = stack.get(name) {
-            return Ok(AcornValue::Variable(*i, t.clone()));
-        }
-        match self.get_constant_value(name) {
-            Some(value) => Ok(value),
-            None => Err(Error::new(token, &format!("unknown identifier '{}'", name))),
+        expression: &Expression,
+    ) -> token::Result<NamedEntity> {
+        match expression {
+            Expression::Identifier(token) => {
+                self.evaluate_name(token, project, stack, None, token.text())
+            }
+            Expression::Binary(left, token, right) => {
+                if token.token_type != TokenType::Dot {
+                    return Err(Error::new(token, "expected a dot operator"));
+                }
+                match right.as_ref() {
+                    Expression::Identifier(right_token) => {
+                        let left_entity = self.evaluate_dot_expression(stack, project, left)?;
+                        self.evaluate_name(
+                            token,
+                            project,
+                            stack,
+                            Some(left_entity),
+                            right_token.text(),
+                        )
+                    }
+                    _ => Err(Error::new(
+                        right.token(),
+                        "expected an identifier after the dot operator",
+                    )),
+                }
+            }
+            _ => Err(Error::new(expression.token(), "expected a dot expression")),
         }
     }
 
@@ -638,9 +656,21 @@ impl BindingMap {
                 }
 
                 TokenType::Identifier => {
-                    let value = self.evaluate_identifier(token, stack, token.text())?;
-                    self.check_type(token, expected_type, &value.get_type())?;
-                    Ok(value)
+                    let entity = self.evaluate_name(token, project, stack, None, token.text())?;
+                    match entity {
+                        NamedEntity::Value(value) => {
+                            self.check_type(token, expected_type, &value.get_type())?;
+                            Ok(value)
+                        }
+                        NamedEntity::Type(_) => Err(Error::new(
+                            token,
+                            "name refers to a type but we expected a value",
+                        )),
+                        NamedEntity::Module(_) => Err(Error::new(
+                            token,
+                            "name refers to a module but we expected a value",
+                        )),
+                    }
                 }
                 _ => Err(Error::new(
                     token,
@@ -756,10 +786,21 @@ impl BindingMap {
                     ))
                 }
                 TokenType::Dot => {
-                    let components = expression.flatten_dots()?;
-                    let value = self.evaluate_dot_notation(token, project, stack, &components)?;
-                    self.check_type(token, expected_type, &value.get_type())?;
-                    Ok(value)
+                    let entity = self.evaluate_dot_expression(stack, project, expression)?;
+                    match entity {
+                        NamedEntity::Value(value) => {
+                            self.check_type(token, expected_type, &value.get_type())?;
+                            Ok(value)
+                        }
+                        NamedEntity::Type(_) => Err(Error::new(
+                            token,
+                            "name refers to a type but we expected a value",
+                        )),
+                        NamedEntity::Module(_) => Err(Error::new(
+                            token,
+                            "name refers to a module but we expected a value",
+                        )),
+                    }
                 }
                 _ => Err(Error::new(
                     token,
@@ -814,10 +855,7 @@ impl BindingMap {
                 // For non-polymorphic functions we are done
                 if mapping.is_empty() {
                     self.check_type(function_expr.token(), expected_type, &applied_type)?;
-                    return Ok(AcornValue::Application(FunctionApplication {
-                        function: Box::new(function),
-                        args,
-                    }));
+                    return Ok(AcornValue::new_apply(function, args));
                 }
 
                 // Templated functions have to just be constants
