@@ -1601,4 +1601,19 @@ mod tests {
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
         assert_eq!(prove_text(text, "antigoal"), Outcome::Exhausted);
     }
+
+    #[test]
+    fn test_infix_mul_before_plus() {
+        let text = r#"
+        type Nat: axiom
+        class Nat {
+            define add(self: Nat, other: Nat) -> Nat: axiom
+            define mul(self: Nat, other: Nat) -> Nat: axiom
+        }
+        theorem goal1(a: Nat, b: Nat, c: Nat): Nat.add(Nat.mul(a, b), c) = a * b + c
+        theorem goal2(a: Nat, b: Nat, c: Nat): Nat.add(a, Nat.mul(b, c)) = a + b * c
+        "#;
+        assert_eq!(prove_text(text, "goal1"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal2"), Outcome::Success);
+    }
 }
