@@ -1,6 +1,5 @@
 import nat_gcd
 import nat
-import subtraction
 type Nat: nat.Nat
 type Int: axiom
 
@@ -41,9 +40,9 @@ theorem one_neq_zero: 1 != 0 by {
 // We will use this as the primary representation for proving things about integers, so we prove
 // as many useful things about sub_nat as we can, before defining more stuff.
 define sub_nat(m: Nat, n: Nat) -> Int: if nat.lte(n, m) {
-    from_nat(subtraction.sub(m, n))
+    from_nat(nat.sub(m, n))
     } else {
-    negate(from_nat(subtraction.sub(n, m)))
+    negate(from_nat(nat.sub(n, m)))
 }
 
 theorem sub_nat_zero_right(n: Nat): sub_nat(n, nat.0) = from_nat(n)
@@ -1351,7 +1350,7 @@ theorem spans_negate(a: Int, b: Int, c: Int): spans(a, b, c) -> spans(a, b, nega
     spans(a, b, negate(1) * c)
 }
 
-let mod: (Nat, Nat) -> Nat = subtraction.mod
+let mod: (Nat, Nat) -> Nat = nat.mod
 
 theorem spans_nat_mod(a: Int, b: Int, k: Nat, m: Nat):
     spans(a, b, from_nat(k)) & spans(a, b, from_nat(m)) -> spans(a, b, from_nat(mod(k, m)))

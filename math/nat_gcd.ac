@@ -1,5 +1,4 @@
 import nat
-import subtraction
 
 // Would be nicer to have a way to import all of these at once.
 type Nat: nat.Nat
@@ -13,8 +12,8 @@ let mul: (Nat, Nat) -> Nat = nat.mul
 let divides: (Nat, Nat) -> Bool = nat.divides
 type NatPair: nat.NatPair
 
-let sub: (Nat, Nat) -> Nat = subtraction.sub
-let mod: (Nat, Nat) -> Nat = subtraction.mod
+let sub: (Nat, Nat) -> Nat = nat.sub
+let mod: (Nat, Nat) -> Nat = nat.mod
 
 // One step is taking the pair (a, b) and replacing with (b, a mod b).
 define gcd_step(p: NatPair) -> NatPair: if NatPair.second(p) = 0 {
@@ -130,12 +129,12 @@ define gcd_termination(p: NatPair) -> (Nat -> Bool): function(n: Nat) {
     NatPair.second(gcd_step_n(p, n)) = 0
 }
 
-define num_gcd_steps(p: NatPair) -> Nat: subtraction.find(is_min(gcd_termination(p)))
+define num_gcd_steps(p: NatPair) -> Nat: nat.find(is_min(gcd_termination(p)))
 
 theorem num_gcd_steps_terminates(p: NatPair): NatPair.second(gcd_step_n(p, num_gcd_steps(p))) = 0 by {
     exists(n: Nat) { is_min(gcd_termination(p))(n) }
     let f: Nat -> Bool = is_min(gcd_termination(p))
-    f(subtraction.find(f))
+    f(nat.find(f))
     is_min(gcd_termination(p))(num_gcd_steps(p))
     gcd_termination(p)(num_gcd_steps(p))
 }
