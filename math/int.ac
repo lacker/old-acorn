@@ -493,50 +493,52 @@ theorem add_comm_4(a: Int, b: Int, c: Int, d: Int): (a + b) + (c + d) = (a + c) 
 
 // Subtraction, and theorems about subtraction
 
-define sub(a: Int, b: Int) -> Int: a + negate(b)
-
-theorem sub_zero_right(a: Int): sub(a, 0) = a by {
-    sub(a, 0) = a + negate(0)
-    sub(a, 0) = a + 0
-    sub(a, 0) = a
+class Int {
+    define sub(self: Int, other: Int) -> Int: self + negate(other)
 }
 
-theorem sub_zero_left(a: Int): sub(0, a) = negate(a) by {
-    sub(0, a) = 0 + negate(a)
-    sub(0, a) = negate(a)
+theorem sub_zero_right(a: Int): Int.sub(a, 0) = a by {
+    Int.sub(a, 0) = a + negate(0)
+    Int.sub(a, 0) = a + 0
+    Int.sub(a, 0) = a
 }
 
-theorem sub_anticomm(a: Int, b: Int): sub(a, b) = negate(sub(b, a)) by {
-    negate(sub(b, a)) = negate(b + negate(a))
-    negate(sub(b, a)) = negate(b) + negate(negate(a))
-    negate(sub(b, a)) = negate(b) + a
-    negate(sub(b, a)) = a + negate(b)
+theorem sub_zero_left(a: Int): Int.sub(0, a) = negate(a) by {
+    Int.sub(0, a) = 0 + negate(a)
+    Int.sub(0, a) = negate(a)
 }
 
-theorem sub_self(a: Int): sub(a, a) = 0
-
-theorem sub_eq_zero(a: Int, b: Int): sub(a, b) = 0 -> a = b
-
-theorem sub_add_left(a: Int, b: Int): sub(a + b, b) = a
-
-theorem neg_sub(a: Int, b: Int): negate(sub(a, b)) = sub(b, a)
-
-theorem sub_add_right(a: Int, b: Int): sub(a, a + b) = negate(b)
-
-theorem sub_imp_add(a: Int, b: Int, c: Int): sub(a, b) = c -> b + c = a
-
-theorem sub_negate_imp_add(a: Int, b: Int, c: Int): sub(a, b) = negate(c) -> a + c = b
-
-theorem sub_cancel_right(a: Int, b: Int, c: Int): sub(a, c) = sub(b, c) -> a = b
-
-theorem sub_cancel_left(a: Int, b: Int, c: Int): sub(a, b) = sub(a, c) -> b = c
-
-theorem sub_add_cancel_left(a: Int, b: Int, c: Int): sub(a + b, a + c) = sub(b, c) by {
-    b + a + negate(a + c) = sub(b, c)
-    a + b + negate(a + c) = sub(b, c)
+theorem sub_anticomm(a: Int, b: Int): Int.sub(a, b) = negate(Int.sub(b, a)) by {
+    negate(Int.sub(b, a)) = negate(b + negate(a))
+    negate(Int.sub(b, a)) = negate(b) + negate(negate(a))
+    negate(Int.sub(b, a)) = negate(b) + a
+    negate(Int.sub(b, a)) = a + negate(b)
 }
 
-theorem sub_add_cancel_right(a: Int, b: Int, c: Int): sub(a + c, b + c) = sub(a, b)
+theorem sub_self(a: Int): Int.sub(a, a) = 0
+
+theorem sub_eq_zero(a: Int, b: Int): Int.sub(a, b) = 0 -> a = b
+
+theorem sub_add_left(a: Int, b: Int): Int.sub(a + b, b) = a
+
+theorem neg_sub(a: Int, b: Int): negate(Int.sub(a, b)) = Int.sub(b, a)
+
+theorem sub_add_right(a: Int, b: Int): Int.sub(a, a + b) = negate(b)
+
+theorem sub_imp_add(a: Int, b: Int, c: Int): Int.sub(a, b) = c -> b + c = a
+
+theorem sub_negate_imp_add(a: Int, b: Int, c: Int): Int.sub(a, b) = negate(c) -> a + c = b
+
+theorem sub_cancel_right(a: Int, b: Int, c: Int): Int.sub(a, c) = Int.sub(b, c) -> a = b
+
+theorem sub_cancel_left(a: Int, b: Int, c: Int): Int.sub(a, b) = Int.sub(a, c) -> b = c
+
+theorem sub_add_cancel_left(a: Int, b: Int, c: Int): Int.sub(a + b, a + c) = Int.sub(b, c) by {
+    b + a + negate(a + c) = Int.sub(b, c)
+    a + b + negate(a + c) = Int.sub(b, c)
+}
+
+theorem sub_add_cancel_right(a: Int, b: Int, c: Int): Int.sub(a + c, b + c) = Int.sub(a, b)
 
 // Integer-natural multiplication
 
@@ -795,18 +797,18 @@ theorem mul_distrib_left(a: Int, b: Int, c: Int): mul(a, b + c) = mul(a, b) + mu
     mul(a, b + c) = mul(a, b) + mul(c, a)
 }
 
-theorem mul_sub_distrib_right(a: Int, b: Int, c: Int): mul(sub(a, b), c) = sub(mul(a, c), mul(b, c)) by {
-    mul(sub(a, b), c) = mul(a + negate(b), c)
-    mul(sub(a, b), c) = mul(a, c) + mul(negate(b), c)
-    mul(sub(a, b), c) = mul(a, c) + negate(mul(b, c))
-    mul(sub(a, b), c) = sub(mul(a, c), mul(b, c))
+theorem mul_sub_distrib_right(a: Int, b: Int, c: Int): mul(Int.sub(a, b), c) = Int.sub(mul(a, c), mul(b, c)) by {
+    mul(Int.sub(a, b), c) = mul(a + negate(b), c)
+    mul(Int.sub(a, b), c) = mul(a, c) + mul(negate(b), c)
+    mul(Int.sub(a, b), c) = mul(a, c) + negate(mul(b, c))
+    mul(Int.sub(a, b), c) = Int.sub(mul(a, c), mul(b, c))
 }
 
-theorem mul_sub_distrib_left(a: Int, b: Int, c: Int): mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c)) by {
-    mul(a, sub(b, c)) = mul(a, b + negate(c))
-    mul(a, sub(b, c)) = mul(a, b) + mul(a, negate(c))
-    mul(a, sub(b, c)) = mul(a, b) + negate(mul(a, c))
-    mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c))
+theorem mul_sub_distrib_left(a: Int, b: Int, c: Int): mul(a, Int.sub(b, c)) = Int.sub(mul(a, b), mul(a, c)) by {
+    mul(a, Int.sub(b, c)) = mul(a, b + negate(c))
+    mul(a, Int.sub(b, c)) = mul(a, b) + mul(a, negate(c))
+    mul(a, Int.sub(b, c)) = mul(a, b) + negate(mul(a, c))
+    mul(a, Int.sub(b, c)) = Int.sub(mul(a, b), mul(a, c))
 }
 
 theorem abs_mul(a: Int, b: Int): abs(mul(a, b)) = nat.mul(abs(a), abs(b)) by {
@@ -957,13 +959,13 @@ theorem mul_assoc(a: Int, b: Int, c: Int): mul(mul(a, b), c) = mul(a, mul(b, c))
 
 // Comparison operators
 
-define lt(a: Int, b: Int) -> Bool: is_positive(sub(b, a))
+define lt(a: Int, b: Int) -> Bool: is_positive(Int.sub(b, a))
 
 define lte(a: Int, b: Int) -> Bool: lt(a, b) | a = b
 
 theorem lt_not_ref(a: Int): !lt(a, a) by {
     if lt(a, a) {
-        is_positive(sub(a, a))
+        is_positive(Int.sub(a, a))
         is_positive(0)
         false
     }
@@ -990,9 +992,9 @@ theorem lte_abs(a: Int): lte(a, from_nat(abs(a))) by {
 }
 
 theorem lt_add_left(a: Int, b: Int, c: Int): lt(b, c) -> lt(a + b, a + c) by {
-    is_positive(sub(c, b))
-    sub(a + c, a + b) = sub(c, b)
-    is_positive(sub(a + c, a + b))
+    is_positive(Int.sub(c, b))
+    Int.sub(a + c, a + b) = Int.sub(c, b)
+    is_positive(Int.sub(a + c, a + b))
 }
 
 theorem lte_add_left(a: Int, b: Int, c: Int): lte(b, c) -> lte(a + b, a + c)
@@ -1068,25 +1070,25 @@ theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(a + b), nat.add(abs(a), abs(b
 }
 
 theorem lt_mul_pos(a: Int, b: Int, c: Int): lt(a, b) & is_positive(c) -> lt(mul(a, c), mul(b, c)) by {
-    sub(mul(b, c), mul(a, c)) = mul(sub(b, a), c)
-    sub(mul(b, c), mul(a, c)) = mul(c, sub(b, a))
-    is_positive(sub(b, a))
-    is_positive(sub(mul(b, c), mul(a, c)))
+    Int.sub(mul(b, c), mul(a, c)) = mul(Int.sub(b, a), c)
+    Int.sub(mul(b, c), mul(a, c)) = mul(c, Int.sub(b, a))
+    is_positive(Int.sub(b, a))
+    is_positive(Int.sub(mul(b, c), mul(a, c)))
 }
 
 theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(mul(b, c), mul(a, c)) by {
-    sub(mul(a, c), mul(b, c)) = mul(c, sub(a, b))
-    is_positive(sub(b, a))
-    is_negative(sub(a, b))
-    is_positive(mul(c, sub(a, b)))
-    is_positive(sub(mul(a, c), mul(b, c)))
+    Int.sub(mul(a, c), mul(b, c)) = mul(c, Int.sub(a, b))
+    is_positive(Int.sub(b, a))
+    is_negative(Int.sub(a, b))
+    is_positive(mul(c, Int.sub(a, b)))
+    is_positive(Int.sub(mul(a, c), mul(b, c)))
 }
 
 theorem lt_trans(a: Int, b: Int, c: Int): lt(a, b) & lt(b, c) -> lt(a, c) by {
-    is_positive(sub(b, a))
-    is_positive(sub(c, b))
+    is_positive(Int.sub(b, a))
+    is_positive(Int.sub(c, b))
     exists(k0: Int) { lt(a + k0, c + k0) }
-    is_positive(sub(c, a))
+    is_positive(Int.sub(c, a))
 }
 
 theorem lte_trans(a: Int, b: Int, c: Int): lte(a, b) & lte(b, c) -> lte(a, c) by {
@@ -1123,7 +1125,7 @@ theorem lte_and_lt(a: Int, b: Int, c: Int): lte(a, b) & lt(b, c) -> lt(a, c) by 
 theorem lt_from_nat(j: Nat, k: Nat): nat.lt(j, k) -> lt(from_nat(j), from_nat(k)) by {
     exists(d: Nat) { nat.add(d, j) = k & d != nat.0 }
     from_nat(d) + from_nat(j) = from_nat(k)
-    sub(from_nat(k), from_nat(j)) = from_nat(d)
+    Int.sub(from_nat(k), from_nat(j)) = from_nat(d)
     is_positive(from_nat(d))
 }
 
