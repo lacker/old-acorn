@@ -362,7 +362,7 @@ theorem add_cancels_left(a: Nat, b: Nat, c: Nat): a + b = a + c -> b = c by {
     f(0)
     forall(x: Nat) {
         if f(x) {
-            if Nat.add(suc(x), b) = suc(x) + c {
+            if suc(x) + b = suc(x) + c {
                 suc(x + c) = suc(x) + b
                 suc(x + b) = suc(x + c)
                 x + b = x + c
@@ -393,7 +393,7 @@ theorem lt_add_suc(a: Nat, b: Nat): lt(a, a + suc(b)) by {
 
 theorem lt_suc(a: Nat): lt(a, suc(a)) by {
     suc(a) = a + 1
-    suc(a) = Nat.add(a, suc(0))
+    suc(a) = a + suc(0)
 }
 
 theorem lt_suc_left(a: Nat, b: Nat): lt(a, b) -> suc(a) = b | lt(suc(a), b) by {
@@ -404,7 +404,7 @@ theorem lt_suc_left(a: Nat, b: Nat): lt(a, b) -> suc(a) = b | lt(suc(a), b) by {
         suc(a) = b
     } else {
         suc(a + d) = b
-        Nat.add(suc(a), d) = b
+        suc(a) + d = b
         suc(a) != b
         lt(suc(a), b)
     }
@@ -422,8 +422,8 @@ theorem lt_add_left(a: Nat, b: Nat, c: Nat): lt(b, c) -> lt(a + b, a + c) by {
     exists(d: Nat) { b + d = c }
     c != b
     d != 0
-    Nat.add(a + b, d) = a + c
-    lt(a + b, Nat.add(a + b, d))
+    a + b + d = a + c
+    lt(a + b, a + b + d)
     lt(a + b, a + c)
 }
 
@@ -474,7 +474,7 @@ theorem lte_imp_not_lt(a: Nat, b: Nat): lte(a, b) -> !lt(b, a) by {
 }
 
 theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
-    lt(r, n) & m = Nat.add(mul(q, n), r)
+    lt(r, n) & m = mul(q, n) + r
 } by {
     define f(x: Nat) -> Bool: division_theorem(x, n)
     induction(f)
@@ -484,19 +484,19 @@ theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
         if f(x) {
             division_theorem(x, n)
             exists(q: Nat, r: Nat) {
-                lt(r, n) & x = Nat.add(mul(q, n), r)
+                lt(r, n) & x = mul(q, n) + r
             }
             if suc(r) = n {
-                suc(x) = suc(Nat.add(mul(q, n), r))
-                suc(x) = Nat.add(mul(q, n), suc(r))
-                suc(x) = Nat.add(mul(q, n), n)
-                Nat.add(n, mul(q, n)) = suc(x)
+                suc(x) = suc(mul(q, n) + r)
+                suc(x) = mul(q, n) + suc(r)
+                suc(x) = mul(q, n) + n
+                n + mul(q, n) = suc(x)
                 suc(x) = mul(suc(q), n)
-                suc(x) = Nat.add(mul(suc(q), n), 0)
+                suc(x) = mul(suc(q), n) + 0
                 f(suc(x))
             } else {
                 lt(suc(r), n)
-                suc(x) = Nat.add(mul(q, n), suc(r))
+                suc(x) = mul(q, n) + suc(r)
                 f(suc(x))
             }
             f(suc(x))
@@ -513,7 +513,7 @@ theorem mul_to_zero(a: Nat, b: Nat): mul(a, b) = 0 -> a = 0 | b = 0 by {
     if a != 0 & b != 0 {
         exists(pred_a: Nat) { suc(pred_a) = a }
         mul(suc(pred_a), b) = 0
-        Nat.add(b, mul(pred_a, b)) = 0
+        b + mul(pred_a, b) = 0
         false
     }
 }
@@ -524,7 +524,7 @@ theorem divisor_lt(a: Nat, b: Nat, c: Nat):
     mul(a, 1 + d) = c
     1 + d = suc(d)
     mul(a, suc(d)) = c
-    Nat.add(a, mul(a, d)) = c
+    a + mul(a, d) = c
     mul(a, d) != 0
     a != c
 }
@@ -718,14 +718,14 @@ theorem lte_one_factorial(a: Nat): lte(1, factorial(a)) by {
 
 theorem lt_imp_lt_suc(a: Nat, b: Nat): lt(a, b) -> lt(a, suc(b)) by {
     exists(c: Nat) { a + c = b & c != 0 }
-    Nat.add(a, suc(c)) = suc(b)
+    a + suc(c) = suc(b)
     suc(c) != 0
 }
 
 theorem lte_mul_both(a: Nat, b: Nat, c: Nat): lte(b, c) -> lte(mul(a, b), mul(a, c)) by {
     exists(d: Nat) { b + d = c }
     mul(a, b + d) = mul(a, c)
-    Nat.add(mul(a, b), mul(a, d)) = mul(a, c)
+    mul(a, b) + mul(a, d) = mul(a, c)
     lte(mul(a, b), mul(a, c))
 }
 
@@ -734,10 +734,10 @@ theorem lt_mul_both(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(mul(a, b), 
     c != b
     d != 0
     mul(a, b + d) = mul(a, c)
-    Nat.add(mul(a, b), mul(a, d)) = mul(a, c)
+    mul(a, b) + mul(a, d) = mul(a, c)
     mul(a, d) != 0
     if mul(a, b) = mul(a, c) {
-        Nat.add(mul(a, b), mul(a, d)) = mul(a, b)
+        mul(a, b) + mul(a, d) = mul(a, b)
         let y: Nat = mul(a, b)
         let z: Nat = mul(a, d)
         y + z = y
@@ -779,9 +779,9 @@ theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, suc(b)) -> a = 1
     lte(c, d)
     exists(e: Nat) { c + e = d }
     mul(a, c + e) = suc(b)
-    Nat.add(mul(a, c), mul(a, e)) = suc(b)
-    Nat.add(b, mul(a, e)) = suc(b)
-    Nat.add(b, mul(a, e)) = b + 1
+    mul(a, c) + mul(a, e) = suc(b)
+    b + mul(a, e) = suc(b)
+    b + mul(a, e) = b + 1
     mul(a, e) = 1
 }
 
