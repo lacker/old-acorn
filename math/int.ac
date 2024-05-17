@@ -440,8 +440,8 @@ theorem add_sub_nat_3_left(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat, u: Nat):
 }
 
 theorem add_sub_nat_3_right(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat, u: Nat):
-    (sub_nat(p, q) + Int.add(sub_nat(r, s), sub_nat(t, u))) = sub_nat(nat.add(p, nat.add(r, t)), nat.add(q, nat.add(s, u))) by {
-    let lhs: Int = (sub_nat(p, q) + Int.add(sub_nat(r, s), sub_nat(t, u)))
+    sub_nat(p, q) + (sub_nat(r, s) + sub_nat(t, u)) = sub_nat(nat.add(p, nat.add(r, t)), nat.add(q, nat.add(s, u))) by {
+    let lhs: Int = sub_nat(p, q) + (sub_nat(r, s) + sub_nat(t, u))
     lhs = (sub_nat(p, q) + sub_nat(nat.add(r, t), nat.add(s, u)))
     lhs = sub_nat(nat.add(p, nat.add(r, t)), nat.add(q, nat.add(s, u)))
 }
