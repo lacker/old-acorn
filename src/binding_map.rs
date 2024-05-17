@@ -629,6 +629,40 @@ impl BindingMap {
         }
     }
 
+    fn evaluate_infix(
+        &self,
+        stack: &mut Stack,
+        project: &Project,
+        left: &Expression,
+        token: &Token,
+        right: &Expression,
+        name: &str,
+        expected_type: Option<&AcornType>,
+    ) -> token::Result<AcornValue> {
+        let left_value = self.evaluate_value_with_stack(stack, project, left, None)?;
+        let left_entity = NamedEntity::Value(left_value);
+        let right_value = self.evaluate_value_with_stack(stack, project, right, None)?;
+
+        // First partially apply to the left
+        let partial = self.evaluate_name(token, project, stack, Some(left_entity), name)?;
+        match partial {
+            NamedEntity::Value(value) => {
+                // If we have a value, apply it to the right
+                let applied_value = AcornValue::new_apply(value, vec![right_value]);
+                check_type(token, expected_type, &applied_value.get_type())?;
+                Ok(applied_value)
+            }
+            NamedEntity::Type(_) => Err(Error::new(
+                token,
+                "expected a value to the left of an infix operator, but got a type",
+            )),
+            NamedEntity::Module(_) => Err(Error::new(
+                token,
+                "expected a value to the left of an infix operator, but got a module",
+            )),
+        }
+    }
+
     // Evaluates an expression that describes a value, with a stack given as context.
     // A value expression could be either a value or an argument list.
     // Returns the value along with its type.
@@ -776,10 +810,15 @@ impl BindingMap {
                     let entity = self.evaluate_dot_expression(stack, project, expression)?;
                     Ok(entity.expect_value(expected_type, token)?)
                 }
-                _ => Err(Error::new(
-                    token,
-                    "unhandled binary operator in value expression",
-                )),
+                token_type => match token_type.infix_magic_function_name() {
+                    Some(name) => {
+                        self.evaluate_infix(stack, project, left, token, right, name, expected_type)
+                    }
+                    None => Err(Error::new(
+                        token,
+                        "unhandled binary operator in value expression",
+                    )),
+                },
             },
             Expression::Apply(function_expr, args_expr) => {
                 let function =

@@ -2211,17 +2211,129 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         );
     }
 
-    // #[test]
-    // fn test_infix_add() {
-    //     let mut env = Environment::new_test();
-    //     env.add(
-    //         r#"
-    //         type Nat: axiom
-    //         class Nat {
-    //             define add(self: Nat, other: Nat) -> Nat: axiom
-    //         }
-    //         theorem goal(a: Nat, b: Nat): a + b = b + a
-    //     "#,
-    //     );
-    // }
+    #[test]
+    fn test_infix_add() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define add(self: Nat, other: Nat) -> Nat: axiom
+            }
+            theorem goal(a: Nat, b: Nat): a + b = b + a
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_infix_sub() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define sub(self: Nat, other: Nat) -> Nat: axiom
+            }
+            theorem goal(a: Nat, b: Nat): a - b = b - a
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_infix_mul() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define mul(self: Nat, other: Nat) -> Nat: axiom
+            }
+            theorem goal(a: Nat, b: Nat): a * b = b * a
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_infix_div() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define div(self: Nat, other: Nat) -> Nat: axiom
+            }
+            theorem goal(a: Nat, b: Nat): a / b = b / a
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_infix_mod() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define mod(self: Nat, other: Nat) -> Nat: axiom
+            }
+            theorem goal(a: Nat, b: Nat): a % b = b % a
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_infix_lt() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define lt(self: Nat, other: Nat) -> Bool: axiom
+            }
+            theorem goal(a: Nat, b: Nat): a < b = b < a
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_infix_gt() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define gt(self: Nat, other: Nat) -> Bool: axiom
+            }
+            theorem goal(a: Nat, b: Nat): a > b = b > a
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_infix_lte() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define lte(self: Nat, other: Nat) -> Bool: axiom
+            }
+            theorem goal(a: Nat, b: Nat): a <= b = b <= a
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_infix_gte() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define gte(self: Nat, other: Nat) -> Bool: axiom
+            }
+            theorem goal(a: Nat, b: Nat): a >= b = b >= a
+        "#,
+        );
+    }
 }

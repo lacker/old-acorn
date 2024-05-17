@@ -46,6 +46,9 @@ pub enum TokenType {
     False,
     Else,
     Class,
+    Asterisk,
+    Percent,
+    Slash,
 }
 
 pub const MAX_PRECEDENCE: i8 = 100;
@@ -83,6 +86,9 @@ impl TokenType {
             TokenType::Comma => true,
             TokenType::Colon => true,
             TokenType::Dot => true,
+            TokenType::Asterisk => true,
+            TokenType::Percent => true,
+            TokenType::Slash => true,
             _ => false,
         }
     }
@@ -104,15 +110,18 @@ impl TokenType {
     // "Value" expressions also include "declarations" which is why colons are allowed.
     pub fn value_precedence(&self) -> i8 {
         match self {
-            TokenType::Dot => 9,
-            TokenType::Plus => 8,
-            TokenType::Minus => 8,
+            TokenType::Dot => 12,
+            TokenType::Asterisk => 11,
+            TokenType::Slash => 11,
+            TokenType::Plus => 10,
+            TokenType::Minus => 10,
+            TokenType::Percent => 9,
+            TokenType::GreaterThan => 8,
+            TokenType::LessThan => 8,
+            TokenType::GreaterThanOrEquals => 8,
+            TokenType::LessThanOrEquals => 8,
             TokenType::Equals => 7,
             TokenType::NotEquals => 7,
-            TokenType::GreaterThan => 7,
-            TokenType::LessThan => 7,
-            TokenType::GreaterThanOrEquals => 7,
-            TokenType::LessThanOrEquals => 7,
             TokenType::Exclam => 6,
             TokenType::Pipe => 5,
             TokenType::Ampersand => 5,
@@ -157,6 +166,21 @@ impl TokenType {
             TokenType::Exists => true,
             TokenType::Function => true,
             _ => false,
+        }
+    }
+
+    pub fn infix_magic_function_name(&self) -> Option<&str> {
+        match self {
+            TokenType::GreaterThan => Some("gt"),
+            TokenType::LessThan => Some("lt"),
+            TokenType::GreaterThanOrEquals => Some("gte"),
+            TokenType::LessThanOrEquals => Some("lte"),
+            TokenType::Plus => Some("add"),
+            TokenType::Minus => Some("sub"),
+            TokenType::Asterisk => Some("mul"),
+            TokenType::Percent => Some("mod"),
+            TokenType::Slash => Some("div"),
+            _ => None,
         }
     }
 }
@@ -285,7 +309,10 @@ impl Token {
             | TokenType::GreaterThanOrEquals
             | TokenType::LessThanOrEquals
             | TokenType::Plus
-            | TokenType::Minus => Some(SemanticTokenType::OPERATOR),
+            | TokenType::Minus
+            | TokenType::Asterisk
+            | TokenType::Percent
+            | TokenType::Slash => Some(SemanticTokenType::OPERATOR),
 
             TokenType::Let
             | TokenType::Axiom
@@ -361,6 +388,8 @@ impl Token {
                     '&' => TokenType::Ampersand,
                     '=' => TokenType::Equals,
                     '+' => TokenType::Plus,
+                    '*' => TokenType::Asterisk,
+                    '%' => TokenType::Percent,
                     '-' => match char_indices.next_if_eq(&(char_index + 1, '>')) {
                         Some(_) => TokenType::RightArrow,
                         None => TokenType::Minus,
@@ -389,7 +418,7 @@ impl Token {
                             }
                             TokenType::NewLine
                         }
-                        None => TokenType::Invalid,
+                        None => TokenType::Slash,
                     },
                     t if Token::identifierish(t) => {
                         let end = loop {
