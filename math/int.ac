@@ -532,8 +532,8 @@ theorem sub_cancel_right(a: Int, b: Int, c: Int): sub(a, c) = sub(b, c) -> a = b
 theorem sub_cancel_left(a: Int, b: Int, c: Int): sub(a, b) = sub(a, c) -> b = c
 
 theorem sub_add_cancel_left(a: Int, b: Int, c: Int): sub(a + b, a + c) = sub(b, c) by {
-    Int.add(b + a, negate(a + c)) = sub(b, c)
-    Int.add(a + b, negate(a + c)) = sub(b, c)
+    b + a + negate(a + c) = sub(b, c)
+    a + b + negate(a + c) = sub(b, c)
 }
 
 theorem sub_add_cancel_right(a: Int, b: Int, c: Int): sub(a + c, b + c) = sub(a, b)
@@ -580,27 +580,27 @@ theorem mul_nat_negate_left(a: Int, n: Nat): mul_nat(negate(a), n) = negate(mul_
     }
 }
 
-theorem mul_nat_nonneg_suc(a: Int, n: Nat): !is_negative(a) -> mul_nat(a, nat.suc(n)) = Int.add(mul_nat(a, n), a) by {
+theorem mul_nat_nonneg_suc(a: Int, n: Nat): !is_negative(a) -> mul_nat(a, nat.suc(n)) = mul_nat(a, n) + a by {
     mul_nat(a, nat.suc(n)) = from_nat(nat.mul(abs(a), nat.suc(n)))
     mul_nat(a, nat.suc(n)) = from_nat(nat.add(nat.mul(abs(a), n), abs(a)))
-    mul_nat(a, nat.suc(n)) = Int.add(from_nat(nat.mul(abs(a), n)), from_nat(abs(a)))
-    mul_nat(a, nat.suc(n)) = Int.add(mul_nat(a, n), a)
+    mul_nat(a, nat.suc(n)) = from_nat(nat.mul(abs(a), n)) +  from_nat(abs(a))
+    mul_nat(a, nat.suc(n)) = mul_nat(a, n) +  a
 }
 
-theorem mul_nat_suc(a: Int, n: Nat): mul_nat(a, nat.suc(n)) = Int.add(mul_nat(a, n), a) by {
+theorem mul_nat_suc(a: Int, n: Nat): mul_nat(a, nat.suc(n)) = (mul_nat(a, n) + a) by {
     if is_negative(a) {
         is_positive(negate(a))
         mul_nat(a, nat.suc(n)) = negate(mul_nat(negate(a), nat.suc(n)))
-        mul_nat(a, nat.suc(n)) = negate(Int.add(mul_nat(negate(a), n), negate(a)))
-        mul_nat(a, nat.suc(n)) = negate(Int.add(negate(mul_nat(a, n)), negate(a)))
-        mul_nat(a, nat.suc(n)) = negate(negate(Int.add(mul_nat(a, n), a)))
-        mul_nat(a, nat.suc(n)) = Int.add(mul_nat(a, n), a)
+        mul_nat(a, nat.suc(n)) = negate(mul_nat(negate(a), n) + negate(a))
+        mul_nat(a, nat.suc(n)) = negate(negate(mul_nat(a, n)) + negate(a))
+        mul_nat(a, nat.suc(n)) = negate(negate((mul_nat(a, n) + a)))
+        mul_nat(a, nat.suc(n)) = (mul_nat(a, n) + a)
     } else {
-        mul_nat(a, nat.suc(n)) = Int.add(mul_nat(a, n), a)
+        mul_nat(a, nat.suc(n)) = (mul_nat(a, n) + a)
     }
 }
 
-theorem mul_nat_distrib_right(a: Int, b: Int, n: Nat): mul_nat(a + b, n) = Int.add(mul_nat(a, n), mul_nat(b, n)) by {
+theorem mul_nat_distrib_right(a: Int, b: Int, n: Nat): mul_nat(a + b, n) = (mul_nat(a, n) + mul_nat(b, n)) by {
     define f(x: Nat) -> Bool: mul_nat_distrib_right(a, b, x)
     nat.induction(f)
 
