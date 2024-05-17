@@ -1078,7 +1078,7 @@ theorem lt_mul_pos(a: Int, b: Int, c: Int): lt(a, b) & is_positive(c) -> lt(a * 
 }
 
 theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(b * c, a * c) by {
-    a * c - b * c = Int.mul(c, a - b)
+    a * c - b * c = c * (a - b)
     is_positive(b - a)
     is_negative(a - b)
     is_positive(c * (a - b))
@@ -1196,10 +1196,10 @@ theorem abs_decomp(a: Int): unit_sign(a) * from_nat(abs(a)) = a by {
 }
 
 theorem abs_alt_decomp(a: Int): unit_sign(a) * a = from_nat(abs(a)) by {
-    unit_sign(a) * a = Int.mul(unit_sign(a), unit_sign(a) * from_nat(abs(a)))
-    unit_sign(a) * a = Int.mul(Int.mul(unit_sign(a), unit_sign(a)), from_nat(abs(a)))
-    Int.mul(unit_sign(a), unit_sign(a)) = 1
-    unit_sign(a) * a = Int.mul(1, from_nat(abs(a)))
+    unit_sign(a) * a = unit_sign(a) * (unit_sign(a) * from_nat(abs(a)))
+    unit_sign(a) * a = unit_sign(a) * unit_sign(a) * from_nat(abs(a))
+    unit_sign(a) * unit_sign(a) = 1
+    unit_sign(a) * a = 1 * from_nat(abs(a))
 }
 
 define divides(a: Int, b: Int) -> Bool: exists(d: Int) { d * a = b }
@@ -1207,8 +1207,8 @@ define divides(a: Int, b: Int) -> Bool: exists(d: Int) { d * a = b }
 theorem div_trans(a: Int, b: Int, c: Int): divides(a, b) & divides(b, c) -> divides(a, c) by {
     exists(d: Int) { d * a = b }
     exists(e: Int) { e * b = c }
-    Int.mul(e, d * a) = c
-    Int.mul(e * d, a) = c
+    e * (d * a) = c
+    e * d * a = c
     divides(a, c)
 }
 
@@ -1220,12 +1220,12 @@ theorem div_imp_div_abs(a: Int, b: Int): divides(a, b) -> nat.divides(abs(a), ab
 
 theorem div_from_nat(j: Nat, k: Nat): nat.divides(j, k) -> divides(from_nat(j), from_nat(k)) by {
     exists(n: Nat) { nat.mul(n, j) = k }
-    Int.mul(from_nat(n), from_nat(j)) = from_nat(k)
+    from_nat(n) * from_nat(j) = from_nat(k)
     divides(from_nat(j), from_nat(k))
 }
 
 theorem div_abs(a: Int): divides(a, from_nat(abs(a))) by {
-    from_nat(abs(a)) = Int.mul(a, unit_sign(a))
+    from_nat(abs(a)) = a * unit_sign(a)
 }
 
 theorem div_abs_imp_div(a: Int, b: Int): nat.divides(abs(a), abs(b)) -> divides(a, b) by {
@@ -1238,13 +1238,13 @@ theorem div_abs_imp_div(a: Int, b: Int): nat.divides(abs(a), abs(b)) -> divides(
 theorem abs_eq_imp_unit(a: Int, b: Int): abs(a) = abs(b) -> exists(u: Int) { is_unit(u) & u * a = b } by {
     from_nat(abs(a)) = from_nat(abs(b))
     unit_sign(a) * a = from_nat(abs(a))
-    b = Int.mul(unit_sign(b), from_nat(abs(b)))
-    b = Int.mul(unit_sign(b), from_nat(abs(a)))
-    b = Int.mul(unit_sign(b), unit_sign(a) * a)
-    b = Int.mul(Int.mul(unit_sign(b), unit_sign(a)), a)
+    b = unit_sign(b) * from_nat(abs(b))
+    b = unit_sign(b) * from_nat(abs(a))
+    b = unit_sign(b) * unit_sign(a) * a
+    b = unit_sign(b) * unit_sign(a) * a
     is_unit(unit_sign(b))
     is_unit(unit_sign(a))
-    is_unit(Int.mul(unit_sign(b), unit_sign(a)))
+    is_unit(unit_sign(b) * unit_sign(a))
 }
 
 theorem abs_eq_imp_div(a: Int, b: Int): abs(a) = abs(b) -> divides(a, b) by {
@@ -1332,9 +1332,9 @@ theorem spans_div_right(a: Int, b: Int, c: Int): divides(b, c) -> spans(a, b, c)
 
 theorem spans_mul(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) -> spans(a, b, d * c) by {
     exists(e: Int, f: Int) { e * a + f * b = c }
-    d * c = Int.mul(d, e * a + f * b)
-    d * c = Int.mul(d, e * a) + Int.mul(d, f * b)
-    d * c = Int.mul(d * e, a) + Int.mul(d * f, b)
+    d * c = d * (e * a + f * b)
+    d * c = d * (e * a) + d * (f * b)
+    d * c = d * e * a + d * f * b
 }
 
 theorem spans_add(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) & spans(a, b, d) -> spans(a, b, c + d) by {
@@ -1342,12 +1342,12 @@ theorem spans_add(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) & spans(a, b, 
     exists(g: Int, h: Int) { g * a + h * b = d }
     c + d = (e * a + f * b) + (g * a + h * b)
     c + d = (e * a + g * a) + (f * b + h * b)
-    c + d = Int.mul(e + g, a) + Int.mul(f + h, b)
+    c + d = (e + g) * a + (f + h) * b
 }
 
 theorem spans_negate(a: Int, b: Int, c: Int): spans(a, b, c) -> spans(a, b, negate(c)) by {
-    Int.mul(negate(1), c) = negate(c)
-    spans(a, b, Int.mul(negate(1), c))
+    negate(1) * c = negate(c)
+    spans(a, b, negate(1) * c)
 }
 
 let mod: (Nat, Nat) -> Nat = subtraction.mod
@@ -1357,9 +1357,9 @@ theorem spans_nat_mod(a: Int, b: Int, k: Nat, m: Nat):
 by {
     exists(d: Nat) { nat.add(nat.mul(d, m), mod(k, m)) = k }
     from_nat(nat.mul(d, m)) + from_nat(mod(k, m)) = from_nat(k)
-    Int.mul(from_nat(d), from_nat(m)) + from_nat(mod(k, m)) = from_nat(k)
-    from_nat(mod(k, m)) = from_nat(k) + negate(Int.mul(from_nat(d), from_nat(m)))
-    spans(a, b, negate(Int.mul(from_nat(d), from_nat(m))))
+    from_nat(d) * from_nat(m) + from_nat(mod(k, m)) = from_nat(k)
+    from_nat(mod(k, m)) = from_nat(k) + negate(from_nat(d) * from_nat(m))
+    spans(a, b, negate(from_nat(d) * from_nat(m)))
     spans(a, b, from_nat(mod(k, m)))
 }
 
