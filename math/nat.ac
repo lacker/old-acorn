@@ -25,31 +25,31 @@ class Nat {
 
 // Now let's have some theorems.
 
-theorem add_zero_right(a: Nat): Nat.add(a, 0) = a
+theorem add_zero_right(a: Nat): a + 0 = a
 
 let 2: Nat = suc(1)
 
-theorem one_plus_one: Nat.add(1, 1) = 2 by {
+theorem one_plus_one: 1 + 1 = 2 by {
     suc(recursion(suc, 1, 0)) = 2
     Nat.add(1, suc(0)) = 2
 }
 
-theorem add_zero_left(a: Nat): Nat.add(0, a) = a by {
+theorem add_zero_left(a: Nat): 0 + a = a by {
     induction(add_zero_left)
-    Nat.add(0, 0) = 0
+    0 + 0 = 0
     add_zero_left(0)
     forall(x: Nat) {
         if add_zero_left(x) {
-            Nat.add(0, x) = x
-            Nat.add(0, suc(x)) = suc(x)
+            0 + x = x
+            0 + suc(x) = suc(x)
             add_zero_left(suc(x))
         }
     }
 }
 
-theorem add_suc_right(a: Nat, b: Nat): Nat.add(a, suc(b)) = suc(Nat.add(a, b))
+theorem add_suc_right(a: Nat, b: Nat): Nat.add(a, suc(b)) = suc(a + b)
 
-theorem add_suc_left(a: Nat, b: Nat): Nat.add(suc(a), b) = suc(Nat.add(a, b)) by {
+theorem add_suc_left(a: Nat, b: Nat): Nat.add(suc(a), b) = suc(a + b) by {
     define f(x: Nat) -> Bool: add_suc_left(a, x)
     induction(f)
     add_suc_left(a, 0)
@@ -62,9 +62,9 @@ theorem add_suc_left(a: Nat, b: Nat): Nat.add(suc(a), b) = suc(Nat.add(a, b)) by
     }
 }
 
-theorem add_one_right(a: Nat): Nat.add(a, 1) = suc(a)
+theorem add_one_right(a: Nat): a + 1 = suc(a)
 
-theorem add_one_left(a: Nat): Nat.add(1, a) = suc(a)
+theorem add_one_left(a: Nat): 1 + a = suc(a)
 
 theorem suc_ne(a: Nat): suc(a) != a by {
     induction(suc_ne)
@@ -88,33 +88,33 @@ theorem suc_suc_ne(a: Nat): suc(suc(a)) != a by {
     }
 }
 
-theorem add_comm(a: Nat, b: Nat): Nat.add(a, b) = Nat.add(b, a) by {
+theorem add_comm(a: Nat, b: Nat): a + b = b + a by {
     define f(x: Nat) -> Bool: add_comm(x, b)
     induction(f)
     add_comm(0, b)
     f(0)
     forall(x: Nat) {
         if f(x) {
-            Nat.add(b, suc(x)) = suc(Nat.add(x, b))
+            Nat.add(b, suc(x)) = suc(x + b)
             f(suc(x))
         }
     }
 }
 
-theorem add_assoc(a: Nat, b: Nat, c: Nat): Nat.add(Nat.add(a, b), c) = Nat.add(a, Nat.add(b, c)) by {
+theorem add_assoc(a: Nat, b: Nat, c: Nat): Nat.add(a + b, c) = Nat.add(a, b + c) by {
     define f(x: Nat) -> Bool: add_assoc(x, b, c) 
     induction(f)
     forall(x: Nat) {
         if f(x) {
-            Nat.add(Nat.add(suc(x), b), c) = suc(Nat.add(Nat.add(x, b), c))
-            Nat.add(Nat.add(suc(x), b), c) = Nat.add(suc(x), Nat.add(b, c))
+            Nat.add(Nat.add(suc(x), b), c) = suc(Nat.add(x + b, c))
+            Nat.add(Nat.add(suc(x), b), c) = Nat.add(suc(x), b + c)
             f(suc(x))
         }
     }
     f(0)
 }
 
-define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { Nat.add(a, b) }
+define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { a + b }
 
 define mul(a: Nat, b: Nat) -> Nat: recursion(adder(a), 0, b)
 
@@ -145,8 +145,8 @@ theorem mul_suc_left(a: Nat, b: Nat): mul(suc(a), b) = Nat.add(b, mul(a, b)) by 
             mul(suc(a), suc(x)) = Nat.add(suc(a), Nat.add(x, mul(a, x)))
             mul(a, suc(x)) = Nat.add(a, mul(a, x))
             Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(Nat.add(suc(a), x), mul(a, x))
-            Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(suc(Nat.add(a, x)), mul(a, x))
-            Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(suc(Nat.add(x, a)), mul(a, x))
+            Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(suc(a + x), mul(a, x))
+            Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(suc(x + a), mul(a, x))
             Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(Nat.add(suc(x), a), mul(a, x))
             add_assoc(suc(x), a, mul(a, x))
             Nat.add(Nat.add(suc(x), a), mul(a, x)) = Nat.add(suc(x), Nat.add(a, mul(a, x)))
@@ -162,7 +162,7 @@ theorem mul_suc_left(a: Nat, b: Nat): mul(suc(a), b) = Nat.add(b, mul(a, b)) by 
 theorem mul_one_one: mul(1, 1) = 1 by {
     mul(1, 1) = mul(1, suc(0))
     mul(1, 1) = Nat.add(1, mul(1, 0))
-    mul(1, 1) = Nat.add(1, 0)
+    mul(1, 1) = 1 + 0
     mul(1, 1) = 1
 }
 
@@ -183,12 +183,12 @@ theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
 }
 
 theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
-    Nat.add(Nat.add(a, b), Nat.add(c, d)) = Nat.add(Nat.add(a, c), Nat.add(b, d)) by {
-    Nat.add(a, Nat.add(b, c)) = Nat.add(Nat.add(a, c), b)
+    Nat.add(a + b, c + d) = Nat.add(a + c, b + d) by {
+    Nat.add(a, b + c) = Nat.add(a + c, b)
 }
 
 theorem distrib_left(a: Nat, b: Nat, c: Nat):
-    mul(a, Nat.add(b, c)) = Nat.add(mul(a, b), mul(a, c)) by {
+    mul(a, b + c) = Nat.add(mul(a, b), mul(a, c)) by {
     define f(x: Nat) -> Bool: distrib_left(x, b, c)
     induction(f)
     Nat.add(mul(0, b), 0) = 0
@@ -196,16 +196,16 @@ theorem distrib_left(a: Nat, b: Nat, c: Nat):
     f(0)
     forall(x: Nat) {
         if f(x) {
-            mul(x, Nat.add(b, c)) = Nat.add(mul(x, b), mul(x, c))
-            mul(suc(x), Nat.add(b, c)) = Nat.add(Nat.add(b, c), mul(x, Nat.add(b, c)))
-            mul(suc(x), Nat.add(b, c)) = Nat.add(Nat.add(b, c), Nat.add(mul(x, b), mul(x, c)))
-            mul(suc(x), Nat.add(b, c)) = Nat.add(Nat.add(b, c), Nat.add(mul(x, b), mul(x, c)))
-            mul(suc(x), Nat.add(b, c)) = Nat.add(Nat.add(b, mul(x, b)), Nat.add(c, mul(x, c)))
+            mul(x, b + c) = Nat.add(mul(x, b), mul(x, c))
+            mul(suc(x), b + c) = Nat.add(b + c, mul(x, b + c))
+            mul(suc(x), b + c) = Nat.add(b + c, Nat.add(mul(x, b), mul(x, c)))
+            mul(suc(x), b + c) = Nat.add(b + c, Nat.add(mul(x, b), mul(x, c)))
+            mul(suc(x), b + c) = Nat.add(Nat.add(b, mul(x, b)), Nat.add(c, mul(x, c)))
             Nat.add(b, mul(x, b)) = mul(suc(x), b)
             Nat.add(c, mul(x, c)) = mul(suc(x), c)
             Nat.add(Nat.add(b, mul(x, b)), Nat.add(c, mul(x, c))) = Nat.add(mul(suc(x), b), Nat.add(c, mul(x, c)))
             Nat.add(Nat.add(b, mul(x, b)), Nat.add(c, mul(x, c))) = Nat.add(mul(suc(x), b), mul(suc(x), c))
-            mul(suc(x), Nat.add(b, c)) = Nat.add(mul(suc(x), b), mul(suc(x), c))
+            mul(suc(x), b + c) = Nat.add(mul(suc(x), b), mul(suc(x), c))
             distrib_left(suc(x), b, c)
             f(suc(x))
         }
@@ -213,8 +213,8 @@ theorem distrib_left(a: Nat, b: Nat, c: Nat):
 }
 
 theorem distrib_right(a: Nat, b: Nat, c: Nat):
-    mul(Nat.add(a, b), c) = Nat.add(mul(a, c), mul(b, c)) by {
-    Nat.add(mul(c, a), mul(b, c)) = mul(c, Nat.add(a, b))
+    mul(a + b, c) = Nat.add(mul(a, c), mul(b, c)) by {
+    Nat.add(mul(c, a), mul(b, c)) = mul(c, a + b)
 }
 
 theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c)) by {
@@ -243,7 +243,7 @@ theorem mul_one_left(a: Nat): mul(1, a) = a
 // Comparisons
 
 
-define lte(a: Nat, b: Nat) -> Bool: exists(c: Nat) { Nat.add(a, c) = b }
+define lte(a: Nat, b: Nat) -> Bool: exists(c: Nat) { a + c = b }
 
 define lt(a: Nat, b: Nat) -> Bool: lte(a, b) & a != b
 
@@ -251,7 +251,7 @@ theorem lt_not_ref(a: Nat): !lt(a, a)
 
 theorem lte_ref(a: Nat): lte(a, a)
 
-theorem add_to_zero(a: Nat, b: Nat): Nat.add(a, b) = 0 -> a = 0 & b = 0 by {
+theorem add_to_zero(a: Nat, b: Nat): a + b = 0 -> a = 0 & b = 0 by {
     define f(x: Nat) -> Bool: add_to_zero(x, b)
     induction(f)
     f(0)
@@ -273,8 +273,8 @@ theorem zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = suc(b) } by {
 theorem lte_cancel_suc(a: Nat, b: Nat): lte(suc(a), suc(b)) -> lte(a, b) by {
     exists(c: Nat) { Nat.add(suc(a), c) = suc(b) }
     Nat.add(suc(a), c) = suc(b)
-    suc(Nat.add(a, c)) = suc(b)
-    Nat.add(a, c) = b
+    suc(a + c) = suc(b)
+    a + c = b
     lte(a, b)
 }
 
@@ -304,8 +304,8 @@ theorem lt_not_symm(a: Nat, b: Nat): lt(a, b) -> !lt(b, a) by {
     }
 }
 
-theorem lt_diff(a: Nat, b: Nat): lt(a, b) -> exists(c: Nat) { Nat.add(a, c) = b & c != 0 } by {
-    exists(c: Nat) { Nat.add(a, c) = b }
+theorem lt_diff(a: Nat, b: Nat): lt(a, b) -> exists(c: Nat) { a + c = b & c != 0 } by {
+    exists(c: Nat) { a + c = b }
     b != a
     c != 0
 }
@@ -321,9 +321,9 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat): lte(a, b) & lte(b, c) -> lte(a, c) by
         if f(z) {
             forall(x: Nat, y: Nat) {
                 if lte(x, y) & lte(y, suc(z)) {
-                    exists(d: Nat) { Nat.add(x, d) = y }
-                    exists(e: Nat) { Nat.add(y, e) = suc(z) }
-                    Nat.add(x, Nat.add(d, e)) = suc(z)
+                    exists(d: Nat) { x + d = y }
+                    exists(e: Nat) { y + e = suc(z) }
+                    Nat.add(x, d + e) = suc(z)
                     lte(x, suc(z))
                 }
                 lte_trans(x, y, suc(z))
@@ -357,16 +357,16 @@ theorem lt_trans(a: Nat, b: Nat, c: Nat): lt(a, b) & lt(b, c) -> lt(a, c) by {
     lte(a, b)
 }
 
-theorem add_cancels_left(a: Nat, b: Nat, c: Nat): Nat.add(a, b) = Nat.add(a, c) -> b = c by {
+theorem add_cancels_left(a: Nat, b: Nat, c: Nat): a + b = a + c -> b = c by {
     define f(x: Nat) -> Bool: add_cancels_left(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
         if f(x) {
             if Nat.add(suc(x), b) = Nat.add(suc(x), c) {
-                suc(Nat.add(x, c)) = Nat.add(suc(x), b)
-                suc(Nat.add(x, b)) = suc(Nat.add(x, c))
-                Nat.add(x, b) = Nat.add(x, c)
+                suc(x + c) = Nat.add(suc(x), b)
+                suc(x + b) = suc(x + c)
+                x + b = x + c
                 b = c
             }
             Nat.add(suc(x), b) = Nat.add(suc(x), c) -> b = c
@@ -376,35 +376,35 @@ theorem add_cancels_left(a: Nat, b: Nat, c: Nat): Nat.add(a, b) = Nat.add(a, c) 
     f(a)
 }
 
-theorem add_cancels_right(a: Nat, b: Nat, c: Nat): Nat.add(b, a) = Nat.add(c, a) -> b = c by {
-    Nat.add(a, b) = Nat.add(a, c)
+theorem add_cancels_right(a: Nat, b: Nat, c: Nat): b + a = c + a -> b = c by {
+    a + b = a + c
     b = c
 }
 
-theorem add_identity_right(a: Nat, b: Nat): Nat.add(a, b) = a -> b = 0
+theorem add_identity_right(a: Nat, b: Nat): a + b = a -> b = 0
 
 theorem lt_add_suc(a: Nat, b: Nat): lt(a, Nat.add(a, suc(b))) by {
     lte(a, Nat.add(a, suc(b)))
     if a = Nat.add(a, suc(b)) {
-        Nat.add(a, 0) = Nat.add(a, suc(b))
+        a + 0 = Nat.add(a, suc(b))
         0 = suc(b)
         false
     }
 }
 
 theorem lt_suc(a: Nat): lt(a, suc(a)) by {
-    suc(a) = Nat.add(a, 1)
+    suc(a) = a + 1
     suc(a) = Nat.add(a, suc(0))
 }
 
 theorem lt_suc_left(a: Nat, b: Nat): lt(a, b) -> suc(a) = b | lt(suc(a), b) by {
-    exists(c: Nat) { Nat.add(a, c) = b & c != 0 }
+    exists(c: Nat) { a + c = b & c != 0 }
     exists(d: Nat) { suc(d) = c }
     if d = 0 {
-        Nat.add(a, 1) = b
+        a + 1 = b
         suc(a) = b
     } else {
-        suc(Nat.add(a, d)) = b
+        suc(a + d) = b
         Nat.add(suc(a), d) = b
         suc(a) != b
         lt(suc(a), b)
@@ -419,13 +419,13 @@ theorem lt_suc_right(a: Nat, b: Nat): lt(a, suc(b)) -> a = b | lt(a, b) by {
     }
 }
 
-theorem lt_add_left(a: Nat, b: Nat, c: Nat): lt(b, c) -> lt(Nat.add(a, b), Nat.add(a, c)) by {
-    exists(d: Nat) { Nat.add(b, d) = c }
+theorem lt_add_left(a: Nat, b: Nat, c: Nat): lt(b, c) -> lt(a + b, a + c) by {
+    exists(d: Nat) { b + d = c }
     c != b
     d != 0
-    Nat.add(Nat.add(a, b), d) = Nat.add(a, c)
-    lt(Nat.add(a, b), Nat.add(Nat.add(a, b), d))
-    lt(Nat.add(a, b), Nat.add(a, c))
+    Nat.add(a + b, d) = a + c
+    lt(a + b, Nat.add(a + b, d))
+    lt(a + b, a + c)
 }
 
 theorem trichotomy(a: Nat, b: Nat): lt(a, b) | lt(b, a) | a = b by {
@@ -521,9 +521,9 @@ theorem mul_to_zero(a: Nat, b: Nat): mul(a, b) = 0 -> a = 0 | b = 0 by {
 
 theorem divisor_lt(a: Nat, b: Nat, c: Nat):
     a != 0 & lt(1, b) & mul(a, b) = c -> lt(a, c) by {
-    exists(d: Nat) { Nat.add(1, d) = b & d != 0 }
-    mul(a, Nat.add(1, d)) = c
-    Nat.add(1, d) = suc(d)
+    exists(d: Nat) { 1 + d = b & d != 0 }
+    mul(a, 1 + d) = c
+    1 + d = suc(d)
     mul(a, suc(d)) = c
     Nat.add(a, mul(a, d)) = c
     mul(a, d) != 0
@@ -718,30 +718,30 @@ theorem lte_one_factorial(a: Nat): lte(1, factorial(a)) by {
 }
 
 theorem lt_imp_lt_suc(a: Nat, b: Nat): lt(a, b) -> lt(a, suc(b)) by {
-    exists(c: Nat) { Nat.add(a, c) = b & c != 0 }
+    exists(c: Nat) { a + c = b & c != 0 }
     Nat.add(a, suc(c)) = suc(b)
     suc(c) != 0
 }
 
 theorem lte_mul_both(a: Nat, b: Nat, c: Nat): lte(b, c) -> lte(mul(a, b), mul(a, c)) by {
-    exists(d: Nat) { Nat.add(b, d) = c }
-    mul(a, Nat.add(b, d)) = mul(a, c)
+    exists(d: Nat) { b + d = c }
+    mul(a, b + d) = mul(a, c)
     Nat.add(mul(a, b), mul(a, d)) = mul(a, c)
     lte(mul(a, b), mul(a, c))
 }
 
 theorem lt_mul_both(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(mul(a, b), mul(a, c)) by {
-    exists(d: Nat) { Nat.add(b, d) = c }
+    exists(d: Nat) { b + d = c }
     c != b
     d != 0
-    mul(a, Nat.add(b, d)) = mul(a, c)
+    mul(a, b + d) = mul(a, c)
     Nat.add(mul(a, b), mul(a, d)) = mul(a, c)
     mul(a, d) != 0
     if mul(a, b) = mul(a, c) {
         Nat.add(mul(a, b), mul(a, d)) = mul(a, b)
         let y: Nat = mul(a, b)
         let z: Nat = mul(a, d)
-        Nat.add(y, z) = y
+        y + z = y
         false
     }
     lte(mul(a, b), mul(a, c))
@@ -778,11 +778,11 @@ theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, suc(b)) -> a = 1
     exists(d: Nat) { mul(a, d) = suc(b) }
     lt(mul(a, c), mul(a, d))
     lte(c, d)
-    exists(e: Nat) { Nat.add(c, e) = d }
-    mul(a, Nat.add(c, e)) = suc(b)
+    exists(e: Nat) { c + e = d }
+    mul(a, c + e) = suc(b)
     Nat.add(mul(a, c), mul(a, e)) = suc(b)
     Nat.add(b, mul(a, e)) = suc(b)
-    Nat.add(b, mul(a, e)) = Nat.add(b, 1)
+    Nat.add(b, mul(a, e)) = b + 1
     mul(a, e) = 1
 }
 
@@ -840,11 +840,11 @@ theorem divides_lte(a: Nat, b: Nat): divides(a, b) -> b = 0 | lte(a, b) by {
 }
 
 theorem divides_add(a: Nat, b: Nat, d: Nat):
-    divides(d, a) & divides(d, b) -> divides(d, Nat.add(a, b)) by {
+    divides(d, a) & divides(d, b) -> divides(d, a + b) by {
     exists(qa: Nat) { mul(qa, d) = a }
     exists(qb: Nat) { mul(qb, d) = b }
     mul(Nat.add(qa, qb), d) = Nat.add(mul(qa, d), b)
-    mul(Nat.add(qa, qb), d) = Nat.add(a, b)
+    mul(Nat.add(qa, qb), d) = a + b
     divides(d, mul(Nat.add(qa, qb), d))
 }
 
@@ -867,11 +867,11 @@ theorem divides_symm(a: Nat, b: Nat): divides(a, b) & divides(b, a) -> a = b by 
     }
 }
 
-theorem cross_sum_lte(a: Nat, b: Nat, c: Nat, d: Nat): Nat.add(a, b) = Nat.add(c, d) & lte(a, c) -> lte(d, b) by {
-    exists(e: Nat) { Nat.add(a, e) = c }
-    Nat.add(a, b) = Nat.add(Nat.add(a, e), d)
-    Nat.add(a, b) = Nat.add(a, Nat.add(e, d))
-    b = Nat.add(e, d)
+theorem cross_sum_lte(a: Nat, b: Nat, c: Nat, d: Nat): a + b = c + d & lte(a, c) -> lte(d, b) by {
+    exists(e: Nat) { a + e = c }
+    a + b = Nat.add(a + e, d)
+    a + b = Nat.add(a, e + d)
+    b = e + d
     lte(d, b)
 }
 
@@ -888,7 +888,7 @@ define is_sub(a: Nat, b: Nat) -> (Nat -> Bool): function(x: Nat) {
     if lt(a, b) {
         x = 0
     } else {
-        Nat.add(x, b) = a
+        x + b = a
     }
 }
 
@@ -897,7 +897,7 @@ theorem sub_def(a: Nat, b: Nat): exists(x: Nat) { is_sub(a, b)(x) } by {
         is_sub(a, b)(0)
     } else {
         lte(b, a)
-        exists(x: Nat) { Nat.add(x, b) = a }
+        exists(x: Nat) { x + b = a }
         is_sub(a, b)(x)
     }
 }
@@ -917,16 +917,16 @@ theorem sub_lt(a: Nat, b: Nat): lt(a, b) -> sub(a, b) = 0
 
 theorem add_sub(a: Nat, b: Nat): lte(b, a) -> Nat.add(sub(a, b), b) = a
 
-theorem sub_add(a: Nat, b: Nat): sub(Nat.add(a, b), b) = a by {
-    lte(b, Nat.add(a, b))
-    Nat.add(sub(Nat.add(a, b), b), b) = Nat.add(a, b)
+theorem sub_add(a: Nat, b: Nat): sub(a + b, b) = a by {
+    lte(b, a + b)
+    Nat.add(sub(a + b, b), b) = a + b
 }
 
 theorem sub_self(a: Nat): sub(a, a) = 0
 
 theorem sub_zero(a: Nat): sub(a, 0) = a
 
-theorem add_imp_sub(a: Nat, b: Nat, c: Nat): Nat.add(a, b) = c -> sub(c, b) = a
+theorem add_imp_sub(a: Nat, b: Nat, c: Nat): a + b = c -> sub(c, b) = a
 
 // Let's define mod similarly to how we defined sub.
 define is_mod(a: Nat, m: Nat) -> (Nat -> Bool): function(r: Nat) {
@@ -1090,7 +1090,7 @@ theorem mod_mul(m: Nat, q: Nat): mod(mul(q, m), m) = 0 by {
 }
 
 theorem divides_add_copy(a: Nat, b: Nat, d: Nat):
-    divides(d, a) & divides(d, b) -> divides(d, Nat.add(a, b))
+    divides(d, a) & divides(d, b) -> divides(d, a + b)
 
 theorem divides_unmod(d: Nat, a: Nat, m: Nat):
     divides(d, m) & divides(d, mod(a, m)) -> divides(d, a) by {
