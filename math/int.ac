@@ -917,7 +917,7 @@ theorem mul_int_nat_nat_assoc(a: Int, j: Nat, k: Nat): mul_nat(a, nat.mul(j, k))
     }
 }
 
-theorem mul_int_int_nat_assoc(a: Int, b: Int, n: Nat): mul_nat(a * b, n) = Int.mul(a, mul_nat(b, n)) by {
+theorem mul_int_int_nat_assoc(a: Int, b: Int, n: Nat): mul_nat(a * b, n) = a * mul_nat(b, n) by {
     if is_negative(b) {
         b = negate(from_nat(abs(b)))
         mul_nat(a * b, n) = mul_nat(a * negate(from_nat(abs(b))), n)
@@ -925,15 +925,15 @@ theorem mul_int_int_nat_assoc(a: Int, b: Int, n: Nat): mul_nat(a * b, n) = Int.m
         mul_nat(a * b, n) = negate(mul_nat(mul_nat(a, abs(b)), n))
         mul_nat(a * b, n) = negate(mul_nat(a, nat.mul(abs(b), n)))
         mul_nat(a * b, n) = negate(a * from_nat(nat.mul(abs(b), n)))
-        mul_nat(a * b, n) = Int.mul(a, negate(from_nat(nat.mul(abs(b), n))))
-        mul_nat(a * b, n) = Int.mul(a, mul_nat(negate(from_nat(abs(b))), n))
-        mul_nat(a * b, n) = Int.mul(a, mul_nat(b, n))
+        mul_nat(a * b, n) = a * negate(from_nat(nat.mul(abs(b), n)))
+        mul_nat(a * b, n) = a * mul_nat(negate(from_nat(abs(b))), n)
+        mul_nat(a * b, n) = a * mul_nat(b, n)
     } else {
         a * b = mul_nat(a, abs(b))
         mul_nat(a, nat.mul(abs(b), n)) = mul_nat(a * b, n)
         from_nat(nat.mul(abs(b), n)) = mul_nat(b, n)
-        mul_nat(a, nat.mul(abs(b), n)) = Int.mul(a, mul_nat(b, n))
-        mul_nat(a * b, n) = Int.mul(a, mul_nat(b, n))
+        mul_nat(a, nat.mul(abs(b), n)) = a * mul_nat(b, n)
+        mul_nat(a * b, n) = a * mul_nat(b, n)
     }
 }
 
