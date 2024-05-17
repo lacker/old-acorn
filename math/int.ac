@@ -1122,7 +1122,7 @@ theorem lte_and_lt(a: Int, b: Int, c: Int): lte(a, b) & lt(b, c) -> lt(a, c) by 
 
 theorem lt_from_nat(j: Nat, k: Nat): nat.lt(j, k) -> lt(from_nat(j), from_nat(k)) by {
     exists(d: Nat) { nat.add(d, j) = k & d != nat.0 }
-    Int.add(from_nat(d), from_nat(j)) = from_nat(k)
+    from_nat(d) + from_nat(j) = from_nat(k)
     sub(from_nat(k), from_nat(j)) = from_nat(d)
     is_positive(from_nat(d))
 }
@@ -1295,28 +1295,28 @@ theorem gcd_is_gcd(a: Int, b: Int, d: Int): a != 0 & b != 0 & divides(d, a) & di
 // Theorems about the span of a linear combination
 
 define spans(a: Int, b: Int, c: Int) -> Bool: exists(d: Int, e: Int) {
-    Int.add(mul(d, a), mul(e, b)) = c
+    mul(d, a) + mul(e, b) = c
 }
 
 theorem spans_zero(a: Int, b: Int): spans(a, b, 0) by {
-    Int.add(mul(0, a), mul(0, b)) = 0
+    mul(0, a) + mul(0, b) = 0
 }
 
 theorem spans_left(a: Int, b: Int): spans(a, b, a) by {
-    Int.add(mul(1, a), mul(0, b)) = a
+    mul(1, a) + mul(0, b) = a
 }
 
 theorem spans_comm(a: Int, b: Int, c: Int): spans(a, b, c) -> spans(b, a, c) by {
-    exists(d: Int, e: Int) { Int.add(mul(d, a), mul(e, b)) = c }
-    Int.add(mul(e, b), mul(d, a)) = c
+    exists(d: Int, e: Int) { mul(d, a) + mul(e, b) = c }
+    mul(e, b) + mul(d, a) = c
 }
 
 theorem spans_right(a: Int, b: Int): spans(a, b, b) by {
-    Int.add(mul(0, a), mul(1, b)) = b
+    mul(0, a) + mul(1, b) = b
 }
 
 theorem spans_mul_left(a: Int, b: Int, c: Int): spans(a, b, mul(c, a)) by {
-    Int.add(mul(c, a), mul(0, b)) = mul(c, a)
+    mul(c, a) + mul(0, b) = mul(c, a)
 }
 
 theorem spans_div_left(a: Int, b: Int, c: Int): divides(a, c) -> spans(a, b, c)
@@ -1328,18 +1328,18 @@ theorem spans_div_right(a: Int, b: Int, c: Int): divides(b, c) -> spans(a, b, c)
 }
 
 theorem spans_mul(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) -> spans(a, b, mul(d, c)) by {
-    exists(e: Int, f: Int) { Int.add(mul(e, a), mul(f, b)) = c }
-    mul(d, c) = mul(d, Int.add(mul(e, a), mul(f, b)))
-    mul(d, c) = Int.add(mul(d, mul(e, a)), mul(d, mul(f, b)))
-    mul(d, c) = Int.add(mul(mul(d, e), a), mul(mul(d, f), b)) 
+    exists(e: Int, f: Int) { mul(e, a) + mul(f, b) = c }
+    mul(d, c) = mul(d, mul(e, a) + mul(f, b))
+    mul(d, c) = mul(d, mul(e, a)) + mul(d, mul(f, b))
+    mul(d, c) = mul(mul(d, e), a) + mul(mul(d, f), b)
 }
 
 theorem spans_add(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) & spans(a, b, d) -> spans(a, b, c + d) by {
-    exists(e: Int, f: Int) { Int.add(mul(e, a), mul(f, b)) = c }
-    exists(g: Int, h: Int) { Int.add(mul(g, a), mul(h, b)) = d }
-    c + d = Int.add(Int.add(mul(e, a), mul(f, b)), Int.add(mul(g, a), mul(h, b)))
-    c + d = Int.add(Int.add(mul(e, a), mul(g, a)), Int.add(mul(f, b), mul(h, b)))
-    c + d = Int.add(mul(e + g, a), mul(f + h, b))
+    exists(e: Int, f: Int) { mul(e, a) + mul(f, b) = c }
+    exists(g: Int, h: Int) { mul(g, a) + mul(h, b) = d }
+    c + d = (mul(e, a) + mul(f, b)) + (mul(g, a) + mul(h, b))
+    c + d = (mul(e, a) + mul(g, a)) + (mul(f, b) + mul(h, b))
+    c + d = mul(e + g, a) + mul(f + h, b)
 }
 
 theorem spans_negate(a: Int, b: Int, c: Int): spans(a, b, c) -> spans(a, b, negate(c)) by {
@@ -1353,9 +1353,9 @@ theorem spans_nat_mod(a: Int, b: Int, k: Nat, m: Nat):
     spans(a, b, from_nat(k)) & spans(a, b, from_nat(m)) -> spans(a, b, from_nat(mod(k, m)))
 by {
     exists(d: Nat) { nat.add(nat.mul(d, m), mod(k, m)) = k }
-    Int.add(from_nat(nat.mul(d, m)), from_nat(mod(k, m))) = from_nat(k)
-    Int.add(mul(from_nat(d), from_nat(m)), from_nat(mod(k, m))) = from_nat(k)
-    from_nat(mod(k, m)) = Int.add(from_nat(k), negate(mul(from_nat(d), from_nat(m))))
+    from_nat(nat.mul(d, m)) + from_nat(mod(k, m)) = from_nat(k)
+    mul(from_nat(d), from_nat(m)) + from_nat(mod(k, m)) = from_nat(k)
+    from_nat(mod(k, m)) = from_nat(k) + negate(mul(from_nat(d), from_nat(m)))
     spans(a, b, negate(mul(from_nat(d), from_nat(m))))
     spans(a, b, from_nat(mod(k, m)))
 }
