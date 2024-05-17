@@ -519,11 +519,11 @@ theorem sub_self(a: Int): a - a = 0
 
 theorem sub_eq_zero(a: Int, b: Int): a - b = 0 -> a = b
 
-theorem sub_add_left(a: Int, b: Int): Int.sub(a + b, b) = a
+theorem sub_add_left(a: Int, b: Int): (a + b) - b = a
 
 theorem neg_sub(a: Int, b: Int): negate(a - b) = b - a
 
-theorem sub_add_right(a: Int, b: Int): Int.sub(a, a + b) = negate(b)
+theorem sub_add_right(a: Int, b: Int): a - (a + b) = negate(b)
 
 theorem sub_imp_add(a: Int, b: Int, c: Int): a - b = c -> b + c = a
 
@@ -533,12 +533,12 @@ theorem sub_cancel_right(a: Int, b: Int, c: Int): a - c = b - c -> a = b
 
 theorem sub_cancel_left(a: Int, b: Int, c: Int): a - b = a - c -> b = c
 
-theorem sub_add_cancel_left(a: Int, b: Int, c: Int): Int.sub(a + b, a + c) = b - c by {
+theorem sub_add_cancel_left(a: Int, b: Int, c: Int): (a + b) - (a + c) = b - c by {
     b + a + negate(a + c) = b - c
     a + b + negate(a + c) = b - c
 }
 
-theorem sub_add_cancel_right(a: Int, b: Int, c: Int): Int.sub(a + c, b + c) = a - b
+theorem sub_add_cancel_right(a: Int, b: Int, c: Int): (a + c) - (b + c) = a - b
 
 // Integer-natural multiplication
 
@@ -797,18 +797,18 @@ theorem mul_distrib_left(a: Int, b: Int, c: Int): mul(a, b + c) = mul(a, b) + mu
     mul(a, b + c) = mul(a, b) + mul(c, a)
 }
 
-theorem mul_sub_distrib_right(a: Int, b: Int, c: Int): mul(a - b, c) = Int.sub(mul(a, c), mul(b, c)) by {
+theorem mul_sub_distrib_right(a: Int, b: Int, c: Int): mul(a - b, c) = mul(a, c) - mul(b, c) by {
     mul(a - b, c) = mul(a + negate(b), c)
     mul(a - b, c) = mul(a, c) + mul(negate(b), c)
     mul(a - b, c) = mul(a, c) + negate(mul(b, c))
-    mul(a - b, c) = Int.sub(mul(a, c), mul(b, c))
+    mul(a - b, c) = mul(a, c) - mul(b, c)
 }
 
-theorem mul_sub_distrib_left(a: Int, b: Int, c: Int): mul(a, b - c) = Int.sub(mul(a, b), mul(a, c)) by {
+theorem mul_sub_distrib_left(a: Int, b: Int, c: Int): mul(a, b - c) = mul(a, b) - mul(a, c) by {
     mul(a, b - c) = mul(a, b + negate(c))
     mul(a, b - c) = mul(a, b) + mul(a, negate(c))
     mul(a, b - c) = mul(a, b) + negate(mul(a, c))
-    mul(a, b - c) = Int.sub(mul(a, b), mul(a, c))
+    mul(a, b - c) = mul(a, b) - mul(a, c)
 }
 
 theorem abs_mul(a: Int, b: Int): abs(mul(a, b)) = nat.mul(abs(a), abs(b)) by {
@@ -993,8 +993,8 @@ theorem lte_abs(a: Int): lte(a, from_nat(abs(a))) by {
 
 theorem lt_add_left(a: Int, b: Int, c: Int): lt(b, c) -> lt(a + b, a + c) by {
     is_positive(c - b)
-    Int.sub(a + c, a + b) = c - b
-    is_positive(Int.sub(a + c, a + b))
+    (a + c) - (a + b) = c - b
+    is_positive((a + c) - (a + b))
 }
 
 theorem lte_add_left(a: Int, b: Int, c: Int): lte(b, c) -> lte(a + b, a + c)
@@ -1070,18 +1070,18 @@ theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(a + b), nat.add(abs(a), abs(b
 }
 
 theorem lt_mul_pos(a: Int, b: Int, c: Int): lt(a, b) & is_positive(c) -> lt(mul(a, c), mul(b, c)) by {
-    Int.sub(mul(b, c), mul(a, c)) = mul(b - a, c)
-    Int.sub(mul(b, c), mul(a, c)) = mul(c, b - a)
+    mul(b, c) - mul(a, c) = mul(b - a, c)
+    mul(b, c) - mul(a, c) = mul(c, b - a)
     is_positive(b - a)
-    is_positive(Int.sub(mul(b, c), mul(a, c)))
+    is_positive(mul(b, c) - mul(a, c))
 }
 
 theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(mul(b, c), mul(a, c)) by {
-    Int.sub(mul(a, c), mul(b, c)) = mul(c, a - b)
+    mul(a, c) - mul(b, c) = mul(c, a - b)
     is_positive(b - a)
     is_negative(a - b)
     is_positive(mul(c, a - b))
-    is_positive(Int.sub(mul(a, c), mul(b, c)))
+    is_positive(mul(a, c) - mul(b, c))
 }
 
 theorem lt_trans(a: Int, b: Int, c: Int): lt(a, b) & lt(b, c) -> lt(a, c) by {
@@ -1125,7 +1125,7 @@ theorem lte_and_lt(a: Int, b: Int, c: Int): lte(a, b) & lt(b, c) -> lt(a, c) by 
 theorem lt_from_nat(j: Nat, k: Nat): nat.lt(j, k) -> lt(from_nat(j), from_nat(k)) by {
     exists(d: Nat) { nat.add(d, j) = k & d != nat.0 }
     from_nat(d) + from_nat(j) = from_nat(k)
-    Int.sub(from_nat(k), from_nat(j)) = from_nat(d)
+    from_nat(k) - from_nat(j) = from_nat(d)
     is_positive(from_nat(d))
 }
 
