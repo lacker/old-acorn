@@ -901,31 +901,33 @@ theorem sub_def(a: Nat, b: Nat): exists(x: Nat) { is_sub(a, b)(x) } by {
     }
 }
 
-define sub(a: Nat, b: Nat) -> Nat: find(is_sub(a, b))
+class Nat {
+    define sub(self: Nat, b: Nat) -> Nat: find(is_sub(self, b))
+}
 
-theorem sub_is_sub(a: Nat, b: Nat): is_sub(a, b)(sub(a, b)) by {
+theorem sub_is_sub(a: Nat, b: Nat): is_sub(a, b)(a - b) by {
     let f: Nat -> Bool = is_sub(a, b)
     exists(x: Nat) { is_sub(a, b)(x) }
     f(x)
     f(find(f))
     is_sub(a, b)(find(f))
-    is_sub(a, b)(sub(a, b))
+    is_sub(a, b)(a - b)
 }
 
-theorem sub_lt(a: Nat, b: Nat): lt(a, b) -> sub(a, b) = 0
+theorem sub_lt(a: Nat, b: Nat): lt(a, b) -> a - b = 0
 
-theorem add_sub(a: Nat, b: Nat): lte(b, a) -> sub(a, b) + b = a
+theorem add_sub(a: Nat, b: Nat): lte(b, a) -> a - b + b = a
 
-theorem sub_add(a: Nat, b: Nat): sub(a + b, b) = a by {
+theorem sub_add(a: Nat, b: Nat): (a + b) - b = a by {
     lte(b, a + b)
-    sub(a + b, b) + b = a + b
+    ((a + b) - b) + b = a + b
 }
 
-theorem sub_self(a: Nat): sub(a, a) = 0
+theorem sub_self(a: Nat): a - a = 0
 
-theorem sub_zero(a: Nat): sub(a, 0) = a
+theorem sub_zero(a: Nat): a - 0 = a
 
-theorem add_imp_sub(a: Nat, b: Nat, c: Nat): a + b = c -> sub(c, b) = a
+theorem add_imp_sub(a: Nat, b: Nat, c: Nat): a + b = c -> c - b = a
 
 // Let's define mod similarly to how we defined sub.
 define is_mod(a: Nat, m: Nat) -> (Nat -> Bool): function(r: Nat) {
@@ -985,30 +987,30 @@ theorem mod_of_zero(m: Nat): mod(0, m) = 0
 
 theorem mod_lte(a: Nat, m: Nat): lte(mod(a, m), a)
 
-theorem div_sub_mod(a: Nat, m: Nat): divides(m, sub(a, mod(a, m))) by {
+theorem div_sub_mod(a: Nat, m: Nat): divides(m, a - mod(a, m)) by {
     exists(q: Nat) { mul(q, m) + mod(a, m) = a }
-    sub(a, mod(a, m)) = mul(q, m)
+    a - mod(a, m) = mul(q, m)
     divides(m, mul(q, m))
 }
 
 theorem sub_left_distrib(a: Nat, b: Nat, c: Nat):
-    mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c)) by {
+    mul(a, b - c) = mul(a, b) - mul(a, c) by {
     if a = 0 {
-        mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c))
+        mul(a, b - c) = mul(a, b) - mul(a, c)
         sub_left_distrib(a, b, c)
     } else {
         if lt(b, c) {
             lt(mul(a, b), mul(a, c))
-            sub(mul(a, b), mul(a, c)) = 0
-            sub(b, c) = 0
-            mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c))
+            mul(a, b) - mul(a, c) = 0
+            b - c = 0
+            mul(a, b - c) = mul(a, b) - mul(a, c)
             sub_left_distrib(a, b, c)
         }
         if !lt(b, c) {
-            sub(b, c) + c = b
-            mul(a, sub(b, c) + c) = mul(a, sub(b, c)) + mul(a, c)
-            mul(a, b) = mul(a, sub(b, c)) + mul(a, c)
-            mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c))
+            b - c + c = b
+            mul(a, b - c + c) = mul(a, b - c) + mul(a, c)
+            mul(a, b) = mul(a, b - c) + mul(a, c)
+            mul(a, b - c) = mul(a, b) - mul(a, c)
             sub_left_distrib(a, b, c)
         }
         sub_left_distrib(a, b, c)
@@ -1017,29 +1019,29 @@ theorem sub_left_distrib(a: Nat, b: Nat, c: Nat):
 }
 
 theorem sub_right_distrib(a: Nat, b: Nat, c: Nat):
-    mul(sub(a, b), c) = sub(mul(a, c), mul(b, c)) by {
-    mul(sub(a, b), c) = mul(c, sub(a, b))
-    mul(sub(a, b), c) = sub(mul(c, a), mul(c, b))
-    mul(sub(a, b), c) = sub(mul(a, c), mul(c, b))
-    sub(mul(a, c), mul(c, b)) = sub(mul(a, c), mul(b, c))
+    mul(a - b, c) = mul(a, c) - mul(b, c) by {
+    mul(a - b, c) = mul(c, a - b)
+    mul(a - b, c) = mul(c, a) - mul(c, b)
+    mul(a - b, c) = mul(a, c) - mul(c, b)
+    mul(a, c) - mul(c, b) = mul(a, c) - mul(b, c)
 }
 
 theorem divides_sub(a: Nat, b: Nat, d: Nat):
-    divides(d, a) & divides(d, b) -> divides(d, sub(a, b)) by {
+    divides(d, a) & divides(d, b) -> divides(d, a - b) by {
     exists(qa: Nat) { mul(qa, d) = a }
     exists(qb: Nat) { mul(qb, d) = b }
-    sub(a, b) = sub(mul(qa, d), mul(qb, d))
-    sub(a, b) = mul(sub(qa, qb), d)
-    divides(d, mul(sub(qa, qb), d))
-    divides(d, sub(a, b))
+    a - b = mul(qa, d) - mul(qb, d)
+    a - b = mul(qa - qb, d)
+    divides(d, mul(qa - qb, d))
+    divides(d, a - b)
 }
 
 theorem divides_mod(a: Nat, m: Nat, d: Nat):
     divides(d, a) & divides(d, m) -> divides(d, mod(a, m)) by {
     exists(q: Nat) { mul(q, m) + mod(a, m) = a }
-    mod(a, m) = sub(a, mul(q, m))
+    mod(a, m) = a - mul(q, m)
     divides(d, mul(q, m))
-    divides(d, sub(a, mul(q, m)))
+    divides(d, a - mul(q, m))
     divides(d, mod(a, m))
 }
 
