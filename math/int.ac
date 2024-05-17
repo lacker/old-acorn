@@ -59,7 +59,7 @@ theorem sub_nat_zero_left(n: Nat): sub_nat(nat.0, n) = negate(from_nat(n)) by {
 
 theorem sub_nat_self(n: Nat): sub_nat(n, n) = 0
 
-theorem sub_nat_add_left(p: Nat, q: Nat): sub_nat(nat.add(p, q), q) = from_nat(p)
+theorem sub_nat_add_left(p: Nat, q: Nat): sub_nat(nat.Nat.add(p, q), q) = from_nat(p)
 
 theorem neg_sub_nat(m: Nat, n: Nat): sub_nat(m, n) = negate(sub_nat(n, m)) by {
     if m = n {
@@ -76,22 +76,22 @@ theorem neg_sub_nat(m: Nat, n: Nat): sub_nat(m, n) = negate(sub_nat(n, m)) by {
     }
 }
 
-theorem sub_nat_add_right(p: Nat, q: Nat): sub_nat(p, nat.add(p, q)) = negate(from_nat(q))
+theorem sub_nat_add_right(p: Nat, q: Nat): sub_nat(p, nat.Nat.add(p, q)) = negate(from_nat(q))
 
 // Half of a "without loss of generality" argument
 theorem sub_nat_eq_helper(m: Nat, n: Nat, p: Nat, q: Nat):
-    nat.add(m, n) = nat.add(p, q) & nat.lte(p, m) -> sub_nat(m, p) = sub_nat(q, n) by {
-    exists(d: Nat) { nat.add(p, d) = m }
+    nat.Nat.add(m, n) = nat.Nat.add(p, q) & nat.lte(p, m) -> sub_nat(m, p) = sub_nat(q, n) by {
+    exists(d: Nat) { nat.Nat.add(p, d) = m }
     sub_nat(m, p) = from_nat(d)
-    nat.add(m, n) = nat.add(nat.add(p, d), n)
-    nat.add(p, q) = nat.add(nat.add(p, d), n)
-    nat.add(p, q) = nat.add(p, nat.add(d, n))
-    q = nat.add(d, n)
+    nat.Nat.add(m, n) = nat.Nat.add(nat.Nat.add(p, d), n)
+    nat.Nat.add(p, q) = nat.Nat.add(nat.Nat.add(p, d), n)
+    nat.Nat.add(p, q) = nat.Nat.add(p, nat.Nat.add(d, n))
+    q = nat.Nat.add(d, n)
     sub_nat(q, n) = from_nat(d)
     sub_nat(m, p) = sub_nat(q, n)
 }
 
-theorem sub_nat_eq(m: Nat, n: Nat, p: Nat, q: Nat): nat.add(m, n) = nat.add(p, q) -> sub_nat(m, p) = sub_nat(q, n) by {
+theorem sub_nat_eq(m: Nat, n: Nat, p: Nat, q: Nat): nat.Nat.add(m, n) = nat.Nat.add(p, q) -> sub_nat(m, p) = sub_nat(q, n) by {
     if nat.lte(p, m) {
         sub_nat(m, p) = sub_nat(q, n)
     } else {
@@ -100,14 +100,14 @@ theorem sub_nat_eq(m: Nat, n: Nat, p: Nat, q: Nat): nat.add(m, n) = nat.add(p, q
     }
 }
 
-theorem sub_nat_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = from_nat(k) -> nat.add(j, k) = i by {
+theorem sub_nat_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = from_nat(k) -> nat.Nat.add(j, k) = i by {
     if nat.lte(j, i) {
-        exists(d: Nat) { nat.add(j, d) = i }
+        exists(d: Nat) { nat.Nat.add(j, d) = i }
         sub_nat(i, j) = from_nat(d)
         d = k
-        nat.add(j, k) = i
+        nat.Nat.add(j, k) = i
     } else {
-        exists(d: Nat) { nat.add(i, d) = j }
+        exists(d: Nat) { nat.Nat.add(i, d) = j }
         sub_nat(i, j) = negate(from_nat(d))
         from_nat(k) = negate(from_nat(d))
         k = nat.0
@@ -117,43 +117,43 @@ theorem sub_nat_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = from_nat(k) -> 
     }
 }
 
-theorem sub_nat_negate_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = negate(from_nat(k)) -> nat.add(i, k) = j by {
+theorem sub_nat_negate_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = negate(from_nat(k)) -> nat.Nat.add(i, k) = j by {
     if nat.lte(j, i) {
-        exists(d: Nat) { nat.add(j, d) = i }
+        exists(d: Nat) { nat.Nat.add(j, d) = i }
         sub_nat(i, j) = from_nat(d)
         from_nat(d) = negate(from_nat(k))
         d = nat.0
         k = nat.0
         i = j
-        nat.add(i, k) = j
+        nat.Nat.add(i, k) = j
     } else {
         nat.lte(i, j)
-        exists(d: Nat) { nat.add(i, d) = j }
+        exists(d: Nat) { nat.Nat.add(i, d) = j }
         sub_nat(j, i) = from_nat(d)
         sub_nat(i, j) = negate(from_nat(d))
         abs(sub_nat(j, i)) = d
         abs(negate(sub_nat(i, j))) = d
         abs(from_nat(k)) = d
         k = d
-        nat.add(i, k) = j
+        nat.Nat.add(i, k) = j
     }
 }
 
 theorem sub_nat_cancel_right(i: Nat, j: Nat, k: Nat): sub_nat(i, k) = sub_nat(j, k) -> i = j by {
     if nat.lte(k, i) {
-        exists(d: Nat) { nat.add(k, d) = i }
+        exists(d: Nat) { nat.Nat.add(k, d) = i }
         sub_nat(i, k) = from_nat(d)
         sub_nat(j, k) = from_nat(d)
-        nat.add(k, d) = j
+        nat.Nat.add(k, d) = j
         i = j
     } else {
         nat.lte(i, k)
-        exists(d: Nat) { nat.add(i, d) = k }
+        exists(d: Nat) { nat.Nat.add(i, d) = k }
         sub_nat(k, i) = from_nat(d)
         sub_nat(i, k) = negate(from_nat(d))
         sub_nat(j, k) = negate(from_nat(d))
         sub_nat(k, j) = from_nat(d)
-        nat.add(j, d) = k
+        nat.Nat.add(j, d) = k
         i = j
     }
 }
@@ -162,43 +162,43 @@ theorem sub_nat_cancel_left(i: Nat, j: Nat, k: Nat): sub_nat(k, i) = sub_nat(k, 
     sub_nat(i, k) = sub_nat(j, k)
 }
 
-theorem sub_nat_add_cancel_right(m: Nat, n: Nat, k: Nat): sub_nat(m, n) = sub_nat(nat.add(m, k), nat.add(n, k)) by {
-    nat.add(m, nat.add(n, k)) = nat.add(n, nat.add(m, k))
+theorem sub_nat_add_cancel_right(m: Nat, n: Nat, k: Nat): sub_nat(m, n) = sub_nat(nat.Nat.add(m, k), nat.Nat.add(n, k)) by {
+    nat.Nat.add(m, nat.Nat.add(n, k)) = nat.Nat.add(n, nat.Nat.add(m, k))
 }
 
-theorem sub_nat_add_cancel_left(m: Nat, n: Nat, k: Nat): sub_nat(m, n) = sub_nat(nat.add(k, m), nat.add(k, n))
+theorem sub_nat_add_cancel_left(m: Nat, n: Nat, k: Nat): sub_nat(m, n) = sub_nat(nat.Nat.add(k, m), nat.Nat.add(k, n))
 
 // Half of a "without loss of generality" argument
 theorem sub_nat_imp_add_eq_helper(m: Nat, n: Nat, p: Nat, q: Nat):
-    sub_nat(m, p) = sub_nat(q, n) & nat.lte(p, m) -> nat.add(m, n) = nat.add(p, q) by {
-    exists(d: Nat) { nat.add(p, d) = m }
+    sub_nat(m, p) = sub_nat(q, n) & nat.lte(p, m) -> nat.Nat.add(m, n) = nat.Nat.add(p, q) by {
+    exists(d: Nat) { nat.Nat.add(p, d) = m }
     sub_nat(m, p) = from_nat(d)
     sub_nat(q, n) = from_nat(d)
-    nat.add(n, d) = q
-    nat.add(nat.add(m, n), d) = nat.add(nat.add(p, q), d)
+    nat.Nat.add(n, d) = q
+    nat.Nat.add(nat.Nat.add(m, n), d) = nat.Nat.add(nat.Nat.add(p, q), d)
 }
 
-theorem sub_nat_imp_add_eq(m: Nat, n: Nat, p: Nat, q: Nat): sub_nat(m, p) = sub_nat(q, n) -> nat.add(m, n) = nat.add(p, q) by {
+theorem sub_nat_imp_add_eq(m: Nat, n: Nat, p: Nat, q: Nat): sub_nat(m, p) = sub_nat(q, n) -> nat.Nat.add(m, n) = nat.Nat.add(p, q) by {
     if nat.lte(p, m) {
-        nat.add(m, n) = nat.add(p, q)
+        nat.Nat.add(m, n) = nat.Nat.add(p, q)
     } else {
         nat.lte(m, p)
-        nat.add(m, n) = nat.add(p, q)
+        nat.Nat.add(m, n) = nat.Nat.add(p, q)
     }
 }
 
 theorem sub_nat_double_cancel_left(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat):
-    sub_nat(nat.add(p, t), q) = sub_nat(nat.add(r, t), s) -> sub_nat(p, q) = sub_nat(r, s) by {
-    nat.add(nat.add(p, t), s) = nat.add(q, nat.add(r, t))
-    nat.add(nat.add(p, s), t) = nat.add(nat.add(q, r), t)
-    nat.add(p, s) = nat.add(q, r)
+    sub_nat(nat.Nat.add(p, t), q) = sub_nat(nat.Nat.add(r, t), s) -> sub_nat(p, q) = sub_nat(r, s) by {
+    nat.Nat.add(nat.Nat.add(p, t), s) = nat.Nat.add(q, nat.Nat.add(r, t))
+    nat.Nat.add(nat.Nat.add(p, s), t) = nat.Nat.add(nat.Nat.add(q, r), t)
+    nat.Nat.add(p, s) = nat.Nat.add(q, r)
 }
 
 theorem sub_nat_double_cancel_right(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat):
-    sub_nat(p, nat.add(q, t)) = sub_nat(r, nat.add(s, t)) -> sub_nat(p, q) = sub_nat(r, s) by {
-    nat.add(p, nat.add(s, t)) = nat.add(nat.add(q, t), r)
-    nat.add(nat.add(p, s), t) = nat.add(nat.add(q, r), t)
-    nat.add(p, s) = nat.add(q, r)
+    sub_nat(p, nat.Nat.add(q, t)) = sub_nat(r, nat.Nat.add(s, t)) -> sub_nat(p, q) = sub_nat(r, s) by {
+    nat.Nat.add(p, nat.Nat.add(s, t)) = nat.Nat.add(nat.Nat.add(q, t), r)
+    nat.Nat.add(nat.Nat.add(p, s), t) = nat.Nat.add(nat.Nat.add(q, r), t)
+    nat.Nat.add(p, s) = nat.Nat.add(q, r)
 }
 
 // Now that we've proven a bunch of stuff about sub_nat, we define the positive and negative parts so that we can
@@ -286,83 +286,83 @@ theorem neg_part_from(n: Nat): neg_part(from_nat(n)) = nat.0
 
 theorem neg_part_neg(a: Int): neg_part(negate(a)) = pos_part(a)
 
-theorem parts_sub_nat(j: Nat, k: Nat): nat.add(pos_part(sub_nat(j, k)), k) = nat.add(neg_part(sub_nat(j, k)), j)
+theorem parts_sub_nat(j: Nat, k: Nat): nat.Nat.add(pos_part(sub_nat(j, k)), k) = nat.Nat.add(neg_part(sub_nat(j, k)), j)
 
-theorem add_part_sub_nat(r: Nat, s: Nat): nat.add(r, neg_part(sub_nat(r, s))) = nat.add(s, pos_part(sub_nat(r, s)))
+theorem add_part_sub_nat(r: Nat, s: Nat): nat.Nat.add(r, neg_part(sub_nat(r, s))) = nat.Nat.add(s, pos_part(sub_nat(r, s)))
 
 // Addition, and theorems about addition
 
 class Int {
-    define add(self: Int, other: Int) -> Int: sub_nat(nat.add(pos_part(self), pos_part(other)),
-                                                      nat.add(neg_part(self), neg_part(other)))
+    define add(self: Int, other: Int) -> Int: sub_nat(nat.Nat.add(pos_part(self), pos_part(other)),
+                                                      nat.Nat.add(neg_part(self), neg_part(other)))
 }
 
 theorem add_zero_left(a: Int): (0 + a) = a by {
     pos_part(0) = nat.0
     neg_part(0) = nat.0
-    nat.add(pos_part(0), pos_part(a)) = pos_part(a)
-    nat.add(neg_part(0), neg_part(a)) = neg_part(a)
+    nat.Nat.add(pos_part(0), pos_part(a)) = pos_part(a)
+    nat.Nat.add(neg_part(0), neg_part(a)) = neg_part(a)
     (0 + a) = sub_nat(pos_part(a), neg_part(a))
 }
 
 theorem add_zero_right(a: Int): a + 0 = a by {
     pos_part(0) = nat.0
     neg_part(0) = nat.0
-    nat.add(pos_part(a), pos_part(0)) = pos_part(a)
-    nat.add(neg_part(a), neg_part(0)) = neg_part(a)
+    nat.Nat.add(pos_part(a), pos_part(0)) = pos_part(a)
+    nat.Nat.add(neg_part(a), neg_part(0)) = neg_part(a)
     a + 0 = sub_nat(pos_part(a), neg_part(a))
 }
 
 theorem add_comm(a: Int, b: Int): a + b = b + a by {
-    a + b = sub_nat(nat.add(pos_part(b), pos_part(a)), nat.add(neg_part(a), neg_part(b)))
+    a + b = sub_nat(nat.Nat.add(pos_part(b), pos_part(a)), nat.Nat.add(neg_part(a), neg_part(b)))
 }
 
 theorem neg_distrib(a: Int, b: Int): negate(a + b) = negate(a) + negate(b) by {
-    nat.add(pos_part(negate(a)), pos_part(negate(b))) = nat.add(neg_part(a), neg_part(b))
-    nat.add(neg_part(negate(a)), neg_part(negate(b))) = nat.add(pos_part(a), pos_part(b))
-    negate(a) + negate(b) = sub_nat(nat.add(pos_part(negate(a)), pos_part(negate(b))),
-                                            nat.add(neg_part(negate(a)), neg_part(negate(b))))
-    negate(a) + negate(b) = sub_nat(nat.add(neg_part(a), neg_part(b)),
-                                            nat.add(neg_part(negate(a)), neg_part(negate(b))))                                        
-    negate(a) + negate(b) = sub_nat(nat.add(neg_part(a), neg_part(b)),
-                                            nat.add(pos_part(a), pos_part(b)))
-    negate(a) + negate(b) = negate(sub_nat(nat.add(pos_part(a), pos_part(b)), nat.add(neg_part(a), neg_part(b))))
+    nat.Nat.add(pos_part(negate(a)), pos_part(negate(b))) = nat.Nat.add(neg_part(a), neg_part(b))
+    nat.Nat.add(neg_part(negate(a)), neg_part(negate(b))) = nat.Nat.add(pos_part(a), pos_part(b))
+    negate(a) + negate(b) = sub_nat(nat.Nat.add(pos_part(negate(a)), pos_part(negate(b))),
+                                            nat.Nat.add(neg_part(negate(a)), neg_part(negate(b))))
+    negate(a) + negate(b) = sub_nat(nat.Nat.add(neg_part(a), neg_part(b)),
+                                            nat.Nat.add(neg_part(negate(a)), neg_part(negate(b))))                                        
+    negate(a) + negate(b) = sub_nat(nat.Nat.add(neg_part(a), neg_part(b)),
+                                            nat.Nat.add(pos_part(a), pos_part(b)))
+    negate(a) + negate(b) = negate(sub_nat(nat.Nat.add(pos_part(a), pos_part(b)), nat.Nat.add(neg_part(a), neg_part(b))))
 }
 
 theorem parts_of_add(a: Int, b: Int):
-    (nat.add(nat.add(pos_part(a), pos_part(b)), neg_part(a + b)) =
-     nat.add(nat.add(neg_part(a), neg_part(b)), pos_part(a + b))) by {
-    a + b = sub_nat(nat.add(pos_part(a), pos_part(b)), nat.add(neg_part(a), neg_part(b)))
-    let j: Nat = nat.add(pos_part(a), pos_part(b))
-    let k: Nat = nat.add(neg_part(a), neg_part(b))
+    (nat.Nat.add(nat.Nat.add(pos_part(a), pos_part(b)), neg_part(a + b)) =
+     nat.Nat.add(nat.Nat.add(neg_part(a), neg_part(b)), pos_part(a + b))) by {
+    a + b = sub_nat(nat.Nat.add(pos_part(a), pos_part(b)), nat.Nat.add(neg_part(a), neg_part(b)))
+    let j: Nat = nat.Nat.add(pos_part(a), pos_part(b))
+    let k: Nat = nat.Nat.add(neg_part(a), neg_part(b))
     a + b = sub_nat(j, k)
-    nat.add(nat.add(pos_part(a), pos_part(b)), neg_part(a + b)) = nat.add(j, neg_part(sub_nat(j, k)))
-    nat.add(nat.add(neg_part(a), neg_part(b)), pos_part(a + b)) = nat.add(k, pos_part(sub_nat(j, k)))
-    nat.add(pos_part(sub_nat(j, k)), k) = nat.add(neg_part(sub_nat(j, k)), j)
-    nat.add(nat.add(pos_part(a), pos_part(b)), neg_part(a + b)) = nat.add(pos_part(sub_nat(j, k)), k)
-    nat.add(nat.add(neg_part(a), neg_part(b)), pos_part(a + b)) = nat.add(neg_part(sub_nat(j, k)), j)
-    nat.add(nat.add(pos_part(a), pos_part(b)), neg_part(a + b)) = nat.add(neg_part(sub_nat(j, k)), j)
+    nat.Nat.add(nat.Nat.add(pos_part(a), pos_part(b)), neg_part(a + b)) = nat.Nat.add(j, neg_part(sub_nat(j, k)))
+    nat.Nat.add(nat.Nat.add(neg_part(a), neg_part(b)), pos_part(a + b)) = nat.Nat.add(k, pos_part(sub_nat(j, k)))
+    nat.Nat.add(pos_part(sub_nat(j, k)), k) = nat.Nat.add(neg_part(sub_nat(j, k)), j)
+    nat.Nat.add(nat.Nat.add(pos_part(a), pos_part(b)), neg_part(a + b)) = nat.Nat.add(pos_part(sub_nat(j, k)), k)
+    nat.Nat.add(nat.Nat.add(neg_part(a), neg_part(b)), pos_part(a + b)) = nat.Nat.add(neg_part(sub_nat(j, k)), j)
+    nat.Nat.add(nat.Nat.add(pos_part(a), pos_part(b)), neg_part(a + b)) = nat.Nat.add(neg_part(sub_nat(j, k)), j)
 }
 
 theorem add_neg(a: Int): a + negate(a) = 0 by {
-    a + negate(a) = sub_nat(nat.add(pos_part(a), pos_part(negate(a))), nat.add(neg_part(a), neg_part(negate(a))))
-    a + negate(a) = sub_nat(nat.add(pos_part(a), neg_part(a)), nat.add(neg_part(a), pos_part(a)))
+    a + negate(a) = sub_nat(nat.Nat.add(pos_part(a), pos_part(negate(a))), nat.Nat.add(neg_part(a), neg_part(negate(a))))
+    a + negate(a) = sub_nat(nat.Nat.add(pos_part(a), neg_part(a)), nat.Nat.add(neg_part(a), pos_part(a)))
     a + negate(a) = 0
 }
 
 theorem add_eq_zero(a: Int, b: Int): a + b = 0 -> a = negate(b) by {
-    sub_nat(nat.add(pos_part(a), pos_part(b)), nat.add(neg_part(a), neg_part(b))) = 0
-    nat.add(nat.add(neg_part(a), neg_part(b)), nat.0) = nat.add(pos_part(a), pos_part(b))
-    nat.add(pos_part(a), pos_part(b)) = nat.add(neg_part(a), neg_part(b))
-    nat.add(pos_part(a), neg_part(negate(b))) = nat.add(neg_part(a), pos_part(negate(b)))
+    sub_nat(nat.Nat.add(pos_part(a), pos_part(b)), nat.Nat.add(neg_part(a), neg_part(b))) = 0
+    nat.Nat.add(nat.Nat.add(neg_part(a), neg_part(b)), nat.0) = nat.Nat.add(pos_part(a), pos_part(b))
+    nat.Nat.add(pos_part(a), pos_part(b)) = nat.Nat.add(neg_part(a), neg_part(b))
+    nat.Nat.add(pos_part(a), neg_part(negate(b))) = nat.Nat.add(neg_part(a), pos_part(negate(b)))
     sub_nat(pos_part(a), neg_part(a)) = sub_nat(pos_part(negate(b)), neg_part(negate(b)))
     a = negate(b)    
 }
 
 theorem add_right_cancel(a: Int, b: Int, c: Int): a + c = b + c -> a = b by {
-    (sub_nat(nat.add(pos_part(a), pos_part(c)), nat.add(neg_part(a), neg_part(c))) =
-     sub_nat(nat.add(pos_part(b), pos_part(c)), nat.add(neg_part(b), neg_part(c))))
-    sub_nat(pos_part(a), nat.add(neg_part(a), neg_part(c))) = sub_nat(pos_part(b), nat.add(neg_part(b), neg_part(c)))
+    (sub_nat(nat.Nat.add(pos_part(a), pos_part(c)), nat.Nat.add(neg_part(a), neg_part(c))) =
+     sub_nat(nat.Nat.add(pos_part(b), pos_part(c)), nat.Nat.add(neg_part(b), neg_part(c))))
+    sub_nat(pos_part(a), nat.Nat.add(neg_part(a), neg_part(c))) = sub_nat(pos_part(b), nat.Nat.add(neg_part(b), neg_part(c)))
     sub_nat(pos_part(a), neg_part(a)) = sub_nat(pos_part(b), neg_part(b))
 }
 
@@ -370,87 +370,87 @@ theorem add_left_cancel(a: Int, b: Int, c: Int): c + a = c + b -> a = b by {
     a + c = b + c
 }
 
-theorem add_sub_nat_left_pos(p: Nat, q: Nat, r: Nat): (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.add(p, r), q) by {
-    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.add(pos_part(sub_nat(p, q)), pos_part(from_nat(r))),
-                                              nat.add(neg_part(sub_nat(p, q)), neg_part(from_nat(r))))
-    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.add(pos_part(sub_nat(p, q)), r),
-                                              nat.add(neg_part(sub_nat(p, q)), neg_part(from_nat(r))))
-    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.add(pos_part(sub_nat(p, q)), r),
-                                              nat.add(neg_part(sub_nat(p, q)), nat.0))
-    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.add(pos_part(sub_nat(p, q)), r),
+theorem add_sub_nat_left_pos(p: Nat, q: Nat, r: Nat): (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.Nat.add(p, r), q) by {
+    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), pos_part(from_nat(r))),
+                                              nat.Nat.add(neg_part(sub_nat(p, q)), neg_part(from_nat(r))))
+    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), r),
+                                              nat.Nat.add(neg_part(sub_nat(p, q)), neg_part(from_nat(r))))
+    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), r),
+                                              nat.Nat.add(neg_part(sub_nat(p, q)), nat.0))
+    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), r),
                                               neg_part(sub_nat(p, q))) 
-    nat.add(nat.add(p, r), neg_part(sub_nat(p, q))) = nat.add(q, nat.add(pos_part(sub_nat(p, q)), r))
-    sub_nat(nat.add(p, r), q) = sub_nat(nat.add(pos_part(sub_nat(p, q)), r), neg_part(sub_nat(p, q)))
+    nat.Nat.add(nat.Nat.add(p, r), neg_part(sub_nat(p, q))) = nat.Nat.add(q, nat.Nat.add(pos_part(sub_nat(p, q)), r))
+    sub_nat(nat.Nat.add(p, r), q) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), r), neg_part(sub_nat(p, q)))
 }
 
-theorem add_sub_nat_left_neg(p: Nat, q: Nat, r: Nat): (sub_nat(p, q) + negate(from_nat(r))) = sub_nat(p, nat.add(q, r)) by {
+theorem add_sub_nat_left_neg(p: Nat, q: Nat, r: Nat): (sub_nat(p, q) + negate(from_nat(r))) = sub_nat(p, nat.Nat.add(q, r)) by {
     (sub_nat(p, q) + negate(from_nat(r))) = negate(negate(sub_nat(p, q)) + from_nat(r))
     (sub_nat(p, q) + negate(from_nat(r))) = negate(sub_nat(q, p) + from_nat(r))
-    (sub_nat(p, q) + negate(from_nat(r))) = negate(sub_nat(nat.add(q, r), p))
+    (sub_nat(p, q) + negate(from_nat(r))) = negate(sub_nat(nat.Nat.add(q, r), p))
 }
 
 theorem add_sub_nat_left(p: Nat, q: Nat, a: Int):
-    (sub_nat(p, q) + a) = sub_nat(nat.add(p, pos_part(a)), nat.add(q, neg_part(a))) by {
+    (sub_nat(p, q) + a) = sub_nat(nat.Nat.add(p, pos_part(a)), nat.Nat.add(q, neg_part(a))) by {
     if is_positive(a) {
         (sub_nat(p, q) + a) = (sub_nat(p, q) + from_nat(abs(a)))
-        (sub_nat(p, q) + a) = sub_nat(nat.add(p, abs(a)), q)
-        (sub_nat(p, q) + a) = sub_nat(nat.add(p, pos_part(a)), q)
-        (sub_nat(p, q) + a) = sub_nat(nat.add(p, pos_part(a)), nat.add(q, neg_part(a)))
+        (sub_nat(p, q) + a) = sub_nat(nat.Nat.add(p, abs(a)), q)
+        (sub_nat(p, q) + a) = sub_nat(nat.Nat.add(p, pos_part(a)), q)
+        (sub_nat(p, q) + a) = sub_nat(nat.Nat.add(p, pos_part(a)), nat.Nat.add(q, neg_part(a)))
     } else {
         (sub_nat(p, q) + a) = (sub_nat(p, q) + negate(from_nat(abs(a))))
-        (sub_nat(p, q) + a) = sub_nat(p, nat.add(q, abs(a)))
-        (sub_nat(p, q) + a) = sub_nat(p, nat.add(q, neg_part(a)))
-        (sub_nat(p, q) + a) = sub_nat(nat.add(p, pos_part(a)), nat.add(q, neg_part(a)))
+        (sub_nat(p, q) + a) = sub_nat(p, nat.Nat.add(q, abs(a)))
+        (sub_nat(p, q) + a) = sub_nat(p, nat.Nat.add(q, neg_part(a)))
+        (sub_nat(p, q) + a) = sub_nat(nat.Nat.add(p, pos_part(a)), nat.Nat.add(q, neg_part(a)))
     }
 }
 
 theorem add_sub_nat_right(p: Nat, q: Nat, a: Int):
-    a + sub_nat(p, q) = sub_nat(nat.add(pos_part(a), p), nat.add(neg_part(a), q)) by {
+    a + sub_nat(p, q) = sub_nat(nat.Nat.add(pos_part(a), p), nat.Nat.add(neg_part(a), q)) by {
     a + sub_nat(p, q) = (sub_nat(p, q) + a)
-    a + sub_nat(p, q) = sub_nat(nat.add(p, pos_part(a)), nat.add(q, neg_part(a)))
-    a + sub_nat(p, q) = sub_nat(nat.add(pos_part(a), p), nat.add(q, neg_part(a)))
+    a + sub_nat(p, q) = sub_nat(nat.Nat.add(p, pos_part(a)), nat.Nat.add(q, neg_part(a)))
+    a + sub_nat(p, q) = sub_nat(nat.Nat.add(pos_part(a), p), nat.Nat.add(q, neg_part(a)))
 }
 
 theorem add_sub_nat(p: Nat, q: Nat, r: Nat, s: Nat):
-    (sub_nat(p, q) + sub_nat(r, s)) = sub_nat(nat.add(p, r), nat.add(q, s)) by {
-    (sub_nat(p, q) + sub_nat(r, s)) = sub_nat(nat.add(p, pos_part(sub_nat(r, s))),
-                                                nat.add(q, neg_part(sub_nat(r, s))))
-    nat.add(nat.add(p, q), nat.add(r, neg_part(sub_nat(r, s)))) = nat.add(nat.add(p, q), nat.add(s, pos_part(sub_nat(r, s))))
-    nat.add(p, nat.add(q, nat.add(r, neg_part(sub_nat(r, s))))) = nat.add(nat.add(p, q), nat.add(s, pos_part(sub_nat(r, s))))
-    nat.add(p, nat.add(nat.add(q, r), neg_part(sub_nat(r, s)))) = nat.add(nat.add(p, q), nat.add(s, pos_part(sub_nat(r, s))))
-    nat.add(p, nat.add(nat.add(r, q), neg_part(sub_nat(r, s)))) = nat.add(nat.add(p, q), nat.add(s, pos_part(sub_nat(r, s))))
-    nat.add(p, nat.add(r, nat.add(q, neg_part(sub_nat(r, s))))) = nat.add(nat.add(p, q), nat.add(s, pos_part(sub_nat(r, s))))
-    nat.add(nat.add(p, r), nat.add(q, neg_part(sub_nat(r, s)))) = nat.add(nat.add(p, q), nat.add(s, pos_part(sub_nat(r, s))))
-    nat.add(nat.add(p, r), nat.add(q, neg_part(sub_nat(r, s)))) = nat.add(nat.add(q, p), nat.add(s, pos_part(sub_nat(r, s))))
-    nat.add(nat.add(p, r), nat.add(q, neg_part(sub_nat(r, s)))) = nat.add(q, nat.add(p, nat.add(s, pos_part(sub_nat(r, s)))))
-    nat.add(nat.add(p, r), nat.add(q, neg_part(sub_nat(r, s)))) = nat.add(q, nat.add(nat.add(p, s), pos_part(sub_nat(r, s))))
-    nat.add(nat.add(p, r), nat.add(q, neg_part(sub_nat(r, s)))) = nat.add(q, nat.add(nat.add(s, p), pos_part(sub_nat(r, s))))
-    nat.add(nat.add(p, r), nat.add(q, neg_part(sub_nat(r, s)))) = nat.add(q, nat.add(s, nat.add(p, pos_part(sub_nat(r, s)))))
-    nat.add(nat.add(p, r), nat.add(q, neg_part(sub_nat(r, s)))) = nat.add(nat.add(q, s), nat.add(p, pos_part(sub_nat(r, s))))
-    sub_nat(nat.add(p, r), nat.add(q, s)) = sub_nat(nat.add(p, pos_part(sub_nat(r, s))),
-                                                    nat.add(q, neg_part(sub_nat(r, s))))
+    (sub_nat(p, q) + sub_nat(r, s)) = sub_nat(nat.Nat.add(p, r), nat.Nat.add(q, s)) by {
+    (sub_nat(p, q) + sub_nat(r, s)) = sub_nat(nat.Nat.add(p, pos_part(sub_nat(r, s))),
+                                                nat.Nat.add(q, neg_part(sub_nat(r, s))))
+    nat.Nat.add(nat.Nat.add(p, q), nat.Nat.add(r, neg_part(sub_nat(r, s)))) = nat.Nat.add(nat.Nat.add(p, q), nat.Nat.add(s, pos_part(sub_nat(r, s))))
+    nat.Nat.add(p, nat.Nat.add(q, nat.Nat.add(r, neg_part(sub_nat(r, s))))) = nat.Nat.add(nat.Nat.add(p, q), nat.Nat.add(s, pos_part(sub_nat(r, s))))
+    nat.Nat.add(p, nat.Nat.add(nat.Nat.add(q, r), neg_part(sub_nat(r, s)))) = nat.Nat.add(nat.Nat.add(p, q), nat.Nat.add(s, pos_part(sub_nat(r, s))))
+    nat.Nat.add(p, nat.Nat.add(nat.Nat.add(r, q), neg_part(sub_nat(r, s)))) = nat.Nat.add(nat.Nat.add(p, q), nat.Nat.add(s, pos_part(sub_nat(r, s))))
+    nat.Nat.add(p, nat.Nat.add(r, nat.Nat.add(q, neg_part(sub_nat(r, s))))) = nat.Nat.add(nat.Nat.add(p, q), nat.Nat.add(s, pos_part(sub_nat(r, s))))
+    nat.Nat.add(nat.Nat.add(p, r), nat.Nat.add(q, neg_part(sub_nat(r, s)))) = nat.Nat.add(nat.Nat.add(p, q), nat.Nat.add(s, pos_part(sub_nat(r, s))))
+    nat.Nat.add(nat.Nat.add(p, r), nat.Nat.add(q, neg_part(sub_nat(r, s)))) = nat.Nat.add(nat.Nat.add(q, p), nat.Nat.add(s, pos_part(sub_nat(r, s))))
+    nat.Nat.add(nat.Nat.add(p, r), nat.Nat.add(q, neg_part(sub_nat(r, s)))) = nat.Nat.add(q, nat.Nat.add(p, nat.Nat.add(s, pos_part(sub_nat(r, s)))))
+    nat.Nat.add(nat.Nat.add(p, r), nat.Nat.add(q, neg_part(sub_nat(r, s)))) = nat.Nat.add(q, nat.Nat.add(nat.Nat.add(p, s), pos_part(sub_nat(r, s))))
+    nat.Nat.add(nat.Nat.add(p, r), nat.Nat.add(q, neg_part(sub_nat(r, s)))) = nat.Nat.add(q, nat.Nat.add(nat.Nat.add(s, p), pos_part(sub_nat(r, s))))
+    nat.Nat.add(nat.Nat.add(p, r), nat.Nat.add(q, neg_part(sub_nat(r, s)))) = nat.Nat.add(q, nat.Nat.add(s, nat.Nat.add(p, pos_part(sub_nat(r, s)))))
+    nat.Nat.add(nat.Nat.add(p, r), nat.Nat.add(q, neg_part(sub_nat(r, s)))) = nat.Nat.add(nat.Nat.add(q, s), nat.Nat.add(p, pos_part(sub_nat(r, s))))
+    sub_nat(nat.Nat.add(p, r), nat.Nat.add(q, s)) = sub_nat(nat.Nat.add(p, pos_part(sub_nat(r, s))),
+                                                    nat.Nat.add(q, neg_part(sub_nat(r, s))))
 }
 
 theorem add_sub_nat_3_left(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat, u: Nat):
-    sub_nat(p, q) + sub_nat(r, s) + sub_nat(t, u) = sub_nat(nat.add(nat.add(p, r), t), nat.add(nat.add(q, s), u)) by {
+    sub_nat(p, q) + sub_nat(r, s) + sub_nat(t, u) = sub_nat(nat.Nat.add(nat.Nat.add(p, r), t), nat.Nat.add(nat.Nat.add(q, s), u)) by {
     let lhs: Int = sub_nat(p, q) + sub_nat(r, s) + sub_nat(t, u)
-    lhs = sub_nat(nat.add(p, r), nat.add(q, s)) + sub_nat(t, u)
-    lhs = sub_nat(nat.add(nat.add(p, r), t), nat.add(nat.add(q, s), u))
+    lhs = sub_nat(nat.Nat.add(p, r), nat.Nat.add(q, s)) + sub_nat(t, u)
+    lhs = sub_nat(nat.Nat.add(nat.Nat.add(p, r), t), nat.Nat.add(nat.Nat.add(q, s), u))
 }
 
 theorem add_sub_nat_3_right(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat, u: Nat):
-    sub_nat(p, q) + (sub_nat(r, s) + sub_nat(t, u)) = sub_nat(nat.add(p, nat.add(r, t)), nat.add(q, nat.add(s, u))) by {
+    sub_nat(p, q) + (sub_nat(r, s) + sub_nat(t, u)) = sub_nat(nat.Nat.add(p, nat.Nat.add(r, t)), nat.Nat.add(q, nat.Nat.add(s, u))) by {
     let lhs: Int = sub_nat(p, q) + (sub_nat(r, s) + sub_nat(t, u))
-    lhs = (sub_nat(p, q) + sub_nat(nat.add(r, t), nat.add(s, u)))
-    lhs = sub_nat(nat.add(p, nat.add(r, t)), nat.add(q, nat.add(s, u)))
+    lhs = (sub_nat(p, q) + sub_nat(nat.Nat.add(r, t), nat.Nat.add(s, u)))
+    lhs = sub_nat(nat.Nat.add(p, nat.Nat.add(r, t)), nat.Nat.add(q, nat.Nat.add(s, u)))
 }
 
 theorem add_sub_nat_assoc(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat, u: Nat):
     sub_nat(p, q) + sub_nat(r, s) + sub_nat(t, u) = sub_nat(p, q) + (sub_nat(r, s) + sub_nat(t, u)) by {
     let lhs: Int = sub_nat(p, q) + sub_nat(r, s) + sub_nat(t, u)
-    lhs = sub_nat(nat.add(nat.add(p, r), t), nat.add(nat.add(q, s), u))
-    lhs = sub_nat(nat.add(p, nat.add(r, t)), nat.add(nat.add(q, s), u))
-    lhs = sub_nat(nat.add(p, nat.add(r, t)), nat.add(q, nat.add(s, u)))
+    lhs = sub_nat(nat.Nat.add(nat.Nat.add(p, r), t), nat.Nat.add(nat.Nat.add(q, s), u))
+    lhs = sub_nat(nat.Nat.add(p, nat.Nat.add(r, t)), nat.Nat.add(nat.Nat.add(q, s), u))
+    lhs = sub_nat(nat.Nat.add(p, nat.Nat.add(r, t)), nat.Nat.add(q, nat.Nat.add(s, u)))
     lhs = sub_nat(p, q) + (sub_nat(r, s) + sub_nat(t, u))
 }
 
@@ -458,7 +458,7 @@ theorem add_assoc(a: Int, b: Int, c: Int): a + (b + c) = a + b + (c) by {
     add_sub_nat_assoc(pos_part(a), neg_part(a), pos_part(b), neg_part(b), pos_part(c), neg_part(c))
 }
 
-theorem add_from_nat(a: Nat, b: Nat): from_nat(a) + from_nat(b) = from_nat(nat.add(a, b))
+theorem add_from_nat(a: Nat, b: Nat): from_nat(a) + from_nat(b) = from_nat(nat.Nat.add(a, b))
 
 theorem add_pos_nonneg(a: Int, b: Int): is_positive(a) & !is_negative(b) -> is_positive(a + b) by {
     if b = 0 {
@@ -468,9 +468,9 @@ theorem add_pos_nonneg(a: Int, b: Int): is_positive(a) & !is_negative(b) -> is_p
         is_positive(b)
         a = from_nat(abs(a))
         b = from_nat(abs(b))
-        a + b = from_nat(nat.add(abs(a), abs(b)))
-        nat.add(abs(a), abs(b)) != nat.0
-        is_positive(from_nat(nat.add(abs(a), abs(b))))
+        a + b = from_nat(nat.Nat.add(abs(a), abs(b)))
+        nat.Nat.add(abs(a), abs(b)) != nat.0
+        is_positive(from_nat(nat.Nat.add(abs(a), abs(b))))
         is_positive(a + b)
     }
 }
@@ -583,7 +583,7 @@ theorem mul_nat_negate_left(a: Int, n: Nat): mul_nat(negate(a), n) = negate(mul_
 
 theorem mul_nat_nonneg_suc(a: Int, n: Nat): !is_negative(a) -> mul_nat(a, nat.suc(n)) = mul_nat(a, n) + a by {
     mul_nat(a, nat.suc(n)) = from_nat(nat.mul(abs(a), nat.suc(n)))
-    mul_nat(a, nat.suc(n)) = from_nat(nat.add(nat.mul(abs(a), n), abs(a)))
+    mul_nat(a, nat.suc(n)) = from_nat(nat.Nat.add(nat.mul(abs(a), n), abs(a)))
     mul_nat(a, nat.suc(n)) = from_nat(nat.mul(abs(a), n)) +  from_nat(abs(a))
     mul_nat(a, nat.suc(n)) = mul_nat(a, n) +  a
 }
@@ -1001,71 +1001,71 @@ theorem lt_add_left(a: Int, b: Int, c: Int): b < c -> a + b < a + c by {
 theorem lte_add_left(a: Int, b: Int, c: Int): b <= c -> a + b <= a + c
 
 theorem abs_add_nonneg(a: Int, b: Int):
-    !is_negative(a) & !is_negative(b) -> abs(a + b) = nat.add(abs(a), abs(b)) by {
+    !is_negative(a) & !is_negative(b) -> abs(a + b) = nat.Nat.add(abs(a), abs(b)) by {
     from_nat(abs(a)) = a
     from_nat(abs(b)) = b
-    from_nat(abs(a)) + from_nat(abs(b)) = from_nat(nat.add(abs(a), abs(b)))
-    a + from_nat(abs(b)) = from_nat(nat.add(abs(a), abs(b)))
-    a + b = from_nat(nat.add(abs(a), abs(b)))
+    from_nat(abs(a)) + from_nat(abs(b)) = from_nat(nat.Nat.add(abs(a), abs(b)))
+    a + from_nat(abs(b)) = from_nat(nat.Nat.add(abs(a), abs(b)))
+    a + b = from_nat(nat.Nat.add(abs(a), abs(b)))
 }
 
 theorem abs_add_nonpos(a: Int, b: Int):
-    !is_positive(a) & !is_positive(b) -> abs(a + b) = nat.add(abs(a), abs(b)) by {
+    !is_positive(a) & !is_positive(b) -> abs(a + b) = nat.Nat.add(abs(a), abs(b)) by {
     !is_negative(negate(a))
     !is_negative(negate(b))
-    abs(negate(a) + negate(b)) = nat.add(abs(negate(a)), abs(negate(b)))
-    abs(negate(a + b)) = nat.add(abs(negate(a)), abs(negate(b)))
-    abs(negate(a + b)) = nat.add(abs(a), abs(b))
+    abs(negate(a) + negate(b)) = nat.Nat.add(abs(negate(a)), abs(negate(b)))
+    abs(negate(a + b)) = nat.Nat.add(abs(negate(a)), abs(negate(b)))
+    abs(negate(a + b)) = nat.Nat.add(abs(a), abs(b))
 }
 
 // One case of the triangle inequality
 theorem triangle_nonpos_lte_nonneg(a: Int, b: Int):
-    !is_negative(a) & !is_positive(b) & nat.lte(abs(b), abs(a)) -> nat.lte(abs(a + b), nat.add(abs(a), abs(b))) by {
-    exists(n: Nat) { nat.add(n, abs(b)) = abs(a) }
+    !is_negative(a) & !is_positive(b) & nat.lte(abs(b), abs(a)) -> nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b))) by {
+    exists(n: Nat) { nat.Nat.add(n, abs(b)) = abs(a) }
     from_nat(n) + from_nat(abs(b)) = from_nat(abs(a))
     from_nat(n) + negate(b) = from_nat(abs(a))
     from_nat(n) + negate(b) = a
     a + b = from_nat(n)
     abs(a + b) = n
     nat.lte(n, abs(a))
-    nat.lte(abs(a), nat.add(abs(a), abs(b)))
-    nat.lte(n, nat.add(abs(a), abs(b)))
+    nat.lte(abs(a), nat.Nat.add(abs(a), abs(b)))
+    nat.lte(n, nat.Nat.add(abs(a), abs(b)))
 }
 
 theorem triangle_nonneg_nonpos(a: Int, b: Int):
-    !is_negative(a) & !is_positive(b) -> nat.lte(abs(a + b), nat.add(abs(a), abs(b))) by {
+    !is_negative(a) & !is_positive(b) -> nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b))) by {
     if nat.lte(abs(b), abs(a)) {
-        nat.lte(abs(a + b), nat.add(abs(a), abs(b)))
+        nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
     } else {
         nat.lte(abs(a), abs(b))
         nat.lte(abs(negate(a)), abs(negate(b)))
         !is_negative(negate(b))
         !is_positive(negate(a))
-        nat.lte(abs(negate(b) + negate(a)), nat.add(abs(negate(b)), abs(negate(a))))
-        nat.lte(abs(negate(b + a)), nat.add(abs(negate(b)), abs(negate(a))))
-        nat.lte(abs(b + a), nat.add(abs(negate(b)), abs(negate(a))))
-        nat.lte(abs(b + a), nat.add(abs(b), abs(a)))
-        nat.lte(abs(a + b), nat.add(abs(b), abs(a)))        
-        nat.lte(abs(a + b), nat.add(abs(a), abs(b)))
+        nat.lte(abs(negate(b) + negate(a)), nat.Nat.add(abs(negate(b)), abs(negate(a))))
+        nat.lte(abs(negate(b + a)), nat.Nat.add(abs(negate(b)), abs(negate(a))))
+        nat.lte(abs(b + a), nat.Nat.add(abs(negate(b)), abs(negate(a))))
+        nat.lte(abs(b + a), nat.Nat.add(abs(b), abs(a)))
+        nat.lte(abs(a + b), nat.Nat.add(abs(b), abs(a)))        
+        nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
     }
 }
 
-theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(a + b), nat.add(abs(a), abs(b))) by {
+theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b))) by {
     if is_negative(a) {
         if is_negative(b) {
-            abs(a + b) = nat.add(abs(a), abs(b))
-            nat.lte(abs(a + b), nat.add(abs(a), abs(b)))
+            abs(a + b) = nat.Nat.add(abs(a), abs(b))
+            nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
         } else {
-            nat.lte(abs(b + a), nat.add(abs(b), abs(a)))
-            nat.lte(abs(b + a), nat.add(abs(a), abs(b)))
-            nat.lte(abs(a + b), nat.add(abs(a), abs(b)))
+            nat.lte(abs(b + a), nat.Nat.add(abs(b), abs(a)))
+            nat.lte(abs(b + a), nat.Nat.add(abs(a), abs(b)))
+            nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
         }
     } else {
         if is_negative(b) {
-            nat.lte(abs(a + b), nat.add(abs(a), abs(b)))
+            nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
         } else {
-            abs(a + b) = nat.add(abs(a), abs(b))
-            nat.lte(abs(a + b), nat.add(abs(a), abs(b)))
+            abs(a + b) = nat.Nat.add(abs(a), abs(b))
+            nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
         }
     }
 }
@@ -1124,7 +1124,7 @@ theorem lte_and_lt(a: Int, b: Int, c: Int): a <= b & b < c -> a < c by {
 }
 
 theorem lt_from_nat(j: Nat, k: Nat): nat.lt(j, k) -> from_nat(j) < from_nat(k) by {
-    exists(d: Nat) { nat.add(d, j) = k & d != nat.0 }
+    exists(d: Nat) { nat.Nat.add(d, j) = k & d != nat.0 }
     from_nat(d) + from_nat(j) = from_nat(k)
     from_nat(k) - from_nat(j) = from_nat(d)
     is_positive(from_nat(d))
@@ -1355,7 +1355,7 @@ let mod: (Nat, Nat) -> Nat = nat.mod
 theorem spans_nat_mod(a: Int, b: Int, k: Nat, m: Nat):
     spans(a, b, from_nat(k)) & spans(a, b, from_nat(m)) -> spans(a, b, from_nat(mod(k, m)))
 by {
-    exists(d: Nat) { nat.add(nat.mul(d, m), mod(k, m)) = k }
+    exists(d: Nat) { nat.Nat.add(nat.mul(d, m), mod(k, m)) = k }
     from_nat(nat.mul(d, m)) + from_nat(mod(k, m)) = from_nat(k)
     from_nat(d) * from_nat(m) + from_nat(mod(k, m)) = from_nat(k)
     from_nat(mod(k, m)) = from_nat(k) + negate(from_nat(d) * from_nat(m))

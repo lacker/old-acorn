@@ -5,7 +5,7 @@ type Nat: nat.Nat
 let suc: Nat -> Nat = nat.suc
 let 0: Nat = nat.0
 let 1: Nat = nat.1
-let add: (Nat, Nat) -> Nat = nat.add
+let add: (Nat, Nat) -> Nat = nat.Nat.add
 let lt: (Nat, Nat) -> Bool = nat.lt
 let lte: (Nat, Nat) -> Bool = nat.lte
 let mul: (Nat, Nat) -> Nat = nat.mul
