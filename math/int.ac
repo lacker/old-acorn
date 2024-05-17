@@ -775,37 +775,37 @@ theorem mul_distrib_nonneg_right(a: Int, b: Int, c: Int):
     mul(a + b, c) = mul(a, c) + mul(b, c)
 }
 
-theorem mul_distrib_right(a: Int, b: Int, c: Int): mul(a + b, c) = Int.add(mul(a, c), mul(b, c)) by {
+theorem mul_distrib_right(a: Int, b: Int, c: Int): mul(a + b, c) = mul(a, c) + mul(b, c) by {
     if is_negative(c) {
         is_positive(negate(c))
-        mul(a + b, negate(c)) = Int.add(mul(a, negate(c)), mul(b, negate(c)))
-        mul(a + b, negate(c)) = Int.add(negate(mul(a, c)), mul(b, negate(c)))
-        mul(a + b, negate(c)) = Int.add(negate(mul(a, c)), negate(mul(b, c)))
-        mul(a + b, negate(c)) = negate(Int.add(mul(a, c), mul(b, c)))
-        negate(mul(a + b, c)) = negate(Int.add(mul(a, c), mul(b, c)))
-        mul(a + b, c) = Int.add(mul(a, c), mul(b, c))
+        mul(a + b, negate(c)) = mul(a, negate(c)) + mul(b, negate(c))
+        mul(a + b, negate(c)) = negate(mul(a, c)) + mul(b, negate(c))
+        mul(a + b, negate(c)) = negate(mul(a, c)) + negate(mul(b, c))
+        mul(a + b, negate(c)) = negate(mul(a, c) + mul(b, c))
+        negate(mul(a + b, c)) = negate(mul(a, c) + mul(b, c))
+        mul(a + b, c) = mul(a, c) + mul(b, c)
     } else {
-        mul(a + b, c) = Int.add(mul(a, c), mul(b, c))
+        mul(a + b, c) = mul(a, c) + mul(b, c)
     }
 }
 
-theorem mul_distrib_left(a: Int, b: Int, c: Int): mul(a, b + c) = Int.add(mul(a, b), mul(a, c)) by {
+theorem mul_distrib_left(a: Int, b: Int, c: Int): mul(a, b + c) = mul(a, b) + mul(a, c) by {
     mul(a, b + c) = mul(b + c, a)
-    mul(a, b + c) = Int.add(mul(b, a), mul(c, a))
-    mul(a, b + c) = Int.add(mul(a, b), mul(c, a))
+    mul(a, b + c) = mul(b, a) + mul(c, a)
+    mul(a, b + c) = mul(a, b) + mul(c, a)
 }
 
 theorem mul_sub_distrib_right(a: Int, b: Int, c: Int): mul(sub(a, b), c) = sub(mul(a, c), mul(b, c)) by {
-    mul(sub(a, b), c) = mul(Int.add(a, negate(b)), c)
-    mul(sub(a, b), c) = Int.add(mul(a, c), mul(negate(b), c))
-    mul(sub(a, b), c) = Int.add(mul(a, c), negate(mul(b, c)))
+    mul(sub(a, b), c) = mul(a + negate(b), c)
+    mul(sub(a, b), c) = mul(a, c) + mul(negate(b), c)
+    mul(sub(a, b), c) = mul(a, c) + negate(mul(b, c))
     mul(sub(a, b), c) = sub(mul(a, c), mul(b, c))
 }
 
 theorem mul_sub_distrib_left(a: Int, b: Int, c: Int): mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c)) by {
-    mul(a, sub(b, c)) = mul(a, Int.add(b, negate(c)))
-    mul(a, sub(b, c)) = Int.add(mul(a, b), mul(a, negate(c)))
-    mul(a, sub(b, c)) = Int.add(mul(a, b), negate(mul(a, c)))
+    mul(a, sub(b, c)) = mul(a, b + negate(c))
+    mul(a, sub(b, c)) = mul(a, b) + mul(a, negate(c))
+    mul(a, sub(b, c)) = mul(a, b) + negate(mul(a, c))
     mul(a, sub(b, c)) = sub(mul(a, b), mul(a, c))
 }
 
@@ -1001,8 +1001,8 @@ theorem abs_add_nonneg(a: Int, b: Int):
     !is_negative(a) & !is_negative(b) -> abs(a + b) = nat.add(abs(a), abs(b)) by {
     from_nat(abs(a)) = a
     from_nat(abs(b)) = b
-    Int.add(from_nat(abs(a)), from_nat(abs(b))) = from_nat(nat.add(abs(a), abs(b)))
-    Int.add(a, from_nat(abs(b))) = from_nat(nat.add(abs(a), abs(b)))
+    from_nat(abs(a)) + from_nat(abs(b)) = from_nat(nat.add(abs(a), abs(b)))
+    a + from_nat(abs(b)) = from_nat(nat.add(abs(a), abs(b)))
     a + b = from_nat(nat.add(abs(a), abs(b)))
 }
 
@@ -1019,9 +1019,9 @@ theorem abs_add_nonpos(a: Int, b: Int):
 theorem triangle_nonpos_lte_nonneg(a: Int, b: Int):
     !is_negative(a) & !is_positive(b) & nat.lte(abs(b), abs(a)) -> nat.lte(abs(a + b), nat.add(abs(a), abs(b))) by {
     exists(n: Nat) { nat.add(n, abs(b)) = abs(a) }
-    Int.add(from_nat(n), from_nat(abs(b))) = from_nat(abs(a))
-    Int.add(from_nat(n), negate(b)) = from_nat(abs(a))
-    Int.add(from_nat(n), negate(b)) = a
+    from_nat(n) + from_nat(abs(b)) = from_nat(abs(a))
+    from_nat(n) + negate(b) = from_nat(abs(a))
+    from_nat(n) + negate(b) = a
     a + b = from_nat(n)
     abs(a + b) = n
     nat.lte(n, abs(a))
@@ -1038,7 +1038,7 @@ theorem triangle_nonneg_nonpos(a: Int, b: Int):
         nat.lte(abs(negate(a)), abs(negate(b)))
         !is_negative(negate(b))
         !is_positive(negate(a))
-        nat.lte(abs(Int.add(negate(b), negate(a))), nat.add(abs(negate(b)), abs(negate(a))))
+        nat.lte(abs(negate(b) + negate(a)), nat.add(abs(negate(b)), abs(negate(a))))
         nat.lte(abs(negate(b + a)), nat.add(abs(negate(b)), abs(negate(a))))
         nat.lte(abs(b + a), nat.add(abs(negate(b)), abs(negate(a))))
         nat.lte(abs(b + a), nat.add(abs(b), abs(a)))
