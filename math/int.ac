@@ -960,45 +960,46 @@ theorem mul_assoc(a: Int, b: Int, c: Int): a * b * c = a * (b * c) by {
 
 // Comparison operators
 
-define lt(a: Int, b: Int) -> Bool: is_positive(b - a)
+class Int {
+    define lt(self: Int, b: Int) -> Bool: is_positive(b - self)
+    define lte(self: Int, b: Int) -> Bool: (self < b) | self = b
+}
 
-define lte(a: Int, b: Int) -> Bool: lt(a, b) | a = b
-
-theorem lt_not_ref(a: Int): !lt(a, a) by {
-    if lt(a, a) {
+theorem lt_not_ref(a: Int): !Int.lt(a, a) by {
+    if Int.lt(a, a) {
         is_positive(a - a)
         is_positive(0)
         false
     }
 }
 
-theorem lte_ref(a: Int): lte(a, a)
+theorem lte_ref(a: Int): Int.lte(a, a)
 
-theorem zero_lt_pos(a: Int): is_positive(a) -> lt(0, a)
+theorem zero_lt_pos(a: Int): is_positive(a) -> Int.lt(0, a)
 
-theorem neg_lt_zero(a: Int): is_negative(a) -> lt(a, 0)
+theorem neg_lt_zero(a: Int): is_negative(a) -> Int.lt(a, 0)
 
-theorem nonpos_lt_pos(a: Int, b: Int): !is_positive(a) & is_positive(b) -> lt(a, b)
+theorem nonpos_lt_pos(a: Int, b: Int): !is_positive(a) & is_positive(b) -> Int.lt(a, b)
 
-theorem neg_lt_nonneg(a: Int, b: Int): is_negative(a) & !is_negative(b) -> lt(a, b)
+theorem neg_lt_nonneg(a: Int, b: Int): is_negative(a) & !is_negative(b) -> Int.lt(a, b)
 
-theorem nonpos_lte_nonneg(a: Int, b: Int): !is_positive(a) & !is_negative(b) -> lte(a, b)
+theorem nonpos_lte_nonneg(a: Int, b: Int): !is_positive(a) & !is_negative(b) -> Int.lte(a, b)
 
-theorem lte_abs(a: Int): lte(a, from_nat(abs(a))) by {
+theorem lte_abs(a: Int): Int.lte(a, from_nat(abs(a))) by {
     if is_negative(a) {
-        lte(a, from_nat(abs(a)))
+        Int.lte(a, from_nat(abs(a)))
     } else {
-        lte(a, from_nat(abs(a)))
+        Int.lte(a, from_nat(abs(a)))
     }
 }
 
-theorem lt_add_left(a: Int, b: Int, c: Int): lt(b, c) -> lt(a + b, a + c) by {
+theorem lt_add_left(a: Int, b: Int, c: Int): Int.lt(b, c) -> Int.lt(a + b, a + c) by {
     is_positive(c - b)
     (a + c) - (a + b) = c - b
     is_positive((a + c) - (a + b))
 }
 
-theorem lte_add_left(a: Int, b: Int, c: Int): lte(b, c) -> lte(a + b, a + c)
+theorem lte_add_left(a: Int, b: Int, c: Int): Int.lte(b, c) -> Int.lte(a + b, a + c)
 
 theorem abs_add_nonneg(a: Int, b: Int):
     !is_negative(a) & !is_negative(b) -> abs(a + b) = nat.add(abs(a), abs(b)) by {
@@ -1070,14 +1071,14 @@ theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(a + b), nat.add(abs(a), abs(b
     }
 }
 
-theorem lt_mul_pos(a: Int, b: Int, c: Int): lt(a, b) & is_positive(c) -> lt(a * c, b * c) by {
+theorem lt_mul_pos(a: Int, b: Int, c: Int): Int.lt(a, b) & is_positive(c) -> Int.lt(a * c, b * c) by {
     b * c - a * c = (b - a) * c
     b * c - a * c = c * (b - a)
     is_positive(b - a)
     is_positive(b * c - a * c)
 }
 
-theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(b * c, a * c) by {
+theorem lt_mul_neg(a: Int, b: Int, c: Int): Int.lt(a, b) & is_negative(c) -> Int.lt(b * c, a * c) by {
     a * c - b * c = c * (a - b)
     is_positive(b - a)
     is_negative(a - b)
@@ -1085,59 +1086,59 @@ theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(b * 
     is_positive(a * c - b * c)
 }
 
-theorem lt_trans(a: Int, b: Int, c: Int): lt(a, b) & lt(b, c) -> lt(a, c) by {
+theorem lt_trans(a: Int, b: Int, c: Int): Int.lt(a, b) & Int.lt(b, c) -> Int.lt(a, c) by {
     is_positive(b - a)
     is_positive(c - b)
-    exists(k0: Int) { lt(a + k0, c + k0) }
+    exists(k0: Int) { Int.lt(a + k0, c + k0) }
     is_positive(c - a)
 }
 
-theorem lte_trans(a: Int, b: Int, c: Int): lte(a, b) & lte(b, c) -> lte(a, c) by {
+theorem lte_trans(a: Int, b: Int, c: Int): Int.lte(a, b) & Int.lte(b, c) -> Int.lte(a, c) by {
     if a = b {
-        lte(a, c)
+        Int.lte(a, c)
     } else {
-        lt(a, b)
+        Int.lt(a, b)
         if b = c {
-            lte(a, c)
+            Int.lte(a, c)
         } else {
-            lt(b, c)
-            lt(a, c)
-            lte(a, c)
+            Int.lt(b, c)
+            Int.lt(a, c)
+            Int.lte(a, c)
         }
     }
 }
 
-theorem lt_and_lte(a: Int, b: Int, c: Int): lt(a, b) & lte(b, c) -> lt(a, c) by {
+theorem lt_and_lte(a: Int, b: Int, c: Int): Int.lt(a, b) & Int.lte(b, c) -> Int.lt(a, c) by {
     if b = c {
-        lt(a, c)
+        Int.lt(a, c)
     } else {
-        lt(a, c)
+        Int.lt(a, c)
     }
 }
 
-theorem lte_and_lt(a: Int, b: Int, c: Int): lte(a, b) & lt(b, c) -> lt(a, c) by {
+theorem lte_and_lt(a: Int, b: Int, c: Int): Int.lte(a, b) & Int.lt(b, c) -> Int.lt(a, c) by {
     if a = b {
-        lt(a, c)
+        Int.lt(a, c)
     } else {
-        lt(a, c)
+        Int.lt(a, c)
     }
 }
 
-theorem lt_from_nat(j: Nat, k: Nat): nat.lt(j, k) -> lt(from_nat(j), from_nat(k)) by {
+theorem lt_from_nat(j: Nat, k: Nat): nat.lt(j, k) -> Int.lt(from_nat(j), from_nat(k)) by {
     exists(d: Nat) { nat.add(d, j) = k & d != nat.0 }
     from_nat(d) + from_nat(j) = from_nat(k)
     from_nat(k) - from_nat(j) = from_nat(d)
     is_positive(from_nat(d))
 }
 
-theorem lte_from_nat(j: Nat, k: Nat): nat.lte(j, k) -> lte(from_nat(j), from_nat(k)) by {
+theorem lte_from_nat(j: Nat, k: Nat): nat.lte(j, k) -> Int.lte(from_nat(j), from_nat(k)) by {
     if j = k {
         from_nat(j) = from_nat(k)
-        lte(from_nat(j), from_nat(k))
+        Int.lte(from_nat(j), from_nat(k))
     } else {
         nat.lt(j, k)
-        lt(from_nat(j), from_nat(k))
-        lte(from_nat(j), from_nat(k))
+        Int.lt(from_nat(j), from_nat(k))
+        Int.lte(from_nat(j), from_nat(k))
     }
 }
 
@@ -1251,12 +1252,12 @@ theorem abs_eq_imp_div(a: Int, b: Int): abs(a) = abs(b) -> divides(a, b) by {
     exists(u: Int) { is_unit(u) & u * a = b }
 }
 
-theorem div_pos_imp_lte(a: Int, b: Int): divides(a, b) & is_positive(b) -> lte(a, b) by {
+theorem div_pos_imp_lte(a: Int, b: Int): divides(a, b) & is_positive(b) -> Int.lte(a, b) by {
     nat.divides(abs(a), abs(b))
-    lte(from_nat(abs(a)), from_nat(abs(b)))
-    lte(from_nat(abs(a)), b)
-    lte(a, from_nat(abs(a)))
-    lte(a, b)
+    Int.lte(from_nat(abs(a)), from_nat(abs(b)))
+    Int.lte(from_nat(abs(a)), b)
+    Int.lte(a, from_nat(abs(a)))
+    Int.lte(a, b)
 }
 
 // Theorems that relate to the GCD
@@ -1290,7 +1291,7 @@ theorem gcd_pos(a: Int, b: Int): a != 0 & b != 0 -> is_positive(gcd(a, b)) by {
     gcd(a, b) != 0
 }
 
-theorem gcd_is_gcd(a: Int, b: Int, d: Int): a != 0 & b != 0 & divides(d, a) & divides(d, b) -> lte(d, gcd(a, b)) by {
+theorem gcd_is_gcd(a: Int, b: Int, d: Int): a != 0 & b != 0 & divides(d, a) & divides(d, b) -> Int.lte(d, gcd(a, b)) by {
     is_positive(gcd(a, b))
     divides(d, gcd(a, b))
 }
