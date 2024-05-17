@@ -937,24 +937,24 @@ theorem mul_int_int_nat_assoc(a: Int, b: Int, n: Nat): mul_nat(a * b, n) = a * m
     }
 }
 
-theorem mul_assoc(a: Int, b: Int, c: Int): Int.mul(a * b, c) = Int.mul(a, b * c) by {
+theorem mul_assoc(a: Int, b: Int, c: Int): a * b * c = a * (b * c) by {
     if is_negative(c) {
         c = negate(from_nat(abs(c)))
-        Int.mul(a * b, c) = Int.mul(a * b, negate(from_nat(abs(c))))
-        Int.mul(a * b, c) = negate(Int.mul(a * b, from_nat(abs(c))))
-        Int.mul(a * b, c) = negate(mul_nat(a * b, abs(c)))
-        Int.mul(a * b, c) = negate(Int.mul(a, mul_nat(b, abs(c))))
-        Int.mul(a * b, c) = Int.mul(a, negate(mul_nat(b, abs(c))))
-        Int.mul(a * b, c) = Int.mul(a, negate(Int.mul(b, from_nat(abs(c)))))
-        Int.mul(a * b, c) = Int.mul(a, Int.mul(b, negate(from_nat(abs(c)))))
-        Int.mul(a * b, c) = Int.mul(a, b * c)
+        a * b * c = a * b * negate(from_nat(abs(c)))
+        a * b * c = negate(a * b * from_nat(abs(c)))
+        a * b * c = negate(mul_nat(a * b, abs(c)))
+        a * b * c = negate(a * mul_nat(b, abs(c)))
+        a * b * c = a * negate(mul_nat(b, abs(c)))
+        a * b * c = a * negate(b * from_nat(abs(c)))
+        a * b * c = a * (b * negate(from_nat(abs(c))))
+        a * b * c = a * (b * c)
     } else {
         c = from_nat(abs(c))
-        Int.mul(a * b, c) = Int.mul(a * b, from_nat(abs(c)))
-        Int.mul(a * b, c) = mul_nat(a * b, abs(c))
-        Int.mul(a * b, c) = Int.mul(a, mul_nat(b, abs(c)))
-        Int.mul(a * b, c) = Int.mul(a, Int.mul(b, from_nat(abs(c))))
-        Int.mul(a * b, c) = Int.mul(a, b * c)
+        a * b * c = a * b * from_nat(abs(c))
+        a * b * c = mul_nat(a * b, abs(c))
+        a * b * c = a * mul_nat(b, abs(c))
+        a * b * c = a * (b * from_nat(abs(c)))
+        a * b * c = a * (b * c)
     }
 }
 
