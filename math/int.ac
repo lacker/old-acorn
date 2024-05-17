@@ -40,9 +40,9 @@ theorem one_neq_zero: 1 != 0 by {
 // We will use this as the primary representation for proving things about integers, so we prove
 // as many useful things about sub_nat as we can, before defining more stuff.
 define sub_nat(m: Nat, n: Nat) -> Int: if nat.lte(n, m) {
-    from_nat(Nat.sub(m, n))
+    from_nat(m - n)
     } else {
-    negate(from_nat(Nat.sub(n, m)))
+    negate(from_nat(n - m))
 }
 
 theorem sub_nat_zero_right(n: Nat): sub_nat(n, nat.0) = from_nat(n)
