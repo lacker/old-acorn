@@ -106,8 +106,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): a + b + c = a + (b + c) by {
     induction(f)
     forall(x: Nat) {
         if f(x) {
-            Nat.add(Nat.add(suc(x), b), c) = suc(Nat.add(x + b, c))
-            Nat.add(Nat.add(suc(x), b), c) = Nat.add(suc(x), b + c)
+            suc(x) + b + c = suc(x + b + c)
+            suc(x) + b + c = suc(x) + (b + c)
             f(suc(x))
         }
     }
@@ -140,19 +140,19 @@ theorem mul_suc_left(a: Nat, b: Nat): mul(suc(a), b) = Nat.add(b, mul(a, b)) by 
     f(0)
     forall(x: Nat) {
         if f(x) {
-            mul(suc(a), x) = Nat.add(x, mul(a, x))
-            mul(suc(a), suc(x)) = Nat.add(suc(a), mul(suc(a), x))
-            mul(suc(a), suc(x)) = Nat.add(suc(a), Nat.add(x, mul(a, x)))
-            mul(a, suc(x)) = Nat.add(a, mul(a, x))
-            Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(Nat.add(suc(a), x), mul(a, x))
-            Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(suc(a + x), mul(a, x))
-            Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(suc(x + a), mul(a, x))
-            Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(Nat.add(suc(x), a), mul(a, x))
+            mul(suc(a), x) = x + mul(a, x)
+            mul(suc(a), suc(x)) = suc(a) + mul(suc(a), x)
+            mul(suc(a), suc(x)) = suc(a) + (x + mul(a, x))
+            mul(a, suc(x)) = a + mul(a, x)
+            suc(a) + (x + mul(a, x)) = suc(a) + x + mul(a, x)
+            suc(a) + (x + mul(a, x)) = suc(a + x) + mul(a, x)
+            suc(a) + (x + mul(a, x)) = suc(x + a) + mul(a, x)
+            suc(a) + (x + mul(a, x)) = suc(x) + a + mul(a, x)
             add_assoc(suc(x), a, mul(a, x))
-            Nat.add(Nat.add(suc(x), a), mul(a, x)) = Nat.add(suc(x), Nat.add(a, mul(a, x)))
-            Nat.add(suc(a), Nat.add(x, mul(a, x))) = Nat.add(suc(x), Nat.add(a, mul(a, x)))
-            mul(suc(a), suc(x)) = Nat.add(suc(x), Nat.add(a, mul(a, x)))
-            mul(suc(a), suc(x)) = Nat.add(suc(x), mul(a, suc(x)))
+            suc(x) + a + mul(a, x) = suc(x) + (a + mul(a, x))
+            suc(a) + (x + mul(a, x)) = suc(x) + (a + mul(a, x))
+            mul(suc(a), suc(x)) = suc(x) + (a + mul(a, x))
+            mul(suc(a), suc(x)) = suc(x) + mul(a, suc(x))
             f(suc(x))
         }
     }
