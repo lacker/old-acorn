@@ -433,9 +433,9 @@ theorem add_sub_nat(p: Nat, q: Nat, r: Nat, s: Nat):
 }
 
 theorem add_sub_nat_3_left(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat, u: Nat):
-    Int.add((sub_nat(p, q) + sub_nat(r, s)), sub_nat(t, u)) = sub_nat(nat.add(nat.add(p, r), t), nat.add(nat.add(q, s), u)) by {
-    let lhs: Int = Int.add((sub_nat(p, q) + sub_nat(r, s)), sub_nat(t, u))
-    lhs = Int.add(sub_nat(nat.add(p, r), nat.add(q, s)), sub_nat(t, u))
+    sub_nat(p, q) + sub_nat(r, s) + sub_nat(t, u) = sub_nat(nat.add(nat.add(p, r), t), nat.add(nat.add(q, s), u)) by {
+    let lhs: Int = sub_nat(p, q) + sub_nat(r, s) + sub_nat(t, u)
+    lhs = sub_nat(nat.add(p, r), nat.add(q, s)) + sub_nat(t, u)
     lhs = sub_nat(nat.add(nat.add(p, r), t), nat.add(nat.add(q, s), u))
 }
 
