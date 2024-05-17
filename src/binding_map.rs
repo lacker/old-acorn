@@ -935,7 +935,10 @@ impl BindingMap {
                     Err(e) => Err(e),
                 };
                 stack.remove_all(&arg_names);
-                if token.token_type == TokenType::Function && expected_type.is_some() {
+                if ret_val.is_ok()
+                    && token.token_type == TokenType::Function
+                    && expected_type.is_some()
+                {
                     // We could check this before creating the value rather than afterwards.
                     // It seems theoretically faster but I'm not sure if there's any reason to.
                     check_type(token, expected_type, &ret_val.as_ref().unwrap().get_type())?;

@@ -5,10 +5,10 @@ type Nat: nat.Nat
 let suc: Nat -> Nat = nat.suc
 let 0: Nat = nat.0
 let 1: Nat = nat.1
-let add: (Nat, Nat) -> Nat = nat.Nat.add
 let lt: (Nat, Nat) -> Bool = nat.lt
 let lte: (Nat, Nat) -> Bool = nat.lte
 let mul: (Nat, Nat) -> Nat = nat.mul
+
 let divides: (Nat, Nat) -> Bool = nat.divides
 type NatPair: nat.NatPair
 
@@ -67,19 +67,19 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(suc(
         forall(x: Nat) {
             !lte(f(x), f(suc(x)))
         }
-        let h: Nat -> Bool = function(x: Nat) { lte(add(x, f(x)), f(0)) }
+        let h: Nat -> Bool = function(x: Nat) { lte(x + f(x), f(0)) }
         nat.induction(h)
-        lte(add(0, f(0)), f(0))
+        lte(0 + f(0), f(0))
         h(0)
         forall(x: Nat) {
             if h(x) {
-                lte(add(x, f(x)), f(0))
+                lte(x + f(x), f(0))
                 !lte(f(x), f(suc(x)))
                 lt(f(suc(x)), f(x))
-                lt(add(x, f(suc(x))), add(x, f(x)))
-                lte(suc(add(x, f(suc(x)))), add(x, f(x)))
-                lte(add(suc(x), f(suc(x))), add(x, f(x)))
-                lte(add(suc(x), f(suc(x))), f(0))
+                lt(x + f(suc(x)), x + f(x))
+                lte(suc(x + f(suc(x))), x + f(x))
+                lte(suc(x) + f(suc(x)), x + f(x))
+                lte(suc(x) + f(suc(x)), f(0))
                 h(suc(x))
             }
         }
@@ -87,9 +87,9 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { lte(f(x), f(suc(
             h(x)
         }
         h(suc(f(0)))
-        lte(add(suc(f(0)), f(suc(f(0)))), f(0))
-        lte(suc(f(0)), add(suc(f(0)), f(suc(f(0)))))
-        let z: Nat = add(suc(f(0)), f(suc(f(0))))
+        lte(suc(f(0)) + f(suc(f(0))), f(0))
+        lte(suc(f(0)), suc(f(0)) + f(suc(f(0))))
+        let z: Nat = suc(f(0)) + f(suc(f(0)))
         lte(z, f(0))
         lte(suc(f(0)), z)
         lte(suc(f(0)), f(0))
