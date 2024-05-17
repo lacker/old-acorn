@@ -1071,8 +1071,8 @@ theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(a + b), nat.add(abs(a), abs(b
 }
 
 theorem lt_mul_pos(a: Int, b: Int, c: Int): lt(a, b) & is_positive(c) -> lt(a * c, b * c) by {
-    b * c - a * c = Int.mul(b - a, c)
-    b * c - a * c = Int.mul(c, b - a)
+    b * c - a * c = (b - a) * c
+    b * c - a * c = c * (b - a)
     is_positive(b - a)
     is_positive(b * c - a * c)
 }
@@ -1081,7 +1081,7 @@ theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(b * 
     a * c - b * c = Int.mul(c, a - b)
     is_positive(b - a)
     is_negative(a - b)
-    is_positive(Int.mul(c, a - b))
+    is_positive(c * (a - b))
     is_positive(a * c - b * c)
 }
 
@@ -1181,25 +1181,25 @@ theorem unit_sign_is_unit(a: Int): is_unit(unit_sign(a)) by {
     }
 }
 
-theorem abs_decomp(a: Int): Int.mul(unit_sign(a), from_nat(abs(a))) = a by {
+theorem abs_decomp(a: Int): unit_sign(a) * from_nat(abs(a)) = a by {
     if is_negative(a) {
         unit_sign(a) = negate(1)
-        Int.mul(unit_sign(a), from_nat(abs(a))) = Int.mul(negate(1), from_nat(abs(a)))
-        Int.mul(unit_sign(a), from_nat(abs(a))) = negate(from_nat(abs(a)))
-        Int.mul(unit_sign(a), from_nat(abs(a))) = a
+        unit_sign(a) * from_nat(abs(a)) = negate(1) * from_nat(abs(a))
+        unit_sign(a) * from_nat(abs(a)) = negate(from_nat(abs(a)))
+        unit_sign(a) * from_nat(abs(a)) = a
     } else {
         unit_sign(a) = 1
-        Int.mul(unit_sign(a), from_nat(abs(a))) = Int.mul(1, from_nat(abs(a)))
-        Int.mul(unit_sign(a), from_nat(abs(a))) = from_nat(abs(a))
-        Int.mul(unit_sign(a), from_nat(abs(a))) = a
+        unit_sign(a) * from_nat(abs(a)) = 1 * from_nat(abs(a))
+        unit_sign(a) * from_nat(abs(a)) = from_nat(abs(a))
+        unit_sign(a) * from_nat(abs(a)) = a
     }
 }
 
-theorem abs_alt_decomp(a: Int): Int.mul(unit_sign(a), a) = from_nat(abs(a)) by {
-    Int.mul(unit_sign(a), a) = Int.mul(unit_sign(a), Int.mul(unit_sign(a), from_nat(abs(a))))
-    Int.mul(unit_sign(a), a) = Int.mul(Int.mul(unit_sign(a), unit_sign(a)), from_nat(abs(a)))
+theorem abs_alt_decomp(a: Int): unit_sign(a) * a = from_nat(abs(a)) by {
+    unit_sign(a) * a = Int.mul(unit_sign(a), unit_sign(a) * from_nat(abs(a)))
+    unit_sign(a) * a = Int.mul(Int.mul(unit_sign(a), unit_sign(a)), from_nat(abs(a)))
     Int.mul(unit_sign(a), unit_sign(a)) = 1
-    Int.mul(unit_sign(a), a) = Int.mul(1, from_nat(abs(a)))
+    unit_sign(a) * a = Int.mul(1, from_nat(abs(a)))
 }
 
 define divides(a: Int, b: Int) -> Bool: exists(d: Int) { d * a = b }
@@ -1237,10 +1237,10 @@ theorem div_abs_imp_div(a: Int, b: Int): nat.divides(abs(a), abs(b)) -> divides(
 
 theorem abs_eq_imp_unit(a: Int, b: Int): abs(a) = abs(b) -> exists(u: Int) { is_unit(u) & u * a = b } by {
     from_nat(abs(a)) = from_nat(abs(b))
-    Int.mul(unit_sign(a), a) = from_nat(abs(a))
+    unit_sign(a) * a = from_nat(abs(a))
     b = Int.mul(unit_sign(b), from_nat(abs(b)))
     b = Int.mul(unit_sign(b), from_nat(abs(a)))
-    b = Int.mul(unit_sign(b), Int.mul(unit_sign(a), a))
+    b = Int.mul(unit_sign(b), unit_sign(a) * a)
     b = Int.mul(Int.mul(unit_sign(b), unit_sign(a)), a)
     is_unit(unit_sign(b))
     is_unit(unit_sign(a))
