@@ -644,204 +644,203 @@ class Int {
     }
 }
 
-theorem mul_zero_right(a: Int): Int.mul(a, 0) = 0 by {
+theorem mul_zero_right(a: Int): a * 0 = 0 by {
     !is_positive(0)
-    Int.mul(a, 0) = negate(mul_nat(a, nat.0))
-    Int.mul(a, 0) = negate(0)
+    a * 0 = negate(mul_nat(a, nat.0))
+    a * 0 = negate(0)
 }
 
-theorem mul_nat_from_nat_right(a: Int, n: Nat): mul_nat(a, n) = Int.mul(a, from_nat(n)) by {
+theorem mul_nat_from_nat_right(a: Int, n: Nat): mul_nat(a, n) = (a * from_nat(n)) by {
     if n = nat.0 {
-        Int.mul(a, from_nat(n)) = mul_nat(a, abs(from_nat(n)))
+        a * from_nat(n) = mul_nat(a, abs(from_nat(n)))
     } else {
-        Int.mul(a, from_nat(n)) = mul_nat(a, abs(from_nat(n)))
+        a * from_nat(n) = mul_nat(a, abs(from_nat(n)))
     }
 }
 
-theorem mul_nonneg_right(a: Int, b: Int): !is_negative(b) -> Int.mul(a, b) = mul_nat(a, abs(b)) by {
+theorem mul_nonneg_right(a: Int, b: Int): !is_negative(b) -> a * b = mul_nat(a, abs(b)) by {
     if b = 0 {
-        Int.mul(a, b) = 0
+        a * b = 0
         mul_nat(a, abs(b)) = 0
-        Int.mul(a, b) = mul_nat(a, abs(b))
+        a * b = mul_nat(a, abs(b))
     } else {
-        Int.mul(a, b) = mul_nat(a, abs(b))
+        a * b = mul_nat(a, abs(b))
     }
 }
 
 theorem mul_nonneg_nonneg(a: Int, b: Int):
-    !is_negative(a) & !is_negative(b) -> Int.mul(a, b) = from_nat(nat.mul(abs(a), abs(b))) by {
-    Int.mul(a, b) = mul_nat(a, abs(b))
+    !is_negative(a) & !is_negative(b) -> a * b = from_nat(nat.mul(abs(a), abs(b))) by {
+    a * b = mul_nat(a, abs(b))
 }
 
 theorem mul_nonneg_nonpos(a: Int, b: Int):
-    !is_negative(a) & !is_positive(b) -> Int.mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b)))) by {
-    Int.mul(a, b) = negate(mul_nat(a, abs(b)))
+    !is_negative(a) & !is_positive(b) -> a * b = negate(from_nat(nat.mul(abs(a), abs(b)))) by {
+    a * b = negate(mul_nat(a, abs(b)))
 }
 
 theorem mul_nonpos_nonneg(a: Int, b: Int):
-    !is_positive(a) & !is_negative(b) -> Int.mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b)))) by {
-    Int.mul(a, b) = mul_nat(a, abs(b))
+    !is_positive(a) & !is_negative(b) -> a * b = negate(from_nat(nat.mul(abs(a), abs(b)))) by {
+    a * b = mul_nat(a, abs(b))
 }
 
 theorem mul_nonpos_nonpos(a: Int, b: Int):
-    !is_positive(a) & !is_positive(b) -> Int.mul(a, b) = from_nat(nat.mul(abs(a), abs(b))) by {
-    Int.mul(a, b) = negate(mul_nat(a, abs(b)))
-    Int.mul(a, b) = negate(negate(from_nat(nat.mul(abs(a), abs(b)))))
+    !is_positive(a) & !is_positive(b) -> a * b = from_nat(nat.mul(abs(a), abs(b))) by {
+    a * b = negate(mul_nat(a, abs(b)))
+    a * b = negate(negate(from_nat(nat.mul(abs(a), abs(b)))))
 }
 
-theorem mul_nonneg_nonneg_nonneg(a: Int, b: Int): !is_negative(a) & !is_negative(b) -> !is_negative(Int.mul(a, b)) by {
-    Int.mul(a, b) = from_nat(nat.mul(abs(a), abs(b)))
+theorem mul_nonneg_nonneg_nonneg(a: Int, b: Int): !is_negative(a) & !is_negative(b) -> !is_negative(a * b) by {
+    a * b = from_nat(nat.mul(abs(a), abs(b)))
     !is_negative(from_nat(nat.mul(abs(a), abs(b))))
 }
 
-theorem mul_nonneg_nonpos_nonpos(a: Int, b: Int): !is_negative(a) & !is_positive(b) -> !is_positive(Int.mul(a, b)) by {
-    Int.mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b))))
+theorem mul_nonneg_nonpos_nonpos(a: Int, b: Int): !is_negative(a) & !is_positive(b) -> !is_positive(a * b) by {
+    a * b = negate(from_nat(nat.mul(abs(a), abs(b))))
     !is_positive(negate(from_nat(nat.mul(abs(a), abs(b)))))
 }
 
-theorem mul_nonpos_nonneg_nonpos(a: Int, b: Int): !is_positive(a) & !is_negative(b) -> !is_positive(Int.mul(a, b)) by {
-    Int.mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b))))
+theorem mul_nonpos_nonneg_nonpos(a: Int, b: Int): !is_positive(a) & !is_negative(b) -> !is_positive(a * b) by {
+    a * b = negate(from_nat(nat.mul(abs(a), abs(b))))
     !is_positive(negate(from_nat(nat.mul(abs(a), abs(b)))))
 }
 
-theorem mul_nonpos_nonpos_nonneg(a: Int, b: Int): !is_positive(a) & !is_positive(b) -> !is_negative(Int.mul(a, b)) by {
-    Int.mul(a, b) = from_nat(nat.mul(abs(a), abs(b)))
+theorem mul_nonpos_nonpos_nonneg(a: Int, b: Int): !is_positive(a) & !is_positive(b) -> !is_negative(a * b) by {
+    a * b = from_nat(nat.mul(abs(a), abs(b)))
     !is_negative(from_nat(nat.mul(abs(a), abs(b))))
 }
 
-theorem mul_zero_left(a: Int): Int.mul(0, a) = 0
+theorem mul_zero_left(a: Int): 0 * a = 0
 
-theorem mul_comm(a: Int, b: Int): Int.mul(a, b) = Int.mul(b, a) by {
+theorem mul_comm(a: Int, b: Int): a * b = b * a by {
     if is_positive(a) {
         if is_positive(b) {
-            Int.mul(a, b) = from_nat(nat.mul(abs(a), abs(b)))
-            Int.mul(b, a) = from_nat(nat.mul(abs(b), abs(a)))
-            Int.mul(a, b) = Int.mul(b, a)
+            a * b = from_nat(nat.mul(abs(a), abs(b)))
+            b * a = from_nat(nat.mul(abs(b), abs(a)))
+            a * b = b * a
         } else {
-            Int.mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b))))
-            Int.mul(b, a) = negate(from_nat(nat.mul(abs(b), abs(a))))
-            Int.mul(a, b) = Int.mul(b, a)
+            a * b = negate(from_nat(nat.mul(abs(a), abs(b))))
+            b * a = negate(from_nat(nat.mul(abs(b), abs(a))))
+            a * b = b * a
         }
     } else {
         if is_positive(b) {
-            Int.mul(a, b) = negate(from_nat(nat.mul(abs(a), abs(b))))
-            Int.mul(b, a) = negate(from_nat(nat.mul(abs(b), abs(a))))
-            Int.mul(a, b) = Int.mul(b, a)
+            a * b = negate(from_nat(nat.mul(abs(a), abs(b))))
+            b * a = negate(from_nat(nat.mul(abs(b), abs(a))))
+            a * b = b * a
         } else {
-            Int.mul(a, b) = from_nat(nat.mul(abs(a), abs(b)))
-            Int.mul(b, a) = from_nat(nat.mul(abs(b), abs(a)))
-            Int.mul(a, b) = Int.mul(b, a)
+            a * b = from_nat(nat.mul(abs(a), abs(b)))
+            b * a = from_nat(nat.mul(abs(b), abs(a)))
+            a * b = b * a
         }
     }
 }
 
-theorem mul_one_right(a: Int): Int.mul(a, 1) = a by {
+theorem mul_one_right(a: Int): a * 1 = a by {
     is_positive(1)
-    Int.mul(a, 1) = mul_nat(a, nat.1)
+    a * 1 = mul_nat(a, nat.1)
     if is_positive(a) {
-        Int.mul(a, 1) = from_nat(nat.mul(abs(a), nat.1))
-        Int.mul(a, 1) = from_nat(abs(a))
-        Int.mul(a, 1) = a
+        a * 1 = from_nat(nat.mul(abs(a), nat.1))
+        a * 1 = from_nat(abs(a))
+        a * 1 = a
     } else {
-        Int.mul(a, 1) = negate(from_nat(nat.mul(abs(a), nat.1)))
+        a * 1 = negate(from_nat(nat.mul(abs(a), nat.1)))
         negate(from_nat(abs(a))) = 0 + a
         mul_nat(a, nat.0) + a = negate(from_nat(abs(a)))
-        Int.mul(a, 1) = negate(from_nat(abs(a)))
-        Int.mul(a, 1) = a
+        a * 1 = negate(from_nat(abs(a)))
+        a * 1 = a
     }
 }
 
-theorem mul_one_left(a: Int): Int.mul(1, a) = a
+theorem mul_one_left(a: Int): 1 * a = a
 
-theorem mul_neg_left(a: Int, b: Int): Int.mul(negate(a), b) = negate(Int.mul(a, b)) by {
+theorem mul_neg_left(a: Int, b: Int): negate(a) * b = negate(a * b) by {
     if is_positive(a) {
         if is_positive(b) {
-            Int.mul(negate(a), b) = negate(Int.mul(a, b))
+            negate(a) * b = negate(a * b)
         } else {
-            Int.mul(negate(a), b) = negate(Int.mul(a, b))
+            negate(a) * b = negate(a * b)
         }
     } else {
         if is_positive(b) {
-            Int.mul(negate(a), b) = negate(Int.mul(a, b))
+            negate(a) * b = negate(a * b)
         } else {
-            Int.mul(negate(a), b) = negate(Int.mul(a, b))
+            negate(a) * b = negate(a * b)
         }
     }
 }
 
-theorem mul_neg_right(a: Int, b: Int): Int.mul(a, negate(b)) = negate(Int.mul(a, b))
+theorem mul_neg_right(a: Int, b: Int): a * negate(b) = negate(a * b)
 
-theorem mul_distrib_nonneg_right(a: Int, b: Int, c: Int):
-    !is_negative(c) -> Int.mul(a + b, c) = Int.mul(a, c) + Int.mul(b, c) by {
-    Int.mul(a + b, c) = mul_nat(a + b, abs(c))
-    Int.mul(a + b, c) = mul_nat(a, abs(c)) + mul_nat(b, abs(c))
-    Int.mul(a + b, c) = Int.mul(a, c) + mul_nat(b, abs(c))
-    Int.mul(a + b, c) = Int.mul(a, c) + Int.mul(b, c)
+theorem mul_distrib_nonneg_right(a: Int, b: Int, c: Int): !is_negative(c) -> (a + b) * c = a * c + b * c by {
+    (a + b) * c = mul_nat(a + b, abs(c))
+    (a + b) * c = mul_nat(a, abs(c)) + mul_nat(b, abs(c))
+    (a + b) * c = a * c + mul_nat(b, abs(c))
+    (a + b) * c = a * c + b * c
 }
 
-theorem mul_distrib_right(a: Int, b: Int, c: Int): Int.mul(a + b, c) = Int.mul(a, c) + Int.mul(b, c) by {
+theorem mul_distrib_right(a: Int, b: Int, c: Int): (a + b) * c = a * c + b * c by {
     if is_negative(c) {
         is_positive(negate(c))
-        Int.mul(a + b, negate(c)) = Int.mul(a, negate(c)) + Int.mul(b, negate(c))
-        Int.mul(a + b, negate(c)) = negate(Int.mul(a, c)) + Int.mul(b, negate(c))
-        Int.mul(a + b, negate(c)) = negate(Int.mul(a, c)) + negate(Int.mul(b, c))
-        Int.mul(a + b, negate(c)) = negate(Int.mul(a, c) + Int.mul(b, c))
-        negate(Int.mul(a + b, c)) = negate(Int.mul(a, c) + Int.mul(b, c))
-        Int.mul(a + b, c) = Int.mul(a, c) + Int.mul(b, c)
+        (a + b) * negate(c) = a * negate(c) + b * negate(c)
+        (a + b) * negate(c) = negate(a * c) + b * negate(c)
+        (a + b) * negate(c) = negate(a * c) + negate(b * c)
+        (a + b) * negate(c) = negate(a * c + b * c)
+        negate((a + b) * c) = negate(a * c + b * c)
+        (a + b) * c = a * c + b * c
     } else {
-        Int.mul(a + b, c) = Int.mul(a, c) + Int.mul(b, c)
+        (a + b) * c = a * c + b * c
     }
 }
 
-theorem mul_distrib_left(a: Int, b: Int, c: Int): Int.mul(a, b + c) = Int.mul(a, b) + Int.mul(a, c) by {
-    Int.mul(a, b + c) = Int.mul(b + c, a)
-    Int.mul(a, b + c) = Int.mul(b, a) + Int.mul(c, a)
-    Int.mul(a, b + c) = Int.mul(a, b) + Int.mul(c, a)
+theorem mul_distrib_left(a: Int, b: Int, c: Int): a * (b + c) = a * b + a * c by {
+    a * (b + c) = (b + c) * a
+    a * (b + c) = b * a + c * a
+    a * (b + c) = a * b + c * a
 }
 
-theorem mul_sub_distrib_right(a: Int, b: Int, c: Int): Int.mul(a - b, c) = Int.mul(a, c) - Int.mul(b, c) by {
-    Int.mul(a - b, c) = Int.mul(a + negate(b), c)
-    Int.mul(a - b, c) = Int.mul(a, c) + Int.mul(negate(b), c)
-    Int.mul(a - b, c) = Int.mul(a, c) + negate(Int.mul(b, c))
-    Int.mul(a - b, c) = Int.mul(a, c) - Int.mul(b, c)
+theorem mul_sub_distrib_right(a: Int, b: Int, c: Int): (a - b) * c = a * c - b * c by {
+    (a - b) * c = (a + negate(b)) * c
+    (a - b) * c = a * c + negate(b) * c
+    (a - b) * c = a * c + negate(b * c)
+    (a - b) * c = a * c - b * c
 }
 
-theorem mul_sub_distrib_left(a: Int, b: Int, c: Int): Int.mul(a, b - c) = Int.mul(a, b) - Int.mul(a, c) by {
-    Int.mul(a, b - c) = Int.mul(a, b + negate(c))
-    Int.mul(a, b - c) = Int.mul(a, b) + Int.mul(a, negate(c))
-    Int.mul(a, b - c) = Int.mul(a, b) + negate(Int.mul(a, c))
-    Int.mul(a, b - c) = Int.mul(a, b) - Int.mul(a, c)
+theorem mul_sub_distrib_left(a: Int, b: Int, c: Int): a * (b - c) = a * b - a * c by {
+    a * (b - c) = a * (b + negate(c))
+    a * (b - c) = a * b + a * negate(c)
+    a * (b - c) = a * b + negate(a * c)
+    a * (b - c) = a * b - a * c
 }
 
-theorem abs_mul(a: Int, b: Int): abs(Int.mul(a, b)) = nat.mul(abs(a), abs(b)) by {
+theorem abs_mul(a: Int, b: Int): abs(a * b) = nat.mul(abs(a), abs(b)) by {
     if is_positive(a) {
         if is_positive(b) {
-            abs(Int.mul(a, b)) = nat.mul(abs(a), abs(b))
+            abs(a * b) = nat.mul(abs(a), abs(b))
         } else {
-            abs(mul_nat(a, abs(b))) = abs(Int.mul(a, b))
-            abs(Int.mul(a, b)) = nat.mul(abs(a), abs(b))
+            abs(mul_nat(a, abs(b))) = abs(a * b)
+            abs(a * b) = nat.mul(abs(a), abs(b))
         }
     } else {
         if is_positive(b) {
-            abs(Int.mul(a, b)) = abs(Int.mul(b, a))
+            abs(a * b) = abs(b * a)
             nat.mul(abs(a), abs(b)) = nat.mul(abs(b), abs(a))
-            abs(mul_nat(b, abs(a))) = abs(Int.mul(b, a))
-            nat.mul(pos_part(b), abs(a)) = abs(Int.mul(a, b))
-            abs(Int.mul(a, b)) = nat.mul(abs(a), abs(b))
+            abs(mul_nat(b, abs(a))) = abs(b * a)
+            nat.mul(pos_part(b), abs(a)) = abs(a * b)
+            abs(a * b) = nat.mul(abs(a), abs(b))
         } else {
-            abs(Int.mul(a, b)) = nat.mul(abs(a), abs(b))
+            abs(a * b) = nat.mul(abs(a), abs(b))
         }
     }
 }
 
-theorem mul_from_nat(j: Nat, k: Nat): Int.mul(from_nat(j), from_nat(k)) = from_nat(nat.mul(j, k)) by {
-    abs(Int.mul(from_nat(j), from_nat(k))) = nat.mul(abs(from_nat(j)), abs(from_nat(k)))
-    from_nat(abs(Int.mul(from_nat(j), from_nat(k)))) = from_nat(nat.mul(abs(from_nat(j)), abs(from_nat(k))))
+theorem mul_from_nat(j: Nat, k: Nat): from_nat(j) * from_nat(k) = from_nat(nat.mul(j, k)) by {
+    abs(from_nat(j) * from_nat(k)) = nat.mul(abs(from_nat(j)), abs(from_nat(k)))
+    from_nat(abs(from_nat(j) * from_nat(k))) = from_nat(nat.mul(abs(from_nat(j)), abs(from_nat(k))))
     !is_negative(from_nat(j))
     !is_negative(from_nat(k))
-    !is_negative(Int.mul(from_nat(j), from_nat(k)))
-    from_nat(abs(Int.mul(from_nat(j), from_nat(k)))) = Int.mul(from_nat(j), from_nat(k))
-    Int.mul(from_nat(j), from_nat(k)) = from_nat(nat.mul(abs(from_nat(j)), abs(from_nat(k))))
+    !is_negative(from_nat(j) * from_nat(k))
+    from_nat(abs(from_nat(j) * from_nat(k))) = from_nat(j) * from_nat(k)
+    from_nat(j) * from_nat(k) = from_nat(nat.mul(abs(from_nat(j)), abs(from_nat(k))))
 }
 
 theorem abs_zero_imp_zero(a: Int): abs(a) = nat.0 -> a = 0 by {
@@ -849,7 +848,7 @@ theorem abs_zero_imp_zero(a: Int): abs(a) = nat.0 -> a = 0 by {
     !is_positive(a)
 }
 
-theorem mul_zero_imp_factor_zero(a: Int, b: Int): Int.mul(a, b) = 0 -> a = 0 | b = 0 by {
+theorem mul_zero_imp_factor_zero(a: Int, b: Int): a * b = 0 -> a = 0 | b = 0 by {
     nat.mul(abs(a), abs(b)) = nat.0
     abs(a) = nat.0 | abs(b) = nat.0
     if abs(a) = nat.0 {
@@ -859,11 +858,11 @@ theorem mul_zero_imp_factor_zero(a: Int, b: Int): Int.mul(a, b) = 0 -> a = 0 | b
     }
 }
 
-theorem mul_pos_pos(a: Int, b: Int): is_positive(a) & is_positive(b) -> is_positive(Int.mul(a, b)) by {
+theorem mul_pos_pos(a: Int, b: Int): is_positive(a) & is_positive(b) -> is_positive(a * b) by {
     !is_negative(a)
     !is_negative(b)
-    !is_negative(Int.mul(a, b))
-    if Int.mul(a, b) = 0 {
+    !is_negative(a * b)
+    if a * b = 0 {
         if a = 0 {
             !is_positive(a)
             false
@@ -873,19 +872,19 @@ theorem mul_pos_pos(a: Int, b: Int): is_positive(a) & is_positive(b) -> is_posit
             false
         }
     } else {
-        is_positive(Int.mul(a, b))
+        is_positive(a * b)
     }
 }
 
-theorem mul_pos_neg(a: Int, b: Int): is_positive(a) & is_negative(b) -> is_negative(Int.mul(a, b))
+theorem mul_pos_neg(a: Int, b: Int): is_positive(a) & is_negative(b) -> is_negative(a * b)
 
-theorem mul_neg_pos(a: Int, b: Int): is_negative(a) & is_positive(b) -> is_negative(Int.mul(a, b))
+theorem mul_neg_pos(a: Int, b: Int): is_negative(a) & is_positive(b) -> is_negative(a * b)
 
-theorem mul_neg_neg(a: Int, b: Int): is_negative(a) & is_negative(b) -> is_positive(Int.mul(a, b)) by {
+theorem mul_neg_neg(a: Int, b: Int): is_negative(a) & is_negative(b) -> is_positive(a * b) by {
     is_positive(negate(a))
-    is_negative(Int.mul(negate(a), b))
-    is_negative(negate(Int.mul(a, b)))
-    is_positive(Int.mul(a, b))
+    is_negative(negate(a) * b)
+    is_negative(negate(a * b))
+    is_positive(a * b)
 }
 
 theorem mul_int_nat_nat_assoc(a: Int, j: Nat, k: Nat): mul_nat(a, nat.mul(j, k)) = mul_nat(mul_nat(a, j), k) by {
@@ -918,44 +917,44 @@ theorem mul_int_nat_nat_assoc(a: Int, j: Nat, k: Nat): mul_nat(a, nat.mul(j, k))
     }
 }
 
-theorem mul_int_int_nat_assoc(a: Int, b: Int, n: Nat): mul_nat(Int.mul(a, b), n) = Int.mul(a, mul_nat(b, n)) by {
+theorem mul_int_int_nat_assoc(a: Int, b: Int, n: Nat): mul_nat(a * b, n) = Int.mul(a, mul_nat(b, n)) by {
     if is_negative(b) {
         b = negate(from_nat(abs(b)))
-        mul_nat(Int.mul(a, b), n) = mul_nat(Int.mul(a, negate(from_nat(abs(b)))), n)
-        mul_nat(Int.mul(a, b), n) = mul_nat(negate(mul_nat(a, abs(b))), n)
-        mul_nat(Int.mul(a, b), n) = negate(mul_nat(mul_nat(a, abs(b)), n))
-        mul_nat(Int.mul(a, b), n) = negate(mul_nat(a, nat.mul(abs(b), n)))
-        mul_nat(Int.mul(a, b), n) = negate(Int.mul(a, from_nat(nat.mul(abs(b), n))))
-        mul_nat(Int.mul(a, b), n) = Int.mul(a, negate(from_nat(nat.mul(abs(b), n))))
-        mul_nat(Int.mul(a, b), n) = Int.mul(a, mul_nat(negate(from_nat(abs(b))), n))
-        mul_nat(Int.mul(a, b), n) = Int.mul(a, mul_nat(b, n))
+        mul_nat(a * b, n) = mul_nat(a * negate(from_nat(abs(b))), n)
+        mul_nat(a * b, n) = mul_nat(negate(mul_nat(a, abs(b))), n)
+        mul_nat(a * b, n) = negate(mul_nat(mul_nat(a, abs(b)), n))
+        mul_nat(a * b, n) = negate(mul_nat(a, nat.mul(abs(b), n)))
+        mul_nat(a * b, n) = negate(a * from_nat(nat.mul(abs(b), n)))
+        mul_nat(a * b, n) = Int.mul(a, negate(from_nat(nat.mul(abs(b), n))))
+        mul_nat(a * b, n) = Int.mul(a, mul_nat(negate(from_nat(abs(b))), n))
+        mul_nat(a * b, n) = Int.mul(a, mul_nat(b, n))
     } else {
-        Int.mul(a, b) = mul_nat(a, abs(b))
-        mul_nat(a, nat.mul(abs(b), n)) = mul_nat(Int.mul(a, b), n)
+        a * b = mul_nat(a, abs(b))
+        mul_nat(a, nat.mul(abs(b), n)) = mul_nat(a * b, n)
         from_nat(nat.mul(abs(b), n)) = mul_nat(b, n)
         mul_nat(a, nat.mul(abs(b), n)) = Int.mul(a, mul_nat(b, n))
-        mul_nat(Int.mul(a, b), n) = Int.mul(a, mul_nat(b, n))
+        mul_nat(a * b, n) = Int.mul(a, mul_nat(b, n))
     }
 }
 
-theorem mul_assoc(a: Int, b: Int, c: Int): Int.mul(Int.mul(a, b), c) = Int.mul(a, Int.mul(b, c)) by {
+theorem mul_assoc(a: Int, b: Int, c: Int): Int.mul(a * b, c) = Int.mul(a, b * c) by {
     if is_negative(c) {
         c = negate(from_nat(abs(c)))
-        Int.mul(Int.mul(a, b), c) = Int.mul(Int.mul(a, b), negate(from_nat(abs(c))))
-        Int.mul(Int.mul(a, b), c) = negate(Int.mul(Int.mul(a, b), from_nat(abs(c))))
-        Int.mul(Int.mul(a, b), c) = negate(mul_nat(Int.mul(a, b), abs(c)))
-        Int.mul(Int.mul(a, b), c) = negate(Int.mul(a, mul_nat(b, abs(c))))
-        Int.mul(Int.mul(a, b), c) = Int.mul(a, negate(mul_nat(b, abs(c))))
-        Int.mul(Int.mul(a, b), c) = Int.mul(a, negate(Int.mul(b, from_nat(abs(c)))))
-        Int.mul(Int.mul(a, b), c) = Int.mul(a, Int.mul(b, negate(from_nat(abs(c)))))
-        Int.mul(Int.mul(a, b), c) = Int.mul(a, Int.mul(b, c))
+        Int.mul(a * b, c) = Int.mul(a * b, negate(from_nat(abs(c))))
+        Int.mul(a * b, c) = negate(Int.mul(a * b, from_nat(abs(c))))
+        Int.mul(a * b, c) = negate(mul_nat(a * b, abs(c)))
+        Int.mul(a * b, c) = negate(Int.mul(a, mul_nat(b, abs(c))))
+        Int.mul(a * b, c) = Int.mul(a, negate(mul_nat(b, abs(c))))
+        Int.mul(a * b, c) = Int.mul(a, negate(Int.mul(b, from_nat(abs(c)))))
+        Int.mul(a * b, c) = Int.mul(a, Int.mul(b, negate(from_nat(abs(c)))))
+        Int.mul(a * b, c) = Int.mul(a, b * c)
     } else {
         c = from_nat(abs(c))
-        Int.mul(Int.mul(a, b), c) = Int.mul(Int.mul(a, b), from_nat(abs(c)))
-        Int.mul(Int.mul(a, b), c) = mul_nat(Int.mul(a, b), abs(c))
-        Int.mul(Int.mul(a, b), c) = Int.mul(a, mul_nat(b, abs(c)))
-        Int.mul(Int.mul(a, b), c) = Int.mul(a, Int.mul(b, from_nat(abs(c))))
-        Int.mul(Int.mul(a, b), c) = Int.mul(a, Int.mul(b, c))
+        Int.mul(a * b, c) = Int.mul(a * b, from_nat(abs(c)))
+        Int.mul(a * b, c) = mul_nat(a * b, abs(c))
+        Int.mul(a * b, c) = Int.mul(a, mul_nat(b, abs(c)))
+        Int.mul(a * b, c) = Int.mul(a, Int.mul(b, from_nat(abs(c))))
+        Int.mul(a * b, c) = Int.mul(a, b * c)
     }
 }
 
@@ -1071,19 +1070,19 @@ theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(a + b), nat.add(abs(a), abs(b
     }
 }
 
-theorem lt_mul_pos(a: Int, b: Int, c: Int): lt(a, b) & is_positive(c) -> lt(Int.mul(a, c), Int.mul(b, c)) by {
-    Int.mul(b, c) - Int.mul(a, c) = Int.mul(b - a, c)
-    Int.mul(b, c) - Int.mul(a, c) = Int.mul(c, b - a)
+theorem lt_mul_pos(a: Int, b: Int, c: Int): lt(a, b) & is_positive(c) -> lt(a * c, b * c) by {
+    b * c - a * c = Int.mul(b - a, c)
+    b * c - a * c = Int.mul(c, b - a)
     is_positive(b - a)
-    is_positive(Int.mul(b, c) - Int.mul(a, c))
+    is_positive(b * c - a * c)
 }
 
-theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(Int.mul(b, c), Int.mul(a, c)) by {
-    Int.mul(a, c) - Int.mul(b, c) = Int.mul(c, a - b)
+theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(b * c, a * c) by {
+    a * c - b * c = Int.mul(c, a - b)
     is_positive(b - a)
     is_negative(a - b)
     is_positive(Int.mul(c, a - b))
-    is_positive(Int.mul(a, c) - Int.mul(b, c))
+    is_positive(a * c - b * c)
 }
 
 theorem lt_trans(a: Int, b: Int, c: Int): lt(a, b) & lt(b, c) -> lt(a, c) by {
@@ -1148,19 +1147,19 @@ define is_unit(a: Int) -> Bool: abs(a) = nat.1
 
 theorem two_units(u: Int): is_unit(u) -> u = 1 | u = negate(1)
 
-theorem unit_squared(u: Int): is_unit(u) -> Int.mul(u, u) = 1 by {
+theorem unit_squared(u: Int): is_unit(u) -> u * u = 1 by {
     if u = 1 {
-        Int.mul(u, u) = 1
+        u * u = 1
     } else {
-        Int.mul(u, u) = 1
+        u * u = 1
     }
 }
 
-theorem mul_units(u: Int, v: Int): is_unit(u) & is_unit(v) -> is_unit(Int.mul(u, v)) by {
-    abs(Int.mul(u, v)) = nat.mul(abs(u), abs(v))
+theorem mul_units(u: Int, v: Int): is_unit(u) & is_unit(v) -> is_unit(u * v) by {
+    abs(u * v) = nat.mul(abs(u), abs(v))
     abs(u) = nat.1
     abs(v) = nat.1
-    abs(Int.mul(u, v)) = nat.1
+    abs(u * v) = nat.1
 }
 
 // Like the sign function, but we force it to be a unit, by considering 0 to have sign 1
@@ -1203,18 +1202,18 @@ theorem abs_alt_decomp(a: Int): Int.mul(unit_sign(a), a) = from_nat(abs(a)) by {
     Int.mul(unit_sign(a), a) = Int.mul(1, from_nat(abs(a)))
 }
 
-define divides(a: Int, b: Int) -> Bool: exists(d: Int) { Int.mul(d, a) = b }
+define divides(a: Int, b: Int) -> Bool: exists(d: Int) { d * a = b }
 
 theorem div_trans(a: Int, b: Int, c: Int): divides(a, b) & divides(b, c) -> divides(a, c) by {
-    exists(d: Int) { Int.mul(d, a) = b }
-    exists(e: Int) { Int.mul(e, b) = c }
-    Int.mul(e, Int.mul(d, a)) = c
-    Int.mul(Int.mul(e, d), a) = c
+    exists(d: Int) { d * a = b }
+    exists(e: Int) { e * b = c }
+    Int.mul(e, d * a) = c
+    Int.mul(e * d, a) = c
     divides(a, c)
 }
 
 theorem div_imp_div_abs(a: Int, b: Int): divides(a, b) -> nat.divides(abs(a), abs(b)) by {
-    exists(d: Int) { Int.mul(d, a) = b }
+    exists(d: Int) { d * a = b }
     nat.mul(abs(d), abs(a)) = abs(b)
     nat.divides(abs(a), abs(b))
 }
@@ -1236,7 +1235,7 @@ theorem div_abs_imp_div(a: Int, b: Int): nat.divides(abs(a), abs(b)) -> divides(
     divides(from_nat(abs(b)), b)
 }
 
-theorem abs_eq_imp_unit(a: Int, b: Int): abs(a) = abs(b) -> exists(u: Int) { is_unit(u) & Int.mul(u, a) = b } by {
+theorem abs_eq_imp_unit(a: Int, b: Int): abs(a) = abs(b) -> exists(u: Int) { is_unit(u) & u * a = b } by {
     from_nat(abs(a)) = from_nat(abs(b))
     Int.mul(unit_sign(a), a) = from_nat(abs(a))
     b = Int.mul(unit_sign(b), from_nat(abs(b)))
@@ -1249,7 +1248,7 @@ theorem abs_eq_imp_unit(a: Int, b: Int): abs(a) = abs(b) -> exists(u: Int) { is_
 }
 
 theorem abs_eq_imp_div(a: Int, b: Int): abs(a) = abs(b) -> divides(a, b) by {
-    exists(u: Int) { is_unit(u) & Int.mul(u, a) = b }
+    exists(u: Int) { is_unit(u) & u * a = b }
 }
 
 theorem div_pos_imp_lte(a: Int, b: Int): divides(a, b) & is_positive(b) -> lte(a, b) by {
@@ -1299,50 +1298,50 @@ theorem gcd_is_gcd(a: Int, b: Int, d: Int): a != 0 & b != 0 & divides(d, a) & di
 // Theorems about the span of a linear combination
 
 define spans(a: Int, b: Int, c: Int) -> Bool: exists(d: Int, e: Int) {
-    Int.mul(d, a) + Int.mul(e, b) = c
+    d * a + e * b = c
 }
 
 theorem spans_zero(a: Int, b: Int): spans(a, b, 0) by {
-    Int.mul(0, a) + Int.mul(0, b) = 0
+    0 * a + 0 * b = 0
 }
 
 theorem spans_left(a: Int, b: Int): spans(a, b, a) by {
-    Int.mul(1, a) + Int.mul(0, b) = a
+    1 * a + 0 * b = a
 }
 
 theorem spans_comm(a: Int, b: Int, c: Int): spans(a, b, c) -> spans(b, a, c) by {
-    exists(d: Int, e: Int) { Int.mul(d, a) + Int.mul(e, b) = c }
-    Int.mul(e, b) + Int.mul(d, a) = c
+    exists(d: Int, e: Int) { d * a + e * b = c }
+    e * b + d * a = c
 }
 
 theorem spans_right(a: Int, b: Int): spans(a, b, b) by {
-    Int.mul(0, a) + Int.mul(1, b) = b
+    0 * a + 1 * b = b
 }
 
-theorem spans_mul_left(a: Int, b: Int, c: Int): spans(a, b, Int.mul(c, a)) by {
-    Int.mul(c, a) + Int.mul(0, b) = Int.mul(c, a)
+theorem spans_mul_left(a: Int, b: Int, c: Int): spans(a, b, c * a) by {
+    c * a + 0 * b = c * a
 }
 
 theorem spans_div_left(a: Int, b: Int, c: Int): divides(a, c) -> spans(a, b, c)
 
-theorem spans_mul_right(a: Int, b: Int, c: Int): spans(a, b, Int.mul(c, b))
+theorem spans_mul_right(a: Int, b: Int, c: Int): spans(a, b, c * b)
 
 theorem spans_div_right(a: Int, b: Int, c: Int): divides(b, c) -> spans(a, b, c) by {
     spans(b, a, c)
 }
 
-theorem spans_mul(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) -> spans(a, b, Int.mul(d, c)) by {
-    exists(e: Int, f: Int) { Int.mul(e, a) + Int.mul(f, b) = c }
-    Int.mul(d, c) = Int.mul(d, Int.mul(e, a) + Int.mul(f, b))
-    Int.mul(d, c) = Int.mul(d, Int.mul(e, a)) + Int.mul(d, Int.mul(f, b))
-    Int.mul(d, c) = Int.mul(Int.mul(d, e), a) + Int.mul(Int.mul(d, f), b)
+theorem spans_mul(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) -> spans(a, b, d * c) by {
+    exists(e: Int, f: Int) { e * a + f * b = c }
+    d * c = Int.mul(d, e * a + f * b)
+    d * c = Int.mul(d, e * a) + Int.mul(d, f * b)
+    d * c = Int.mul(d * e, a) + Int.mul(d * f, b)
 }
 
 theorem spans_add(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) & spans(a, b, d) -> spans(a, b, c + d) by {
-    exists(e: Int, f: Int) { Int.mul(e, a) + Int.mul(f, b) = c }
-    exists(g: Int, h: Int) { Int.mul(g, a) + Int.mul(h, b) = d }
-    c + d = (Int.mul(e, a) + Int.mul(f, b)) + (Int.mul(g, a) + Int.mul(h, b))
-    c + d = (Int.mul(e, a) + Int.mul(g, a)) + (Int.mul(f, b) + Int.mul(h, b))
+    exists(e: Int, f: Int) { e * a + f * b = c }
+    exists(g: Int, h: Int) { g * a + h * b = d }
+    c + d = (e * a + f * b) + (g * a + h * b)
+    c + d = (e * a + g * a) + (f * b + h * b)
     c + d = Int.mul(e + g, a) + Int.mul(f + h, b)
 }
 
