@@ -385,8 +385,8 @@ theorem add_sub_nat_left_pos(p: Nat, q: Nat, r: Nat): (sub_nat(p, q) + from_nat(
 }
 
 theorem add_sub_nat_left_neg(p: Nat, q: Nat, r: Nat): (sub_nat(p, q) + negate(from_nat(r))) = sub_nat(p, nat.add(q, r)) by {
-    (sub_nat(p, q) + negate(from_nat(r))) = negate(Int.add(negate(sub_nat(p, q)), from_nat(r)))
-    (sub_nat(p, q) + negate(from_nat(r))) = negate(Int.add(sub_nat(q, p), from_nat(r)))
+    (sub_nat(p, q) + negate(from_nat(r))) = negate(negate(sub_nat(p, q)) + from_nat(r))
+    (sub_nat(p, q) + negate(from_nat(r))) = negate(sub_nat(q, p) + from_nat(r))
     (sub_nat(p, q) + negate(from_nat(r))) = negate(sub_nat(nat.add(q, r), p))
 }
 
@@ -406,10 +406,10 @@ theorem add_sub_nat_left(p: Nat, q: Nat, a: Int):
 }
 
 theorem add_sub_nat_right(p: Nat, q: Nat, a: Int):
-    Int.add(a, sub_nat(p, q)) = sub_nat(nat.add(pos_part(a), p), nat.add(neg_part(a), q)) by {
-    Int.add(a, sub_nat(p, q)) = (sub_nat(p, q) + a)
-    Int.add(a, sub_nat(p, q)) = sub_nat(nat.add(p, pos_part(a)), nat.add(q, neg_part(a)))
-    Int.add(a, sub_nat(p, q)) = sub_nat(nat.add(pos_part(a), p), nat.add(q, neg_part(a)))
+    a + sub_nat(p, q) = sub_nat(nat.add(pos_part(a), p), nat.add(neg_part(a), q)) by {
+    a + sub_nat(p, q) = (sub_nat(p, q) + a)
+    a + sub_nat(p, q) = sub_nat(nat.add(p, pos_part(a)), nat.add(q, neg_part(a)))
+    a + sub_nat(p, q) = sub_nat(nat.add(pos_part(a), p), nat.add(q, neg_part(a)))
 }
 
 theorem add_sub_nat(p: Nat, q: Nat, r: Nat, s: Nat):
