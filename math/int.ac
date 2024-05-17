@@ -298,12 +298,12 @@ class Int {
                                                       nat.add(neg_part(self), neg_part(other)))
 }
 
-theorem add_zero_left(a: Int): Int.add(0, a) = a by {
+theorem add_zero_left(a: Int): (0 + a) = a by {
     pos_part(0) = nat.0
     neg_part(0) = nat.0
     nat.add(pos_part(0), pos_part(a)) = pos_part(a)
     nat.add(neg_part(0), neg_part(a)) = neg_part(a)
-    Int.add(0, a) = sub_nat(pos_part(a), neg_part(a))
+    (0 + a) = sub_nat(pos_part(a), neg_part(a))
 }
 
 theorem add_zero_right(a: Int): a + 0 = a by {
@@ -455,7 +455,7 @@ theorem add_sub_nat_assoc(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat, u: Nat):
     lhs = (sub_nat(p, q) + Int.add(sub_nat(r, s), sub_nat(t, u)))
 }
 
-theorem add_assoc(a: Int, b: Int, c: Int): Int.add(a, b + c) = Int.add(a + b, c) by {
+theorem add_assoc(a: Int, b: Int, c: Int): a + (b + c) = a + b + (c) by {
     add_sub_nat_assoc(pos_part(a), neg_part(a), pos_part(b), neg_part(b), pos_part(c), neg_part(c))
 }
 
@@ -488,7 +488,7 @@ theorem add_nonneg_nonneg(a: Int, b: Int): !is_negative(a) & !is_negative(b) -> 
 theorem add_nonpos_nonpos(a: Int, b: Int): !is_positive(a) & !is_positive(b) -> !is_positive(a + b)
 
 theorem add_comm_4(a: Int, b: Int, c: Int, d: Int):
-    Int.add(a + b, Int.add(c, d)) = Int.add(a + c, Int.add(b, d)) by {
+    Int.add(a + b, c + d) = Int.add(a + c, b + d) by {
     Int.add(a, b + c) = Int.add(a + c, b)
 }
 
@@ -498,7 +498,7 @@ define sub(a: Int, b: Int) -> Int: Int.add(a, negate(b))
 
 theorem sub_zero_right(a: Int): sub(a, 0) = a by {
     sub(a, 0) = Int.add(a, negate(0))
-    sub(a, 0) = Int.add(a, 0)
+    sub(a, 0) = a + 0
     sub(a, 0) = a
 }
 
@@ -533,7 +533,7 @@ theorem sub_cancel_right(a: Int, b: Int, c: Int): sub(a, c) = sub(b, c) -> a = b
 theorem sub_cancel_left(a: Int, b: Int, c: Int): sub(a, b) = sub(a, c) -> b = c
 
 theorem sub_add_cancel_left(a: Int, b: Int, c: Int): sub(a + b, a + c) = sub(b, c) by {
-    Int.add(Int.add(b, a), negate(a + c)) = sub(b, c)
+    Int.add(b + a, negate(a + c)) = sub(b, c)
     Int.add(a + b, negate(a + c)) = sub(b, c)
 }
 
@@ -747,7 +747,7 @@ theorem mul_one_right(a: Int): mul(a, 1) = a by {
         mul(a, 1) = a
     } else {
         mul(a, 1) = negate(from_nat(nat.mul(abs(a), nat.1)))
-        negate(from_nat(abs(a))) = Int.add(0, a)
+        negate(from_nat(abs(a))) = 0 + a
         Int.add(mul_nat(a, nat.0), a) = negate(from_nat(abs(a)))
         mul(a, 1) = negate(from_nat(abs(a)))
         mul(a, 1) = a
@@ -1046,9 +1046,9 @@ theorem triangle_nonneg_nonpos(a: Int, b: Int):
         !is_negative(negate(b))
         !is_positive(negate(a))
         nat.lte(abs(Int.add(negate(b), negate(a))), nat.add(abs(negate(b)), abs(negate(a))))
-        nat.lte(abs(negate(Int.add(b, a))), nat.add(abs(negate(b)), abs(negate(a))))
-        nat.lte(abs(Int.add(b, a)), nat.add(abs(negate(b)), abs(negate(a))))
-        nat.lte(abs(Int.add(b, a)), nat.add(abs(b), abs(a)))
+        nat.lte(abs(negate(b + a)), nat.add(abs(negate(b)), abs(negate(a))))
+        nat.lte(abs(b + a), nat.add(abs(negate(b)), abs(negate(a))))
+        nat.lte(abs(b + a), nat.add(abs(b), abs(a)))
         nat.lte(abs(a + b), nat.add(abs(b), abs(a)))        
         nat.lte(abs(a + b), nat.add(abs(a), abs(b)))
     }
@@ -1060,8 +1060,8 @@ theorem triangle_ineq(a: Int, b: Int): nat.lte(abs(a + b), nat.add(abs(a), abs(b
             abs(a + b) = nat.add(abs(a), abs(b))
             nat.lte(abs(a + b), nat.add(abs(a), abs(b)))
         } else {
-            nat.lte(abs(Int.add(b, a)), nat.add(abs(b), abs(a)))
-            nat.lte(abs(Int.add(b, a)), nat.add(abs(a), abs(b)))
+            nat.lte(abs(b + a), nat.add(abs(b), abs(a)))
+            nat.lte(abs(b + a), nat.add(abs(a), abs(b)))
             nat.lte(abs(a + b), nat.add(abs(a), abs(b)))
         }
     } else {
@@ -1092,7 +1092,7 @@ theorem lt_mul_neg(a: Int, b: Int, c: Int): lt(a, b) & is_negative(c) -> lt(mul(
 theorem lt_trans(a: Int, b: Int, c: Int): lt(a, b) & lt(b, c) -> lt(a, c) by {
     is_positive(sub(b, a))
     is_positive(sub(c, b))
-    exists(k0: Int) { lt(Int.add(a, k0), Int.add(c, k0)) }
+    exists(k0: Int) { lt(a + k0, c + k0) }
     is_positive(sub(c, a))
 }
 
@@ -1341,12 +1341,12 @@ theorem spans_mul(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) -> spans(a, b,
     mul(d, c) = Int.add(mul(mul(d, e), a), mul(mul(d, f), b)) 
 }
 
-theorem spans_add(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) & spans(a, b, d) -> spans(a, b, Int.add(c, d)) by {
+theorem spans_add(a: Int, b: Int, c: Int, d: Int): spans(a, b, c) & spans(a, b, d) -> spans(a, b, c + d) by {
     exists(e: Int, f: Int) { Int.add(mul(e, a), mul(f, b)) = c }
     exists(g: Int, h: Int) { Int.add(mul(g, a), mul(h, b)) = d }
-    Int.add(c, d) = Int.add(Int.add(mul(e, a), mul(f, b)), Int.add(mul(g, a), mul(h, b)))
-    Int.add(c, d) = Int.add(Int.add(mul(e, a), mul(g, a)), Int.add(mul(f, b), mul(h, b)))
-    Int.add(c, d) = Int.add(mul(Int.add(e, g), a), mul(Int.add(f, h), b))
+    c + d = Int.add(Int.add(mul(e, a), mul(f, b)), Int.add(mul(g, a), mul(h, b)))
+    c + d = Int.add(Int.add(mul(e, a), mul(g, a)), Int.add(mul(f, b), mul(h, b)))
+    c + d = Int.add(mul(e + g, a), mul(f + h, b))
 }
 
 theorem spans_negate(a: Int, b: Int, c: Int): spans(a, b, c) -> spans(a, b, negate(c)) by {
