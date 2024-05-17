@@ -447,19 +447,19 @@ theorem add_sub_nat_3_right(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat, u: Nat):
 }
 
 theorem add_sub_nat_assoc(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat, u: Nat):
-    Int.add((sub_nat(p, q) + sub_nat(r, s)), sub_nat(t, u)) = (sub_nat(p, q) + Int.add(sub_nat(r, s), sub_nat(t, u))) by {
-    let lhs: Int = Int.add((sub_nat(p, q) + sub_nat(r, s)), sub_nat(t, u))
+    sub_nat(p, q) + sub_nat(r, s) + sub_nat(t, u) = sub_nat(p, q) + (sub_nat(r, s) + sub_nat(t, u)) by {
+    let lhs: Int = sub_nat(p, q) + sub_nat(r, s) + sub_nat(t, u)
     lhs = sub_nat(nat.add(nat.add(p, r), t), nat.add(nat.add(q, s), u))
     lhs = sub_nat(nat.add(p, nat.add(r, t)), nat.add(nat.add(q, s), u))
     lhs = sub_nat(nat.add(p, nat.add(r, t)), nat.add(q, nat.add(s, u)))
-    lhs = (sub_nat(p, q) + Int.add(sub_nat(r, s), sub_nat(t, u)))
+    lhs = sub_nat(p, q) + (sub_nat(r, s) + sub_nat(t, u))
 }
 
 theorem add_assoc(a: Int, b: Int, c: Int): a + (b + c) = a + b + (c) by {
     add_sub_nat_assoc(pos_part(a), neg_part(a), pos_part(b), neg_part(b), pos_part(c), neg_part(c))
 }
 
-theorem add_from_nat(a: Nat, b: Nat): Int.add(from_nat(a), from_nat(b)) = from_nat(nat.add(a, b))
+theorem add_from_nat(a: Nat, b: Nat): from_nat(a) + from_nat(b) = from_nat(nat.add(a, b))
 
 theorem add_pos_nonneg(a: Int, b: Int): is_positive(a) & !is_negative(b) -> is_positive(a + b) by {
     if b = 0 {
@@ -487,31 +487,30 @@ theorem add_nonneg_nonneg(a: Int, b: Int): !is_negative(a) & !is_negative(b) -> 
 
 theorem add_nonpos_nonpos(a: Int, b: Int): !is_positive(a) & !is_positive(b) -> !is_positive(a + b)
 
-theorem add_comm_4(a: Int, b: Int, c: Int, d: Int):
-    Int.add(a + b, c + d) = Int.add(a + c, b + d) by {
-    Int.add(a, b + c) = Int.add(a + c, b)
+theorem add_comm_4(a: Int, b: Int, c: Int, d: Int): (a + b) + (c + d) = (a + c) + (b + d) by {
+    a + (b + c) = a + c + b
 }
 
 // Subtraction, and theorems about subtraction
 
-define sub(a: Int, b: Int) -> Int: Int.add(a, negate(b))
+define sub(a: Int, b: Int) -> Int: a + negate(b)
 
 theorem sub_zero_right(a: Int): sub(a, 0) = a by {
-    sub(a, 0) = Int.add(a, negate(0))
+    sub(a, 0) = a + negate(0)
     sub(a, 0) = a + 0
     sub(a, 0) = a
 }
 
 theorem sub_zero_left(a: Int): sub(0, a) = negate(a) by {
-    sub(0, a) = Int.add(0, negate(a))
+    sub(0, a) = 0 + negate(a)
     sub(0, a) = negate(a)
 }
 
 theorem sub_anticomm(a: Int, b: Int): sub(a, b) = negate(sub(b, a)) by {
-    negate(sub(b, a)) = negate(Int.add(b, negate(a)))
-    negate(sub(b, a)) = Int.add(negate(b), negate(negate(a)))
-    negate(sub(b, a)) = Int.add(negate(b), a)
-    negate(sub(b, a)) = Int.add(a, negate(b))
+    negate(sub(b, a)) = negate(b + negate(a))
+    negate(sub(b, a)) = negate(b) + negate(negate(a))
+    negate(sub(b, a)) = negate(b) + a
+    negate(sub(b, a)) = a + negate(b)
 }
 
 theorem sub_self(a: Int): sub(a, a) = 0
