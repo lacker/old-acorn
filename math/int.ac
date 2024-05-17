@@ -608,23 +608,17 @@ theorem mul_nat_distrib_right(a: Int, b: Int, n: Nat): mul_nat(a + b, n) = (mul_
     mul_nat(a + b, nat.0) = 0
     mul_nat(a, nat.0) = 0
     mul_nat(b, nat.0) = 0
-    Int.add(mul_nat(a, nat.0), mul_nat(b, nat.0)) = 0
-    mul_nat(a + b, nat.0) = Int.add(mul_nat(a, nat.0), mul_nat(b, nat.0))
+    mul_nat(a, nat.0) + mul_nat(b, nat.0) = 0
+    mul_nat(a + b, nat.0) = mul_nat(a, nat.0) + mul_nat(b, nat.0)
     f(nat.0)
 
     // Induct
     forall(x: Nat) {
         if f(x) {
-            mul_nat(a + b, x) = Int.add(mul_nat(a, x), mul_nat(b, x))
-            mul_nat(a + b, nat.suc(x)) = Int.add(mul_nat(a + b, x), a + b)
-            mul_nat(a + b, nat.suc(x)) = Int.add(Int.add(mul_nat(a, x), mul_nat(b, x)), a + b)
-            mul_nat(a + b, nat.suc(x)) = Int.add(mul_nat(a, x), Int.add(mul_nat(b, x), a + b))
-            mul_nat(a + b, nat.suc(x)) = Int.add(mul_nat(a, x), Int.add(Int.add(mul_nat(b, x), a), b))
-            mul_nat(a + b, nat.suc(x)) = Int.add(mul_nat(a, x), Int.add(Int.add(a, mul_nat(b, x)), b))
-            mul_nat(a + b, nat.suc(x)) = Int.add(mul_nat(a, x), Int.add(a, Int.add(mul_nat(b, x), b)))
-            mul_nat(a + b, nat.suc(x)) = Int.add(Int.add(mul_nat(a, x), a), Int.add(mul_nat(b, x), b))
-            mul_nat(a + b, nat.suc(x)) = Int.add(mul_nat(a, nat.suc(x)), Int.add(mul_nat(b, x), b))
-            mul_nat(a + b, nat.suc(x)) = Int.add(mul_nat(a, nat.suc(x)), mul_nat(b, nat.suc(x)))
+            mul_nat(a + b, x) = mul_nat(a, x) + mul_nat(b, x)
+            mul_nat(a + b, nat.suc(x)) = (mul_nat(a, x) + a) + (mul_nat(b, x) + b)
+            mul_nat(a + b, nat.suc(x)) = mul_nat(a, nat.suc(x)) + (mul_nat(b, x) + b)
+            mul_nat(a + b, nat.suc(x)) = mul_nat(a, nat.suc(x)) + mul_nat(b, nat.suc(x))
             f(nat.suc(x))
         }
     }
@@ -747,7 +741,7 @@ theorem mul_one_right(a: Int): mul(a, 1) = a by {
     } else {
         mul(a, 1) = negate(from_nat(nat.mul(abs(a), nat.1)))
         negate(from_nat(abs(a))) = 0 + a
-        Int.add(mul_nat(a, nat.0), a) = negate(from_nat(abs(a)))
+        mul_nat(a, nat.0) + a = negate(from_nat(abs(a)))
         mul(a, 1) = negate(from_nat(abs(a)))
         mul(a, 1) = a
     }
@@ -774,11 +768,11 @@ theorem mul_neg_left(a: Int, b: Int): mul(negate(a), b) = negate(mul(a, b)) by {
 theorem mul_neg_right(a: Int, b: Int): mul(a, negate(b)) = negate(mul(a, b))
 
 theorem mul_distrib_nonneg_right(a: Int, b: Int, c: Int):
-    !is_negative(c) -> mul(a + b, c) = Int.add(mul(a, c), mul(b, c)) by {
+    !is_negative(c) -> mul(a + b, c) = mul(a, c) + mul(b, c) by {
     mul(a + b, c) = mul_nat(a + b, abs(c))
-    mul(a + b, c) = Int.add(mul_nat(a, abs(c)), mul_nat(b, abs(c)))
-    mul(a + b, c) = Int.add(mul(a, c), mul_nat(b, abs(c)))
-    mul(a + b, c) = Int.add(mul(a, c), mul(b, c))
+    mul(a + b, c) = mul_nat(a, abs(c)) + mul_nat(b, abs(c))
+    mul(a + b, c) = mul(a, c) + mul_nat(b, abs(c))
+    mul(a + b, c) = mul(a, c) + mul(b, c)
 }
 
 theorem mul_distrib_right(a: Int, b: Int, c: Int): mul(a + b, c) = Int.add(mul(a, c), mul(b, c)) by {
