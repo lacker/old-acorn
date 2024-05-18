@@ -225,8 +225,8 @@ theorem mul_assoc(a: Nat, b: Nat, c: Nat): a * b * c = a * (b * c) by {
     forall(x: Nat) {
         if f(x) {
             x * b * c = x * (b * c)
-            suc(x) * b * c = Nat.mul(b + x * b, c)
-            Nat.mul(b + x * b, c) = b * c + x * b * c
+            suc(x) * b * c = (b + x * b) * c
+            (b + x * b) * c = b * c + x * b * c
             suc(x) * b * c = b * c + x * b * c
             suc(x) * b * c = b * c + x * (b * c)
             suc(x) * b * c = suc(x) * (b * c)
@@ -514,8 +514,8 @@ define is_composite(a: Nat) -> Bool: exists(b: Nat, c: Nat) {
 theorem mul_to_zero(a: Nat, b: Nat): a * b = 0 -> a = 0 | b = 0 by {
     if a != 0 & b != 0 {
         exists(pred_a: Nat) { suc(pred_a) = a }
-        Nat.mul(suc(pred_a), b) = 0
-        b + Nat.mul(pred_a, b) = 0
+        suc(pred_a) * b = 0
+        b + pred_a * b = 0
         false
     }
 }
@@ -523,7 +523,7 @@ theorem mul_to_zero(a: Nat, b: Nat): a * b = 0 -> a = 0 | b = 0 by {
 theorem divisor_lt(a: Nat, b: Nat, c: Nat):
     a != 0 & lt(1, b) & a * b = c -> lt(a, c) by {
     exists(d: Nat) { 1 + d = b & d != 0 }
-    Nat.mul(a, 1 + d) = c
+    a * (1 + d) = c
     1 + d = suc(d)
     a * suc(d) = c
     a + a * d = c
@@ -618,7 +618,7 @@ struct NatPair {
 }
 
 // Takes (n, n!) -> (n+1, (n+1)!)
-define fac_helper(p: NatPair) -> NatPair: NatPair.new(suc(NatPair.first(p)), Nat.mul(suc(NatPair.first(p)), NatPair.second(p)))
+define fac_helper(p: NatPair) -> NatPair: NatPair.new(suc(NatPair.first(p)), suc(NatPair.first(p)) * NatPair.second(p))
 
 // Seems like a shame this isn't proven automatically.
 // Every step in the proof is a pretty simple rewrite.
@@ -627,7 +627,7 @@ theorem fac_helper_alt(a: Nat, b: Nat): fac_helper(NatPair.new(a, b)) = NatPair.
     let p: NatPair = NatPair.new(a, b)
     NatPair.first(p) = a
     NatPair.second(p) = b
-    fac_helper(p) = NatPair.new(suc(NatPair.first(p)), Nat.mul(suc(NatPair.first(p)), NatPair.second(p)))
+    fac_helper(p) = NatPair.new(suc(NatPair.first(p)), suc(NatPair.first(p)) * NatPair.second(p))
     fac_helper(p) = NatPair.new(suc(NatPair.first(p)), suc(a) * b)
 }
 
@@ -996,23 +996,21 @@ theorem div_sub_mod(a: Nat, m: Nat): divides(m, a - mod(a, m)) by {
 }
 
 theorem sub_left_distrib(a: Nat, b: Nat, c: Nat):
-    Nat.mul(a, b - c) = a * b - a * c by {
+    a * (b - c) = a * b - a * c by {
     if a = 0 {
-        Nat.mul(a, b - c) = a * b - a * c
+        a * (b - c) = a * b - a * c
         sub_left_distrib(a, b, c)
     } else {
         if lt(b, c) {
             lt(a * b, a * c)
             a * b - a * c = 0
             b - c = 0
-            Nat.mul(a, b - c) = a * b - a * c
+            a * (b - c) = a * b - a * c
             sub_left_distrib(a, b, c)
         }
         if !lt(b, c) {
             b - c + c = b
-            Nat.mul(a, b - c + c) = Nat.mul(a, b - c) + a * c
-            a * b = Nat.mul(a, b - c) + a * c
-            Nat.mul(a, b - c) = a * b - a * c
+            a * (b - c) = a * b - a * c
             sub_left_distrib(a, b, c)
         }
         sub_left_distrib(a, b, c)
@@ -1021,11 +1019,9 @@ theorem sub_left_distrib(a: Nat, b: Nat, c: Nat):
 }
 
 theorem sub_right_distrib(a: Nat, b: Nat, c: Nat):
-    Nat.mul(a - b, c) = a * c - b * c by {
-    Nat.mul(a - b, c) = Nat.mul(c, a - b)
-    Nat.mul(a - b, c) = c * a - c * b
-    Nat.mul(a - b, c) = a * c - c * b
-    a * c - c * b = a * c - b * c
+    (a - b) * c = a * c - b * c by {
+    (a - b) * c = c * a - c * b
+    (a - b) * c = a * c - c * b
 }
 
 theorem divides_sub(a: Nat, b: Nat, d: Nat):
@@ -1033,8 +1029,8 @@ theorem divides_sub(a: Nat, b: Nat, d: Nat):
     exists(qa: Nat) { qa * d = a }
     exists(qb: Nat) { qb * d = b }
     a - b = qa * d - qb * d
-    a - b = Nat.mul(qa - qb, d)
-    divides(d, Nat.mul(qa - qb, d))
+    a - b = (qa - qb) * d
+    divides(d, (qa - qb) * d)
     divides(d, a - b)
 }
 
