@@ -116,66 +116,68 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): a + b + c = a + (b + c) by {
 
 define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { a + b }
 
-define mul(a: Nat, b: Nat) -> Nat: recursion(adder(a), 0, b)
+class Nat {
+    define mul(self: Nat, b: Nat) -> Nat: recursion(adder(self), 0, b)
+}
 
-theorem mul_zero_right(a: Nat): mul(a, 0) = 0
+theorem mul_zero_right(a: Nat): Nat.mul(a, 0) = 0
 
-theorem mul_zero_left(a: Nat): mul(0, a) = 0 by {
+theorem mul_zero_left(a: Nat): Nat.mul(0, a) = 0 by {
     induction(mul_zero_left)
     mul_zero_left(0)
     forall(x: Nat) {
         if mul_zero_left(x) {
-            adder(0, mul(0, x)) = 0
+            adder(0, Nat.mul(0, x)) = 0
             mul_zero_left(suc(x))
         }
     }
 }
 
-theorem mul_suc_right(a: Nat, b: Nat): mul(a, suc(b)) = a + mul(a, b)
+theorem mul_suc_right(a: Nat, b: Nat): Nat.mul(a, suc(b)) = a + Nat.mul(a, b)
 
-theorem mul_suc_left(a: Nat, b: Nat): mul(suc(a), b) = b + mul(a, b) by {
+theorem mul_suc_left(a: Nat, b: Nat): Nat.mul(suc(a), b) = b + Nat.mul(a, b) by {
     define f(x: Nat) -> Bool: mul_suc_left(a, x)
     induction(f)
-    0 + mul(a, 0) = 0
+    0 + Nat.mul(a, 0) = 0
     f(0)
     forall(x: Nat) {
         if f(x) {
-            mul(suc(a), x) = x + mul(a, x)
-            mul(suc(a), suc(x)) = suc(a) + mul(suc(a), x)
-            mul(suc(a), suc(x)) = suc(a) + (x + mul(a, x))
-            mul(a, suc(x)) = a + mul(a, x)
-            suc(a) + (x + mul(a, x)) = suc(a) + x + mul(a, x)
-            suc(a) + (x + mul(a, x)) = suc(a + x) + mul(a, x)
-            suc(a) + (x + mul(a, x)) = suc(x + a) + mul(a, x)
-            suc(a) + (x + mul(a, x)) = suc(x) + a + mul(a, x)
-            add_assoc(suc(x), a, mul(a, x))
-            suc(x) + a + mul(a, x) = suc(x) + (a + mul(a, x))
-            suc(a) + (x + mul(a, x)) = suc(x) + (a + mul(a, x))
-            mul(suc(a), suc(x)) = suc(x) + (a + mul(a, x))
-            mul(suc(a), suc(x)) = suc(x) + mul(a, suc(x))
+            Nat.mul(suc(a), x) = x + Nat.mul(a, x)
+            Nat.mul(suc(a), suc(x)) = suc(a) + Nat.mul(suc(a), x)
+            Nat.mul(suc(a), suc(x)) = suc(a) + (x + Nat.mul(a, x))
+            Nat.mul(a, suc(x)) = a + Nat.mul(a, x)
+            suc(a) + (x + Nat.mul(a, x)) = suc(a) + x + Nat.mul(a, x)
+            suc(a) + (x + Nat.mul(a, x)) = suc(a + x) + Nat.mul(a, x)
+            suc(a) + (x + Nat.mul(a, x)) = suc(x + a) + Nat.mul(a, x)
+            suc(a) + (x + Nat.mul(a, x)) = suc(x) + a + Nat.mul(a, x)
+            add_assoc(suc(x), a, Nat.mul(a, x))
+            suc(x) + a + Nat.mul(a, x) = suc(x) + (a + Nat.mul(a, x))
+            suc(a) + (x + Nat.mul(a, x)) = suc(x) + (a + Nat.mul(a, x))
+            Nat.mul(suc(a), suc(x)) = suc(x) + (a + Nat.mul(a, x))
+            Nat.mul(suc(a), suc(x)) = suc(x) + Nat.mul(a, suc(x))
             f(suc(x))
         }
     }
     f(b)
 }
 
-theorem mul_one_one: mul(1, 1) = 1 by {
-    mul(1, 1) = mul(1, suc(0))
-    mul(1, 1) = 1 + mul(1, 0)
-    mul(1, 1) = 1 + 0
-    mul(1, 1) = 1
+theorem mul_one_one: Nat.mul(1, 1) = 1 by {
+    Nat.mul(1, 1) = Nat.mul(1, suc(0))
+    Nat.mul(1, 1) = 1 + Nat.mul(1, 0)
+    Nat.mul(1, 1) = 1 + 0
+    Nat.mul(1, 1) = 1
 }
 
-theorem mul_comm(a: Nat, b: Nat): mul(a, b) = mul(b, a) by {
+theorem mul_comm(a: Nat, b: Nat): Nat.mul(a, b) = Nat.mul(b, a) by {
     define f(x: Nat) -> Bool: mul_comm(x, b)
     induction(f)
     f(0)
     forall(x: Nat) {
         if f(x) {
-            mul(x, b) = mul(b, x)
-            mul(suc(x), b) = b + mul(x, b)
-            mul(b, suc(x)) = b + mul(x, b)
-            mul(suc(x), b) = mul(b, suc(x))
+            Nat.mul(x, b) = Nat.mul(b, x)
+            Nat.mul(suc(x), b) = b + Nat.mul(x, b)
+            Nat.mul(b, suc(x)) = b + Nat.mul(x, b)
+            Nat.mul(suc(x), b) = Nat.mul(b, suc(x))
             f(suc(x))
         }
     }
@@ -188,23 +190,23 @@ theorem add_comm_4(a: Nat, b: Nat, c: Nat, d: Nat):
 }
 
 theorem distrib_left(a: Nat, b: Nat, c: Nat):
-    mul(a, b + c) = mul(a, b) + mul(a, c) by {
+    Nat.mul(a, b + c) = Nat.mul(a, b) + Nat.mul(a, c) by {
     define f(x: Nat) -> Bool: distrib_left(x, b, c)
     induction(f)
-    mul(0, b) + 0 = 0
+    Nat.mul(0, b) + 0 = 0
     distrib_left(0, b, c)
     f(0)
     forall(x: Nat) {
         if f(x) {
-            mul(x, b + c) = mul(x, b) + mul(x, c)
-            mul(suc(x), b + c) = b + c + mul(x, b + c)
-            mul(suc(x), b + c) = b + c + (mul(x, b) + mul(x, c))
-            mul(suc(x), b + c) = (b + mul(x, b)) + (c + mul(x, c))
-            b + mul(x, b) = mul(suc(x), b)
-            c + mul(x, c) = mul(suc(x), c)
-            (b + mul(x, b)) + (c + mul(x, c)) = mul(suc(x), b) + (c + mul(x, c))
-            (b + mul(x, b)) + (c + mul(x, c)) = mul(suc(x), b) + mul(suc(x), c)
-            mul(suc(x), b + c) = mul(suc(x), b) + mul(suc(x), c)
+            Nat.mul(x, b + c) = Nat.mul(x, b) + Nat.mul(x, c)
+            Nat.mul(suc(x), b + c) = b + c + Nat.mul(x, b + c)
+            Nat.mul(suc(x), b + c) = b + c + (Nat.mul(x, b) + Nat.mul(x, c))
+            Nat.mul(suc(x), b + c) = (b + Nat.mul(x, b)) + (c + Nat.mul(x, c))
+            b + Nat.mul(x, b) = Nat.mul(suc(x), b)
+            c + Nat.mul(x, c) = Nat.mul(suc(x), c)
+            (b + Nat.mul(x, b)) + (c + Nat.mul(x, c)) = Nat.mul(suc(x), b) + (c + Nat.mul(x, c))
+            (b + Nat.mul(x, b)) + (c + Nat.mul(x, c)) = Nat.mul(suc(x), b) + Nat.mul(suc(x), c)
+            Nat.mul(suc(x), b + c) = Nat.mul(suc(x), b) + Nat.mul(suc(x), c)
             distrib_left(suc(x), b, c)
             f(suc(x))
         }
@@ -212,32 +214,32 @@ theorem distrib_left(a: Nat, b: Nat, c: Nat):
 }
 
 theorem distrib_right(a: Nat, b: Nat, c: Nat):
-    mul(a + b, c) = mul(a, c) + mul(b, c) by {
-    mul(c, a) + mul(b, c) = mul(c, a + b)
+    Nat.mul(a + b, c) = Nat.mul(a, c) + Nat.mul(b, c) by {
+    Nat.mul(c, a) + Nat.mul(b, c) = Nat.mul(c, a + b)
 }
 
-theorem mul_assoc(a: Nat, b: Nat, c: Nat): mul(mul(a, b), c) = mul(a, mul(b, c)) by {
+theorem mul_assoc(a: Nat, b: Nat, c: Nat): Nat.mul(Nat.mul(a, b), c) = Nat.mul(a, Nat.mul(b, c)) by {
     define f(x: Nat) -> Bool: mul_assoc(x, b, c)
     induction(f)
     f(0)
     forall(x: Nat) {
         if f(x) {
-            mul(mul(x, b), c) = mul(x, mul(b, c))
-            mul(mul(suc(x), b), c) = mul(b + mul(x, b), c)
-            mul(b + mul(x, b), c) = mul(b, c) + mul(mul(x, b), c)
-            mul(mul(suc(x), b), c) = mul(b, c) + mul(mul(x, b), c)
-            mul(mul(suc(x), b), c) = mul(b, c) + mul(x, mul(b, c))
-            mul(mul(suc(x), b), c) = mul(suc(x), mul(b, c))
+            Nat.mul(Nat.mul(x, b), c) = Nat.mul(x, Nat.mul(b, c))
+            Nat.mul(Nat.mul(suc(x), b), c) = Nat.mul(b + Nat.mul(x, b), c)
+            Nat.mul(b + Nat.mul(x, b), c) = Nat.mul(b, c) + Nat.mul(Nat.mul(x, b), c)
+            Nat.mul(Nat.mul(suc(x), b), c) = Nat.mul(b, c) + Nat.mul(Nat.mul(x, b), c)
+            Nat.mul(Nat.mul(suc(x), b), c) = Nat.mul(b, c) + Nat.mul(x, Nat.mul(b, c))
+            Nat.mul(Nat.mul(suc(x), b), c) = Nat.mul(suc(x), Nat.mul(b, c))
             f(suc(x))
         }
     }
 }
 
-theorem mul_one_right(a: Nat): mul(a, 1) = a by {
-    a + mul(a, 0) = a
+theorem mul_one_right(a: Nat): Nat.mul(a, 1) = a by {
+    a + Nat.mul(a, 0) = a
 }
 
-theorem mul_one_left(a: Nat): mul(1, a) = a
+theorem mul_one_left(a: Nat): Nat.mul(1, a) = a
 
 // Comparisons
 
@@ -474,29 +476,29 @@ theorem lte_imp_not_lt(a: Nat, b: Nat): lte(a, b) -> !lt(b, a) by {
 }
 
 theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
-    lt(r, n) & m = mul(q, n) + r
+    lt(r, n) & m = Nat.mul(q, n) + r
 } by {
     define f(x: Nat) -> Bool: division_theorem(x, n)
     induction(f)
-    exists(k0: Nat) { mul(k0, n) = 0 }
+    exists(k0: Nat) { Nat.mul(k0, n) = 0 }
     f(0)
     forall(x: Nat) {
         if f(x) {
             division_theorem(x, n)
             exists(q: Nat, r: Nat) {
-                lt(r, n) & x = mul(q, n) + r
+                lt(r, n) & x = Nat.mul(q, n) + r
             }
             if suc(r) = n {
-                suc(x) = suc(mul(q, n) + r)
-                suc(x) = mul(q, n) + suc(r)
-                suc(x) = mul(q, n) + n
-                n + mul(q, n) = suc(x)
-                suc(x) = mul(suc(q), n)
-                suc(x) = mul(suc(q), n) + 0
+                suc(x) = suc(Nat.mul(q, n) + r)
+                suc(x) = Nat.mul(q, n) + suc(r)
+                suc(x) = Nat.mul(q, n) + n
+                n + Nat.mul(q, n) = suc(x)
+                suc(x) = Nat.mul(suc(q), n)
+                suc(x) = Nat.mul(suc(q), n) + 0
                 f(suc(x))
             } else {
                 lt(suc(r), n)
-                suc(x) = mul(q, n) + suc(r)
+                suc(x) = Nat.mul(q, n) + suc(r)
                 f(suc(x))
             }
             f(suc(x))
@@ -506,32 +508,32 @@ theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
 }
 
 define is_composite(a: Nat) -> Bool: exists(b: Nat, c: Nat) {
-    lt(1, b) & lt(1, c) & a = mul(b, c)
+    lt(1, b) & lt(1, c) & a = Nat.mul(b, c)
 }
 
-theorem mul_to_zero(a: Nat, b: Nat): mul(a, b) = 0 -> a = 0 | b = 0 by {
+theorem mul_to_zero(a: Nat, b: Nat): Nat.mul(a, b) = 0 -> a = 0 | b = 0 by {
     if a != 0 & b != 0 {
         exists(pred_a: Nat) { suc(pred_a) = a }
-        mul(suc(pred_a), b) = 0
-        b + mul(pred_a, b) = 0
+        Nat.mul(suc(pred_a), b) = 0
+        b + Nat.mul(pred_a, b) = 0
         false
     }
 }
 
 theorem divisor_lt(a: Nat, b: Nat, c: Nat):
-    a != 0 & lt(1, b) & mul(a, b) = c -> lt(a, c) by {
+    a != 0 & lt(1, b) & Nat.mul(a, b) = c -> lt(a, c) by {
     exists(d: Nat) { 1 + d = b & d != 0 }
-    mul(a, 1 + d) = c
+    Nat.mul(a, 1 + d) = c
     1 + d = suc(d)
-    mul(a, suc(d)) = c
-    a + mul(a, d) = c
-    mul(a, d) != 0
+    Nat.mul(a, suc(d)) = c
+    a + Nat.mul(a, d) = c
+    Nat.mul(a, d) != 0
     a != c
 }
 
 define is_prime(a: Nat) -> Bool: lt(1, a) & !is_composite(a)
 
-define divides(a: Nat, b: Nat) -> Bool: exists(c: Nat) { mul(a, c) = b }
+define divides(a: Nat, b: Nat) -> Bool: exists(c: Nat) { Nat.mul(a, c) = b }
 
 theorem divides_self(a: Nat): divides(a, a)
 
@@ -575,9 +577,9 @@ theorem strong_induction(f: Nat -> Bool): forall(k: Nat) {
 
 theorem divides_trans(a: Nat, b: Nat, c: Nat):
     divides(a, b) & divides(b, c) -> divides(a, c) by {
-    exists(d: Nat) { mul(a, d) = b }
-    exists(e: Nat) { mul(b, e) = c }
-    mul(a, mul(d, e)) = c
+    exists(d: Nat) { Nat.mul(a, d) = b }
+    exists(e: Nat) { Nat.mul(b, e) = c }
+    Nat.mul(a, Nat.mul(d, e)) = c
 }
 
 theorem has_prime_divisor(n: Nat): lt(1, n) -> exists(p: Nat) {
@@ -592,11 +594,11 @@ theorem has_prime_divisor(n: Nat): lt(1, n) -> exists(p: Nat) {
             }
             if is_composite(k) {
                 exists(b: Nat, c: Nat) {
-                    lt(1, b) & lt(1, c) & k = mul(b, c)
+                    lt(1, b) & lt(1, c) & k = Nat.mul(b, c)
                 }
                 b != 0
                 lt(1, c)
-                mul(b, c) = k
+                Nat.mul(b, c) = k
                 lt(b, k)
                 has_prime_divisor(b)
                 exists(p: Nat) {
@@ -616,17 +618,17 @@ struct NatPair {
 }
 
 // Takes (n, n!) -> (n+1, (n+1)!)
-define fac_helper(p: NatPair) -> NatPair: NatPair.new(suc(NatPair.first(p)), mul(suc(NatPair.first(p)), NatPair.second(p)))
+define fac_helper(p: NatPair) -> NatPair: NatPair.new(suc(NatPair.first(p)), Nat.mul(suc(NatPair.first(p)), NatPair.second(p)))
 
 // Seems like a shame this isn't proven automatically.
 // Every step in the proof is a pretty simple rewrite.
 // Really, all the statements about factorials seem like they should be provable automatically.
-theorem fac_helper_alt(a: Nat, b: Nat): fac_helper(NatPair.new(a, b)) = NatPair.new(suc(a), mul(suc(a), b)) by {
+theorem fac_helper_alt(a: Nat, b: Nat): fac_helper(NatPair.new(a, b)) = NatPair.new(suc(a), Nat.mul(suc(a), b)) by {
     let p: NatPair = NatPair.new(a, b)
     NatPair.first(p) = a
     NatPair.second(p) = b
-    fac_helper(p) = NatPair.new(suc(NatPair.first(p)), mul(suc(NatPair.first(p)), NatPair.second(p)))
-    fac_helper(p) = NatPair.new(suc(NatPair.first(p)), mul(suc(a), b))
+    fac_helper(p) = NatPair.new(suc(NatPair.first(p)), Nat.mul(suc(NatPair.first(p)), NatPair.second(p)))
+    fac_helper(p) = NatPair.new(suc(NatPair.first(p)), Nat.mul(suc(a), b))
 }
 
 // Takes n -> (n, n!)
@@ -642,8 +644,8 @@ theorem fac_pair_first(n: Nat): NatPair.first(fac_pair(n)) = n by {
             NatPair.new(NatPair.first(fac_pair(x)), a) = fac_pair(x)
             fac_pair(x) = NatPair.new(x, a)
             fac_pair(suc(x)) = fac_helper(fac_pair(x))
-            fac_pair(suc(x)) = NatPair.new(suc(x), mul(suc(x), a))
-            let b: Nat = mul(suc(x), a)
+            fac_pair(suc(x)) = NatPair.new(suc(x), Nat.mul(suc(x), a))
+            let b: Nat = Nat.mul(suc(x), a)
             fac_pair(suc(x)) = NatPair.new(suc(x), b)
             NatPair.first(NatPair.new(suc(x), b)) = suc(x)
             NatPair.first(fac_pair(suc(x))) = suc(x)
@@ -659,16 +661,16 @@ theorem factorial_zero: factorial(0) = 1
 theorem factorial_one: factorial(1) = 1 by {
     fac_pair(0) = NatPair.new(0, 1)
     fac_pair(1) = fac_helper(fac_pair(0))
-    fac_pair(1) = NatPair.new(1, mul(1, 1))
+    fac_pair(1) = NatPair.new(1, Nat.mul(1, 1))
     fac_pair(1) = NatPair.new(1, 1)
 }
 
-theorem factorial_step(n: Nat): factorial(suc(n)) = mul(suc(n), factorial(n)) by {
+theorem factorial_step(n: Nat): factorial(suc(n)) = Nat.mul(suc(n), factorial(n)) by {
     fac_pair(n) = NatPair.new(n, factorial(n))
     fac_pair(suc(n)) = fac_helper(fac_pair(n))
 
-    fac_pair(suc(n)) = NatPair.new(suc(n), mul(suc(n), factorial(n)))
-    NatPair.second(fac_pair(suc(n))) = mul(suc(n), factorial(n))
+    fac_pair(suc(n)) = NatPair.new(suc(n), Nat.mul(suc(n), factorial(n)))
+    NatPair.second(fac_pair(suc(n))) = Nat.mul(suc(n), factorial(n))
 }
 
 theorem divides_factorial(k: Nat, n: Nat):
@@ -688,7 +690,7 @@ theorem divides_factorial(k: Nat, n: Nat):
                     lte(suc(k), suc(x))
                     lte(k, x)
                     divides(k, factorial(x))
-                    divides(factorial(x), mul(suc(x), factorial(x)))
+                    divides(factorial(x), Nat.mul(suc(x), factorial(x)))
                     divides(factorial(x), factorial(suc(x)))
                     divides(k, factorial(suc(x)))
                 }
@@ -700,7 +702,7 @@ theorem divides_factorial(k: Nat, n: Nat):
 }
 
 theorem factorial_nondecreasing(n: Nat): lte(factorial(n), factorial(suc(n))) by {
-    lte(factorial(n), mul(suc(n), factorial(n)))
+    lte(factorial(n), Nat.mul(suc(n), factorial(n)))
 }
 
 theorem lte_one_factorial(a: Nat): lte(1, factorial(a)) by {
@@ -722,67 +724,67 @@ theorem lt_imp_lt_suc(a: Nat, b: Nat): lt(a, b) -> lt(a, suc(b)) by {
     suc(c) != 0
 }
 
-theorem lte_mul_both(a: Nat, b: Nat, c: Nat): lte(b, c) -> lte(mul(a, b), mul(a, c)) by {
+theorem lte_mul_both(a: Nat, b: Nat, c: Nat): lte(b, c) -> lte(Nat.mul(a, b), Nat.mul(a, c)) by {
     exists(d: Nat) { b + d = c }
-    mul(a, b + d) = mul(a, c)
-    mul(a, b) + mul(a, d) = mul(a, c)
-    lte(mul(a, b), mul(a, c))
+    Nat.mul(a, b + d) = Nat.mul(a, c)
+    Nat.mul(a, b) + Nat.mul(a, d) = Nat.mul(a, c)
+    lte(Nat.mul(a, b), Nat.mul(a, c))
 }
 
-theorem lt_mul_both(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(mul(a, b), mul(a, c)) by {
+theorem lt_mul_both(a: Nat, b: Nat, c: Nat): a != 0 & lt(b, c) -> lt(Nat.mul(a, b), Nat.mul(a, c)) by {
     exists(d: Nat) { b + d = c }
     c != b
     d != 0
-    mul(a, b + d) = mul(a, c)
-    mul(a, b) + mul(a, d) = mul(a, c)
-    mul(a, d) != 0
-    if mul(a, b) = mul(a, c) {
-        mul(a, b) + mul(a, d) = mul(a, b)
-        let y: Nat = mul(a, b)
-        let z: Nat = mul(a, d)
+    Nat.mul(a, b + d) = Nat.mul(a, c)
+    Nat.mul(a, b) + Nat.mul(a, d) = Nat.mul(a, c)
+    Nat.mul(a, d) != 0
+    if Nat.mul(a, b) = Nat.mul(a, c) {
+        Nat.mul(a, b) + Nat.mul(a, d) = Nat.mul(a, b)
+        let y: Nat = Nat.mul(a, b)
+        let z: Nat = Nat.mul(a, d)
         y + z = y
         false
     }
-    lte(mul(a, b), mul(a, c))
-    lt(mul(a, b), mul(a, c))
+    lte(Nat.mul(a, b), Nat.mul(a, c))
+    lt(Nat.mul(a, b), Nat.mul(a, c))
 }
 
-theorem lt_cancel_mul(a: Nat, b: Nat, c: Nat): a != 0 & lt(mul(a, b), mul(a, c)) -> lt(b, c) by {
+theorem lt_cancel_mul(a: Nat, b: Nat, c: Nat): a != 0 & lt(Nat.mul(a, b), Nat.mul(a, c)) -> lt(b, c) by {
     if lte(c, b) {
-        lte(mul(a, c), mul(a, b))
+        lte(Nat.mul(a, c), Nat.mul(a, b))
         false
     }
     c != b
 }
 
-theorem mul_to_one(a: Nat, b: Nat): mul(a, b) = 1 -> a = 1 by {
+theorem mul_to_one(a: Nat, b: Nat): Nat.mul(a, b) = 1 -> a = 1 by {
     1 != 0
     a != 0
     !lt(a, 1)
     b != 0
     if lt(1, a) {
-        lt(mul(b, 1), mul(b, a))
-        lt(mul(b, 1), mul(a, b))
-        lt(mul(b, 1), 1)
-        mul(b, 1) = 0
+        lt(Nat.mul(b, 1), Nat.mul(b, a))
+        lt(Nat.mul(b, 1), Nat.mul(a, b))
+        lt(Nat.mul(b, 1), 1)
+        Nat.mul(b, 1) = 0
         b = 0
         false
     }
 }
 
 theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, suc(b)) -> a = 1 by {
-    exists(k0: Nat) { mul(a, k0) = suc(b) }
+    exists(k0: Nat) { Nat.mul(a, k0) = suc(b) }
     a != 0
-    exists(c: Nat) { mul(a, c) = b }
-    exists(d: Nat) { mul(a, d) = suc(b) }
-    lt(mul(a, c), mul(a, d))
+    exists(c: Nat) { Nat.mul(a, c) = b }
+    exists(d: Nat) { Nat.mul(a, d) = suc(b) }
+    lt(Nat.mul(a, c), Nat.mul(a, d))
     lte(c, d)
     exists(e: Nat) { c + e = d }
-    mul(a, c + e) = suc(b)
-    mul(a, c) + mul(a, e) = suc(b)
-    b + mul(a, e) = suc(b)
-    b + mul(a, e) = b + 1
-    mul(a, e) = 1
+    Nat.mul(a, c + e) = suc(b)
+    Nat.mul(a, c) + Nat.mul(a, e) = suc(b)
+    b + Nat.mul(a, e) = suc(b)
+    b + Nat.mul(a, e) = b + 1
+    Nat.mul(a, e) = 1
 }
 
 theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
@@ -812,39 +814,39 @@ theorem divides_zero(a: Nat): divides(a, 0)
 
 theorem zero_divides(a: Nat): divides(0, a) -> a = 0
 
-theorem divides_mul(a: Nat, b: Nat, d: Nat): divides(d, a) -> divides(d, mul(a, b)) by {
-    exists(q: Nat) { mul(q, d) = a }
-    mul(mul(q, d), b) = mul(a, b)
-    mul(mul(d, q), b) = mul(a, b)
-    mul(d, mul(q, b)) = mul(a, b)
+theorem divides_mul(a: Nat, b: Nat, d: Nat): divides(d, a) -> divides(d, Nat.mul(a, b)) by {
+    exists(q: Nat) { Nat.mul(q, d) = a }
+    Nat.mul(Nat.mul(q, d), b) = Nat.mul(a, b)
+    Nat.mul(Nat.mul(d, q), b) = Nat.mul(a, b)
+    Nat.mul(d, Nat.mul(q, b)) = Nat.mul(a, b)
 }
 
-theorem lte_mul(a: Nat, b: Nat): b != 0 -> lte(a, mul(a, b)) by {
+theorem lte_mul(a: Nat, b: Nat): b != 0 -> lte(a, Nat.mul(a, b)) by {
     !lt(b, 1)
     lte(1, b)
-    lte(mul(a, 1), mul(a, b))
+    lte(Nat.mul(a, 1), Nat.mul(a, b))
 }
 
 theorem divides_lte(a: Nat, b: Nat): divides(a, b) -> b = 0 | lte(a, b) by {
     if b != 0 {
-        exists(q: Nat) { mul(q, a) = b }
+        exists(q: Nat) { Nat.mul(q, a) = b }
         if q = 0 {
             b = 0
             false
         }
-        lte(a, mul(a, q))
-        lte(a, mul(q, a))
+        lte(a, Nat.mul(a, q))
+        lte(a, Nat.mul(q, a))
         lte(a, b)
     }
 }
 
 theorem divides_add(a: Nat, b: Nat, d: Nat):
     divides(d, a) & divides(d, b) -> divides(d, a + b) by {
-    exists(qa: Nat) { mul(qa, d) = a }
-    exists(qb: Nat) { mul(qb, d) = b }
-    mul(qa + qb, d) = mul(qa, d) + b
-    mul(qa + qb, d) = a + b
-    divides(d, mul(qa + qb, d))
+    exists(qa: Nat) { Nat.mul(qa, d) = a }
+    exists(qb: Nat) { Nat.mul(qb, d) = b }
+    Nat.mul(qa + qb, d) = Nat.mul(qa, d) + b
+    Nat.mul(qa + qb, d) = a + b
+    divides(d, Nat.mul(qa + qb, d))
 }
 
 
@@ -932,7 +934,7 @@ theorem add_imp_sub(a: Nat, b: Nat, c: Nat): a + b = c -> c - b = a
 // Let's define mod similarly to how we defined sub.
 define is_mod(a: Nat, m: Nat) -> (Nat -> Bool): function(r: Nat) {
     if m != 0 {
-        lt(r, m) & exists(q: Nat) { mul(q, m) + r = a }
+        lt(r, m) & exists(q: Nat) { Nat.mul(q, m) + r = a }
     } else {
         // It doesn't really matter how we define "mod 0".
         // We pick a mod 0 = a.
@@ -944,7 +946,7 @@ theorem mod_def(a: Nat, m: Nat): exists(r: Nat) { is_mod(a, m)(r) } by {
     if m != 0 {
         lt(0, m)
         exists(q: Nat, r: Nat) {
-            lt(r, m) & a = mul(q, m) + r
+            lt(r, m) & a = Nat.mul(q, m) + r
         }
         is_mod(a, m)(r)
     } else {
@@ -961,7 +963,7 @@ theorem mod_is_mod(a: Nat, m: Nat): is_mod(a, m)(mod(a, m)) by {
         is_mod(a, m)(mod(a, m))
     } else {
         lt(0, m)
-        exists(q: Nat, r: Nat) { lt(r, m) & mul(q, m) + r = a }
+        exists(q: Nat, r: Nat) { lt(r, m) & Nat.mul(q, m) + r = a }
         is_mod(a, m)(r)
         f(r)
         f(find(f))
@@ -970,14 +972,14 @@ theorem mod_is_mod(a: Nat, m: Nat): is_mod(a, m)(mod(a, m)) by {
     }
 }
 
-theorem add_mod(a: Nat, m: Nat): exists(q: Nat) { mul(q, m) + mod(a, m) = a } by {
+theorem add_mod(a: Nat, m: Nat): exists(q: Nat) { Nat.mul(q, m) + mod(a, m) = a } by {
     if m = 0 {
         mod(a, 0) = a
-        mul(0, 0) = 0
-        mul(0, 0) + mod(a, 0) = a
-        exists(q: Nat) { mul(q, m) + mod(a, m) = a }
+        Nat.mul(0, 0) = 0
+        Nat.mul(0, 0) + mod(a, 0) = a
+        exists(q: Nat) { Nat.mul(q, m) + mod(a, m) = a }
     } else {
-        exists(q: Nat) { mul(q, m) + mod(a, m) = a }
+        exists(q: Nat) { Nat.mul(q, m) + mod(a, m) = a }
     }
 }
 
@@ -988,29 +990,29 @@ theorem mod_of_zero(m: Nat): mod(0, m) = 0
 theorem mod_lte(a: Nat, m: Nat): lte(mod(a, m), a)
 
 theorem div_sub_mod(a: Nat, m: Nat): divides(m, a - mod(a, m)) by {
-    exists(q: Nat) { mul(q, m) + mod(a, m) = a }
-    a - mod(a, m) = mul(q, m)
-    divides(m, mul(q, m))
+    exists(q: Nat) { Nat.mul(q, m) + mod(a, m) = a }
+    a - mod(a, m) = Nat.mul(q, m)
+    divides(m, Nat.mul(q, m))
 }
 
 theorem sub_left_distrib(a: Nat, b: Nat, c: Nat):
-    mul(a, b - c) = mul(a, b) - mul(a, c) by {
+    Nat.mul(a, b - c) = Nat.mul(a, b) - Nat.mul(a, c) by {
     if a = 0 {
-        mul(a, b - c) = mul(a, b) - mul(a, c)
+        Nat.mul(a, b - c) = Nat.mul(a, b) - Nat.mul(a, c)
         sub_left_distrib(a, b, c)
     } else {
         if lt(b, c) {
-            lt(mul(a, b), mul(a, c))
-            mul(a, b) - mul(a, c) = 0
+            lt(Nat.mul(a, b), Nat.mul(a, c))
+            Nat.mul(a, b) - Nat.mul(a, c) = 0
             b - c = 0
-            mul(a, b - c) = mul(a, b) - mul(a, c)
+            Nat.mul(a, b - c) = Nat.mul(a, b) - Nat.mul(a, c)
             sub_left_distrib(a, b, c)
         }
         if !lt(b, c) {
             b - c + c = b
-            mul(a, b - c + c) = mul(a, b - c) + mul(a, c)
-            mul(a, b) = mul(a, b - c) + mul(a, c)
-            mul(a, b - c) = mul(a, b) - mul(a, c)
+            Nat.mul(a, b - c + c) = Nat.mul(a, b - c) + Nat.mul(a, c)
+            Nat.mul(a, b) = Nat.mul(a, b - c) + Nat.mul(a, c)
+            Nat.mul(a, b - c) = Nat.mul(a, b) - Nat.mul(a, c)
             sub_left_distrib(a, b, c)
         }
         sub_left_distrib(a, b, c)
@@ -1019,29 +1021,29 @@ theorem sub_left_distrib(a: Nat, b: Nat, c: Nat):
 }
 
 theorem sub_right_distrib(a: Nat, b: Nat, c: Nat):
-    mul(a - b, c) = mul(a, c) - mul(b, c) by {
-    mul(a - b, c) = mul(c, a - b)
-    mul(a - b, c) = mul(c, a) - mul(c, b)
-    mul(a - b, c) = mul(a, c) - mul(c, b)
-    mul(a, c) - mul(c, b) = mul(a, c) - mul(b, c)
+    Nat.mul(a - b, c) = Nat.mul(a, c) - Nat.mul(b, c) by {
+    Nat.mul(a - b, c) = Nat.mul(c, a - b)
+    Nat.mul(a - b, c) = Nat.mul(c, a) - Nat.mul(c, b)
+    Nat.mul(a - b, c) = Nat.mul(a, c) - Nat.mul(c, b)
+    Nat.mul(a, c) - Nat.mul(c, b) = Nat.mul(a, c) - Nat.mul(b, c)
 }
 
 theorem divides_sub(a: Nat, b: Nat, d: Nat):
     divides(d, a) & divides(d, b) -> divides(d, a - b) by {
-    exists(qa: Nat) { mul(qa, d) = a }
-    exists(qb: Nat) { mul(qb, d) = b }
-    a - b = mul(qa, d) - mul(qb, d)
-    a - b = mul(qa - qb, d)
-    divides(d, mul(qa - qb, d))
+    exists(qa: Nat) { Nat.mul(qa, d) = a }
+    exists(qb: Nat) { Nat.mul(qb, d) = b }
+    a - b = Nat.mul(qa, d) - Nat.mul(qb, d)
+    a - b = Nat.mul(qa - qb, d)
+    divides(d, Nat.mul(qa - qb, d))
     divides(d, a - b)
 }
 
 theorem divides_mod(a: Nat, m: Nat, d: Nat):
     divides(d, a) & divides(d, m) -> divides(d, mod(a, m)) by {
-    exists(q: Nat) { mul(q, m) + mod(a, m) = a }
-    mod(a, m) = a - mul(q, m)
-    divides(d, mul(q, m))
-    divides(d, a - mul(q, m))
+    exists(q: Nat) { Nat.mul(q, m) + mod(a, m) = a }
+    mod(a, m) = a - Nat.mul(q, m)
+    divides(d, Nat.mul(q, m))
+    divides(d, a - Nat.mul(q, m))
     divides(d, mod(a, m))
 }
 
@@ -1060,15 +1062,15 @@ theorem div_imp_mod(a: Nat, m: Nat): divides(m, a) -> mod(a, m) = 0 by {
 }
 
 theorem small_mod(a: Nat, m: Nat): lt(a, m) -> mod(a, m) = a by {
-    exists(q: Nat) { mul(q, m) + mod(a, m) = a }
+    exists(q: Nat) { Nat.mul(q, m) + mod(a, m) = a }
     if q = 0 {
         0 + mod(a, m) = a
         mod(a, m) = a
     } else {
         m != 0
-        mul(q, m) != 0
-        divides(m, mul(q, m))
-        lte(m, mul(q, m))
+        Nat.mul(q, m) != 0
+        divides(m, Nat.mul(q, m))
+        lte(m, Nat.mul(q, m))
         lte(m, a)
         false
     }
@@ -1086,8 +1088,8 @@ theorem mod_mod(a: Nat, m: Nat): mod(mod(a, m), m) = mod(a, m) by {
     }
 }
 
-theorem mod_mul(m: Nat, q: Nat): mod(mul(q, m), m) = 0 by {
-    divides(m, mul(q, m))
+theorem mod_mul(m: Nat, q: Nat): mod(Nat.mul(q, m), m) = 0 by {
+    divides(m, Nat.mul(q, m))
 }
 
 theorem divides_add_copy(a: Nat, b: Nat, d: Nat):
@@ -1095,10 +1097,10 @@ theorem divides_add_copy(a: Nat, b: Nat, d: Nat):
 
 theorem divides_unmod(d: Nat, a: Nat, m: Nat):
     divides(d, m) & divides(d, mod(a, m)) -> divides(d, a) by {
-    exists(q: Nat) { mul(q, m) + mod(a, m) = a }
-    divides(m, mul(q, m))
-    divides(d, mul(q, m))
-    divides(d, mul(q, m) + mod(a, m))
+    exists(q: Nat) { Nat.mul(q, m) + mod(a, m) = a }
+    divides(m, Nat.mul(q, m))
+    divides(d, Nat.mul(q, m))
+    divides(d, Nat.mul(q, m) + mod(a, m))
     divides(d, a)
     if !divides_unmod(d, a, m) {
         divides(d, m)

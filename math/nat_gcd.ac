@@ -7,7 +7,7 @@ let 0: Nat = nat.0
 let 1: Nat = nat.1
 let lt: (Nat, Nat) -> Bool = nat.lt
 let lte: (Nat, Nat) -> Bool = nat.lte
-let mul: (Nat, Nat) -> Nat = nat.mul
+let mul: (Nat, Nat) -> Nat = Nat.mul
 
 let divides: (Nat, Nat) -> Bool = nat.divides
 type NatPair: nat.NatPair
