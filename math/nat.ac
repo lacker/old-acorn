@@ -133,19 +133,19 @@ theorem mul_zero_left(a: Nat): 0 * a = 0 by {
     }
 }
 
-theorem mul_suc_right(a: Nat, b: Nat): Nat.mul(a, suc(b)) = a + a * b
+theorem mul_suc_right(a: Nat, b: Nat): a * suc(b) = a + a * b
 
-theorem mul_suc_left(a: Nat, b: Nat): Nat.mul(suc(a), b) = b + a * b by {
+theorem mul_suc_left(a: Nat, b: Nat): suc(a) * b = b + a * b by {
     define f(x: Nat) -> Bool: mul_suc_left(a, x)
     induction(f)
     0 + a * 0 = 0
     f(0)
     forall(x: Nat) {
         if f(x) {
-            Nat.mul(suc(a), x) = x + a * x
-            Nat.mul(suc(a), suc(x)) = suc(a) + Nat.mul(suc(a), x)
-            Nat.mul(suc(a), suc(x)) = suc(a) + (x + a * x)
-            Nat.mul(a, suc(x)) = a + a * x
+            suc(a) * x = x + a * x
+            suc(a) * suc(x) = suc(a) + suc(a) * x
+            suc(a) * suc(x) = suc(a) + (x + a * x)
+            a * suc(x) = a + a * x
             suc(a) + (x + a * x) = suc(a) + x + a * x
             suc(a) + (x + a * x) = suc(a + x) + a * x
             suc(a) + (x + a * x) = suc(x + a) + a * x
@@ -153,8 +153,8 @@ theorem mul_suc_left(a: Nat, b: Nat): Nat.mul(suc(a), b) = b + a * b by {
             add_assoc(suc(x), a, a * x)
             suc(x) + a + a * x = suc(x) + (a + a * x)
             suc(a) + (x + a * x) = suc(x) + (a + a * x)
-            Nat.mul(suc(a), suc(x)) = suc(x) + (a + a * x)
-            Nat.mul(suc(a), suc(x)) = suc(x) + Nat.mul(a, suc(x))
+            suc(a) * suc(x) = suc(x) + (a + a * x)
+            suc(a) * suc(x) = suc(x) + a * suc(x)
             f(suc(x))
         }
     }
@@ -162,7 +162,7 @@ theorem mul_suc_left(a: Nat, b: Nat): Nat.mul(suc(a), b) = b + a * b by {
 }
 
 theorem mul_one_one: 1 * 1 = 1 by {
-    1 * 1 = Nat.mul(1, suc(0))
+    1 * 1 = 1 * suc(0)
     1 * 1 = 1 + 1 * 0
     1 * 1 = 1 + 0
     1 * 1 = 1
@@ -175,9 +175,9 @@ theorem mul_comm(a: Nat, b: Nat): a * b = b * a by {
     forall(x: Nat) {
         if f(x) {
             x * b = b * x
-            Nat.mul(suc(x), b) = b + x * b
-            Nat.mul(b, suc(x)) = b + x * b
-            Nat.mul(suc(x), b) = Nat.mul(b, suc(x))
+            suc(x) * b = b + x * b
+            b * suc(x) = b + x * b
+            suc(x) * b = b * suc(x)
             f(suc(x))
         }
     }
@@ -202,11 +202,11 @@ theorem distrib_left(a: Nat, b: Nat, c: Nat):
             Nat.mul(suc(x), b + c) = b + c + Nat.mul(x, b + c)
             Nat.mul(suc(x), b + c) = b + c + (x * b + x * c)
             Nat.mul(suc(x), b + c) = (b + x * b) + (c + x * c)
-            b + x * b = Nat.mul(suc(x), b)
-            c + x * c = Nat.mul(suc(x), c)
-            (b + x * b) + (c + x * c) = Nat.mul(suc(x), b) + (c + x * c)
-            (b + x * b) + (c + x * c) = Nat.mul(suc(x), b) + Nat.mul(suc(x), c)
-            Nat.mul(suc(x), b + c) = Nat.mul(suc(x), b) + Nat.mul(suc(x), c)
+            b + x * b = suc(x) * b
+            c + x * c = suc(x) * c
+            (b + x * b) + (c + x * c) = suc(x) * b + (c + x * c)
+            (b + x * b) + (c + x * c) = suc(x) * b + suc(x) * c
+            Nat.mul(suc(x), b + c) = suc(x) * b + suc(x) * c
             distrib_left(suc(x), b, c)
             f(suc(x))
         }
@@ -225,11 +225,11 @@ theorem mul_assoc(a: Nat, b: Nat, c: Nat): Nat.mul(a * b, c) = Nat.mul(a, b * c)
     forall(x: Nat) {
         if f(x) {
             Nat.mul(x * b, c) = Nat.mul(x, b * c)
-            Nat.mul(Nat.mul(suc(x), b), c) = Nat.mul(b + x * b, c)
+            Nat.mul(suc(x) * b, c) = Nat.mul(b + x * b, c)
             Nat.mul(b + x * b, c) = b * c + Nat.mul(x * b, c)
-            Nat.mul(Nat.mul(suc(x), b), c) = b * c + Nat.mul(x * b, c)
-            Nat.mul(Nat.mul(suc(x), b), c) = b * c + Nat.mul(x, b * c)
-            Nat.mul(Nat.mul(suc(x), b), c) = Nat.mul(suc(x), b * c)
+            Nat.mul(suc(x) * b, c) = b * c + Nat.mul(x * b, c)
+            Nat.mul(suc(x) * b, c) = b * c + Nat.mul(x, b * c)
+            Nat.mul(suc(x) * b, c) = Nat.mul(suc(x), b * c)
             f(suc(x))
         }
     }
@@ -493,8 +493,8 @@ theorem division_theorem(m: Nat, n: Nat): lt(0, n) -> exists(q: Nat, r: Nat) {
                 suc(x) = q * n + suc(r)
                 suc(x) = q * n + n
                 n + q * n = suc(x)
-                suc(x) = Nat.mul(suc(q), n)
-                suc(x) = Nat.mul(suc(q), n) + 0
+                suc(x) = suc(q) * n
+                suc(x) = suc(q) * n + 0
                 f(suc(x))
             } else {
                 lt(suc(r), n)
@@ -525,7 +525,7 @@ theorem divisor_lt(a: Nat, b: Nat, c: Nat):
     exists(d: Nat) { 1 + d = b & d != 0 }
     Nat.mul(a, 1 + d) = c
     1 + d = suc(d)
-    Nat.mul(a, suc(d)) = c
+    a * suc(d) = c
     a + a * d = c
     a * d != 0
     a != c
@@ -623,12 +623,12 @@ define fac_helper(p: NatPair) -> NatPair: NatPair.new(suc(NatPair.first(p)), Nat
 // Seems like a shame this isn't proven automatically.
 // Every step in the proof is a pretty simple rewrite.
 // Really, all the statements about factorials seem like they should be provable automatically.
-theorem fac_helper_alt(a: Nat, b: Nat): fac_helper(NatPair.new(a, b)) = NatPair.new(suc(a), Nat.mul(suc(a), b)) by {
+theorem fac_helper_alt(a: Nat, b: Nat): fac_helper(NatPair.new(a, b)) = NatPair.new(suc(a), suc(a) * b) by {
     let p: NatPair = NatPair.new(a, b)
     NatPair.first(p) = a
     NatPair.second(p) = b
     fac_helper(p) = NatPair.new(suc(NatPair.first(p)), Nat.mul(suc(NatPair.first(p)), NatPair.second(p)))
-    fac_helper(p) = NatPair.new(suc(NatPair.first(p)), Nat.mul(suc(a), b))
+    fac_helper(p) = NatPair.new(suc(NatPair.first(p)), suc(a) * b)
 }
 
 // Takes n -> (n, n!)
@@ -644,8 +644,8 @@ theorem fac_pair_first(n: Nat): NatPair.first(fac_pair(n)) = n by {
             NatPair.new(NatPair.first(fac_pair(x)), a) = fac_pair(x)
             fac_pair(x) = NatPair.new(x, a)
             fac_pair(suc(x)) = fac_helper(fac_pair(x))
-            fac_pair(suc(x)) = NatPair.new(suc(x), Nat.mul(suc(x), a))
-            let b: Nat = Nat.mul(suc(x), a)
+            fac_pair(suc(x)) = NatPair.new(suc(x), suc(x) * a)
+            let b: Nat = suc(x) * a
             fac_pair(suc(x)) = NatPair.new(suc(x), b)
             NatPair.first(NatPair.new(suc(x), b)) = suc(x)
             NatPair.first(fac_pair(suc(x))) = suc(x)
@@ -665,12 +665,12 @@ theorem factorial_one: factorial(1) = 1 by {
     fac_pair(1) = NatPair.new(1, 1)
 }
 
-theorem factorial_step(n: Nat): factorial(suc(n)) = Nat.mul(suc(n), factorial(n)) by {
+theorem factorial_step(n: Nat): factorial(suc(n)) = suc(n) * factorial(n) by {
     fac_pair(n) = NatPair.new(n, factorial(n))
     fac_pair(suc(n)) = fac_helper(fac_pair(n))
 
-    fac_pair(suc(n)) = NatPair.new(suc(n), Nat.mul(suc(n), factorial(n)))
-    NatPair.second(fac_pair(suc(n))) = Nat.mul(suc(n), factorial(n))
+    fac_pair(suc(n)) = NatPair.new(suc(n), suc(n) * factorial(n))
+    NatPair.second(fac_pair(suc(n))) = suc(n) * factorial(n)
 }
 
 theorem divides_factorial(k: Nat, n: Nat):
@@ -690,7 +690,7 @@ theorem divides_factorial(k: Nat, n: Nat):
                     lte(suc(k), suc(x))
                     lte(k, x)
                     divides(k, factorial(x))
-                    divides(factorial(x), Nat.mul(suc(x), factorial(x)))
+                    divides(factorial(x), suc(x) * factorial(x))
                     divides(factorial(x), factorial(suc(x)))
                     divides(k, factorial(suc(x)))
                 }
@@ -702,7 +702,7 @@ theorem divides_factorial(k: Nat, n: Nat):
 }
 
 theorem factorial_nondecreasing(n: Nat): lte(factorial(n), factorial(suc(n))) by {
-    lte(factorial(n), Nat.mul(suc(n), factorial(n)))
+    lte(factorial(n), suc(n) * factorial(n))
 }
 
 theorem lte_one_factorial(a: Nat): lte(1, factorial(a)) by {
