@@ -2,7 +2,6 @@ import nat
 
 // Would be nicer to have a way to import all of these at once.
 type Nat: nat.Nat
-let suc: Nat -> Nat = nat.suc
 let 0: Nat = nat.0
 let 1: Nat = nat.1
 
@@ -55,13 +54,13 @@ theorem has_min(f: Nat -> Bool, n: Nat): f(n) -> exists(m: Nat) { is_min(f)(m) }
 
 // A decreasing_to_zero function strictly decreases until it hits zero.
 define decreasing_to_zero(f: Nat -> Nat) -> Bool: forall(x: Nat) {
-    f(x) = 0 | f(suc(x)) < f(x)
+    f(x) = 0 | f(Nat.suc(x)) < f(x)
 }
 
-theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { f(x) <= f(suc(x)) } by {
+theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { f(x) <= f(Nat.suc(x)) } by {
     if !no_infinite_decreasing(f) {
         forall(x: Nat) {
-            !(f(x) <= f(suc(x)))
+            !(f(x) <= f(Nat.suc(x)))
         }
         let h: Nat -> Bool = function(x: Nat) { x + f(x) <= f(0) }
         nat.induction(h)
@@ -70,33 +69,33 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { f(x) <= f(suc(x)
         forall(x: Nat) {
             if h(x) {
                 x + f(x) <= f(0)
-                !(f(x) <= f(suc(x)))
-                f(suc(x)) < f(x)
-                x + f(suc(x)) < x + f(x)
-                suc(x + f(suc(x))) <= x + f(x)
-                suc(x) + f(suc(x)) <= x + f(x)
-                suc(x) + f(suc(x)) <= f(0)
-                h(suc(x))
+                !(f(x) <= f(Nat.suc(x)))
+                f(Nat.suc(x)) < f(x)
+                x + f(Nat.suc(x)) < x + f(x)
+                Nat.suc(x + f(Nat.suc(x))) <= x + f(x)
+                Nat.suc(x) + f(Nat.suc(x)) <= x + f(x)
+                Nat.suc(x) + f(Nat.suc(x)) <= f(0)
+                h(Nat.suc(x))
             }
         }
         forall(x: Nat) {
             h(x)
         }
-        h(suc(f(0)))
-        suc(f(0)) + f(suc(f(0))) <= f(0)
-        suc(f(0)) <= suc(f(0)) + f(suc(f(0)))
-        let z: Nat = suc(f(0)) + f(suc(f(0)))
+        h(Nat.suc(f(0)))
+        Nat.suc(f(0)) + f(Nat.suc(f(0))) <= f(0)
+        Nat.suc(f(0)) <= Nat.suc(f(0)) + f(Nat.suc(f(0)))
+        let z: Nat = Nat.suc(f(0)) + f(Nat.suc(f(0)))
         z <= f(0)
-        suc(f(0)) <= z
-        suc(f(0)) <= f(0)
+        Nat.suc(f(0)) <= z
+        Nat.suc(f(0)) <= f(0)
         false
     }    
 }
 
 theorem dtz_terminates(f: Nat -> Nat):
     decreasing_to_zero(f) -> exists(n: Nat) { f(n) = 0 } by {
-    exists(n: Nat) { f(n) <= f(suc(n)) }
-    f(n) = 0 | f(suc(n)) < f(n)
+    exists(n: Nat) { f(n) <= f(Nat.suc(n)) }
+    f(n) = 0 | f(Nat.suc(n)) < f(n)
     f(n) = 0
 }
 
@@ -105,16 +104,16 @@ theorem gcd_terminates(p: NatPair): exists(n: Nat) { NatPair.second(gcd_step_n(p
     forall(x: Nat) {
         if f(x) != 0 {
             let q: NatPair = gcd_step_n(p, x)
-            gcd_step_n(p, suc(x)) = gcd_step(gcd_step_n(p, x))
-            gcd_step_n(p, suc(x)) = gcd_step(q)
-            f(suc(x)) = NatPair.second(gcd_step_n(p, suc(x)))
-            f(suc(x)) = NatPair.second(gcd_step(q))
+            gcd_step_n(p, Nat.suc(x)) = gcd_step(gcd_step_n(p, x))
+            gcd_step_n(p, Nat.suc(x)) = gcd_step(q)
+            f(Nat.suc(x)) = NatPair.second(gcd_step_n(p, Nat.suc(x)))
+            f(Nat.suc(x)) = NatPair.second(gcd_step(q))
             NatPair.second(q) != 0
             gcd_step(q) = NatPair.new(NatPair.second(q), mod(NatPair.first(q), NatPair.second(q)))
-            f(suc(x)) = mod(NatPair.first(q), NatPair.second(q))
-            f(suc(x)) = mod(NatPair.first(q), f(x))
+            f(Nat.suc(x)) = mod(NatPair.first(q), NatPair.second(q))
+            f(Nat.suc(x)) = mod(NatPair.first(q), f(x))
             mod(NatPair.first(q), f(x)) < f(x)
-            f(suc(x)) < f(x)
+            f(Nat.suc(x)) < f(x)
         }
     }
     decreasing_to_zero(f)
@@ -166,8 +165,8 @@ theorem divides_gcd_step_n(d: Nat, p: NatPair, n: Nat):
     forall(x: Nat) {
         if f(x) {
             divides_both(d, gcd_step_n(p, x))
-            divides_both(d, gcd_step_n(p, suc(x)))
-            f(suc(x))
+            divides_both(d, gcd_step_n(p, Nat.suc(x)))
+            f(Nat.suc(x))
         }
     }
     divides_both(d, gcd_step_n(p, n))
@@ -204,11 +203,11 @@ theorem divides_gcd_step_n_converse(d: Nat, p: NatPair, n: Nat):
     f(0)
     forall(x: Nat) {
         if f(x) {
-            if divides_both(d, gcd_step_n(p, suc(x))) {
+            if divides_both(d, gcd_step_n(p, Nat.suc(x))) {
                 divides_both(d, p)
             }
-            divides_gcd_step_n_converse(d, p, suc(x))
-            f(suc(x))
+            divides_gcd_step_n_converse(d, p, Nat.suc(x))
+            f(Nat.suc(x))
         }
     }
 }
@@ -286,25 +285,25 @@ theorem mod_maintains_imp_gcd(f: Nat -> Bool, a: Nat, b: Nat): mod_maintains(f) 
     g(0)
     forall(x: Nat) {
         if g(x) {
-            gcd_step_n(p, suc(x)) = gcd_step(gcd_step_n(p, x))
+            gcd_step_n(p, Nat.suc(x)) = gcd_step(gcd_step_n(p, x))
             f(NatPair.first(gcd_step_n(p, x)))
             f(NatPair.second(gcd_step_n(p, x)))
 
             if NatPair.second(gcd_step_n(p, x)) = 0 {
                 NatPair.second(gcd_step_n(p, x)) = 0
-                gcd_step_n(p, suc(x)) = gcd_step_n(p, x)
-                f(NatPair.first(gcd_step_n(p, suc(x))))
-                f(NatPair.second(gcd_step_n(p, suc(x))))
-                g(suc(x))
+                gcd_step_n(p, Nat.suc(x)) = gcd_step_n(p, x)
+                f(NatPair.first(gcd_step_n(p, Nat.suc(x))))
+                f(NatPair.second(gcd_step_n(p, Nat.suc(x))))
+                g(Nat.suc(x))
             } else {
                 NatPair.second(gcd_step_n(p, x)) != 0
-                NatPair.first(gcd_step_n(p, suc(x))) = NatPair.second(gcd_step_n(p, x))
+                NatPair.first(gcd_step_n(p, Nat.suc(x))) = NatPair.second(gcd_step_n(p, x))
                 NatPair.new(NatPair.second(gcd_step_n(p, x)), mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x)))) = gcd_step(gcd_step_n(p, x))
-                NatPair.second(gcd_step_n(p, suc(x))) = mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x)))
-                f(NatPair.first(gcd_step_n(p, suc(x))))
+                NatPair.second(gcd_step_n(p, Nat.suc(x))) = mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x)))
+                f(NatPair.first(gcd_step_n(p, Nat.suc(x))))
                 f(mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x))))
-                f(NatPair.second(gcd_step_n(p, suc(x))))
-                g(suc(x))
+                f(NatPair.second(gcd_step_n(p, Nat.suc(x))))
+                g(Nat.suc(x))
             }
         }
     }
