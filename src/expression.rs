@@ -137,6 +137,48 @@ impl Expression {
         }
     }
 
+    pub fn print_one_level(&self) {
+        match self {
+            Expression::Identifier(token) => {
+                println!("Identifier:");
+                println!("  token: {}", token);
+            }
+            Expression::Unary(token, subexpression) => {
+                println!("Unary:");
+                println!("  token: {}", token);
+                println!("  subexpression: {}", subexpression);
+            }
+            Expression::Binary(left, token, right) => {
+                println!("Binary:");
+                println!("  token: {}", token);
+                println!("  left: {}", left);
+                println!("  right: {}", right);
+            }
+            Expression::Apply(left, right) => {
+                println!("Apply:");
+                println!("  left: {}", left);
+                println!("  right: {}", right);
+            }
+            Expression::Grouping(_, e, _) => {
+                println!("Grouping:");
+                println!("  subexpression: {}", e);
+            }
+            Expression::Binder(token, args, sub, _) => {
+                println!("Binder:");
+                println!("  token: {}", token);
+                println!("  args: {}", args);
+                println!("  subexpression: {}", sub);
+            }
+            Expression::IfThenElse(token, cond, if_block, else_block, _) => {
+                println!("IfThenElse:");
+                println!("  token: {}", token);
+                println!("  cond: {}", cond);
+                println!("  if: {}", if_block);
+                println!("  else: {}", else_block);
+            }
+        }
+    }
+
     // If this expression is of the form "premise -> conclusion", return the premise.
     pub fn premise(&self) -> Option<&Expression> {
         match self {
@@ -277,37 +319,13 @@ fn parse_partial_expressions(
         if termination(token.token_type) {
             return Ok((partials, token));
         }
-        if token.token_type == TokenType::Dot {
-            // The dot has to be preceded by an expression, and followed by an identifier.
-            // Handle it now, because it has the highest priority.
-            let left = match partials.pop_back() {
-                Some(PartialExpression::Expression(e)) => e,
-                _ => {
-                    return Err(Error::new(&token, "expected expression before dot"));
-                }
-            };
-            let right = match tokens.next() {
-                Some(token) => {
-                    if token.token_type != TokenType::Identifier {
-                        return Err(Error::new(&token, "expected identifier after dot"));
-                    }
-                    Expression::Identifier(token)
-                }
-                None => {
-                    return Err(Error::new(&token, "expected identifier after dot"));
-                }
-            };
-            partials.push_back(PartialExpression::Expression(Expression::Binary(
-                Box::new(left),
-                token,
-                Box::new(right),
-            )));
-            continue;
-        }
         if token.token_type.is_binary() {
             if !is_value {
                 match token.token_type {
-                    TokenType::Comma | TokenType::RightArrow | TokenType::Colon => {}
+                    TokenType::Comma
+                    | TokenType::RightArrow
+                    | TokenType::Colon
+                    | TokenType::Dot => {}
                     _ => return Err(Error::new(&token, "expected a type expression")),
                 }
             }
@@ -540,6 +558,29 @@ mod tests {
         }
     }
 
+    // Expects the input to be an application at the top level
+    fn expect_application(input: &str) {
+        let exp = Expression::expect_parse(input, true);
+        if let Expression::Apply(_, _) = exp {
+            // That's what we expect
+            return;
+        }
+        exp.print_one_level();
+        panic!("expected a top-level apply");
+    }
+
+    fn expect_dot(input: &str) {
+        let exp = Expression::expect_parse(input, true);
+        if let Expression::Binary(_, token, _) = &exp {
+            if token.token_type == TokenType::Dot {
+                // That's what we expect
+                return;
+            }
+        }
+        exp.print_one_level();
+        panic!("expected a top-level dot");
+    }
+
     fn check_not_value(input: &str) {
         expect_error(input, true);
     }
@@ -649,22 +690,24 @@ mod tests {
     }
 
     #[test]
-    fn test_dot_expressions() {
+    fn test_dot_expression_values() {
         check_value("NatPair.first(NatPair.new(a, b)) = a");
         check_value("foo(x).bar");
         check_value("foo(x).bar.baz");
         check_value("(foo).bar");
         check_value("(a + b).c");
+        check_value("a.b.c = Foo.bar(baz).qux");
     }
 
     #[test]
     fn test_dot_parsing_priority() {
-        let exp = Expression::expect_parse("foo.bar(baz)", true);
-        if let Expression::Apply(_, _) = exp {
-            // That's what we expect
-            return;
-        }
-        panic!("expected a top-level apply but got: {:?}", exp);
+        expect_application("foo.bar(baz)");
+        expect_dot("foo(x).bar");
+        expect_dot("foo(x).bar.baz");
+        expect_dot("(foo).bar");
+        expect_dot("(a + b).c");
+        expect_dot("Foo.bar(baz).qux");
+        expect_application("foo(bar).baz(qux)");
     }
 
     #[test]
