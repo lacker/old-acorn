@@ -108,6 +108,7 @@ impl TokenType {
     // a type expression, like (int -> int) -> int.
     // Operators that are not allowed in an expression have a precedence of 0.
     // "Value" expressions also include "declarations" which is why colons are allowed.
+    // Function application implicitly has the same precedence as dot.
     pub fn value_precedence(&self) -> i8 {
         match self {
             TokenType::Dot => 12,

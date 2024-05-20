@@ -204,9 +204,6 @@ impl Expression {
     ) -> Result<(Expression, Token)> {
         let (partial_expressions, terminator) =
             parse_partial_expressions(tokens, is_value, termination)?;
-        for (i, partial) in partial_expressions.iter().enumerate() {
-            println!("XXX partial {}: {}", i, partial);
-        }
         Ok((
             combine_partial_expressions(partial_expressions, is_value, tokens)?,
             terminator,
@@ -231,8 +228,6 @@ impl Expression {
 // sequence before combining them.
 // The PartialExpressions are what we have before doing this combination.
 // The precedence-based operators include unary operators, infix operators, and function application.
-// Function application is represented in a list of partial expressions by by multiple expressions
-// adjacent to each other with no operator in between.
 #[derive(Debug)]
 enum PartialExpression {
     // Already a complete expression
@@ -241,6 +236,9 @@ enum PartialExpression {
     // Tokens that are only part of an expression
     Unary(Token),
     Binary(Token),
+
+    // An implicit apply, like "f(x)". It's located between the f and the (x).
+    ImplicitApply(Token),
 }
 
 impl fmt::Display for PartialExpression {
@@ -250,6 +248,7 @@ impl fmt::Display for PartialExpression {
             PartialExpression::Unary(token) | PartialExpression::Binary(token) => {
                 write!(f, "{}", token)
             }
+            PartialExpression::ImplicitApply(_) => write!(f, "<apply>"),
         }
     }
 }
@@ -258,7 +257,9 @@ impl PartialExpression {
     fn token(&self) -> &Token {
         match self {
             PartialExpression::Expression(e) => e.token(),
-            PartialExpression::Unary(token) | PartialExpression::Binary(token) => token,
+            PartialExpression::Unary(token)
+            | PartialExpression::Binary(token)
+            | PartialExpression::ImplicitApply(token) => token,
         }
     }
 }
@@ -321,6 +322,12 @@ fn parse_partial_expressions(
             TokenType::LeftParen => {
                 let (subexpression, last_token) =
                     Expression::parse(tokens, is_value, |t| t == TokenType::RightParen)?;
+
+                // A group that has no operator before it gets an implicit apply.
+                if matches!(partials.back(), Some(PartialExpression::Expression(_))) {
+                    partials.push_back(PartialExpression::ImplicitApply(token.clone()));
+                }
+
                 let group = Expression::Grouping(token, Box::new(subexpression), last_token);
                 partials.push_back(PartialExpression::Expression(group));
             }
@@ -400,6 +407,15 @@ fn find_last_operator(
                 }
             }
             PartialExpression::Binary(token) => Some((-token.precedence(is_value), i)),
+            PartialExpression::ImplicitApply(_) => {
+                // Application has the same precedence as dot, so it goes left to right.
+                // This is intuitive if you look at the cases:
+                // foo.bar.baz is parsed as (foo.bar).baz
+                // foo.bar(baz) is parsed as (foo.bar)(baz)
+                // foo(bar).baz is parsed as (foo(bar)).baz
+                // foo(bar)(baz) is parsed as (foo(bar))(baz)
+                Some((-TokenType::Dot.value_precedence(), i))
+            }
             _ => None,
         }
     });
@@ -458,18 +474,19 @@ fn combine_partial_expressions(
         // If the operator is a colon, then the right side is definitely a type
         let right_is_value = is_value && partial.token().token_type != TokenType::Colon;
 
-        if let PartialExpression::Binary(token) = partial {
-            return Ok(Expression::Binary(
-                Box::new(combine_partial_expressions(partials, is_value, iter)?),
-                token,
-                Box::new(combine_partial_expressions(
-                    right_partials,
-                    right_is_value,
-                    iter,
-                )?),
-            ));
-        }
-        return Err(Error::new(partial.token(), "expected binary operator"));
+        return match partial {
+            PartialExpression::Binary(token) => {
+                let left = combine_partial_expressions(partials, is_value, iter)?;
+                let right = combine_partial_expressions(right_partials, right_is_value, iter)?;
+                Ok(Expression::Binary(Box::new(left), token, Box::new(right)))
+            }
+            PartialExpression::ImplicitApply(_) => {
+                let left = combine_partial_expressions(partials, is_value, iter)?;
+                let right = combine_partial_expressions(right_partials, right_is_value, iter)?;
+                Ok(Expression::Apply(Box::new(left), Box::new(right)))
+            }
+            _ => Err(Error::new(partial.token(), "expected binary operator")),
+        };
     }
 
     // When there are no operators, the nature of the first partial expression should
@@ -634,10 +651,10 @@ mod tests {
     #[test]
     fn test_dot_expressions() {
         check_value("NatPair.first(NatPair.new(a, b)) = a");
-        // check_value("foo(x).bar");
-        // check_value("foo(x).bar.baz");
-        // check_value("(foo).bar");
-        // check_value("(a + b).c");
+        check_value("foo(x).bar");
+        check_value("foo(x).bar.baz");
+        check_value("(foo).bar");
+        check_value("(a + b).c");
     }
 
     #[test]
@@ -647,7 +664,7 @@ mod tests {
             // That's what we expect
             return;
         }
-        panic!("unexpected expression: {:?}", exp);
+        panic!("expected a top-level apply but got: {:?}", exp);
     }
 
     #[test]
