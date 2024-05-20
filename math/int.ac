@@ -39,7 +39,7 @@ theorem one_neq_zero: 1 != 0 by {
 // Subtraction that goes from naturals into integers.
 // We will use this as the primary representation for proving things about integers, so we prove
 // as many useful things about sub_nat as we can, before defining more stuff.
-define sub_nat(m: Nat, n: Nat) -> Int: if Nat.lte(n, m) {
+define sub_nat(m: Nat, n: Nat) -> Int: if n <= m {
     from_nat(m - n)
 } else {
     negate(from_nat(n - m))
@@ -67,8 +67,8 @@ theorem neg_sub_nat(m: Nat, n: Nat): sub_nat(m, n) = negate(sub_nat(n, m)) by {
         sub_nat(m, n) = negate(0)
         sub_nat(m, n) = negate(sub_nat(n, m))
     } else {
-        if Nat.lte(n, m) {
-            !Nat.lte(m, n)
+        if n <= m {
+            !(m <= n)
             sub_nat(m, n) = negate(sub_nat(n, m))
         } else {
             sub_nat(m, n) = negate(sub_nat(n, m))
@@ -80,7 +80,7 @@ theorem sub_nat_add_right(p: Nat, q: Nat): sub_nat(p, nat.Nat.add(p, q)) = negat
 
 // Half of a "without loss of generality" argument
 theorem sub_nat_eq_helper(m: Nat, n: Nat, p: Nat, q: Nat):
-    nat.Nat.add(m, n) = nat.Nat.add(p, q) & Nat.lte(p, m) -> sub_nat(m, p) = sub_nat(q, n) by {
+    nat.Nat.add(m, n) = nat.Nat.add(p, q) & p <= m -> sub_nat(m, p) = sub_nat(q, n) by {
     exists(d: Nat) { nat.Nat.add(p, d) = m }
     sub_nat(m, p) = from_nat(d)
     nat.Nat.add(m, n) = nat.Nat.add(nat.Nat.add(p, d), n)
@@ -92,16 +92,16 @@ theorem sub_nat_eq_helper(m: Nat, n: Nat, p: Nat, q: Nat):
 }
 
 theorem sub_nat_eq(m: Nat, n: Nat, p: Nat, q: Nat): nat.Nat.add(m, n) = nat.Nat.add(p, q) -> sub_nat(m, p) = sub_nat(q, n) by {
-    if Nat.lte(p, m) {
+    if p <= m {
         sub_nat(m, p) = sub_nat(q, n)
     } else {
-        Nat.lte(m, p)
+        m <= p
         sub_nat(m, p) = sub_nat(q, n)
     }
 }
 
 theorem sub_nat_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = from_nat(k) -> nat.Nat.add(j, k) = i by {
-    if Nat.lte(j, i) {
+    if j <= i {
         exists(d: Nat) { nat.Nat.add(j, d) = i }
         sub_nat(i, j) = from_nat(d)
         d = k
@@ -118,7 +118,7 @@ theorem sub_nat_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = from_nat(k) -> 
 }
 
 theorem sub_nat_negate_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = negate(from_nat(k)) -> nat.Nat.add(i, k) = j by {
-    if Nat.lte(j, i) {
+    if j <= i {
         exists(d: Nat) { nat.Nat.add(j, d) = i }
         sub_nat(i, j) = from_nat(d)
         from_nat(d) = negate(from_nat(k))
@@ -127,7 +127,7 @@ theorem sub_nat_negate_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = negate(f
         i = j
         nat.Nat.add(i, k) = j
     } else {
-        Nat.lte(i, j)
+        i <= j
         exists(d: Nat) { nat.Nat.add(i, d) = j }
         sub_nat(j, i) = from_nat(d)
         sub_nat(i, j) = negate(from_nat(d))
@@ -140,14 +140,14 @@ theorem sub_nat_negate_imp_add(i: Nat, j: Nat, k: Nat): sub_nat(i, j) = negate(f
 }
 
 theorem sub_nat_cancel_right(i: Nat, j: Nat, k: Nat): sub_nat(i, k) = sub_nat(j, k) -> i = j by {
-    if Nat.lte(k, i) {
+    if k <= i {
         exists(d: Nat) { nat.Nat.add(k, d) = i }
         sub_nat(i, k) = from_nat(d)
         sub_nat(j, k) = from_nat(d)
         nat.Nat.add(k, d) = j
         i = j
     } else {
-        Nat.lte(i, k)
+        i <= k
         exists(d: Nat) { nat.Nat.add(i, d) = k }
         sub_nat(k, i) = from_nat(d)
         sub_nat(i, k) = negate(from_nat(d))
@@ -170,7 +170,7 @@ theorem sub_nat_add_cancel_left(m: Nat, n: Nat, k: Nat): sub_nat(m, n) = sub_nat
 
 // Half of a "without loss of generality" argument
 theorem sub_nat_imp_add_eq_helper(m: Nat, n: Nat, p: Nat, q: Nat):
-    sub_nat(m, p) = sub_nat(q, n) & Nat.lte(p, m) -> nat.Nat.add(m, n) = nat.Nat.add(p, q) by {
+    sub_nat(m, p) = sub_nat(q, n) & p <= m -> nat.Nat.add(m, n) = nat.Nat.add(p, q) by {
     exists(d: Nat) { nat.Nat.add(p, d) = m }
     sub_nat(m, p) = from_nat(d)
     sub_nat(q, n) = from_nat(d)
@@ -179,10 +179,10 @@ theorem sub_nat_imp_add_eq_helper(m: Nat, n: Nat, p: Nat, q: Nat):
 }
 
 theorem sub_nat_imp_add_eq(m: Nat, n: Nat, p: Nat, q: Nat): sub_nat(m, p) = sub_nat(q, n) -> nat.Nat.add(m, n) = nat.Nat.add(p, q) by {
-    if Nat.lte(p, m) {
+    if p <= m {
         nat.Nat.add(m, n) = nat.Nat.add(p, q)
     } else {
-        Nat.lte(m, p)
+        m <= p
         nat.Nat.add(m, n) = nat.Nat.add(p, q)
     }
 }
@@ -1020,52 +1020,52 @@ theorem abs_add_nonpos(a: Int, b: Int):
 
 // One case of the triangle inequality
 theorem triangle_nonpos_lte_nonneg(a: Int, b: Int):
-    !is_negative(a) & !is_positive(b) & Nat.lte(abs(b), abs(a)) -> Nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b))) by {
+    !is_negative(a) & !is_positive(b) & abs(b) <= abs(a) -> abs(a + b) <= abs(a) + abs(b) by {
     exists(n: Nat) { nat.Nat.add(n, abs(b)) = abs(a) }
     from_nat(n) + from_nat(abs(b)) = from_nat(abs(a))
     from_nat(n) + negate(b) = from_nat(abs(a))
     from_nat(n) + negate(b) = a
     a + b = from_nat(n)
     abs(a + b) = n
-    Nat.lte(n, abs(a))
-    Nat.lte(abs(a), nat.Nat.add(abs(a), abs(b)))
-    Nat.lte(n, nat.Nat.add(abs(a), abs(b)))
+    n <= abs(a)
+    abs(a) <= nat.Nat.add(abs(a), abs(b))
+    n <= nat.Nat.add(abs(a), abs(b))
 }
 
 theorem triangle_nonneg_nonpos(a: Int, b: Int):
-    !is_negative(a) & !is_positive(b) -> Nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b))) by {
-    if Nat.lte(abs(b), abs(a)) {
-        Nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
+    !is_negative(a) & !is_positive(b) -> abs(a + b) <= abs(a) + abs(b) by {
+    if abs(b) <= abs(a) {
+        abs(a + b) <= nat.Nat.add(abs(a), abs(b))
     } else {
-        Nat.lte(abs(a), abs(b))
-        Nat.lte(abs(negate(a)), abs(negate(b)))
+        abs(a) <= abs(b)
+        abs(negate(a)) <= abs(negate(b))
         !is_negative(negate(b))
         !is_positive(negate(a))
-        Nat.lte(abs(negate(b) + negate(a)), nat.Nat.add(abs(negate(b)), abs(negate(a))))
-        Nat.lte(abs(negate(b + a)), nat.Nat.add(abs(negate(b)), abs(negate(a))))
-        Nat.lte(abs(b + a), nat.Nat.add(abs(negate(b)), abs(negate(a))))
-        Nat.lte(abs(b + a), nat.Nat.add(abs(b), abs(a)))
-        Nat.lte(abs(a + b), nat.Nat.add(abs(b), abs(a)))        
-        Nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
+        abs(negate(b) + negate(a)) <= nat.Nat.add(abs(negate(b)), abs(negate(a)))
+        abs(negate(b + a)) <= nat.Nat.add(abs(negate(b)), abs(negate(a)))
+        abs(b + a) <= nat.Nat.add(abs(negate(b)), abs(negate(a)))
+        abs(b + a) <= nat.Nat.add(abs(b), abs(a))
+        abs(a + b) <= nat.Nat.add(abs(b), abs(a))
+        abs(a + b) <= nat.Nat.add(abs(a), abs(b))
     }
 }
 
-theorem triangle_ineq(a: Int, b: Int): Nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b))) by {
+theorem triangle_ineq(a: Int, b: Int): abs(a + b) <= abs(a) + abs(b) by {
     if is_negative(a) {
         if is_negative(b) {
             abs(a + b) = nat.Nat.add(abs(a), abs(b))
-            Nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
+            abs(a + b) <= nat.Nat.add(abs(a), abs(b))
         } else {
-            Nat.lte(abs(b + a), nat.Nat.add(abs(b), abs(a)))
-            Nat.lte(abs(b + a), nat.Nat.add(abs(a), abs(b)))
-            Nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
+            abs(b + a) <= nat.Nat.add(abs(b), abs(a))
+            abs(b + a) <= nat.Nat.add(abs(a), abs(b))
+            abs(a + b) <= nat.Nat.add(abs(a), abs(b))
         }
     } else {
         if is_negative(b) {
-            Nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
+            abs(a + b) <= nat.Nat.add(abs(a), abs(b))
         } else {
             abs(a + b) = nat.Nat.add(abs(a), abs(b))
-            Nat.lte(abs(a + b), nat.Nat.add(abs(a), abs(b)))
+            abs(a + b) <= nat.Nat.add(abs(a), abs(b))
         }
     }
 }
@@ -1130,7 +1130,7 @@ theorem lt_from_nat(j: Nat, k: Nat): nat.lt(j, k) -> from_nat(j) < from_nat(k) b
     is_positive(from_nat(d))
 }
 
-theorem lte_from_nat(j: Nat, k: Nat): Nat.lte(j, k) -> from_nat(j) <= from_nat(k) by {
+theorem lte_from_nat(j: Nat, k: Nat): j <= k -> from_nat(j) <= from_nat(k) by {
     if j = k {
         from_nat(j) = from_nat(k)
         from_nat(j) <= from_nat(k)
