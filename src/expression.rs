@@ -204,6 +204,9 @@ impl Expression {
     ) -> Result<(Expression, Token)> {
         let (partial_expressions, terminator) =
             parse_partial_expressions(tokens, is_value, termination)?;
+        for (i, partial) in partial_expressions.iter().enumerate() {
+            println!("XXX partial {}: {}", i, partial);
+        }
         Ok((
             combine_partial_expressions(partial_expressions, is_value, tokens)?,
             terminator,
@@ -224,9 +227,12 @@ impl Expression {
     }
 }
 
-// In most situations we can parse left-to-right. Non-parenthesized operators are the exception.
-// The PartialExpression handles this. Nested expressions and operators are all partial expressions,
-// and we combine them into a single expression using operation priorities.
+// When we have a sequence of precedence-based operators, we need to gather the whole
+// sequence before combining them.
+// The PartialExpressions are what we have before doing this combination.
+// The precedence-based operators include unary operators, infix operators, and function application.
+// Function application is represented in a list of partial expressions by by multiple expressions
+// adjacent to each other with no operator in between.
 #[derive(Debug)]
 enum PartialExpression {
     // Already a complete expression
@@ -628,6 +634,10 @@ mod tests {
     #[test]
     fn test_dot_expressions() {
         check_value("NatPair.first(NatPair.new(a, b)) = a");
+        // check_value("foo(x).bar");
+        // check_value("foo(x).bar.baz");
+        // check_value("(foo).bar");
+        // check_value("(a + b).c");
     }
 
     #[test]
