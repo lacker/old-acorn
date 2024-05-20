@@ -273,7 +273,7 @@ theorem zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = suc(b) } by {
     induction(f)
 }
 
-theorem lte_cancel_suc(a: Nat, b: Nat): Nat.lte(suc(a), suc(b)) -> a <= b by {
+theorem lte_cancel_suc(a: Nat, b: Nat): suc(a) <= suc(b) -> a <= b by {
     exists(c: Nat) { suc(a) + c = suc(b) }
     suc(a) + c = suc(b)
     suc(a + c) = suc(b)
@@ -461,8 +461,8 @@ theorem lt_or_lte(a: Nat, b: Nat): lt(a, b) | b <= a by {
     }
 }
 
-theorem lt_imp_lte_suc(a: Nat, b: Nat): lt(a, b) -> Nat.lte(suc(a), b) by {
-    if !Nat.lte(suc(a), b) {
+theorem lt_imp_lte_suc(a: Nat, b: Nat): lt(a, b) -> suc(a) <= b by {
+    if !(suc(a) <= b) {
         suc(a) = b
         false
     }
@@ -689,7 +689,7 @@ theorem divides_factorial(k: Nat, n: Nat):
                     divides(k, factorial(suc(x)))
                 }
                 if k != suc(x) {
-                    Nat.lte(suc(k), suc(x))
+                    suc(k) <= suc(x)
                     k <= x
                     divides(k, factorial(x))
                     divides(factorial(x), suc(x) * factorial(x))
@@ -703,8 +703,8 @@ theorem divides_factorial(k: Nat, n: Nat):
     }
 }
 
-theorem factorial_nondecreasing(n: Nat): Nat.lte(factorial(n), factorial(suc(n))) by {
-    Nat.lte(factorial(n), suc(n) * factorial(n))
+theorem factorial_nondecreasing(n: Nat): factorial(n) <= factorial(suc(n)) by {
+    factorial(n) <= suc(n) * factorial(n)
 }
 
 theorem lte_one_factorial(a: Nat): 1 <= factorial(a) by {
@@ -713,7 +713,7 @@ theorem lte_one_factorial(a: Nat): 1 <= factorial(a) by {
     forall(x: Nat) {
         if lte_one_factorial(x) {
             1 <= factorial(x)
-            Nat.lte(factorial(x), factorial(suc(x)))
+            factorial(x) <= factorial(suc(x))
             1 <= factorial(suc(x))
             lte_one_factorial(suc(x))
         }
@@ -1050,7 +1050,7 @@ theorem div_imp_mod(a: Nat, m: Nat): divides(m, a) -> mod(a, m) = 0 by {
         divides(m, m)
         divides(m, mod(a, m))
         lt(mod(a, m), m)
-        !Nat.lte(m, mod(a, m))
+        !(m <= mod(a, m))
         mod(a, m) = 0
     } else {
         a = 0
