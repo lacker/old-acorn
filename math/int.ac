@@ -416,15 +416,15 @@ theorem add_sub_nat(p: Nat, q: Nat, r: Nat, s: Nat):
     (sub_nat(p, q) + sub_nat(r, s)) = sub_nat(p + pos_part(sub_nat(r, s)),
                                               q + neg_part(sub_nat(r, s)))
     p + q + (r + neg_part(sub_nat(r, s))) = p + q + (s + pos_part(sub_nat(r, s)))
-    nat.Nat.add(p, q + (r + neg_part(sub_nat(r, s)))) = p + q + (s + pos_part(sub_nat(r, s)))
-    nat.Nat.add(p, q + r + neg_part(sub_nat(r, s))) = p + q + (s + pos_part(sub_nat(r, s)))
-    nat.Nat.add(p, r + q + neg_part(sub_nat(r, s))) = p + q + (s + pos_part(sub_nat(r, s)))
-    nat.Nat.add(p, r + (q + neg_part(sub_nat(r, s)))) = p + q + (s + pos_part(sub_nat(r, s)))
+    p + (q + (r + neg_part(sub_nat(r, s)))) = p + q + (s + pos_part(sub_nat(r, s)))
+    p + (q + r + neg_part(sub_nat(r, s))) = p + q + (s + pos_part(sub_nat(r, s)))
+    p + (r + q + neg_part(sub_nat(r, s))) = p + q + (s + pos_part(sub_nat(r, s)))
+    p + (r + (q + neg_part(sub_nat(r, s)))) = p + q + (s + pos_part(sub_nat(r, s)))
     p + r + (q + neg_part(sub_nat(r, s))) = p + q + (s + pos_part(sub_nat(r, s)))
     p + r + (q + neg_part(sub_nat(r, s))) = q + p + (s + pos_part(sub_nat(r, s)))
     p + r + (q + neg_part(sub_nat(r, s))) = q + p + (s + pos_part(sub_nat(r, s)))
-    p + r + (q + neg_part(sub_nat(r, s))) = q + nat.Nat.add(p + s, pos_part(sub_nat(r, s)))
-    p + r + (q + neg_part(sub_nat(r, s))) = q + nat.Nat.add(s + p, pos_part(sub_nat(r, s)))
+    p + r + (q + neg_part(sub_nat(r, s))) = q + (p + s + pos_part(sub_nat(r, s)))
+    p + r + (q + neg_part(sub_nat(r, s))) = q + (s + p + pos_part(sub_nat(r, s)))
     p + r + (q + neg_part(sub_nat(r, s))) = q + s + (p + pos_part(sub_nat(r, s)))
     p + r + (q + neg_part(sub_nat(r, s))) = q + s + (p + pos_part(sub_nat(r, s)))
     sub_nat(p + r, q + s) = sub_nat(p + pos_part(sub_nat(r, s)),
@@ -583,7 +583,7 @@ theorem mul_nat_negate_left(a: Int, n: Nat): mul_nat(negate(a), n) = negate(mul_
 
 theorem mul_nat_nonneg_suc(a: Int, n: Nat): !is_negative(a) -> mul_nat(a, nat.suc(n)) = mul_nat(a, n) + a by {
     mul_nat(a, nat.suc(n)) = from_nat(abs(a) * nat.suc(n))
-    mul_nat(a, nat.suc(n)) = from_nat(nat.Nat.add(abs(a) * n, abs(a)))
+    mul_nat(a, nat.suc(n)) = from_nat(abs(a) * n + abs(a))
     mul_nat(a, nat.suc(n)) = from_nat(abs(a) * n) +  from_nat(abs(a))
     mul_nat(a, nat.suc(n)) = mul_nat(a, n) +  a
 }
@@ -1355,7 +1355,7 @@ let mod: (Nat, Nat) -> Nat = nat.mod
 theorem spans_nat_mod(a: Int, b: Int, k: Nat, m: Nat):
     spans(a, b, from_nat(k)) & spans(a, b, from_nat(m)) -> spans(a, b, from_nat(mod(k, m)))
 by {
-    exists(d: Nat) { nat.Nat.add(d * m, mod(k, m)) = k }
+    exists(d: Nat) { d * m + mod(k, m) = k }
     from_nat(d * m) + from_nat(mod(k, m)) = from_nat(k)
     from_nat(d) * from_nat(m) + from_nat(mod(k, m)) = from_nat(k)
     from_nat(mod(k, m)) = from_nat(k) + negate(from_nat(d) * from_nat(m))
