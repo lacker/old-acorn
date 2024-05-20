@@ -1123,7 +1123,7 @@ theorem lte_and_lt(a: Int, b: Int, c: Int): a <= b & b < c -> a < c by {
     }
 }
 
-theorem lt_from_nat(j: Nat, k: Nat): nat.lt(j, k) -> from_nat(j) < from_nat(k) by {
+theorem lt_from_nat(j: Nat, k: Nat): Nat.lt(j, k) -> from_nat(j) < from_nat(k) by {
     exists(d: Nat) { d + j = k & d != nat.0 }
     from_nat(d) + from_nat(j) = from_nat(k)
     from_nat(k) - from_nat(j) = from_nat(d)
@@ -1135,7 +1135,7 @@ theorem lte_from_nat(j: Nat, k: Nat): j <= k -> from_nat(j) <= from_nat(k) by {
         from_nat(j) = from_nat(k)
         from_nat(j) <= from_nat(k)
     } else {
-        nat.lt(j, k)
+        Nat.lt(j, k)
         from_nat(j) < from_nat(k)
         from_nat(j) <= from_nat(k)
     }

@@ -5,7 +5,6 @@ type Nat: nat.Nat
 let suc: Nat -> Nat = nat.suc
 let 0: Nat = nat.0
 let 1: Nat = nat.1
-let lt: (Nat, Nat) -> Bool = nat.lt
 
 let divides: (Nat, Nat) -> Bool = nat.divides
 type NatPair: nat.NatPair
@@ -22,7 +21,7 @@ define gcd_step(p: NatPair) -> NatPair: if NatPair.second(p) = 0 {
 // n steps of the gcd algorithm.
 define gcd_step_n(p: NatPair, n: Nat) -> NatPair: nat.recursion(gcd_step, p, n)
 
-define false_below(f: Nat -> Bool, n: Nat) -> Bool: forall(x: Nat) { lt(x, n) -> !f(x) }
+define false_below(f: Nat -> Bool, n: Nat) -> Bool: forall(x: Nat) { Nat.lt(x, n) -> !f(x) }
 
 theorem all_false_below(f: Nat -> Bool):
     forall(x: Nat) { false_below(f, x) } -> forall(x: Nat) { !f(x) }
@@ -42,7 +41,7 @@ theorem has_min(f: Nat -> Bool, n: Nat): f(n) -> exists(m: Nat) { is_min(f)(m) }
                     is_min(f)(k)
                     has_min(f, k)
                 } else {
-                    exists(a: Nat) { lt(a, k) & f(a) }
+                    exists(a: Nat) { Nat.lt(a, k) & f(a) }
                     has_min(f, k)
                 }
             } else {
@@ -56,7 +55,7 @@ theorem has_min(f: Nat -> Bool, n: Nat): f(n) -> exists(m: Nat) { is_min(f)(m) }
 
 // A decreasing_to_zero function strictly decreases until it hits zero.
 define decreasing_to_zero(f: Nat -> Nat) -> Bool: forall(x: Nat) {
-    f(x) = 0 | lt(f(suc(x)), f(x))
+    f(x) = 0 | Nat.lt(f(suc(x)), f(x))
 }
 
 theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { f(x) <= f(suc(x)) } by {
@@ -72,8 +71,8 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { f(x) <= f(suc(x)
             if h(x) {
                 x + f(x) <= f(0)
                 !(f(x) <= f(suc(x)))
-                lt(f(suc(x)), f(x))
-                lt(x + f(suc(x)), x + f(x))
+                Nat.lt(f(suc(x)), f(x))
+                Nat.lt(x + f(suc(x)), x + f(x))
                 suc(x + f(suc(x))) <= x + f(x)
                 suc(x) + f(suc(x)) <= x + f(x)
                 suc(x) + f(suc(x)) <= f(0)
@@ -97,7 +96,7 @@ theorem no_infinite_decreasing(f: Nat -> Nat): exists(x: Nat) { f(x) <= f(suc(x)
 theorem dtz_terminates(f: Nat -> Nat):
     decreasing_to_zero(f) -> exists(n: Nat) { f(n) = 0 } by {
     exists(n: Nat) { f(n) <= f(suc(n)) }
-    f(n) = 0 | lt(f(suc(n)), f(n))
+    f(n) = 0 | Nat.lt(f(suc(n)), f(n))
     f(n) = 0
 }
 
@@ -114,8 +113,8 @@ theorem gcd_terminates(p: NatPair): exists(n: Nat) { NatPair.second(gcd_step_n(p
             gcd_step(q) = NatPair.new(NatPair.second(q), mod(NatPair.first(q), NatPair.second(q)))
             f(suc(x)) = mod(NatPair.first(q), NatPair.second(q))
             f(suc(x)) = mod(NatPair.first(q), f(x))
-            lt(mod(NatPair.first(q), f(x)), f(x))
-            lt(f(suc(x)), f(x))
+            Nat.lt(mod(NatPair.first(q), f(x)), f(x))
+            Nat.lt(f(suc(x)), f(x))
         }
     }
     decreasing_to_zero(f)
