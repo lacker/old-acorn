@@ -1617,20 +1617,20 @@ mod tests {
         assert_eq!(prove_text(text, "goal2"), Outcome::Success);
     }
 
-    // #[test]
-    // fn test_ways_to_call_methods() {
-    //     let text = r#"
-    //     type Nat: axiom
-    //     class Nat {
-    //         define suc(self: Nat) -> Nat: axiom
-    //         define add(self: Nat, other: Nat) -> Nat: axiom
-    //     }
-    //     theorem goal1(a: Nat): a.suc.suc = Nat.suc(Nat.suc(a))
-    //     theorem goal2(a: Nat): a.suc.suc = Nat.suc(a).suc
-    //     theorem goal3(a: Nat, b: Nat): (a + b).suc = Nat.suc(Nat.add(a, b))
-    //     "#;
-    //     assert_eq!(prove_text(text, "goal1"), Outcome::Success);
-    //     assert_eq!(prove_text(text, "goal2"), Outcome::Success);
-    //     assert_eq!(prove_text(text, "goal3"), Outcome::Success);
-    // }
+    #[test]
+    fn test_ways_to_call_methods() {
+        let text = r#"
+        type Nat: axiom
+        class Nat {
+            define suc(self: Nat) -> Nat: axiom
+            define add(self: Nat, other: Nat) -> Nat: axiom
+        }
+        theorem goal1(a: Nat): a.suc.suc = Nat.suc(Nat.suc(a))
+        theorem goal2(a: Nat): a.suc.suc = Nat.suc(a).suc
+        theorem goal3(a: Nat, b: Nat): (a + b).suc = Nat.suc(Nat.add(a, b))
+        "#;
+        assert_eq!(prove_text(text, "goal1"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal2"), Outcome::Success);
+        assert_eq!(prove_text(text, "goal3"), Outcome::Success);
+    }
 }

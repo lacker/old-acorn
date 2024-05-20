@@ -396,8 +396,7 @@ impl BindingMap {
                     Ok(AcornType::new_functional(arg_types, return_type))
                 }
                 TokenType::Dot => {
-                    let entity =
-                        self.evaluate_dot_expression(&Stack::new(), project, expression)?;
+                    let entity = self.evaluate_entity(&mut Stack::new(), project, expression)?;
                     entity.expect_type(token)
                 }
                 _ => Err(Error::new(
@@ -593,42 +592,60 @@ impl BindingMap {
         }
     }
 
-    // Evaluates a dot expression that could represent any sort of named entity.
+    // Evaluates a single dot operator.
     fn evaluate_dot_expression(
         &self,
-        stack: &Stack,
+        stack: &mut Stack,
+        project: &Project,
+        left: &Expression,
+        right: &Expression,
+    ) -> token::Result<NamedEntity> {
+        let right_token = match right {
+            Expression::Identifier(token) => token,
+            _ => {
+                return Err(Error::new(
+                    right.token(),
+                    "expected an identifier after a dot",
+                ))
+            }
+        };
+        let left_entity = self.evaluate_entity(stack, project, left)?;
+
+        self.evaluate_name(
+            right_token,
+            project,
+            stack,
+            Some(left_entity),
+            right_token.text(),
+        )
+    }
+
+    // Evaluates an expression that could represent any sort of named entity.
+    // It could be a type, a value, or a module.
+    fn evaluate_entity(
+        &self,
+        stack: &mut Stack,
         project: &Project,
         expression: &Expression,
     ) -> token::Result<NamedEntity> {
-        match expression {
-            Expression::Identifier(token) => {
-                self.evaluate_name(token, project, stack, None, token.text())
-            }
-            Expression::Binary(left, token, right) => {
-                if token.token_type != TokenType::Dot {
-                    return Err(Error::new(token, "expected a dot operator"));
-                }
-                match right.as_ref() {
-                    Expression::Identifier(right_token) => {
-                        let left_entity = self.evaluate_dot_expression(stack, project, left)?;
-                        self.evaluate_name(
-                            token,
-                            project,
-                            stack,
-                            Some(left_entity),
-                            right_token.text(),
-                        )
-                    }
-                    _ => Err(Error::new(
-                        right.token(),
-                        "expected an identifier after the dot operator",
-                    )),
-                }
-            }
-            _ => Err(Error::new(expression.token(), "expected a dot expression")),
+        // Handle a plain old name
+        if let Expression::Identifier(token) = expression {
+            return self.evaluate_name(token, project, stack, None, token.text());
         }
+
+        if let Expression::Binary(left, token, right) = expression {
+            if token.token_type == TokenType::Dot {
+                return self.evaluate_dot_expression(stack, project, left, right);
+            }
+        }
+
+        // If it isn't a name or a dot, it must be a value.
+        let value = self.evaluate_value_with_stack(stack, project, expression, None)?;
+        Ok(NamedEntity::Value(value))
     }
 
+    // Evaluates an infix operator.
+    // name is the special alphanumeric name that corresponds to the operator, like "+" expands to "add".
     fn evaluate_infix(
         &self,
         stack: &mut Stack,
@@ -807,7 +824,7 @@ impl BindingMap {
                     ))
                 }
                 TokenType::Dot => {
-                    let entity = self.evaluate_dot_expression(stack, project, expression)?;
+                    let entity = self.evaluate_dot_expression(stack, project, left, right)?;
                     Ok(entity.expect_value(expected_type, token)?)
                 }
                 token_type => match token_type.infix_magic_function_name() {
