@@ -336,12 +336,12 @@ theorem parts_of_add(a: Int, b: Int):
     let j: Nat = pos_part(a) + pos_part(b)
     let k: Nat = neg_part(a) + neg_part(b)
     a + b = sub_nat(j, k)
-    pos_part(a) + pos_part(b) + neg_part(a + b) = nat.Nat.add(j, neg_part(sub_nat(j, k)))
-    neg_part(a) + neg_part(b) + pos_part(a + b) = nat.Nat.add(k, pos_part(sub_nat(j, k)))
-    nat.Nat.add(pos_part(sub_nat(j, k)), k) = nat.Nat.add(neg_part(sub_nat(j, k)), j)
-    pos_part(a) + pos_part(b) + neg_part(a + b) = nat.Nat.add(pos_part(sub_nat(j, k)), k)
-    neg_part(a) + neg_part(b) + pos_part(a + b) = nat.Nat.add(neg_part(sub_nat(j, k)), j)
-    pos_part(a) + pos_part(b) + neg_part(a + b) = nat.Nat.add(neg_part(sub_nat(j, k)), j)
+    pos_part(a) + pos_part(b) + neg_part(a + b) = j + neg_part(sub_nat(j, k))
+    neg_part(a) + neg_part(b) + pos_part(a + b) = k + pos_part(sub_nat(j, k))
+    pos_part(sub_nat(j, k)) + k = neg_part(sub_nat(j, k)) + j
+    pos_part(a) + pos_part(b) + neg_part(a + b) = pos_part(sub_nat(j, k)) + k
+    neg_part(a) + neg_part(b) + pos_part(a + b) = neg_part(sub_nat(j, k)) + j
+    pos_part(a) + pos_part(b) + neg_part(a + b) = neg_part(sub_nat(j, k)) + j
 }
 
 theorem add_neg(a: Int): a + negate(a) = 0 by {
@@ -371,16 +371,16 @@ theorem add_left_cancel(a: Int, b: Int, c: Int): c + a = c + b -> a = b by {
 }
 
 theorem add_sub_nat_left_pos(p: Nat, q: Nat, r: Nat): (sub_nat(p, q) + from_nat(r)) = sub_nat(p + r, q) by {
-    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), pos_part(from_nat(r))),
-                                            nat.Nat.add(neg_part(sub_nat(p, q)), neg_part(from_nat(r))))
-    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), r),
-                                            nat.Nat.add(neg_part(sub_nat(p, q)), neg_part(from_nat(r))))
-    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), r),
-                                            nat.Nat.add(neg_part(sub_nat(p, q)), nat.0))
-    (sub_nat(p, q) + from_nat(r)) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), r),
+    (sub_nat(p, q) + from_nat(r)) = sub_nat(pos_part(sub_nat(p, q)) + pos_part(from_nat(r)),
+                                            neg_part(sub_nat(p, q)) + neg_part(from_nat(r)))
+    (sub_nat(p, q) + from_nat(r)) = sub_nat(pos_part(sub_nat(p, q)) + r,
+                                            neg_part(sub_nat(p, q)) + neg_part(from_nat(r)))
+    (sub_nat(p, q) + from_nat(r)) = sub_nat(pos_part(sub_nat(p, q)) + r,
+                                            neg_part(sub_nat(p, q)) + nat.0)
+    (sub_nat(p, q) + from_nat(r)) = sub_nat(pos_part(sub_nat(p, q)) + r,
                                             neg_part(sub_nat(p, q))) 
-    nat.Nat.add(p + r, neg_part(sub_nat(p, q))) = nat.Nat.add(q, nat.Nat.add(pos_part(sub_nat(p, q)), r))
-    sub_nat(p + r, q) = sub_nat(nat.Nat.add(pos_part(sub_nat(p, q)), r), neg_part(sub_nat(p, q)))
+    p + r + neg_part(sub_nat(p, q)) = q + (pos_part(sub_nat(p, q)) + r)
+    sub_nat(p + r, q) = sub_nat(pos_part(sub_nat(p, q)) + r, neg_part(sub_nat(p, q)))
 }
 
 theorem add_sub_nat_left_neg(p: Nat, q: Nat, r: Nat): (sub_nat(p, q) + negate(from_nat(r))) = sub_nat(p, q + r) by {
