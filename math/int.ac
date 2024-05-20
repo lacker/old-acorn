@@ -557,7 +557,7 @@ theorem mul_nat_zero_right(a: Int): mul_nat(a, nat.0) = 0 by {
 
 theorem mul_nat_zero_left(n: Nat): mul_nat(0, n) = 0 by {
     !is_positive(0)
-    from_nat(Nat.mul(nat.0, n)) = 0
+    from_nat(nat.0 * n) = 0
 }
 
 theorem mul_nat_nonpos_left(a: Int, n: Nat):
@@ -582,7 +582,7 @@ theorem mul_nat_negate_left(a: Int, n: Nat): mul_nat(negate(a), n) = negate(mul_
 }
 
 theorem mul_nat_nonneg_suc(a: Int, n: Nat): !is_negative(a) -> mul_nat(a, nat.suc(n)) = mul_nat(a, n) + a by {
-    mul_nat(a, nat.suc(n)) = from_nat(Nat.mul(abs(a), nat.suc(n)))
+    mul_nat(a, nat.suc(n)) = from_nat(abs(a) * nat.suc(n))
     mul_nat(a, nat.suc(n)) = from_nat(nat.Nat.add(abs(a) * n, abs(a)))
     mul_nat(a, nat.suc(n)) = from_nat(abs(a) * n) +  from_nat(abs(a))
     mul_nat(a, nat.suc(n)) = mul_nat(a, n) +  a
@@ -738,11 +738,11 @@ theorem mul_one_right(a: Int): a * 1 = a by {
     is_positive(1)
     a * 1 = mul_nat(a, nat.1)
     if is_positive(a) {
-        a * 1 = from_nat(Nat.mul(abs(a), nat.1))
+        a * 1 = from_nat(abs(a) * nat.1)
         a * 1 = from_nat(abs(a))
         a * 1 = a
     } else {
-        a * 1 = negate(from_nat(Nat.mul(abs(a), nat.1)))
+        a * 1 = negate(from_nat(abs(a) * nat.1))
         negate(from_nat(abs(a))) = 0 + a
         mul_nat(a, nat.0) + a = negate(from_nat(abs(a)))
         a * 1 = negate(from_nat(abs(a)))
@@ -824,7 +824,7 @@ theorem abs_mul(a: Int, b: Int): abs(a * b) = abs(a) * abs(b) by {
             abs(a * b) = abs(b * a)
             abs(a) * abs(b) = abs(b) * abs(a)
             abs(mul_nat(b, abs(a))) = abs(b * a)
-            Nat.mul(pos_part(b), abs(a)) = abs(a * b)
+            pos_part(b) * abs(a) = abs(a * b)
             abs(a * b) = abs(a) * abs(b)
         } else {
             abs(a * b) = abs(a) * abs(b)
@@ -833,13 +833,13 @@ theorem abs_mul(a: Int, b: Int): abs(a * b) = abs(a) * abs(b) by {
 }
 
 theorem mul_from_nat(j: Nat, k: Nat): from_nat(j) * from_nat(k) = from_nat(j * k) by {
-    abs(from_nat(j) * from_nat(k)) = Nat.mul(abs(from_nat(j)), abs(from_nat(k)))
-    from_nat(abs(from_nat(j) * from_nat(k))) = from_nat(Nat.mul(abs(from_nat(j)), abs(from_nat(k))))
+    abs(from_nat(j) * from_nat(k)) = abs(from_nat(j)) * abs(from_nat(k))
+    from_nat(abs(from_nat(j) * from_nat(k))) = from_nat(abs(from_nat(j)) * abs(from_nat(k)))
     !is_negative(from_nat(j))
     !is_negative(from_nat(k))
     !is_negative(from_nat(j) * from_nat(k))
     from_nat(abs(from_nat(j) * from_nat(k))) = from_nat(j) * from_nat(k)
-    from_nat(j) * from_nat(k) = from_nat(Nat.mul(abs(from_nat(j)), abs(from_nat(k))))
+    from_nat(j) * from_nat(k) = from_nat(abs(from_nat(j)) * abs(from_nat(k)))
 }
 
 theorem abs_zero_imp_zero(a: Int): abs(a) = nat.0 -> a = 0 by {
@@ -890,26 +890,26 @@ theorem mul_int_nat_nat_assoc(a: Int, j: Nat, k: Nat): mul_nat(a, j * k) = mul_n
     if is_negative(a) {
         // Simplify lhs
         a = negate(from_nat(abs(a)))
-        mul_nat(a, j * k) = negate(from_nat(Nat.mul(abs(a), j * k)))
-        mul_nat(a, j * k) = negate(from_nat(Nat.mul(abs(a) * j, k)))
+        mul_nat(a, j * k) = negate(from_nat(abs(a) * (j * k)))
+        mul_nat(a, j * k) = negate(from_nat(abs(a) * j * k))
         
         // Simplify rhs
         mul_nat(a, j) = negate(from_nat(abs(a) * j))
         mul_nat(mul_nat(a, j), k) = mul_nat(negate(from_nat(abs(a) * j)), k)
         mul_nat(mul_nat(a, j), k) = negate(mul_nat(from_nat(abs(a) * j), k))
-        mul_nat(mul_nat(a, j), k) = negate(from_nat(Nat.mul(abs(a) * j, k)))
+        mul_nat(mul_nat(a, j), k) = negate(from_nat(abs(a) * j * k))
 
         // Conclusion
         mul_nat(a, j * k) = mul_nat(mul_nat(a, j), k)
     } else {
         // Simplify lhs
-        mul_nat(a, j * k) = from_nat(Nat.mul(abs(a), j * k))
-        mul_nat(a, j * k) = from_nat(Nat.mul(abs(a) * j, k))
+        mul_nat(a, j * k) = from_nat(abs(a) * (j * k))
+        mul_nat(a, j * k) = from_nat(abs(a) * j * k)
         
         // Simplify rhs
         mul_nat(a, j) = from_nat(abs(a) * j)
         mul_nat(mul_nat(a, j), k) = mul_nat(from_nat(abs(a) * j), k)
-        mul_nat(mul_nat(a, j), k) = from_nat(Nat.mul(abs(a) * j, k))
+        mul_nat(mul_nat(a, j), k) = from_nat(abs(a) * j * k)
 
         // Conclusion
         mul_nat(a, j * k) = mul_nat(mul_nat(a, j), k)
