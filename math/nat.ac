@@ -33,7 +33,7 @@ theorem add_zero_right(a: Nat): a + 0 = a
 let 2: Nat = 1.suc
 
 theorem one_plus_one: 1 + 1 = 2 by {
-    Nat.suc(recursion(Nat.suc, 1, 0)) = 2
+    recursion(Nat.suc, 1, 0).suc = 2
     1 + 0.suc = 2
 }
 
@@ -50,9 +50,9 @@ theorem add_zero_left(a: Nat): 0 + a = a by {
     }
 }
 
-theorem add_suc_right(a: Nat, b: Nat): a + b.suc = Nat.suc(a + b)
+theorem add_suc_right(a: Nat, b: Nat): a + b.suc = (a + b).suc
 
-theorem add_suc_left(a: Nat, b: Nat): a.suc + b = Nat.suc(a + b) by {
+theorem add_suc_left(a: Nat, b: Nat): a.suc + b = (a + b).suc by {
     define f(x: Nat) -> Bool: add_suc_left(a, x)
     induction(f)
     add_suc_left(a, 0)
@@ -75,13 +75,13 @@ theorem suc_ne(a: Nat): a.suc != a by {
     forall(x: Nat) {
         if suc_ne(x) {
             x.suc != x
-            Nat.suc(x.suc) != x.suc
+            x.suc.suc != x.suc
             suc_ne(x.suc)
         }
     }
 }
 
-theorem suc_suc_ne(a: Nat): Nat.suc(a.suc) != a by {
+theorem suc_suc_ne(a: Nat): a.suc.suc != a by {
     induction(suc_suc_ne)
     suc_suc_ne(0)
     forall(x: Nat) {
@@ -98,7 +98,7 @@ theorem add_comm(a: Nat, b: Nat): a + b = b + a by {
     f(0)
     forall(x: Nat) {
         if f(x) {
-            b + x.suc = Nat.suc(x + b)
+            b + x.suc = (x + b).suc
             f(x.suc)
         }
     }
@@ -109,7 +109,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): a + b + c = a + (b + c) by {
     induction(f)
     forall(x: Nat) {
         if f(x) {
-            x.suc + b + c = Nat.suc(x + b + c)
+            x.suc + b + c = (x + b + c).suc
             x.suc + b + c = x.suc + (b + c)
             f(x.suc)
         }
@@ -150,8 +150,8 @@ theorem mul_suc_left(a: Nat, b: Nat): a.suc * b = b + a * b by {
             a.suc * x.suc = a.suc + (x + a * x)
             a * x.suc = a + a * x
             a.suc + (x + a * x) = a.suc + x + a * x
-            a.suc + (x + a * x) = Nat.suc(a + x) + a * x
-            a.suc + (x + a * x) = Nat.suc(x + a) + a * x
+            a.suc + (x + a * x) = (a + x).suc + a * x
+            a.suc + (x + a * x) = (x + a).suc + a * x
             a.suc + (x + a * x) = x.suc + a + a * x
             add_assoc(x.suc, a, a * x)
             x.suc + a + a * x = x.suc + (a + a * x)
@@ -279,7 +279,7 @@ theorem zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = b.suc } by {
 theorem lte_cancel_suc(a: Nat, b: Nat): a.suc <= b.suc -> a <= b by {
     exists(c: Nat) { a.suc + c = b.suc }
     a.suc + c = b.suc
-    Nat.suc(a + c) = b.suc
+    (a + c).suc = b.suc
     a + c = b
     a <= b
 }
@@ -370,8 +370,8 @@ theorem add_cancels_left(a: Nat, b: Nat, c: Nat): a + b = a + c -> b = c by {
     forall(x: Nat) {
         if f(x) {
             if x.suc + b = x.suc + c {
-                Nat.suc(x + c) = x.suc + b
-                Nat.suc(x + b) = Nat.suc(x + c)
+                (x + c).suc = x.suc + b
+                (x + b).suc = (x + c).suc
                 x + b = x + c
                 b = c
             }
@@ -410,7 +410,7 @@ theorem lt_suc_left(a: Nat, b: Nat): a < b -> a.suc = b | a.suc < b by {
         a + 1 = b
         a.suc = b
     } else {
-        Nat.suc(a + d) = b
+        (a + d).suc = b
         a.suc + d = b
         a.suc != b
         a.suc < b
@@ -494,7 +494,7 @@ theorem division_theorem(m: Nat, n: Nat): 0 < n -> exists(q: Nat, r: Nat) {
                 r < n & x = q * n + r
             }
             if r.suc = n {
-                x.suc = Nat.suc(q * n + r)
+                x.suc = (q * n + r).suc
                 x.suc = q * n + r.suc
                 x.suc = q * n + n
                 n + q * n = x.suc
@@ -623,7 +623,7 @@ struct NatPair {
 }
 
 // Takes (n, n!) -> (n+1, (n+1)!)
-define fac_helper(p: NatPair) -> NatPair: NatPair.new(Nat.suc(NatPair.first(p)), Nat.suc(NatPair.first(p)) * NatPair.second(p))
+define fac_helper(p: NatPair) -> NatPair: NatPair.new(p.first.suc, p.first.suc * NatPair.second(p))
 
 // Seems like a shame this isn't proven automatically.
 // Every step in the proof is a pretty simple rewrite.
@@ -632,8 +632,8 @@ theorem fac_helper_alt(a: Nat, b: Nat): fac_helper(NatPair.new(a, b)) = NatPair.
     let p: NatPair = NatPair.new(a, b)
     NatPair.first(p) = a
     NatPair.second(p) = b
-    fac_helper(p) = NatPair.new(Nat.suc(NatPair.first(p)), Nat.suc(NatPair.first(p)) * NatPair.second(p))
-    fac_helper(p) = NatPair.new(Nat.suc(NatPair.first(p)), a.suc * b)
+    fac_helper(p) = NatPair.new(p.first.suc, p.first.suc * NatPair.second(p))
+    fac_helper(p) = NatPair.new(p.first.suc, a.suc * b)
 }
 
 // Takes n -> (n, n!)
@@ -795,8 +795,8 @@ theorem divides_suc(a: Nat, b: Nat): divides(a, b) & divides(a, b.suc) -> a = 1 
 theorem exists_infinite_primes(n: Nat): exists(p: Nat) {
     n < p & is_prime(p)
 } by {
-    let m: Nat = Nat.suc(factorial(n))
-    if !(1 < Nat.suc(factorial(n))) {
+    let m: Nat = factorial(n).suc
+    if !(1 < factorial(n).suc) {
         !(1 < factorial(n))
         factorial(n) = 1
         false
