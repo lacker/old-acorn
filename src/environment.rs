@@ -2406,4 +2406,40 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         );
         env.bad("theorem goal: 0.foo(true)");
     }
+
+    #[test]
+    fn test_infix_codegen() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define add(self: Nat, other: Nat) -> Nat: axiom
+                define sub(self: Nat, other: Nat) -> Nat: axiom
+                define mul(self: Nat, other: Nat) -> Nat: axiom
+                define div(self: Nat, other: Nat) -> Nat: axiom
+                define mod(self: Nat, other: Nat) -> Nat: axiom
+                define lt(self: Nat, other: Nat) -> Bool: axiom
+                define gt(self: Nat, other: Nat) -> Bool: axiom
+                define lte(self: Nat, other: Nat) -> Bool: axiom
+                define gte(self: Nat, other: Nat) -> Bool: axiom
+                define suc(self: Nat) -> Nat: axiom
+                define foo(self: Nat, other: Nat) -> Nat: axiom
+            }
+            let 0: Nat = axiom
+            let 1: Nat = axiom
+        "#,
+        );
+        env.bindings.expect_good_code("0 + 1");
+        env.bindings.expect_good_code("0 - 1");
+        env.bindings.expect_good_code("0 * 1");
+        env.bindings.expect_good_code("0 / 1");
+        env.bindings.expect_good_code("0 % 1");
+        env.bindings.expect_good_code("0 < 1");
+        env.bindings.expect_good_code("0 > 1");
+        env.bindings.expect_good_code("0 <= 1");
+        env.bindings.expect_good_code("0 >= 1");
+        env.bindings.expect_good_code("0.suc = 1");
+        env.bindings.expect_good_code("0.foo(1)");
+    }
 }

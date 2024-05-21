@@ -1365,6 +1365,16 @@ impl BindingMap {
         };
         assert_eq!(env_type.to_string(), type_string);
     }
+
+    // Check that this code, when converted to a value and back to code, is the same.
+    pub fn expect_good_code(&self, input_code: &str) {
+        let project = Project::new_mock();
+        let expression = Expression::expect_value(input_code);
+        let value = self.evaluate_value(&project, &expression, None).unwrap();
+        let mut next_k = 0;
+        let output_code = self.value_to_code(&value, &mut next_k).unwrap();
+        assert_eq!(input_code, output_code);
+    }
 }
 
 #[cfg(test)]
