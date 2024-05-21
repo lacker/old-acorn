@@ -238,6 +238,22 @@ impl Token {
         }
     }
 
+    // The opposite of magic function names
+    pub fn unmagic(name: &str) -> Option<&str> {
+        match name {
+            "gt" => Some(">"),
+            "lt" => Some("<"),
+            "gte" => Some(">="),
+            "lte" => Some("<="),
+            "add" => Some("+"),
+            "sub" => Some("-"),
+            "mul" => Some("*"),
+            "mod" => Some("%"),
+            "div" => Some("/"),
+            _ => None,
+        }
+    }
+
     pub fn text(&self) -> &str {
         let start = self.start as usize;
         let end = (self.start + self.len) as usize;

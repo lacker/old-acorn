@@ -674,7 +674,7 @@ impl BindingMap {
         let left_entity = NamedEntity::Value(left_value);
         let right_value = self.evaluate_value_with_stack(stack, project, right, None)?;
 
-        // First partially apply to the left
+        // Get the partial application to the left
         let partial = self.evaluate_name(token, project, stack, Some(left_entity), name)?;
         let mut fa = match partial {
             NamedEntity::Value(AcornValue::Application(fa)) => fa,
@@ -688,6 +688,24 @@ impl BindingMap {
                 ))
             }
         };
+        match fa.function.get_type() {
+            AcornType::Function(f) => {
+                if f.arg_types.len() != 2 {
+                    return Err(Error::new(
+                        token,
+                        &format!("expected a binary function for '{}' method", name),
+                    ));
+                }
+                check_type(token, Some(&f.arg_types[1]), &right_value.get_type())?;
+            }
+            _ => {
+                return Err(Error::new(
+                    token,
+                    &format!("unexpected type for '{}' method", name),
+                ))
+            }
+        };
+
         fa.args.push(right_value);
         let value = AcornValue::new_apply(*fa.function, fa.args);
         check_type(token, expected_type, &value.get_type())?;
