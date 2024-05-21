@@ -640,6 +640,14 @@ impl Environment {
                 &ds.return_value,
                 class.is_some(),
             )?;
+        if let Some(class_name) = class {
+            if arg_types[0] != AcornType::Data(self.module_id, class_name.to_string()) {
+                return Err(Error::new(
+                    &ds.args[0].token(),
+                    "self must be the class type",
+                ));
+            }
+        }
         if let Some(v) = unbound_value {
             let fn_value = AcornValue::new_lambda(arg_types, v);
             // Add the function value to the environment
