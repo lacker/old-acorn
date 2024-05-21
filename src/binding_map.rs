@@ -1321,6 +1321,29 @@ impl BindingMap {
                 let x = self.value_to_expr_helper(x, var_names, next_x, next_k)?;
                 Ok(Expression::Unary(TokenType::Exclam.generate(), Box::new(x)))
             }
+            AcornValue::ForAll(quants, value) => {
+                let initial_var_names_len = var_names.len();
+                let mut decls = vec![];
+                for arg_type in quants {
+                    let var_name = self.next_x_var(next_x);
+                    let var_ident = Expression::generate_identifier(&var_name);
+                    let type_expr = self.type_to_expr(arg_type)?;
+                    let decl = Expression::Binary(
+                        Box::new(var_ident),
+                        TokenType::Colon.generate(),
+                        Box::new(type_expr),
+                    );
+                    decls.push(decl);
+                }
+                let subresult = self.value_to_expr_helper(value, var_names, next_x, next_k)?;
+                var_names.truncate(initial_var_names_len);
+                Ok(Expression::Binder(
+                    TokenType::ForAll.generate(),
+                    Box::new(Expression::generate_grouping(decls)),
+                    Box::new(subresult),
+                    TokenType::RightBrace.generate(),
+                ))
+            }
             // Currently, I don't think these code paths are ever hit.
             AcornValue::IfThenElse(..) => Err(CodeGenError::unhandled_value("if-then-else")),
             AcornValue::Lambda(..) => Err(CodeGenError::unhandled_value("lambda")),
