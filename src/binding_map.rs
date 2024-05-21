@@ -537,7 +537,21 @@ impl BindingMap {
                             ))
                         }
                     };
+                    // We need to typecheck that the apply is okay
+                    match function.get_type() {
+                        AcornType::Function(function_type) => {
+                            check_type(
+                                token,
+                                Some(&function_type.arg_types[0]),
+                                &left_value.get_type(),
+                            )?;
+                        }
+                        _ => {
+                            return Err(Error::new(token, "expected member to be a function"));
+                        }
+                    };
                     let applied_value = AcornValue::new_apply(function, vec![left_value]);
+
                     Ok(NamedEntity::Value(applied_value))
                 } else {
                     Err(Error::new(token, "type has no members"))
