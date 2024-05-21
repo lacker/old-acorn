@@ -179,6 +179,11 @@ impl Expression {
         }
     }
 
+    // For code generation. Will not point to a token in any larger document
+    pub fn generate_identifier(s: &str) -> Expression {
+        Expression::Identifier(TokenType::Identifier.new_token(s))
+    }
+
     // If this expression is of the form "premise -> conclusion", return the premise.
     pub fn premise(&self) -> Option<&Expression> {
         match self {

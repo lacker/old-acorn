@@ -187,7 +187,7 @@ impl TokenType {
     // A token created without a line.
     // This is used for code generation, when we have an expression and then we wish to create
     // code for it.
-    fn new_token(self, text: &str) -> Token {
+    pub fn new_token(self, text: &str) -> Token {
         let len = text.len() as u32;
         Token {
             token_type: self,
@@ -247,11 +247,6 @@ impl TokenType {
 
     pub fn generate(self) -> Token {
         self.new_token(self.to_str())
-    }
-
-    // Generates a new token to be an identifier.
-    pub fn generate_identifier(text: &str) -> Token {
-        TokenType::Identifier.new_token(text)
     }
 }
 

@@ -1202,7 +1202,7 @@ impl BindingMap {
         }
 
         match self.reverse_type_names.get(acorn_type) {
-            Some(name) => Ok(Expression::Identifier(TokenType::generate_identifier(name))),
+            Some(name) => Ok(Expression::generate_identifier(name)),
             None => Err(CodeGenError::unnamed_type(acorn_type)),
         }
     }
@@ -1246,6 +1246,48 @@ impl BindingMap {
         let mut var_names = vec![];
         let mut next_x = 0;
         self.value_to_code_helper(value, &mut var_names, &mut next_x, next_k)
+    }
+
+    // Given a module and a name, find an expression that refers to the name.
+    pub fn name_to_expr(&self, module: ModuleId, name: &str) -> Result<Expression, CodeGenError> {
+        if module == self.module {
+            return Ok(Expression::generate_identifier(name));
+        }
+
+        // Check if there's a local alias for this constant.
+        let key = (module, name.to_string());
+        if let Some(alias) = self.aliased_constants.get(&key) {
+            return Ok(Expression::generate_identifier(alias));
+        }
+
+        // If it's a member function, check if there's a local alias for its struct.
+        let parts = name.split('.').collect::<Vec<_>>();
+        if parts.len() == 2 {
+            let data_type = AcornType::Data(module, parts[0].to_string());
+            if let Some(type_alias) = self.reverse_type_names.get(&data_type) {
+                let lhs = Expression::generate_identifier(type_alias);
+                let rhs = Expression::generate_identifier(parts[1]);
+                return Ok(Expression::Binary(
+                    Box::new(lhs),
+                    TokenType::Dot.generate(),
+                    Box::new(rhs),
+                ));
+            }
+        }
+
+        // Refer to this constant using its module
+        match self.reverse_modules.get(&module) {
+            Some(module_name) => {
+                let lhs = Expression::generate_identifier(module_name);
+                let rhs = Expression::generate_identifier(name);
+                Ok(Expression::Binary(
+                    Box::new(lhs),
+                    TokenType::Dot.generate(),
+                    Box::new(rhs),
+                ))
+            }
+            None => Err(CodeGenError::UnimportedModule(module)),
+        }
     }
 
     // Given a module and a name, find a way for us to describe the name with our bindings.
