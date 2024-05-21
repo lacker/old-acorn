@@ -51,8 +51,6 @@ pub enum TokenType {
     Slash,
 }
 
-pub const MAX_PRECEDENCE: i8 = 100;
-
 // The token types that we export via the language server protocol
 pub const LSP_TOKEN_TYPES: &[SemanticTokenType] = &[
     SemanticTokenType::VARIABLE,
@@ -185,6 +183,76 @@ impl TokenType {
             _ => None,
         }
     }
+
+    // A token created without a line.
+    // This is used for code generation, when we have an expression and then we wish to create
+    // code for it.
+    fn new_token(self, text: &str) -> Token {
+        let len = text.len() as u32;
+        Token {
+            token_type: self,
+            line: Arc::new(text.to_string()),
+            line_number: 0,
+            start: 0,
+            len,
+        }
+    }
+
+    fn to_str(&self) -> &str {
+        match self {
+            TokenType::Identifier => "<identifier>",
+            TokenType::Invalid => "<invalid>",
+            TokenType::LeftParen => "(",
+            TokenType::RightParen => ")",
+            TokenType::LeftBrace => "{",
+            TokenType::RightBrace => "}",
+            TokenType::NewLine => "\n",
+            TokenType::Comma => ",",
+            TokenType::Colon => ":",
+            TokenType::Dot => ".",
+            TokenType::RightArrow => "->",
+            TokenType::Exclam => "!",
+            TokenType::Pipe => "|",
+            TokenType::Ampersand => "&",
+            TokenType::LeftRightArrow => "<->",
+            TokenType::Equals => "=",
+            TokenType::NotEquals => "!=",
+            TokenType::GreaterThan => ">",
+            TokenType::LessThan => "<",
+            TokenType::GreaterThanOrEquals => ">=",
+            TokenType::LessThanOrEquals => "<=",
+            TokenType::Plus => "+",
+            TokenType::Minus => "-",
+            TokenType::Let => "let",
+            TokenType::Axiom => "axiom",
+            TokenType::Define => "define",
+            TokenType::Theorem => "theorem",
+            TokenType::Type => "type",
+            TokenType::ForAll => "forall",
+            TokenType::Exists => "exists",
+            TokenType::If => "if",
+            TokenType::By => "by",
+            TokenType::Function => "function",
+            TokenType::Struct => "struct",
+            TokenType::Import => "import",
+            TokenType::True => "true",
+            TokenType::False => "false",
+            TokenType::Else => "else",
+            TokenType::Class => "class",
+            TokenType::Asterisk => "*",
+            TokenType::Percent => "%",
+            TokenType::Slash => "/",
+        }
+    }
+
+    pub fn generate(self) -> Token {
+        self.new_token(self.to_str())
+    }
+
+    // Generates a new token to be an identifier.
+    pub fn generate_identifier(text: &str) -> Token {
+        TokenType::Identifier.new_token(text)
+    }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -235,22 +303,6 @@ impl Token {
             line_number: 0,
             start: 0,
             len: 0,
-        }
-    }
-
-    // The opposite of magic function names
-    pub fn unmagic(name: &str) -> Option<&str> {
-        match name {
-            "gt" => Some(">"),
-            "lt" => Some("<"),
-            "gte" => Some(">="),
-            "lte" => Some("<="),
-            "add" => Some("+"),
-            "sub" => Some("-"),
-            "mul" => Some("*"),
-            "mod" => Some("%"),
-            "div" => Some("/"),
-            _ => None,
         }
     }
 

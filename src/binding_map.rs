@@ -1171,8 +1171,41 @@ impl BindingMap {
     }
 
     ////////////////////////////////////////////////////////////////////////////////
-    // Tools for going the other way, to create code strings given the bindings.
+    // Tools for going the other way, to create expressions and code strings from values and types.
     ////////////////////////////////////////////////////////////////////////////////
+
+    // Returns an error if this type can't be encoded. For example, it could be a type that
+    // is not obviously accessible from this scope.
+    pub fn type_to_expr(&self, acorn_type: &AcornType) -> Result<Expression, CodeGenError> {
+        if let AcornType::Function(ft) = acorn_type {
+            let mut lhs = self.type_to_expr(&ft.arg_types[0])?;
+            for arg_type in &ft.arg_types[1..] {
+                lhs = Expression::Binary(
+                    Box::new(lhs),
+                    TokenType::Comma.generate(),
+                    Box::new(self.type_to_expr(arg_type)?),
+                );
+            }
+            if ft.arg_types.len() != 1 {
+                lhs = Expression::Grouping(
+                    TokenType::LeftParen.generate(),
+                    Box::new(lhs),
+                    TokenType::RightParen.generate(),
+                );
+            }
+            let rhs = self.type_to_expr(&ft.return_type)?;
+            return Ok(Expression::Binary(
+                Box::new(lhs),
+                TokenType::RightArrow.generate(),
+                Box::new(rhs),
+            ));
+        }
+
+        match self.reverse_type_names.get(acorn_type) {
+            Some(name) => Ok(Expression::Identifier(TokenType::generate_identifier(name))),
+            None => Err(CodeGenError::unnamed_type(acorn_type)),
+        }
+    }
 
     // Returns an error if this type can't be encoded. For example, it could be a type that
     // is not imported into this scope.
