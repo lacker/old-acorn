@@ -676,22 +676,22 @@ impl BindingMap {
 
         // First partially apply to the left
         let partial = self.evaluate_name(token, project, stack, Some(left_entity), name)?;
-        match partial {
-            NamedEntity::Value(value) => {
-                // If we have a value, apply it to the right
-                let applied_value = AcornValue::new_apply(value, vec![right_value]);
-                check_type(token, expected_type, &applied_value.get_type())?;
-                Ok(applied_value)
+        let mut fa = match partial {
+            NamedEntity::Value(AcornValue::Application(fa)) => fa,
+            _ => {
+                return Err(Error::new(
+                    token,
+                    &format!(
+                        "the '{}' operator requires a method named '{}'",
+                        token, name
+                    ),
+                ))
             }
-            NamedEntity::Type(_) => Err(Error::new(
-                token,
-                "expected a value to the left of an infix operator, but got a type",
-            )),
-            NamedEntity::Module(_) => Err(Error::new(
-                token,
-                "expected a value to the left of an infix operator, but got a module",
-            )),
-        }
+        };
+        fa.args.push(right_value);
+        let value = AcornValue::new_apply(*fa.function, fa.args);
+        check_type(token, expected_type, &value.get_type())?;
+        Ok(value)
     }
 
     // Evaluates an expression that describes a value, with a stack given as context.
