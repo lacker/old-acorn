@@ -11,10 +11,10 @@ type NatPair: nat.NatPair
 let mod: (Nat, Nat) -> Nat = nat.mod
 
 // One step is taking the pair (a, b) and replacing with (b, a mod b).
-define gcd_step(p: NatPair) -> NatPair: if NatPair.second(p) = 0 {
+define gcd_step(p: NatPair) -> NatPair: if p.second = 0 {
     p
 } else {
-    NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
+    NatPair.new(p.second, mod(p.first, p.second))
 }
 
 // n steps of the gcd algorithm.
@@ -99,20 +99,20 @@ theorem dtz_terminates(f: Nat -> Nat):
     f(n) = 0
 }
 
-theorem gcd_terminates(p: NatPair): exists(n: Nat) { NatPair.second(gcd_step_n(p, n)) = 0 } by {
-    let f: Nat -> Nat = function(x: Nat) { NatPair.second(gcd_step_n(p, x)) }
+theorem gcd_terminates(p: NatPair): exists(n: Nat) { gcd_step_n(p, n).second = 0 } by {
+    let f: Nat -> Nat = function(x: Nat) { gcd_step_n(p, x).second }
     forall(x: Nat) {
         if f(x) != 0 {
             let q: NatPair = gcd_step_n(p, x)
             gcd_step_n(p, x.suc) = gcd_step(gcd_step_n(p, x))
             gcd_step_n(p, x.suc) = gcd_step(q)
-            f(x.suc) = NatPair.second(gcd_step_n(p, x.suc))
-            f(x.suc) = NatPair.second(gcd_step(q))
-            NatPair.second(q) != 0
-            gcd_step(q) = NatPair.new(NatPair.second(q), mod(NatPair.first(q), NatPair.second(q)))
-            f(x.suc) = mod(NatPair.first(q), NatPair.second(q))
-            f(x.suc) = mod(NatPair.first(q), f(x))
-            mod(NatPair.first(q), f(x)) < f(x)
+            f(x.suc) = gcd_step_n(p, x.suc).second
+            f(x.suc) = gcd_step(q).second
+            q.second != 0
+            gcd_step(q) = NatPair.new(q.second, mod(q.first, q.second))
+            f(x.suc) = mod(q.first, q.second)
+            f(x.suc) = mod(q.first, f(x))
+            mod(q.first, f(x)) < f(x)
             f(x.suc) < f(x)
         }
     }
@@ -121,12 +121,12 @@ theorem gcd_terminates(p: NatPair): exists(n: Nat) { NatPair.second(gcd_step_n(p
 }
 
 define gcd_termination(p: NatPair) -> (Nat -> Bool): function(n: Nat) {
-    NatPair.second(gcd_step_n(p, n)) = 0
+    gcd_step_n(p, n).second = 0
 }
 
 define num_gcd_steps(p: NatPair) -> Nat: nat.find(is_min(gcd_termination(p)))
 
-theorem num_gcd_steps_terminates(p: NatPair): NatPair.second(gcd_step_n(p, num_gcd_steps(p))) = 0 by {
+theorem num_gcd_steps_terminates(p: NatPair): gcd_step_n(p, num_gcd_steps(p)).second = 0 by {
     exists(n: Nat) { is_min(gcd_termination(p))(n) }
     let f: Nat -> Bool = is_min(gcd_termination(p))
     f(nat.find(f))
@@ -134,25 +134,24 @@ theorem num_gcd_steps_terminates(p: NatPair): NatPair.second(gcd_step_n(p, num_g
     gcd_termination(p)(num_gcd_steps(p))
 }
 
-define gcd_pair(p: NatPair) -> Nat: NatPair.first(gcd_step_n(p, num_gcd_steps(p)))
+define gcd_pair(p: NatPair) -> Nat: gcd_step_n(p, num_gcd_steps(p)).first
 
 define gcd(a: Nat, b: Nat) -> Nat: gcd_pair(NatPair.new(a, b))
 
-define divides_both(a: Nat, p: NatPair) -> Bool: divides(a, NatPair.first(p)) & divides(a, NatPair.second(p))
+define divides_both(a: Nat, p: NatPair) -> Bool: divides(a, p.first) & divides(a, p.second)
 
 theorem divides_both_step(a: Nat, p: NatPair): divides_both(a, p) -> divides_both(a, gcd_step(p)) by {
-    divides(a, NatPair.first(p))
-    divides(a, NatPair.second(p))
-    divides(a, mod(NatPair.first(p), NatPair.second(p)))
-    if NatPair.second(p) = 0 {
+    divides(a, p.first)
+    divides(a, p.second)
+    divides(a, mod(p.first, p.second))
+    if p.second = 0 {
         divides_both(a, gcd_step(p))
     } else {
-        gcd_step(p) = NatPair.new(NatPair.second(p),
-                                    mod(NatPair.first(p), NatPair.second(p)))
-        NatPair.second(gcd_step(p)) = mod(NatPair.first(p), NatPair.second(p))
-        divides(a, NatPair.second(gcd_step(p)))
-        NatPair.first(gcd_step(p)) = NatPair.second(p)
-        divides(a, NatPair.first(gcd_step(p)))
+        gcd_step(p) = NatPair.new(p.second, mod(p.first, p.second))
+        gcd_step(p).second = mod(p.first, p.second)
+        divides(a, gcd_step(p).second)
+        gcd_step(p).first = p.second
+        divides(a, gcd_step(p).first)
         divides_both(a, gcd_step(p))
     }
 }
@@ -183,14 +182,14 @@ theorem divides_gcd(d: Nat, a: Nat, b: Nat): divides(d, a) & divides(d, b) -> di
 }
 
 theorem divides_both_unstep(a: Nat, p: NatPair): divides_both(a, gcd_step(p)) -> divides_both(a, p) by {
-    if NatPair.second(p) = 0 {
+    if p.second = 0 {
         p = gcd_step(p)
         divides_both(a, p)
     } else {
-        gcd_step(p) = NatPair.new(NatPair.second(p), mod(NatPair.first(p), NatPair.second(p)))
-        divides(a, NatPair.second(p))
-        divides(a, mod(NatPair.first(p), NatPair.second(p)))
-        divides(a, NatPair.first(p))
+        gcd_step(p) = NatPair.new(p.second, mod(p.first, p.second))
+        divides(a, p.second)
+        divides(a, mod(p.first, p.second))
+        divides(a, p.first)
         divides_both(a, p)
     }
 }
@@ -213,21 +212,21 @@ theorem divides_gcd_step_n_converse(d: Nat, p: NatPair, n: Nat):
 }
 
 theorem divides_gcd_pair_converse(d: Nat, p: NatPair): divides(d, gcd_pair(p)) -> divides_both(d, p) by {
-    gcd_pair(p) = NatPair.first(gcd_step_n(p, num_gcd_steps(p)))
-    0 = NatPair.second(gcd_step_n(p, num_gcd_steps(p)))
+    gcd_pair(p) = gcd_step_n(p, num_gcd_steps(p)).first
+    0 = gcd_step_n(p, num_gcd_steps(p)).second
     divides_both(d, gcd_step_n(p, num_gcd_steps(p)))
     divides_both(d, p)
 }
 
 theorem gcd_divides(d: Nat, a: Nat, b: Nat): divides(d, gcd(a, b)) -> divides(d, a) & divides(d, b) by {
     let p: NatPair = NatPair.new(a, b)
-    NatPair.first(p) = a
-    NatPair.second(p) = b
+    p.first = a
+    p.second = b
     divides(d, gcd_pair(p))
     divides_both(d, p)    
-    divides(d, NatPair.first(p))
+    divides(d, p.first)
     divides(d, a)
-    divides(d, NatPair.second(p))
+    divides(d, p.second)
     divides(d, b)
     divides(d, a) & divides(d, b)
 }
@@ -277,37 +276,35 @@ define mod_maintains(f: Nat -> Bool) -> Bool: forall(a: Nat, b: Nat) { f(a) & f(
 theorem mod_maintains_imp_gcd(f: Nat -> Bool, a: Nat, b: Nat): mod_maintains(f) & f(a) & f(b) -> f(gcd(a, b)) by {
     let p: NatPair = NatPair.new(a, b)
     let g: Nat -> Bool = function(n: Nat) {
-        f(NatPair.first(gcd_step_n(p, n))) & f(NatPair.second(gcd_step_n(p, n)))
+        f(gcd_step_n(p, n).first) & f(gcd_step_n(p, n).second)
     }
-    NatPair.first(gcd_step_n(p, 0)) = a
-    NatPair.second(gcd_step_n(p, 0)) = b
-    f(NatPair.second(gcd_step_n(p, 0)))
+    gcd_step_n(p, 0).first = a
+    gcd_step_n(p, 0).second = b
+    f(gcd_step_n(p, 0).second)
     g(0)
     forall(x: Nat) {
         if g(x) {
             gcd_step_n(p, x.suc) = gcd_step(gcd_step_n(p, x))
-            f(NatPair.first(gcd_step_n(p, x)))
-            f(NatPair.second(gcd_step_n(p, x)))
+            f(gcd_step_n(p, x).first)
+            f(gcd_step_n(p, x).second)
 
-            if NatPair.second(gcd_step_n(p, x)) = 0 {
-                NatPair.second(gcd_step_n(p, x)) = 0
+            if gcd_step_n(p, x).second = 0 {
                 gcd_step_n(p, x.suc) = gcd_step_n(p, x)
-                f(NatPair.first(gcd_step_n(p, x.suc)))
-                f(NatPair.second(gcd_step_n(p, x.suc)))
+                f(gcd_step_n(p, x.suc).first)
+                f(gcd_step_n(p, x.suc).second)
                 g(x.suc)
             } else {
-                NatPair.second(gcd_step_n(p, x)) != 0
-                NatPair.first(gcd_step_n(p, x.suc)) = NatPair.second(gcd_step_n(p, x))
-                NatPair.new(NatPair.second(gcd_step_n(p, x)), mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x)))) = gcd_step(gcd_step_n(p, x))
-                NatPair.second(gcd_step_n(p, x.suc)) = mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x)))
-                f(NatPair.first(gcd_step_n(p, x.suc)))
-                f(mod(NatPair.first(gcd_step_n(p, x)), NatPair.second(gcd_step_n(p, x))))
-                f(NatPair.second(gcd_step_n(p, x.suc)))
+                gcd_step_n(p, x.suc).first = gcd_step_n(p, x).second
+                NatPair.new(gcd_step_n(p, x).second, mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second)) = gcd_step(gcd_step_n(p, x))
+                gcd_step_n(p, x.suc).second = mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second)
+                f(gcd_step_n(p, x.suc).first)
+                f(mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second))
+                f(gcd_step_n(p, x.suc).second)
                 g(x.suc)
             }
         }
     }
     g(num_gcd_steps(p))
-    f(NatPair.first(gcd_step_n(p, num_gcd_steps(p))))
+    f(gcd_step_n(p, num_gcd_steps(p)).first)
     f(gcd(a, b))
 }

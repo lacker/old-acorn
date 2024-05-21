@@ -623,43 +623,43 @@ struct NatPair {
 }
 
 // Takes (n, n!) -> (n+1, (n+1)!)
-define fac_helper(p: NatPair) -> NatPair: NatPair.new(p.first.suc, p.first.suc * NatPair.second(p))
+define fac_helper(p: NatPair) -> NatPair: NatPair.new(p.first.suc, p.first.suc * p.second)
 
 // Seems like a shame this isn't proven automatically.
 // Every step in the proof is a pretty simple rewrite.
 // Really, all the statements about factorials seem like they should be provable automatically.
 theorem fac_helper_alt(a: Nat, b: Nat): fac_helper(NatPair.new(a, b)) = NatPair.new(a.suc, a.suc * b) by {
     let p: NatPair = NatPair.new(a, b)
-    NatPair.first(p) = a
-    NatPair.second(p) = b
-    fac_helper(p) = NatPair.new(p.first.suc, p.first.suc * NatPair.second(p))
+    p.first = a
+    p.second = b
+    fac_helper(p) = NatPair.new(p.first.suc, p.first.suc * p.second)
     fac_helper(p) = NatPair.new(p.first.suc, a.suc * b)
 }
 
 // Takes n -> (n, n!)
 define fac_pair(n: Nat) -> NatPair: recursion(fac_helper, NatPair.new(0, 1), n)
 
-theorem fac_pair_first(n: Nat): NatPair.first(fac_pair(n)) = n by {
+theorem fac_pair_first(n: Nat): fac_pair(n).first = n by {
     induction(fac_pair_first)
     fac_pair_first(0)
     forall(x: Nat) {
         if fac_pair_first(x) {
-            x = NatPair.first(fac_pair(x))
-            let a: Nat = NatPair.second(fac_pair(x))
-            NatPair.new(NatPair.first(fac_pair(x)), a) = fac_pair(x)
+            x = fac_pair(x).first
+            let a: Nat = fac_pair(x).second
+            NatPair.new(fac_pair(x).first, a) = fac_pair(x)
             fac_pair(x) = NatPair.new(x, a)
             fac_pair(x.suc) = fac_helper(fac_pair(x))
             fac_pair(x.suc) = NatPair.new(x.suc, x.suc * a)
             let b: Nat = x.suc * a
             fac_pair(x.suc) = NatPair.new(x.suc, b)
-            NatPair.first(NatPair.new(x.suc, b)) = x.suc
-            NatPair.first(fac_pair(x.suc)) = x.suc
+            NatPair.new(x.suc, b).first = x.suc
+            fac_pair(x.suc).first = x.suc
             fac_pair_first(x.suc)
         }
     }
 }
 
-define factorial(n: Nat) -> Nat: NatPair.second(fac_pair(n))
+define factorial(n: Nat) -> Nat: fac_pair(n).second
 
 theorem factorial_zero: factorial(0) = 1
 
@@ -675,7 +675,7 @@ theorem factorial_step(n: Nat): factorial(n.suc) = n.suc * factorial(n) by {
     fac_pair(n.suc) = fac_helper(fac_pair(n))
 
     fac_pair(n.suc) = NatPair.new(n.suc, n.suc * factorial(n))
-    NatPair.second(fac_pair(n.suc)) = n.suc * factorial(n)
+    fac_pair(n.suc).second = n.suc * factorial(n)
 }
 
 theorem divides_factorial(k: Nat, n: Nat):
