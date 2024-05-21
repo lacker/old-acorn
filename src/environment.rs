@@ -2336,4 +2336,60 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         "#,
         );
     }
+
+    #[test]
+    fn test_self_must_have_correct_type() {
+        let mut env = Environment::new_test();
+        env.bad(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define add(self: Bool, other: Nat) -> Nat: axiom
+            }
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_no_dot_new() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            struct NatPair {
+                first: Nat
+                second: Nat
+            }
+        "#,
+        );
+        env.bad("theorem goal(p: NatPair): p.new = p.new");
+    }
+
+    #[test]
+    fn test_no_defining_new() {
+        let mut env = Environment::new_test();
+        env.bad(
+            r#"
+            type Nat: axiom
+            class Nat {
+                define new(self: Bool, other: Nat) -> Bool: true
+            }
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_no_using_methods_with_mismatched_self() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            let 0: Nat = axiom
+            class Nat {
+                let foo: Bool -> Bool = function(b: Bool) { b }
+            }
+        "#,
+        );
+        env.bad("theorem goal: 0.foo(true)");
+    }
 }
