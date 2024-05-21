@@ -1207,28 +1207,9 @@ impl BindingMap {
         }
     }
 
-    // Returns an error if this type can't be encoded. For example, it could be a type that
-    // is not imported into this scope.
     pub fn type_to_code(&self, acorn_type: &AcornType) -> Result<String, CodeGenError> {
-        if let AcornType::Function(ft) = acorn_type {
-            let mut args = vec![];
-            for arg_type in &ft.arg_types {
-                args.push(self.type_to_code(arg_type)?);
-            }
-            let joined = args.join(", ");
-            let lhs = if ft.arg_types.len() == 1 {
-                joined
-            } else {
-                format!("({})", joined)
-            };
-            let rhs = self.type_to_code(&ft.return_type)?;
-            return Ok(format!("{} -> {}", lhs, rhs));
-        }
-
-        match self.reverse_type_names.get(acorn_type) {
-            Some(name) => Ok(name.clone()),
-            None => Err(CodeGenError::unnamed_type(acorn_type)),
-        }
+        let expr = self.type_to_expr(acorn_type)?;
+        Ok(expr.to_string())
     }
 
     // We use variables named x0, x1, x2, etc when new temporary variables are needed.
