@@ -581,23 +581,23 @@ theorem mul_nat_negate_left(a: Int, n: Nat): mul_nat(negate(a), n) = negate(mul_
     }
 }
 
-theorem mul_nat_nonneg_suc(a: Int, n: Nat): !is_negative(a) -> mul_nat(a, Nat.suc(n)) = mul_nat(a, n) + a by {
-    mul_nat(a, Nat.suc(n)) = from_nat(abs(a) * Nat.suc(n))
-    mul_nat(a, Nat.suc(n)) = from_nat(abs(a) * n + abs(a))
-    mul_nat(a, Nat.suc(n)) = from_nat(abs(a) * n) +  from_nat(abs(a))
-    mul_nat(a, Nat.suc(n)) = mul_nat(a, n) +  a
+theorem mul_nat_nonneg_suc(a: Int, n: Nat): !is_negative(a) -> mul_nat(a, n.suc) = mul_nat(a, n) + a by {
+    mul_nat(a, n.suc) = from_nat(abs(a) * n.suc)
+    mul_nat(a, n.suc) = from_nat(abs(a) * n + abs(a))
+    mul_nat(a, n.suc) = from_nat(abs(a) * n) +  from_nat(abs(a))
+    mul_nat(a, n.suc) = mul_nat(a, n) +  a
 }
 
-theorem mul_nat_suc(a: Int, n: Nat): mul_nat(a, Nat.suc(n)) = (mul_nat(a, n) + a) by {
+theorem mul_nat_suc(a: Int, n: Nat): mul_nat(a, n.suc) = (mul_nat(a, n) + a) by {
     if is_negative(a) {
         is_positive(negate(a))
-        mul_nat(a, Nat.suc(n)) = negate(mul_nat(negate(a), Nat.suc(n)))
-        mul_nat(a, Nat.suc(n)) = negate(mul_nat(negate(a), n) + negate(a))
-        mul_nat(a, Nat.suc(n)) = negate(negate(mul_nat(a, n)) + negate(a))
-        mul_nat(a, Nat.suc(n)) = negate(negate((mul_nat(a, n) + a)))
-        mul_nat(a, Nat.suc(n)) = (mul_nat(a, n) + a)
+        mul_nat(a, n.suc) = negate(mul_nat(negate(a), n.suc))
+        mul_nat(a, n.suc) = negate(mul_nat(negate(a), n) + negate(a))
+        mul_nat(a, n.suc) = negate(negate(mul_nat(a, n)) + negate(a))
+        mul_nat(a, n.suc) = negate(negate((mul_nat(a, n) + a)))
+        mul_nat(a, n.suc) = (mul_nat(a, n) + a)
     } else {
-        mul_nat(a, Nat.suc(n)) = (mul_nat(a, n) + a)
+        mul_nat(a, n.suc) = (mul_nat(a, n) + a)
     }
 }
 
@@ -617,10 +617,10 @@ theorem mul_nat_distrib_right(a: Int, b: Int, n: Nat): mul_nat(a + b, n) = (mul_
     forall(x: Nat) {
         if f(x) {
             mul_nat(a + b, x) = mul_nat(a, x) + mul_nat(b, x)
-            mul_nat(a + b, Nat.suc(x)) = (mul_nat(a, x) + a) + (mul_nat(b, x) + b)
-            mul_nat(a + b, Nat.suc(x)) = mul_nat(a, Nat.suc(x)) + (mul_nat(b, x) + b)
-            mul_nat(a + b, Nat.suc(x)) = mul_nat(a, Nat.suc(x)) + mul_nat(b, Nat.suc(x))
-            f(Nat.suc(x))
+            mul_nat(a + b, x.suc) = (mul_nat(a, x) + a) + (mul_nat(b, x) + b)
+            mul_nat(a + b, x.suc) = mul_nat(a, x.suc) + (mul_nat(b, x) + b)
+            mul_nat(a + b, x.suc) = mul_nat(a, x.suc) + mul_nat(b, x.suc)
+            f(x.suc)
         }
     }
 }
