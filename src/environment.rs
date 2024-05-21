@@ -613,6 +613,12 @@ impl Environment {
         ds: &DefineStatement,
         range: Range,
     ) -> token::Result<()> {
+        if ds.name == "new" {
+            return Err(Error::new(
+                &ds.name_token,
+                "cannot define a function named 'new'",
+            ));
+        }
         let name = match class {
             Some(c) => format!("{}.{}", c, ds.name),
             None => ds.name.clone(),
@@ -2340,9 +2346,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     #[test]
     fn test_self_must_have_correct_type() {
         let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
         env.bad(
             r#"
-            type Nat: axiom
             class Nat {
                 define add(self: Bool, other: Nat) -> Nat: axiom
             }
@@ -2368,9 +2374,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     #[test]
     fn test_no_defining_new() {
         let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
         env.bad(
             r#"
-            type Nat: axiom
             class Nat {
                 define new(self: Bool, other: Nat) -> Bool: true
             }
