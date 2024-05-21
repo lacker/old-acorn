@@ -117,10 +117,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): a + b + c = a + (b + c) by {
     f(0)
 }
 
-define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { a + b }
-
 class Nat {
-    define mul(self: Nat, b: Nat) -> Nat: recursion(adder(self), 0, b)
+    define mul(self: Nat, b: Nat) -> Nat: recursion(Nat.add(self), 0, b)
 }
 
 theorem mul_zero_right(a: Nat): a * 0 = 0
@@ -130,7 +128,7 @@ theorem mul_zero_left(a: Nat): 0 * a = 0 by {
     mul_zero_left(0)
     forall(x: Nat) {
         if mul_zero_left(x) {
-            adder(0, 0 * x) = 0
+            0 + 0 * x = 0
             mul_zero_left(x.suc)
         }
     }
