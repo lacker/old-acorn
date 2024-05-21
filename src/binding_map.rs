@@ -1178,21 +1178,15 @@ impl BindingMap {
     // is not obviously accessible from this scope.
     fn type_to_expr(&self, acorn_type: &AcornType) -> Result<Expression, CodeGenError> {
         if let AcornType::Function(ft) = acorn_type {
-            let mut lhs = self.type_to_expr(&ft.arg_types[0])?;
-            for arg_type in &ft.arg_types[1..] {
-                lhs = Expression::Binary(
-                    Box::new(lhs),
-                    TokenType::Comma.generate(),
-                    Box::new(self.type_to_expr(arg_type)?),
-                );
+            let mut args = vec![];
+            for arg_type in &ft.arg_types {
+                args.push(self.type_to_expr(arg_type)?);
             }
-            if ft.arg_types.len() != 1 {
-                lhs = Expression::Grouping(
-                    TokenType::LeftParen.generate(),
-                    Box::new(lhs),
-                    TokenType::RightParen.generate(),
-                );
-            }
+            let lhs = if args.len() == 1 {
+                args.pop().unwrap()
+            } else {
+                Expression::generate_grouping(args)
+            };
             let rhs = self.type_to_expr(&ft.return_type)?;
             return Ok(Expression::Binary(
                 Box::new(lhs),
@@ -1294,6 +1288,44 @@ impl BindingMap {
     fn name_to_code(&self, module: ModuleId, name: &str) -> Result<String, CodeGenError> {
         let expr = self.name_to_expr(module, name)?;
         Ok(expr.to_string())
+    }
+
+    pub fn value_to_expr_helper(
+        &self,
+        value: &AcornValue,
+        var_names: &mut Vec<String>,
+        next_x: &mut u32,
+        next_k: &mut u32,
+    ) -> Result<Expression, CodeGenError> {
+        match value {
+            AcornValue::Variable(i, _) => {
+                Ok(Expression::generate_identifier(&var_names[*i as usize]))
+            }
+            AcornValue::Constant(module, name, _, _) => self.name_to_expr(*module, name),
+            AcornValue::Application(fa) => {
+                let f = self.value_to_expr_helper(&fa.function, var_names, next_x, next_k)?;
+                let mut args = vec![];
+                for arg in &fa.args {
+                    args.push(self.value_to_expr_helper(arg, var_names, next_x, next_k)?);
+                }
+                let grouped_args = Expression::generate_grouping(args);
+                Ok(Expression::Apply(Box::new(f), Box::new(grouped_args)))
+            }
+            AcornValue::Binary(op, left, right) => {
+                let left = self.value_to_expr_helper(left, var_names, next_x, next_k)?;
+                let right = self.value_to_expr_helper(right, var_names, next_x, next_k)?;
+                let token = op.token_type().generate();
+                Ok(Expression::Binary(Box::new(left), token, Box::new(right)))
+            }
+            AcornValue::Not(x) => {
+                let x = self.value_to_expr_helper(x, var_names, next_x, next_k)?;
+                Ok(Expression::Unary(TokenType::Exclam.generate(), Box::new(x)))
+            }
+            // Currently, I don't think these code paths are ever hit.
+            AcornValue::IfThenElse(..) => Err(CodeGenError::unhandled_value("if-then-else")),
+            AcornValue::Lambda(..) => Err(CodeGenError::unhandled_value("lambda")),
+            _ => todo!("XXX"),
+        }
     }
 
     // Helper that handles temporary variable naming.

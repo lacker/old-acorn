@@ -184,6 +184,20 @@ impl Expression {
         Expression::Identifier(TokenType::Identifier.new_token(s))
     }
 
+    // Generates a comma-separated grouping
+    pub fn generate_grouping(mut exprs: Vec<Expression>) -> Expression {
+        assert_ne!(exprs.len(), 0);
+        let mut answer = exprs.remove(0);
+        for e in exprs {
+            answer = Expression::Binary(Box::new(answer), TokenType::Comma.generate(), Box::new(e));
+        }
+        Expression::Grouping(
+            TokenType::LeftParen.generate(),
+            Box::new(answer),
+            TokenType::RightParen.generate(),
+        )
+    }
+
     // If this expression is of the form "premise -> conclusion", return the premise.
     pub fn premise(&self) -> Option<&Expression> {
         match self {

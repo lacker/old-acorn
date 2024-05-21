@@ -198,7 +198,7 @@ impl TokenType {
         }
     }
 
-    fn to_str(&self) -> &str {
+    pub fn to_str(&self) -> &str {
         match self {
             TokenType::Identifier => "<identifier>",
             TokenType::Invalid => "<invalid>",

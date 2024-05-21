@@ -5,6 +5,7 @@ use crate::acorn_type::AcornType;
 use crate::atom::AtomId;
 use crate::constant_map::ConstantKey;
 use crate::module::ModuleId;
+use crate::token::TokenType;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FunctionApplication {
@@ -36,15 +37,21 @@ pub enum BinaryOp {
     Or,
 }
 
+impl BinaryOp {
+    pub fn token_type(&self) -> TokenType {
+        match self {
+            BinaryOp::Implies => TokenType::RightArrow,
+            BinaryOp::Equals => TokenType::Equals,
+            BinaryOp::NotEquals => TokenType::NotEquals,
+            BinaryOp::And => TokenType::Ampersand,
+            BinaryOp::Or => TokenType::Pipe,
+        }
+    }
+}
+
 impl fmt::Display for BinaryOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            BinaryOp::Implies => write!(f, "->"),
-            BinaryOp::Equals => write!(f, "="),
-            BinaryOp::NotEquals => write!(f, "!="),
-            BinaryOp::And => write!(f, "&"),
-            BinaryOp::Or => write!(f, "|"),
-        }
+        write!(f, "{}", self.token_type().to_str())
     }
 }
 
