@@ -1176,7 +1176,7 @@ impl BindingMap {
 
     // Returns an error if this type can't be encoded. For example, it could be a type that
     // is not obviously accessible from this scope.
-    pub fn type_to_expr(&self, acorn_type: &AcornType) -> Result<Expression, CodeGenError> {
+    fn type_to_expr(&self, acorn_type: &AcornType) -> Result<Expression, CodeGenError> {
         if let AcornType::Function(ft) = acorn_type {
             let mut lhs = self.type_to_expr(&ft.arg_types[0])?;
             for arg_type in &ft.arg_types[1..] {
@@ -1207,7 +1207,7 @@ impl BindingMap {
         }
     }
 
-    pub fn type_to_code(&self, acorn_type: &AcornType) -> Result<String, CodeGenError> {
+    fn type_to_code(&self, acorn_type: &AcornType) -> Result<String, CodeGenError> {
         let expr = self.type_to_expr(acorn_type)?;
         Ok(expr.to_string())
     }
@@ -1249,7 +1249,7 @@ impl BindingMap {
     }
 
     // Given a module and a name, find an expression that refers to the name.
-    pub fn name_to_expr(&self, module: ModuleId, name: &str) -> Result<Expression, CodeGenError> {
+    fn name_to_expr(&self, module: ModuleId, name: &str) -> Result<Expression, CodeGenError> {
         if module == self.module {
             return Ok(Expression::generate_identifier(name));
         }
@@ -1292,30 +1292,8 @@ impl BindingMap {
 
     // Given a module and a name, find a way for us to describe the name with our bindings.
     fn name_to_code(&self, module: ModuleId, name: &str) -> Result<String, CodeGenError> {
-        if module == self.module {
-            return Ok(name.to_string());
-        }
-
-        // Check if there's a local alias for this constant.
-        let key = (module, name.to_string());
-        if let Some(alias) = self.aliased_constants.get(&key) {
-            return Ok(alias.clone());
-        }
-
-        // If it's a member function, check if there's a local alias for its struct.
-        let parts = name.split('.').collect::<Vec<_>>();
-        if parts.len() == 2 {
-            let data_type = AcornType::Data(module, parts[0].to_string());
-            if let Some(type_alias) = self.reverse_type_names.get(&data_type) {
-                return Ok(format!("{}.{}", type_alias, parts[1]));
-            }
-        }
-
-        // Refer to this constant using its module
-        match self.reverse_modules.get(&module) {
-            Some(module_name) => Ok(format!("{}.{}", module_name, name)),
-            None => Err(CodeGenError::UnimportedModule(module)),
-        }
+        let expr = self.name_to_expr(module, name)?;
+        Ok(expr.to_string())
     }
 
     // Helper that handles temporary variable naming.
