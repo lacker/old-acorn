@@ -575,16 +575,19 @@ impl Environment {
         ls: &LetStatement,
         range: Range,
     ) -> token::Result<()> {
+        if ls.name == "self"
+            || ls.name == "new"
+            || (class.is_some() && TokenType::from_magic_method_name(&ls.name).is_some())
+        {
+            return Err(Error::new(
+                &ls.name_token,
+                &format!("'{}' is a reserved word. use a different name", ls.name),
+            ));
+        }
         let name = match class {
             Some(c) => format!("{}.{}", c, ls.name),
             None => ls.name.clone(),
         };
-        if name == "self" {
-            return Err(Error::new(
-                &ls.name_token,
-                "cannot define a constant named 'self'",
-            ));
-        }
         if self.bindings.name_in_use(&name) {
             return Err(Error::new(
                 &ls.name_token,
@@ -613,10 +616,10 @@ impl Environment {
         ds: &DefineStatement,
         range: Range,
     ) -> token::Result<()> {
-        if ds.name == "new" {
+        if ds.name == "new" || ds.name == "self" {
             return Err(Error::new(
                 &ds.name_token,
-                "cannot define a function named 'new'",
+                &format!("'{}' is a reserved word. use a different name", ds.name),
             ));
         }
         let name = match class {
@@ -2447,5 +2450,18 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.bindings.expect_good_code("1 + 1 * 1");
         env.bindings.expect_good_code("0.suc = 1");
         env.bindings.expect_good_code("0.foo(1)");
+    }
+
+    #[test]
+    fn test_no_magic_names_for_constants() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad(
+            r#"
+            class Nat {
+                let add: Nat = axiom
+            }
+        "#,
+        );
     }
 }

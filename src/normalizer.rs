@@ -689,8 +689,8 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            let add: (Nat, Nat) -> Nat = axiom
-            define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { add(a, b) }
+            let addx: (Nat, Nat) -> Nat = axiom
+            define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { addx(a, b) }
             theorem goal(a: Nat, b: Nat): adder(a)(b) = adder(b)(a)
             "#,
         );
@@ -721,12 +721,12 @@ mod tests {
             type Nat: axiom
             let 0: Nat = axiom
             let 1: Nat = axiom
-            let add: (Nat, Nat) -> Nat = axiom
-            theorem goal: exists(x: Nat) { add(x, 0) = 1 }
+            let addx: (Nat, Nat) -> Nat = axiom
+            theorem goal: exists(x: Nat) { addx(x, 0) = 1 }
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["add(s0, 0) = 1"]);
+        norm.check(&env, "goal", &["addx(s0, 0) = 1"]);
     }
 
     #[test]
@@ -737,12 +737,12 @@ mod tests {
             type Nat: axiom
             let 0: Nat = axiom
             let 1: Nat = axiom
-            let lt: (Nat, Nat) -> Bool = axiom
-            let add: (Nat, Nat) -> Nat = axiom
-            theorem foo(x0: Nat, x1: Nat): add(add(x0, 0), x1) != 0 | lt(x1, 0)
+            let ltx: (Nat, Nat) -> Bool = axiom
+            let addx: (Nat, Nat) -> Nat = axiom
+            theorem foo(x0: Nat, x1: Nat): addx(addx(x0, 0), x1) != 0 | ltx(x1, 0)
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "foo", &["add(add(x0, 0), x1) != 0 | lt(x1, 0)"]);
+        norm.check(&env, "foo", &["addx(addx(x0, 0), x1) != 0 | ltx(x1, 0)"]);
     }
 }

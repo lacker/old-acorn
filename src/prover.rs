@@ -1003,9 +1003,9 @@ mod tests {
     fn test_closure_proof() {
         let text = r#"
             type Nat: axiom
-            let add: (Nat, Nat) -> Nat = axiom
-            define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { add(a, b) }
-            theorem goal(a: Nat, b: Nat): add(a, b) = adder(a)(b)
+            let addx: (Nat, Nat) -> Nat = axiom
+            define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { addx(a, b) }
+            theorem goal(a: Nat, b: Nat): addx(a, b) = adder(a)(b)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1014,10 +1014,10 @@ mod tests {
     fn test_boolean_equality() {
         let text = r#"
             type Nat: axiom
-            let add: (Nat, Nat) -> Nat = axiom
-            define lte(a: Nat, b: Nat) -> Bool: exists(c: Nat) { add(a, c) = b }
-            define lt(a: Nat, b: Nat) -> Bool: lte(a, b) & a != b
-            theorem goal(a: Nat): !lt(a, a)
+            let addx: (Nat, Nat) -> Nat = axiom
+            define ltex(a: Nat, b: Nat) -> Bool: exists(c: Nat) { addx(a, c) = b }
+            define ltx(a: Nat, b: Nat) -> Bool: ltex(a, b) & a != b
+            theorem goal(a: Nat): !ltx(a, a)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1255,11 +1255,11 @@ mod tests {
             type Nat: axiom
             let 0: Nat = axiom
             let suc: Nat -> Nat = axiom
-            let add: (Nat, Nat) -> Nat = axiom
-            let mul: (Nat, Nat) -> Nat = axiom
-            axiom add_suc(a: Nat, b: Nat): add(suc(a), b) = suc(add(a, b))
+            let addx: (Nat, Nat) -> Nat = axiom
+            let mulx: (Nat, Nat) -> Nat = axiom
+            axiom add_suc(a: Nat, b: Nat): addx(suc(a), b) = suc(addx(a, b))
             axiom suc_ne(a: Nat): suc(a) != a
-            axiom mul_suc(a: Nat, b: Nat): add(a, mul(a, b)) = mul(a, suc(b))
+            axiom mul_suc(a: Nat, b: Nat): addx(a, mulx(a, b)) = mulx(a, suc(b))
             theorem goal(a: Nat): suc(a) != a
         "#,
         );
@@ -1341,8 +1341,8 @@ mod tests {
             r#"
             type Nat: axiom
             let 0: Nat = axiom
-            let add: (Nat, Nat) -> Nat = axiom
-            theorem goal(f: Nat -> Nat): f = add(0) -> f(0) = add(0, 0)
+            let addx: (Nat, Nat) -> Nat = axiom
+            theorem goal(f: Nat -> Nat): f = addx(0) -> f(0) = addx(0, 0)
         "#,
         );
     }
