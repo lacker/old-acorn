@@ -1239,7 +1239,8 @@ impl BindingMap {
     ) -> Result<String, CodeGenError> {
         let mut var_names = vec![];
         let mut next_x = 0;
-        self.value_to_code_helper(value, &mut var_names, &mut next_x, next_k)
+        let expr = self.value_to_expr(value, &mut var_names, &mut next_x, next_k)?;
+        Ok(expr.to_string())
     }
 
     // Given a module and a name, find an expression that refers to the name.
@@ -1284,13 +1285,8 @@ impl BindingMap {
         }
     }
 
-    // Given a module and a name, find a way for us to describe the name with our bindings.
-    fn name_to_code(&self, module: ModuleId, name: &str) -> Result<String, CodeGenError> {
-        let expr = self.name_to_expr(module, name)?;
-        Ok(expr.to_string())
-    }
-
-    pub fn value_to_expr_helper(
+    // Convert an AcornValue to an Expression.
+    fn value_to_expr(
         &self,
         value: &AcornValue,
         var_names: &mut Vec<String>,
@@ -1303,22 +1299,22 @@ impl BindingMap {
             }
             AcornValue::Constant(module, name, _, _) => self.name_to_expr(*module, name),
             AcornValue::Application(fa) => {
-                let f = self.value_to_expr_helper(&fa.function, var_names, next_x, next_k)?;
+                let f = self.value_to_expr(&fa.function, var_names, next_x, next_k)?;
                 let mut args = vec![];
                 for arg in &fa.args {
-                    args.push(self.value_to_expr_helper(arg, var_names, next_x, next_k)?);
+                    args.push(self.value_to_expr(arg, var_names, next_x, next_k)?);
                 }
                 let grouped_args = Expression::generate_grouping(args);
                 Ok(Expression::Apply(Box::new(f), Box::new(grouped_args)))
             }
             AcornValue::Binary(op, left, right) => {
-                let left = self.value_to_expr_helper(left, var_names, next_x, next_k)?;
-                let right = self.value_to_expr_helper(right, var_names, next_x, next_k)?;
+                let left = self.value_to_expr(left, var_names, next_x, next_k)?;
+                let right = self.value_to_expr(right, var_names, next_x, next_k)?;
                 let token = op.token_type().generate();
                 Ok(Expression::Binary(Box::new(left), token, Box::new(right)))
             }
             AcornValue::Not(x) => {
-                let x = self.value_to_expr_helper(x, var_names, next_x, next_k)?;
+                let x = self.value_to_expr(x, var_names, next_x, next_k)?;
                 Ok(Expression::Unary(TokenType::Exclam.generate(), Box::new(x)))
             }
             AcornValue::ForAll(quants, value) => {
@@ -1327,6 +1323,7 @@ impl BindingMap {
                 for arg_type in quants {
                     let var_name = self.next_x_var(next_x);
                     let var_ident = Expression::generate_identifier(&var_name);
+                    var_names.push(var_name);
                     let type_expr = self.type_to_expr(arg_type)?;
                     let decl = Expression::Binary(
                         Box::new(var_ident),
@@ -1335,7 +1332,7 @@ impl BindingMap {
                     );
                     decls.push(decl);
                 }
-                let subresult = self.value_to_expr_helper(value, var_names, next_x, next_k)?;
+                let subresult = self.value_to_expr(value, var_names, next_x, next_k)?;
                 var_names.truncate(initial_var_names_len);
                 Ok(Expression::Binder(
                     TokenType::ForAll.generate(),
@@ -1350,6 +1347,7 @@ impl BindingMap {
                 for arg_type in quants {
                     let var_name = self.next_k_var(next_k);
                     let var_ident = Expression::generate_identifier(&var_name);
+                    var_names.push(var_name);
                     let type_expr = self.type_to_expr(arg_type)?;
                     let decl = Expression::Binary(
                         Box::new(var_ident),
@@ -1358,7 +1356,7 @@ impl BindingMap {
                     );
                     decls.push(decl);
                 }
-                let subresult = self.value_to_expr_helper(value, var_names, next_x, next_k)?;
+                let subresult = self.value_to_expr(value, var_names, next_x, next_k)?;
                 var_names.truncate(initial_var_names_len);
                 Ok(Expression::Binder(
                     TokenType::Exists.generate(),
@@ -1380,82 +1378,6 @@ impl BindingMap {
                 // the type of the templated name.
                 // I'm not sure if this is a good assumption.
                 self.name_to_expr(*module, name)
-            }
-
-            // Currently, I don't think these code paths are ever hit.
-            AcornValue::IfThenElse(..) => Err(CodeGenError::unhandled_value("if-then-else")),
-            AcornValue::Lambda(..) => Err(CodeGenError::unhandled_value("lambda")),
-        }
-    }
-
-    // Helper that handles temporary variable naming.
-    // var_names are the names of the variables that we have already named.
-    // next_x and next_k are the next names to give out.
-    fn value_to_code_helper(
-        &self,
-        value: &AcornValue,
-        var_names: &mut Vec<String>,
-        next_x: &mut u32,
-        next_k: &mut u32,
-    ) -> Result<String, CodeGenError> {
-        match value {
-            AcornValue::Variable(i, _) => Ok(var_names[*i as usize].clone()),
-            AcornValue::Constant(module, name, _, _) => self.name_to_code(*module, name),
-            AcornValue::Application(fa) => {
-                let f = self.value_to_code_helper(&fa.function, var_names, next_x, next_k)?;
-                let mut args = vec![];
-                for arg in &fa.args {
-                    args.push(self.value_to_code_helper(arg, var_names, next_x, next_k)?);
-                }
-                Ok(format!("{}({})", f, args.join(", ")))
-            }
-            AcornValue::Binary(op, left, right) => {
-                let left = self.value_to_code_helper(left, var_names, next_x, next_k)?;
-                let right = self.value_to_code_helper(right, var_names, next_x, next_k)?;
-                Ok(format!("{} {} {}", left, op, right))
-            }
-            AcornValue::Not(x) => {
-                let x = self.value_to_code_helper(x, var_names, next_x, next_k)?;
-                Ok(format!("!{}", x))
-            }
-            AcornValue::ForAll(quants, value) => {
-                let initial_var_names_len = var_names.len();
-                let mut args = vec![];
-                for arg_type in quants {
-                    let var_name = self.next_x_var(next_x);
-                    let type_name = self.type_to_code(arg_type)?;
-                    args.push(format!("{}: {}", var_name, type_name));
-                    var_names.push(var_name);
-                }
-                let subresult = self.value_to_code_helper(value, var_names, next_x, next_k);
-                var_names.truncate(initial_var_names_len);
-                Ok(format!("forall({}) {{ {} }}", args.join(", "), subresult?))
-            }
-            AcornValue::Exists(quants, value) => {
-                let initial_var_names_len = var_names.len();
-                let mut args = vec![];
-                for arg_type in quants {
-                    let var_name = self.next_k_var(next_k);
-                    let type_name = self.type_to_code(arg_type)?;
-                    args.push(format!("{}: {}", var_name, type_name));
-                    var_names.push(var_name);
-                }
-                let subresult = self.value_to_code_helper(value, var_names, next_x, next_k);
-                var_names.truncate(initial_var_names_len);
-                Ok(format!("exists({}) {{ {} }}", args.join(", "), subresult?))
-            }
-            AcornValue::Bool(b) => {
-                if *b {
-                    Ok("true".to_string())
-                } else {
-                    Ok("false".to_string())
-                }
-            }
-            AcornValue::Specialized(module, name, _, _) => {
-                // Here we are assuming that the context will be enough to disambiguate
-                // the type of the templated name.
-                // At some point this assumption will probably fail.
-                self.name_to_code(*module, name)
             }
 
             // Currently, I don't think these code paths are ever hit.
