@@ -1344,10 +1344,47 @@ impl BindingMap {
                     TokenType::RightBrace.generate(),
                 ))
             }
+            AcornValue::Exists(quants, value) => {
+                let initial_var_names_len = var_names.len();
+                let mut decls = vec![];
+                for arg_type in quants {
+                    let var_name = self.next_k_var(next_k);
+                    let var_ident = Expression::generate_identifier(&var_name);
+                    let type_expr = self.type_to_expr(arg_type)?;
+                    let decl = Expression::Binary(
+                        Box::new(var_ident),
+                        TokenType::Colon.generate(),
+                        Box::new(type_expr),
+                    );
+                    decls.push(decl);
+                }
+                let subresult = self.value_to_expr_helper(value, var_names, next_x, next_k)?;
+                var_names.truncate(initial_var_names_len);
+                Ok(Expression::Binder(
+                    TokenType::Exists.generate(),
+                    Box::new(Expression::generate_grouping(decls)),
+                    Box::new(subresult),
+                    TokenType::RightBrace.generate(),
+                ))
+            }
+            AcornValue::Bool(b) => {
+                let token = if *b {
+                    TokenType::True.generate()
+                } else {
+                    TokenType::False.generate()
+                };
+                Ok(Expression::Identifier(token))
+            }
+            AcornValue::Specialized(module, name, _, _) => {
+                // Here we are assuming that the context will be enough to disambiguate
+                // the type of the templated name.
+                // I'm not sure if this is a good assumption.
+                self.name_to_expr(*module, name)
+            }
+
             // Currently, I don't think these code paths are ever hit.
             AcornValue::IfThenElse(..) => Err(CodeGenError::unhandled_value("if-then-else")),
             AcornValue::Lambda(..) => Err(CodeGenError::unhandled_value("lambda")),
-            _ => todo!("XXX"),
         }
     }
 
