@@ -59,6 +59,21 @@ pub const LSP_TOKEN_TYPES: &[SemanticTokenType] = &[
     SemanticTokenType::OPERATOR,
 ];
 
+// Infix operators are represented by a "magic method name", where you implement a method
+// with that name, and then the infix operator with this token can be used to invoke that method.
+// The term "magic method name", along with this general idea, are from Python.
+const MAGIC_METHOD_NAMES: &[(&str, TokenType)] = &[
+    ("gt", TokenType::GreaterThan),
+    ("lt", TokenType::LessThan),
+    ("gte", TokenType::GreaterThanOrEquals),
+    ("lte", TokenType::LessThanOrEquals),
+    ("add", TokenType::Plus),
+    ("sub", TokenType::Minus),
+    ("mul", TokenType::Asterisk),
+    ("mod", TokenType::Percent),
+    ("div", TokenType::Slash),
+];
+
 impl TokenType {
     pub fn is_unary(&self) -> bool {
         match self {
@@ -169,19 +184,24 @@ impl TokenType {
         }
     }
 
-    pub fn infix_magic_function_name(&self) -> Option<&str> {
-        match self {
-            TokenType::GreaterThan => Some("gt"),
-            TokenType::LessThan => Some("lt"),
-            TokenType::GreaterThanOrEquals => Some("gte"),
-            TokenType::LessThanOrEquals => Some("lte"),
-            TokenType::Plus => Some("add"),
-            TokenType::Minus => Some("sub"),
-            TokenType::Asterisk => Some("mul"),
-            TokenType::Percent => Some("mod"),
-            TokenType::Slash => Some("div"),
-            _ => None,
+    // Converts a token to its magic method name, if it has on.
+    pub fn to_magic_method_name(&self) -> Option<&str> {
+        for (name, token_type) in MAGIC_METHOD_NAMES {
+            if token_type == self {
+                return Some(name);
+            }
         }
+        None
+    }
+
+    // Converting the other way, from a (potential) magic method name to an infix token.
+    pub fn from_magic_method_name(name: &str) -> Option<TokenType> {
+        for (method_name, token_type) in MAGIC_METHOD_NAMES {
+            if method_name == &name {
+                return Some(*token_type);
+            }
+        }
+        None
     }
 
     // A token created without a line.

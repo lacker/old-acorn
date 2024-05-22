@@ -859,7 +859,7 @@ impl BindingMap {
                     let entity = self.evaluate_dot_expression(stack, project, left, right)?;
                     Ok(entity.expect_value(expected_type, token)?)
                 }
-                token_type => match token_type.infix_magic_function_name() {
+                token_type => match token_type.to_magic_method_name() {
                     Some(name) => {
                         self.evaluate_infix(stack, project, left, token, right, name, expected_type)
                     }

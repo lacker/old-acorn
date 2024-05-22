@@ -198,6 +198,24 @@ impl Expression {
         )
     }
 
+    // The precedence this expression needs at the top level.
+    // We assume this is a value rather than a type.
+    pub fn value_precedence(&self) -> i8 {
+        match self {
+            Expression::Identifier(_)
+            | Expression::Grouping(..)
+            | Expression::Binder(..)
+            | Expression::IfThenElse(..) => {
+                // These expressions never need to be parenthesized.
+                i8::MAX
+            }
+            Expression::Unary(token, _) | Expression::Binary(_, token, _) => {
+                token.value_precedence()
+            }
+            Expression::Apply(..) => TokenType::Dot.value_precedence(),
+        }
+    }
+
     // If this expression is of the form "premise -> conclusion", return the premise.
     pub fn premise(&self) -> Option<&Expression> {
         match self {
