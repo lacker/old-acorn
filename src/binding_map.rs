@@ -1201,11 +1201,6 @@ impl BindingMap {
         }
     }
 
-    fn type_to_code(&self, acorn_type: &AcornType) -> Result<String, CodeGenError> {
-        let expr = self.type_to_expr(acorn_type)?;
-        Ok(expr.to_string())
-    }
-
     // We use variables named x0, x1, x2, etc when new temporary variables are needed.
     // Find the next one that's available.
     fn next_x_var(&self, next_x: &mut u32) -> String {
@@ -1401,11 +1396,12 @@ impl BindingMap {
         }
     }
 
-    pub fn assert_type_ok(&mut self, input: &str) {
-        let acorn_type = self.str_to_type(input);
-        let reconstructed = self.type_to_code(&acorn_type).unwrap();
-        let reevaluated = self.str_to_type(&reconstructed);
-        assert_eq!(acorn_type, reevaluated);
+    pub fn assert_type_ok(&mut self, input_code: &str) {
+        let acorn_type = self.str_to_type(input_code);
+        let type_expr = self.type_to_expr(&acorn_type).unwrap();
+        let reconstructed_code = type_expr.to_string();
+        let reevaluated_type = self.str_to_type(&reconstructed_code);
+        assert_eq!(acorn_type, reevaluated_type);
     }
 
     pub fn assert_type_bad(&mut self, input: &str) {
