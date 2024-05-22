@@ -198,6 +198,29 @@ impl Expression {
         )
     }
 
+    // Generates a binary expression, parenthesizing if necessary according to precedence.
+    pub fn generate_binary(
+        mut left: Expression,
+        op: TokenType,
+        mut right: Expression,
+    ) -> Expression {
+        if left.value_precedence() < op.value_precedence() {
+            left = Expression::Grouping(
+                TokenType::LeftParen.generate(),
+                Box::new(left),
+                TokenType::RightParen.generate(),
+            );
+        }
+        if right.value_precedence() <= op.value_precedence() {
+            right = Expression::Grouping(
+                TokenType::LeftParen.generate(),
+                Box::new(right),
+                TokenType::RightParen.generate(),
+            );
+        }
+        Expression::Binary(Box::new(left), op.generate(), Box::new(right))
+    }
+
     // The precedence this expression needs at the top level.
     // We assume this is a value rather than a type.
     pub fn value_precedence(&self) -> i8 {

@@ -221,10 +221,6 @@ impl BindingMap {
         data_type
     }
 
-    pub fn is_type(&self, name: &str) -> bool {
-        self.type_names.contains_key(name)
-    }
-
     // Adds a new type name that's an alias for an existing type
     pub fn add_type_alias(&mut self, name: &str, acorn_type: AcornType) {
         if self.name_in_use(name) {
@@ -589,7 +585,7 @@ impl BindingMap {
                         Some(module) => Ok(NamedEntity::Module(*module)),
                         None => Err(Error::new(token, "unknown module")),
                     }
-                } else if self.is_type(name) {
+                } else if self.has_type_name(name) {
                     match self.get_type_for_name(name) {
                         Some(t) => Ok(NamedEntity::Type(t.clone())),
                         None => Err(Error::new(token, "unknown type")),
@@ -1301,21 +1297,36 @@ impl BindingMap {
                 }
                 if let Expression::Identifier(fname) = &f {
                     let parts = fname.text().split('.').collect::<Vec<_>>();
-                    if parts.len() == 2 && self.is_type(parts[0]) && args.len() == 2 {
-                        if let Some(op) = TokenType::from_magic_method_name(parts[1]) {
-                            let mut right = args.pop().unwrap();
-                            if right.value_precedence() <= op.value_precedence() {
-                                right = Expression::generate_grouping(vec![right]);
+                    if parts.len() == 2 && self.has_type_name(parts[0]) {
+                        if args.len() == 2 {
+                            if let Some(op) = TokenType::from_magic_method_name(parts[1]) {
+                                // This is an infix operator
+                                let right = args.pop().unwrap();
+                                let left = args.pop().unwrap();
+                                return Ok(Expression::generate_binary(left, op, right));
                             }
-                            let mut left = args.pop().unwrap();
-                            if left.value_precedence() < op.value_precedence() {
-                                left = Expression::generate_grouping(vec![left]);
+                        }
+
+                        let class_type = self.get_type_for_name(parts[0]).unwrap();
+                        if &fa.args[0].get_type() == class_type {
+                            // This is a member function
+                            let instance = args.remove(0);
+                            let bound = Expression::generate_binary(
+                                instance,
+                                TokenType::Dot,
+                                Expression::generate_identifier(parts[1]),
+                            );
+                            if args.len() == 0 {
+                                // Like foo.bar
+                                return Ok(bound);
+                            } else {
+                                // Like foo.bar(baz, qux)
+                                let applied = Expression::Apply(
+                                    Box::new(bound),
+                                    Box::new(Expression::generate_grouping(args)),
+                                );
+                                return Ok(applied);
                             }
-                            return Ok(Expression::Binary(
-                                Box::new(left),
-                                op.generate(),
-                                Box::new(right),
-                            ));
                         }
                     }
                 }
