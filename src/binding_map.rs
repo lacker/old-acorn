@@ -1299,6 +1299,20 @@ impl BindingMap {
                 for arg in &fa.args {
                     args.push(self.value_to_expr(arg, var_names, next_x, next_k)?);
                 }
+                if let Expression::Identifier(fname) = &f {
+                    let parts = fname.text().split('.').collect::<Vec<_>>();
+                    if parts.len() == 2 && self.is_type(parts[0]) && args.len() == 2 {
+                        if let Some(op) = TokenType::from_magic_method_name(parts[1]) {
+                            let right = args.pop().unwrap();
+                            let left = args.pop().unwrap();
+                            return Ok(Expression::Binary(
+                                Box::new(left),
+                                op.generate(),
+                                Box::new(right),
+                            ));
+                        }
+                    }
+                }
                 let grouped_args = Expression::generate_grouping(args);
                 Ok(Expression::Apply(Box::new(f), Box::new(grouped_args)))
             }
