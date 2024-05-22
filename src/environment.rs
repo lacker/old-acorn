@@ -2464,4 +2464,16 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         "#,
         );
     }
+
+    #[test]
+    fn test_no_magic_names_for_struct_fields() {
+        let mut env = Environment::new_test();
+        env.bad(
+            r#"
+            struct MyStruct {
+                add: Bool
+            }
+        "#,
+        );
+    }
 }
