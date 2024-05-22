@@ -605,6 +605,13 @@ impl Token {
         name.chars().all(|c| c.is_alphanumeric())
     }
 
+    pub fn is_type_identifier(&self) -> bool {
+        match self.token_type {
+            TokenType::Identifier => Token::is_valid_type_name(self.text()),
+            _ => false,
+        }
+    }
+
     // Includes numeric constants like 5
     pub fn is_valid_variable_name(name: &str) -> bool {
         // Get the first character

@@ -301,6 +301,26 @@ impl Expression {
     pub fn expect_value(input: &str) -> Expression {
         Expression::expect_parse(input, true)
     }
+
+    // Whether this expression is a function that is equivalent to an infix operator.
+    pub fn equivalent_to_infix(&self) -> Option<TokenType> {
+        match &self {
+            Expression::Binary(left, token, right) => {
+                if token.token_type != TokenType::Dot {
+                    return None;
+                }
+                if let Expression::Identifier(left_token) = left.as_ref() {
+                    if left_token.is_type_identifier() {
+                        if let Expression::Identifier(right_token) = right.as_ref() {
+                            return TokenType::from_magic_method_name(right_token.text());
+                        }
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
 }
 
 // When we have a sequence of precedence-based operators, we need to gather the whole
