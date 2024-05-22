@@ -1303,8 +1303,14 @@ impl BindingMap {
                     let parts = fname.text().split('.').collect::<Vec<_>>();
                     if parts.len() == 2 && self.is_type(parts[0]) && args.len() == 2 {
                         if let Some(op) = TokenType::from_magic_method_name(parts[1]) {
-                            let right = args.pop().unwrap();
-                            let left = args.pop().unwrap();
+                            let mut right = args.pop().unwrap();
+                            if right.value_precedence() <= op.value_precedence() {
+                                right = Expression::generate_grouping(vec![right]);
+                            }
+                            let mut left = args.pop().unwrap();
+                            if left.value_precedence() < op.value_precedence() {
+                                left = Expression::generate_grouping(vec![left]);
+                            }
                             return Ok(Expression::Binary(
                                 Box::new(left),
                                 op.generate(),
