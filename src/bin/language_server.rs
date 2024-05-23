@@ -255,6 +255,7 @@ impl Backend {
         tokio::spawn(async move {
             // Clear any diagnostics from the previous build
             let mut diagnostic_map = diagnostic_map.write().await;
+            log("building...");
             for url in diagnostic_map.keys() {
                 client.publish_diagnostics(url.clone(), vec![], None).await;
             }
@@ -291,6 +292,7 @@ impl Backend {
                         .await;
                 }
             }
+            log("build complete");
         });
     }
 
@@ -304,9 +306,10 @@ impl Backend {
             None => 0,
         };
 
-        self.update_doc_in_backend(url.clone(), text, version, event);
-        self.update_doc_in_project(&url).await;
-        self.spawn_build();
+        if self.update_doc_in_backend(url.clone(), text, version, event) {
+            self.update_doc_in_project(&url).await;
+            self.spawn_build();
+        }
     }
 
     // If there is a build happening, stops it.
@@ -324,18 +327,25 @@ impl Backend {
     }
 
     // This updates a document in the backend, but not in the project.
+    // Returns whether this is actually an update, or if we already had this.
     // The backend tracks every single change; the project only gets them when we want it to use them.
     // This means that typing a little bit doesn't necessarily cancel an ongoing build.
-    fn update_doc_in_backend(&self, url: Url, text: String, version: i32, event: &str) {
+    fn update_doc_in_backend(&self, url: Url, text: String, version: i32, event: &str) -> bool {
         let new_doc = Document::new(url.clone(), text, version);
-        new_doc.log(&format!("did_{}; updating document", event));
         if let Some(old_doc) = self.documents.get(&url) {
+            if old_doc.version == version {
+                old_doc.log("unchanged");
+                return false;
+            }
             old_doc.log(&format!("superseded by v{}", version));
             old_doc
                 .superseded
                 .store(true, std::sync::atomic::Ordering::Relaxed);
+        } else {
+            new_doc.log(event);
         }
         self.documents.insert(url.clone(), Arc::new(new_doc));
+        true
     }
 
     // This updates a document in the project, based on the state in the backend.
