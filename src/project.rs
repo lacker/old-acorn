@@ -683,7 +683,6 @@ impl Project {
     #[cfg(test)]
     fn check_code_into(&mut self, module_name: &str, input: &str, expected: &str) {
         use crate::expression::Expression;
-        let mut next_k = 0;
         let module_id = self.expect_ok(module_name);
         let expression = Expression::expect_value(input);
         let env = self.get_env(module_id).expect("no env");
@@ -693,7 +692,7 @@ impl Project {
             .expect("could not evaluate");
         let output = env
             .bindings
-            .value_to_code(&value, &mut next_k)
+            .value_to_code(&value, &mut 0)
             .expect("could not convert to code");
 
         if output != expected {

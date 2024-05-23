@@ -1302,7 +1302,7 @@ impl Environment {
     ) -> GoalContext {
         let name = match claim.name() {
             Some(n) => n.to_string(),
-            None => claim.value.to_string(),
+            None => self.bindings.value_to_code(&claim.value, &mut 0).unwrap(),
         };
         GoalContext::new(
             &self,

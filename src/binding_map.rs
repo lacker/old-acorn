@@ -1223,6 +1223,8 @@ impl BindingMap {
 
     // If this value cannot be expressed in a single chunk of code, returns an error.
     // For example, it might refer to a constant that is not in scope.
+    // Takes a next_k parameter so that it can be used sequentially in the middle of
+    // a bunch of code generation.
     pub fn value_to_code(
         &self,
         value: &AcornValue,
@@ -1274,6 +1276,45 @@ impl BindingMap {
             }
             None => Err(CodeGenError::UnimportedModule(module)),
         }
+    }
+
+    // If use_x is true we use x-variables; otherwise we use k-variables.
+    fn generate_quantifier_expr(
+        &self,
+        token_type: TokenType,
+        quants: &Vec<AcornType>,
+        value: &AcornValue,
+        var_names: &mut Vec<String>,
+        use_x: bool,
+        next_x: &mut u32,
+        next_k: &mut u32,
+    ) -> Result<Expression, CodeGenError> {
+        let initial_var_names_len = var_names.len();
+        let mut decls = vec![];
+        for arg_type in quants {
+            let var_name = if use_x {
+                self.next_x_var(next_x)
+            } else {
+                self.next_k_var(next_k)
+            };
+            let var_ident = Expression::generate_identifier(&var_name);
+            var_names.push(var_name);
+            let type_expr = self.type_to_expr(arg_type)?;
+            let decl = Expression::Binary(
+                Box::new(var_ident),
+                TokenType::Colon.generate(),
+                Box::new(type_expr),
+            );
+            decls.push(decl);
+        }
+        let subresult = self.value_to_expr(value, var_names, next_x, next_k)?;
+        var_names.truncate(initial_var_names_len);
+        Ok(Expression::Binder(
+            token_type.generate(),
+            Box::new(Expression::generate_grouping(decls)),
+            Box::new(subresult),
+            TokenType::RightBrace.generate(),
+        ))
     }
 
     // Convert an AcornValue to an Expression.
@@ -1343,54 +1384,24 @@ impl BindingMap {
                 let x = self.value_to_expr(x, var_names, next_x, next_k)?;
                 Ok(Expression::Unary(TokenType::Exclam.generate(), Box::new(x)))
             }
-            AcornValue::ForAll(quants, value) => {
-                let initial_var_names_len = var_names.len();
-                let mut decls = vec![];
-                for arg_type in quants {
-                    let var_name = self.next_x_var(next_x);
-                    let var_ident = Expression::generate_identifier(&var_name);
-                    var_names.push(var_name);
-                    let type_expr = self.type_to_expr(arg_type)?;
-                    let decl = Expression::Binary(
-                        Box::new(var_ident),
-                        TokenType::Colon.generate(),
-                        Box::new(type_expr),
-                    );
-                    decls.push(decl);
-                }
-                let subresult = self.value_to_expr(value, var_names, next_x, next_k)?;
-                var_names.truncate(initial_var_names_len);
-                Ok(Expression::Binder(
-                    TokenType::ForAll.generate(),
-                    Box::new(Expression::generate_grouping(decls)),
-                    Box::new(subresult),
-                    TokenType::RightBrace.generate(),
-                ))
-            }
-            AcornValue::Exists(quants, value) => {
-                let initial_var_names_len = var_names.len();
-                let mut decls = vec![];
-                for arg_type in quants {
-                    let var_name = self.next_k_var(next_k);
-                    let var_ident = Expression::generate_identifier(&var_name);
-                    var_names.push(var_name);
-                    let type_expr = self.type_to_expr(arg_type)?;
-                    let decl = Expression::Binary(
-                        Box::new(var_ident),
-                        TokenType::Colon.generate(),
-                        Box::new(type_expr),
-                    );
-                    decls.push(decl);
-                }
-                let subresult = self.value_to_expr(value, var_names, next_x, next_k)?;
-                var_names.truncate(initial_var_names_len);
-                Ok(Expression::Binder(
-                    TokenType::Exists.generate(),
-                    Box::new(Expression::generate_grouping(decls)),
-                    Box::new(subresult),
-                    TokenType::RightBrace.generate(),
-                ))
-            }
+            AcornValue::ForAll(quants, value) => self.generate_quantifier_expr(
+                TokenType::ForAll,
+                quants,
+                value,
+                var_names,
+                true,
+                next_x,
+                next_k,
+            ),
+            AcornValue::Exists(quants, value) => self.generate_quantifier_expr(
+                TokenType::Exists,
+                quants,
+                value,
+                var_names,
+                false,
+                next_x,
+                next_k,
+            ),
             AcornValue::Bool(b) => {
                 let token = if *b {
                     TokenType::True.generate()

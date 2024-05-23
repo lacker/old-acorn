@@ -937,7 +937,7 @@ mod tests {
             }
             "#;
 
-        expect_proof(text, "((x = t) -> foo(x))", &[]);
+        expect_proof(text, "x = t -> foo(x)", &[]);
     }
 
     #[test]
@@ -950,7 +950,7 @@ mod tests {
                 }
             }
             "#;
-        expect_proof(text, "(x = y)", &[]);
+        expect_proof(text, "x = y", &[]);
     }
 
     #[test]
