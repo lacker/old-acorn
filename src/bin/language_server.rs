@@ -202,6 +202,9 @@ struct Backend {
 
     // The current search task, if any
     search_task: Arc<RwLock<Option<SearchTask>>>,
+
+    // All the diagnostics that are currently published for the project.
+    diagnostic_map: Arc<RwLock<HashMap<Url, Vec<Diagnostic>>>>,
 }
 
 impl Backend {
@@ -213,6 +216,7 @@ impl Backend {
             documents: DashMap::new(),
             versions: DashMap::new(),
             search_task: Arc::new(RwLock::new(None)),
+            diagnostic_map: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -247,9 +251,13 @@ impl Backend {
         let project = self.project.clone();
         let progress = self.progress.clone();
         let client = self.client.clone();
+        let diagnostic_map = self.diagnostic_map.clone();
         tokio::spawn(async move {
+            // TODO: clear any diagnostics from the previous build
+            let mut diagnostic_map = diagnostic_map.write().await;
+            diagnostic_map.clear();
+
             let project = project.read().await;
-            let mut diagnostic_map: HashMap<Url, Vec<Diagnostic>> = HashMap::new();
             while let Some(event) = rx.recv().await {
                 if let Some((done, total)) = event.progress {
                     if total > 0 {
