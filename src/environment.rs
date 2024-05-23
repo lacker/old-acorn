@@ -94,16 +94,6 @@ struct PropositionTree {
     block: Option<Block>,
 }
 
-impl PropositionTree {
-    // A human-readable name for this proposition.
-    pub fn name(&self) -> String {
-        match &self.claim.name() {
-            Some(name) => name.to_string(),
-            None => self.claim.value.to_string(),
-        }
-    }
-}
-
 // Proofs are structured into blocks.
 // The environment specific to this block can have a bunch of propositions that need to be
 // proved, along with helper statements to express those propositions, but they are not
@@ -1301,6 +1291,30 @@ impl Environment {
         None
     }
 
+    fn make_goal_context(
+        &self,
+        project: &Project,
+        prop: &PropositionTree,
+        global_facts: Vec<Proposition>,
+        local_facts: Vec<Proposition>,
+        claim: &Proposition,
+        proof_insertion_line: u32,
+    ) -> GoalContext {
+        let name = match claim.name() {
+            Some(n) => n.to_string(),
+            None => claim.value.to_string(),
+        };
+        GoalContext::new(
+            &self,
+            global_facts,
+            local_facts,
+            name,
+            self.inline_theorems(project, &claim),
+            prop.claim.source.range,
+            proof_insertion_line,
+        )
+    }
+
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
     pub fn get_goal_context(
@@ -1348,14 +1362,12 @@ impl Environment {
                         // Insert the proof at the end of the existing block
                         block.env.last_line()
                     };
-
-                    return Ok(GoalContext::new(
-                        &block.env,
+                    return Ok(block.env.make_goal_context(
+                        &project,
+                        prop,
                         global_facts,
                         local_facts,
-                        prop.name(),
-                        block.env.inline_theorems(project, &claim),
-                        prop.claim.source.range,
+                        claim,
                         proof_insertion_line,
                     ));
                 }
@@ -1364,13 +1376,12 @@ impl Environment {
                 // If there's no block on this prop, this must be the last element of the path
                 assert!(it.peek().is_none());
 
-                return Ok(GoalContext::new(
-                    &env,
+                return Ok(env.make_goal_context(
+                    &project,
+                    prop,
                     global_facts,
                     local_facts,
-                    prop.name(),
-                    env.inline_theorems(project, &prop.claim),
-                    prop.claim.source.range,
+                    &prop.claim,
                     prop.claim.source.range.start.line,
                 ));
             }
