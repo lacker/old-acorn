@@ -619,6 +619,9 @@ impl Token {
 pub struct Error {
     pub message: String,
     pub token: Token,
+
+    // external is true when the root error is in a different module.
+    pub external: bool,
 }
 
 impl fmt::Display for Error {
@@ -638,6 +641,15 @@ impl Error {
         Error {
             message: message.to_string(),
             token: token.clone(),
+            external: false,
+        }
+    }
+
+    pub fn external(token: &Token, message: &str) -> Self {
+        Error {
+            message: message.to_string(),
+            token: token.clone(),
+            external: true,
         }
     }
 }

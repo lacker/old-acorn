@@ -80,7 +80,7 @@ pub struct BuildEvent {
     pub is_slow_warning: bool,
 
     // Whenever we run into a problem, report the module name, plus the diagnostic itself.
-    // If we prove everything in a module without any problems, report a None diagnostic.
+    // XXX
     pub diagnostic: Option<(String, Option<Diagnostic>)>,
 }
 
@@ -296,17 +296,26 @@ impl Project {
                     envs.push(env);
                 }
                 Module::Error(e) => {
-                    let diagnostic = Diagnostic {
-                        range: e.token.range(),
-                        severity: Some(DiagnosticSeverity::ERROR),
-                        message: e.to_string(),
-                        ..Diagnostic::default()
-                    };
-                    handler(BuildEvent {
-                        log_message: Some(format!("fatal error: {}", e)),
-                        diagnostic: Some((target.to_string(), Some(diagnostic))),
-                        ..BuildEvent::default()
-                    });
+                    if e.external {
+                        // The real problem is in a different module.
+                        // So we don't want to report a diagnostic for this module.
+                        handler(BuildEvent {
+                            log_message: Some(format!("error: {}", e)),
+                            ..BuildEvent::default()
+                        });
+                    } else {
+                        let diagnostic = Diagnostic {
+                            range: e.token.range(),
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            message: e.to_string(),
+                            ..Diagnostic::default()
+                        };
+                        handler(BuildEvent {
+                            log_message: Some(format!("fatal error: {}", e)),
+                            diagnostic: Some((target.to_string(), Some(diagnostic))),
+                            ..BuildEvent::default()
+                        });
+                    }
                     module_errors = true;
                 }
                 Module::None => {

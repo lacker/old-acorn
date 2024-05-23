@@ -1090,12 +1090,20 @@ impl Environment {
                 let module_id = match project.load_module(&full_name) {
                     Ok(module_id) => module_id,
                     Err(LoadError(s)) => {
+                        // The error is with the import statement itself, like a circular import.
                         return Err(Error::new(
                             &statement.first_token,
                             &format!("import error: {}", s),
                         ));
                     }
                 };
+                if project.get_bindings(module_id).is_none() {
+                    // The fundamental error is in the other module, not this one.
+                    return Err(Error::external(
+                        &statement.first_token,
+                        &format!("error in '{}' module", full_name),
+                    ));
+                }
                 self.bindings.add_module(local_name, module_id);
                 Ok(())
             }
