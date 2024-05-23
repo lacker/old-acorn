@@ -966,6 +966,15 @@ impl Environment {
                 for (field_name_token, field_type_expr) in &ss.fields {
                     let field_type = self.bindings.evaluate_type(project, &field_type_expr)?;
                     field_types.push(field_type.clone());
+                    if TokenType::from_magic_method_name(&field_name_token.text()).is_some() {
+                        return Err(Error::new(
+                            field_name_token,
+                            &format!(
+                                "'{}' is a reserved word. use a different name",
+                                field_name_token.text()
+                            ),
+                        ));
+                    }
                     let member_fn_name = format!("{}.{}", ss.name, field_name_token.text());
                     member_fn_names.push(member_fn_name);
                 }
