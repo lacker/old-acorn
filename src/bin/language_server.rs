@@ -253,8 +253,11 @@ impl Backend {
         let client = self.client.clone();
         let diagnostic_map = self.diagnostic_map.clone();
         tokio::spawn(async move {
-            // TODO: clear any diagnostics from the previous build
+            // Clear any diagnostics from the previous build
             let mut diagnostic_map = diagnostic_map.write().await;
+            for url in diagnostic_map.keys() {
+                client.publish_diagnostics(url.clone(), vec![], None).await;
+            }
             diagnostic_map.clear();
 
             let project = project.read().await;
