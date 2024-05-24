@@ -1402,6 +1402,15 @@ impl BindingMap {
                 next_x,
                 next_k,
             ),
+            AcornValue::Lambda(quants, value) => self.generate_quantifier_expr(
+                TokenType::Function,
+                quants,
+                value,
+                var_names,
+                true,
+                next_x,
+                next_k,
+            ),
             AcornValue::Bool(b) => {
                 let token = if *b {
                     TokenType::True.generate()
@@ -1416,10 +1425,18 @@ impl BindingMap {
                 // I'm not sure if this is a good assumption.
                 self.name_to_expr(*module, name)
             }
-
-            // Currently, I don't think these code paths are ever hit.
-            AcornValue::IfThenElse(..) => Err(CodeGenError::unhandled_value("if-then-else")),
-            AcornValue::Lambda(..) => Err(CodeGenError::unhandled_value("lambda")),
+            AcornValue::IfThenElse(condition, if_value, else_value) => {
+                let condition = self.value_to_expr(condition, var_names, next_x, next_k)?;
+                let if_value = self.value_to_expr(if_value, var_names, next_x, next_k)?;
+                let else_value = self.value_to_expr(else_value, var_names, next_x, next_k)?;
+                Ok(Expression::IfThenElse(
+                    TokenType::If.generate(),
+                    Box::new(condition),
+                    Box::new(if_value),
+                    Box::new(else_value),
+                    TokenType::RightBrace.generate(),
+                ))
+            }
         }
     }
 
