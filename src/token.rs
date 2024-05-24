@@ -49,6 +49,7 @@ pub enum TokenType {
     Asterisk,
     Percent,
     Slash,
+    Literal,
 }
 
 // The token types that we export via the language server protocol
@@ -262,6 +263,7 @@ impl TokenType {
             TokenType::Asterisk => "*",
             TokenType::Percent => "%",
             TokenType::Slash => "/",
+            TokenType::Literal => "<literal>",
         }
     }
 
@@ -424,6 +426,8 @@ impl Token {
                     None
                 }
             }
+
+            TokenType::Literal => Some(SemanticTokenType::NUMBER),
 
             TokenType::Comma
             | TokenType::Invalid
