@@ -58,6 +58,7 @@ pub const LSP_TOKEN_TYPES: &[SemanticTokenType] = &[
     SemanticTokenType::COMMENT,
     SemanticTokenType::KEYWORD,
     SemanticTokenType::OPERATOR,
+    SemanticTokenType::NUMBER,
 ];
 
 // Infix operators are represented by a "magic method name", where you implement a method
