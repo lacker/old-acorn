@@ -50,6 +50,7 @@ pub enum TokenType {
     Percent,
     Slash,
     Number,
+    Literals,
 }
 
 // The token types that we export via the language server protocol
@@ -265,6 +266,7 @@ impl TokenType {
             TokenType::Percent => "%",
             TokenType::Slash => "/",
             TokenType::Number => "<number>",
+            TokenType::Literals => "literals",
         }
     }
 
@@ -417,7 +419,8 @@ impl Token {
             | TokenType::True
             | TokenType::False
             | TokenType::Else
-            | TokenType::Class => Some(SemanticTokenType::KEYWORD),
+            | TokenType::Class
+            | TokenType::Literals => Some(SemanticTokenType::KEYWORD),
 
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
@@ -510,6 +513,18 @@ impl Token {
                         }
                         None => TokenType::Slash,
                     },
+                    // TODO: enable once we can convert the explicit numbers
+                    // t if t.is_ascii_digit() => {
+                    //     loop {
+                    //         match char_indices.peek() {
+                    //             Some((_, ch)) if ch.is_ascii_digit() => {
+                    //                 char_indices.next();
+                    //             }
+                    //             _ => break,
+                    //         }
+                    //     }
+                    //     TokenType::Number
+                    // }
                     t if Token::identifierish(t) => {
                         let end = loop {
                             match char_indices.peek() {
