@@ -50,7 +50,7 @@ pub enum TokenType {
     Percent,
     Slash,
     Number,
-    Literals,
+    Default,
 }
 
 // The token types that we export via the language server protocol
@@ -266,7 +266,7 @@ impl TokenType {
             TokenType::Percent => "%",
             TokenType::Slash => "/",
             TokenType::Number => "<number>",
-            TokenType::Literals => "literals",
+            TokenType::Default => "literals",
         }
     }
 
@@ -420,7 +420,7 @@ impl Token {
             | TokenType::False
             | TokenType::Else
             | TokenType::Class
-            | TokenType::Literals => Some(SemanticTokenType::KEYWORD),
+            | TokenType::Default => Some(SemanticTokenType::KEYWORD),
 
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
@@ -553,6 +553,7 @@ impl Token {
                             "false" => TokenType::False,
                             "else" => TokenType::Else,
                             "class" => TokenType::Class,
+                            "default" => TokenType::Default,
                             _ => TokenType::Identifier,
                         }
                     }
