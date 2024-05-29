@@ -2586,4 +2586,34 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         "#,
         );
     }
+
+    #[test]
+    fn test_read_must_have_correct_args() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad(
+            r#"
+            class Nat {
+                let 1: Nat = axiom
+                define suc(self: Nat) -> Nat: axiom
+                define read(self: Nat, digit: Bool) -> Nat: Nat.1
+            }
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_read_must_return_correct_type() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad(
+            r#"
+            class Nat {
+                let 1: Nat = axiom
+                define suc(self: Nat) -> Nat: axiom
+                define read(self: Nat, digit: Nat) -> Bool: true
+            }
+        "#,
+        );
+    }
 }
