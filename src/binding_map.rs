@@ -89,7 +89,7 @@ pub struct BindingMap {
     reverse_modules: HashMap<ModuleId, String>,
 
     // The default class to use for numeric literals.
-    default: Option<(ModuleId, String)>,
+    default: Option<AcornType>,
 }
 
 #[derive(Clone)]
@@ -284,8 +284,8 @@ impl BindingMap {
         self.modules.values().copied().collect()
     }
 
-    pub fn set_default(&mut self, module: ModuleId, name: String) {
-        self.default = Some((module, name));
+    pub fn set_default(&mut self, number_type: AcornType) {
+        self.default = Some(number_type);
     }
 
     // This can also add members, by providing a name like "Foo.bar".
@@ -499,6 +499,26 @@ impl BindingMap {
             stack.insert(name.to_string(), acorn_type.clone());
         }
         Ok((names, types))
+    }
+
+    // token is the token to report errors with.
+    // s is the string to parse.
+    fn evaluate_number(
+        &self,
+        token: &Token,
+        project: &Project,
+        number_type: &AcornType,
+        s: &str,
+    ) -> token::Result<AcornValue> {
+        let namespace = NamedEntity::Type(number_type.clone());
+        let entity = self.evaluate_name(token, project, &mut Stack::new(), Some(namespace), s)?;
+        match entity {
+            NamedEntity::Value(value) => {
+                check_type(token, Some(number_type), &value.get_type())?;
+                Ok(value)
+            }
+            _ => Err(Error::new(token, "number did not evaluate to a value")),
+        }
     }
 
     // Evaluates an expression that is supposed to describe a value, with an empty stack.
@@ -752,8 +772,18 @@ impl BindingMap {
                     "unexpected identifier in value expression",
                 )),
             },
-            Expression::Number(_token) => {
-                todo!("evaluate numbers");
+            Expression::Number(token) => {
+                let number_type = match &self.default {
+                    Some(t) => t,
+                    None => {
+                        return Err(Error::new(
+                            token,
+                            "you must set a default type for numeric literals",
+                        ))
+                    }
+                };
+                check_type(token, expected_type, number_type)?;
+                self.evaluate_number(token, project, number_type, token.text())
             }
             Expression::Unary(token, expr) => match token.token_type {
                 TokenType::Exclam => {

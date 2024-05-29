@@ -1160,8 +1160,8 @@ impl Environment {
             StatementInfo::Default(ds) => {
                 self.add_other_lines(statement);
                 let acorn_type = self.bindings.evaluate_type(project, &ds.type_expr)?;
-                if let AcornType::Data(module, name) = acorn_type {
-                    self.bindings.set_default(module, name);
+                if let AcornType::Data(..) = acorn_type {
+                    self.bindings.set_default(acorn_type);
                     Ok(())
                 } else {
                     Err(Error::new(
