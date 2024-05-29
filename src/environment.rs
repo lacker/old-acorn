@@ -2537,9 +2537,15 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     }
 
     #[test]
-    fn test_no_top_level_numbers() {
+    fn test_no_defining_top_level_numbers() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.bad("let 0: Nat = axiom");
+    }
+
+    #[test]
+    fn test_no_top_level_numbers_without_a_default() {
+        let mut env = Environment::new_test();
+        env.bad("let foo: Bool = (0 = 0)");
     }
 }
