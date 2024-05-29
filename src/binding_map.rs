@@ -88,8 +88,8 @@ pub struct BindingMap {
     // The local name for imported modules.
     reverse_modules: HashMap<ModuleId, String>,
 
-    // The default class to use for numeric literals.
-    default: Option<AcornType>,
+    // The default data type to use for numeric literals.
+    default: Option<(ModuleId, String)>,
 }
 
 #[derive(Clone)]
@@ -284,8 +284,8 @@ impl BindingMap {
         self.modules.values().copied().collect()
     }
 
-    pub fn set_default(&mut self, number_type: AcornType) {
-        self.default = Some(number_type);
+    pub fn set_default(&mut self, module: ModuleId, typename: String) {
+        self.default = Some((module, typename));
     }
 
     // This can also add members, by providing a name like "Foo.bar".
@@ -372,7 +372,7 @@ impl BindingMap {
         expression: &Expression,
     ) -> token::Result<AcornType> {
         match expression {
-            Expression::Identifier(token) => {
+            Expression::Singleton(token) => {
                 if token.token_type == TokenType::Axiom {
                     return Err(Error::new(
                         token,
@@ -385,7 +385,6 @@ impl BindingMap {
                     Err(Error::new(token, "expected type name"))
                 }
             }
-            Expression::Number(token) => Err(Error::new(token, "expected a type")),
             Expression::Unary(token, _) => Err(Error::new(
                 token,
                 "unexpected unary operator in type expression",
@@ -501,9 +500,10 @@ impl BindingMap {
         Ok((names, types))
     }
 
+    // This function evaluates numbers when we already know what type they are.
     // token is the token to report errors with.
     // s is the string to parse.
-    fn evaluate_number(
+    fn evaluate_number_with_type(
         &self,
         token: &Token,
         project: &Project,
@@ -609,23 +609,46 @@ impl BindingMap {
                 }
             }
             None => {
-                if self.is_module(name) {
-                    match self.modules.get(name) {
-                        Some(module) => Ok(NamedEntity::Module(*module)),
-                        None => Err(Error::new(token, "unknown module")),
+                match token.token_type {
+                    TokenType::Identifier => {
+                        if self.is_module(name) {
+                            match self.modules.get(name) {
+                                Some(module) => Ok(NamedEntity::Module(*module)),
+                                None => Err(Error::new(token, "unknown module")),
+                            }
+                        } else if self.has_type_name(name) {
+                            match self.get_type_for_name(name) {
+                                Some(t) => Ok(NamedEntity::Type(t.clone())),
+                                None => Err(Error::new(token, "unknown type")),
+                            }
+                        } else if let Some((i, t)) = stack.get(name) {
+                            // This is a stack variable
+                            Ok(NamedEntity::Value(AcornValue::Variable(*i, t.clone())))
+                        } else if let Some(value) = self.get_constant_value(name) {
+                            Ok(NamedEntity::Value(value))
+                        } else {
+                            Err(Error::new(token, &format!("unknown identifier '{}'", name)))
+                        }
                     }
-                } else if self.has_type_name(name) {
-                    match self.get_type_for_name(name) {
-                        Some(t) => Ok(NamedEntity::Type(t.clone())),
-                        None => Err(Error::new(token, "unknown type")),
+                    TokenType::Number => {
+                        let number_type = match &self.default {
+                            Some((module, typename)) => AcornType::Data(*module, typename.clone()),
+                            None => {
+                                return Err(Error::new(
+                                    token,
+                                    "you must set a default type for numeric literals",
+                                ))
+                            }
+                        };
+                        let value = self.evaluate_number_with_type(
+                            token,
+                            project,
+                            &number_type,
+                            token.text(),
+                        )?;
+                        Ok(NamedEntity::Value(value))
                     }
-                } else if let Some((i, t)) = stack.get(name) {
-                    // This is a stack variable
-                    Ok(NamedEntity::Value(AcornValue::Variable(*i, t.clone())))
-                } else if let Some(value) = self.get_constant_value(name) {
-                    Ok(NamedEntity::Value(value))
-                } else {
-                    Err(Error::new(token, &format!("unknown identifier '{}'", name)))
+                    t => Err(Error::new(token, &format!("unexpected {:?} token", t))),
                 }
             }
         }
@@ -640,7 +663,7 @@ impl BindingMap {
         right: &Expression,
     ) -> token::Result<NamedEntity> {
         let right_token = match right {
-            Expression::Identifier(token) => token,
+            Expression::Singleton(token) => token,
             _ => {
                 return Err(Error::new(
                     right.token(),
@@ -668,7 +691,7 @@ impl BindingMap {
         expression: &Expression,
     ) -> token::Result<NamedEntity> {
         // Handle a plain old name
-        if let Expression::Identifier(token) = expression {
+        if let Expression::Singleton(token) = expression {
             return self.evaluate_name(token, project, stack, None, token.text());
         }
 
@@ -748,43 +771,27 @@ impl BindingMap {
         expected_type: Option<&AcornType>,
     ) -> token::Result<AcornValue> {
         match expression {
-            Expression::Identifier(token) => match token.token_type {
+            Expression::Singleton(token) => match token.token_type {
                 TokenType::Axiom => panic!("axiomatic values should be handled elsewhere"),
-
                 TokenType::ForAll | TokenType::Exists | TokenType::Function => {
                     return Err(Error::new(
                         token,
                         "binder keywords cannot be used as values",
                     ));
                 }
-
                 TokenType::True | TokenType::False => {
                     check_type(token, expected_type, &AcornType::Bool)?;
                     Ok(AcornValue::Bool(token.token_type == TokenType::True))
                 }
-
-                TokenType::Identifier => {
+                TokenType::Identifier | TokenType::Number => {
                     let entity = self.evaluate_name(token, project, stack, None, token.text())?;
                     Ok(entity.expect_value(expected_type, token)?)
                 }
-                _ => Err(Error::new(
+                token_type => Err(Error::new(
                     token,
-                    "unexpected identifier in value expression",
+                    &format!("identifier expression has token type {:?}", token_type),
                 )),
             },
-            Expression::Number(token) => {
-                let number_type = match &self.default {
-                    Some(t) => t,
-                    None => {
-                        return Err(Error::new(
-                            token,
-                            "you must set a default type for numeric literals",
-                        ))
-                    }
-                };
-                check_type(token, expected_type, number_type)?;
-                self.evaluate_number(token, project, number_type, token.text())
-            }
             Expression::Unary(token, expr) => match token.token_type {
                 TokenType::Exclam => {
                     check_type(token, expected_type, &AcornType::Bool)?;
@@ -1280,6 +1287,20 @@ impl BindingMap {
 
     // Given a module and a name, find an expression that refers to the name.
     fn name_to_expr(&self, module: ModuleId, name: &str) -> Result<Expression, CodeGenError> {
+        let parts = name.split('.').collect::<Vec<_>>();
+
+        // Handle default numeric literals
+        if let Some((module, typename)) = &self.default {
+            if *module == self.module
+                && typename == parts[0]
+                && parts[1].chars().all(|ch| ch.is_ascii_digit())
+            {
+                let token = TokenType::Number.new_token(parts[1]);
+                return Ok(Expression::Singleton(token));
+            }
+        }
+
+        // Handle local constants
         if module == self.module {
             return Ok(Expression::generate_identifier(name));
         }
@@ -1291,7 +1312,6 @@ impl BindingMap {
         }
 
         // If it's a member function, check if there's a local alias for its struct.
-        let parts = name.split('.').collect::<Vec<_>>();
         if parts.len() == 2 {
             let data_type = AcornType::Data(module, parts[0].to_string());
             if let Some(type_alias) = self.reverse_type_names.get(&data_type) {
@@ -1378,7 +1398,7 @@ impl BindingMap {
                 for arg in &fa.args {
                     args.push(self.value_to_expr(arg, var_names, next_x, next_k)?);
                 }
-                if let Expression::Identifier(fname) = &f {
+                if let Expression::Singleton(fname) = &f {
                     let parts = fname.text().split('.').collect::<Vec<_>>();
                     if parts.len() == 2 && self.has_type_name(parts[0]) {
                         if args.len() == 2 {
@@ -1459,7 +1479,7 @@ impl BindingMap {
                 } else {
                     TokenType::False.generate()
                 };
-                Ok(Expression::Identifier(token))
+                Ok(Expression::Singleton(token))
             }
             AcornValue::Specialized(module, name, _, _) => {
                 // Here we are assuming that the context will be enough to disambiguate
@@ -1533,9 +1553,13 @@ impl BindingMap {
     pub fn expect_good_code(&self, input_code: &str) {
         let project = Project::new_mock();
         let expression = Expression::expect_value(input_code);
-        let value = self.evaluate_value(&project, &expression, None).unwrap();
+        let value = self
+            .evaluate_value(&project, &expression, None)
+            .expect("evaluate_value failed");
         let mut next_k = 0;
-        let output_code = self.value_to_code(&value, &mut next_k).unwrap();
+        let output_code = self
+            .value_to_code(&value, &mut next_k)
+            .expect("value_to_code failed");
         assert_eq!(input_code, output_code);
     }
 }

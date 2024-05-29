@@ -1160,8 +1160,8 @@ impl Environment {
             StatementInfo::Default(ds) => {
                 self.add_other_lines(statement);
                 let acorn_type = self.bindings.evaluate_type(project, &ds.type_expr)?;
-                if let AcornType::Data(..) = acorn_type {
-                    self.bindings.set_default(acorn_type);
+                if let AcornType::Data(module, typename) = acorn_type {
+                    self.bindings.set_default(module, typename);
                     Ok(())
                 } else {
                     Err(Error::new(
@@ -1707,10 +1707,10 @@ mod tests {
     fn test_nat_ac_piecewise() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.add("let 0: Nat = axiom");
+        env.add("let zero: Nat = axiom");
         env.add("let suc: Nat -> Nat = axiom");
-        env.add("let 1: Nat = suc(0)");
-        env.expect_def("1", "suc(0)");
+        env.add("let one: Nat = suc(zero)");
+        env.expect_def("one", "suc(zero)");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y");
         env.expect_type("suc_injective", "(Nat, Nat) -> Bool");
@@ -1719,17 +1719,17 @@ mod tests {
             "function(x0: Nat, x1: Nat) { ((suc(x0) = suc(x1)) -> (x0 = x1)) }",
         );
 
-        env.add("axiom suc_neq_zero(x: Nat): suc(x) != 0");
-        env.expect_def("suc_neq_zero", "function(x0: Nat) { (suc(x0) != 0) }");
+        env.add("axiom suc_neq_zero(x: Nat): suc(x) != zero");
+        env.expect_def("suc_neq_zero", "function(x0: Nat) { (suc(x0) != zero) }");
 
         assert!(env.bindings.has_type_name("Nat"));
         assert!(!env.bindings.has_identifier("Nat"));
 
-        assert!(!env.bindings.has_type_name("0"));
-        assert!(env.bindings.has_identifier("0"));
+        assert!(!env.bindings.has_type_name("zero"));
+        assert!(env.bindings.has_identifier("zero"));
 
-        assert!(!env.bindings.has_type_name("1"));
-        assert!(env.bindings.has_identifier("1"));
+        assert!(!env.bindings.has_type_name("one"));
+        assert!(env.bindings.has_identifier("one"));
 
         assert!(!env.bindings.has_type_name("suc"));
         assert!(env.bindings.has_identifier("suc"));
@@ -1739,14 +1739,14 @@ mod tests {
 
         env.add(
             "axiom induction(f: Nat -> Bool, n: Nat):
-            f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)",
+            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)",
         );
-        env.expect_def("induction", "function(x0: Nat -> Bool, x1: Nat) { ((x0(0) & forall(x2: Nat) { (x0(x2) -> x0(suc(x2))) }) -> x0(x1)) }");
+        env.expect_def("induction", "function(x0: Nat -> Bool, x1: Nat) { ((x0(zero) & forall(x2: Nat) { (x0(x2) -> x0(suc(x2))) }) -> x0(x1)) }");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
-        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
+        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, zero) = a");
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):
             recursion(f, a, suc(n)) = f(recursion(f, a, n))",
@@ -1755,13 +1755,13 @@ mod tests {
         env.add("define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)");
         env.expect_type("add", "(Nat, Nat) -> Nat");
 
-        env.add("theorem add_zero_right(a: Nat): add(a, 0) = a");
-        env.add("theorem add_zero_left(a: Nat): add(0, a) = a");
+        env.add("theorem add_zero_right(a: Nat): add(a, zero) = a");
+        env.add("theorem add_zero_left(a: Nat): add(zero, a) = a");
         env.add("theorem add_suc_right(a: Nat, b: Nat): add(a, suc(b)) = suc(add(a, b))");
         env.add("theorem add_suc_left(a: Nat, b: Nat): add(suc(a), b) = suc(add(a, b))");
         env.add("theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)");
         env.add("theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))");
-        env.add("theorem not_suc_eq_zero(x: Nat): !(suc(x) = 0)");
+        env.add("theorem not_suc_eq_zero(x: Nat): !(suc(x) = zero)");
     }
 
     #[test]
@@ -1773,29 +1773,29 @@ mod tests {
         
 type Nat: axiom
 
-let 0: Nat = axiom
+let zero: Nat = axiom
 
 let suc: Nat -> Nat = axiom
-let 1: Nat = suc(0)
+let one: Nat = suc(zero)
 
 axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y
 
-axiom suc_neq_zero(x: Nat): suc(x) != 0
+axiom suc_neq_zero(x: Nat): suc(x) != zero
 
-axiom induction(f: Nat -> Bool): f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
+axiom induction(f: Nat -> Bool): f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
 
 // The old version. In the modern codebase these are parametric.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom
-axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
+axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, zero) = a
 axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, suc(n)) = f(recursion(f, a, n))
 
 define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)
 
 // Now let's have some theorems.
 
-theorem add_zero_right(a: Nat): add(a, 0) = a
+theorem add_zero_right(a: Nat): add(a, zero) = a
 
-theorem add_zero_left(a: Nat): add(0, a) = a
+theorem add_zero_left(a: Nat): add(zero, a) = a
 
 theorem add_suc_right(a: Nat, b: Nat): add(a, suc(b)) = suc(add(a, b))
 
@@ -1842,9 +1842,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
-            if 0 = 0 {
-                0 = 0
+            let zero: Nat = axiom
+            if zero = zero {
+                zero = zero
             }
             "#,
         )
@@ -1965,13 +1965,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_template_typechecking() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.add("let 0: Nat = axiom");
+        env.add("let zero: Nat = axiom");
         env.add("define eq<T>(a: T, b: T) -> Bool: a = b");
-        env.add("theorem t1: eq(0, 0)");
-        env.add("theorem t2: eq(0 = 0, 0 = 0)");
-        env.add("theorem t3: eq(0 = 0, eq(0, 0))");
-        env.bad("theorem t4: eq(0, 0 = 0)");
-        env.bad("theorem t5: 0 = eq(0, 0)");
+        env.add("theorem t1: eq(zero, zero)");
+        env.add("theorem t2: eq(zero = zero, zero = zero)");
+        env.add("theorem t3: eq(zero = zero, eq(zero, zero))");
+        env.bad("theorem t4: eq(zero, zero = zero)");
+        env.bad("theorem t5: zero = eq(zero, zero)");
     }
 
     #[test]
@@ -1985,10 +1985,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_if_condition_must_be_bool() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.add("let 0: Nat = axiom");
+        env.add("let zero: Nat = axiom");
         env.add("let b: Bool = axiom");
-        env.add("if b { 0 = 0 }");
-        env.bad("if 0 { 0 = 0 }");
+        env.add("if b { zero = zero }");
+        env.bad("if zero { zero = zero }");
     }
 
     #[test]
@@ -2075,12 +2075,12 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_inline_function_in_forall_block() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.add("let 0: Nat = axiom");
+        env.add("let zero: Nat = axiom");
         env.add("let suc: Nat -> Nat = axiom");
         env.add(
             r#"
             axiom induction(f: Nat -> Bool):
-                f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
+                f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
             "#,
         );
         env.add(
@@ -2121,11 +2121,11 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
     fn test_partial_application() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.add("let 0: Nat = axiom");
+        env.add("let zero: Nat = axiom");
         env.add("define add3(a: Nat, b: Nat, c: Nat) -> Nat: axiom");
-        env.add("let add0: (Nat, Nat) -> Nat = add3(0)");
-        env.add("let add00: Nat -> Nat = add3(0, 0)");
-        env.add("let add00_alt: Nat -> Nat = add0(0)");
+        env.add("let add0: (Nat, Nat) -> Nat = add3(zero)");
+        env.add("let add00: Nat -> Nat = add3(zero, zero)");
+        env.add("let add00_alt: Nat -> Nat = add0(zero)");
     }
 
     #[test]
@@ -2173,16 +2173,16 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             r#"
             type Nat: axiom
             class Nat {
-                let 0: Nat = axiom
+                let zero: Nat = axiom
                 let 1: Nat = axiom
             }
 
-            axiom zero_neq_one(x: Nat): Nat.0 = Nat.1
+            axiom zero_neq_one(x: Nat): Nat.zero = Nat.1
         "#,
         );
 
         // Class variables shouldn't get bound at module scope
-        env.bad("let zero: Nat = 0");
+        env.bad("let alsozero: Nat = zero");
     }
 
     #[test]
@@ -2443,13 +2443,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             class Nat {
                 let foo: Bool -> Bool = function(b: Bool) { b }
             }
         "#,
         );
-        env.bad("theorem goal: 0.foo(true)");
+        env.bad("theorem goal: zero.foo(true)");
     }
 
     #[test]
@@ -2470,9 +2470,10 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
                 define gte(self: Nat, other: Nat) -> Bool: axiom
                 define suc(self: Nat) -> Nat: axiom
                 define foo(self: Nat, other: Nat) -> Nat: axiom
+                let 0: Nat = axiom
+                let 1: Nat = axiom
             }
-            let 0: Nat = axiom
-            let 1: Nat = axiom
+            default Nat
         "#,
         );
         env.bindings.expect_good_code("0 + 1");

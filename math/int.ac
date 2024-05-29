@@ -14,10 +14,6 @@ class Int {
 
 default Int
 
-// TODO: remove
-let 0: Int = Int.0
-let 1: Int = Int.1
-
 axiom neg_zero: negate(0) = 0
 
 axiom neg_neg(a: Int): negate(negate(a)) = a

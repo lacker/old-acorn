@@ -4,10 +4,6 @@ import nat
 type Nat: nat.Nat
 default Nat
 
-// TODO: remove
-let 0: Nat = Nat.0
-let 1: Nat = Nat.1
-
 let divides: (Nat, Nat) -> Bool = nat.divides
 type NatPair: nat.NatPair
 

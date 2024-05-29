@@ -979,12 +979,12 @@ mod tests {
         // We need to be able to handle this somehow.
         let text = r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
             define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom
-            axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a
+            axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, zero) = a
             define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)
-            theorem add_zero_right(a: Nat): add(a, 0) = a
+            theorem add_zero_right(a: Nat): add(a, zero) = a
         "#;
         expect_proof(text, "add_zero_right", &[]);
     }
@@ -1026,12 +1026,12 @@ mod tests {
     fn test_using_conditional_existence_theorem() {
         let text = r#"
             type Nat: axiom
-            let 0: Nat = axiom
-            let 1: Nat = axiom
+            let zero: Nat = axiom
+            let one: Nat = axiom
             let suc: Nat -> Nat = axiom
-            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = suc(b) }
-            axiom one_neq_zero: 1 != 0
-            theorem goal: exists(x: Nat) { 1 = suc(x) }
+            axiom zero_or_suc(a: Nat): a = zero | exists(b: Nat) { a = suc(b) }
+            axiom one_neq_zero: one != zero
+            theorem goal: exists(x: Nat) { one = suc(x) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1040,10 +1040,10 @@ mod tests {
     fn test_instance_of_conditional_existence_theorem() {
         let text = r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
             let y: Nat = axiom
-            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = suc(b) }
+            axiom zero_or_suc(a: Nat): a = zero | exists(b: Nat) { a = suc(b) }
             theorem goal: zero_or_suc(y)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
@@ -1053,11 +1053,11 @@ mod tests {
     fn test_another_instance_of_conditional_existence_theorem() {
         let text = r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
             let y: Nat = axiom
-            axiom zero_or_suc(a: Nat): a = 0 | exists(b: Nat) { a = suc(b) }
-            axiom y_not_zero: y != 0
+            axiom zero_or_suc(a: Nat): a = zero | exists(b: Nat) { a = suc(b) }
+            axiom y_not_zero: y != zero
             theorem goal: zero_or_suc(y)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
@@ -1123,9 +1123,9 @@ mod tests {
     fn test_applying_parametric_theorem() {
         let text = r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             theorem foo<T>(a: T): a = a
-            theorem goal: foo(0)
+            theorem goal: foo(zero)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1135,8 +1135,8 @@ mod tests {
         let text = r#"
             type Nat: axiom
             define foo<T>(a: T) -> Bool: (a = a)
-            let 0: Nat = axiom
-            theorem goal: foo(0)
+            let zero: Nat = axiom
+            theorem goal: foo(zero)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1147,8 +1147,8 @@ mod tests {
             define foo<T>(a: T) -> Bool: axiom
             axiom foo_true<T>(a: T): foo(a)
             type Nat: axiom
-            let 0: Nat = axiom
-            theorem goal: foo(0)
+            let zero: Nat = axiom
+            theorem goal: foo(zero)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1159,8 +1159,8 @@ mod tests {
             define foo<T>(a: T) -> Bool: axiom
             axiom foo_true<U>(a: U): foo(a)
             type Nat: axiom
-            let 0: Nat = axiom
-            theorem goal: foo(0)
+            let zero: Nat = axiom
+            theorem goal: foo(zero)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1169,12 +1169,12 @@ mod tests {
     fn test_finding_inconsistency() {
         let text = r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             let foo: Nat -> Bool = axiom
             let bar: Nat -> Bool = axiom
-            axiom foo_true: foo(0)
-            axiom foo_false: !foo(0)
-            theorem goal: bar(0)
+            axiom foo_true: foo(zero)
+            axiom foo_false: !foo(zero)
+            theorem goal: bar(zero)
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Inconsistent);
     }
@@ -1239,10 +1239,10 @@ mod tests {
         prove_all_succeeds(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
-            let 1: Nat = axiom
-            define sign(a: Nat) -> Nat: if a = 0 { 0 } else { 1 }
-            theorem goal(a: Nat): sign(a) = 0 | sign(a) = 1
+            let zero: Nat = axiom
+            let one: Nat = axiom
+            define sign(a: Nat) -> Nat: if a = zero { zero } else { one }
+            theorem goal(a: Nat): sign(a) = zero | sign(a) = one
         "#,
         );
     }
@@ -1253,7 +1253,7 @@ mod tests {
         prove_all_succeeds(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
             let addx: (Nat, Nat) -> Nat = axiom
             let mulx: (Nat, Nat) -> Nat = axiom
@@ -1271,9 +1271,9 @@ mod tests {
         prove_all_no_crash(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             define apply(f: Nat -> Nat, a: Nat) -> Nat: f(a)
-            theorem goal: apply(function(x: Nat) { x }, 0) = 0
+            theorem goal: apply(function(x: Nat) { x }, zero) = zero
         "#,
         );
     }
@@ -1340,9 +1340,9 @@ mod tests {
         prove_all_succeeds(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             let addx: (Nat, Nat) -> Nat = axiom
-            theorem goal(f: Nat -> Nat): f = addx(0) -> f(0) = addx(0, 0)
+            theorem goal(f: Nat -> Nat): f = addx(zero) -> f(zero) = addx(zero, zero)
         "#,
         );
     }
@@ -1389,10 +1389,10 @@ mod tests {
         prove_all_succeeds(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
+            let zero: Nat = axiom
             let f: (Nat, Nat) -> Bool = axiom
-            axiom f_zero_right(x: Nat): f(x, 0)
-            theorem goal: exists(x: Nat) { f(0, x) }
+            axiom f_zero_right(x: Nat): f(x, zero)
+            theorem goal: exists(x: Nat) { f(zero, x) }
         "#,
         );
     }
@@ -1507,23 +1507,23 @@ mod tests {
         // that combine.
         let text = r#"
         type Nat: axiom
-        let 0: Nat = axiom
+        let zero: Nat = axiom
         define add(a: Nat, b: Nat) -> Nat: axiom
-        theorem add_zero_left(a: Nat): add(0, a) = a
+        theorem add_zero_left(a: Nat): add(zero, a) = a
         
-        theorem add_to_zero(a: Nat, b: Nat): add(a, b) = 0 -> a = 0 & b = 0 by {
+        theorem add_to_zero(a: Nat, b: Nat): add(a, b) = zero -> a = zero & b = zero by {
             define f(x: Nat) -> Bool: add_to_zero(x, b)
-            f(0)
+            f(zero)
         }
         "#;
 
         expect_proof(
             text,
-            "f(0)",
+            "f(zero)",
             &[
-                "if !add_to_zero(0, b) {",
-                "\tadd(0, b) = 0",
-                "\tb != 0",
+                "if !add_to_zero(zero, b) {",
+                "\tadd(zero, b) = zero",
+                "\tb != zero",
                 "\tfalse",
                 "}",
             ],
@@ -1534,10 +1534,10 @@ mod tests {
     fn test_proof_condensing_induction() {
         let text = r#"
         type Nat: axiom
-        let 0: Nat = axiom
+        let zero: Nat = axiom
         let suc: Nat -> Nat = axiom
         axiom induction(f: Nat -> Bool):
-            f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
+            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
         let foo: Nat -> Bool = axiom
         theorem goal: induction(foo)
         "#;

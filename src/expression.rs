@@ -15,13 +15,9 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
 #[derive(Debug)]
 pub enum Expression {
-    // The keywords that work like identifiers are treated like identifiers here.
-    // true, false, and axiom.
-    // TODO: "axiom" as identifier is weird, let's change it.
-    Identifier(Token),
-
-    // A numeric literal like 123 or 9.
-    Number(Token),
+    // A singleton expression is one that consists of just a single token.
+    // This includes true, false, numeric literals, and "axiom".
+    Singleton(Token),
 
     // A unary operator applied to another expression.
     Unary(Token, Box<Expression>),
@@ -61,8 +57,7 @@ pub enum Expression {
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expression::Identifier(token) => write!(f, "{}", token),
-            Expression::Number(token) => write!(f, "{}", token),
+            Expression::Singleton(token) => write!(f, "{}", token),
             Expression::Unary(token, subexpression) => {
                 write!(f, "{}{}", token, subexpression)
             }
@@ -107,8 +102,7 @@ impl Expression {
     // This is not the first token or the last token, but the "conceptually top level" token.
     pub fn token(&self) -> &Token {
         match self {
-            Expression::Identifier(token) => token,
-            Expression::Number(token) => token,
+            Expression::Singleton(token) => token,
             Expression::Unary(token, _) => token,
             Expression::Binary(_, token, _) => token,
             Expression::Apply(left, _) => left.token(),
@@ -120,8 +114,7 @@ impl Expression {
 
     pub fn first_token(&self) -> &Token {
         match self {
-            Expression::Identifier(token) => token,
-            Expression::Number(token) => token,
+            Expression::Singleton(token) => token,
             Expression::Unary(token, _) => token,
             Expression::Binary(left, _, _) => left.first_token(),
             Expression::Apply(left, _) => left.first_token(),
@@ -133,8 +126,7 @@ impl Expression {
 
     pub fn last_token(&self) -> &Token {
         match self {
-            Expression::Identifier(token) => token,
-            Expression::Number(token) => token,
+            Expression::Singleton(token) => token,
             Expression::Unary(_, subexpression) => subexpression.last_token(),
             Expression::Binary(_, _, right) => right.last_token(),
             Expression::Apply(_, right) => right.last_token(),
@@ -146,12 +138,8 @@ impl Expression {
 
     pub fn print_one_level(&self) {
         match self {
-            Expression::Identifier(token) => {
-                println!("Identifier:");
-                println!("  token: {}", token);
-            }
-            Expression::Number(token) => {
-                println!("Number:");
+            Expression::Singleton(token) => {
+                println!("Singleton:");
                 println!("  token: {}", token);
             }
             Expression::Unary(token, subexpression) => {
@@ -192,7 +180,7 @@ impl Expression {
 
     // For code generation. Will not point to a token in any larger document
     pub fn generate_identifier(s: &str) -> Expression {
-        Expression::Identifier(TokenType::Identifier.new_token(s))
+        Expression::Singleton(TokenType::Identifier.new_token(s))
     }
 
     // Generates a comma-separated grouping
@@ -236,8 +224,7 @@ impl Expression {
     // We assume this is a value rather than a type.
     pub fn value_precedence(&self) -> i8 {
         match self {
-            Expression::Identifier(_)
-            | Expression::Number(..)
+            Expression::Singleton(_)
             | Expression::Grouping(..)
             | Expression::Binder(..)
             | Expression::IfThenElse(..) => {
@@ -422,8 +409,12 @@ fn parse_partial_expressions(
                 partials.push_back(PartialExpression::Expression(group));
             }
 
-            TokenType::Identifier | TokenType::Axiom | TokenType::True | TokenType::False => {
-                partials.push_back(PartialExpression::Expression(Expression::Identifier(token)));
+            TokenType::Identifier
+            | TokenType::Number
+            | TokenType::Axiom
+            | TokenType::True
+            | TokenType::False => {
+                partials.push_back(PartialExpression::Expression(Expression::Singleton(token)));
             }
 
             TokenType::ForAll | TokenType::Exists | TokenType::Function => {

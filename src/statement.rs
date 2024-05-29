@@ -13,6 +13,7 @@ pub struct Body {
 
 // Let statements introduce new named constants. For example:
 //   let a: int = x + 2
+// The name token can either be an identifier or a number.
 pub struct LetStatement {
     pub name: String,
     pub name_token: Token,
@@ -305,7 +306,16 @@ fn parse_theorem_statement(
 
 // Parses a let statement where the "let" keyword has already been found.
 fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name_token = match tokens.next() {
+        Some(t) => t,
+        None => return Err(tokens.error("unexpected end of file")),
+    };
+    match name_token.token_type {
+        TokenType::Identifier | TokenType::Number => {}
+        _ => {
+            return Err(Error::new(&name_token, "expected identifier or number"));
+        }
+    };
     let name = name_token.text().to_string();
     if !Token::is_valid_variable_name(&name) {
         return Err(Error::new(&keyword, "invalid variable name"));
@@ -904,9 +914,7 @@ mod tests {
     #[test]
     fn test_nat_ac_statements() {
         ok("type Nat: axiom");
-        ok("let 0: Nat = axiom");
         ok("let suc: Nat -> Nat = axiom");
-        ok("let 1: Nat = suc(0)");
         ok("axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y");
         ok("axiom suc_neq_zero(x: Nat): suc(x) != 0");
         ok("axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)");
@@ -1077,5 +1085,14 @@ mod tests {
     #[test]
     fn test_no_lone_else_statement() {
         fail("else { qux(x) }");
+    }
+
+    #[test]
+    fn test_class_statement() {
+        ok(indoc! {"
+        class Foo {
+            let blorp: Foo = axiom
+            let 0: Foo = axiom
+        }"});
     }
 }

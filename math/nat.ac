@@ -7,13 +7,10 @@ class Nat {
     define suc(self: Nat) -> Nat: axiom
     let 0: Nat = axiom
     let 1: Nat = Nat.0.suc
+    let 2: Nat = Nat.1.suc
 }
 
 default Nat
-
-// TODO: remove
-let 0: Nat = Nat.0
-let 1: Nat = Nat.1
 
 axiom suc_injective(x: Nat, y: Nat): x.suc = y.suc -> x = y
 
@@ -33,8 +30,6 @@ class Nat {
 // Now let's have some theorems.
 
 theorem add_zero_right(a: Nat): a + 0 = a
-
-let 2: Nat = 1.suc
 
 theorem one_plus_one: 1 + 1 = 2 by {
     recursion(Nat.suc, 1, 0).suc = 2

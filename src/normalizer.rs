@@ -548,32 +548,32 @@ mod tests {
         let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
-        env.add("let 0: Nat = axiom");
-        env.expect_type("0", "Nat");
+        env.add("let zero: Nat = axiom");
+        env.expect_type("zero", "Nat");
         env.add("let suc: Nat -> Nat = axiom");
         env.expect_type("suc", "Nat -> Nat");
-        env.add("let 1: Nat = suc(0)");
-        env.expect_type("1", "Nat");
+        env.add("let one: Nat = suc(zero)");
+        env.expect_type("one", "Nat");
 
         env.add("axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y");
         norm.check(&env, "suc_injective", &["suc(x0) != suc(x1) | x0 = x1"]);
         env.expect_type("suc_injective", "(Nat, Nat) -> Bool");
 
-        env.add("axiom suc_neq_zero(x: Nat): suc(x) != 0");
-        norm.check(&env, "suc_neq_zero", &["0 != suc(x0)"]);
+        env.add("axiom suc_neq_zero(x: Nat): suc(x) != zero");
+        norm.check(&env, "suc_neq_zero", &["zero != suc(x0)"]);
         env.expect_type("suc_neq_zero", "Nat -> Bool");
 
         env.add(
             "axiom induction(f: Nat -> Bool):\
-            f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }",
+            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }",
         );
 
         norm.check(
             &env,
             "induction",
             &[
-                "!x0(0) | x0(s0(x0)) | x0(x1)",
-                "!x0(suc(s0(x0))) | !x0(0) | x0(x1)",
+                "!x0(zero) | x0(s0(x0)) | x0(x1)",
+                "!x0(suc(s0(x0))) | !x0(zero) | x0(x1)",
             ],
         );
 
@@ -582,9 +582,9 @@ mod tests {
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
-        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
+        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, zero) = a");
         env.expect_type("recursion_base", "(Nat -> Nat, Nat) -> Bool");
-        norm.check(&env, "recursion_base", &["recursion(x0, x1, 0) = x1"]);
+        norm.check(&env, "recursion_base", &["recursion(x0, x1, zero) = x1"]);
 
         env.add(
             "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
@@ -704,8 +704,8 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
-            define zerof(a: Nat) -> (Nat -> Nat): function(b: Nat) { 0 }
+            let zero: Nat = axiom
+            define zerof(a: Nat) -> (Nat -> Nat): function(b: Nat) { zero }
             theorem goal(a: Nat, b: Nat): zerof(a) = zerof(b)
             "#,
         );
@@ -719,14 +719,14 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
-            let 1: Nat = axiom
+            let zero: Nat = axiom
+            let one: Nat = axiom
             let addx: (Nat, Nat) -> Nat = axiom
-            theorem goal: exists(x: Nat) { addx(x, 0) = 1 }
+            theorem goal: exists(x: Nat) { addx(x, zero) = one }
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["addx(s0, 0) = 1"]);
+        norm.check(&env, "goal", &["addx(s0, zero) = one"]);
     }
 
     #[test]
@@ -735,14 +735,18 @@ mod tests {
         env.add(
             r#"
             type Nat: axiom
-            let 0: Nat = axiom
-            let 1: Nat = axiom
+            let zero: Nat = axiom
+            let one: Nat = axiom
             let ltx: (Nat, Nat) -> Bool = axiom
             let addx: (Nat, Nat) -> Nat = axiom
-            theorem foo(x0: Nat, x1: Nat): addx(addx(x0, 0), x1) != 0 | ltx(x1, 0)
+            theorem foo(x0: Nat, x1: Nat): addx(addx(x0, zero), x1) != zero | ltx(x1, zero)
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "foo", &["addx(addx(x0, 0), x1) != 0 | ltx(x1, 0)"]);
+        norm.check(
+            &env,
+            "foo",
+            &["addx(addx(x0, zero), x1) != zero | ltx(x1, zero)"],
+        );
     }
 }
