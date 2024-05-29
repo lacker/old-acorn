@@ -385,6 +385,7 @@ impl BindingMap {
                     Err(Error::new(token, "expected type name"))
                 }
             }
+            Expression::Number(token) => Err(Error::new(token, "expected a type")),
             Expression::Unary(token, _) => Err(Error::new(
                 token,
                 "unexpected unary operator in type expression",
@@ -751,6 +752,9 @@ impl BindingMap {
                     "unexpected identifier in value expression",
                 )),
             },
+            Expression::Number(_token) => {
+                todo!("evaluate numbers");
+            }
             Expression::Unary(token, expr) => match token.token_type {
                 TokenType::Exclam => {
                     check_type(token, expected_type, &AcornType::Bool)?;

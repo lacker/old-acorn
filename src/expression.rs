@@ -20,6 +20,9 @@ pub enum Expression {
     // TODO: "axiom" as identifier is weird, let's change it.
     Identifier(Token),
 
+    // A numeric literal like 123 or 9.
+    Number(Token),
+
     // A unary operator applied to another expression.
     Unary(Token, Box<Expression>),
 
@@ -59,6 +62,7 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expression::Identifier(token) => write!(f, "{}", token),
+            Expression::Number(token) => write!(f, "{}", token),
             Expression::Unary(token, subexpression) => {
                 write!(f, "{}{}", token, subexpression)
             }
@@ -104,6 +108,7 @@ impl Expression {
     pub fn token(&self) -> &Token {
         match self {
             Expression::Identifier(token) => token,
+            Expression::Number(token) => token,
             Expression::Unary(token, _) => token,
             Expression::Binary(_, token, _) => token,
             Expression::Apply(left, _) => left.token(),
@@ -116,6 +121,7 @@ impl Expression {
     pub fn first_token(&self) -> &Token {
         match self {
             Expression::Identifier(token) => token,
+            Expression::Number(token) => token,
             Expression::Unary(token, _) => token,
             Expression::Binary(left, _, _) => left.first_token(),
             Expression::Apply(left, _) => left.first_token(),
@@ -128,6 +134,7 @@ impl Expression {
     pub fn last_token(&self) -> &Token {
         match self {
             Expression::Identifier(token) => token,
+            Expression::Number(token) => token,
             Expression::Unary(_, subexpression) => subexpression.last_token(),
             Expression::Binary(_, _, right) => right.last_token(),
             Expression::Apply(_, right) => right.last_token(),
@@ -141,6 +148,10 @@ impl Expression {
         match self {
             Expression::Identifier(token) => {
                 println!("Identifier:");
+                println!("  token: {}", token);
+            }
+            Expression::Number(token) => {
+                println!("Number:");
                 println!("  token: {}", token);
             }
             Expression::Unary(token, subexpression) => {
@@ -226,6 +237,7 @@ impl Expression {
     pub fn value_precedence(&self) -> i8 {
         match self {
             Expression::Identifier(_)
+            | Expression::Number(..)
             | Expression::Grouping(..)
             | Expression::Binder(..)
             | Expression::IfThenElse(..) => {
