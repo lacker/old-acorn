@@ -113,6 +113,11 @@ pub struct ClassStatement {
     pub body: Body,
 }
 
+// A default statement determines what class is used for numeric literals.
+pub struct DefaultStatement {
+    pub type_expr: Expression,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Each type has its own struct.
 pub struct Statement {
@@ -134,6 +139,7 @@ pub enum StatementInfo {
     Struct(StructStatement),
     Import(ImportStatement),
     Class(ClassStatement),
+    Default(DefaultStatement),
 }
 
 const ONE_INDENT: &str = "    ";
@@ -674,6 +680,10 @@ impl Statement {
             StatementInfo::Class(cs) => {
                 write!(f, "class {}", cs.name)?;
                 write_block(f, &cs.body.statements, indentation)
+            }
+
+            StatementInfo::Default(ds) => {
+                write!(f, "default {}", ds.type_expr)
             }
         }
     }

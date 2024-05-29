@@ -1156,6 +1156,13 @@ impl Environment {
                 }
                 Ok(())
             }
+
+            StatementInfo::Default(ds) => {
+                self.add_other_lines(statement);
+                let _acorn_type = self.bindings.evaluate_type(project, &ds.type_expr)?;
+                // TODO: set the default in the bindings
+                Ok(())
+            }
         }
     }
 
@@ -2503,5 +2510,15 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             }
         "#,
         );
+    }
+
+    #[test]
+    fn test_default_statement() {
+        let mut env = Environment::new_test();
+        env.add("type Foo: axiom");
+        env.add("default Foo");
+        env.bad("default Bar");
+        env.bad("default Bool");
+        env.bad("default Foo -> Foo");
     }
 }
