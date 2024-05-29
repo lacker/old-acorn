@@ -565,6 +565,12 @@ impl Environment {
         ls: &LetStatement,
         range: Range,
     ) -> token::Result<()> {
+        if class.is_none() && ls.name_token.token_type == TokenType::Number {
+            return Err(Error::new(
+                &ls.name_token,
+                "numeric literals may not be defined outside of a class",
+            ));
+        }
         if ls.name == "self"
             || ls.name == "new"
             || (class.is_some() && TokenType::from_magic_method_name(&ls.name).is_some())
@@ -2528,5 +2534,12 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.bad("default Bar");
         env.bad("default Bool");
         env.bad("default Foo -> Foo");
+    }
+
+    #[test]
+    fn test_no_top_level_numbers() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad("let 0: Nat = axiom");
     }
 }
