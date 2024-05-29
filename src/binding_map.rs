@@ -87,6 +87,9 @@ pub struct BindingMap {
 
     // The local name for imported modules.
     reverse_modules: HashMap<ModuleId, String>,
+
+    // The default class to use for numeric literals.
+    default: Option<(ModuleId, String)>,
 }
 
 #[derive(Clone)]
@@ -182,6 +185,7 @@ impl BindingMap {
             aliased_constants: HashMap::new(),
             modules: BTreeMap::new(),
             reverse_modules: HashMap::new(),
+            default: None,
         };
         answer.add_type_alias("Bool", AcornType::Bool);
         answer
@@ -278,6 +282,10 @@ impl BindingMap {
     // Sorted by the name of the import, so that the order will be consistent.
     pub fn direct_dependencies(&self) -> Vec<ModuleId> {
         self.modules.values().copied().collect()
+    }
+
+    pub fn set_default(&mut self, module: ModuleId, name: String) {
+        self.default = Some((module, name));
     }
 
     // This can also add members, by providing a name like "Foo.bar".

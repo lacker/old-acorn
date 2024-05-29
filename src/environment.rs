@@ -1159,9 +1159,16 @@ impl Environment {
 
             StatementInfo::Default(ds) => {
                 self.add_other_lines(statement);
-                let _acorn_type = self.bindings.evaluate_type(project, &ds.type_expr)?;
-                // TODO: set the default in the bindings
-                Ok(())
+                let acorn_type = self.bindings.evaluate_type(project, &ds.type_expr)?;
+                if let AcornType::Data(module, name) = acorn_type {
+                    self.bindings.set_default(module, name);
+                    Ok(())
+                } else {
+                    Err(Error::new(
+                        &ds.type_expr.token(),
+                        "default type must be a data type",
+                    ))
+                }
             }
         }
     }
@@ -2518,7 +2525,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("type Foo: axiom");
         env.add("default Foo");
         env.bad("default Bar");
-        // env.bad("default Bool");
-        // env.bad("default Foo -> Foo");
+        env.bad("default Bool");
+        env.bad("default Foo -> Foo");
     }
 }
