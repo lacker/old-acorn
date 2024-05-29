@@ -2565,4 +2565,17 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("default Unary");
         env.add("let two: Unary = 11");
     }
+
+    #[test]
+    fn test_digits_must_be_correct_type() {
+        let mut env = Environment::new_test();
+        env.add("type Nat: axiom");
+        env.bad(
+            r#"
+            class Nat {
+                let 1: Bool = axiom
+            }
+        "#,
+        );
+    }
 }
