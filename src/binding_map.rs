@@ -521,6 +521,23 @@ impl BindingMap {
         }
     }
 
+    // Evaluates a name scoped by a type name, like MyClass.foo
+    fn evaluate_class_variable(
+        &self,
+        project: &Project,
+        module: ModuleId,
+        type_name: &str,
+        var_name: &str,
+    ) -> Option<AcornValue> {
+        let bindings = if module == self.module {
+            &self
+        } else {
+            project.get_bindings(module).unwrap()
+        };
+        let constant_name = format!("{}.{}", type_name, var_name);
+        bindings.get_constant_value(&constant_name)
+    }
+
     // Evaluates an expression that is supposed to describe a value, with an empty stack.
     pub fn evaluate_value(
         &self,
@@ -558,7 +575,7 @@ impl BindingMap {
                         None => {
                             return Err(Error::new(
                                 token,
-                                &format!("unknown member '{}'", constant_name),
+                                &format!("unknown instance variable '{}'", constant_name),
                             ))
                         }
                     };
@@ -584,17 +601,11 @@ impl BindingMap {
             }
             Some(NamedEntity::Type(t)) => {
                 if let AcornType::Data(module, type_name) = t {
-                    let bindings = if module == self.module {
-                        &self
-                    } else {
-                        project.get_bindings(module).unwrap()
-                    };
-                    let constant_name = format!("{}.{}", type_name, name);
-                    match bindings.get_constant_value(&constant_name) {
+                    match self.evaluate_class_variable(project, module, &type_name, name) {
                         Some(value) => Ok(NamedEntity::Value(value)),
                         None => Err(Error::new(
                             token,
-                            &format!("unknown member '{}'", constant_name),
+                            &format!("{} has no member named '{}'", type_name, name),
                         )),
                     }
                 } else {

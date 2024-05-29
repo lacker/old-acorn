@@ -2558,7 +2558,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Unary {
                 let 1: Unary = axiom 
                 define suc(self: Unary) -> Unary: axiom
-                define append(self: Unary, digit: Unary) -> Unary: self.suc
+                define read(self: Unary, digit: Unary) -> Unary: self.suc
             }
         "#,
         );
