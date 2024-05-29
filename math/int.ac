@@ -7,8 +7,16 @@ let from_nat: Nat -> Int = axiom
 let negate: Int -> Int = axiom
 let abs: Int -> Nat = axiom
 
-let 0: Int = from_nat(nat.0)
-let 1: Int = from_nat(nat.1)
+class Int {
+    let 0: Int = from_nat(Nat.0)
+    let 1: Int = from_nat(Nat.1)
+}
+
+default Int
+
+// TODO: remove
+let 0: Int = Int.0
+let 1: Int = Int.1
 
 axiom neg_zero: negate(0) = 0
 

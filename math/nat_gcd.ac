@@ -2,8 +2,11 @@ import nat
 
 // Would be nicer to have a way to import all of these at once.
 type Nat: nat.Nat
-let 0: Nat = nat.0
-let 1: Nat = nat.1
+default Nat
+
+// TODO: remove
+let 0: Nat = Nat.0
+let 1: Nat = Nat.1
 
 let divides: (Nat, Nat) -> Bool = nat.divides
 type NatPair: nat.NatPair

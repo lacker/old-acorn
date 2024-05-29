@@ -3,13 +3,17 @@
 
 type Nat: axiom
 
-let 0: Nat = axiom
-
 class Nat {
     define suc(self: Nat) -> Nat: axiom
+    let 0: Nat = axiom
+    let 1: Nat = Nat.0.suc
 }
 
-let 1: Nat = 0.suc
+default Nat
+
+// TODO: remove
+let 0: Nat = Nat.0
+let 1: Nat = Nat.1
 
 axiom suc_injective(x: Nat, y: Nat): x.suc = y.suc -> x = y
 
