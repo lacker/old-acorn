@@ -768,6 +768,18 @@ impl Statement {
                         let s = parse_class_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
+                    TokenType::Default => {
+                        let keyword = tokens.next().unwrap();
+                        let (type_expr, last_token) =
+                            Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
+                        let ds = DefaultStatement { type_expr };
+                        let s = Statement {
+                            first_token: keyword,
+                            last_token,
+                            statement: StatementInfo::Default(ds),
+                        };
+                        return Ok((Some(s), None));
+                    }
                     _ => {
                         if !in_block {
                             return Err(Error::new(token, "unexpected token at the top level"));
