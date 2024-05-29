@@ -2548,4 +2548,21 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let mut env = Environment::new_test();
         env.bad("let foo: Bool = (0 = 0)");
     }
+
+    #[test]
+    fn test_multi_digit_unary() {
+        let mut env = Environment::new_test();
+        env.add("type Unary: axiom");
+        env.add(
+            r#"
+            class Unary {
+                let 1: Unary = axiom 
+                define suc(self: Unary) -> Unary: axiom
+                define append(self: Unary, digit: Unary) -> Unary: self.suc
+            }
+        "#,
+        );
+        env.add("default Unary");
+        env.add("let two: Unary = 11");
+    }
 }
