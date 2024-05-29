@@ -284,8 +284,8 @@ impl BindingMap {
         self.modules.values().copied().collect()
     }
 
-    pub fn set_default(&mut self, module: ModuleId, typename: String) {
-        self.default = Some((module, typename));
+    pub fn set_default(&mut self, module: ModuleId, type_name: String) {
+        self.default = Some((module, type_name));
     }
 
     // This can also add members, by providing a name like "Foo.bar".
@@ -507,18 +507,41 @@ impl BindingMap {
         &self,
         token: &Token,
         project: &Project,
-        number_type: &AcornType,
+        module: ModuleId,
+        type_name: &str,
         s: &str,
     ) -> token::Result<AcornValue> {
-        let namespace = NamedEntity::Type(number_type.clone());
-        let entity = self.evaluate_name(token, project, &mut Stack::new(), Some(namespace), s)?;
-        match entity {
-            NamedEntity::Value(value) => {
-                check_type(token, Some(number_type), &value.get_type())?;
-                Ok(value)
-            }
-            _ => Err(Error::new(token, "number did not evaluate to a value")),
+        if let Some(value) = self.evaluate_class_variable(project, module, type_name, s) {
+            return Ok(value);
         }
+
+        if s.len() == 1 {
+            return Err(Error::new(
+                token,
+                &format!("digit {}.{} is not defined", type_name, s),
+            ));
+        }
+
+        let last_str = &s[s.len() - 1..];
+        let last_num =
+            self.evaluate_number_with_type(token, project, module, type_name, last_str)?;
+        let initial_str = &s[..s.len() - 1];
+        let initial_num =
+            self.evaluate_number_with_type(token, project, module, type_name, initial_str)?;
+        let read_fn = match self.evaluate_class_variable(project, module, type_name, "read") {
+            Some(f) => f,
+            None => {
+                return Err(Error::new(
+                    token,
+                    &format!(
+                        "{}.read must be defined to read numeric literals",
+                        type_name
+                    ),
+                ))
+            }
+        };
+        let value = AcornValue::new_apply(read_fn, vec![initial_num, last_num]);
+        Ok(value)
     }
 
     // Evaluates a name scoped by a type name, like MyClass.foo
@@ -642,19 +665,20 @@ impl BindingMap {
                         }
                     }
                     TokenType::Number => {
-                        let number_type = match &self.default {
-                            Some((module, typename)) => AcornType::Data(*module, typename.clone()),
+                        let (module, type_name) = match &self.default {
+                            Some((module, type_name)) => (module, type_name),
                             None => {
                                 return Err(Error::new(
                                     token,
                                     "you must set a default type for numeric literals",
-                                ))
+                                ));
                             }
                         };
                         let value = self.evaluate_number_with_type(
                             token,
                             project,
-                            &number_type,
+                            *module,
+                            type_name,
                             token.text(),
                         )?;
                         Ok(NamedEntity::Value(value))
@@ -1301,9 +1325,9 @@ impl BindingMap {
         let parts = name.split('.').collect::<Vec<_>>();
 
         // Handle default numeric literals
-        if let Some((module, typename)) = &self.default {
+        if let Some((module, type_name)) = &self.default {
             if *module == self.module
-                && typename == parts[0]
+                && type_name == parts[0]
                 && parts[1].chars().all(|ch| ch.is_ascii_digit())
             {
                 let token = TokenType::Number.new_token(parts[1]);
