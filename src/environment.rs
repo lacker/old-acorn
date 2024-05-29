@@ -591,6 +591,14 @@ impl Environment {
             ));
         }
         let acorn_type = self.bindings.evaluate_type(project, &ls.type_expr)?;
+        if ls.name_token.token_type == TokenType::Number {
+            if acorn_type != AcornType::Data(self.module_id, class.unwrap().to_string()) {
+                return Err(Error::new(
+                    &ls.type_expr.token(),
+                    "numeric class variables must be the class type",
+                ));
+            }
+        }
         let value = if ls.value.token().token_type == TokenType::Axiom {
             AcornValue::Constant(self.module_id, name.clone(), acorn_type.clone(), vec![])
         } else {
