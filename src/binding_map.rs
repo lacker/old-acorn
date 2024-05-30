@@ -1343,15 +1343,24 @@ impl BindingMap {
     fn name_to_expr(&self, module: ModuleId, name: &str) -> Result<Expression, CodeGenError> {
         let parts = name.split('.').collect::<Vec<_>>();
 
-        // Handle default numeric literals
-        if let Some((module, type_name)) = &self.default {
-            if *module == self.module
-                && type_name == parts[0]
-                && parts[1].chars().all(|ch| ch.is_ascii_digit())
-            {
-                let token = TokenType::Number.new_token(parts[1]);
-                return Ok(Expression::Singleton(token));
+        // Handle numeric literals
+        if parts.len() == 2 && parts[1].chars().all(|ch| ch.is_ascii_digit()) {
+            let numeral = TokenType::Number.new_token(parts[1]);
+
+            // If it's the default type, we don't need to scope it
+            if let Some((module, type_name)) = &self.default {
+                if *module == self.module && type_name == parts[0] {
+                    return Ok(Expression::Singleton(numeral));
+                }
             }
+
+            // Otherwise, we need to scope it by the type
+            let numeric_type = self.name_to_expr(module, parts[0])?;
+            return Ok(Expression::Binary(
+                Box::new(numeric_type),
+                TokenType::Dot.generate(),
+                Box::new(Expression::Singleton(numeral)),
+            ));
         }
 
         // Handle local constants
@@ -1463,14 +1472,11 @@ impl BindingMap {
                                 return Ok(Expression::generate_binary(left, op, right));
                             }
 
-                            if parts[1] == "read" && args[0].is_number() && args[1].is_number() {
-                                // This is a numeric literal
-                                let last_str = args[1].token().text();
-                                if last_str.len() == 1 {
-                                    let mut number_str = args[0].token().text().to_string();
-                                    number_str.push_str(last_str);
-                                    let token = TokenType::Number.new_token(&number_str);
-                                    return Ok(Expression::Singleton(token));
+                            if parts[1] == "read" && args[0].is_number() {
+                                // Handle long numeric literals
+                                if let Some(digit) = args[1].to_digit() {
+                                    let left = args.remove(0);
+                                    return Ok(Expression::generate_number(left, digit));
                                 }
                             }
                         }

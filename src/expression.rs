@@ -220,6 +220,53 @@ impl Expression {
         Expression::Binary(Box::new(left), op.generate(), Box::new(right))
     }
 
+    // Converts this expression to a numeric digit, if possible.
+    // Ignores the type.
+    pub fn to_digit(&self) -> Option<char> {
+        match self {
+            Expression::Singleton(token) if token.token_type == TokenType::Number => {
+                let text = token.text();
+                if text.len() == 1 {
+                    text.chars().next()
+                } else {
+                    None
+                }
+            }
+            Expression::Binary(_, token, right) if token.token_type == TokenType::Dot => {
+                right.to_digit()
+            }
+            _ => None,
+        }
+    }
+
+    // Whether this is a number of any type.
+    pub fn is_number(&self) -> bool {
+        match self {
+            Expression::Singleton(token) => token.token_type == TokenType::Number,
+            Expression::Binary(_, token, right) if token.token_type == TokenType::Dot => {
+                right.is_number()
+            }
+            _ => false,
+        }
+    }
+
+    // Appends a digit.
+    // 'initial' must be a number.
+    pub fn generate_number(initial: Expression, digit: char) -> Expression {
+        match initial {
+            Expression::Singleton(token) => {
+                let mut text = token.text().to_string();
+                text.push(digit);
+                Expression::Singleton(TokenType::Number.new_token(&text))
+            }
+            Expression::Binary(left, token, right) if token.token_type == TokenType::Dot => {
+                let new_right = Expression::generate_number(*right, digit);
+                Expression::Binary(left, token, Box::new(new_right))
+            }
+            _ => panic!("expected a number"),
+        }
+    }
+
     // The precedence this expression needs at the top level.
     // We assume this is a value rather than a type.
     pub fn value_precedence(&self) -> i8 {
@@ -292,13 +339,6 @@ impl Expression {
                     Ok(vec![e])
                 }
             }
-        }
-    }
-
-    pub fn is_number(&self) -> bool {
-        match self {
-            Expression::Singleton(token) => token.token_type == TokenType::Number,
-            _ => false,
         }
     }
 
