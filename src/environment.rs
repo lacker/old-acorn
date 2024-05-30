@@ -573,6 +573,7 @@ impl Environment {
         }
         if ls.name == "self"
             || ls.name == "new"
+            || ls.name == "read"
             || (class.is_some() && TokenType::from_magic_method_name(&ls.name).is_some())
         {
             return Err(Error::new(
@@ -647,14 +648,29 @@ impl Environment {
                 &ds.return_value,
                 class.is_some(),
             )?;
+
         if let Some(class_name) = class {
-            if arg_types[0] != AcornType::Data(self.module_id, class_name.to_string()) {
+            let class_type = AcornType::Data(self.module_id, class_name.to_string());
+            if arg_types[0] != class_type {
                 return Err(Error::new(
                     &ds.args[0].token(),
                     "self must be the class type",
                 ));
             }
+
+            if ds.name == "read" {
+                if arg_types.len() != 2 || arg_types[1] != class_type || value_type != class_type {
+                    return Err(Error::new(
+                        &ds.name_token,
+                        &format!(
+                            "{}.read should be type ({}, {}) -> {}",
+                            class_name, class_name, class_name, class_name
+                        ),
+                    ));
+                }
+            }
         }
+
         if let Some(v) = unbound_value {
             let fn_value = AcornValue::new_lambda(arg_types, v);
             // Add the function value to the environment
