@@ -2658,8 +2658,39 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             default Nat
         "#,
         );
+        env.bindings.expect_good_code("7");
         env.bindings.expect_good_code("10");
         env.bindings.expect_good_code("12");
         env.bindings.expect_good_code("123 + 456");
+    }
+
+    #[test]
+    fn test_non_default_numeric_literals() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            class Nat {
+                let 0: Nat = axiom
+                define suc(self: Nat) -> Nat: axiom
+                let 1: Nat = Nat.0.suc
+                let 2: Nat = Nat.1.suc
+                let 3: Nat = Nat.2.suc
+                let 4: Nat = Nat.3.suc
+                let 5: Nat = Nat.4.suc
+                let 6: Nat = Nat.5.suc
+                let 7: Nat = Nat.6.suc
+                let 8: Nat = Nat.7.suc
+                let 9: Nat = Nat.8.suc
+                let 10: Nat = Nat.9.suc
+                define read(self: Nat, other: Nat) -> Nat: axiom
+                define add(self: Nat, other: Nat) -> Nat: axiom
+            }
+        "#,
+        );
+        env.bindings.expect_good_code("Nat.7");
+        env.bindings.expect_good_code("Nat.10");
+        env.bindings.expect_good_code("Nat.12");
+        env.bindings.expect_good_code("Nat.123 + Nat.456");
     }
 }

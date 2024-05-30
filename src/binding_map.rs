@@ -571,6 +571,56 @@ impl BindingMap {
         self.evaluate_value_with_stack(&mut Stack::new(), project, expression, expected_type)
     }
 
+    // Evaluates a variable attached to an instance like foo.bar.
+    // token is used for reporting errors but may not correspond to anything in particular.
+    fn evaluate_instance_variable(
+        &self,
+        token: &Token,
+        project: &Project,
+        instance_value: AcornValue,
+        name: &str,
+    ) -> token::Result<AcornValue> {
+        let base_type = instance_value.get_type();
+        if let AcornType::Data(module, type_name) = base_type {
+            let bindings = if module == self.module {
+                &self
+            } else {
+                project.get_bindings(module).unwrap()
+            };
+            let constant_name = format!("{}.{}", type_name, name);
+            let function = match bindings.get_constant_value(&constant_name) {
+                Some(value) => value,
+                None => {
+                    return Err(Error::new(
+                        token,
+                        &format!("unknown instance variable '{}'", constant_name),
+                    ))
+                }
+            };
+            // We need to typecheck that the apply is okay
+            match function.get_type() {
+                AcornType::Function(function_type) => {
+                    check_type(
+                        token,
+                        Some(&function_type.arg_types[0]),
+                        &instance_value.get_type(),
+                    )?;
+                }
+                _ => {
+                    return Err(Error::new(token, "expected member to be a function"));
+                }
+            };
+            let applied_value = AcornValue::new_apply(function, vec![instance_value]);
+
+            Ok(applied_value)
+        } else {
+            Err(Error::new(
+                token,
+                &format!("objects of type {:?} have no members", base_type),
+            ))
+        }
+    }
+
     // Evaluates a single name, which may be namespaced to another named entity.
     // In this situation, we don't know what sort of thing we expect the name to represent.
     // We have the entity described by a chain of names, and we're adding one more name to the chain.
@@ -584,43 +634,8 @@ impl BindingMap {
     ) -> token::Result<NamedEntity> {
         match namespace {
             Some(NamedEntity::Value(left_value)) => {
-                // This is <object>.<name> so we need to find the type of the object on the left.
-                let left_type = left_value.get_type();
-                if let AcornType::Data(module, type_name) = left_type {
-                    let bindings = if module == self.module {
-                        &self
-                    } else {
-                        project.get_bindings(module).unwrap()
-                    };
-                    let constant_name = format!("{}.{}", type_name, name);
-                    let function = match bindings.get_constant_value(&constant_name) {
-                        Some(value) => value,
-                        None => {
-                            return Err(Error::new(
-                                token,
-                                &format!("unknown instance variable '{}'", constant_name),
-                            ))
-                        }
-                    };
-                    // We need to typecheck that the apply is okay
-                    match function.get_type() {
-                        AcornType::Function(function_type) => {
-                            check_type(
-                                token,
-                                Some(&function_type.arg_types[0]),
-                                &left_value.get_type(),
-                            )?;
-                        }
-                        _ => {
-                            return Err(Error::new(token, "expected member to be a function"));
-                        }
-                    };
-                    let applied_value = AcornValue::new_apply(function, vec![left_value]);
-
-                    Ok(NamedEntity::Value(applied_value))
-                } else {
-                    Err(Error::new(token, "type has no members"))
-                }
+                let value = self.evaluate_instance_variable(token, project, left_value, name)?;
+                Ok(NamedEntity::Value(value))
             }
             Some(NamedEntity::Type(t)) => {
                 if let AcornType::Data(module, type_name) = t {
