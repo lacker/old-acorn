@@ -577,10 +577,10 @@ impl BindingMap {
         &self,
         token: &Token,
         project: &Project,
-        instance_value: AcornValue,
+        instance: AcornValue,
         name: &str,
     ) -> token::Result<AcornValue> {
-        let base_type = instance_value.get_type();
+        let base_type = instance.get_type();
         if let AcornType::Data(module, type_name) = base_type {
             let bindings = if module == self.module {
                 &self
@@ -603,16 +603,14 @@ impl BindingMap {
                     check_type(
                         token,
                         Some(&function_type.arg_types[0]),
-                        &instance_value.get_type(),
+                        &instance.get_type(),
                     )?;
                 }
                 _ => {
                     return Err(Error::new(token, "expected member to be a function"));
                 }
             };
-            let applied_value = AcornValue::new_apply(function, vec![instance_value]);
-
-            Ok(applied_value)
+            Ok(AcornValue::new_apply(function, vec![instance]))
         } else {
             Err(Error::new(
                 token,
@@ -626,15 +624,15 @@ impl BindingMap {
     // We have the entity described by a chain of names, and we're adding one more name to the chain.
     fn evaluate_name(
         &self,
-        token: &Token,
+        name_token: &Token,
         project: &Project,
         stack: &Stack,
         namespace: Option<NamedEntity>,
-        name: &str,
     ) -> token::Result<NamedEntity> {
+        let name = name_token.text();
         match namespace {
-            Some(NamedEntity::Value(left_value)) => {
-                let value = self.evaluate_instance_variable(token, project, left_value, name)?;
+            Some(NamedEntity::Value(instance)) => {
+                let value = self.evaluate_instance_variable(name_token, project, instance, name)?;
                 Ok(NamedEntity::Value(value))
             }
             Some(NamedEntity::Type(t)) => {
@@ -642,33 +640,33 @@ impl BindingMap {
                     match self.evaluate_class_variable(project, module, &type_name, name) {
                         Some(value) => Ok(NamedEntity::Value(value)),
                         None => Err(Error::new(
-                            token,
+                            name_token,
                             &format!("{} has no member named '{}'", type_name, name),
                         )),
                     }
                 } else {
-                    Err(Error::new(token, "expected a data type"))
+                    Err(Error::new(name_token, "expected a data type"))
                 }
             }
             Some(NamedEntity::Module(module)) => {
                 if let Some(bindings) = project.get_bindings(module) {
-                    bindings.evaluate_name(token, project, stack, None, name)
+                    bindings.evaluate_name(name_token, project, stack, None)
                 } else {
-                    Err(Error::new(token, "could not load bindings for module"))
+                    Err(Error::new(name_token, "could not load bindings for module"))
                 }
             }
             None => {
-                match token.token_type {
+                match name_token.token_type {
                     TokenType::Identifier => {
                         if self.is_module(name) {
                             match self.modules.get(name) {
                                 Some(module) => Ok(NamedEntity::Module(*module)),
-                                None => Err(Error::new(token, "unknown module")),
+                                None => Err(Error::new(name_token, "unknown module")),
                             }
                         } else if self.has_type_name(name) {
                             match self.get_type_for_name(name) {
                                 Some(t) => Ok(NamedEntity::Type(t.clone())),
-                                None => Err(Error::new(token, "unknown type")),
+                                None => Err(Error::new(name_token, "unknown type")),
                             }
                         } else if let Some((i, t)) = stack.get(name) {
                             // This is a stack variable
@@ -676,7 +674,10 @@ impl BindingMap {
                         } else if let Some(value) = self.get_constant_value(name) {
                             Ok(NamedEntity::Value(value))
                         } else {
-                            Err(Error::new(token, &format!("unknown identifier '{}'", name)))
+                            Err(Error::new(
+                                name_token,
+                                &format!("unknown identifier '{}'", name),
+                            ))
                         }
                     }
                     TokenType::Number => {
@@ -684,21 +685,21 @@ impl BindingMap {
                             Some((module, type_name)) => (module, type_name),
                             None => {
                                 return Err(Error::new(
-                                    token,
+                                    name_token,
                                     "you must set a default type for numeric literals",
                                 ));
                             }
                         };
                         let value = self.evaluate_number_with_type(
-                            token,
+                            name_token,
                             project,
                             *module,
                             type_name,
-                            token.text(),
+                            name_token.text(),
                         )?;
                         Ok(NamedEntity::Value(value))
                     }
-                    t => Err(Error::new(token, &format!("unexpected {:?} token", t))),
+                    t => Err(Error::new(name_token, &format!("unexpected {:?} token", t))),
                 }
             }
         }
@@ -723,13 +724,7 @@ impl BindingMap {
         };
         let left_entity = self.evaluate_entity(stack, project, left)?;
 
-        self.evaluate_name(
-            right_token,
-            project,
-            stack,
-            Some(left_entity),
-            right_token.text(),
-        )
+        self.evaluate_name(right_token, project, stack, Some(left_entity))
     }
 
     // Evaluates an expression that could represent any sort of named entity.
@@ -742,7 +737,7 @@ impl BindingMap {
     ) -> token::Result<NamedEntity> {
         // Handle a plain old name
         if let Expression::Singleton(token) = expression {
-            return self.evaluate_name(token, project, stack, None, token.text());
+            return self.evaluate_name(token, project, stack, None);
         }
 
         if let Expression::Binary(left, token, right) = expression {
@@ -769,13 +764,12 @@ impl BindingMap {
         expected_type: Option<&AcornType>,
     ) -> token::Result<AcornValue> {
         let left_value = self.evaluate_value_with_stack(stack, project, left, None)?;
-        let left_entity = NamedEntity::Value(left_value);
         let right_value = self.evaluate_value_with_stack(stack, project, right, None)?;
 
         // Get the partial application to the left
-        let partial = self.evaluate_name(token, project, stack, Some(left_entity), name)?;
+        let partial = self.evaluate_instance_variable(token, project, left_value, name)?;
         let mut fa = match partial {
-            NamedEntity::Value(AcornValue::Application(fa)) => fa,
+            AcornValue::Application(fa) => fa,
             _ => {
                 return Err(Error::new(
                     token,
@@ -834,7 +828,7 @@ impl BindingMap {
                     Ok(AcornValue::Bool(token.token_type == TokenType::True))
                 }
                 TokenType::Identifier | TokenType::Number => {
-                    let entity = self.evaluate_name(token, project, stack, None, token.text())?;
+                    let entity = self.evaluate_name(token, project, stack, None)?;
                     Ok(entity.expect_value(expected_type, token)?)
                 }
                 token_type => Err(Error::new(
