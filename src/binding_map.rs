@@ -1443,6 +1443,17 @@ impl BindingMap {
                                 let left = args.pop().unwrap();
                                 return Ok(Expression::generate_binary(left, op, right));
                             }
+
+                            if parts[1] == "read" && args[0].is_number() && args[1].is_number() {
+                                // This is a numeric literal
+                                let last_str = args[1].token().text();
+                                if last_str.len() == 1 {
+                                    let mut number_str = args[0].token().text().to_string();
+                                    number_str.push_str(last_str);
+                                    let token = TokenType::Number.new_token(&number_str);
+                                    return Ok(Expression::Singleton(token));
+                                }
+                            }
                         }
 
                         let class_type = self.get_type_for_name(parts[0]).unwrap();

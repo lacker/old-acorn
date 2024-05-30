@@ -295,6 +295,13 @@ impl Expression {
         }
     }
 
+    pub fn is_number(&self) -> bool {
+        match self {
+            Expression::Singleton(token) => token.token_type == TokenType::Number,
+            _ => false,
+        }
+    }
+
     // Parses a single expression from the provided tokens.
     // termination determines what tokens are allowed to be the terminator.
     // Consumes the terminating token and returns it.
