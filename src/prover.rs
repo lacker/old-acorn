@@ -1633,4 +1633,20 @@ mod tests {
         assert_eq!(prove_text(text, "goal2"), Outcome::Success);
         assert_eq!(prove_text(text, "goal3"), Outcome::Success);
     }
+
+    #[test]
+    fn test_bag_of_digits() {
+        let text = r#"
+        type Bag: axiom
+        class Bag {
+            let 1: Bag = axiom
+            let 2: Bag = axiom
+            define read(self: Bag, other: Bag) -> Bag: axiom
+        }
+        default Bag
+        axiom comm(a: Bag, b: Bag): a.read(b) = b.read(a)
+        theorem goal: 12 = 21
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
 }
