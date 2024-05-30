@@ -637,6 +637,16 @@ impl BindingMap {
             }
             Some(NamedEntity::Type(t)) => {
                 if let AcornType::Data(module, type_name) = t {
+                    if name_token.token_type == TokenType::Number {
+                        let value = self.evaluate_number_with_type(
+                            name_token,
+                            project,
+                            module,
+                            &type_name,
+                            name_token.text(),
+                        )?;
+                        return Ok(NamedEntity::Value(value));
+                    }
                     match self.evaluate_class_variable(project, module, &type_name, name) {
                         Some(value) => Ok(NamedEntity::Value(value)),
                         None => Err(Error::new(
