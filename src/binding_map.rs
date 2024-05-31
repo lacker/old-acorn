@@ -816,12 +816,13 @@ impl BindingMap {
 
     // Imports a name from another module.
     // The name could either be a type or a value.
+    // Returns whether it was a value.
     pub fn import_name(
         &mut self,
         project: &Project,
         module: ModuleId,
         name_token: &Token,
-    ) -> token::Result<()> {
+    ) -> token::Result<bool> {
         if self.name_in_use(&name_token.text()) {
             return Err(Error::new(
                 name_token,
@@ -841,11 +842,11 @@ impl BindingMap {
         match entity {
             NamedEntity::Value(value) => {
                 self.add_constant(&name_token.text(), vec![], value.get_type(), Some(value));
-                Ok(())
+                Ok(true)
             }
             NamedEntity::Type(acorn_type) => {
                 self.add_type_alias(&name_token.text(), acorn_type);
-                Ok(())
+                Ok(false)
             }
             NamedEntity::Module(_) => {
                 Err(Error::new(name_token, "cannot import modules indirectly"))

@@ -1130,7 +1130,11 @@ impl Environment {
 
                 // Bring the imported names into this environment
                 for name in &is.names {
-                    self.bindings.import_name(project, module_id, name)?;
+                    if self.bindings.import_name(project, module_id, name)? {
+                        self.definition_ranges
+                            .insert(name.to_string(), statement.range());
+                        self.add_identity_props(name.text());
+                    }
                 }
 
                 Ok(())
