@@ -103,6 +103,11 @@ pub struct StructStatement {
 pub struct ImportStatement {
     // The full path to the module, like in "foo.bar.baz" the module would be ["foo", "bar", "baz"]
     pub components: Vec<String>,
+}
+
+pub struct FromStatement {
+    // The full path to the module, like in "foo.bar.baz" the module would be ["foo", "bar", "baz"]
+    pub components: Vec<String>,
 
     // What names to import from the module.
     // If this is empty, we just import the module itself.
@@ -145,6 +150,7 @@ pub enum StatementInfo {
     Import(ImportStatement),
     Class(ClassStatement),
     Default(DefaultStatement),
+    From(FromStatement),
 }
 
 const ONE_INDENT: &str = "    ";
@@ -526,23 +532,23 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 }
 
 // Parses a module component list, like "foo.bar.baz".
-// Returns the strings along with the last token.
-fn parse_module_components(tokens: &mut TokenIter) -> Result<(Vec<String>, Token)> {
+// Expects to consume a terminator token at the end.
+// Returns the strings, along with the token right before the terminator.
+fn parse_module_components(
+    tokens: &mut TokenIter,
+    terminator: TokenType,
+) -> Result<(Vec<String>, Token)> {
     let mut components = Vec::new();
     let last_token = loop {
         let token = Token::expect_type(tokens, TokenType::Identifier)?;
         components.push(token.text().to_string());
         let token = Token::expect_token(tokens)?;
+        if token.token_type == terminator {
+            break token;
+        }
         match token.token_type {
-            TokenType::NewLine => {
-                break token;
-            }
-            TokenType::Dot => {
-                continue;
-            }
-            _ => {
-                return Err(Error::new(&token, "unexpected token in module path"));
-            }
+            TokenType::Dot => continue,
+            _ => return Err(Error::new(&token, "unexpected token in module path")),
         }
     };
     Ok((components, last_token))
@@ -550,11 +556,8 @@ fn parse_module_components(tokens: &mut TokenIter) -> Result<(Vec<String>, Token
 
 // Parses an import statement where the "import" keyword has already been found.
 fn parse_import_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let (components, last_token) = parse_module_components(tokens)?;
-    let is = ImportStatement {
-        components,
-        names: vec![],
-    };
+    let (components, last_token) = parse_module_components(tokens, TokenType::NewLine)?;
+    let is = ImportStatement { components };
     let statement = Statement {
         first_token: keyword,
         last_token,
@@ -565,7 +568,31 @@ fn parse_import_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 
 // Parses a "from" statement where the "from" keyword has already been found.
 fn parse_from_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    todo!("parse from statement");
+    let (components, _) = parse_module_components(tokens, TokenType::Import)?;
+    let mut names = vec![];
+    let last_token = loop {
+        let token = Token::expect_type(tokens, TokenType::Identifier)?;
+        names.push(token.text().to_string());
+        let separator = Token::expect_token(tokens)?;
+        match separator.token_type {
+            TokenType::NewLine => {
+                break token;
+            }
+            TokenType::Comma => {
+                continue;
+            }
+            _ => {
+                return Err(Error::new(&token, "expected comma or newline"));
+            }
+        }
+    };
+    let fs = FromStatement { components, names };
+    let statement = Statement {
+        first_token: keyword,
+        last_token,
+        statement: StatementInfo::From(fs),
+    };
+    Ok(statement)
 }
 
 // Parses a class statement where the "class" keyword has already been found.
@@ -713,6 +740,16 @@ impl Statement {
 
             StatementInfo::Default(ds) => {
                 write!(f, "default {}", ds.type_expr)
+            }
+
+            StatementInfo::From(fs) => {
+                write!(
+                    f,
+                    "from {} import {}",
+                    fs.components.join("."),
+                    fs.names.join(", ")
+                )?;
+                Ok(())
             }
         }
     }
