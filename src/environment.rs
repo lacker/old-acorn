@@ -1096,6 +1096,11 @@ impl Environment {
 
             StatementInfo::Import(is) => {
                 self.add_other_lines(statement);
+
+                if !is.names.is_empty() {
+                    todo!("handle importing specific names");
+                }
+
                 let local_name = is.components.last().unwrap();
                 if self.bindings.name_in_use(local_name) {
                     return Err(Error::new(

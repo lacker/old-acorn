@@ -103,6 +103,10 @@ pub struct StructStatement {
 pub struct ImportStatement {
     // The full path to the module, like in "foo.bar.baz" the module would be ["foo", "bar", "baz"]
     pub components: Vec<String>,
+
+    // What names to import from the module.
+    // If this is empty, we just import the module itself.
+    pub names: Vec<String>,
 }
 
 // A class statement defines some class variables and instance methods that are scoped to the class.
@@ -540,13 +544,21 @@ fn parse_import_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
             }
         }
     };
-    let is = ImportStatement { components };
+    let is = ImportStatement {
+        components,
+        names: vec![],
+    };
     let statement = Statement {
         first_token: keyword,
         last_token,
         statement: StatementInfo::Import(is),
     };
     Ok(statement)
+}
+
+// Parses a "from" statement where the "from" keyword has already been found.
+fn parse_from_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    todo!("parse from statement");
 }
 
 // Parses a class statement where the "class" keyword has already been found.
@@ -788,6 +800,11 @@ impl Statement {
                             last_token,
                             statement: StatementInfo::Default(ds),
                         };
+                        return Ok((Some(s), None));
+                    }
+                    TokenType::From => {
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_from_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
                     _ => {
@@ -1094,5 +1111,13 @@ mod tests {
             let blorp: Foo = axiom
             let 0: Foo = axiom
         }"});
+    }
+
+    #[test]
+    fn test_from_statement() {
+        ok("from foo import bar");
+        ok("from foo.bar import baz");
+        ok("from foo.bar.qux import baz, zip");
+        fail("from foo");
     }
 }
