@@ -103,11 +103,6 @@ pub struct StructStatement {
 pub struct ImportStatement {
     // The full path to the module, like in "foo.bar.baz" the module would be ["foo", "bar", "baz"]
     pub components: Vec<String>,
-}
-
-pub struct FromStatement {
-    // The full path to the module, like in "foo.bar.baz" the module would be ["foo", "bar", "baz"]
-    pub components: Vec<String>,
 
     // What names to import from the module.
     // If this is empty, we just import the module itself.
@@ -150,7 +145,6 @@ pub enum StatementInfo {
     Import(ImportStatement),
     Class(ClassStatement),
     Default(DefaultStatement),
-    From(FromStatement),
 }
 
 const ONE_INDENT: &str = "    ";
@@ -557,7 +551,10 @@ fn parse_module_components(
 // Parses an import statement where the "import" keyword has already been found.
 fn parse_import_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let (components, last_token) = parse_module_components(tokens, TokenType::NewLine)?;
-    let is = ImportStatement { components };
+    let is = ImportStatement {
+        components,
+        names: vec![],
+    };
     let statement = Statement {
         first_token: keyword,
         last_token,
@@ -586,11 +583,11 @@ fn parse_from_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
             }
         }
     };
-    let fs = FromStatement { components, names };
+    let is = ImportStatement { components, names };
     let statement = Statement {
         first_token: keyword,
         last_token,
-        statement: StatementInfo::From(fs),
+        statement: StatementInfo::Import(is),
     };
     Ok(statement)
 }
@@ -730,7 +727,16 @@ impl Statement {
             }
 
             StatementInfo::Import(is) => {
-                write!(f, "import {}", is.components.join("."))
+                if is.names.is_empty() {
+                    write!(f, "import {}", is.components.join("."))
+                } else {
+                    write!(
+                        f,
+                        "from {} import {}",
+                        is.components.join("."),
+                        is.names.join(", ")
+                    )
+                }
             }
 
             StatementInfo::Class(cs) => {
@@ -740,16 +746,6 @@ impl Statement {
 
             StatementInfo::Default(ds) => {
                 write!(f, "default {}", ds.type_expr)
-            }
-
-            StatementInfo::From(fs) => {
-                write!(
-                    f,
-                    "from {} import {}",
-                    fs.components.join("."),
-                    fs.names.join(", ")
-                )?;
-                Ok(())
             }
         }
     }

@@ -1129,12 +1129,6 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::From(fs) => {
-                self.add_other_lines(statement);
-
-                todo!("handle from statements");
-            }
-
             StatementInfo::Class(cs) => {
                 self.add_other_lines(statement);
                 match self.bindings.get_type_for_name(&cs.name) {
