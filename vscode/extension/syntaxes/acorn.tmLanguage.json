@@ -16,7 +16,7 @@
       "name": "keyword.operator"
     },
     {
-      "match": "\\b(let|axiom|define|theorem|type|struct)\\b",
+      "match": "\\b(let|axiom|define|theorem|type|struct|class|default)\\b",
       "name": "keyword.declaration"
     },
     {
@@ -26,6 +26,10 @@
     {
       "match": "\\bimport\\b",
       "name": "keyword.import"
+    },
+    {
+      "match": "\\bfrom\\b",
+      "name": "keyword.from"
     },
     {
       "match": "\\b(true|false)\\b",
