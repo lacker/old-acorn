@@ -1,6 +1,5 @@
 import nat_gcd
-import nat
-type Nat: nat.Nat
+from nat import Nat
 type Int: axiom
 
 let from_nat: Nat -> Int = axiom
