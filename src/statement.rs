@@ -106,7 +106,7 @@ pub struct ImportStatement {
 
     // What names to import from the module.
     // If this is empty, we just import the module itself.
-    pub names: Vec<String>,
+    pub names: Vec<Token>,
 }
 
 // A class statement defines some class variables and instance methods that are scoped to the class.
@@ -569,13 +569,14 @@ fn parse_from_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
     let mut names = vec![];
     let last_token = loop {
         let token = Token::expect_type(tokens, TokenType::Identifier)?;
-        names.push(token.text().to_string());
         let separator = Token::expect_token(tokens)?;
         match separator.token_type {
             TokenType::NewLine => {
+                names.push(token.clone());
                 break token;
             }
             TokenType::Comma => {
+                names.push(token);
                 continue;
             }
             _ => {
@@ -730,12 +731,13 @@ impl Statement {
                 if is.names.is_empty() {
                     write!(f, "import {}", is.components.join("."))
                 } else {
-                    write!(
-                        f,
-                        "from {} import {}",
-                        is.components.join("."),
-                        is.names.join(", ")
-                    )
+                    let names = is
+                        .names
+                        .iter()
+                        .map(|t| t.text())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    write!(f, "from {} import {}", is.components.join("."), names)
                 }
             }
 

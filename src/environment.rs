@@ -1130,7 +1130,7 @@ impl Environment {
 
                 // Bring the imported names into this environment
                 for name in &is.names {
-                    todo!("handle name: {}", name);
+                    self.bindings.import_name(project, module_id, name)?;
                 }
 
                 Ok(())

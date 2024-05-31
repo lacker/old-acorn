@@ -950,17 +950,20 @@ mod tests {
                 let foo: Bool = true
             }
             type Bar: Foo
+            let bar: Bar = axiom
         "#,
         );
         p.mock(
             "/mock/main.ac",
             r#"
-            from stuff import Foo, Bar
+            from stuff import Foo, Bar, bar
             let x: Bool = Bar.foo
+            let y: Bar = bar
         "#,
         );
         p.expect_ok("stuff");
         p.expect_ok("main");
         p.check_code("main", "x");
+        p.check_code("main", "y");
     }
 }

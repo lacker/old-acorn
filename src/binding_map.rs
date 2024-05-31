@@ -814,6 +814,45 @@ impl BindingMap {
         Ok(value)
     }
 
+    // Imports a name from another module.
+    // The name could either be a type or a value.
+    pub fn import_name(
+        &mut self,
+        project: &Project,
+        module: ModuleId,
+        name_token: &Token,
+    ) -> token::Result<()> {
+        if self.name_in_use(&name_token.text()) {
+            return Err(Error::new(
+                name_token,
+                &format!("name {} already bound in this module", name_token.text()),
+            ));
+        }
+        let bindings = match project.get_bindings(module) {
+            Some(b) => b,
+            None => {
+                return Err(Error::new(
+                    name_token,
+                    &format!("could not load bindings for imported module"),
+                ))
+            }
+        };
+        let entity = bindings.evaluate_name(name_token, project, &Stack::new(), None)?;
+        match entity {
+            NamedEntity::Value(value) => {
+                self.add_constant(&name_token.text(), vec![], value.get_type(), Some(value));
+                Ok(())
+            }
+            NamedEntity::Type(acorn_type) => {
+                self.add_type_alias(&name_token.text(), acorn_type);
+                Ok(())
+            }
+            NamedEntity::Module(_) => {
+                Err(Error::new(name_token, "cannot import modules indirectly"))
+            }
+        }
+    }
+
     // Evaluates an expression that describes a value, with a stack given as context.
     // A value expression could be either a value or an argument list.
     // Returns the value along with its type.
