@@ -525,8 +525,9 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     }
 }
 
-// Parses an import statement where the "import" keyword has already been found.
-fn parse_import_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+// Parses a module component list, like "foo.bar.baz".
+// Returns the strings along with the last token.
+fn parse_module_components(tokens: &mut TokenIter) -> Result<(Vec<String>, Token)> {
     let mut components = Vec::new();
     let last_token = loop {
         let token = Token::expect_type(tokens, TokenType::Identifier)?;
@@ -540,10 +541,16 @@ fn parse_import_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
                 continue;
             }
             _ => {
-                return Err(Error::new(&token, "expected '.' or newline"));
+                return Err(Error::new(&token, "unexpected token in module path"));
             }
         }
     };
+    Ok((components, last_token))
+}
+
+// Parses an import statement where the "import" keyword has already been found.
+fn parse_import_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    let (components, last_token) = parse_module_components(tokens)?;
     let is = ImportStatement {
         components,
         names: vec![],
