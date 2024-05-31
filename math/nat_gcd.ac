@@ -1,12 +1,9 @@
-import nat
+from nat import Nat, NatPair
 
-// Would be nicer to have a way to import all of these at once.
-type Nat: nat.Nat
 default Nat
 
+// TODO: import these with the "from" statement
 let divides: (Nat, Nat) -> Bool = nat.divides
-type NatPair: nat.NatPair
-
 let mod: (Nat, Nat) -> Nat = nat.mod
 
 // One step is taking the pair (a, b) and replacing with (b, a mod b).
