@@ -938,4 +938,29 @@ mod tests {
         p.expect_ok("stuff");
         p.check_code_into("stuff", "Bar.member", "Foo.member");
     }
+
+    #[test]
+    fn test_names_imported_via_from() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/stuff.ac",
+            r#"
+            type Foo: axiom
+            class Foo {
+                let foo: Bool = true
+            }
+            type Bar: Foo
+        "#,
+        );
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            from stuff import Foo, Bar
+            let x: Bool = Bar.foo
+        "#,
+        );
+        p.expect_ok("stuff");
+        p.expect_ok("main");
+        p.check_code("main", "x");
+    }
 }

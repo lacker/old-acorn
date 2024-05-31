@@ -1097,6 +1097,7 @@ impl Environment {
             StatementInfo::Import(is) => {
                 self.add_other_lines(statement);
 
+                // Give a local name to the imported module
                 let local_name = is.components.last().unwrap();
                 if self.bindings.name_in_use(local_name) {
                     return Err(Error::new(
@@ -1126,6 +1127,12 @@ impl Environment {
                     ));
                 }
                 self.bindings.add_module(local_name, module_id);
+
+                // Bring the imported names into this environment
+                for name in &is.names {
+                    todo!("handle name: {}", name);
+                }
+
                 Ok(())
             }
 
