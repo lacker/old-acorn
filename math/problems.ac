@@ -1,32 +1,30 @@
-import int
-type Int: int.Int
-let add: Int -> Int = int.add
-let sub: Int -> Int = int.sub
-let mul: Int -> Int = int.mul
-let 0: Int = int.0
-let 1: Int = int.1
-
+from int import Int
+default Int
 
 // What is 1 - 1 ?
-given(x: Int): x = 1 - 1
-solve x {
-    x = 0
+solve 1 - 1 {
+    1 - 1 = 0
 }
 
 // What is 0 times 10?
-given(x: Int): x = 0 * 10
-solve x {
-    x = 0
+solve 0 * 10 {
+    0 * 10 = 0
 }
 
 // Solve 4 + x = 4 for x.
-given(x: Int): 4 + x = 4
-solve x {
-    x = 0
+forall(x: Int) {
+    if 4 + x = 4 {
+        solve x {
+            x = 0
+        }
+    }
 }
 
 // Given that x + 1 = y, solve for x.
-given(x: Int, y: Int): x + 1 = y
-solve x {
-    x = y - 1
+forall(x: Int, y: Int) {
+    if x + 1 = y {
+        solve x {
+            x = y - 1
+        }
+    }
 }
