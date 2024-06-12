@@ -1212,6 +1212,10 @@ impl Environment {
                     ))
                 }
             }
+
+            StatementInfo::Solve(_ss) => {
+                todo!("add solve statements");
+            }
         }
     }
 

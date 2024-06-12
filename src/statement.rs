@@ -123,6 +123,14 @@ pub struct DefaultStatement {
     pub type_expr: Expression,
 }
 
+pub struct SolveStatement {
+    // The expression we are trying to find equalities for.
+    pub target: Expression,
+
+    // Statements used to solve the problem.
+    pub body: Body,
+}
+
 // Acorn is a statement-based language. There are several types.
 // Each type has its own struct.
 pub struct Statement {
@@ -145,6 +153,7 @@ pub enum StatementInfo {
     Import(ImportStatement),
     Class(ClassStatement),
     Default(DefaultStatement),
+    Solve(SolveStatement),
 }
 
 const ONE_INDENT: &str = "    ";
@@ -749,6 +758,11 @@ impl Statement {
             StatementInfo::Default(ds) => {
                 write!(f, "default {}", ds.type_expr)
             }
+
+            StatementInfo::Solve(ss) => {
+                write!(f, "solve {} by", ss.target)?;
+                write_block(f, &ss.body.statements, indentation)
+            }
         }
     }
 
@@ -1161,5 +1175,13 @@ mod tests {
         ok("from foo.bar import baz");
         ok("from foo.bar.qux import baz, zip");
         fail("from foo");
+    }
+
+    #[test]
+    fn test_solve_statement() {
+        ok(indoc! {"
+        solve x by {
+            x = 2
+        }"});
     }
 }
