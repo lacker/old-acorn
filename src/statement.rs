@@ -629,6 +629,25 @@ fn parse_class_statement(keyword: Token, tokens: &mut TokenIter) -> Result<State
     Ok(statement)
 }
 
+// Parses a solve statement where the "solve" keyword has already been found.
+fn parse_solve_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    let (target, _) = Expression::parse(tokens, true, |t| t == TokenType::By)?;
+    let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+    let (statements, right_brace) = parse_block(tokens)?;
+    let body = Body {
+        left_brace,
+        statements,
+        right_brace: right_brace.clone(),
+    };
+    let ss = SolveStatement { target, body };
+    let s = Statement {
+        first_token: keyword,
+        last_token: right_brace,
+        statement: StatementInfo::Solve(ss),
+    };
+    Ok(s)
+}
+
 fn write_type_params(f: &mut fmt::Formatter, type_params: &[Token]) -> fmt::Result {
     if type_params.len() == 0 {
         return Ok(());
@@ -861,6 +880,11 @@ impl Statement {
                     TokenType::From => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_from_statement(keyword, tokens)?;
+                        return Ok((Some(s), None));
+                    }
+                    TokenType::Solve => {
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_solve_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
                     _ => {
