@@ -2709,4 +2709,17 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.bindings.expect_good_code("Nat.12");
         env.bindings.expect_good_code("Nat.123 + Nat.456");
     }
+
+    #[test]
+    fn test_root_level_solve() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            let b: Bool = true | false
+            solve b by {
+                b = true
+            }
+            "#,
+        );
+    }
 }
