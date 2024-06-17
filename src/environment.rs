@@ -1213,8 +1213,10 @@ impl Environment {
                 }
             }
 
-            StatementInfo::Solve(_ss) => {
-                todo!("add solve statements");
+            StatementInfo::Solve(ss) => {
+                let target = self.bindings.evaluate_value(project, &ss.target, None)?;
+                let target_range = ss.target.range();
+                todo!("we need a call to new_block, we need another sort of BlockParams");
             }
         }
     }
