@@ -166,6 +166,22 @@ impl Block {
         let replaced = replaced.parametrize(self.env.module_id, &self.type_params);
         AcornValue::new_forall(forall_types, AcornValue::new_exists(exists_types, replaced))
     }
+
+    // Returns a claim usable in the outer environment, and a range where it comes from.
+    fn export_last_claim(
+        &self,
+        outer_env: &Environment,
+        token: &Token,
+    ) -> token::Result<(AcornValue, Range)> {
+        let (inner_claim, range) = match self.env.propositions.last() {
+            Some(p) => (&p.claim.value, p.claim.source.range),
+            None => {
+                return Err(Error::new(token, "expected a claim in this block"));
+            }
+        };
+        let outer_claim = self.export_bool(outer_env, inner_claim);
+        Ok((outer_claim, range))
+    }
 }
 
 // The different ways to construct a block
@@ -514,17 +530,8 @@ impl Environment {
             last_line,
             Some(body),
         )?;
-        let (inner_claim, claim_range) = match block.env.propositions.last() {
-            Some(p) => (&p.claim.value, p.claim.source.range),
-            None => {
-                return Err(Error::new(
-                    &body.right_brace,
-                    "expected a claim in this block",
-                ));
-            }
-        };
-        // The last claim in the block is exported to the outside environment.
-        let outer_claim = block.export_bool(&self, inner_claim);
+        let (outer_claim, claim_range) = block.export_last_claim(self, &body.right_brace)?;
+
         let matching_branches = if let Some(if_claim) = if_claim {
             if outer_claim == if_claim {
                 true
@@ -878,17 +885,8 @@ impl Environment {
                     Some(&fas.body),
                 )?;
 
-                // The last claim in the block is exported to the outside environment.
-                let inner_claim: &AcornValue = match block.env.propositions.last() {
-                    Some(p) => &p.claim.value,
-                    None => {
-                        return Err(Error::new(
-                            &statement.first_token,
-                            "expected a claim in this block",
-                        ));
-                    }
-                };
-                let outer_claim = block.export_bool(&self, inner_claim);
+                let (outer_claim, _) = block.export_last_claim(self, &fas.body.right_brace)?;
+
                 let prop = PropositionTree {
                     proven: false,
                     claim: Proposition::anonymous(outer_claim, self.module_id, statement.range()),
@@ -1218,7 +1216,7 @@ impl Environment {
 
             StatementInfo::Solve(ss) => {
                 let target = self.bindings.evaluate_value(project, &ss.target, None)?;
-                self.new_block(
+                let block = self.new_block(
                     project,
                     vec![],
                     vec![],
