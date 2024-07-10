@@ -1,6 +1,6 @@
 use tower_lsp::lsp_types::Range;
 
-use crate::expression::Expression;
+use crate::expression::{Expression, TerminationCondition};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 use std::fmt;
@@ -246,9 +246,11 @@ fn parse_args(
     // Parse the arguments list
     let mut args = Vec::new();
     loop {
-        let (exp, t) = Expression::parse(tokens, false, |t| {
-            t == TokenType::Comma || t == TokenType::RightParen
-        })?;
+        let (exp, t) = Expression::parse(
+            tokens,
+            false,
+            TerminationCondition::Either(TokenType::Comma, TokenType::RightParen),
+        )?;
         args.push(exp);
         if t.token_type == TokenType::RightParen {
             let terminator = Token::expect_type(tokens, terminator)?;
@@ -277,9 +279,11 @@ fn parse_theorem_statement(
         ));
     }
     Token::skip_newlines(tokens);
-    let (claim, mut terminator) = Expression::parse(tokens, true, |t| {
-        t == TokenType::NewLine || t == TokenType::By
-    })?;
+    let (claim, mut terminator) = Expression::parse(
+        tokens,
+        true,
+        TerminationCondition::Either(TokenType::NewLine, TokenType::By),
+    )?;
     // Let the "by" be after one newline
     match tokens.peek() {
         Some(token) => {
@@ -334,8 +338,16 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         return Err(Error::new(&keyword, "invalid variable name"));
     }
     Token::expect_type(tokens, TokenType::Colon)?;
-    let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::Equals)?;
-    let (value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
+    let (type_expr, _) = Expression::parse(
+        tokens,
+        false,
+        TerminationCondition::TokenType(TokenType::Equals),
+    )?;
+    let (value, last_token) = Expression::parse(
+        tokens,
+        true,
+        TerminationCondition::TokenType(TokenType::NewLine),
+    )?;
     let ls = LetStatement {
         name,
         name_token,
@@ -363,8 +375,16 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
             "only one type parameter is supported",
         ));
     }
-    let (return_type, _) = Expression::parse(tokens, false, |t| t == TokenType::Colon)?;
-    let (return_value, last_token) = Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
+    let (return_type, _) = Expression::parse(
+        tokens,
+        false,
+        TerminationCondition::TokenType(TokenType::Colon),
+    )?;
+    let (return_value, last_token) = Expression::parse(
+        tokens,
+        true,
+        TerminationCondition::TokenType(TokenType::NewLine),
+    )?;
     let ds = DefineStatement {
         name,
         name_token,
@@ -390,7 +410,11 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
     }
     Token::expect_type(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
-    let (type_expr, _) = Expression::parse(tokens, false, |t| t == TokenType::NewLine)?;
+    let (type_expr, _) = Expression::parse(
+        tokens,
+        false,
+        TerminationCondition::TokenType(TokenType::NewLine),
+    )?;
     let last_token = type_expr.last_token().clone();
     let ts = TypeStatement { name, type_expr };
     let statement = Statement {
@@ -450,7 +474,11 @@ fn parse_else_body(tokens: &mut TokenIter) -> Result<Option<Body>> {
 // Parses an if statement where the "if" keyword has already been found.
 fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
-    let (condition, left_brace) = Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
+    let (condition, left_brace) = Expression::parse(
+        tokens,
+        true,
+        TerminationCondition::TokenType(TokenType::LeftBrace),
+    )?;
     let (statements, right_brace) = parse_block(tokens)?;
     let body = Body {
         left_brace,
@@ -475,7 +503,11 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
 // Parses an exists statement where the "exists" keyword has already been found.
 fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let (_, quantifiers, _) = parse_args(tokens, TokenType::LeftBrace)?;
-    let (condition, last_token) = Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
+    let (condition, last_token) = Expression::parse(
+        tokens,
+        true,
+        TerminationCondition::TokenType(TokenType::RightBrace),
+    )?;
     let es = ExistsStatement {
         quantifiers,
         claim: condition,
@@ -519,9 +551,11 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
             }
             TokenType::Identifier => {
                 Token::expect_type(tokens, TokenType::Colon)?;
-                let (type_expr, t) = Expression::parse(tokens, false, |t| {
-                    t == TokenType::NewLine || t == TokenType::RightBrace
-                })?;
+                let (type_expr, t) = Expression::parse(
+                    tokens,
+                    false,
+                    TerminationCondition::Either(TokenType::NewLine, TokenType::RightBrace),
+                )?;
                 if t.token_type == TokenType::RightBrace {
                     return Err(Error::new(&t, "field declarations must end with a newline"));
                 }
@@ -631,7 +665,8 @@ fn parse_class_statement(keyword: Token, tokens: &mut TokenIter) -> Result<State
 
 // Parses a solve statement where the "solve" keyword has already been found.
 fn parse_solve_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let (target, _) = Expression::parse(tokens, true, |t| t == TokenType::By)?;
+    let (target, _) =
+        Expression::parse(tokens, true, TerminationCondition::TokenType(TokenType::By))?;
     let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
     let (statements, right_brace) = parse_block(tokens)?;
     let body = Body {
@@ -867,8 +902,11 @@ impl Statement {
                     }
                     TokenType::Default => {
                         let keyword = tokens.next().unwrap();
-                        let (type_expr, last_token) =
-                            Expression::parse(tokens, true, |t| t == TokenType::NewLine)?;
+                        let (type_expr, last_token) = Expression::parse(
+                            tokens,
+                            true,
+                            TerminationCondition::TokenType(TokenType::NewLine),
+                        )?;
                         let ds = DefaultStatement { type_expr };
                         let s = Statement {
                             first_token: keyword,
@@ -892,9 +930,11 @@ impl Statement {
                             return Err(Error::new(token, "unexpected token at the top level"));
                         }
                         let first_token = tokens.peek().unwrap().clone();
-                        let (claim, token) = Expression::parse(tokens, true, |t| {
-                            t == TokenType::NewLine || t == TokenType::RightBrace
-                        })?;
+                        let (claim, token) = Expression::parse(
+                            tokens,
+                            true,
+                            TerminationCondition::Either(TokenType::NewLine, TokenType::RightBrace),
+                        )?;
                         let block_ended = token.token_type == TokenType::RightBrace;
                         let brace = if block_ended { Some(token) } else { None };
                         let last_token = claim.last_token().clone();

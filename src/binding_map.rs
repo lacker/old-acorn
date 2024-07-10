@@ -4,7 +4,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::code_gen_error::CodeGenError;
-use crate::expression::Expression;
+use crate::expression::{Expression, TerminationCondition};
 use crate::module::{ModuleId, FIRST_NORMAL};
 use crate::project::Project;
 use crate::token::{self, Error, Token, TokenIter, TokenType};
@@ -1620,8 +1620,12 @@ impl BindingMap {
     fn str_to_type(&mut self, input: &str) -> AcornType {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        let (expression, _) =
-            Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine).unwrap();
+        let (expression, _) = Expression::parse(
+            &mut tokens,
+            false,
+            TerminationCondition::TokenType(TokenType::NewLine),
+        )
+        .unwrap();
         match self.evaluate_type(&Project::new_mock(), &expression) {
             Ok(t) => t,
             Err(error) => panic!("Error evaluating type expression: {}", error),
@@ -1639,7 +1643,11 @@ impl BindingMap {
     pub fn assert_type_bad(&mut self, input: &str) {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        let expression = match Expression::parse(&mut tokens, false, |t| t == TokenType::NewLine) {
+        let expression = match Expression::parse(
+            &mut tokens,
+            false,
+            TerminationCondition::TokenType(TokenType::NewLine),
+        ) {
             Ok((expression, _)) => expression,
             Err(_) => {
                 // We expect a bad type so this is fine

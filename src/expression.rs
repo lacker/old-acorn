@@ -98,6 +98,30 @@ impl fmt::Display for Expression {
     }
 }
 
+// This exists to make error messages more readable.
+pub enum TerminationCondition {
+    TokenType(TokenType),
+    Either(TokenType, TokenType),
+}
+
+impl fmt::Display for TerminationCondition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TerminationCondition::TokenType(t) => write!(f, "{:?}", t),
+            TerminationCondition::Either(t1, t2) => write!(f, "{:?} or {:?}", t1, t2),
+        }
+    }
+}
+
+impl TerminationCondition {
+    fn matches(&self, t: &TokenType) -> bool {
+        match self {
+            TerminationCondition::TokenType(t1) => t == t1,
+            TerminationCondition::Either(t1, t2) => t == t1 || t == t2,
+        }
+    }
+}
+
 impl Expression {
     // This is not the first token or the last token, but the "conceptually top level" token.
     pub fn token(&self) -> &Token {
@@ -348,7 +372,7 @@ impl Expression {
     pub fn parse(
         tokens: &mut TokenIter,
         is_value: bool,
-        termination: fn(TokenType) -> bool,
+        termination: TerminationCondition,
     ) -> Result<(Expression, Token)> {
         let (partial_expressions, terminator) =
             parse_partial_expressions(tokens, is_value, termination)?;
@@ -361,7 +385,11 @@ impl Expression {
     pub fn expect_parse(input: &str, is_value: bool) -> Expression {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        match Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine) {
+        match Expression::parse(
+            &mut tokens,
+            is_value,
+            TerminationCondition::TokenType(TokenType::NewLine),
+        ) {
             Ok((e, _)) => e,
             Err(e) => panic!("unexpected error parsing: {}", e),
         }
@@ -418,11 +446,11 @@ impl PartialExpression {
 fn parse_partial_expressions(
     tokens: &mut TokenIter,
     is_value: bool,
-    termination: fn(TokenType) -> bool,
+    termination: TerminationCondition,
 ) -> Result<(VecDeque<PartialExpression>, Token)> {
     let mut partials = VecDeque::<PartialExpression>::new();
     while let Some(token) = tokens.next() {
-        if termination(token.token_type) {
+        if termination.matches(&token.token_type) {
             return Ok((partials, token));
         }
         if token.token_type.is_binary() {
@@ -444,8 +472,11 @@ fn parse_partial_expressions(
         }
         match token.token_type {
             TokenType::LeftParen => {
-                let (subexpression, last_token) =
-                    Expression::parse(tokens, is_value, |t| t == TokenType::RightParen)?;
+                let (subexpression, last_token) = Expression::parse(
+                    tokens,
+                    is_value,
+                    TerminationCondition::TokenType(TokenType::RightParen),
+                )?;
 
                 // A group that has no operator before it gets an implicit apply.
                 if matches!(partials.back(), Some(PartialExpression::Expression(_))) {
@@ -466,12 +497,18 @@ fn parse_partial_expressions(
 
             TokenType::ForAll | TokenType::Exists | TokenType::Function => {
                 let left_paren = Token::expect_type(tokens, TokenType::LeftParen)?;
-                let (args, right_paren) =
-                    Expression::parse(tokens, is_value, |t| t == TokenType::RightParen)?;
+                let (args, right_paren) = Expression::parse(
+                    tokens,
+                    is_value,
+                    TerminationCondition::TokenType(TokenType::RightParen),
+                )?;
                 let group = Expression::Grouping(left_paren, Box::new(args), right_paren);
                 Token::expect_type(tokens, TokenType::LeftBrace)?;
-                let (subexpression, right_brace) =
-                    Expression::parse(tokens, is_value, |t| t == TokenType::RightBrace)?;
+                let (subexpression, right_brace) = Expression::parse(
+                    tokens,
+                    is_value,
+                    TerminationCondition::TokenType(TokenType::RightBrace),
+                )?;
                 let binder = Expression::Binder(
                     token,
                     Box::new(group),
@@ -485,14 +522,23 @@ fn parse_partial_expressions(
                 if !is_value {
                     return Err(Error::new(&token, "if-then-else cannot express a type"));
                 }
-                let (condition, _) =
-                    Expression::parse(tokens, true, |t| t == TokenType::LeftBrace)?;
-                let (if_block, _) =
-                    Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
+                let (condition, _) = Expression::parse(
+                    tokens,
+                    true,
+                    TerminationCondition::TokenType(TokenType::LeftBrace),
+                )?;
+                let (if_block, _) = Expression::parse(
+                    tokens,
+                    true,
+                    TerminationCondition::TokenType(TokenType::RightBrace),
+                )?;
                 Token::expect_type(tokens, TokenType::Else)?;
                 Token::expect_type(tokens, TokenType::LeftBrace)?;
-                let (else_block, last_right_brace) =
-                    Expression::parse(tokens, true, |t| t == TokenType::RightBrace)?;
+                let (else_block, last_right_brace) = Expression::parse(
+                    tokens,
+                    true,
+                    TerminationCondition::TokenType(TokenType::RightBrace),
+                )?;
                 let exp = Expression::IfThenElse(
                     token,
                     Box::new(condition),
@@ -661,7 +707,11 @@ mod tests {
     fn expect_error(input: &str, is_value: bool) {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        let res = Expression::parse(&mut tokens, is_value, |t| t == TokenType::NewLine);
+        let res = Expression::parse(
+            &mut tokens,
+            is_value,
+            TerminationCondition::TokenType(TokenType::NewLine),
+        );
         match res {
             Err(_) => {}
             Ok((e, _)) => panic!("unexpectedly parsed {} => {}", input, e),
