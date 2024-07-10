@@ -365,10 +365,7 @@ impl Environment {
                     theorem_name.to_string(),
                 ))
             }
-            BlockParams::ForAll => None,
-            BlockParams::Solve(target) => {
-                todo!("new_block for solve blocks");
-            }
+            BlockParams::ForAll | BlockParams::Solve(_) => None,
         };
 
         match body {
