@@ -885,11 +885,11 @@ impl Environment {
                     Some(&fas.body),
                 )?;
 
-                let (outer_claim, _) = block.export_last_claim(self, &fas.body.right_brace)?;
+                let (outer_claim, range) = block.export_last_claim(self, &fas.body.right_brace)?;
 
                 let prop = PropositionTree {
                     proven: false,
-                    claim: Proposition::anonymous(outer_claim, self.module_id, statement.range()),
+                    claim: Proposition::anonymous(outer_claim, self.module_id, range),
                     block: Some(block),
                 };
                 let index = self.add_proposition(prop);
@@ -1226,8 +1226,15 @@ impl Environment {
                     Some(&ss.body),
                 )?;
 
-                // Currently we don't export claims from a solve block.
-                // If we did, we might want to reuse some code from ForAll blocks.
+                let (outer_claim, range) = block.export_last_claim(self, &ss.body.right_brace)?;
+
+                let prop = PropositionTree {
+                    proven: false,
+                    claim: Proposition::anonymous(outer_claim, self.module_id, range),
+                    block: Some(block),
+                };
+                let index = self.add_proposition(prop);
+                self.add_prop_lines(index, statement);
                 Ok(())
             }
         }
