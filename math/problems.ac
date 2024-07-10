@@ -2,12 +2,12 @@ from int import Int
 default Int
 
 // What is 1 - 1 ?
-solve 1 - 1 {
+solve 1 - 1 by {
     1 - 1 = 0
 }
 
 // What is 0 times 10?
-solve 0 * 10 {
+solve 0 * 10 by {
     0 * 10 = 0
 }
 
