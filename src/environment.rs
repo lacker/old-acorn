@@ -186,6 +186,9 @@ enum BlockParams<'a> {
 
     // No special params needed
     ForAll,
+
+    // The expression to solve for
+    Solve(AcornValue),
 }
 
 impl Environment {
@@ -363,6 +366,9 @@ impl Environment {
                 ))
             }
             BlockParams::ForAll => None,
+            BlockParams::Solve(target) => {
+                todo!("new_block for solve blocks");
+            }
         };
 
         match body {
@@ -1215,8 +1221,19 @@ impl Environment {
 
             StatementInfo::Solve(ss) => {
                 let target = self.bindings.evaluate_value(project, &ss.target, None)?;
-                let target_range = ss.target.range();
-                todo!("we need a call to new_block, we need another sort of BlockParams");
+                self.new_block(
+                    project,
+                    vec![],
+                    vec![],
+                    BlockParams::Solve(target),
+                    statement.first_line(),
+                    statement.last_line(),
+                    Some(&ss.body),
+                )?;
+
+                // Currently we don't export claims from a solve block.
+                // If we did, we might want to reuse some code from ForAll blocks.
+                Ok(())
             }
         }
     }
