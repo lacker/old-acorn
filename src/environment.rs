@@ -2753,4 +2753,17 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             "#,
         );
     }
+
+    #[test]
+    fn test_infix_solve() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            let b: Bool = true | false
+            solve b | b by {
+                b | b = b
+            }
+            "#,
+        );
+    }
 }
