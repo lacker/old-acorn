@@ -1208,4 +1208,12 @@ mod tests {
             x = 2
         }"});
     }
+
+    #[test]
+    fn test_solve_infix_expression() {
+        ok(indoc! {"
+        solve 1 - 1 by {
+            1 - 1 = 0
+        }"});
+    }
 }
