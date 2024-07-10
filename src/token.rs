@@ -223,6 +223,7 @@ impl TokenType {
         }
     }
 
+    // Used for code generation.
     pub fn to_str(&self) -> &str {
         match self {
             TokenType::Identifier => "<identifier>",
@@ -271,6 +272,17 @@ impl TokenType {
             TokenType::Default => "default",
             TokenType::From => "from",
             TokenType::Solve => "solve",
+        }
+    }
+
+    // Used to create error messages.
+    pub fn describe(&self) -> String {
+        match self {
+            TokenType::Identifier => "identifier".to_string(),
+            TokenType::Invalid => "invalid".to_string(),
+            TokenType::NewLine => "newline".to_string(),
+            TokenType::Number => "number".to_string(),
+            _ => format!("\"{}\"", self.to_str()),
         }
     }
 
