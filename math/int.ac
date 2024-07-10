@@ -9,6 +9,15 @@ let abs: Int -> Nat = axiom
 class Int {
     let 0: Int = from_nat(Nat.0)
     let 1: Int = from_nat(Nat.1)
+    let 2: Int = from_nat(Nat.2)
+    let 3: Int = from_nat(Nat.3)
+    let 4: Int = from_nat(Nat.4)
+    let 5: Int = from_nat(Nat.5)
+    let 6: Int = from_nat(Nat.6)
+    let 7: Int = from_nat(Nat.7)
+    let 8: Int = from_nat(Nat.8)
+    let 9: Int = from_nat(Nat.9)
+    let 10: Int = from_nat(Nat.10)
 }
 
 default Int
@@ -644,6 +653,8 @@ class Int {
     } else {
         negate(mul_nat(self, abs(n)))
     }
+
+    define read(self: Int, other: Int) -> Int: 10 * self + other
 }
 
 theorem mul_zero_right(a: Int): a * 0 = 0 by {

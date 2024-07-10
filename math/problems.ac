@@ -14,7 +14,7 @@ solve 0 * 10 by {
 // Solve 4 + x = 4 for x.
 forall(x: Int) {
     if 4 + x = 4 {
-        solve x {
+        solve x by {
             x = 0
         }
     }
@@ -23,7 +23,7 @@ forall(x: Int) {
 // Given that x + 1 = y, solve for x.
 forall(x: Int, y: Int) {
     if x + 1 = y {
-        solve x {
+        solve x by {
             x = y - 1
         }
     }
