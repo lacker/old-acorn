@@ -433,6 +433,10 @@ impl Environment {
             .validate()
             .unwrap_or_else(|e| panic!("invalid claim: {} ({})", proposition.value, e));
 
+        if structural {
+            assert!(block.is_none());
+        }
+
         let value = proposition
             .value
             .replace_constants_with_values(0, &|module_id, name| {
@@ -852,15 +856,19 @@ impl Environment {
                     Some(lambda_claim.clone()),
                 );
 
-                let block = self.new_block(
-                    project,
-                    type_params,
-                    block_args,
-                    BlockParams::Theorem(&ts.name, premise, goal),
-                    statement.first_line(),
-                    statement.last_line(),
-                    ts.body.as_ref(),
-                )?;
+                let block = if ts.axiomatic {
+                    None
+                } else {
+                    Some(self.new_block(
+                        project,
+                        type_params,
+                        block_args,
+                        BlockParams::Theorem(&ts.name, premise, goal),
+                        statement.first_line(),
+                        statement.last_line(),
+                        ts.body.as_ref(),
+                    )?)
+                };
 
                 let index = self.add_proposition(
                     project,
@@ -872,7 +880,7 @@ impl Environment {
                         range,
                         ts.name.to_string(),
                     ),
-                    Some(block),
+                    block,
                 );
                 self.add_prop_lines(index, statement);
                 self.bindings.mark_as_theorem(&ts.name);
