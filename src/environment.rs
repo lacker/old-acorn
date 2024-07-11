@@ -420,6 +420,10 @@ impl Environment {
     }
 
     // Adds a proposition.
+    // This also macro-expands theorem names into their definitions.
+    // Ideally, that would happen during expression parsing.
+    // However, it needs to work with templated theorems, which makes it tricky/hacky to do the
+    // type inference.
     fn add_proposition(&mut self, project: &Project, mut prop: PropositionTree) -> usize {
         // Check if we're adding invalid claims.
         prop.claim
@@ -429,7 +433,25 @@ impl Environment {
 
         let structural = prop.structural;
         let block = prop.block.take();
-        let claim = self.inline_theorems(project, &prop.claim);
+        let value = prop
+            .claim
+            .value
+            .replace_constants_with_values(0, &|module_id, name| {
+                let bindings = if self.module_id == module_id {
+                    &self.bindings
+                } else {
+                    &project
+                        .get_env(module_id)
+                        .expect("missing module in inline_theorems")
+                        .bindings
+                };
+                if bindings.is_theorem(name) {
+                    bindings.get_definition(name).clone()
+                } else {
+                    None
+                }
+            });
+        let claim = prop.claim.with_value(value);
         let new_prop = PropositionTree {
             structural,
             claim,
@@ -1343,32 +1365,6 @@ impl Environment {
             }
         }
         paths
-    }
-
-    // Uses our own binding to inline theorems when the module matches.
-    // Falls back to project-level when the module doesn't match.
-    // Ideally this would just happen during parsing.
-    // But, this also works with templated theorems, which makes it a bit tricky.
-    fn inline_theorems(&self, project: &Project, prop: &Proposition) -> Proposition {
-        // Replaces each theorem with its definition.
-        let value = prop
-            .value
-            .replace_constants_with_values(0, &|module_id, name| {
-                let bindings = if self.module_id == module_id {
-                    &self.bindings
-                } else {
-                    &project
-                        .get_env(module_id)
-                        .expect("missing module in inline_theorems")
-                        .bindings
-                };
-                if bindings.is_theorem(name) {
-                    bindings.get_definition(name).clone()
-                } else {
-                    None
-                }
-            });
-        prop.with_value(value)
     }
 
     // Get all facts from this environment.
