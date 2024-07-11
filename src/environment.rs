@@ -1389,21 +1389,30 @@ impl Environment {
         &self,
         global_facts: Vec<Proposition>,
         local_facts: Vec<Proposition>,
-        claim: &Proposition,
+        goal: Goal,
         proof_insertion_line: u32,
     ) -> GoalContext {
-        let name = match claim.name() {
-            Some(n) => n.to_string(),
-            None => self.bindings.value_to_code(&claim.value, &mut 0).unwrap(),
+        let name = match &goal {
+            Goal::Prove(proposition) => match proposition.name() {
+                Some(name) => name.to_string(),
+                None => self
+                    .bindings
+                    .value_to_code(&proposition.value, &mut 0)
+                    .unwrap(),
+            },
+            Goal::Solve(value, _) => {
+                let value_str = self.bindings.value_to_code(value, &mut 0).unwrap();
+                format!("solve {}", value_str)
+            }
         };
-
+        let range = goal.range();
         GoalContext::new(
             &self,
             global_facts,
             local_facts,
             name,
-            Goal::Prove(claim.clone()),
-            claim.source.range,
+            goal,
+            range,
             proof_insertion_line,
         )
     }
@@ -1453,7 +1462,7 @@ impl Environment {
                     return Ok(block.env.make_goal_context(
                         global_facts,
                         local_facts,
-                        claim,
+                        Goal::Prove(claim.clone()),
                         proof_insertion_line,
                     ));
                 }
@@ -1465,7 +1474,7 @@ impl Environment {
                 return Ok(env.make_goal_context(
                     global_facts,
                     local_facts,
-                    &node.claim,
+                    Goal::Prove(node.claim.clone()),
                     node.claim.source.range.start.line,
                 ));
             }
