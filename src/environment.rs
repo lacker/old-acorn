@@ -1387,7 +1387,6 @@ impl Environment {
 
     fn make_goal_context(
         &self,
-        node: &Node,
         global_facts: Vec<Proposition>,
         local_facts: Vec<Proposition>,
         claim: &Proposition,
@@ -1397,13 +1396,14 @@ impl Environment {
             Some(n) => n.to_string(),
             None => self.bindings.value_to_code(&claim.value, &mut 0).unwrap(),
         };
+
         GoalContext::new(
             &self,
             global_facts,
             local_facts,
             name,
             Goal::Prove(claim.clone()),
-            node.claim.source.range,
+            claim.source.range,
             proof_insertion_line,
         )
     }
@@ -1451,7 +1451,6 @@ impl Environment {
                         block.env.last_line()
                     };
                     return Ok(block.env.make_goal_context(
-                        node,
                         global_facts,
                         local_facts,
                         claim,
@@ -1464,7 +1463,6 @@ impl Environment {
                 assert!(it.peek().is_none());
 
                 return Ok(env.make_goal_context(
-                    node,
                     global_facts,
                     local_facts,
                     &node.claim,
