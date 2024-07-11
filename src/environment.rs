@@ -420,14 +420,23 @@ impl Environment {
     }
 
     // Adds a proposition.
-    fn add_proposition(&mut self, project: &Project, prop: PropositionTree) -> usize {
+    fn add_proposition(&mut self, project: &Project, mut prop: PropositionTree) -> usize {
         // Check if we're adding invalid claims.
         prop.claim
             .value
             .validate()
             .unwrap_or_else(|e| panic!("invalid claim: {} ({})", prop.claim.value, e));
 
-        self.propositions.push(prop);
+        let structural = prop.structural;
+        let block = prop.block.take();
+        let claim = self.inline_theorems(project, &prop.claim);
+        let new_prop = PropositionTree {
+            structural,
+            claim,
+            block,
+        };
+
+        self.propositions.push(new_prop);
         self.propositions.len() - 1
     }
 
@@ -1363,10 +1372,10 @@ impl Environment {
     }
 
     // Get all facts from this environment.
-    pub fn get_facts(&self, project: &Project) -> Vec<Proposition> {
+    pub fn get_facts(&self) -> Vec<Proposition> {
         let mut facts = Vec::new();
         for prop in &self.propositions {
-            facts.push(self.inline_theorems(project, &prop.claim));
+            facts.push(prop.claim.clone());
         }
         facts
     }
