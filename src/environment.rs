@@ -20,10 +20,11 @@ enum LineType {
     // The line relates to the block, but is outside the opening brace for this block.
     Opening,
 
-    // This line corresponds to a proposition inside the environment.
-    // The usize is an index into the propositions array.
-    // If the proposition has a block, this line should also have a line type within the block.
-    Proposition(usize),
+    // This line corresponds to a node inside the environment.
+    // The usize is an index into the nodes array.
+    // If the node represents a block, this line should also have a line type in the
+    // subenvironment within the block.
+    Node(usize),
 
     // Either only whitespace is here, or a comment.
     Empty,
@@ -47,13 +48,9 @@ pub struct Environment {
     // What all the names mean in this environment
     pub bindings: BindingMap,
 
-    // The propositions in this environment.
-    // This includes every sort of thing that we need to know is true, specific to this environment.
-    // This includes theorems, anonymous propositions, and definitions.
-    // Does not include propositions from parent or child environments.
-    // The propositions are fundamentally linear; each may depend on the previous propositions
-    // but not on later ones.
-    propositions: Vec<PropositionTree>,
+    // The nodes structure is fundamentally linear.
+    // Each node depends only on the nodes before it.
+    nodes: Vec<Node>,
 
     // The region in the source document where a name was defined
     definition_ranges: HashMap<String, Range>,
@@ -73,8 +70,11 @@ pub struct Environment {
     pub implicit: bool,
 }
 
-// A proposition, as well as any subpropositions that need to be proved to establish this one.
-struct PropositionTree {
+// Logically, the Environment is arranged like a tree structure.
+// It can have blocks that contain subenvironments, which contain more blocks, etc.
+// It can also have plain propositions.
+// The Node represents either one of these two children of an Environment.
+struct Node {
     // Whether this proposition has already been proved structurally.
     // For example, this could be an axiom, or a definition.
     structural: bool,
@@ -173,7 +173,7 @@ impl Block {
         outer_env: &Environment,
         token: &Token,
     ) -> token::Result<(AcornValue, Range)> {
-        let (inner_claim, range) = match self.env.propositions.last() {
+        let (inner_claim, range) = match self.env.nodes.last() {
             Some(p) => (&p.claim.value, p.claim.source.range),
             None => {
                 return Err(Error::new(token, "expected a claim in this block"));
@@ -212,7 +212,7 @@ impl Environment {
         Environment {
             module_id,
             bindings: BindingMap::new(module_id),
-            propositions: Vec::new(),
+            nodes: Vec::new(),
             definition_ranges: HashMap::new(),
             includes_explicit_false: false,
             first_line: 0,
@@ -261,7 +261,7 @@ impl Environment {
 
     fn add_prop_lines(&mut self, index: usize, statement: &Statement) {
         self.add_line_types(
-            LineType::Proposition(index),
+            LineType::Node(index),
             statement.first_line(),
             statement.last_line(),
         );
@@ -299,7 +299,7 @@ impl Environment {
         let mut subenv = Environment {
             module_id: self.module_id,
             bindings: self.bindings.clone(),
-            propositions: Vec::new(),
+            nodes: Vec::new(),
             definition_ranges: self.definition_ranges.clone(),
             includes_explicit_false: false,
             first_line,
@@ -451,12 +451,12 @@ impl Environment {
                 }
             });
         let claim = proposition.with_value(value);
-        self.propositions.push(PropositionTree {
+        self.nodes.push(Node {
             structural,
             claim,
             block,
         });
-        self.propositions.len() - 1
+        self.nodes.len() - 1
     }
 
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
@@ -526,7 +526,7 @@ impl Environment {
     }
 
     pub fn get_theorem_claim(&self, name: &str) -> Option<AcornValue> {
-        for prop in &self.propositions {
+        for prop in &self.nodes {
             if let Some(claim_name) = prop.claim.name() {
                 if claim_name == name {
                     return Some(prop.claim.value.clone());
@@ -595,7 +595,7 @@ impl Environment {
             Some(block),
         );
         self.add_line_types(
-            LineType::Proposition(index),
+            LineType::Node(index),
             first_line,
             body.right_brace.line_number,
         );
@@ -1298,7 +1298,7 @@ impl Environment {
 
     // Will return a context for a subenvironment if this theorem has a block
     pub fn get_theorem_context(&self, theorem_name: &str) -> GoalContext {
-        for (i, p) in self.propositions.iter().enumerate() {
+        for (i, p) in self.nodes.iter().enumerate() {
             if let Some(name) = p.claim.name() {
                 if name == theorem_name {
                     return self.get_goal_context(&vec![i]).unwrap();
@@ -1327,7 +1327,7 @@ impl Environment {
     // allow_proven controls whether we include propositions that have already been proven.
     fn get_paths(&self, prepend: &Vec<usize>, allow_proven: bool) -> Vec<Vec<usize>> {
         let mut paths = Vec::new();
-        for (i, prop) in self.propositions.iter().enumerate() {
+        for (i, prop) in self.nodes.iter().enumerate() {
             if prop.structural && !allow_proven {
                 continue;
             }
@@ -1353,7 +1353,7 @@ impl Environment {
     // Get all facts from this environment.
     pub fn get_facts(&self) -> Vec<Proposition> {
         let mut facts = Vec::new();
-        for prop in &self.propositions {
+        for prop in &self.nodes {
             facts.push(prop.claim.clone());
         }
         facts
@@ -1365,9 +1365,9 @@ impl Environment {
         let mut it = path.iter().peekable();
         while let Some(i) = it.next() {
             if it.peek().is_none() {
-                return env.propositions.get(*i).map(|p| &p.claim);
+                return env.nodes.get(*i).map(|p| &p.claim);
             }
-            let prop = env.propositions.get(*i)?;
+            let prop = env.nodes.get(*i)?;
             if let Some(block) = &prop.block {
                 env = &block.env;
             } else {
@@ -1379,7 +1379,7 @@ impl Environment {
 
     fn make_goal_context(
         &self,
-        prop: &PropositionTree,
+        node: &Node,
         global_facts: Vec<Proposition>,
         local_facts: Vec<Proposition>,
         claim: &Proposition,
@@ -1395,7 +1395,7 @@ impl Environment {
             local_facts,
             name,
             Goal::Prove(claim.clone()),
-            prop.claim.source.range,
+            node.claim.source.range,
             proof_insertion_line,
         )
     }
@@ -1409,7 +1409,7 @@ impl Environment {
         let mut it = path.iter().peekable();
         let mut global = true;
         while let Some(i) = it.next() {
-            for previous_prop in &env.propositions[0..*i] {
+            for previous_prop in &env.nodes[0..*i] {
                 let fact = previous_prop.claim.clone();
                 if global {
                     global_facts.push(fact);
@@ -1418,16 +1418,15 @@ impl Environment {
                 }
             }
             global = false;
-            let prop = &env.propositions.get(*i);
-            let prop = match prop {
+            let node = match env.nodes.get(*i) {
                 Some(p) => p,
-                None => return Err(format!("no prop at path {:?}", path)),
+                None => return Err(format!("no node at path {:?}", path)),
             };
-            if let Some(block) = &prop.block {
+            if let Some(block) = &node.block {
                 if it.peek().is_none() {
                     // This is the last element of the path. It has a block, so we can use the
                     // contents of the block to help prove it.
-                    for p in &block.env.propositions {
+                    for p in &block.env.nodes {
                         local_facts.push(p.claim.clone());
                     }
                     let claim = if let Some(claim) = &block.claim {
@@ -1444,7 +1443,7 @@ impl Environment {
                         block.env.last_line()
                     };
                     return Ok(block.env.make_goal_context(
-                        prop,
+                        node,
                         global_facts,
                         local_facts,
                         claim,
@@ -1457,11 +1456,11 @@ impl Environment {
                 assert!(it.peek().is_none());
 
                 return Ok(env.make_goal_context(
-                    prop,
+                    node,
                     global_facts,
                     local_facts,
-                    &prop.claim,
-                    prop.claim.source.range.start.line,
+                    &node.claim,
+                    node.claim.source.range.start.line,
                 ));
             }
         }
@@ -1492,9 +1491,9 @@ impl Environment {
         let mut env = self;
         loop {
             match env.get_line_type(line) {
-                Some(LineType::Proposition(i)) => {
+                Some(LineType::Node(i)) => {
                     path.push(i);
-                    let prop = &env.propositions[i];
+                    let prop = &env.nodes[i];
                     if prop.claim.source.is_axiom() {
                         return Err(format!("line {} is an axiom", line + 1));
                     }
@@ -1528,8 +1527,8 @@ impl Environment {
                     loop {
                         slide += 1;
                         match env.get_line_type(slide) {
-                            Some(LineType::Proposition(i)) => {
-                                let prop = &env.propositions[i];
+                            Some(LineType::Node(i)) => {
+                                let prop = &env.nodes[i];
                                 if prop.claim.source.is_axiom() {
                                     return Err(format!("slide to axiom, line {}", slide + 1));
                                 }
@@ -1591,8 +1590,8 @@ impl Environment {
     fn check_lines(&self) {
         // Check that each proposition's block covers the lines it claims to cover
         for (line, line_type) in self.line_types.iter().enumerate() {
-            if let LineType::Proposition(prop_index) = line_type {
-                let prop = &self.propositions[*prop_index];
+            if let LineType::Node(prop_index) = line_type {
+                let prop = &self.nodes[*prop_index];
                 if let Some(block) = &prop.block {
                     assert!(block.env.covers_line(line as u32));
                 }
@@ -1600,7 +1599,7 @@ impl Environment {
         }
 
         // Recurse
-        for prop in &self.propositions {
+        for prop in &self.nodes {
             if let Some(block) = &prop.block {
                 block.env.check_lines();
             }
