@@ -323,11 +323,14 @@ impl Environment {
 
         let claim = match params {
             BlockParams::Conditional(condition, range) => {
-                subenv.add_proposition(PropositionTree {
-                    structural: true,
-                    claim: Proposition::premise(condition.clone(), self.module_id, range),
-                    block: None,
-                });
+                subenv.add_proposition(
+                    project,
+                    PropositionTree {
+                        structural: true,
+                        claim: Proposition::premise(condition.clone(), self.module_id, range),
+                        block: None,
+                    },
+                );
                 None
             }
             BlockParams::Theorem(theorem_name, premise, unbound_goal) => {
@@ -355,18 +358,21 @@ impl Environment {
                 // This is a compromise initially inspired by the desire so to do induction
                 // without writing a separate definition for the inductive hypothesis.
                 // (Outside the theorem block, theorems are inlined.)
-                subenv.add_identity_props(theorem_name);
+                subenv.add_identity_props(project, theorem_name);
 
                 if let Some((unbound_premise, premise_range)) = premise {
                     // Add the premise to the environment, when proving the theorem.
                     // The premise is unbound, so we need to bind the block's arg values.
                     let bound = unbound_premise.bind_values(0, 0, &arg_values);
 
-                    subenv.add_proposition(PropositionTree {
-                        structural: true,
-                        claim: Proposition::premise(bound, self.module_id, premise_range),
-                        block: None,
-                    });
+                    subenv.add_proposition(
+                        project,
+                        PropositionTree {
+                            structural: true,
+                            claim: Proposition::premise(bound, self.module_id, premise_range),
+                            block: None,
+                        },
+                    );
                 }
 
                 // We can prove the goal either in bound or in function form
@@ -414,7 +420,7 @@ impl Environment {
     }
 
     // Adds a proposition.
-    fn add_proposition(&mut self, prop: PropositionTree) -> usize {
+    fn add_proposition(&mut self, project: &Project, prop: PropositionTree) -> usize {
         // Check if we're adding invalid claims.
         prop.claim
             .value
@@ -427,7 +433,7 @@ impl Environment {
 
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
     // constant.
-    fn add_identity_props(&mut self, name: &str) {
+    fn add_identity_props(&mut self, project: &Project, name: &str) {
         let definition = if let Some(d) = self.bindings.get_definition(name) {
             d.clone()
         } else {
@@ -479,11 +485,14 @@ impl Environment {
         };
         let range = self.definition_ranges.get(name).unwrap().clone();
 
-        self.add_proposition(PropositionTree {
-            structural: true,
-            claim: Proposition::definition(claim, self.module_id, range, name.to_string()),
-            block: None,
-        });
+        self.add_proposition(
+            project,
+            PropositionTree {
+                structural: true,
+                claim: Proposition::definition(claim, self.module_id, range, name.to_string()),
+                block: None,
+            },
+        );
     }
 
     pub fn get_definition(&self, name: &str) -> Option<&AcornValue> {
@@ -558,7 +567,7 @@ impl Environment {
             claim: Proposition::anonymous(external_claim, self.module_id, claim_range),
             block: Some(block),
         };
-        let index = self.add_proposition(prop);
+        let index = self.add_proposition(project, prop);
         self.add_line_types(
             LineType::Proposition(index),
             first_line,
@@ -619,7 +628,7 @@ impl Environment {
         self.bindings
             .add_constant(&name, vec![], acorn_type, Some(value));
         self.definition_ranges.insert(name.clone(), range);
-        self.add_identity_props(&name);
+        self.add_identity_props(project, &name);
         Ok(())
     }
 
@@ -693,7 +702,7 @@ impl Environment {
         };
 
         self.definition_ranges.insert(name.clone(), range);
-        self.add_identity_props(&name);
+        self.add_identity_props(project, &name);
         Ok(())
     }
 
@@ -838,7 +847,7 @@ impl Environment {
                     ),
                     block: Some(block),
                 };
-                let index = self.add_proposition(tree);
+                let index = self.add_proposition(project, tree);
                 self.add_prop_lines(index, statement);
                 self.bindings.mark_as_theorem(&ts.name);
 
@@ -857,7 +866,7 @@ impl Environment {
                     claim: Proposition::anonymous(claim, self.module_id, statement.range()),
                     block: None,
                 };
-                let index = self.add_proposition(prop);
+                let index = self.add_proposition(project, prop);
                 self.add_prop_lines(index, statement);
                 Ok(())
             }
@@ -892,7 +901,7 @@ impl Environment {
                     claim: Proposition::anonymous(outer_claim, self.module_id, range),
                     block: Some(block),
                 };
-                let index = self.add_proposition(prop);
+                let index = self.add_proposition(project, prop);
                 self.add_prop_lines(index, statement);
                 Ok(())
             }
@@ -944,7 +953,7 @@ impl Environment {
                     claim: Proposition::anonymous(general_claim, self.module_id, statement.range()),
                     block: None,
                 };
-                let index = self.add_proposition(general_prop);
+                let index = self.add_proposition(project, general_prop);
                 self.add_prop_lines(index, statement);
 
                 // Define the quantifiers as constants
@@ -966,7 +975,7 @@ impl Environment {
                     ),
                     block: None,
                 };
-                self.add_proposition(specific_prop);
+                self.add_proposition(project, specific_prop);
 
                 Ok(())
             }
@@ -1043,16 +1052,19 @@ impl Environment {
                     start: statement.first_token.start_pos(),
                     end: ss.name_token.end_pos(),
                 };
-                self.add_proposition(PropositionTree {
-                    structural: true,
-                    claim: Proposition::definition(
-                        new_claim,
-                        self.module_id,
-                        range,
-                        ss.name.clone(),
-                    ),
-                    block: None,
-                });
+                self.add_proposition(
+                    project,
+                    PropositionTree {
+                        structural: true,
+                        claim: Proposition::definition(
+                            new_claim,
+                            self.module_id,
+                            range,
+                            ss.name.clone(),
+                        ),
+                        block: None,
+                    },
+                );
 
                 // There are also formulas for new followed by member functions. Ie:
                 // Pair.first(Pair.new(a, b)) = a.
@@ -1080,16 +1092,19 @@ impl Environment {
                         start: field_name_token.start_pos(),
                         end: field_type_expr.last_token().end_pos(),
                     };
-                    self.add_proposition(PropositionTree {
-                        structural: true,
-                        claim: Proposition::definition(
-                            member_claim,
-                            self.module_id,
-                            range,
-                            ss.name.clone(),
-                        ),
-                        block: None,
-                    });
+                    self.add_proposition(
+                        project,
+                        PropositionTree {
+                            structural: true,
+                            claim: Proposition::definition(
+                                member_claim,
+                                self.module_id,
+                                range,
+                                ss.name.clone(),
+                            ),
+                            block: None,
+                        },
+                    );
                 }
 
                 Ok(())
@@ -1134,7 +1149,7 @@ impl Environment {
                     if self.bindings.import_name(project, module_id, name)? {
                         self.definition_ranges
                             .insert(name.to_string(), statement.range());
-                        self.add_identity_props(name.text());
+                        self.add_identity_props(project, name.text());
                     }
                 }
 
@@ -1233,7 +1248,7 @@ impl Environment {
                     claim: Proposition::anonymous(outer_claim, self.module_id, range),
                     block: Some(block),
                 };
-                let index = self.add_proposition(prop);
+                let index = self.add_proposition(project, prop);
                 self.add_prop_lines(index, statement);
                 Ok(())
             }
@@ -1323,6 +1338,8 @@ impl Environment {
 
     // Uses our own binding to inline theorems when the module matches.
     // Falls back to project-level when the module doesn't match.
+    // Ideally this would just happen during parsing.
+    // But, this also works with templated theorems, which makes it a bit tricky.
     fn inline_theorems(&self, project: &Project, prop: &Proposition) -> Proposition {
         // Replaces each theorem with its definition.
         let value = prop
