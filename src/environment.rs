@@ -451,13 +451,11 @@ impl Environment {
                 }
             });
         let claim = proposition.with_value(value);
-        let tree = PropositionTree {
+        self.propositions.push(PropositionTree {
             structural,
             claim,
             block,
-        };
-
-        self.propositions.push(tree);
+        });
         self.propositions.len() - 1
     }
 
