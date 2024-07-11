@@ -504,7 +504,7 @@ impl Backend {
             }
         }
 
-        let goal_context = match env.get_goal_context(&project, &path) {
+        let goal_context = match env.get_goal_context(&path) {
             Ok(goal_context) => goal_context,
             Err(s) => return self.search_fail(params, &s),
         };

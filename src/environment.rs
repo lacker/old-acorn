@@ -1292,11 +1292,11 @@ impl Environment {
     }
 
     // Will return a context for a subenvironment if this theorem has a block
-    pub fn get_theorem_context(&self, project: &Project, theorem_name: &str) -> GoalContext {
+    pub fn get_theorem_context(&self, theorem_name: &str) -> GoalContext {
         for (i, p) in self.propositions.iter().enumerate() {
             if let Some(name) = p.claim.name() {
                 if name == theorem_name {
-                    return self.get_goal_context(project, &vec![i]).unwrap();
+                    return self.get_goal_context(&vec![i]).unwrap();
                 }
             }
         }
@@ -1423,11 +1423,7 @@ impl Environment {
 
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
-    pub fn get_goal_context(
-        &self,
-        project: &Project,
-        path: &Vec<usize>,
-    ) -> Result<GoalContext, String> {
+    pub fn get_goal_context(&self, path: &Vec<usize>) -> Result<GoalContext, String> {
         let mut global_facts = vec![];
         let mut local_facts = vec![];
         let mut env = self;
@@ -1435,7 +1431,7 @@ impl Environment {
         let mut global = true;
         while let Some(i) = it.next() {
             for previous_prop in &env.propositions[0..*i] {
-                let fact = env.inline_theorems(project, &previous_prop.claim);
+                let fact = previous_prop.claim.clone();
                 if global {
                     global_facts.push(fact);
                 } else {
@@ -1453,7 +1449,7 @@ impl Environment {
                     // This is the last element of the path. It has a block, so we can use the
                     // contents of the block to help prove it.
                     for p in &block.env.propositions {
-                        local_facts.push(block.env.inline_theorems(project, &p.claim));
+                        local_facts.push(p.claim.clone());
                     }
                     let claim = if let Some(claim) = &block.claim {
                         claim
@@ -1493,11 +1489,11 @@ impl Environment {
         panic!("control should not get here");
     }
 
-    pub fn get_goal_context_by_name(&self, project: &Project, name: &str) -> GoalContext {
+    pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
         let paths = self.goal_paths();
         let mut names = Vec::new();
         for path in paths {
-            let context = self.get_goal_context(project, &path).unwrap();
+            let context = self.get_goal_context(&path).unwrap();
             if context.name == name {
                 return context;
             }
@@ -1972,7 +1968,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let module = p.expect_ok("main");
         let env = p.get_env(module).unwrap();
         for path in env.goal_paths() {
-            env.get_goal_context(&p, &path).unwrap();
+            env.get_goal_context(&path).unwrap();
         }
     }
 
@@ -1993,7 +1989,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         let module = p.expect_ok("main");
         let env = p.get_env(module).unwrap();
         for path in env.goal_paths() {
-            env.get_goal_context(&p, &path).unwrap();
+            env.get_goal_context(&path).unwrap();
         }
     }
 

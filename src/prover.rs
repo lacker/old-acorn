@@ -679,7 +679,7 @@ mod tests {
             Module::Error(e) => panic!("get_module error: {}", e),
             _ => panic!("unexpected get_module result"),
         };
-        let goal_context = env.get_goal_context_by_name(project, goal_name);
+        let goal_context = env.get_goal_context_by_name(goal_name);
         let mut prover = Prover::new(&project, &goal_context, false);
         prover.verbose = true;
         let outcome = prover.quick_search();
@@ -718,7 +718,7 @@ mod tests {
         let paths = env.goal_paths();
         for path in paths {
             let prop = env.get_proposition(&path).unwrap();
-            let goal_context = env.get_goal_context(&project, &path).unwrap();
+            let goal_context = env.get_goal_context(&path).unwrap();
             assert_eq!(prop.source.range, goal_context.range);
             println!("proving: {}", goal_context.name);
             let mut prover = Prover::new(&project, &goal_context, false);
