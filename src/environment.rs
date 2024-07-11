@@ -6,7 +6,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::{BindingMap, Stack};
-use crate::goal_context::GoalContext;
+use crate::goal_context::{Goal, GoalContext};
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::proposition::Proposition;
@@ -1390,7 +1390,7 @@ impl Environment {
             global_facts,
             local_facts,
             name,
-            self.inline_theorems(project, &claim),
+            Goal::Prove(self.inline_theorems(project, &claim)),
             prop.claim.source.range,
             proof_insertion_line,
         )

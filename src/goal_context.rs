@@ -10,6 +10,30 @@ use crate::environment::Environment;
 use crate::module::ModuleId;
 use crate::proposition::Proposition;
 
+pub enum Goal {
+    // Prove that this proposition is true.
+    Prove(Proposition),
+
+    // Find a simplified form of this value.
+    Solve(AcornValue, Range),
+}
+
+impl Goal {
+    pub fn value(&self) -> &AcornValue {
+        match self {
+            Goal::Prove(p) => &p.value,
+            Goal::Solve(v, _) => v,
+        }
+    }
+
+    pub fn range(&self) -> Range {
+        match self {
+            Goal::Prove(p) => p.source.range,
+            Goal::Solve(_, r) => *r,
+        }
+    }
+}
+
 // A goal and the information that can be used to achieve it.
 pub struct GoalContext<'a> {
     env: &'a Environment,
@@ -24,7 +48,7 @@ pub struct GoalContext<'a> {
     pub name: String,
 
     // The goal itself.
-    pub goal: Proposition,
+    pub goal: Goal,
 
     // The range in the source document corresponding to this goal.
     pub range: Range,
@@ -42,7 +66,7 @@ impl GoalContext<'_> {
         global_facts: Vec<Proposition>,
         local_facts: Vec<Proposition>,
         name: String,
-        goal: Proposition,
+        goal: Goal,
         range: Range,
         proof_insertion_line: u32,
     ) -> GoalContext {
@@ -88,7 +112,7 @@ impl GoalContext<'_> {
             });
             graph.inspect_value(&facts, &fact.value);
         }
-        graph.inspect_value(&facts, &self.goal.value);
+        graph.inspect_value(&facts, &self.goal.value());
 
         assert!(facts.len() == graph.monomorphs_for_fact.len());
 

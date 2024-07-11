@@ -9,7 +9,7 @@ use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
 use crate::clause::Clause;
 use crate::display::{DisplayClause, DisplayTerm};
-use crate::goal_context::GoalContext;
+use crate::goal_context::{Goal, GoalContext};
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::normalizer::{Normalization, Normalizer};
 use crate::passive_set::PassiveSet;
@@ -126,14 +126,14 @@ impl Prover {
         for fact in local_facts {
             p.add_assumption(fact, Truthiness::Hypothetical);
         }
-        let (hypo, counter) = goal_context.goal.value.to_placeholder().negate_goal();
-        if let Some(hypo) = hypo {
-            p.add_assumption(goal_context.goal.with_value(hypo), Truthiness::Hypothetical);
+        if let Goal::Prove(prop) = &goal_context.goal {
+            // Negate the goal and add it as a counterfactual assumption.
+            let (hypo, counter) = prop.value.to_placeholder().negate_goal();
+            if let Some(hypo) = hypo {
+                p.add_assumption(prop.with_value(hypo), Truthiness::Hypothetical);
+            }
+            p.add_assumption(prop.with_negated_goal(counter), Truthiness::Counterfactual);
         }
-        p.add_assumption(
-            goal_context.goal.with_negated_goal(counter),
-            Truthiness::Counterfactual,
-        );
         p
     }
 

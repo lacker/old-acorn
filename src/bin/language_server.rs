@@ -522,7 +522,7 @@ impl Backend {
             selected_line: params.selected_line,
             path,
             goal_name: goal_context.name.clone(),
-            goal_range: goal_context.goal.source.range,
+            goal_range: goal_context.goal.range(),
             status: Arc::new(RwLock::new(status)),
             superseded,
             proof_insertion_line: goal_context.proof_insertion_line,
