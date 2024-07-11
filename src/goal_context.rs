@@ -10,7 +10,7 @@ use crate::environment::Environment;
 use crate::module::ModuleId;
 use crate::proposition::Proposition;
 
-// A goal and the information used to prove it.
+// A goal and the information that can be used to achieve it.
 pub struct GoalContext<'a> {
     env: &'a Environment,
 

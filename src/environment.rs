@@ -22,7 +22,7 @@ enum LineType {
 
     // This line corresponds to a proposition inside the environment.
     // The usize is an index into the propositions array.
-    // If the proposition has a block, this line should also have a type within the block.
+    // If the proposition has a block, this line should also have a line type within the block.
     Proposition(usize),
 
     // Either only whitespace is here, or a comment.
@@ -77,7 +77,7 @@ pub struct Environment {
 struct PropositionTree {
     // Whether this proposition has already been proved structurally.
     // For example, this could be an axiom, or a definition.
-    proven: bool,
+    structural: bool,
 
     // The proposition represented by this tree.
     // If this proposition has a block, this represents the "external claim".
@@ -85,7 +85,7 @@ struct PropositionTree {
     // in the inner environment has been proven.
     // Besides the claim, nothing else from the block is visible externally.
     //
-    // This claim needs to be proved when proven is false, and there is no block.
+    // This claim needs to be proved for nonstructural propositions, when there is no block.
     claim: Proposition,
 
     // The body of the proposition, when it has an associated block.
@@ -324,7 +324,7 @@ impl Environment {
         let claim = match params {
             BlockParams::Conditional(condition, range) => {
                 subenv.add_proposition(PropositionTree {
-                    proven: true,
+                    structural: true,
                     claim: Proposition::premise(condition.clone(), self.module_id, range),
                     block: None,
                 });
@@ -363,7 +363,7 @@ impl Environment {
                     let bound = unbound_premise.bind_values(0, 0, &arg_values);
 
                     subenv.add_proposition(PropositionTree {
-                        proven: true,
+                        structural: true,
                         claim: Proposition::premise(bound, self.module_id, premise_range),
                         block: None,
                     });
@@ -480,7 +480,7 @@ impl Environment {
         let range = self.definition_ranges.get(name).unwrap().clone();
 
         self.add_proposition(PropositionTree {
-            proven: true,
+            structural: true,
             claim: Proposition::definition(claim, self.module_id, range, name.to_string()),
             block: None,
         });
@@ -554,7 +554,7 @@ impl Environment {
             )
         };
         let prop = PropositionTree {
-            proven: false,
+            structural: false,
             claim: Proposition::anonymous(external_claim, self.module_id, claim_range),
             block: Some(block),
         };
@@ -828,7 +828,7 @@ impl Environment {
                 )?;
 
                 let tree = PropositionTree {
-                    proven: ts.axiomatic,
+                    structural: ts.axiomatic,
                     claim: Proposition::theorem(
                         ts.axiomatic,
                         forall_claim,
@@ -853,7 +853,7 @@ impl Environment {
                     self.includes_explicit_false = true;
                 }
                 let prop = PropositionTree {
-                    proven: false,
+                    structural: false,
                     claim: Proposition::anonymous(claim, self.module_id, statement.range()),
                     block: None,
                 };
@@ -888,7 +888,7 @@ impl Environment {
                 let (outer_claim, range) = block.export_last_claim(self, &fas.body.right_brace)?;
 
                 let prop = PropositionTree {
-                    proven: false,
+                    structural: false,
                     claim: Proposition::anonymous(outer_claim, self.module_id, range),
                     block: Some(block),
                 };
@@ -940,7 +940,7 @@ impl Environment {
                 let general_claim =
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
                 let general_prop = PropositionTree {
-                    proven: false,
+                    structural: false,
                     claim: Proposition::anonymous(general_claim, self.module_id, statement.range()),
                     block: None,
                 };
@@ -958,7 +958,7 @@ impl Environment {
                     self.bindings
                         .evaluate_value(project, &es.claim, Some(&AcornType::Bool))?;
                 let specific_prop = PropositionTree {
-                    proven: true,
+                    structural: true,
                     claim: Proposition::anonymous(
                         specific_claim,
                         self.module_id,
@@ -1044,7 +1044,7 @@ impl Environment {
                     end: ss.name_token.end_pos(),
                 };
                 self.add_proposition(PropositionTree {
-                    proven: true,
+                    structural: true,
                     claim: Proposition::definition(
                         new_claim,
                         self.module_id,
@@ -1081,7 +1081,7 @@ impl Environment {
                         end: field_type_expr.last_token().end_pos(),
                     };
                     self.add_proposition(PropositionTree {
-                        proven: true,
+                        structural: true,
                         claim: Proposition::definition(
                             member_claim,
                             self.module_id,
@@ -1229,7 +1229,7 @@ impl Environment {
                 let (outer_claim, range) = block.export_last_claim(self, &ss.body.right_brace)?;
 
                 let prop = PropositionTree {
-                    proven: false,
+                    structural: false,
                     claim: Proposition::anonymous(outer_claim, self.module_id, range),
                     block: Some(block),
                 };
@@ -1299,7 +1299,7 @@ impl Environment {
     fn get_paths(&self, prepend: &Vec<usize>, allow_proven: bool) -> Vec<Vec<usize>> {
         let mut paths = Vec::new();
         for (i, prop) in self.propositions.iter().enumerate() {
-            if prop.proven && !allow_proven {
+            if prop.structural && !allow_proven {
                 continue;
             }
             let path = {
