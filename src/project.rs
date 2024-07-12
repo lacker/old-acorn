@@ -438,6 +438,15 @@ impl Project {
         !build_warnings
     }
 
+    // Does the build and returns all events when it's done, rather than asynchronously.
+    pub fn sync_build(&self) -> (bool, Vec<BuildEvent>) {
+        let mut events = vec![];
+        let success = self.build(&mut |event| {
+            events.push(event);
+        });
+        (success, events)
+    }
+
     // Set the file content. This has priority over the actual filesystem.
     #[cfg(test)]
     pub fn mock(&mut self, filename: &str, content: &str) {
@@ -706,6 +715,12 @@ impl Project {
     fn check_code(&mut self, module_name: &str, code: &str) {
         self.check_code_into(module_name, code, code);
     }
+
+    #[cfg(test)]
+    fn expect_build_fails(&mut self) {
+        let (success, _) = self.sync_build();
+        assert!(!success, "expected build to fail");
+    }
 }
 
 #[cfg(test)]
@@ -971,7 +986,6 @@ mod tests {
         let mut p = Project::new_mock();
         p.mock("/mock/main.ac", "solve false by {\n}");
         p.expect_ok("main");
-
-        // TODO: check that the build gives a warning
+        p.expect_build_fails();
     }
 }
