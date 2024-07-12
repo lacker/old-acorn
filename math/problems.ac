@@ -25,7 +25,7 @@ forall(x: Int, y: Int) {
     if y - x = 1 {
         solve x by {
             x + 1 = y
-            // x = y - 1
+            x = y - 1
         }
         solve y by {
             y = x + 1
