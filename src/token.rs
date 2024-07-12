@@ -332,7 +332,7 @@ impl fmt::Display for Token {
 
 impl Token {
     // A token to represent an empty file.
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Token {
             token_type: TokenType::NewLine,
             line: Arc::new("".to_string()),

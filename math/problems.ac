@@ -26,5 +26,8 @@ forall(x: Int, y: Int) {
         solve x by {
             x = y - 1
         }
+        solve y by {
+            
+        }
     }
 }

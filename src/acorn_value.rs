@@ -1481,12 +1481,4 @@ impl AcornValue {
             _ => (None, self.negate()),
         }
     }
-
-    // Whether this value is an equality that solves for the target value.
-    pub fn solves(&self, target: &AcornValue) -> bool {
-        match self {
-            AcornValue::Binary(BinaryOp::Equals, left, _) => left.as_ref() == target,
-            _ => false,
-        }
-    }
 }

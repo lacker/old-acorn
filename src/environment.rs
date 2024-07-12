@@ -180,6 +180,27 @@ impl Block {
         let outer_claim = self.export_bool(outer_env, inner_claim);
         Ok((outer_claim, range))
     }
+
+    // Checks if this block solves for the given target.
+    // If it does, returns an exported proposition with the solution, and the range where it
+    // occurs.
+    fn solves(&self, outer_env: &Environment, target: &AcornValue) -> Option<(AcornValue, Range)> {
+        let (outer_claim, range) = match self.export_last_claim(outer_env, &Token::empty()) {
+            Ok((c, r)) => (c, r),
+            Err(_) => return None,
+        };
+        match &outer_claim {
+            // We only allow <target> == <solution>, rather than the other way around.
+            AcornValue::Binary(BinaryOp::Equals, left, _) => {
+                if left.as_ref() == target {
+                    Some((outer_claim, range))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
 }
 
 // The different ways to construct a block
@@ -1261,16 +1282,22 @@ impl Environment {
                     Some(&ss.body),
                 )?;
 
-                let (outer_claim, range) = block.export_last_claim(self, &ss.body.right_brace)?;
-                let prop = if outer_claim.solves(&target) {
-                    block.goal = None;
-                    Proposition::anonymous(outer_claim, self.module_id, range)
-                } else {
-                    // The block doesn't contain a solution.
-                    // So, it has no claim that can be exported. It doesn't really make sense
-                    // to export whatever the last proposition is.
-                    // A lot of code expects something, though, so put a vacuous "true" in here.
-                    Proposition::anonymous(AcornValue::Bool(true), self.module_id, range)
+                let prop = match block.solves(self, &target) {
+                    Some((outer_claim, range)) => {
+                        block.goal = None;
+                        Proposition::anonymous(outer_claim, self.module_id, range)
+                    }
+                    None => {
+                        // The block doesn't contain a solution.
+                        // So, it has no claim that can be exported. It doesn't really make sense
+                        // to export whatever the last proposition is.
+                        // A lot of code expects something, though, so put a vacuous "true" in here.
+                        Proposition::anonymous(
+                            AcornValue::Bool(true),
+                            self.module_id,
+                            statement.range(),
+                        )
+                    }
                 };
 
                 let index = self.add_proposition(project, false, prop, Some(block));
