@@ -109,11 +109,9 @@ struct Block {
     // Externally, these arguments are variables.
     args: Vec<(String, AcornType)>,
 
-    // The "internal claim" of this block, defined relative to the block's environment.
-    // This only exists for theorem blocks, where we implicitly want to prove the theorem.
-    // We always need to prove the propositions in the block's environment.
-    // When the block has an internal claim, we need to prove that too.
-    claim: Option<Proposition>,
+    // The goal for a block is relative to its internal environment.
+    // Everything in the block can be used to achieve this goal.
+    goal: Option<Goal>,
 
     // The environment created inside the block.
     env: Environment,
@@ -321,7 +319,7 @@ impl Environment {
                 .add_constant(&arg_name, vec![], specific_arg_type, None);
         }
 
-        let claim = match params {
+        let goal = match params {
             BlockParams::Conditional(condition, range) => {
                 subenv.add_proposition(
                     project,
@@ -375,13 +373,13 @@ impl Environment {
                 let bound_goal = unbound_goal.bind_values(0, 0, &arg_values);
                 let functional_goal = AcornValue::new_apply(functional_theorem, arg_values);
                 let value = AcornValue::new_or(functional_goal, bound_goal);
-                Some(Proposition::theorem(
+                Some(Goal::Prove(Proposition::theorem(
                     false,
                     value,
                     self.module_id,
                     self.theorem_range(theorem_name).unwrap(),
                     theorem_name.to_string(),
-                ))
+                )))
             }
             BlockParams::ForAll | BlockParams::Solve(_) => None,
         };
@@ -411,7 +409,7 @@ impl Environment {
             type_params,
             args,
             env: subenv,
-            claim,
+            goal,
         })
     }
 
@@ -1347,7 +1345,7 @@ impl Environment {
             if let Some(block) = &prop.block {
                 let mut subpaths = block.env.get_paths(&path, allow_proven);
                 paths.append(&mut subpaths);
-                if block.claim.is_some() {
+                if block.goal.is_some() {
                     // This block has a claim that also needs to be proved
                     paths.push(path);
                 }
@@ -1444,10 +1442,9 @@ impl Environment {
                     for p in &block.env.nodes {
                         local_facts.push(p.claim.clone());
                     }
-                    let claim = if let Some(claim) = &block.claim {
-                        claim
-                    } else {
-                        return Err(format!("no internal claim at path {:?}", path));
+                    let goal = match &block.goal {
+                        Some(goal) => goal,
+                        None => return Err(format!("block at path {:?} has no goal", path)),
                     };
 
                     let proof_insertion_line = if block.env.implicit {
@@ -1460,7 +1457,7 @@ impl Environment {
                     return Ok(block.env.make_goal_context(
                         global_facts,
                         local_facts,
-                        Goal::Prove(claim.clone()),
+                        goal.clone(),
                         proof_insertion_line,
                     ));
                 }
@@ -1523,7 +1520,7 @@ impl Environment {
                 }
                 Some(LineType::Opening) | Some(LineType::Closing) => match block {
                     Some(block) => {
-                        if block.claim.is_none() {
+                        if block.goal.is_none() {
                             return Err(format!("no claim for block at line {}", line + 1));
                         }
                         return Ok(path);
@@ -1561,7 +1558,7 @@ impl Environment {
                                 // Sliding into the end of our block is okay
                                 match block {
                                     Some(block) => {
-                                        if block.claim.is_none() {
+                                        if block.goal.is_none() {
                                             return Err("slide to end but no claim".to_string());
                                         }
                                         return Ok(path);
