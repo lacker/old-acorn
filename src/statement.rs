@@ -154,6 +154,7 @@ pub enum StatementInfo {
     Class(ClassStatement),
     Default(DefaultStatement),
     Solve(SolveStatement),
+    Problem(Body),
 }
 
 const ONE_INDENT: &str = "    ";
@@ -791,6 +792,11 @@ impl Statement {
                 write!(f, "solve {} by", ss.target)?;
                 write_block(f, &ss.body.statements, indentation)
             }
+
+            StatementInfo::Problem(body) => {
+                write!(f, "problem")?;
+                write_block(f, &body.statements, indentation)
+            }
         }
     }
 
@@ -894,6 +900,22 @@ impl Statement {
                     TokenType::Solve => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_solve_statement(keyword, tokens)?;
+                        return Ok((Some(s), None));
+                    }
+                    TokenType::Problem => {
+                        let keyword = tokens.next().unwrap();
+                        let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+                        let (statements, right_brace) = parse_block(tokens)?;
+                        let body = Body {
+                            left_brace,
+                            statements,
+                            right_brace: right_brace.clone(),
+                        };
+                        let s = Statement {
+                            first_token: keyword,
+                            last_token: right_brace,
+                            statement: StatementInfo::Problem(body),
+                        };
                         return Ok((Some(s), None));
                     }
                     _ => {

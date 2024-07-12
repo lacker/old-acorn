@@ -219,11 +219,12 @@ enum BlockParams<'a> {
     // The assumption to be used by the block, and the range of this assumption.
     Conditional(&'a AcornValue, Range),
 
-    // No special params needed
-    ForAll,
-
     // The expression to solve for, and the range of the "solve <target>" component.
     Solve(AcornValue, Range),
+
+    // No special params needed
+    ForAll,
+    Problem,
 }
 
 impl Environment {
@@ -342,7 +343,7 @@ impl Environment {
 
         let goal = match params {
             BlockParams::Conditional(condition, range) => {
-                subenv.add_proposition(
+                subenv.add_node(
                     project,
                     true,
                     Proposition::premise(condition.clone(), self.module_id, range),
@@ -382,7 +383,7 @@ impl Environment {
                     // The premise is unbound, so we need to bind the block's arg values.
                     let bound = unbound_premise.bind_values(0, 0, &arg_values);
 
-                    subenv.add_proposition(
+                    subenv.add_node(
                         project,
                         true,
                         Proposition::premise(bound, self.module_id, premise_range),
@@ -402,8 +403,8 @@ impl Environment {
                     theorem_name.to_string(),
                 )))
             }
-            BlockParams::ForAll => None,
             BlockParams::Solve(target, range) => Some(Goal::Solve(target, range)),
+            BlockParams::ForAll | BlockParams::Problem => None,
         };
 
         match body {
@@ -435,12 +436,12 @@ impl Environment {
         })
     }
 
-    // Adds a proposition.
+    // Adds a node to the environment tree.
     // This also macro-expands theorem names into their definitions.
     // Ideally, that would happen during expression parsing.
     // However, it needs to work with templated theorems, which makes it tricky/hacky to do the
     // type inference.
-    fn add_proposition(
+    fn add_node(
         &mut self,
         project: &Project,
         structural: bool,
@@ -537,7 +538,7 @@ impl Environment {
         };
         let range = self.definition_ranges.get(name).unwrap().clone();
 
-        self.add_proposition(
+        self.add_node(
             project,
             true,
             Proposition::definition(claim, self.module_id, range, name.to_string()),
@@ -612,7 +613,7 @@ impl Environment {
                 Some(outer_claim),
             )
         };
-        let index = self.add_proposition(
+        let index = self.add_node(
             project,
             false,
             Proposition::anonymous(external_claim, self.module_id, claim_range),
@@ -890,7 +891,7 @@ impl Environment {
                     )?)
                 };
 
-                let index = self.add_proposition(
+                let index = self.add_node(
                     project,
                     ts.axiomatic,
                     Proposition::theorem(
@@ -916,7 +917,7 @@ impl Environment {
                     self.includes_explicit_false = true;
                 }
 
-                let index = self.add_proposition(
+                let index = self.add_node(
                     project,
                     false,
                     Proposition::anonymous(claim, self.module_id, statement.range()),
@@ -951,7 +952,7 @@ impl Environment {
 
                 let (outer_claim, range) = block.export_last_claim(self, &fas.body.right_brace)?;
 
-                let index = self.add_proposition(
+                let index = self.add_node(
                     project,
                     false,
                     Proposition::anonymous(outer_claim, self.module_id, range),
@@ -1003,7 +1004,7 @@ impl Environment {
                 )?;
                 let general_claim =
                     AcornValue::Exists(quant_types.clone(), Box::new(general_claim_value));
-                let index = self.add_proposition(
+                let index = self.add_node(
                     project,
                     false,
                     Proposition::anonymous(general_claim, self.module_id, statement.range()),
@@ -1021,7 +1022,7 @@ impl Environment {
                 let specific_claim =
                     self.bindings
                         .evaluate_value(project, &es.claim, Some(&AcornType::Bool))?;
-                self.add_proposition(
+                self.add_node(
                     project,
                     true,
                     Proposition::anonymous(specific_claim, self.module_id, statement.range()),
@@ -1103,7 +1104,7 @@ impl Environment {
                     start: statement.first_token.start_pos(),
                     end: ss.name_token.end_pos(),
                 };
-                self.add_proposition(
+                self.add_node(
                     project,
                     true,
                     Proposition::definition(new_claim, self.module_id, range, ss.name.clone()),
@@ -1136,7 +1137,7 @@ impl Environment {
                         start: field_name_token.start_pos(),
                         end: field_type_expr.last_token().end_pos(),
                     };
-                    self.add_proposition(
+                    self.add_node(
                         project,
                         true,
                         Proposition::definition(
@@ -1306,7 +1307,30 @@ impl Environment {
                     }
                 };
 
-                let index = self.add_proposition(project, false, prop, Some(block));
+                let index = self.add_node(project, false, prop, Some(block));
+                self.add_prop_lines(index, statement);
+                Ok(())
+            }
+
+            StatementInfo::Problem(body) => {
+                let block = self.new_block(
+                    project,
+                    vec![],
+                    vec![],
+                    BlockParams::Problem,
+                    statement.first_line(),
+                    statement.last_line(),
+                    Some(body),
+                )?;
+
+                // TODO: stop making vacuous "true" propositions.
+                let vacuous_prop = Proposition::anonymous(
+                    AcornValue::Bool(true),
+                    self.module_id,
+                    statement.range(),
+                );
+
+                let index = self.add_node(project, false, vacuous_prop, Some(block));
                 self.add_prop_lines(index, statement);
                 Ok(())
             }
@@ -2821,5 +2845,19 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         );
         let goal_paths = env.goal_paths();
         assert_eq!(goal_paths.len(), 1);
+    }
+
+    #[test]
+    fn test_basic_problem_statement() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            problem {
+                let b: Bool = true | false
+                solve b by {
+                }
+            }
+            "#,
+        );
     }
 }
