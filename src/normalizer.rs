@@ -11,7 +11,7 @@ use crate::term::Term;
 use crate::type_map::{TypeId, TypeMap};
 
 #[derive(Debug)]
-struct NormalizationError(String);
+pub struct NormalizationError(pub String);
 type Result<T> = std::result::Result<T, NormalizationError>;
 
 #[derive(Debug)]
@@ -190,7 +190,7 @@ impl Normalizer {
 
     // Constructs a new term from an AcornValue
     // Returns an error if it's inconvertible
-    fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
+    pub fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
         match value {
             AcornValue::Variable(i, var_type) => {
                 let type_id = self.type_map.add_type(var_type);

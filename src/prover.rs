@@ -11,7 +11,7 @@ use crate::clause::Clause;
 use crate::display::{DisplayClause, DisplayTerm};
 use crate::goal_context::{Goal, GoalContext};
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
-use crate::normalizer::{Normalization, Normalizer};
+use crate::normalizer::{Normalization, NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
 use crate::proof::{Proof, FINAL_STEP};
@@ -50,6 +50,9 @@ pub struct Prover {
     // Whether we should report Outcome::Inconsistent when our assumptions lead to a
     // contradiction. Otherwise we just treat it as a success.
     report_inconsistency: bool,
+
+    // The normalized term we are solving for, if there is one.
+    solve: Option<Term>,
 
     // When this error message is set, it indicates a problem that needs to be reported upstream
     // to the user.
@@ -107,6 +110,7 @@ impl Prover {
             stop_flags: vec![project.build_stopped.clone()],
             report_inconsistency: !goal_context.includes_explicit_false(),
             error: None,
+            solve: None,
         };
 
         // Find the relevant facts that should be imported into this environment
@@ -126,13 +130,23 @@ impl Prover {
         for fact in local_facts {
             p.add_assumption(fact, Truthiness::Hypothetical);
         }
-        if let Goal::Prove(prop) = &goal_context.goal {
-            // Negate the goal and add it as a counterfactual assumption.
-            let (hypo, counter) = prop.value.to_placeholder().negate_goal();
-            if let Some(hypo) = hypo {
-                p.add_assumption(prop.with_value(hypo), Truthiness::Hypothetical);
+        match &goal_context.goal {
+            Goal::Prove(prop) => {
+                // Negate the goal and add it as a counterfactual assumption.
+                let (hypo, counter) = prop.value.to_placeholder().negate_goal();
+                if let Some(hypo) = hypo {
+                    p.add_assumption(prop.with_value(hypo), Truthiness::Hypothetical);
+                }
+                p.add_assumption(prop.with_negated_goal(counter), Truthiness::Counterfactual);
             }
-            p.add_assumption(prop.with_negated_goal(counter), Truthiness::Counterfactual);
+            Goal::Solve(value, _) => match p.normalizer.term_from_value(value) {
+                Ok(term) => {
+                    p.solve = Some(term);
+                }
+                Err(NormalizationError(s)) => {
+                    p.error = Some(s);
+                }
+            },
         }
         p
     }
