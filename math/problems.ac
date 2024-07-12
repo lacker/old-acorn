@@ -20,14 +20,15 @@ forall(x: Int) {
     }
 }
 
-// Given that x + 1 = y, solve for x.
+// Given that y - x = 1, solve for x, then for y.
 forall(x: Int, y: Int) {
-    if x + 1 = y {
+    if y - x = 1 {
         solve x by {
-            x = y - 1
+            x + 1 = y
+            // x = y - 1
         }
         solve y by {
-            
+            y = x + 1
         }
     }
-}
+} 
