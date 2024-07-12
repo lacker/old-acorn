@@ -400,7 +400,7 @@ impl Project {
                         message.push_str(&format!(": {}", e));
                     }
                     let diagnostic = Diagnostic {
-                        range: goal_context.range,
+                        range: goal_context.goal.range(),
                         severity,
                         message: message.clone(),
                         ..Diagnostic::default()

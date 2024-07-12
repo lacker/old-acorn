@@ -1405,14 +1405,12 @@ impl Environment {
                 format!("solve {}", value_str)
             }
         };
-        let range = goal.range();
         GoalContext::new(
             &self,
             global_facts,
             local_facts,
             name,
             goal,
-            range,
             proof_insertion_line,
         )
     }

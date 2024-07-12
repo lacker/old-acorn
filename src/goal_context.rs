@@ -51,9 +51,6 @@ pub struct GoalContext<'a> {
     // The goal itself.
     pub goal: Goal,
 
-    // The range in the source document corresponding to this goal.
-    pub range: Range,
-
     // The zero-based line where we would insert a proof for this goal.
     // None if we do not want to insert a proof for this goal.
     // Logically, we think of it as inserting at the beginning of the line.
@@ -68,7 +65,6 @@ impl GoalContext<'_> {
         local_facts: Vec<Proposition>,
         name: String,
         goal: Goal,
-        range: Range,
         proof_insertion_line: u32,
     ) -> GoalContext {
         GoalContext {
@@ -77,7 +73,6 @@ impl GoalContext<'_> {
             local_facts,
             name,
             goal,
-            range,
             proof_insertion_line,
         }
     }
