@@ -2,3 +2,4 @@
 --ignore-dir=out
 --ignore-dir=dist
 --ignore-file=match:/[.]svg$
+--ignore-dir=target

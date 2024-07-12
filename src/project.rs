@@ -180,7 +180,8 @@ impl Project {
         answer
     }
 
-    pub fn add_target_file(&mut self, path: &Path) -> bool {
+    // Returns whether it loaded okay.
+    fn add_target_file(&mut self, path: &Path) -> bool {
         let module_name = self.module_name_from_path(path).unwrap();
         self.add_target(&module_name)
     }
@@ -194,7 +195,7 @@ impl Project {
             if entry.file_type().is_file() {
                 let path = entry.path();
 
-                // TODO: remove this when problems works
+                // TODO: remove this when we want to check problems
                 // Skip the file if it has the word "problems" in it
                 if path.to_str().unwrap().contains("problems") {
                     continue;
@@ -224,13 +225,18 @@ impl Project {
     // Updating a file makes us treat it as "open". When a file is open, we use the
     // content in memory for it, rather than the content on disk.
     // Updated files are also added as build targets.
-    pub fn update_file(&mut self, path: PathBuf, content: &str, version: i32) {
+    pub fn update_file(
+        &mut self,
+        path: PathBuf,
+        content: &str,
+        version: i32,
+    ) -> Result<(), LoadError> {
         if self.has_version(&path, version) {
             // No need to do anything
-            return;
+            return Ok(());
         }
         // TODO: handle files that are opened outside of the project
-        let module_name = self.module_name_from_path(&path).unwrap();
+        let module_name = self.module_name_from_path(&path)?;
         let mut reload_modules = vec![module_name];
         if self.open_files.contains_key(&path) {
             // We're changing the value of an existing file. This could invalidate
@@ -246,21 +252,23 @@ impl Project {
         for module_name in &reload_modules {
             self.add_target(module_name);
         }
+        Ok(())
     }
 
-    pub fn close_file(&mut self, path: PathBuf) {
+    pub fn close_file(&mut self, path: PathBuf) -> Result<(), LoadError> {
         if !self.open_files.contains_key(&path) {
             // No need to do anything
-            return;
+            return Ok(());
         }
         self.open_files.remove(&path);
-        let module_name = self.module_name_from_path(&path).unwrap();
+        let module_name = self.module_name_from_path(&path)?;
         self.drop_modules();
         self.targets.remove(&module_name);
         let targets = self.targets.clone();
         for target in targets {
             self.add_target(&target);
         }
+        Ok(())
     }
 
     // Builds all open modules, and calls the event handler on any build events.
@@ -451,7 +459,8 @@ impl Project {
     #[cfg(test)]
     pub fn mock(&mut self, filename: &str, content: &str) {
         assert!(!self.use_filesystem);
-        self.update_file(PathBuf::from(filename), content, 0);
+        self.update_file(PathBuf::from(filename), content, 0)
+            .expect("mock file update failed");
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {

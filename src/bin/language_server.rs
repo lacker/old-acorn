@@ -378,7 +378,10 @@ impl Backend {
             path.display(),
             document.text.len()
         ));
-        project.update_file(path, &document.text, document.version);
+        match project.update_file(path, &document.text, document.version) {
+            Ok(()) => {}
+            Err(e) => log(&format!("update failed: {:?}", e)),
+        }
     }
 
     fn search_fail(&self, params: SearchParams, message: &str) -> jsonrpc::Result<SearchResponse> {
@@ -670,7 +673,10 @@ impl LanguageServer for Backend {
         }
         self.documents.remove(&uri);
         let mut project = self.stop_build_and_get_project().await;
-        project.close_file(uri.to_file_path().unwrap());
+        match project.close_file(uri.to_file_path().unwrap()) {
+            Ok(()) => {}
+            Err(e) => log(&format!("close failed: {:?}", e)),
+        }
     }
 
     async fn shutdown(&self) -> jsonrpc::Result<()> {
