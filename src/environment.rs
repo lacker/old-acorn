@@ -201,7 +201,7 @@ enum BlockParams<'a> {
     // No special params needed
     ForAll,
 
-    // The expression to solve for
+    // The expression to solve for.
     Solve(AcornValue),
 }
 
@@ -1251,24 +1251,29 @@ impl Environment {
 
             StatementInfo::Solve(ss) => {
                 let target = self.bindings.evaluate_value(project, &ss.target, None)?;
-                let block = self.new_block(
+                let mut block = self.new_block(
                     project,
                     vec![],
                     vec![],
-                    BlockParams::Solve(target),
+                    BlockParams::Solve(target.clone()),
                     statement.first_line(),
                     statement.last_line(),
                     Some(&ss.body),
                 )?;
 
                 let (outer_claim, range) = block.export_last_claim(self, &ss.body.right_brace)?;
+                let prop = if outer_claim.solves(&target) {
+                    block.goal = None;
+                    Proposition::anonymous(outer_claim, self.module_id, range)
+                } else {
+                    // The block doesn't contain a solution.
+                    // So, it has no claim that can be exported. It doesn't really make sense
+                    // to export whatever the last proposition is.
+                    // A lot of code expects something, though, so put a vacuous "true" in here.
+                    Proposition::anonymous(AcornValue::Bool(true), self.module_id, range)
+                };
 
-                let index = self.add_proposition(
-                    project,
-                    false,
-                    Proposition::anonymous(outer_claim, self.module_id, range),
-                    Some(block),
-                );
+                let index = self.add_proposition(project, false, prop, Some(block));
                 self.add_prop_lines(index, statement);
                 Ok(())
             }
