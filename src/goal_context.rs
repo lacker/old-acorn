@@ -10,7 +10,7 @@ use crate::environment::Environment;
 use crate::module::ModuleId;
 use crate::proposition::Proposition;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Goal {
     // Prove that this proposition is true.
     Prove(Proposition),

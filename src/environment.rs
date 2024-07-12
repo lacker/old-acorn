@@ -222,8 +222,8 @@ enum BlockParams<'a> {
     // No special params needed
     ForAll,
 
-    // The expression to solve for.
-    Solve(AcornValue),
+    // The expression to solve for, and the range of the "solve <target>" component.
+    Solve(AcornValue, Range),
 }
 
 impl Environment {
@@ -402,7 +402,8 @@ impl Environment {
                     theorem_name.to_string(),
                 )))
             }
-            BlockParams::ForAll | BlockParams::Solve(_) => None,
+            BlockParams::ForAll => None,
+            BlockParams::Solve(target, range) => Some(Goal::Solve(target, range)),
         };
 
         match body {
@@ -1272,20 +1273,25 @@ impl Environment {
 
             StatementInfo::Solve(ss) => {
                 let target = self.bindings.evaluate_value(project, &ss.target, None)?;
+                let solve_range = Range {
+                    start: statement.first_token.start_pos(),
+                    end: ss.target.last_token().end_pos(),
+                };
+
                 let mut block = self.new_block(
                     project,
                     vec![],
                     vec![],
-                    BlockParams::Solve(target.clone()),
+                    BlockParams::Solve(target.clone(), solve_range),
                     statement.first_line(),
                     statement.last_line(),
                     Some(&ss.body),
                 )?;
 
                 let prop = match block.solves(self, &target) {
-                    Some((outer_claim, range)) => {
+                    Some((outer_claim, claim_range)) => {
                         block.goal = None;
-                        Proposition::anonymous(outer_claim, self.module_id, range)
+                        Proposition::anonymous(outer_claim, self.module_id, claim_range)
                     }
                     None => {
                         // The block doesn't contain a solution.
@@ -1371,7 +1377,6 @@ impl Environment {
                 let mut subpaths = block.env.goal_paths_helper(&path);
                 paths.append(&mut subpaths);
                 if block.goal.is_some() {
-                    // This block has a claim that also needs to be proved
                     paths.push(path);
                 }
             } else {
