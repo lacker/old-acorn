@@ -1355,12 +1355,6 @@ impl Environment {
         self.get_paths(&vec![], false)
     }
 
-    // Like goal_paths but also includes the paths to props with no goal, like
-    // "if" or "define" statements.
-    pub fn prop_paths(&self) -> Vec<Vec<usize>> {
-        self.get_paths(&vec![], true)
-    }
-
     // Find all paths from this environment, prepending 'prepend' to each path.
     // allow_proven controls whether we include propositions that have already been proven.
     fn get_paths(&self, prepend: &Vec<usize>, allow_proven: bool) -> Vec<Vec<usize>> {
