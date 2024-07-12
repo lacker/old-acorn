@@ -80,7 +80,6 @@ pub struct BuildEvent {
     pub is_slow_warning: bool,
 
     // Whenever we run into a problem, report the module name, plus the diagnostic itself.
-    // XXX
     pub diagnostic: Option<(String, Option<Diagnostic>)>,
 }
 
@@ -965,5 +964,14 @@ mod tests {
         p.expect_ok("main");
         p.check_code("main", "x");
         p.check_code("main", "y");
+    }
+
+    #[test]
+    fn test_build_catches_unsolved_solve_blocks() {
+        let mut p = Project::new_mock();
+        p.mock("/mock/main.ac", "solve false by {\n}");
+        p.expect_ok("main");
+
+        // TODO: check that the build gives a warning
     }
 }
