@@ -508,11 +508,11 @@ impl Prover {
         self.search_for_contradiction(10000, 0.1, false)
     }
 
-    // Search to see if this goal can be satisfied in "checking mode".
-    // A checkable goal is one that we consider okay to leave in code as is.
+    // Search to see if this goal can be satisfied using "basic" reasoning.
+    // Basic reasoning is reasoning that we consider okay to leave implicit in the code.
     // The time-based limit is set high enough so that hopefully it will not apply,
     // because we want the standard to be deterministic.
-    pub fn check_search(&mut self) -> Outcome {
+    pub fn basic_search(&mut self) -> Outcome {
         self.search_for_contradiction(3000, 4.0, true)
     }
 
