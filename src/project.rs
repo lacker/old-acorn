@@ -103,11 +103,24 @@ fn new_modules() -> Vec<(Option<String>, Module)> {
 }
 
 fn check_valid_module_part(s: &str, error_name: &str) -> Result<(), LoadError> {
-    if s.is_empty() || !s.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
-        Err(LoadError(format!("invalid module name: {}", error_name)))
-    } else {
-        Ok(())
+    if s.is_empty() {
+        return Err(LoadError(format!("empty module part: {}", error_name)));
     }
+    if !s.chars().next().unwrap().is_ascii_lowercase() {
+        return Err(LoadError(format!(
+            "module parts must start with a lowercase letter: {}",
+            error_name
+        )));
+    }
+    for char in s.chars() {
+        if !char.is_ascii_alphanumeric() && char != '_' {
+            return Err(LoadError(format!(
+                "invalid character in module name: '{}' in {}",
+                char, error_name
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn duration_as_f64_secs(duration: Duration) -> f64 {

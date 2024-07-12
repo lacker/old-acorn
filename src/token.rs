@@ -534,7 +534,6 @@ impl Token {
                         }
                         None => TokenType::Slash,
                     },
-                    // TODO: uncomment this block once it works
                     t if t.is_ascii_digit() => {
                         loop {
                             match char_indices.peek() {
