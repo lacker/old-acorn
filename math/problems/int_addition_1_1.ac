@@ -1,0 +1,49 @@
+from int import Int
+default Int
+
+// One-digit integer addition problems.
+
+problem {
+    solve 0 + 0 by {
+    }
+}
+
+problem {
+    solve 0 + 1 by {
+    }
+}
+
+problem {
+    solve 1 + 0 by {
+    }
+}
+
+problem {
+    solve 1 + 1 by {
+    }
+}
+
+problem {
+    solve 0 + 2 by {
+    }
+}
+
+problem {
+    solve 2 + 0 by {
+    }
+}
+
+problem {
+    solve 1 + 2 by {
+    }
+}
+
+problem {
+    solve 2 + 1 by {
+    }
+}
+
+problem {
+    solve 2 + 2 by {
+    }
+}
