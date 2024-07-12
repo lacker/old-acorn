@@ -1346,21 +1346,20 @@ impl Environment {
         panic!("no top-level theorem named {}", theorem_name);
     }
 
-    // The "path" to a proposition is a list of indices to recursively go into env.propositions.
-    // This returns a path for all non-axiomatic propositions within this environment,
+    // The "path" to a goal is a list of indices to recursively go into env.nodes.
+    // This returns a path for all nodes that correspond to a goal within this environment,
     // or subenvironments, recursively.
-    // The order is "proving order", ie the propositions inside the block are proved before the
-    // root proposition of a block.
+    // The order is "proving order", ie the goals inside the block are proved before the
+    // root goal of a block.
     pub fn goal_paths(&self) -> Vec<Vec<usize>> {
-        self.get_paths(&vec![], false)
+        self.goal_paths_helper(&vec![])
     }
 
-    // Find all paths from this environment, prepending 'prepend' to each path.
-    // allow_proven controls whether we include propositions that have already been proven.
-    fn get_paths(&self, prepend: &Vec<usize>, allow_proven: bool) -> Vec<Vec<usize>> {
+    // Find all goal paths from this environment, prepending 'prepend' to each path.
+    fn goal_paths_helper(&self, prepend: &Vec<usize>) -> Vec<Vec<usize>> {
         let mut paths = Vec::new();
         for (i, prop) in self.nodes.iter().enumerate() {
-            if prop.structural && !allow_proven {
+            if prop.structural {
                 continue;
             }
             let path = {
@@ -1369,7 +1368,7 @@ impl Environment {
                 path
             };
             if let Some(block) = &prop.block {
-                let mut subpaths = block.env.get_paths(&path, allow_proven);
+                let mut subpaths = block.env.goal_paths_helper(&path);
                 paths.append(&mut subpaths);
                 if block.goal.is_some() {
                     // This block has a claim that also needs to be proved
