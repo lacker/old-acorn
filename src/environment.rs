@@ -2810,4 +2810,18 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             "#,
         );
     }
+
+    #[test]
+    fn test_solve_block_has_a_goal_path() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            let b: Bool = true | false
+            solve b by {
+            }
+            "#,
+        );
+        let goal_paths = env.goal_paths();
+        assert_eq!(goal_paths.len(), 1);
+    }
 }
