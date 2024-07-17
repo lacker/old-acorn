@@ -905,8 +905,8 @@ mod tests {
         p.check_code("main", "stuff.thing2");
     }
 
-    #[tokio::test]
-    async fn test_building_project() {
+    #[test]
+    fn test_building_project() {
         let mut p = Project::new_mock();
         p.mock("/mock/foo.ac", FOO_AC);
         p.mock(
