@@ -7,6 +7,7 @@
 
 const USAGE: &str = "cargo run --release --bin=search <module name> <line number>";
 
+use acorn::interfaces::SearchStatus;
 use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
 
@@ -35,46 +36,53 @@ async fn main() {
     let goal_context = env.get_goal_context(&path).unwrap();
     println!("proving {} ...", goal_context.name);
     let mut prover = Prover::new(&project, &goal_context, false);
-    let outcome = prover.slow_search();
 
-    match outcome {
-        Outcome::Success => {
-            println!("Success!");
-            prover.print_proof();
-            let proof = prover.get_proof().unwrap();
-            match proof.to_code(&env.bindings) {
-                Ok(code) => {
-                    println!("\ngenerated code:\n");
-                    for line in &code {
-                        println!("{}", line);
+    loop {
+        let outcome = prover.partial_search();
+
+        match outcome {
+            Outcome::Success => {
+                println!("Success!");
+                prover.print_proof();
+                let proof = prover.get_proof().unwrap();
+                match proof.to_code(&env.bindings) {
+                    Ok(code) => {
+                        println!("\ngenerated code:\n");
+                        for line in &code {
+                            println!("{}", line);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("\nerror generating code: {}", e);
                     }
                 }
-                Err(e) => {
-                    eprintln!("\nerror generating code: {}", e);
-                }
+            }
+            Outcome::Inconsistent => {
+                println!("Found inconsistency!");
+                prover.print_proof();
+            }
+            Outcome::Exhausted => {
+                println!("All possibilities have been exhausted.");
+            }
+            Outcome::Timeout => {
+                let status = SearchStatus::no_proof(&prover);
+                println!("activated {} steps", status.num_activated);
+                continue;
+            }
+            Outcome::Interrupted => {
+                println!("Interrupted.");
+            }
+            Outcome::Constrained => {
+                println!("Constrained.");
+            }
+            Outcome::Error => {
+                println!(
+                    "Error: {}",
+                    prover.error.unwrap_or("unknown error".to_string())
+                );
             }
         }
-        Outcome::Inconsistent => {
-            println!("Found inconsistency!");
-            prover.print_proof();
-        }
-        Outcome::Exhausted => {
-            println!("All possibilities have been exhausted.");
-        }
-        Outcome::Timeout => {
-            println!("Timeout.");
-        }
-        Outcome::Interrupted => {
-            println!("Interrupted.");
-        }
-        Outcome::Constrained => {
-            println!("Constrained.");
-        }
-        Outcome::Error => {
-            println!(
-                "Error: {}",
-                prover.error.unwrap_or("unknown error".to_string())
-            );
-        }
+
+        break;
     }
 }
