@@ -516,11 +516,6 @@ impl Prover {
         self.search_for_contradiction(3000, 4.0, true)
     }
 
-    // A single slow search, intended for debugging.
-    pub fn slow_search(&mut self) -> Outcome {
-        self.search_for_contradiction(5000, 5.0, false)
-    }
-
     // A single fast search, intended for most unit testing.
     pub fn quick_search(&mut self) -> Outcome {
         self.search_for_contradiction(500, 0.05, false)
