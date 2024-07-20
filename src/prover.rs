@@ -371,6 +371,7 @@ impl Prover {
         self.print_proof_step("final step: ", final_step);
     }
 
+    // Returns a condensed proof, if we have a proof.
     pub fn get_proof(&self) -> Option<Proof> {
         let final_step = if let Some((final_step, _)) = &self.result {
             final_step
@@ -378,7 +379,7 @@ impl Prover {
             return None;
         };
         let indices = self.active_set.find_upstream(&final_step);
-        Some(Proof::new(
+        Some(Proof::new_condensed(
             &self.normalizer,
             indices
                 .iter()

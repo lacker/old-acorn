@@ -226,7 +226,9 @@ impl<'a> Proof<'a> {
         proof
     }
 
-    pub fn new<'b>(
+    // Creates a new proof, condensing the proof graph.
+    // Condensing removes steps that would be found by a basic proof search.
+    pub fn new_condensed<'b>(
         normalizer: &'a Normalizer,
         steps: impl Iterator<Item = (usize, &'a ProofStep)>,
     ) -> Proof<'a> {
