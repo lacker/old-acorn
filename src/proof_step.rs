@@ -166,7 +166,6 @@ pub struct ProofStep {
     // The size includes this proof step itself, but does not count assumptions and definitions.
     // So the size for any assumption or definition is zero.
     // This does not deduplicate among different branches, so it may be an overestimate.
-    // This also ignores rewrites, which may or may not be the ideal behavior.
     proof_size: u32,
 
     // Whether this proof step is considered "cheap".

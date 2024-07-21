@@ -23,8 +23,8 @@ pub struct Justification {
     // one site of the inequality into the other.
     pub inequality_id: StepId,
 
-    // The rewrites that turn one side of the inequality into the other, in no particular order.
-    pub rewrite_chain: Vec<(Term, Term, Option<StepId>)>,
+    // The rewrites that turn one side of the inequality into the other.
+    pub rewrite_chain: Vec<(Term, Term, StepId)>,
 }
 
 impl Justification {
@@ -33,7 +33,7 @@ impl Justification {
         let mut answer = self
             .rewrite_chain
             .iter()
-            .filter_map(|(_, _, step)| *step)
+            .map(|(_, _, step)| *step)
             .collect::<Vec<_>>();
         answer.sort();
         answer.dedup();
@@ -562,12 +562,9 @@ impl TermGraph {
     // id of the rule that enabled it, if there is one.
     // This is "postorder" in the sense that we show a rewritten compound term after showing
     // the rewrites for the subterms.
-    fn expand_steps(
-        &self,
-        term1: TermId,
-        term2: TermId,
-        output: &mut Vec<(Term, Term, Option<StepId>)>,
-    ) {
+    // The compound rewrites have a step id of None.
+    // The rewritten subterms have a step id with the rule that they are based on.
+    fn expand_steps(&self, term1: TermId, term2: TermId, output: &mut Vec<(Term, Term, StepId)>) {
         if term1 == term2 {
             return;
         }
@@ -586,7 +583,10 @@ impl TermGraph {
 
             let term_a = self.get_term(a_id);
             let term_b = self.get_term(b_id);
-            output.push((term_a.clone(), term_b.clone(), step));
+
+            if let Some(step) = step {
+                output.push((term_a.clone(), term_b.clone(), step));
+            }
         }
     }
 

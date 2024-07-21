@@ -300,9 +300,7 @@ impl Prover {
             Rule::TermGraph(justification) => {
                 answer.push(("inequality".to_string(), Some(justification.inequality_id)));
                 for (term1, term2, step_id) in &justification.rewrite_chain {
-                    if let Some(step_id) = step_id {
-                        answer.push(("pattern".to_string(), Some(*step_id)));
-                    }
+                    answer.push(("pattern".to_string(), Some(*step_id)));
                     answer.push((
                         format!(
                             "{} => {}",
