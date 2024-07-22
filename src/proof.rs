@@ -178,7 +178,7 @@ impl<'a> Proof<'a> {
     ) -> Proof<'a> {
         let mut proof = Proof {
             normalizer,
-            original_steps: steps.collect(),
+            original_steps: vec![],
             nodes: vec![],
             condensed: false,
         };
@@ -196,8 +196,8 @@ impl<'a> Proof<'a> {
         // Maps clause id to node id.
         let mut id_map = HashMap::new();
 
-        for (clause_id, step) in &proof.original_steps {
-            let value = if *clause_id != FINAL_STEP {
+        for (clause_id, step) in steps {
+            let value = if clause_id != FINAL_STEP {
                 NodeValue::Clause(&step.clause)
             } else {
                 NodeValue::Contradiction
@@ -225,6 +225,7 @@ impl<'a> Proof<'a> {
             }
 
             id_map.insert(clause_id, node_id);
+            proof.original_steps.push((clause_id, step));
         }
 
         proof
