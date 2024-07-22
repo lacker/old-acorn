@@ -377,13 +377,15 @@ impl Prover {
             return None;
         };
         let indices = self.active_set.find_upstream(&final_step);
-        Some(Proof::new_condensed(
+        let mut proof = Proof::new_uncondensed(
             &self.normalizer,
             indices
                 .iter()
                 .map(|&i| (i, self.active_set.get_step(i)))
                 .chain(std::iter::once((FINAL_STEP, final_step))),
-        ))
+        );
+        proof.condense();
+        Some(proof)
     }
 
     // Handle the case when we found a contradiction

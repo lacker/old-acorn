@@ -137,6 +137,9 @@ pub struct Proof<'a> {
     // Nodes that get removed from the proof are not removed from this vector.
     // Instead, they are modified to have no content, with nothing depending on them.
     nodes: Vec<ProofNode<'a>>,
+
+    // Whether we have called condense().
+    condensed: bool,
 }
 
 fn remove_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
@@ -169,7 +172,7 @@ fn move_sources_and_premises(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeI
 impl<'a> Proof<'a> {
     // Creates a new proof, without condensing the proof graph.
     // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
-    fn new_uncondensed<'b>(
+    pub fn new_uncondensed<'b>(
         normalizer: &'a Normalizer,
         steps: impl Iterator<Item = (usize, &'a ProofStep)>,
     ) -> Proof<'a> {
@@ -177,6 +180,7 @@ impl<'a> Proof<'a> {
             normalizer,
             steps: steps.collect(),
             nodes: vec![],
+            condensed: false,
         };
 
         let negated_goal = ProofNode {
@@ -223,17 +227,6 @@ impl<'a> Proof<'a> {
             id_map.insert(clause_id, node_id);
         }
 
-        proof
-    }
-
-    // Creates a new proof, condensing the proof graph.
-    // Condensing removes steps that would be found by a basic proof search.
-    pub fn new_condensed<'b>(
-        normalizer: &'a Normalizer,
-        steps: impl Iterator<Item = (usize, &'a ProofStep)>,
-    ) -> Proof<'a> {
-        let mut proof = Proof::new_uncondensed(normalizer, steps);
-        proof.condense();
         proof
     }
 
@@ -487,11 +480,14 @@ impl<'a> Proof<'a> {
     }
 
     // Reduce the graph as much as possible.
-    fn condense(&mut self) {
+    // Call just once.
+    pub fn condense(&mut self) {
+        assert!(!self.condensed);
         self.remove_ugly();
         self.remove_cheap();
         self.contract_indirect();
         self.remove_conditional(0);
+        self.condensed = true;
     }
 
     // Finds the contradiction that this node eventually leads to.
