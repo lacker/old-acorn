@@ -108,7 +108,7 @@ impl Rule {
             | Rule::EqualityResolution(rewritten)
             | Rule::FunctionElimination(rewritten) => vec![*rewritten],
             Rule::TermGraph(justification) => {
-                let mut premises = justification.rewrite_steps();
+                let mut premises = justification.rewrite_step_ids();
                 premises.push(justification.inequality_id);
                 premises
             }

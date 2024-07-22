@@ -28,8 +28,8 @@ pub struct Justification {
 }
 
 impl Justification {
-    // All steps used in the rewrite chain
-    pub fn rewrite_steps(&self) -> Vec<StepId> {
+    // The ids for all steps used in the rewrite chain
+    pub fn rewrite_step_ids(&self) -> Vec<StepId> {
         let mut answer = self
             .rewrite_chain
             .iter()
