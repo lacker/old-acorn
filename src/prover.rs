@@ -628,8 +628,8 @@ impl Prover {
 
     pub fn to_proof_info(&self, project: &Project, proof: &Proof) -> Vec<ProofStepInfo> {
         let mut result = vec![];
-        for (&i, step) in proof.steps.iter() {
-            let id = if i == FINAL_STEP { None } else { Some(i) };
+        for (i, step) in &proof.original_steps {
+            let id = if *i == FINAL_STEP { None } else { Some(*i) };
             result.push(self.to_proof_step_info(project, id, step));
         }
         result

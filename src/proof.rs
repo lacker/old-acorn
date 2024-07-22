@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use crate::binding_map::BindingMap;
@@ -126,9 +126,9 @@ impl<'a> ProofNode<'a> {
 pub struct Proof<'a> {
     normalizer: &'a Normalizer,
 
-    // Maps clause id to proof step that proves it.
-    // The final step should be included, with id FINAL_STEP.
-    pub steps: BTreeMap<usize, &'a ProofStep>,
+    // The original steps of the proof, before it was condensed.
+    // The usize is the id in the active set, or FINAL_STEP if it's the last one.
+    pub original_steps: Vec<(usize, &'a ProofStep)>,
 
     // The graph representation of the proof.
     // Nodes are indexed by node id.
@@ -178,7 +178,7 @@ impl<'a> Proof<'a> {
     ) -> Proof<'a> {
         let mut proof = Proof {
             normalizer,
-            steps: steps.collect(),
+            original_steps: steps.collect(),
             nodes: vec![],
             condensed: false,
         };
@@ -196,8 +196,8 @@ impl<'a> Proof<'a> {
         // Maps clause id to node id.
         let mut id_map = HashMap::new();
 
-        for (&clause_id, &step) in &proof.steps {
-            let value = if clause_id != FINAL_STEP {
+        for (clause_id, step) in &proof.original_steps {
+            let value = if *clause_id != FINAL_STEP {
                 NodeValue::Clause(&step.clause)
             } else {
                 NodeValue::Contradiction
