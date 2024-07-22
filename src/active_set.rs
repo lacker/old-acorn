@@ -281,6 +281,7 @@ impl ActiveSet {
                         let id2 = self.graph.insert_term(&rewrite.term);
                         self.add_to_term_graph(
                             rewrite.pattern_id,
+                            false,
                             &target_step,
                             id1,
                             id2,
@@ -404,7 +405,7 @@ impl ActiveSet {
                 // Add this rewrite to the term graph.
                 let id1 = self.graph.insert_term(&subterm);
                 let id2 = self.graph.insert_term(&new_subterm);
-                self.add_to_term_graph(pattern_id, pattern_step, id1, id2, true, output);
+                self.add_to_term_graph(pattern_id, false, pattern_step, id1, id2, true, output);
 
                 self.subterms[subterm_id].rewrites.push(Rewrite {
                     pattern_id,
@@ -697,6 +698,7 @@ impl ActiveSet {
     fn add_to_term_graph(
         &mut self,
         pattern_id: usize,
+        pattern_exact: bool,
         activated_step: &ProofStep,
         term1: TermId,
         term2: TermId,
@@ -704,8 +706,10 @@ impl ActiveSet {
         output: &mut Vec<ProofStep>,
     ) {
         if equal {
-            self.graph.set_terms_equal(term1, term2, pattern_id);
+            self.graph
+                .set_terms_equal(term1, term2, pattern_id, pattern_exact);
         } else {
+            assert!(pattern_exact);
             self.graph.set_terms_not_equal(term1, term2, pattern_id);
         }
         if let Some(justification) = self.graph.justify_contradiction() {
@@ -730,6 +734,7 @@ impl ActiveSet {
 
             self.add_to_term_graph(
                 activated_id,
+                true,
                 activated_step,
                 left,
                 right,

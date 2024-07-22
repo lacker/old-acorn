@@ -14,26 +14,36 @@ pub type TermId = u32;
 // The term graph uses it to provide a history of the reasoning that led to a conclusion.
 type StepId = usize;
 
+// The rationale for a single rewrite step.
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Ord, PartialOrd)]
+pub struct RewriteStep {
+    // The external id of the rule used for this rewrite.
+    pub id: StepId,
+
+    // Whether this concrete rewrite is based on the rule exactly, or a specialization of it.
+    pub exact: bool,
+}
+
 // The goal of the TermGraph is to find a contradiction.
 // When we do, we need to explain to the outside world why this is actually a contradiction.
-// The Justification encodes this.
+// The Contradiction encodes this.
 #[derive(Debug, Eq, PartialEq)]
-pub struct Justification {
+pub struct Contradiction {
     // Every contradiction is based on one inequality, plus a set of rewrites that turn
     // one site of the inequality into the other.
     pub inequality_id: StepId,
 
     // The rewrites that turn one side of the inequality into the other.
-    pub rewrite_chain: Vec<(Term, Term, StepId)>,
+    pub rewrite_chain: Vec<(Term, Term, RewriteStep)>,
 }
 
-impl Justification {
+impl Contradiction {
     // The ids for all steps used in the rewrite chain
     pub fn rewrite_step_ids(&self) -> Vec<StepId> {
         let mut answer = self
             .rewrite_chain
             .iter()
-            .map(|(_, _, step)| *step)
+            .map(|(_, _, step)| step.id)
             .collect::<Vec<_>>();
         answer.sort();
         answer.dedup();
@@ -58,7 +68,7 @@ struct TermInfo {
 
     // The terms that this one can be directly turned into.
     // When the step id is not provided, we concluded it from composition.
-    adjacent: Vec<(TermId, Option<StepId>)>,
+    adjacent: Vec<(TermId, Option<RewriteStep>)>,
 }
 
 // Each term belongs to a group.
@@ -172,7 +182,7 @@ pub struct TermGraph {
     decompositions: HashMap<Decomposition, TermId>,
 
     // Pairs of terms that we have discovered are identical
-    pending: Vec<(TermId, TermId, Option<StepId>)>,
+    pending: Vec<(TermId, TermId, Option<RewriteStep>)>,
 
     // Set when we discover a contradiction.
     // The provided step sets these terms to be unequal. However, the term graph also
@@ -227,11 +237,11 @@ impl TermGraph {
 
     // Used to explain which steps lead to a contradiction.
     // Returns Some((negative_id, positive_ids)), if there is a contradiction.
-    pub fn justify_contradiction(&self) -> Option<Justification> {
+    pub fn justify_contradiction(&self) -> Option<Contradiction> {
         let (term1, term2, inequality_id) = self.contradiction?;
         let mut rewrite_chain = vec![];
         self.expand_steps(term1, term2, &mut rewrite_chain);
-        Some(Justification {
+        Some(Contradiction {
             inequality_id,
             rewrite_chain,
         })
@@ -373,7 +383,7 @@ impl TermGraph {
         old_group: GroupId,
         new_term: TermId,
         new_group: GroupId,
-        step: Option<StepId>,
+        step: Option<RewriteStep>,
     ) {
         let old_info = self.groups[old_group as usize]
             .take()
@@ -465,7 +475,7 @@ impl TermGraph {
     // Set two terms to be equal.
     // Doesn't repeat to find the logical closure.
     // For that, use identify_terms.
-    fn set_terms_equal_once(&mut self, term1: TermId, term2: TermId, step: Option<StepId>) {
+    fn set_terms_equal_once(&mut self, term1: TermId, term2: TermId, step: Option<RewriteStep>) {
         let group1 = self.get_group_id(term1);
         let group2 = self.get_group_id(term2);
         if group1 == group2 {
@@ -483,7 +493,8 @@ impl TermGraph {
         };
     }
 
-    pub fn set_terms_equal(&mut self, term1: TermId, term2: TermId, step: StepId) {
+    pub fn set_terms_equal(&mut self, term1: TermId, term2: TermId, step_id: StepId, exact: bool) {
+        let step = RewriteStep { id: step_id, exact };
         self.pending.push((term1, term2, Some(step)));
         self.process_pending();
     }
@@ -520,8 +531,9 @@ impl TermGraph {
     }
 
     // Gets a step of edges that demonstrate that term1 and term2 are equal.
+    // The step is None if the edge is composite.
     // Panics if there is no path.
-    fn get_path(&self, term1: TermId, term2: TermId) -> Vec<(TermId, TermId, Option<StepId>)> {
+    fn get_path(&self, term1: TermId, term2: TermId) -> Vec<(TermId, TermId, Option<RewriteStep>)> {
         if term1 == term2 {
             return vec![];
         }
@@ -564,7 +576,12 @@ impl TermGraph {
     // the rewrites for the subterms.
     // The compound rewrites have a step id of None.
     // The rewritten subterms have a step id with the rule that they are based on.
-    fn expand_steps(&self, term1: TermId, term2: TermId, output: &mut Vec<(Term, Term, StepId)>) {
+    fn expand_steps(
+        &self,
+        term1: TermId,
+        term2: TermId,
+        output: &mut Vec<(Term, Term, RewriteStep)>,
+    ) {
         if term1 == term2 {
             return;
         }
@@ -590,7 +607,7 @@ impl TermGraph {
         }
     }
 
-    fn get_steps_helper(&self, term1: TermId, term2: TermId, output: &mut BTreeSet<StepId>) {
+    fn get_step_ids_helper(&self, term1: TermId, term2: TermId, output: &mut BTreeSet<StepId>) {
         if term1 == term2 {
             return;
         }
@@ -598,26 +615,26 @@ impl TermGraph {
         for (term_a, term_b, step) in path {
             match step {
                 Some(step) => {
-                    output.insert(step);
+                    output.insert(step.id);
                 }
                 None => {
                     let (head_a, args_a) = self.as_compound(term_a);
                     let (head_b, args_b) = self.as_compound(term_b);
                     assert_eq!(args_a.len(), args_b.len());
-                    self.get_steps_helper(head_a, head_b, output);
+                    self.get_step_ids_helper(head_a, head_b, output);
                     for (arg_a, arg_b) in args_a.iter().zip(args_b.iter()) {
-                        self.get_steps_helper(*arg_a, *arg_b, output);
+                        self.get_step_ids_helper(*arg_a, *arg_b, output);
                     }
                 }
             }
         }
     }
 
-    // Extract a list of steps that we used to prove that these two terms are equal.
+    // Extract a list of steps ids that we used to prove that these two terms are equal.
     // This does deduplicate.
-    pub fn get_steps(&self, term1: TermId, term2: TermId) -> Vec<usize> {
+    pub fn get_step_ids(&self, term1: TermId, term2: TermId) -> Vec<usize> {
         let mut answer = BTreeSet::new();
-        self.get_steps_helper(term1, term2, &mut answer);
+        self.get_step_ids_helper(term1, term2, &mut answer);
         answer.into_iter().collect()
     }
 
@@ -699,8 +716,8 @@ impl TermGraph {
     }
 
     #[cfg(test)]
-    fn set_eq(&mut self, t1: TermId, t2: TermId, step: usize) {
-        self.set_terms_equal(t1, t2, step);
+    fn set_eq(&mut self, t1: TermId, t2: TermId, id: usize) {
+        self.set_terms_equal(t1, t2, id, true);
         self.validate();
         self.assert_eq(t1, t2);
     }
@@ -731,7 +748,7 @@ mod tests {
         g.assert_ne(c2id, c4id);
         g.set_eq(c2id, c4id, 0);
         g.assert_eq(id1, id2);
-        assert_eq!(g.get_steps(id1, id2), vec![0]);
+        assert_eq!(g.get_step_ids(id1, id2), vec![0]);
     }
 
     #[test]
@@ -749,7 +766,7 @@ mod tests {
         g.assert_ne(c3, c4);
         g.set_eq(c3, c4, 1);
         g.assert_eq(term1, term2);
-        assert_eq!(g.get_steps(term1, term2), vec![0, 1]);
+        assert_eq!(g.get_step_ids(term1, term2), vec![0, 1]);
     }
 
     #[test]
@@ -762,7 +779,7 @@ mod tests {
         let c4 = g.get_str("c4");
         g.set_eq(c1, c4, 0);
         g.assert_eq(id1, id2);
-        assert_eq!(g.get_steps(id1, id2), vec![0]);
+        assert_eq!(g.get_step_ids(id1, id2), vec![0]);
     }
 
     #[test]
@@ -780,7 +797,7 @@ mod tests {
         g.set_eq(c3, c4, 3);
         g.set_eq(c0, c3, 4);
         g.show_graph();
-        assert_eq!(g.get_steps(c0, c3), vec![4]);
+        assert_eq!(g.get_step_ids(c0, c3), vec![4]);
     }
 
     #[test]
