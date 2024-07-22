@@ -9,8 +9,15 @@ use crate::normalizer::Normalizer;
 use crate::proof_step::{ProofStep, Rule};
 use crate::proposition::{Source, SourceType};
 
-// A special id to indicate the final step of a proof.
-pub const FINAL_STEP: usize = usize::MAX;
+// The different sorts of proof steps.
+pub enum ProofStepId {
+    // A proof step that exists in the active set.
+    Active(usize),
+
+    // The final step of a proof.
+    // No active id because it never gets inserted into the active set.
+    Final,
+}
 
 // To conveniently manipulate the proof, we store it as a directed graph with its own ids.
 // We need two sorts of ids because as we manipulate the condensed proof, the
@@ -127,8 +134,7 @@ pub struct Proof<'a> {
     normalizer: &'a Normalizer,
 
     // The original steps of the proof, before it was condensed.
-    // The usize is the id in the active set, or FINAL_STEP if it's the last one.
-    pub original_steps: Vec<(usize, &'a ProofStep)>,
+    pub original_steps: Vec<(ProofStepId, &'a ProofStep)>,
 
     // The graph representation of the proof.
     // Nodes are indexed by node id.
@@ -173,12 +179,8 @@ fn move_sources_and_premises(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeI
 }
 
 impl<'a> Proof<'a> {
-    // Creates a new proof, without condensing the proof graph.
-    // Each step in the proof becomes a node in the graph, plus we get an extra node for the goal.
-    pub fn new_uncondensed<'b>(
-        normalizer: &'a Normalizer,
-        steps: impl Iterator<Item = (usize, &'a ProofStep)>,
-    ) -> Proof<'a> {
+    // Creates a new proof, with just one node for the negated goal.
+    pub fn new<'b>(normalizer: &'a Normalizer) -> Proof<'a> {
         let mut proof = Proof {
             normalizer,
             original_steps: vec![],
@@ -197,18 +199,14 @@ impl<'a> Proof<'a> {
         };
         proof.nodes.push(negated_goal);
 
-        for (clause_id, step) in steps {
-            proof.add_step(clause_id, step);
-        }
-
         proof
     }
 
-    pub fn add_step(&mut self, clause_id: usize, step: &'a ProofStep) {
-        let value = if clause_id != FINAL_STEP {
-            NodeValue::Clause(&step.clause)
-        } else {
-            NodeValue::Contradiction
+    // Add a new step, which becomes a node in the graph.
+    pub fn add_step(&mut self, id: ProofStepId, step: &'a ProofStep) {
+        let value = match id {
+            ProofStepId::Active(_) => NodeValue::Clause(&step.clause),
+            ProofStepId::Final => NodeValue::Contradiction,
         };
         let node_id = self.nodes.len() as NodeId;
         self.nodes.push(ProofNode {
@@ -232,8 +230,10 @@ impl<'a> Proof<'a> {
             insert_edge(&mut self.nodes, self.from_active[&i], node_id);
         }
 
-        self.from_active.insert(clause_id, node_id);
-        self.original_steps.push((clause_id, step));
+        if let ProofStepId::Active(clause_id) = id {
+            self.from_active.insert(clause_id, node_id);
+        }
+        self.original_steps.push((id, step));
     }
 
     // Contracts this node if possible.

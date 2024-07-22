@@ -14,7 +14,7 @@ use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::normalizer::{Normalization, NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
-use crate::proof::{Proof, FINAL_STEP};
+use crate::proof::{Proof, ProofStepId};
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::proposition::Proposition;
 use crate::term::Term;
@@ -377,13 +377,12 @@ impl Prover {
             return None;
         };
         let indices = self.active_set.find_upstream(&final_step);
-        let mut proof = Proof::new_uncondensed(
-            &self.normalizer,
-            indices
-                .iter()
-                .map(|&i| (i, self.active_set.get_step(i)))
-                .chain(std::iter::once((FINAL_STEP, final_step))),
-        );
+        let mut proof = Proof::new(&self.normalizer);
+        for i in indices {
+            let step = self.active_set.get_step(i);
+            proof.add_step(ProofStepId::Active(i), step);
+        }
+        proof.add_step(ProofStepId::Final, final_step);
         proof.condense();
         Some(proof)
     }
@@ -628,9 +627,12 @@ impl Prover {
 
     pub fn to_proof_info(&self, project: &Project, proof: &Proof) -> Vec<ProofStepInfo> {
         let mut result = vec![];
-        for (i, step) in &proof.original_steps {
-            let id = if *i == FINAL_STEP { None } else { Some(*i) };
-            result.push(self.to_proof_step_info(project, id, step));
+        for (step_id, step) in &proof.original_steps {
+            let active_id = match step_id {
+                ProofStepId::Active(i) => Some(*i),
+                ProofStepId::Final => None,
+            };
+            result.push(self.to_proof_step_info(project, active_id, step));
         }
         result
     }
