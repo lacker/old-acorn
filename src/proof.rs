@@ -140,6 +140,9 @@ pub struct Proof<'a> {
 
     // Whether we have called condense().
     condensed: bool,
+
+    // A map from ids in the active set to the proof nodes that correspond to them.
+    from_active: HashMap<usize, NodeId>,
 }
 
 fn remove_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
@@ -181,6 +184,7 @@ impl<'a> Proof<'a> {
             original_steps: vec![],
             nodes: vec![],
             condensed: false,
+            from_active: HashMap::new(),
         };
 
         let negated_goal = ProofNode {
@@ -193,42 +197,43 @@ impl<'a> Proof<'a> {
         };
         proof.nodes.push(negated_goal);
 
-        // Maps clause id to node id.
-        let mut id_map = HashMap::new();
-
         for (clause_id, step) in steps {
-            let value = if clause_id != FINAL_STEP {
-                NodeValue::Clause(&step.clause)
-            } else {
-                NodeValue::Contradiction
-            };
-            let node_id = proof.nodes.len() as NodeId;
-            proof.nodes.push(ProofNode {
-                value,
-                negated: false,
-                premises: vec![],
-                consequences: vec![],
-                sources: vec![],
-                depth: step.depth,
-            });
-
-            if let Rule::Assumption(source) = &step.rule {
-                if source.source_type == SourceType::NegatedGoal {
-                    insert_edge(&mut proof.nodes, 0, node_id);
-                } else {
-                    proof.nodes[node_id as usize].sources.push(source);
-                }
-            }
-
-            for i in step.dependencies() {
-                insert_edge(&mut proof.nodes, id_map[&i], node_id);
-            }
-
-            id_map.insert(clause_id, node_id);
-            proof.original_steps.push((clause_id, step));
+            proof.add_step(clause_id, step);
         }
 
         proof
+    }
+
+    pub fn add_step(&mut self, clause_id: usize, step: &'a ProofStep) {
+        let value = if clause_id != FINAL_STEP {
+            NodeValue::Clause(&step.clause)
+        } else {
+            NodeValue::Contradiction
+        };
+        let node_id = self.nodes.len() as NodeId;
+        self.nodes.push(ProofNode {
+            value,
+            negated: false,
+            premises: vec![],
+            consequences: vec![],
+            sources: vec![],
+            depth: step.depth,
+        });
+
+        if let Rule::Assumption(source) = &step.rule {
+            if source.source_type == SourceType::NegatedGoal {
+                insert_edge(&mut self.nodes, 0, node_id);
+            } else {
+                self.nodes[node_id as usize].sources.push(source);
+            }
+        }
+
+        for i in step.dependencies() {
+            insert_edge(&mut self.nodes, self.from_active[&i], node_id);
+        }
+
+        self.from_active.insert(clause_id, node_id);
+        self.original_steps.push((clause_id, step));
     }
 
     // Contracts this node if possible.
