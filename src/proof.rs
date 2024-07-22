@@ -14,6 +14,9 @@ pub enum ProofStepId {
     // A proof step that exists in the active set.
     Active(usize),
 
+    // A proof step that was never activated, but we used it to prove the goal.
+    Implicit,
+
     // The final step of a proof.
     // No active id because it never gets inserted into the active set.
     Final,
@@ -205,9 +208,10 @@ impl<'a> Proof<'a> {
     // Add a new step, which becomes a node in the graph.
     pub fn add_step(&mut self, id: ProofStepId, step: &'a ProofStep) {
         let value = match id {
-            ProofStepId::Active(_) => NodeValue::Clause(&step.clause),
+            ProofStepId::Active(_) | ProofStepId::Implicit => NodeValue::Clause(&step.clause),
             ProofStepId::Final => NodeValue::Contradiction,
         };
+
         let node_id = self.nodes.len() as NodeId;
         self.nodes.push(ProofNode {
             value,

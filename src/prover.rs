@@ -630,7 +630,7 @@ impl Prover {
         for (step_id, step) in &proof.original_steps {
             let active_id = match step_id {
                 ProofStepId::Active(i) => Some(*i),
-                ProofStepId::Final => None,
+                ProofStepId::Final | ProofStepId::Implicit => None,
             };
             result.push(self.to_proof_step_info(project, active_id, step));
         }
