@@ -5,6 +5,7 @@ use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::code_gen_error::CodeGenError;
 use crate::display::DisplayClause;
+use crate::literal::Literal;
 use crate::normalizer::Normalizer;
 use crate::proof_step::{ProofStep, Rule};
 use crate::proposition::{Source, SourceType};
@@ -28,8 +29,8 @@ type NodeId = u32;
 // The NodeValue represents the way the prover found it.
 // It can either be represented by an underlying clause, or be a special case.
 #[derive(Debug)]
-enum NodeValue<'a> {
-    Clause(&'a Clause),
+enum NodeValue {
+    Clause(Clause),
 
     // This node proves a contradiction, ie a "false".
     // It contradicts the hypothesis in the provided node.
@@ -41,7 +42,7 @@ enum NodeValue<'a> {
     NegatedGoal,
 }
 
-impl fmt::Display for NodeValue<'_> {
+impl fmt::Display for NodeValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             NodeValue::Clause(clause) => write!(f, "Clause({})", clause),
@@ -58,7 +59,7 @@ impl fmt::Display for NodeValue<'_> {
 // proof by reduction.
 struct ProofNode<'a> {
     // The value that should be displayed to represent this node in the graph.
-    value: NodeValue<'a>,
+    value: NodeValue,
 
     // Whether the value is negated from its original value when it is part of the proof.
     // When we are proving the goal, we represent it as a negated negated goal.
@@ -207,8 +208,61 @@ impl<'a> Proof<'a> {
 
     // Add a new step, which becomes a node in the graph.
     pub fn add_step(&mut self, id: ProofStepId, step: &'a ProofStep) {
+        if let Rule::TermGraph(contradiction_info) = &step.rule {
+            // A term graph contradiction may require extra nodes, to represent equalities
+            // that are instantiations of general rules.
+            // When we add an extra node for an instantiation, we make the contradiction dependent
+            // on that node instead of the general rule.
+            let mut dependencies = vec![self.from_active[&contradiction_info.inequality_id]];
+            let mut new_clauses = HashSet::new();
+            for (left, right, rewrite_step) in &contradiction_info.rewrite_chain {
+                let rewrite_step_node_id = self.from_active[&rewrite_step.id];
+                if rewrite_step.exact {
+                    // No extra node needed
+                    dependencies.push(rewrite_step_node_id);
+                    continue;
+                }
+
+                // Create a new node for the specific equality used by this rewrite.
+                let literal = Literal::equals(left.clone(), right.clone());
+                let clause = Clause::new(vec![literal]);
+                if new_clauses.contains(&clause) {
+                    // We already created a node for this equality
+                    continue;
+                }
+                new_clauses.insert(clause.clone());
+                let new_node_id = self.nodes.len() as NodeId;
+                self.nodes.push(ProofNode {
+                    value: NodeValue::Clause(clause),
+                    negated: false,
+                    premises: vec![],
+                    consequences: vec![],
+                    sources: vec![],
+                    depth: step.depth,
+                });
+                insert_edge(&mut self.nodes, rewrite_step_node_id, new_node_id);
+                dependencies.push(new_node_id);
+            }
+
+            // Add a node for the term graph contradiction itself.
+            let contradiction_node_id = self.nodes.len() as NodeId;
+            self.nodes.push(ProofNode {
+                value: NodeValue::Contradiction,
+                negated: false,
+                premises: vec![],
+                consequences: vec![],
+                sources: vec![],
+                depth: step.depth,
+            });
+            for dependency in dependencies {
+                insert_edge(&mut self.nodes, dependency, contradiction_node_id);
+            }
+            self.all_steps.push((id, step));
+            return;
+        }
+
         let value = match id {
-            ProofStepId::Active(_) => NodeValue::Clause(&step.clause),
+            ProofStepId::Active(_) => NodeValue::Clause(step.clause.clone()),
             ProofStepId::Final => NodeValue::Contradiction,
         };
 

@@ -1533,8 +1533,9 @@ mod tests {
             "f(zero)",
             &[
                 "if !add_to_zero(zero, b) {",
-                "\tadd(zero, b) = zero",
                 "\tb != zero",
+                "\tadd(zero, b) = b",
+                "\tadd(zero, b) = zero",
                 "\tfalse",
                 "}",
             ],
