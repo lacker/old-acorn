@@ -215,11 +215,14 @@ impl<'a> Proof<'a> {
             // on that node instead of the general rule.
             let mut dependencies = vec![self.from_active[&contradiction_info.inequality_id]];
             let mut new_clauses = HashSet::new();
+            let mut max_depth = 0;
             for (left, right, rewrite_step) in &contradiction_info.rewrite_chain {
                 let rewrite_step_node_id = self.from_active[&rewrite_step.id];
+                let rewrite_step_depth = self.nodes[rewrite_step_node_id as usize].depth;
                 if rewrite_step.exact {
                     // No extra node needed
                     dependencies.push(rewrite_step_node_id);
+                    max_depth = max_depth.max(rewrite_step_depth);
                     continue;
                 }
 
@@ -232,16 +235,18 @@ impl<'a> Proof<'a> {
                 }
                 new_clauses.insert(clause.clone());
                 let new_node_id = self.nodes.len() as NodeId;
+                let new_node_depth = rewrite_step_depth + 1;
                 self.nodes.push(ProofNode {
                     value: NodeValue::Clause(clause),
                     negated: false,
                     premises: vec![],
                     consequences: vec![],
                     sources: vec![],
-                    depth: step.depth,
+                    depth: new_node_depth,
                 });
                 insert_edge(&mut self.nodes, rewrite_step_node_id, new_node_id);
                 dependencies.push(new_node_id);
+                max_depth = max_depth.max(new_node_depth);
             }
 
             // Add a node for the term graph contradiction itself.
@@ -252,7 +257,7 @@ impl<'a> Proof<'a> {
                 premises: vec![],
                 consequences: vec![],
                 sources: vec![],
-                depth: step.depth,
+                depth: max_depth,
             });
             for dependency in dependencies {
                 insert_edge(&mut self.nodes, dependency, contradiction_node_id);

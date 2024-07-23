@@ -279,15 +279,7 @@ impl ActiveSet {
                     let id1 = self.graph.insert_term(&u_subterm);
                     for rewrite in &rewrites {
                         let id2 = self.graph.insert_term(&rewrite.term);
-                        self.add_to_term_graph(
-                            rewrite.pattern_id,
-                            false,
-                            &target_step,
-                            id1,
-                            id2,
-                            true,
-                            output,
-                        );
+                        self.add_to_term_graph(rewrite.pattern_id, false, id1, id2, true, output);
                     }
 
                     // Populate the subterm info.
@@ -405,7 +397,7 @@ impl ActiveSet {
                 // Add this rewrite to the term graph.
                 let id1 = self.graph.insert_term(&subterm);
                 let id2 = self.graph.insert_term(&new_subterm);
-                self.add_to_term_graph(pattern_id, false, pattern_step, id1, id2, true, output);
+                self.add_to_term_graph(pattern_id, false, id1, id2, true, output);
 
                 self.subterms[subterm_id].rewrites.push(Rewrite {
                     pattern_id,
@@ -699,7 +691,6 @@ impl ActiveSet {
         &mut self,
         pattern_id: usize,
         pattern_exact: bool,
-        activated_step: &ProofStep,
         term1: TermId,
         term2: TermId,
         equal: bool,
@@ -713,10 +704,7 @@ impl ActiveSet {
             self.graph.set_terms_not_equal(term1, term2, pattern_id);
         }
         if let Some(justification) = self.graph.justify_contradiction() {
-            output.push(ProofStep::new_term_graph_contradiction(
-                &activated_step,
-                justification,
-            ));
+            output.push(ProofStep::new_term_graph_contradiction(justification));
         }
     }
 
@@ -732,15 +720,7 @@ impl ActiveSet {
             let left = self.graph.insert_term(&literal.left);
             let right = self.graph.insert_term(&literal.right);
 
-            self.add_to_term_graph(
-                activated_id,
-                true,
-                activated_step,
-                left,
-                right,
-                literal.positive,
-                output,
-            );
+            self.add_to_term_graph(activated_id, true, left, right, literal.positive, output);
 
             // The activated step could be rewritten immediately.
             self.activate_rewrite_target(activated_id, &activated_step, output);

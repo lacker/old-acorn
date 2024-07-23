@@ -359,20 +359,18 @@ impl ProofStep {
     }
 
     // A proof step for when the term graph tells us it found a contradiction.
-    // The proof size and depth seem wrong.
-    pub fn new_term_graph_contradiction(
-        last_step: &ProofStep,
-        contradiction: ContradictionInfo,
-    ) -> ProofStep {
+    // We don't really know proof size and depth, so we set them to zero.
+    // The proof graph has to calculate the depth for the nodes it creates.
+    pub fn new_term_graph_contradiction(contradiction: ContradictionInfo) -> ProofStep {
         let rule = Rule::TermGraph(contradiction);
         ProofStep::new(
             Clause::impossible(),
             Truthiness::Counterfactual,
             rule,
             vec![],
-            last_step.proof_size + 1,
+            0,
             true,
-            last_step.depth,
+            0,
         )
     }
 
