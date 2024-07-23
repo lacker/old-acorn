@@ -5,7 +5,7 @@ use crate::clause::Clause;
 use crate::literal::Literal;
 use crate::proposition::{Source, SourceType};
 use crate::term::Term;
-use crate::term_graph::ContradictionInfo;
+use crate::term_graph::TermGraphContradiction;
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
@@ -94,7 +94,7 @@ pub enum Rule {
     // A contradiction found by the term graph.
     // We store the ids of the negative literal (always exactly one) and the positive clauses
     // that were used to generate it.
-    TermGraph(ContradictionInfo),
+    TermGraph(TermGraphContradiction),
 }
 
 impl Rule {
@@ -361,7 +361,7 @@ impl ProofStep {
     // A proof step for when the term graph tells us it found a contradiction.
     // We don't really know proof size and depth, so we set them to zero.
     // The proof graph has to calculate the depth for the nodes it creates.
-    pub fn new_term_graph_contradiction(contradiction: ContradictionInfo) -> ProofStep {
+    pub fn new_term_graph_contradiction(contradiction: TermGraphContradiction) -> ProofStep {
         let rule = Rule::TermGraph(contradiction);
         ProofStep::new(
             Clause::impossible(),

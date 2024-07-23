@@ -507,6 +507,13 @@ impl Prover {
                 self.passive_set.push(simple_step);
             }
         }
+
+        // Regular proofs typically look simpler than term graph proofs, so check them first.
+        if let Some(contradiction) = self.active_set.graph.get_contradiction() {
+            let step = ProofStep::new_term_graph_contradiction(contradiction);
+            return Some(self.report_contradiction(step));
+        }
+
         None
     }
 
@@ -1541,9 +1548,8 @@ mod tests {
             "f(zero)",
             &[
                 "if !add_to_zero(zero, b) {",
-                "\tb != zero",
-                "\tadd(zero, b) = b",
                 "\tadd(zero, b) = zero",
+                "\tb != zero",
                 "\tfalse",
                 "}",
             ],

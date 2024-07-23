@@ -26,9 +26,9 @@ pub struct RewriteStep {
 
 // The goal of the TermGraph is to find a contradiction.
 // When we do, we need to explain to the outside world why this is actually a contradiction.
-// The ContradictionInfo encodes this.
+// The TermGraphContradiction encodes this.
 #[derive(Debug, Eq, PartialEq)]
-pub struct ContradictionInfo {
+pub struct TermGraphContradiction {
     // Every contradiction is based on one inequality, plus a set of rewrites that turn
     // one site of the inequality into the other.
     pub inequality_id: StepId,
@@ -37,7 +37,7 @@ pub struct ContradictionInfo {
     pub rewrite_chain: Vec<(Term, Term, RewriteStep)>,
 }
 
-impl ContradictionInfo {
+impl TermGraphContradiction {
     // The ids for all steps used in the rewrite chain
     pub fn rewrite_step_ids(&self) -> Vec<StepId> {
         let mut answer = self
@@ -236,12 +236,12 @@ impl TermGraph {
     }
 
     // Used to explain which steps lead to a contradiction.
-    // Returns Some((negative_id, positive_ids)), if there is a contradiction.
-    pub fn justify_contradiction(&self) -> Option<ContradictionInfo> {
+    // Returns None if there is no contradiction.
+    pub fn get_contradiction(&self) -> Option<TermGraphContradiction> {
         let (term1, term2, inequality_id) = self.contradiction?;
         let mut rewrite_chain = vec![];
         self.expand_steps(term1, term2, &mut rewrite_chain);
-        Some(ContradictionInfo {
+        Some(TermGraphContradiction {
             inequality_id,
             rewrite_chain,
         })
