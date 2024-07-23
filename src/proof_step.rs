@@ -296,6 +296,26 @@ impl ProofStep {
         )
     }
 
+    // Construct a ProofStep that is a specialization of a general pattern.
+    pub fn new_specialization(
+        general_id: usize,
+        general_step: &ProofStep,
+        clause: Clause,
+    ) -> ProofStep {
+        // Specializations are never cheap, because you can specialize a formula in infinite ways.
+        let cheap = false;
+
+        ProofStep::new(
+            clause,
+            general_step.truthiness,
+            Rule::Specialization(general_id),
+            vec![],
+            general_step.proof_size + 1,
+            cheap,
+            general_step.depth + 1,
+        )
+    }
+
     // Construct a new ProofStep via resolution.
     pub fn new_resolution(
         positive_id: usize,
@@ -391,6 +411,7 @@ impl ProofStep {
             passive_ids,
         });
 
+        // Multiple rewrites themselves are always cheap. It's the specializations that are expensive.
         let cheap = true;
         ProofStep::new(
             Clause::impossible(),

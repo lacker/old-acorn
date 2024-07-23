@@ -368,7 +368,7 @@ impl Prover {
                         format!("clause {}: ", i)
                     }
                 }
-                ProofStepId::Passive(_) => "implied equality: ".to_string(),
+                ProofStepId::Passive(_) => "".to_string(),
                 ProofStepId::Final => "final step: ".to_string(),
             };
             self.print_proof_step(&preface, &step);
@@ -447,10 +447,8 @@ impl Prover {
                 continue;
             }
             new_clauses.insert(clause.clone());
-            let rule = Rule::Specialization(rewrite_info.id);
-            let mut step = ProofStep::new_direct(rewrite_step, rule, clause);
-            step.depth += 1;
-            max_depth = max_depth.max(rewrite_step.depth);
+            let step = ProofStep::new_specialization(rewrite_info.id, rewrite_step, clause);
+            max_depth = max_depth.max(step.depth);
             let passive_id = self.useful_passive.len() as u32;
             self.useful_passive.push(step);
             passive_ids.push(passive_id);
