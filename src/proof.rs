@@ -11,7 +11,7 @@ use crate::proposition::{Source, SourceType};
 
 // The different sorts of proof steps.
 pub enum ProofStepId {
-    // A proof step that exists in the active set.
+    // A proof step that was activated and exists in the active set.
     Active(usize),
 
     // A proof step that was never activated, but we used it to prove the goal.
@@ -136,14 +136,17 @@ impl<'a> ProofNode<'a> {
 pub struct Proof<'a> {
     normalizer: &'a Normalizer,
 
-    // The original steps of the proof, before it was condensed.
-    pub original_steps: Vec<(ProofStepId, &'a ProofStep)>,
+    // Steps of the proof that can be directly verified.
+    // When steps are condensed away, they still exist in all_steps.
+    // all_steps always represents a proof by contradiction, with each step depending only on
+    // previous steps.
+    pub all_steps: Vec<(ProofStepId, &'a ProofStep)>,
 
     // The graph representation of the proof.
     // Nodes are indexed by node id.
     // The goal is always id zero.
     //
-    // Nodes that get removed from the proof are not removed from this vector.
+    // Nodes that get condensed out of the proof are not removed from this vector.
     // Instead, they are modified to have no content, with nothing depending on them.
     nodes: Vec<ProofNode<'a>>,
 
@@ -186,7 +189,7 @@ impl<'a> Proof<'a> {
     pub fn new<'b>(normalizer: &'a Normalizer) -> Proof<'a> {
         let mut proof = Proof {
             normalizer,
-            original_steps: vec![],
+            all_steps: vec![],
             nodes: vec![],
             condensed: false,
             from_active: HashMap::new(),
@@ -237,7 +240,7 @@ impl<'a> Proof<'a> {
         if let ProofStepId::Active(clause_id) = id {
             self.from_active.insert(clause_id, node_id);
         }
-        self.original_steps.push((id, step));
+        self.all_steps.push((id, step));
     }
 
     // Contracts this node if possible.

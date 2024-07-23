@@ -627,7 +627,7 @@ impl Prover {
 
     pub fn to_proof_info(&self, project: &Project, proof: &Proof) -> Vec<ProofStepInfo> {
         let mut result = vec![];
-        for (step_id, step) in &proof.original_steps {
+        for (step_id, step) in &proof.all_steps {
             let active_id = match step_id {
                 ProofStepId::Active(i) => Some(*i),
                 ProofStepId::Final | ProofStepId::Implicit => None,
