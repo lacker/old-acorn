@@ -308,7 +308,7 @@ impl Prover {
             Rule::MultipleRewrite(info) => {
                 answer.push(("inequality".to_string(), Some(info.inequality_id)));
                 for &id in &info.active_ids {
-                    answer.push(("rewrite".to_string(), Some(id)));
+                    answer.push(("equality".to_string(), Some(id)));
                 }
                 // TODO: add passive ids somehow
             }
