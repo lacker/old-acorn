@@ -348,29 +348,33 @@ impl Prover {
     }
 
     pub fn print_proof(&self) {
-        let final_step = if let Some((final_step, _)) = &self.result {
-            final_step
-        } else {
-            println!("we do not have a proof");
-            return;
+        let proof = match self.get_proof() {
+            Some(proof) => proof,
+            None => {
+                println!("we do not have a proof");
+                return;
+            }
         };
+
         println!(
             "in total, we activated {} proof steps.",
             self.active_set.len()
         );
 
-        let indices = self.active_set.find_upstream(&final_step);
-        println!("the proof uses {} steps:", indices.len());
-        for i in indices {
-            let step = self.active_set.get_step(i);
-            let preface = if step.is_negated_goal() {
-                format!("clause {} (negating goal): ", i)
-            } else {
-                format!("clause {}: ", i)
+        println!("the proof uses {} steps:", proof.all_steps.len());
+        for (id, step) in &proof.all_steps {
+            let preface = match id {
+                ProofStepId::Active(i) => {
+                    if step.is_negated_goal() {
+                        format!("clause {} (negating goal): ", i)
+                    } else {
+                        format!("clause {}: ", i)
+                    }
+                }
+                ProofStepId::Final => "final step: ".to_string(),
             };
-            self.print_proof_step(&preface, step);
+            self.print_proof_step(&preface, &step);
         }
-        self.print_proof_step("final step: ", final_step);
     }
 
     // Returns a condensed proof, if we have a proof.
