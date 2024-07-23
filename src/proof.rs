@@ -18,8 +18,8 @@ type NodeId = u32;
 // The NodeValue represents the way the prover found it.
 // It can either be represented by an underlying clause, or be a special case.
 #[derive(Debug)]
-enum NodeValue {
-    Clause(Clause),
+enum NodeValue<'a> {
+    Clause(&'a Clause),
 
     // This node proves a contradiction, ie a "false".
     // It contradicts the hypothesis in the provided node.
@@ -31,7 +31,7 @@ enum NodeValue {
     NegatedGoal,
 }
 
-impl fmt::Display for NodeValue {
+impl fmt::Display for NodeValue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             NodeValue::Clause(clause) => write!(f, "Clause({})", clause),
@@ -48,7 +48,7 @@ impl fmt::Display for NodeValue {
 // proof by reduction.
 struct ProofNode<'a> {
     // The value that should be displayed to represent this node in the graph.
-    value: NodeValue,
+    value: NodeValue<'a>,
 
     // Whether the value is negated from its original value when it is part of the proof.
     // When we are proving the goal, we represent it as a negated negated goal.
@@ -199,9 +199,7 @@ impl<'a> Proof<'a> {
     pub fn add_step(&mut self, id: ProofStepId, step: &'a ProofStep) {
         let value = match id {
             ProofStepId::Final => NodeValue::Contradiction,
-            ProofStepId::Active(_) | ProofStepId::Passive(_) => {
-                NodeValue::Clause(step.clause.clone())
-            }
+            ProofStepId::Active(_) | ProofStepId::Passive(_) => NodeValue::Clause(&step.clause),
         };
 
         let node_id = self.nodes.len() as NodeId;
