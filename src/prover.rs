@@ -18,6 +18,7 @@ use crate::proof::{Proof, ProofStepId};
 use crate::proof_step::{ProofStep, Rule, Truthiness};
 use crate::proposition::Proposition;
 use crate::term::Term;
+use crate::term_graph::TermGraphContradiction;
 
 pub struct Prover {
     // The normalizer is used when we are turning the facts and goals from the environment into
@@ -43,6 +44,9 @@ pub struct Prover {
 
     // The result of the proof search, if there is one.
     result: Option<(ProofStep, Outcome)>,
+
+    // Clauses that we never activated, but we did use to find a contradiction.
+    useful_passive: Vec<ProofStep>,
 
     // Setting any of these flags to true externally will stop the prover.
     pub stop_flags: Vec<Arc<AtomicBool>>,
@@ -111,6 +115,7 @@ impl Prover {
             report_inconsistency: !goal_context.includes_explicit_false(),
             error: None,
             solve: None,
+            useful_passive: vec![],
         };
 
         // Find the relevant facts that should be imported into this environment
@@ -409,6 +414,14 @@ impl Prover {
         outcome
     }
 
+    fn report_term_graph_contradiction(
+        &mut self,
+        contradiction: TermGraphContradiction,
+    ) -> Outcome {
+        let step = ProofStep::new_term_graph_contradiction(contradiction);
+        self.report_contradiction(step)
+    }
+
     // Activates the next clause from the queue, unless we're already done.
     // Returns the outcome if the prover finished, otherwise None.
     pub fn activate_next(&mut self) -> Option<Outcome> {
@@ -510,8 +523,7 @@ impl Prover {
 
         // Regular proofs typically look simpler than term graph proofs, so check them first.
         if let Some(contradiction) = self.active_set.graph.get_contradiction() {
-            let step = ProofStep::new_term_graph_contradiction(contradiction);
-            return Some(self.report_contradiction(step));
+            return Some(self.report_term_graph_contradiction(contradiction));
         }
 
         None
