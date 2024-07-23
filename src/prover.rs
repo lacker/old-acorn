@@ -396,6 +396,7 @@ impl Prover {
         } else {
             Outcome::Success
         };
+
         self.result = Some((step, outcome));
         outcome
     }
@@ -630,7 +631,7 @@ impl Prover {
         for (step_id, step) in &proof.all_steps {
             let active_id = match step_id {
                 ProofStepId::Active(i) => Some(*i),
-                ProofStepId::Final | ProofStepId::Implicit => None,
+                ProofStepId::Final => None,
             };
             result.push(self.to_proof_step_info(project, active_id, step));
         }
