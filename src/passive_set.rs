@@ -217,7 +217,7 @@ impl PassiveSet {
     // Sorts from best to worst, which is highest to lowest for ProofSteps.
     pub fn find_consequences<'a>(&'a self, id: usize) -> Vec<&'a ProofStep> {
         self.iter_steps()
-            .filter(|step| step.depends_on(id))
+            .filter(|step| step.depends_on_active(id))
             .collect()
     }
 }

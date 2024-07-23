@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -8,14 +9,15 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
 use crate::clause::Clause;
-use crate::display::{DisplayClause, DisplayTerm};
+use crate::display::DisplayClause;
 use crate::goal_context::{Goal, GoalContext};
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
+use crate::literal::Literal;
 use crate::normalizer::{Normalization, NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
-use crate::proof::{Proof, ProofStepId};
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::proof::Proof;
+use crate::proof_step::{ProofStep, ProofStepId, Rule, Truthiness};
 use crate::proposition::Proposition;
 use crate::term::Term;
 use crate::term_graph::TermGraphContradiction;
@@ -299,22 +301,16 @@ impl Prover {
             }
             Rule::EqualityFactoring(source)
             | Rule::EqualityResolution(source)
-            | Rule::FunctionElimination(source) => {
+            | Rule::FunctionElimination(source)
+            | Rule::Specialization(source) => {
                 answer.push(("source".to_string(), Some(*source)));
             }
-            Rule::TermGraph(justification) => {
-                answer.push(("inequality".to_string(), Some(justification.inequality_id)));
-                for (term1, term2, step) in &justification.rewrite_chain {
-                    answer.push(("pattern".to_string(), Some(step.id)));
-                    answer.push((
-                        format!(
-                            "{} => {}",
-                            self.display_term(term1),
-                            self.display_term(term2)
-                        ),
-                        None,
-                    ));
+            Rule::MultipleRewrite(info) => {
+                answer.push(("inequality".to_string(), Some(info.inequality_id)));
+                for &id in &info.active_ids {
+                    answer.push(("rewrite".to_string(), Some(id)));
                 }
+                // TODO: add passive ids somehow
             }
         }
 
@@ -325,18 +321,14 @@ impl Prover {
     }
 
     fn print_proof_step(&self, preface: &str, step: &ProofStep) {
-        if matches!(step.rule, Rule::TermGraph(_)) {
-            println!("\nTerm Graph found a contradiction:")
-        } else {
-            println!(
-                "\n{}{} generated ({}. depth {}):\n    {}",
-                preface,
-                step.rule.name(),
-                if step.cheap { "cheap" } else { "costly" },
-                step.depth,
-                self.display(&step.clause)
-            );
-        }
+        println!(
+            "\n{}{} generated ({}. depth {}):\n    {}",
+            preface,
+            step.rule.name(),
+            if step.cheap { "cheap" } else { "costly" },
+            step.depth,
+            self.display(&step.clause)
+        );
 
         for (description, i) in self.descriptive_dependencies(&step) {
             if let Some(i) = i {
@@ -376,6 +368,7 @@ impl Prover {
                         format!("clause {}: ", i)
                     }
                 }
+                ProofStepId::Passive(_) => "implied equality: ".to_string(),
                 ProofStepId::Final => "final step: ".to_string(),
             };
             self.print_proof_step(&preface, &step);
@@ -389,11 +382,21 @@ impl Prover {
         } else {
             return None;
         };
-        let indices = self.active_set.find_upstream(&final_step);
+        let mut useful_active = HashSet::new();
+        self.active_set
+            .find_upstream(&final_step, &mut useful_active);
+        for step in &self.useful_passive {
+            self.active_set.find_upstream(step, &mut useful_active);
+        }
         let mut proof = Proof::new(&self.normalizer);
-        for i in indices {
-            let step = self.active_set.get_step(i);
-            proof.add_step(ProofStepId::Active(i), step);
+        let mut active_ids: Vec<_> = useful_active.iter().collect();
+        active_ids.sort();
+        for i in active_ids {
+            let step = self.active_set.get_step(*i);
+            proof.add_step(ProofStepId::Active(*i), step);
+        }
+        for (i, step) in self.useful_passive.iter().enumerate() {
+            proof.add_step(ProofStepId::Passive(i as u32), step);
         }
         proof.add_step(ProofStepId::Final, final_step);
         proof.condense();
@@ -418,7 +421,48 @@ impl Prover {
         &mut self,
         contradiction: TermGraphContradiction,
     ) -> Outcome {
-        let step = ProofStep::new_term_graph_contradiction(contradiction);
+        let mut active_ids = vec![];
+        let mut passive_ids = vec![];
+        let mut new_clauses = HashSet::new();
+        let mut max_depth = 0;
+        let inequality_step = self.active_set.get_step(contradiction.inequality_id);
+        let mut truthiness = inequality_step.truthiness;
+        for (left, right, rewrite_info) in contradiction.rewrite_chain {
+            let rewrite_step = self.active_set.get_step(rewrite_info.id);
+            truthiness = truthiness.combine(rewrite_step.truthiness);
+
+            if rewrite_info.exact {
+                // No extra passive clause needed
+                active_ids.push(rewrite_info.id);
+                max_depth = max_depth.max(rewrite_step.depth);
+                continue;
+            }
+
+            // Create a new proof step, without activating it, to express the
+            // specific equality used by this rewrite.
+            let literal = Literal::equals(left, right);
+            let clause = Clause::new(vec![literal]);
+            if new_clauses.contains(&clause) {
+                // We already created a step for this equality
+                continue;
+            }
+            new_clauses.insert(clause.clone());
+            let rule = Rule::Specialization(rewrite_info.id);
+            let mut step = ProofStep::new_direct(rewrite_step, rule, clause);
+            step.depth += 1;
+            max_depth = max_depth.max(rewrite_step.depth);
+            let passive_id = self.useful_passive.len() as u32;
+            self.useful_passive.push(step);
+            passive_ids.push(passive_id);
+        }
+
+        let step = ProofStep::new_multiple_rewrite(
+            contradiction.inequality_id,
+            active_ids,
+            passive_ids,
+            truthiness,
+            max_depth,
+        );
         self.report_contradiction(step)
     }
 
@@ -597,13 +641,6 @@ impl Prover {
         }
     }
 
-    fn display_term<'a>(&'a self, term: &'a Term) -> DisplayTerm<'a> {
-        DisplayTerm {
-            term,
-            normalizer: &self.normalizer,
-        }
-    }
-
     // Convert a clause to a jsonable form
     pub fn to_clause_info(&self, id: Option<usize>, clause: &Clause) -> ClauseInfo {
         let text = if clause.is_impossible() {
@@ -658,7 +695,7 @@ impl Prover {
         for (step_id, step) in &proof.all_steps {
             let active_id = match step_id {
                 ProofStepId::Active(i) => Some(*i),
-                ProofStepId::Final => None,
+                ProofStepId::Final | ProofStepId::Passive(_) => None,
             };
             result.push(self.to_proof_step_info(project, active_id, step));
         }
@@ -677,7 +714,7 @@ impl Prover {
 
         // Check if the final step is a consequence of this clause
         if let Some((final_step, _)) = &self.result {
-            if final_step.depends_on(id) {
+            if final_step.depends_on_active(id) {
                 consequences.push(self.to_proof_step_info(project, None, &final_step));
             }
         }

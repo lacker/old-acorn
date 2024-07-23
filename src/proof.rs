@@ -5,20 +5,9 @@ use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::code_gen_error::CodeGenError;
 use crate::display::DisplayClause;
-use crate::literal::Literal;
 use crate::normalizer::Normalizer;
-use crate::proof_step::{ProofStep, Rule};
+use crate::proof_step::{ProofStep, ProofStepId, Rule};
 use crate::proposition::{Source, SourceType};
-
-// The different sorts of proof steps.
-pub enum ProofStepId {
-    // A proof step that was activated and exists in the active set.
-    Active(usize),
-
-    // The final step of a proof.
-    // No active id because it never gets inserted into the active set.
-    Final,
-}
 
 // To conveniently manipulate the proof, we store it as a directed graph with its own ids.
 // We need two sorts of ids because as we manipulate the condensed proof, the
@@ -151,8 +140,8 @@ pub struct Proof<'a> {
     // Whether we have called condense().
     condensed: bool,
 
-    // A map from ids in the active set to the proof nodes that correspond to them.
-    from_active: HashMap<usize, NodeId>,
+    // A map from proof step ids to the ids nodes that correspond to them.
+    id_map: HashMap<ProofStepId, NodeId>,
 }
 
 fn remove_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
@@ -190,7 +179,7 @@ impl<'a> Proof<'a> {
             all_steps: vec![],
             nodes: vec![],
             condensed: false,
-            from_active: HashMap::new(),
+            id_map: HashMap::new(),
         };
 
         let negated_goal = ProofNode {
@@ -208,67 +197,11 @@ impl<'a> Proof<'a> {
 
     // Add a new step, which becomes a node in the graph.
     pub fn add_step(&mut self, id: ProofStepId, step: &'a ProofStep) {
-        if let Rule::TermGraph(contradiction_info) = &step.rule {
-            // A term graph contradiction may require extra nodes, to represent equalities
-            // that are instantiations of general rules.
-            // When we add an extra node for an instantiation, we make the contradiction dependent
-            // on that node instead of the general rule.
-            let mut dependencies = vec![self.from_active[&contradiction_info.inequality_id]];
-            let mut new_clauses = HashSet::new();
-            let mut max_depth = 0;
-            for (left, right, rewrite_step) in &contradiction_info.rewrite_chain {
-                let rewrite_step_node_id = self.from_active[&rewrite_step.id];
-                let rewrite_step_depth = self.nodes[rewrite_step_node_id as usize].depth;
-                if rewrite_step.exact {
-                    // No extra node needed
-                    dependencies.push(rewrite_step_node_id);
-                    max_depth = max_depth.max(rewrite_step_depth);
-                    continue;
-                }
-
-                // Create a new node for the specific equality used by this rewrite.
-                let literal = Literal::equals(left.clone(), right.clone());
-                let clause = Clause::new(vec![literal]);
-                if new_clauses.contains(&clause) {
-                    // We already created a node for this equality
-                    continue;
-                }
-                new_clauses.insert(clause.clone());
-                let new_node_id = self.nodes.len() as NodeId;
-                let new_node_depth = rewrite_step_depth + 1;
-                self.nodes.push(ProofNode {
-                    value: NodeValue::Clause(clause),
-                    negated: false,
-                    premises: vec![],
-                    consequences: vec![],
-                    sources: vec![],
-                    depth: new_node_depth,
-                });
-                insert_edge(&mut self.nodes, rewrite_step_node_id, new_node_id);
-                dependencies.push(new_node_id);
-                max_depth = max_depth.max(new_node_depth);
-            }
-
-            // Add a node for the term graph contradiction itself.
-            let contradiction_node_id = self.nodes.len() as NodeId;
-            self.nodes.push(ProofNode {
-                value: NodeValue::Contradiction,
-                negated: false,
-                premises: vec![],
-                consequences: vec![],
-                sources: vec![],
-                depth: max_depth,
-            });
-            for dependency in dependencies {
-                insert_edge(&mut self.nodes, dependency, contradiction_node_id);
-            }
-            self.all_steps.push((id, step));
-            return;
-        }
-
         let value = match id {
-            ProofStepId::Active(_) => NodeValue::Clause(step.clause.clone()),
             ProofStepId::Final => NodeValue::Contradiction,
+            ProofStepId::Active(_) | ProofStepId::Passive(_) => {
+                NodeValue::Clause(step.clause.clone())
+            }
         };
 
         let node_id = self.nodes.len() as NodeId;
@@ -290,12 +223,10 @@ impl<'a> Proof<'a> {
         }
 
         for i in step.dependencies() {
-            insert_edge(&mut self.nodes, self.from_active[&i], node_id);
+            insert_edge(&mut self.nodes, self.id_map[&i], node_id);
         }
 
-        if let ProofStepId::Active(clause_id) = id {
-            self.from_active.insert(clause_id, node_id);
-        }
+        self.id_map.insert(id.clone(), node_id);
         self.all_steps.push((id, step));
     }
 

@@ -5,10 +5,23 @@ use crate::clause::Clause;
 use crate::literal::Literal;
 use crate::proposition::{Source, SourceType};
 use crate::term::Term;
-use crate::term_graph::TermGraphContradiction;
 
 // Use this to toggle experimental algorithm mode
 pub const EXPERIMENT: bool = false;
+
+// The different sorts of proof steps.
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub enum ProofStepId {
+    // A proof step that was activated and exists in the active set.
+    Active(usize),
+
+    // A proof step that was never activated, but was used to find a contradiction.
+    Passive(u32),
+
+    // The final step of a proof.
+    // No active id because it never gets inserted into the active set.
+    Final,
+}
 
 // The "truthiness" categorizes the different types of true statements, relative to a proof.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -63,18 +76,12 @@ pub struct RewriteInfo {
     target_truthiness: Truthiness,
 }
 
-// Information about a substitution inference.
-// The original is the clause we started with, and the substitution is the equality clause that
-// we used to substitute.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SubstitutionInfo {
-    // Which clauses were used as the sources.
-    pub original_id: usize,
-    pub substitution_id: usize,
-
-    // The truthiness of the source clauses.
-    original_truthiness: Truthiness,
-    substitution_truthiness: Truthiness,
+// Always a contradiction, found by rewriting one side of an inequality into the other.
+#[derive(Debug, PartialEq, Eq)]
+pub struct MultipleRewriteInfo {
+    pub inequality_id: usize,
+    pub active_ids: Vec<usize>,
+    pub passive_ids: Vec<u32>,
 }
 
 // The rules that can generate new clauses, along with the clause ids used to generate.
@@ -90,27 +97,38 @@ pub enum Rule {
     EqualityFactoring(usize),
     EqualityResolution(usize),
     FunctionElimination(usize),
+    Specialization(usize),
 
-    // A contradiction found by the term graph.
-    // We store the ids of the negative literal (always exactly one) and the positive clauses
-    // that were used to generate it.
-    TermGraph(TermGraphContradiction),
+    // A contradiction found by repeatedly rewriting identical terms.
+    MultipleRewrite(MultipleRewriteInfo),
 }
 
 impl Rule {
     // The ids of the clauses that this rule directly depends on.
-    fn premises(&self) -> Vec<usize> {
+    fn premises(&self) -> Vec<ProofStepId> {
         match self {
             Rule::Assumption(_) => vec![],
-            Rule::Resolution(info) => vec![info.positive_id, info.negative_id],
-            Rule::Rewrite(info) => vec![info.pattern_id, info.target_id],
+            Rule::Resolution(info) => vec![
+                ProofStepId::Active(info.positive_id),
+                ProofStepId::Active(info.negative_id),
+            ],
+            Rule::Rewrite(info) => vec![
+                ProofStepId::Active(info.pattern_id),
+                ProofStepId::Active(info.target_id),
+            ],
             Rule::EqualityFactoring(rewritten)
             | Rule::EqualityResolution(rewritten)
-            | Rule::FunctionElimination(rewritten) => vec![*rewritten],
-            Rule::TermGraph(contradiction) => {
-                let mut premises = contradiction.rewrite_step_ids();
-                premises.push(contradiction.inequality_id);
-                premises
+            | Rule::FunctionElimination(rewritten)
+            | Rule::Specialization(rewritten) => vec![ProofStepId::Active(*rewritten)],
+            Rule::MultipleRewrite(multi_rewrite_info) => {
+                let mut answer = vec![];
+                for id in &multi_rewrite_info.active_ids {
+                    answer.push(ProofStepId::Active(*id));
+                }
+                for id in &multi_rewrite_info.passive_ids {
+                    answer.push(ProofStepId::Passive(*id));
+                }
+                answer
             }
         }
     }
@@ -124,7 +142,8 @@ impl Rule {
             Rule::EqualityFactoring(_) => "Equality Factoring",
             Rule::EqualityResolution(_) => "Equality Resolution",
             Rule::FunctionElimination(_) => "Function Elimination",
-            Rule::TermGraph(..) => "Term Graph",
+            Rule::Specialization(_) => "Specialization",
+            Rule::MultipleRewrite(..) => "Multiple Rewrite",
         }
     }
 
@@ -358,19 +377,29 @@ impl ProofStep {
         )
     }
 
-    // A proof step for when the term graph tells us it found a contradiction.
-    // We don't really know proof size and depth, so we set them to zero.
-    // The proof graph has to calculate the depth for the nodes it creates.
-    pub fn new_term_graph_contradiction(contradiction: TermGraphContradiction) -> ProofStep {
-        let rule = Rule::TermGraph(contradiction);
+    // A proof step for finding a contradiction via a series of rewrites.
+    pub fn new_multiple_rewrite(
+        inequality_id: usize,
+        active_ids: Vec<usize>,
+        passive_ids: Vec<u32>,
+        truthiness: Truthiness,
+        depth: u32,
+    ) -> ProofStep {
+        let rule = Rule::MultipleRewrite(MultipleRewriteInfo {
+            inequality_id,
+            active_ids,
+            passive_ids,
+        });
+
+        let cheap = true;
         ProofStep::new(
             Clause::impossible(),
-            Truthiness::Counterfactual,
+            truthiness,
             rule,
             vec![],
             0,
-            true,
-            0,
+            cheap,
+            depth,
         )
     }
 
@@ -414,16 +443,28 @@ impl ProofStep {
     }
 
     // The ids of the other clauses that this clause depends on.
-    pub fn dependencies(&self) -> Vec<usize> {
+    pub fn dependencies(&self) -> Vec<ProofStepId> {
         let mut answer = self.rule.premises();
         for rule in &self.simplification_rules {
-            answer.push(*rule);
+            answer.push(ProofStepId::Active(*rule));
         }
         answer
     }
 
-    pub fn depends_on(&self, id: usize) -> bool {
-        self.dependencies().iter().any(|i| *i == id)
+    pub fn active_dependencies(&self) -> Vec<usize> {
+        self.dependencies()
+            .iter()
+            .filter_map(|id| match id {
+                ProofStepId::Active(id) => Some(*id),
+                _ => None,
+            })
+            .collect()
+    }
+
+    pub fn depends_on_active(&self, id: usize) -> bool {
+        self.dependencies()
+            .iter()
+            .any(|i| *i == ProofStepId::Active(id))
     }
 
     // Whether this is the last step of the proof

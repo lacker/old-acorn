@@ -559,7 +559,7 @@ impl ActiveSet {
         self.steps
             .iter()
             .enumerate()
-            .filter(move |(_, step)| step.depends_on(id))
+            .filter(move |(_, step)| step.depends_on_active(id))
     }
 
     // Returns (value, id of clause) when this literal's value is known due to some existing clause.
@@ -784,27 +784,21 @@ impl ActiveSet {
     }
 
     // Find the index of all clauses used to prove the provided step.
-    pub fn find_upstream(&self, step: &ProofStep) -> Vec<usize> {
-        let mut pending = Vec::<usize>::new();
-        let mut seen = HashSet::new();
-        for i in step.dependencies() {
+    pub fn find_upstream(&self, step: &ProofStep, output: &mut HashSet<usize>) {
+        let mut pending = vec![];
+        for i in step.active_dependencies() {
             pending.push(i);
         }
         while !pending.is_empty() {
             let i = pending.pop().unwrap();
-            if seen.contains(&i) {
+            if output.contains(&i) {
                 continue;
             }
-            seen.insert(i);
-            for j in self.get_step(i).dependencies() {
+            output.insert(i);
+            for j in self.get_step(i).active_dependencies() {
                 pending.push(j);
             }
         }
-
-        // Print out the clauses in order.
-        let mut indices = seen.into_iter().collect::<Vec<_>>();
-        indices.sort();
-        indices
     }
 }
 
