@@ -37,20 +37,6 @@ pub struct TermGraphContradiction {
     pub rewrite_chain: Vec<(Term, Term, RewriteStep)>,
 }
 
-impl TermGraphContradiction {
-    // The ids for all steps used in the rewrite chain
-    pub fn rewrite_step_ids(&self) -> Vec<StepId> {
-        let mut answer = self
-            .rewrite_chain
-            .iter()
-            .map(|(_, _, step)| step.id)
-            .collect::<Vec<_>>();
-        answer.sort();
-        answer.dedup();
-        answer
-    }
-}
-
 // Each term has a Decomposition that describes how it is created.
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
 enum Decomposition {
