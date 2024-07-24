@@ -23,7 +23,11 @@
   <br />
 {/if}
 {#each step.premises as [desc, clause]}
-  {spaces(2)}using clause {clause.id} as {desc}:<br />
+  {spaces(2)}using
+  {#if clause.id !== null}
+    clause {clause.id} as
+  {/if}
+  {desc}:<br />
   <Clause {clause} onClick={clauseClick} />
   <br />
 {/each}
