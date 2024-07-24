@@ -287,6 +287,7 @@ impl ProofStep {
     }
 
     // Construct a new assumption ProofStep that is not dependent on any other steps.
+    // Assumptions are always cheap, but as we add more theorems we will have to revisit that.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness, source: &Source) -> ProofStep {
         let rule = Rule::Assumption(source.clone());
         ProofStep::new(clause, truthiness, rule, vec![], 0, true, 0)
