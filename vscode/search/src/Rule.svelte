@@ -1,15 +1,16 @@
 <script lang="ts">
   export let step: ProofStepInfo;
   export let showLocation: (uri: string, range: Range) => void;
-
-  const location = step.location;
 </script>
 
-{#if location !== null}
+{#if step.location !== null}
   from <span
     class="preview-link"
-    on:click={() => showLocation(location.uri, location.range)}
-    >{step.rule}</span
+    on:click={() => {
+      if (step.location !== null) {
+        showLocation(step.location.uri, step.location.range);
+      }
+    }}>{step.rule}</span
   >
 {:else}
   by <span>{step.rule}</span>

@@ -231,6 +231,7 @@ pub enum Score {
 }
 
 // Don't bother differentiating depth for score purposes after this point.
+// Basic proofs ignore everything at max depth (and below).
 const MAX_DEPTH: i32 = 3;
 
 impl Score {
