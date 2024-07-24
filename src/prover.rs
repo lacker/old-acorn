@@ -472,6 +472,9 @@ impl Prover {
             passive_ids.push(passive_id);
         }
 
+        active_ids.sort();
+        active_ids.dedup();
+
         let step = ProofStep::new_multiple_rewrite(
             contradiction.inequality_id,
             active_ids,
