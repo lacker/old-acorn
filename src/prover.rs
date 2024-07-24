@@ -320,7 +320,7 @@ impl Prover {
                     answer.push(("equality".to_string(), ProofStepId::Active(id)));
                 }
                 for &id in &info.passive_ids {
-                    answer.push(("equality".to_string(), ProofStepId::Passive(id)));
+                    answer.push(("specialization".to_string(), ProofStepId::Passive(id)));
                 }
             }
         }
