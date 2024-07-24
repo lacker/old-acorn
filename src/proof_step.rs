@@ -10,7 +10,7 @@ use crate::term::Term;
 pub const EXPERIMENT: bool = false;
 
 // The different sorts of proof steps.
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 pub enum ProofStepId {
     // A proof step that was activated and exists in the active set.
     Active(usize),
@@ -21,6 +21,15 @@ pub enum ProofStepId {
     // The final step of a proof.
     // No active id because it never gets inserted into the active set.
     Final,
+}
+
+impl ProofStepId {
+    pub fn active_id(&self) -> Option<usize> {
+        match self {
+            ProofStepId::Active(id) => Some(*id),
+            _ => None,
+        }
+    }
 }
 
 // The "truthiness" categorizes the different types of true statements, relative to a proof.

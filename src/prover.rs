@@ -287,35 +287,46 @@ impl Prover {
     // (description, id) for every clause this rule depends on.
     // Entries with an id are references to clauses we are using.
     // An entry with no id is like a comment, it won't be linked to anything.
-    fn descriptive_dependencies(&self, step: &ProofStep) -> Vec<(String, Option<usize>)> {
+    fn descriptive_dependencies(&self, step: &ProofStep) -> Vec<(String, ProofStepId)> {
         let mut answer = vec![];
         match &step.rule {
             Rule::Assumption(_) => {}
             Rule::Resolution(info) => {
-                answer.push(("positive resolver".to_string(), Some(info.positive_id)));
-                answer.push(("negative resolver".to_string(), Some(info.negative_id)));
+                answer.push((
+                    "positive resolver".to_string(),
+                    ProofStepId::Active(info.positive_id),
+                ));
+                answer.push((
+                    "negative resolver".to_string(),
+                    ProofStepId::Active(info.negative_id),
+                ));
             }
             Rule::Rewrite(info) => {
-                answer.push(("pattern".to_string(), Some(info.pattern_id)));
-                answer.push(("target".to_string(), Some(info.target_id)));
+                answer.push(("pattern".to_string(), ProofStepId::Active(info.pattern_id)));
+                answer.push(("target".to_string(), ProofStepId::Active(info.target_id)));
             }
             Rule::EqualityFactoring(source)
             | Rule::EqualityResolution(source)
             | Rule::FunctionElimination(source)
             | Rule::Specialization(source) => {
-                answer.push(("source".to_string(), Some(*source)));
+                answer.push(("source".to_string(), ProofStepId::Active(*source)));
             }
             Rule::MultipleRewrite(info) => {
-                answer.push(("inequality".to_string(), Some(info.inequality_id)));
+                answer.push((
+                    "inequality".to_string(),
+                    ProofStepId::Active(info.inequality_id),
+                ));
                 for &id in &info.active_ids {
-                    answer.push(("equality".to_string(), Some(id)));
+                    answer.push(("equality".to_string(), ProofStepId::Active(id)));
                 }
-                // TODO: add passive ids somehow
+                for &id in &info.passive_ids {
+                    answer.push(("equality".to_string(), ProofStepId::Passive(id)));
+                }
             }
         }
 
         for rule in &step.simplification_rules {
-            answer.push(("simplification".to_string(), Some(*rule)));
+            answer.push(("simplification".to_string(), ProofStepId::Active(*rule)));
         }
         answer
     }
@@ -330,12 +341,19 @@ impl Prover {
             self.display(&step.clause)
         );
 
-        for (description, i) in self.descriptive_dependencies(&step) {
-            if let Some(i) = i {
-                let c = self.display(self.active_set.get_clause(i));
-                println!("  using {} {}:\n    {}", description, i, c);
-            } else {
-                println!("  rewriting:\n    {}", description);
+        for (description, id) in self.descriptive_dependencies(&step) {
+            match id {
+                ProofStepId::Active(i) => {
+                    let c = self.display(self.active_set.get_clause(i));
+                    println!("  using {} {}:\n    {}", description, i, c);
+                }
+                ProofStepId::Passive(i) => {
+                    let c = self.display(&self.useful_passive[i as usize].clause);
+                    println!("  using {}:\n    {}", description, c);
+                }
+                ProofStepId::Final => {
+                    println!("  <unexpected dependency on final proof step>");
+                }
             }
         }
     }
@@ -639,31 +657,43 @@ impl Prover {
         }
     }
 
+    fn get_clause(&self, id: ProofStepId) -> &Clause {
+        match id {
+            ProofStepId::Active(i) => self.active_set.get_clause(i),
+            ProofStepId::Passive(i) => &self.useful_passive[i as usize].clause,
+            ProofStepId::Final => {
+                let (final_step, _) = self.result.as_ref().unwrap();
+                &final_step.clause
+            }
+        }
+    }
+
     // Convert a clause to a jsonable form
-    pub fn to_clause_info(&self, id: Option<usize>, clause: &Clause) -> ClauseInfo {
+    // We only take active ids, because the others have no external meaning.
+    pub fn to_clause_info(&self, active_id: Option<usize>, clause: &Clause) -> ClauseInfo {
         let text = if clause.is_impossible() {
             None
         } else {
             Some(self.display(clause).to_string())
         };
-        ClauseInfo { text, id }
+        ClauseInfo {
+            text,
+            id: active_id,
+        }
     }
 
     fn to_proof_step_info(
         &self,
         project: &Project,
-        id: Option<usize>,
+        active_id: Option<usize>,
         step: &ProofStep,
     ) -> ProofStepInfo {
-        let clause = self.to_clause_info(id, &step.clause);
+        let clause = self.to_clause_info(active_id, &step.clause);
         let mut premises = vec![];
-        for (description, i) in self.descriptive_dependencies(&step) {
-            if let Some(i) = i {
-                let clause = self.to_clause_info(Some(i), self.active_set.get_clause(i));
-                premises.push((description, clause));
-            } else {
-                // TODO: pass on the descriptions with no clauses
-            }
+        for (description, id) in self.descriptive_dependencies(&step) {
+            let clause = self.get_clause(id);
+            let clause_info = self.to_clause_info(id.active_id(), clause);
+            premises.push((description, clause_info));
         }
         let (rule, location) = match &step.rule {
             Rule::Assumption(source) => {
@@ -691,11 +721,7 @@ impl Prover {
     pub fn to_proof_info(&self, project: &Project, proof: &Proof) -> Vec<ProofStepInfo> {
         let mut result = vec![];
         for (step_id, step) in &proof.all_steps {
-            let active_id = match step_id {
-                ProofStepId::Active(i) => Some(*i),
-                ProofStepId::Final | ProofStepId::Passive(_) => None,
-            };
-            result.push(self.to_proof_step_info(project, active_id, step));
+            result.push(self.to_proof_step_info(project, step_id.active_id(), step));
         }
         result
     }
