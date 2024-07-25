@@ -211,20 +211,6 @@ pub struct ProofStep {
     atom_count: u32,
 }
 
-impl Ord for ProofStep {
-    // The heuristic used to decide which clause is the most promising.
-    // The passive set is a "max heap", so we want the best clause to compare as the largest.
-    fn cmp(&self, other: &ProofStep) -> Ordering {
-        self.score().cmp(&other.score())
-    }
-}
-
-impl PartialOrd for ProofStep {
-    fn partial_cmp(&self, other: &ProofStep) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 impl fmt::Display for ProofStep {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} ; rule = {:?}", self.clause, self.rule)
