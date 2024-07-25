@@ -24,7 +24,7 @@ pub enum Score {
 
 // Don't bother differentiating depth for score purposes after this point.
 // Basic proofs ignore everything at max depth (and below).
-pub const MAX_DEPTH: i32 = 3;
+const MAX_DEPTH: i32 = 3;
 
 impl Score {
     pub fn new(step: &ProofStep) -> Score {
