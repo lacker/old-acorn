@@ -4,7 +4,6 @@ use std::fmt;
 use crate::clause::Clause;
 use crate::literal::Literal;
 use crate::proposition::{Source, SourceType};
-use crate::score::Score;
 use crate::term::Term;
 
 // Use this to toggle experimental algorithm mode
@@ -465,11 +464,6 @@ impl ProofStep {
         } else {
             false
         }
-    }
-
-    // A lot of heuristics here that perhaps could be simpler.
-    pub fn score(&self) -> Score {
-        Score::new(&self)
     }
 
     // We have to strictly limit deduction that happens between two library facts, because
