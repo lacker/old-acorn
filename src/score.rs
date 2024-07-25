@@ -1,3 +1,5 @@
+use crate::proof_step::{ProofStep, Rule, Truthiness};
+
 // Each proof step has a score, which encapsulates all heuristic judgments about
 // the proof step.
 // The better the score, the more we want to activate this proof step.
@@ -25,6 +27,41 @@ pub enum Score {
 pub const MAX_DEPTH: i32 = 3;
 
 impl Score {
+    pub fn new(step: &ProofStep) -> Score {
+        if step.clause.is_impossible() {
+            return Score::Contradiction;
+        }
+
+        // Higher = more important, for the deterministic tier.
+        let deterministic_tier = match step.truthiness {
+            Truthiness::Counterfactual => {
+                if step.is_negated_goal() {
+                    3
+                } else {
+                    1
+                }
+            }
+            Truthiness::Hypothetical => {
+                if let Rule::Assumption(_) = step.rule {
+                    2
+                } else {
+                    1
+                }
+            }
+            Truthiness::Factual => 4,
+        };
+
+        let mut heuristic = 0;
+        heuristic -= step.atom_count as i32;
+        heuristic -= 2 * step.proof_size as i32;
+        if step.truthiness == Truthiness::Hypothetical {
+            heuristic -= 3;
+        }
+
+        let negadepth = -(step.depth as i32).max(-MAX_DEPTH);
+        return Score::Regular(negadepth, deterministic_tier, heuristic);
+    }
+
     pub fn is_basic(&self) -> bool {
         match self {
             Score::Regular(negadepth, _, _) => *negadepth > -MAX_DEPTH,

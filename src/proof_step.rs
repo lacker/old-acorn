@@ -4,7 +4,7 @@ use std::fmt;
 use crate::clause::Clause;
 use crate::literal::Literal;
 use crate::proposition::{Source, SourceType};
-use crate::score::{Score, MAX_DEPTH};
+use crate::score::Score;
 use crate::term::Term;
 
 // Use this to toggle experimental algorithm mode
@@ -195,7 +195,7 @@ pub struct ProofStep {
     // The size includes this proof step itself, but does not count assumptions and definitions.
     // So the size for any assumption or definition is zero.
     // This does not deduplicate among different branches, so it may be an overestimate.
-    proof_size: u32,
+    pub proof_size: u32,
 
     // Whether this proof step is considered "cheap".
     // Cheapness can be amortized. We don't want it to be possible to create an infinite
@@ -208,7 +208,7 @@ pub struct ProofStep {
     pub depth: u32,
 
     // Cached for simplicity
-    atom_count: u32,
+    pub atom_count: u32,
 }
 
 impl fmt::Display for ProofStep {
@@ -469,38 +469,7 @@ impl ProofStep {
 
     // A lot of heuristics here that perhaps could be simpler.
     pub fn score(&self) -> Score {
-        if self.clause.is_impossible() {
-            return Score::Contradiction;
-        }
-
-        // Higher = more important, for the deterministic tier.
-        let deterministic_tier = match self.truthiness {
-            Truthiness::Counterfactual => {
-                if self.is_negated_goal() {
-                    3
-                } else {
-                    1
-                }
-            }
-            Truthiness::Hypothetical => {
-                if let Rule::Assumption(_) = self.rule {
-                    2
-                } else {
-                    1
-                }
-            }
-            Truthiness::Factual => 4,
-        };
-
-        let mut heuristic = 0;
-        heuristic -= self.atom_count as i32;
-        heuristic -= 2 * self.proof_size as i32;
-        if self.truthiness == Truthiness::Hypothetical {
-            heuristic -= 3;
-        }
-
-        let negadepth = -(self.depth as i32).max(-MAX_DEPTH);
-        return Score::Regular(negadepth, deterministic_tier, heuristic);
+        Score::new(&self)
     }
 
     // We have to strictly limit deduction that happens between two library facts, because
