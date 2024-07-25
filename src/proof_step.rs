@@ -205,9 +205,6 @@ pub struct ProofStep {
 
     // The depth is the number of serial non-cheap steps required to reach this step.
     pub depth: u32,
-
-    // Cached for simplicity
-    pub atom_count: u32,
 }
 
 impl fmt::Display for ProofStep {
@@ -226,7 +223,6 @@ impl ProofStep {
         cheap: bool,
         depth: u32,
     ) -> ProofStep {
-        let atom_count = clause.atom_count();
         ProofStep {
             clause,
             truthiness,
@@ -235,7 +231,6 @@ impl ProofStep {
             proof_size,
             cheap,
             depth,
-            atom_count,
         }
     }
 

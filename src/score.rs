@@ -52,7 +52,7 @@ impl Score {
         };
 
         let mut heuristic = 0;
-        heuristic -= step.atom_count as i32;
+        heuristic -= step.clause.atom_count() as i32;
         heuristic -= 2 * step.proof_size as i32;
         if step.truthiness == Truthiness::Hypothetical {
             heuristic -= 3;
