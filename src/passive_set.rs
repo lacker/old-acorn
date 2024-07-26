@@ -89,7 +89,7 @@ impl PassiveSet {
     }
 
     pub fn push(&mut self, step: ProofStep) {
-        let score = Score::new(&step);
+        let score = Score::manual(&step);
         let id = self.clauses.len();
         for (i, literal) in step.clause.literals.iter().enumerate() {
             self.literals.insert(literal, (id, i));
@@ -115,7 +115,7 @@ impl PassiveSet {
     pub fn has_basic(&self) -> bool {
         match self.queue.last() {
             None => false,
-            Some((score, _)) => score.is_basic(),
+            Some((score, _)) => score.basic,
         }
     }
 
