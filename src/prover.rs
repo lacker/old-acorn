@@ -379,7 +379,7 @@ impl Prover {
         for (id, step) in &proof.all_steps {
             let preface = match id {
                 ProofStepId::Active(i) => {
-                    if step.is_negated_goal() {
+                    if step.rule.is_negated_goal() {
                         format!("clause {} (negating goal): ", i)
                     } else {
                         format!("clause {}: ", i)
@@ -511,7 +511,7 @@ impl Prover {
                 Truthiness::Factual => " fact",
                 Truthiness::Hypothetical => " hypothesis",
                 Truthiness::Counterfactual => {
-                    if step.is_negated_goal() {
+                    if step.rule.is_negated_goal() {
                         " negated goal"
                     } else {
                         ""

@@ -169,6 +169,13 @@ impl Rule {
             _ => false,
         }
     }
+
+    pub fn is_negated_goal(&self) -> bool {
+        match self {
+            Rule::Assumption(source) => matches!(source.source_type, SourceType::NegatedGoal),
+            _ => false,
+        }
+    }
 }
 
 // A proof is made up of ProofSteps.
@@ -424,15 +431,6 @@ impl ProofStep {
     // Whether this is the last step of the proof
     pub fn finishes_proof(&self) -> bool {
         self.clause.is_impossible()
-    }
-
-    // Whether this step is created by the normalization of the negated goal
-    pub fn is_negated_goal(&self) -> bool {
-        if let Rule::Assumption(source) = &self.rule {
-            matches!(source.source_type, SourceType::NegatedGoal)
-        } else {
-            false
-        }
     }
 
     // We have to strictly limit deduction that happens between two library facts, because

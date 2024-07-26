@@ -1,4 +1,7 @@
-use crate::proof_step::{ProofStep, Rule, Truthiness};
+use crate::{
+    clause::Clause,
+    proof_step::{Rule, Truthiness},
+};
 
 // Each proof step has a score, which encapsulates all heuristic judgments about
 // the proof step.
@@ -36,22 +39,28 @@ impl Score {
     //
     // The third element of the score is a combination of a bunch of stuff, roughly to discourage
     // complexity.
-    pub fn manual(step: &ProofStep) -> Score {
-        let contradiction = step.clause.is_impossible();
+    pub fn manual(
+        clause: &Clause,
+        truthiness: Truthiness,
+        rule: &Rule,
+        proof_size: u32,
+        depth: u32,
+    ) -> Score {
+        let contradiction = clause.is_impossible();
 
-        let heuristic1 = -(step.depth as i32).max(-MAX_DEPTH);
+        let heuristic1 = -(depth as i32).max(-MAX_DEPTH);
 
         // Higher = more important, for the deterministic tier.
-        let heuristic2 = match step.truthiness {
+        let heuristic2 = match truthiness {
             Truthiness::Counterfactual => {
-                if step.is_negated_goal() {
+                if rule.is_negated_goal() {
                     3
                 } else {
                     1
                 }
             }
             Truthiness::Hypothetical => {
-                if let Rule::Assumption(_) = step.rule {
+                if let Rule::Assumption(_) = rule {
                     2
                 } else {
                     1
@@ -61,9 +70,9 @@ impl Score {
         };
 
         let mut heuristic3 = 0;
-        heuristic3 -= step.clause.atom_count() as i32;
-        heuristic3 -= 2 * step.proof_size as i32;
-        if step.truthiness == Truthiness::Hypothetical {
+        heuristic3 -= clause.atom_count() as i32;
+        heuristic3 -= 2 * proof_size as i32;
+        if truthiness == Truthiness::Hypothetical {
             heuristic3 -= 3;
         }
 

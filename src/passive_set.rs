@@ -89,7 +89,13 @@ impl PassiveSet {
     }
 
     pub fn push(&mut self, step: ProofStep) {
-        let score = Score::manual(&step);
+        let score = Score::manual(
+            &step.clause,
+            step.truthiness,
+            &step.rule,
+            step.proof_size,
+            step.depth,
+        );
         let id = self.clauses.len();
         for (i, literal) in step.clause.literals.iter().enumerate() {
             self.literals.insert(literal, (id, i));
