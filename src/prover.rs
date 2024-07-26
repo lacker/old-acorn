@@ -333,10 +333,9 @@ impl Prover {
 
     fn print_proof_step(&self, preface: &str, step: &ProofStep) {
         println!(
-            "\n{}{} generated ({}. depth {}):\n    {}",
+            "\n{}{} generated (depth {}):\n    {}",
             preface,
             step.rule.name(),
-            if step.cheap { "cheap" } else { "costly" },
             step.depth,
             self.display(&step.clause)
         );

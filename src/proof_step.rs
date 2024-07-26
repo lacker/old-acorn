@@ -172,8 +172,7 @@ impl Rule {
 }
 
 // A proof is made up of ProofSteps.
-// Each ProofStep contains an output clause, plus a bunch of heuristic information about it, to
-// decide if we should "activate" the proof step or not.
+// Each ProofStep contains an output clause, plus a bunch of information we track about it.
 #[derive(Debug, Eq, PartialEq)]
 pub struct ProofStep {
     // The proof step is primarily defined by a clause that it proves.
@@ -196,14 +195,8 @@ pub struct ProofStep {
     // This does not deduplicate among different branches, so it may be an overestimate.
     pub proof_size: u32,
 
-    // Whether this proof step is considered "cheap".
-    // Cheapness can be amortized. We don't want it to be possible to create an infinite
-    // chain of cheap proof steps.
-    // The idea is that in the future, we can consider more and more steps to be "cheap".
-    // Any step that the AI considers to be "obvious", we can call it "cheap".
-    pub cheap: bool,
-
-    // The depth is the number of serial non-cheap steps required to reach this step.
+    // The depth is the number of serial "non-cheap" steps required to reach this step.
+    // TODO: "cheap" is a heuristic and thus it should be based on the Score.
     pub depth: u32,
 }
 
@@ -220,7 +213,6 @@ impl ProofStep {
         rule: Rule,
         simplification_rules: Vec<usize>,
         proof_size: u32,
-        cheap: bool,
         depth: u32,
     ) -> ProofStep {
         ProofStep {
@@ -229,7 +221,6 @@ impl ProofStep {
             rule,
             simplification_rules,
             proof_size,
-            cheap,
             depth,
         }
     }
@@ -238,11 +229,12 @@ impl ProofStep {
     // Assumptions are always cheap, but as we add more theorems we will have to revisit that.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness, source: &Source) -> ProofStep {
         let rule = Rule::Assumption(source.clone());
-        ProofStep::new(clause, truthiness, rule, vec![], 0, true, 0)
+        ProofStep::new(clause, truthiness, rule, vec![], 0, 0)
     }
 
     // Construct a new ProofStep that is a direct implication of a single activated step,
     // not requiring any other clauses.
+    // Depth does not increase.
     pub fn new_direct(activated_step: &ProofStep, rule: Rule, clause: Clause) -> ProofStep {
         ProofStep::new(
             clause,
@@ -250,7 +242,6 @@ impl ProofStep {
             rule,
             vec![],
             activated_step.proof_size + 1,
-            true,
             activated_step.depth,
         )
     }
@@ -261,16 +252,12 @@ impl ProofStep {
         general_step: &ProofStep,
         clause: Clause,
     ) -> ProofStep {
-        // Specializations are never cheap, because you can specialize a formula in infinite ways.
-        let cheap = false;
-
         ProofStep::new(
             clause,
             general_step.truthiness,
             Rule::Specialization(general_id),
             vec![],
             general_step.proof_size + 1,
-            cheap,
             general_step.depth + 1,
         )
     }
@@ -300,7 +287,6 @@ impl ProofStep {
             rule,
             vec![],
             positive_step.proof_size + negative_step.proof_size + 1,
-            cheap,
             depth,
         )
     }
@@ -351,7 +337,6 @@ impl ProofStep {
             rule,
             vec![],
             pattern_step.proof_size + target_step.proof_size + 1,
-            cheap,
             depth,
         )
     }
@@ -370,21 +355,12 @@ impl ProofStep {
             passive_ids,
         });
 
-        // Multiple rewrites themselves are always cheap. It's the specializations that are expensive.
-        let cheap = true;
-        ProofStep::new(
-            Clause::impossible(),
-            truthiness,
-            rule,
-            vec![],
-            0,
-            cheap,
-            depth,
-        )
+        // Multiple rewrites don't add to depth. It's the specializations that are expensive.
+        ProofStep::new(Clause::impossible(), truthiness, rule, vec![], 0, depth)
     }
 
     // Create a replacement for this clause that has extra simplification rules.
-    // It's hard to handle depth well, here.
+    // It's hard to handle depth well, here. So we just don't change it.
     pub fn simplify(
         self,
         new_clause: Clause,
@@ -403,7 +379,6 @@ impl ProofStep {
             self.rule,
             rules,
             self.proof_size,
-            self.cheap,
             self.depth,
         )
     }
@@ -417,7 +392,6 @@ impl ProofStep {
             Rule::Assumption(Source::mock()),
             vec![],
             0,
-            true,
             0,
         )
     }
