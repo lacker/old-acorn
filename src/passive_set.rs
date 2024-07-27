@@ -3,8 +3,8 @@ use std::collections::BTreeSet;
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
+use crate::policy::Score;
 use crate::proof_step::{ProofStep, Truthiness};
-use crate::score::Score;
 use crate::specializer::Specializer;
 use crate::term::Term;
 
