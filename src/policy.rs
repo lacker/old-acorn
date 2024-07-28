@@ -1,7 +1,5 @@
-use crate::{
-    clause::Clause,
-    proof_step::{Rule, Truthiness},
-};
+use crate::clause::Clause;
+use crate::proof_step::{Rule, Truthiness};
 
 // Each proof step has a score, which encapsulates all heuristic judgments about
 // the proof step.
