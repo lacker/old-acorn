@@ -984,6 +984,7 @@ mod tests {
             type Foo: axiom
             class Foo {
                 let foo: Bool = true
+                let foo2: Bool = false
             }
             type Bar: Foo
             let bar: Bar = axiom
@@ -1001,6 +1002,7 @@ mod tests {
         p.expect_ok("main");
         p.check_code("main", "x");
         p.check_code("main", "y");
+        p.check_code_into("main", "stuff.Foo.foo2", "Foo.foo2");
     }
 
     #[test]
@@ -1009,5 +1011,27 @@ mod tests {
         p.mock("/mock/main.ac", "solve false by {\n}");
         p.expect_ok("main");
         p.expect_build_fails();
+    }
+
+    #[test]
+    fn test_imported_numbers_codegen() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/nat.ac",
+            r#"
+            type Nat: axiom
+            class Nat {
+                let 0: Nat = axiom
+            }
+            default Nat
+        "#,
+        );
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            from nat import Nat
+            "#,
+        );
+        p.check_code_into("main", "nat.Nat.0", "Nat.0");
     }
 }
