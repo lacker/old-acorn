@@ -49,7 +49,15 @@ impl ManualPolicy {
         proof_size: u32,
         depth: u32,
     ) -> Score {
-        let contradiction = clause.is_impossible();
+        if clause.is_impossible() {
+            return Score {
+                contradiction: true,
+                basic: true,
+                heuristic1: 0,
+                heuristic2: 0,
+                heuristic3: 0,
+            };
+        }
 
         let heuristic1 = -(depth as i32).max(-MAX_DEPTH);
 
@@ -79,18 +87,14 @@ impl ManualPolicy {
             heuristic3 -= 3;
         }
 
-        let basic = if contradiction {
-            true
-        } else {
-            heuristic1 > -MAX_DEPTH
-        };
+        let basic = heuristic1 > -MAX_DEPTH;
 
         Score {
-            contradiction,
+            contradiction: false,
+            basic,
             heuristic1,
             heuristic2,
             heuristic3,
-            basic,
         }
     }
 }
