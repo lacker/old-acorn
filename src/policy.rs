@@ -22,9 +22,13 @@ pub struct Score {
 // Basic proofs ignore everything at max depth (and below).
 const MAX_DEPTH: i32 = 3;
 
-impl Score {
-    // A scoring algorithm developed by hand.
-    //
+pub struct ManualPolicy {}
+
+impl ManualPolicy {
+    pub fn new() -> ManualPolicy {
+        ManualPolicy {}
+    }
+
     // The first heuristic is the negative depth.
     // It's bounded at -MAX_DEPTH so after that we don't use depth for scoring any more.
     //
@@ -37,7 +41,8 @@ impl Score {
     //
     // The third element of the score is a combination of a bunch of stuff, roughly to discourage
     // complexity.
-    pub fn manual(
+    pub fn score(
+        &self,
         clause: &Clause,
         truthiness: Truthiness,
         rule: &Rule,

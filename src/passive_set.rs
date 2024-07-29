@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
-use crate::policy::Score;
+use crate::policy::{ManualPolicy, Score};
 use crate::proof_step::{ProofStep, Truthiness};
 use crate::specializer::Specializer;
 use crate::term::Term;
@@ -89,7 +89,8 @@ impl PassiveSet {
     }
 
     pub fn push(&mut self, step: ProofStep) {
-        let score = Score::manual(
+        let policy = ManualPolicy::new();
+        let score = policy.score(
             &step.clause,
             step.truthiness,
             &step.rule,
