@@ -573,6 +573,8 @@ theorem mul_nat_zero_right(a: Int): mul_nat(a, Nat.0) = 0 by {
 theorem mul_nat_zero_left(n: Nat): mul_nat(0, n) = 0 by {
     !is_positive(0)
     from_nat(Nat.0 * n) = 0
+    from_nat(Nat.mul(abs(0), n)) = mul_nat(0, n)
+    from_nat(Nat.mul(Nat.0, n)) = mul_nat(0, n)
 }
 
 theorem mul_nat_nonpos_left(a: Int, n: Nat):
@@ -774,12 +776,14 @@ theorem mul_neg_left(a: Int, b: Int): negate(a) * b = negate(a * b) by {
         if is_positive(b) {
             negate(a) * b = negate(a * b)
         } else {
+            negate(negate(mul_nat(a, abs(b)))) = negate(a) * b
             negate(a) * b = negate(a * b)
         }
     } else {
         if is_positive(b) {
             negate(a) * b = negate(a * b)
         } else {
+            negate(negate(mul_nat(a, abs(b)))) = negate(a) * b
             negate(a) * b = negate(a * b)
         }
     }
@@ -1162,7 +1166,9 @@ theorem lte_from_nat(j: Nat, k: Nat): j <= k -> from_nat(j) <= from_nat(k) by {
 
 define is_unit(a: Int) -> Bool: abs(a) = nat.1
 
-theorem two_units(u: Int): is_unit(u) -> u = 1 | u = negate(1)
+theorem two_units(u: Int): is_unit(u) -> u = 1 | u = negate(1) by {
+    abs(u) = Nat.1
+}
 
 theorem unit_squared(u: Int): is_unit(u) -> u * u = 1 by {
     if u = 1 {
@@ -1375,6 +1381,7 @@ by {
     exists(d: Nat) { d * m + mod(k, m) = k }
     from_nat(d * m) + from_nat(mod(k, m)) = from_nat(k)
     from_nat(d) * from_nat(m) + from_nat(mod(k, m)) = from_nat(k)
+    negate(negate(from_nat(d) * from_nat(m))) = from_nat(k) - from_nat(mod(k, m))
     from_nat(mod(k, m)) = from_nat(k) + negate(from_nat(d) * from_nat(m))
     spans(a, b, negate(from_nat(d) * from_nat(m)))
     spans(a, b, from_nat(mod(k, m)))
