@@ -9,13 +9,13 @@ pub struct Score {
     // Contradictions are the most important thing
     contradiction: bool,
 
+    // Whether this is a basic step. Basic steps can be stated without proof.
+    pub basic: bool,
+
     // Higher scores are preferred, using subsequent heuristics for tiebreaks.
     heuristic1: i32,
     heuristic2: i32,
     heuristic3: i32,
-
-    // Whether this is a basic step. Basic steps can be stated without proof.
-    pub basic: bool,
 }
 
 // Don't bother differentiating depth for score purposes after this point.
