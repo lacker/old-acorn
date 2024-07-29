@@ -536,7 +536,10 @@ theorem neg_sub(a: Int, b: Int): negate(a - b) = b - a
 
 theorem sub_add_right(a: Int, b: Int): a - (a + b) = negate(b)
 
-theorem sub_imp_add(a: Int, b: Int, c: Int): a - b = c -> b + c = a
+theorem sub_imp_add(a: Int, b: Int, c: Int): a - b = c -> b + c = a by {
+    b + (a + negate(b)) = a
+    b + (a - b) = a
+}
 
 theorem sub_negate_imp_add(a: Int, b: Int, c: Int): a - b = negate(c) -> a + c = b
 
@@ -559,17 +562,17 @@ define mul_nat(a: Int, n: Nat) -> Int: if is_negative(a) {
     from_nat(abs(a) * n)
 }
 
-theorem mul_nat_zero_right(a: Int): mul_nat(a, nat.0) = 0 by {
+theorem mul_nat_zero_right(a: Int): mul_nat(a, Nat.0) = 0 by {
     if is_negative(a) {
-        mul_nat(a, nat.0) = 0
+        mul_nat(a, Nat.0) = 0
     } else {
-        mul_nat(a, nat.0) = 0
+        mul_nat(a, Nat.0) = 0
     }
 }
 
 theorem mul_nat_zero_left(n: Nat): mul_nat(0, n) = 0 by {
     !is_positive(0)
-    from_nat(nat.0 * n) = 0
+    from_nat(Nat.0 * n) = 0
 }
 
 theorem mul_nat_nonpos_left(a: Int, n: Nat):
