@@ -77,9 +77,9 @@ pub struct BindingMap {
     // Includes "<datatype>.<constant>" for members.
     constants: HashMap<String, ConstantInfo>,
 
-    // For constants in other modules that have a local name in this environment, we map
-    // their canonical identifier to their local name.
-    aliased_constants: HashMap<(ModuleId, String), String>,
+    // Whenever a name from another environment has a local name in this environment,
+    // imported_names maps their canonical identifier to their local name.
+    imported_names: HashMap<(ModuleId, String), String>,
 
     // Names that refer to other modules.
     // For example after "import foo", "foo" refers to a module.
@@ -182,7 +182,7 @@ impl BindingMap {
             reverse_type_names: HashMap::new(),
             identifier_types: HashMap::new(),
             constants: HashMap::new(),
-            aliased_constants: HashMap::new(),
+            imported_names: HashMap::new(),
             modules: BTreeMap::new(),
             reverse_modules: HashMap::new(),
             default: None,
@@ -229,6 +229,11 @@ impl BindingMap {
     pub fn add_type_alias(&mut self, name: &str, acorn_type: AcornType) {
         if self.name_in_use(name) {
             panic!("type alias {} already bound", name);
+        }
+        if let AcornType::Data(module, type_name) = &acorn_type {
+            self.imported_names
+                .entry((*module, type_name.clone()))
+                .or_insert(name.to_string());
         }
         self.insert_type_name(name.to_string(), acorn_type);
     }
@@ -305,9 +310,7 @@ impl BindingMap {
         if let Some(AcornValue::Constant(module, external_name, _, _)) = &definition {
             if *module != self.module {
                 let key = (*module, external_name.clone());
-                self.aliased_constants
-                    .entry(key)
-                    .or_insert(name.to_string());
+                self.imported_names.entry(key).or_insert(name.to_string());
             }
         }
 
@@ -1410,7 +1413,7 @@ impl BindingMap {
 
         // Check if there's a local alias for this constant.
         let key = (module, name.to_string());
-        if let Some(alias) = self.aliased_constants.get(&key) {
+        if let Some(alias) = self.imported_names.get(&key) {
             return Ok(Expression::generate_identifier(alias));
         }
 
