@@ -272,40 +272,41 @@ fn parse_theorem_statement(
     if !Token::is_valid_variable_name(&name) {
         return Err(Error::new(&token, "invalid theorem name"));
     }
-    let (type_params, args, _) = parse_args(tokens, TokenType::Colon)?;
+    let (type_params, args, _) = parse_args(tokens, TokenType::LeftBrace)?;
     if type_params.len() > 1 {
         return Err(Error::new(
             &type_params[1],
             "only one type parameter is supported",
         ));
     }
-    Token::skip_newlines(tokens);
-    let (claim, mut terminator) = Expression::parse(
-        tokens,
-        true,
-        Terminator::Or(TokenType::NewLine, TokenType::By),
-    )?;
-    // Let the "by" be after one newline
-    match tokens.peek() {
-        Some(token) => {
-            if token.token_type == TokenType::By {
-                terminator = tokens.next().unwrap();
+    let (claim, right_brace) =
+        Expression::parse(tokens, true, Terminator::Is(TokenType::RightBrace))?;
+
+    // Look for a "by" block, optionally after some newlines
+    let (body, last_token) = loop {
+        match tokens.peek() {
+            Some(token) => {
+                if token.token_type == TokenType::NewLine {
+                    tokens.next();
+                    continue;
+                }
+                if token.token_type != TokenType::By {
+                    break (None, right_brace);
+                }
+                tokens.next();
+                let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+                let (statements, right_brace) = parse_block(tokens)?;
+                let body = Body {
+                    left_brace,
+                    statements,
+                    right_brace: right_brace.clone(),
+                };
+                break (Some(body), right_brace);
             }
+            None => break (None, right_brace),
         }
-        None => {}
     };
-    let (body, last_token) = if terminator.token_type == TokenType::By {
-        let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
-        let (statements, right_brace) = parse_block(tokens)?;
-        let body = Body {
-            left_brace,
-            statements,
-            right_brace: right_brace.clone(),
-        };
-        (Some(body), right_brace)
-    } else {
-        (None, terminator)
-    };
+
     let ts = TheoremStatement {
         axiomatic,
         name,
@@ -704,6 +705,7 @@ impl Statement {
             }
 
             StatementInfo::Theorem(ts) => {
+                let new_indentation = add_indent(indentation);
                 if ts.axiomatic {
                     write!(f, "axiom")?;
                 } else {
@@ -712,7 +714,7 @@ impl Statement {
                 write!(f, " {}", ts.name)?;
                 write_type_params(f, &ts.type_params)?;
                 write_args(f, &ts.args)?;
-                write!(f, ": {}", ts.claim)?;
+                write!(f, " {{\n{}{}\n{}}}", new_indentation, ts.claim, indentation)?;
                 if let Some(body) = &ts.body {
                     write!(f, " by")?;
                     write_block(f, &body.statements, indentation)?;
@@ -1009,21 +1011,41 @@ mod tests {
 
     #[test]
     fn test_theorem_statements() {
-        ok("axiom simplification: p -> (q -> p)");
-        ok("axiom distribution: (p -> (q -> r)) -> ((p -> q) -> (p -> r))");
-        ok("axiom contraposition: (!p -> !q) -> (q -> p)");
-        ok("axiom modus_ponens(p, p -> q): q");
-        ok("theorem and_comm: p & q <-> q & p");
-        ok("theorem and_assoc: (p & q) & r <-> p & (q & r)");
-        ok("theorem or_comm: p | q <-> q | p");
-        ok("theorem or_assoc: (p | q) | r <-> p | (q | r)");
-        ok("theorem suc_gt_zero(x: nat): suc(x) > 0");
+        ok(indoc! {"axiom simplification {
+            p -> (q -> p)
+        }"});
+        ok(indoc! {"axiom distribution {
+            (p -> (q -> r)) -> ((p -> q) -> (p -> r))
+        }"});
+        ok(indoc! {"axiom contraposition {
+            (!p -> !q) -> (q -> p)
+        }"});
+        ok(indoc! {"axiom modus_ponens(p, p -> q) {
+            q
+        }"});
+        ok(indoc! {"theorem and_comm {
+            p & q <-> q & p
+        }"});
+        ok(indoc! {"theorem and_assoc {
+            (p & q) & r <-> p & (q & r)
+        }"});
+        ok(indoc! {"theorem or_comm {
+            p | q <-> q | p
+        }"});
+        ok(indoc! {"theorem or_assoc {
+            (p | q) | r <-> p | (q | r)
+        }"});
+        ok(indoc! {"theorem suc_gt_zero(x: nat) {
+            suc(x) > 0
+        }"});
     }
 
     #[test]
     fn test_prop_statements() {
         ok(indoc! {"
-        theorem goal: true by {
+        theorem goal {
+            true
+        } by {
             p -> p
         }"});
     }
@@ -1045,31 +1067,60 @@ mod tests {
     fn test_nat_ac_statements() {
         ok("type Nat: axiom");
         ok("let suc: Nat -> Nat = axiom");
-        ok("axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y");
-        ok("axiom suc_neq_zero(x: Nat): suc(x) != 0");
-        ok("axiom induction(f: Nat -> bool, n: Nat): f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)");
+        ok(indoc! {"
+        axiom suc_injective(x: Nat, y: Nat) {
+            suc(x) = suc(y) -> x = y
+        }"});
+        ok(indoc! {"
+        axiom suc_neq_zero(x: Nat) {
+            suc(x) != 0
+        }"});
+        ok(indoc! {"
+            axiom induction(f: Nat -> bool, n: Nat) {
+                f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)
+            }"});
         ok("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
-        ok("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, 0) = a");
-        ok("axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, suc(n)) = f(recursion(f, a, n))");
+        ok(indoc! {"
+        axiom recursion_base(f: Nat -> Nat, a: Nat) {
+            recursion(f, a, 0) = a
+        }"});
+        ok(indoc! {"
+            axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat) {
+                recursion(f, a, suc(n)) = f(recursion(f, a, n))
+            }"});
         ok("define add(x: Nat, y: Nat) -> Nat: recursion(suc, x, y)");
-        ok("theorem add_zero_right(a: Nat): add(a, 0) = a");
-        ok("theorem add_zero_left(a: Nat): add(0, a) = a");
-        ok("theorem add_suc_right(a: Nat, b: Nat): add(a, suc(b)) = suc(add(a, b))");
-        ok("theorem add_suc_left(a: Nat, b: Nat): add(suc(a), b) = suc(add(a, b))");
-        ok("theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)");
-        ok("theorem add_assoc(a: Nat, b: Nat, c: Nat): add(a, add(b, c)) = add(add(a, b), c)");
-    }
-
-    #[test]
-    fn test_multiline_at_colon() {
-        Statement::parse_str("type Nat:\n  axiom").unwrap();
-        Statement::parse_str("theorem foo(b: Bool):\nb | !b").unwrap();
+        ok(indoc! {"
+        theorem add_zero_right(a: Nat) {
+            add(a, 0) = a
+        }"});
+        ok(indoc! {"
+        theorem add_zero_left(a: Nat) {
+            add(0, a) = a
+        }"});
+        ok(indoc! {"
+        theorem add_suc_right(a: Nat, b: Nat) {
+            add(a, suc(b)) = suc(add(a, b))
+        }"});
+        ok(indoc! {"
+        theorem add_suc_left(a: Nat, b: Nat) {
+            add(suc(a), b) = suc(add(a, b))
+        }"});
+        ok(indoc! {"
+        theorem add_comm(a: Nat, b: Nat) {
+            add(a, b) = add(b, a)
+        }"});
+        ok(indoc! {"
+            theorem add_assoc(a: Nat, b: Nat, c: Nat) {
+                add(a, add(b, c)) = add(add(a, b), c)
+            }"});
     }
 
     #[test]
     fn test_block_parsing() {
         ok(indoc! {"
-            theorem foo: bar by {
+            theorem foo {
+                bar
+            } by {
                 baz
             }"});
         fail(indoc! {"
@@ -1081,12 +1132,14 @@ mod tests {
     #[test]
     fn test_by_on_next_line() {
         let statement = should_parse(indoc! {"
-            theorem foo: bar
+            theorem foo { bar }
             by {
                 baz
             }"});
         let expected = indoc! {"
-        theorem foo: bar by {
+        theorem foo {
+            bar
+        } by {
             baz
         }"};
         assert_eq!(expected, statement.to_string());
@@ -1115,7 +1168,10 @@ mod tests {
 
     #[test]
     fn test_theorem_names_lowercased() {
-        ok("theorem foo: true");
+        ok(indoc! {"
+        theorem foo {
+            true
+        }"});
         fail("theorem Foo: true");
     }
 
@@ -1189,7 +1245,10 @@ mod tests {
 
     #[test]
     fn test_parametric_theorem() {
-        ok("axiom recursion_base<T>(f: T -> T, a: T): recursion(f, a, 0) = a");
+        ok(indoc! {"
+        axiom recursion_base<T>(f: T -> T, a: T) {
+            recursion(f, a, 0) = a
+        }"});
     }
 
     #[test]

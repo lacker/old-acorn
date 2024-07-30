@@ -1770,9 +1770,9 @@ mod tests {
         env.add("define qux(x: Bool, y: Bool) -> Bool: x");
         env.expect_type("qux", "(Bool, Bool) -> Bool");
 
-        env.bad("theorem foo(x: Bool, x: Bool): x");
+        env.bad("theorem foo(x: Bool, x: Bool) { x }");
         assert!(!env.bindings.has_identifier("x"));
-        env.add("theorem foo(x: Bool, y: Bool): x");
+        env.add("theorem foo(x: Bool, y: Bool) { x }");
         env.expect_type("foo", "(Bool, Bool) -> Bool");
 
         env.bad("let bar: Bool = forall(x: Bool, x: Bool) { x = x }");
@@ -1796,7 +1796,7 @@ mod tests {
     fn test_argless_theorem() {
         let mut env = Environment::new_test();
         env.add("let b: Bool = axiom");
-        env.add("theorem foo: b | !b");
+        env.add("theorem foo { b | !b }");
         env.expect_def("foo", "(b | !b)");
     }
 
@@ -1840,14 +1840,14 @@ mod tests {
         env.add("let one: Nat = suc(zero)");
         env.expect_def("one", "suc(zero)");
 
-        env.add("axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y");
+        env.add("axiom suc_injective(x: Nat, y: Nat) { suc(x) = suc(y) -> x = y }");
         env.expect_type("suc_injective", "(Nat, Nat) -> Bool");
         env.expect_def(
             "suc_injective",
             "function(x0: Nat, x1: Nat) { ((suc(x0) = suc(x1)) -> (x0 = x1)) }",
         );
 
-        env.add("axiom suc_neq_zero(x: Nat): suc(x) != zero");
+        env.add("axiom suc_neq_zero(x: Nat) { suc(x) != zero }");
         env.expect_def("suc_neq_zero", "function(x0: Nat) { (suc(x0) != zero) }");
 
         assert!(env.bindings.has_type_name("Nat"));
@@ -1866,30 +1866,32 @@ mod tests {
         assert!(!env.bindings.has_identifier("foo"));
 
         env.add(
-            "axiom induction(f: Nat -> Bool, n: Nat):
-            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)",
+            "axiom induction(f: Nat -> Bool, n: Nat) {
+            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n) }",
         );
         env.expect_def("induction", "function(x0: Nat -> Bool, x1: Nat) { ((x0(zero) & forall(x2: Nat) { (x0(x2) -> x0(suc(x2))) }) -> x0(x1)) }");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
-        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, zero) = a");
+        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat) { recursion(f, a, zero) = a }");
         env.add(
-            "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):
-            recursion(f, a, suc(n)) = f(recursion(f, a, n))",
+            "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat) {
+            recursion(f, a, suc(n)) = f(recursion(f, a, n)) }",
         );
 
         env.add("define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)");
         env.expect_type("add", "(Nat, Nat) -> Nat");
 
-        env.add("theorem add_zero_right(a: Nat): add(a, zero) = a");
-        env.add("theorem add_zero_left(a: Nat): add(zero, a) = a");
-        env.add("theorem add_suc_right(a: Nat, b: Nat): add(a, suc(b)) = suc(add(a, b))");
-        env.add("theorem add_suc_left(a: Nat, b: Nat): add(suc(a), b) = suc(add(a, b))");
-        env.add("theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)");
-        env.add("theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))");
-        env.add("theorem not_suc_eq_zero(x: Nat): !(suc(x) = zero)");
+        env.add("theorem add_zero_right(a: Nat) { add(a, zero) = a }");
+        env.add("theorem add_zero_left(a: Nat) { add(zero, a) = a }");
+        env.add("theorem add_suc_right(a: Nat, b: Nat) { add(a, suc(b)) = suc(add(a, b)) }");
+        env.add("theorem add_suc_left(a: Nat, b: Nat) { add(suc(a), b) = suc(add(a, b)) }");
+        env.add("theorem add_comm(a: Nat, b: Nat) { add(a, b) = add(b, a) }");
+        env.add(
+            "theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)) }",
+        );
+        env.add("theorem not_suc_eq_zero(x: Nat) { !(suc(x) = zero) }");
     }
 
     #[test]
@@ -1906,32 +1908,32 @@ let zero: Nat = axiom
 let suc: Nat -> Nat = axiom
 let one: Nat = suc(zero)
 
-axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y
+axiom suc_injective(x: Nat, y: Nat) { suc(x) = suc(y) -> x = y }
 
-axiom suc_neq_zero(x: Nat): suc(x) != zero
+axiom suc_neq_zero(x: Nat) { suc(x) != zero }
 
-axiom induction(f: Nat -> Bool): f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
+axiom induction(f: Nat -> Bool) { f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) } }
 
 // The old version. In the modern codebase these are parametric.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom
-axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, zero) = a
-axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat): recursion(f, a, suc(n)) = f(recursion(f, a, n))
+axiom recursion_base(f: Nat -> Nat, a: Nat) { recursion(f, a, zero) = a }
+axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat) { recursion(f, a, suc(n)) = f(recursion(f, a, n)) }
 
 define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)
 
 // Now let's have some theorems.
 
-theorem add_zero_right(a: Nat): add(a, zero) = a
+theorem add_zero_right(a: Nat) { add(a, zero) = a }
 
-theorem add_zero_left(a: Nat): add(zero, a) = a
+theorem add_zero_left(a: Nat) { add(zero, a) = a }
 
-theorem add_suc_right(a: Nat, b: Nat): add(a, suc(b)) = suc(add(a, b))
+theorem add_suc_right(a: Nat, b: Nat) { add(a, suc(b)) = suc(add(a, b)) }
 
-theorem add_suc_left(a: Nat, b: Nat): add(suc(a), b) = suc(add(a, b))
+theorem add_suc_left(a: Nat, b: Nat) { add(suc(a), b) = suc(add(a, b)) }
 
-theorem add_comm(a: Nat, b: Nat): add(a, b) = add(b, a)
+theorem add_comm(a: Nat, b: Nat) { add(a, b) = add(b, a) }
 
-theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
+theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)) }
 "#,
         );
     }
@@ -1942,7 +1944,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add(
             r#"
             type Nat: axiom
-            theorem foo(a: Nat, b: Nat): a = b by {
+            theorem foo(a: Nat, b: Nat) { a = b } by {
                 let c: Nat = a
                 define d(e: Nat) -> Bool: foo(e, b)
             }
@@ -1985,7 +1987,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             r#"
             type Nat: axiom
             define foo(x: Nat) -> Bool: axiom
-            theorem goal: true by {
+            theorem goal { true } by {
                 exists(z: Nat) { foo(z) }
                 foo(z)
             }
@@ -2000,7 +2002,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             "/mock/main.ac",
             r#"
             let a: Bool = axiom
-            theorem goal: a by {
+            theorem goal { a } by {
                 if a {
                     exists(b: Bool) { b = b }
                 }
@@ -2021,7 +2023,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             "/mock/main.ac",
             r#"
             let a: Bool = axiom
-            theorem goal: a by {
+            theorem goal { a } by {
                 forall(b: Bool) {
                     exists(c: Bool) { c = c }
                 }
@@ -2044,7 +2046,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             first: Bool
             second: Bool
         }
-        theorem goal(p: BoolPair): p = BoolPair.new(BoolPair.first(p), BoolPair.second(p))
+        theorem goal(p: BoolPair) {
+            p = BoolPair.new(BoolPair.first(p), BoolPair.second(p))
+        }
         "#,
         );
     }
@@ -2095,11 +2099,11 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("type Nat: axiom");
         env.add("let zero: Nat = axiom");
         env.add("define eq<T>(a: T, b: T) -> Bool: a = b");
-        env.add("theorem t1: eq(zero, zero)");
-        env.add("theorem t2: eq(zero = zero, zero = zero)");
-        env.add("theorem t3: eq(zero = zero, eq(zero, zero))");
-        env.bad("theorem t4: eq(zero, zero = zero)");
-        env.bad("theorem t5: zero = eq(zero, zero)");
+        env.add("theorem t1 { eq(zero, zero) }");
+        env.add("theorem t2 { eq(zero = zero, zero = zero) }");
+        env.add("theorem t3 { eq(zero = zero, eq(zero, zero)) }");
+        env.bad("theorem t4 { eq(zero, zero = zero) }");
+        env.bad("theorem t5 { zero = eq(zero, zero) }");
     }
 
     #[test]
@@ -2207,8 +2211,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("let suc: Nat -> Nat = axiom");
         env.add(
             r#"
-            axiom induction(f: Nat -> Bool):
+            axiom induction(f: Nat -> Bool) {
                 f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
+            }
             "#,
         );
         env.add(
@@ -2282,8 +2287,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
         env.add("forall(a: Bool) { true }");
         env.bad("define foo(X: Bool) -> Bool: true");
         env.add("define foo(x: Bool) -> Bool: true");
-        env.bad("theorem bar(X: Bool): true");
-        env.add("theorem bar(x: Bool): true");
+        env.bad("theorem bar(X: Bool) { true }");
+        env.add("theorem bar(x: Bool) { true }");
         env.bad("exists(A: Bool) { true }");
         env.add("exists(a: Bool) { true }");
     }
@@ -2305,7 +2310,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
                 let 1: Nat = axiom
             }
 
-            axiom zero_neq_one(x: Nat): Nat.zero = Nat.1
+            axiom zero_neq_one(x: Nat) { Nat.zero = Nat.1 }
         "#,
         );
 
@@ -2393,7 +2398,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define add(self: Nat, other: Nat) -> Nat: axiom
             }
-            theorem goal(a: Nat, b: Nat): a.add(b) = b.add(a)
+            theorem goal(a: Nat, b: Nat) {
+                a.add(b) = b.add(a)
+            }
         "#,
         );
     }
@@ -2407,7 +2414,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define add(self: Nat, other: Nat) -> Nat: axiom
             }
-            theorem goal(a: Nat, b: Nat): a + b = b + a
+            theorem goal(a: Nat, b: Nat) { a + b = b + a }
         "#,
         );
     }
@@ -2421,7 +2428,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define sub(self: Nat, other: Nat) -> Nat: axiom
             }
-            theorem goal(a: Nat, b: Nat): a - b = b - a
+            theorem goal(a: Nat, b: Nat) { a - b = b - a }
         "#,
         );
     }
@@ -2435,7 +2442,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define mul(self: Nat, other: Nat) -> Nat: axiom
             }
-            theorem goal(a: Nat, b: Nat): a * b = b * a
+            theorem goal(a: Nat, b: Nat) { a * b = b * a }
         "#,
         );
     }
@@ -2449,7 +2456,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define div(self: Nat, other: Nat) -> Nat: axiom
             }
-            theorem goal(a: Nat, b: Nat): a / b = b / a
+            theorem goal(a: Nat, b: Nat) { a / b = b / a }
         "#,
         );
     }
@@ -2463,7 +2470,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define mod(self: Nat, other: Nat) -> Nat: axiom
             }
-            theorem goal(a: Nat, b: Nat): a % b = b % a
+            theorem goal(a: Nat, b: Nat) { a % b = b % a }
         "#,
         );
     }
@@ -2477,7 +2484,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define lt(self: Nat, other: Nat) -> Bool: axiom
             }
-            theorem goal(a: Nat, b: Nat): a < b = b < a
+            theorem goal(a: Nat, b: Nat) { a < b = b < a }
         "#,
         );
     }
@@ -2491,7 +2498,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define gt(self: Nat, other: Nat) -> Bool: axiom
             }
-            theorem goal(a: Nat, b: Nat): a > b = b > a
+            theorem goal(a: Nat, b: Nat) { a > b = b > a }
         "#,
         );
     }
@@ -2505,7 +2512,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define lte(self: Nat, other: Nat) -> Bool: axiom
             }
-            theorem goal(a: Nat, b: Nat): a <= b = b <= a
+            theorem goal(a: Nat, b: Nat) { a <= b = b <= a }
         "#,
         );
     }
@@ -2519,7 +2526,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat): add(add(a, b), c) = add(a, add(b, c))
             class Nat {
                 define gte(self: Nat, other: Nat) -> Bool: axiom
             }
-            theorem goal(a: Nat, b: Nat): a >= b = b >= a
+            theorem goal(a: Nat, b: Nat) { a >= b = b >= a }
         "#,
         );
     }

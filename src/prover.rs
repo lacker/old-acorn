@@ -868,8 +868,8 @@ mod tests {
     #[test]
     fn test_specialization() {
         let text = r#"
-            axiom f_all(x: Thing): f(x)
-            theorem goal: f(t)
+            axiom f_all(x: Thing) { f(x) }
+            theorem goal { f(t) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -877,23 +877,23 @@ mod tests {
     #[test]
     fn test_backward_specialization_fails() {
         let text = r#"
-            axiom f_one: f(t)
-            theorem goal(x: Thing): f(x)
+            axiom f_one { f(t) }
+            theorem goal(x: Thing) { f(x) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     }
 
     #[test]
     fn test_axiomatic_values_distinct() {
-        let text = "theorem goal: t = t2";
+        let text = "theorem goal { t = t2 }";
         assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     }
 
     #[test]
     fn test_finds_example() {
         let text = r#"
-            axiom f_one: f(t)
-            theorem goal: exists(x: Thing) { f(x) }
+            axiom f_one { f(t) }
+            theorem goal { exists(x: Thing) { f(x) } }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -901,8 +901,8 @@ mod tests {
     #[test]
     fn test_finds_negative_example() {
         let text = r#"
-            axiom not_f(x: Thing): !f(x)
-            theorem goal: !f(t)
+            axiom not_f(x: Thing) { !f(x) }
+            theorem goal { !f(t) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -910,8 +910,8 @@ mod tests {
     #[test]
     fn test_extends_equality() {
         let text = r#"
-            axiom t_eq_t2: t = t2
-            theorem goal: f(t) = f(t2) 
+            axiom t_eq_t2 { t = t2 }
+            theorem goal { f(t) = f(t2)  }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -919,9 +919,9 @@ mod tests {
     #[test]
     fn test_composition() {
         let text = r#"
-            axiom g_id(x: Thing): g(x, x) = x
-            axiom f_t: f(t)
-            theorem goal: f(g(t, t))
+            axiom g_id(x: Thing) { g(x, x) = x }
+            axiom f_t { f(t) }
+            theorem goal { f(g(t, t)) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -931,7 +931,7 @@ mod tests {
     //     let text = r#"
     //         axiom f_t: f(t)
     //         axiom g_id(x: Thing): g(x, x) = x
-    //         theorem goal: f(g(t, t2))
+    //         theorem goal { f(g(t, t2)) }
     //         "#;
     //     assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     // }
@@ -939,9 +939,9 @@ mod tests {
     #[test]
     fn test_negative_rewriting() {
         let text = r#"
-            axiom not_f_t: !f(t)
-            axiom g_id(x: Thing): g(x, x) = x
-            theorem goal: !f(g(t, t))
+            axiom not_f_t { !f(t) }
+            axiom g_id(x: Thing) { g(x, x) = x }
+            theorem goal { !f(g(t, t)) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -949,8 +949,8 @@ mod tests {
     #[test]
     fn test_extends_ne() {
         let text = r#"
-            axiom f_t_ne_f_t2: f(t) != f(t2)
-            theorem goal: t != t2
+            axiom f_t_ne_f_t2 { f(t) != f(t2) }
+            theorem goal { t != t2 }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -958,8 +958,8 @@ mod tests {
     #[test]
     fn test_equality_resolution() {
         let text = r#"
-            axiom foo(x: Thing): x != t | f(t)
-            theorem goal: f(t)
+            axiom foo(x: Thing) { x != t | f(t) }
+            theorem goal { f(t) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -967,8 +967,8 @@ mod tests {
     #[test]
     fn test_equality_factoring() {
         let text = r#"
-            axiom foo(x: Thing, y: Thing): x = t | y = t
-            theorem goal(x: Thing): x = t2
+            axiom foo(x: Thing, y: Thing) { x = t | y = t }
+            theorem goal(x: Thing) { x = t2 }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -979,8 +979,8 @@ mod tests {
         // factoring test above. So if one of them works and one doesn't,
         // it's likely to be a prioritization dependency problem.
         let text = r#"
-            axiom foo: exists(x: Thing) { x != t2 }
-            theorem goal: exists(x: Thing) { x != t }
+            axiom foo { exists(x: Thing) { x != t2 } }
+            theorem goal { exists(x: Thing) { x != t } }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -988,9 +988,9 @@ mod tests {
     #[test]
     fn test_prover_avoids_loops() {
         let text = r#"
-            axiom trivial(x: Thing): !f(h(x)) | f(h(x))
-            axiom arbitrary(x: Thing): f(h(x)) | f(x)
-            theorem goal: f(t)
+            axiom trivial(x: Thing) { !f(h(x)) | f(h(x)) }
+            axiom arbitrary(x: Thing) { f(h(x)) | f(x) }
+            theorem goal { f(t) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     }
@@ -998,8 +998,8 @@ mod tests {
     #[test]
     fn test_synthesis_avoids_loops() {
         let text = r#"
-            axiom foo(x: Thing -> Bool): x(t) | f(h(t))
-            theorem goal: f(t2)
+            axiom foo(x: Thing -> Bool) { x(t) | f(h(t)) }
+            theorem goal { f(t2) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
     }
@@ -1007,8 +1007,8 @@ mod tests {
     #[test]
     fn test_higher_order_unification() {
         let text = r#"
-            axiom foo(x: Thing -> Bool): x(t)
-            theorem goal: f(t)
+            axiom foo(x: Thing -> Bool) { x(t) }
+            theorem goal { f(t) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -1018,7 +1018,9 @@ mod tests {
         let text = r#"
             type Thing: axiom
             let t: Thing = axiom
-            theorem reflexivity(x: Thing): x = x by {
+            theorem reflexivity(x: Thing) {
+                x = x
+            } by {
                 reflexivity(t)
             }
             "#;
@@ -1032,7 +1034,7 @@ mod tests {
             type Thing: axiom
             let t: Thing = axiom
             let foo: Thing -> Bool = axiom
-            axiom foo_t: foo(t)
+            axiom foo_t { foo(t) }
             forall(x: Thing) {
                 x = t -> foo(x)
             }
@@ -1062,11 +1064,11 @@ mod tests {
             let f2: Bool -> Bool = axiom
             let f3: Bool -> Bool = axiom
             let f4: Bool -> Bool = axiom
-            axiom a1: f1(b)
-            axiom a12(x: Bool): f1(x) -> f2(x)
-            axiom a23(x: Bool): f2(x) -> f3(x)
-            axiom a34(x: Bool): f3(x) -> f4(x)
-            theorem goal(x: Bool): f4(b)
+            axiom a1 { f1(b) }
+            axiom a12(x: Bool) { f1(x) -> f2(x) }
+            axiom a23(x: Bool) { f2(x) -> f3(x) }
+            axiom a34(x: Bool) { f3(x) -> f4(x) }
+            theorem goal(x: Bool) { f4(b) }
         "#;
         expect_proof(text, "goal", &["f2(b)", "f3(b)"]);
     }
@@ -1083,9 +1085,9 @@ mod tests {
             let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
             define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom
-            axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, zero) = a
+            axiom recursion_base(f: Nat -> Nat, a: Nat) { recursion(f, a, zero) = a }
             define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)
-            theorem add_zero_right(a: Nat): add(a, zero) = a
+            theorem add_zero_right(a: Nat) { add(a, zero) = a }
         "#;
         expect_proof(text, "add_zero_right", &[]);
     }
@@ -1093,9 +1095,9 @@ mod tests {
     #[test]
     fn test_second_literal_matches_goal() {
         let text = r#"
-            axiom axiom1: f(g(t, t)) | f(t2)
-            axiom axiom2: !f(g(t, t)) | f(t2)
-            theorem goal: f(t2)
+            axiom axiom1 { f(g(t, t)) | f(t2) }
+            axiom axiom2 { !f(g(t, t)) | f(t2) }
+            theorem goal { f(t2) }
         "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -1106,7 +1108,7 @@ mod tests {
             type Nat: axiom
             let addx: (Nat, Nat) -> Nat = axiom
             define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { addx(a, b) }
-            theorem goal(a: Nat, b: Nat): addx(a, b) = adder(a)(b)
+            theorem goal(a: Nat, b: Nat) { addx(a, b) = adder(a)(b) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1118,7 +1120,7 @@ mod tests {
             let addx: (Nat, Nat) -> Nat = axiom
             define ltex(a: Nat, b: Nat) -> Bool: exists(c: Nat) { addx(a, c) = b }
             define ltx(a: Nat, b: Nat) -> Bool: ltex(a, b) & a != b
-            theorem goal(a: Nat): !ltx(a, a)
+            theorem goal(a: Nat) { !ltx(a, a) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1130,9 +1132,9 @@ mod tests {
             let zero: Nat = axiom
             let one: Nat = axiom
             let suc: Nat -> Nat = axiom
-            axiom zero_or_suc(a: Nat): a = zero | exists(b: Nat) { a = suc(b) }
-            axiom one_neq_zero: one != zero
-            theorem goal: exists(x: Nat) { one = suc(x) }
+            axiom zero_or_suc(a: Nat) { a = zero | exists(b: Nat) { a = suc(b) } }
+            axiom one_neq_zero { one != zero }
+            theorem goal { exists(x: Nat) { one = suc(x) } }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1144,8 +1146,8 @@ mod tests {
             let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
             let y: Nat = axiom
-            axiom zero_or_suc(a: Nat): a = zero | exists(b: Nat) { a = suc(b) }
-            theorem goal: zero_or_suc(y)
+            axiom zero_or_suc(a: Nat) { a = zero | exists(b: Nat) { a = suc(b) } }
+            theorem goal { zero_or_suc(y) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1157,9 +1159,9 @@ mod tests {
             let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
             let y: Nat = axiom
-            axiom zero_or_suc(a: Nat): a = zero | exists(b: Nat) { a = suc(b) }
-            axiom y_not_zero: y != zero
-            theorem goal: zero_or_suc(y)
+            axiom zero_or_suc(a: Nat) { a = zero | exists(b: Nat) { a = suc(b) } }
+            axiom y_not_zero { y != zero }
+            theorem goal { zero_or_suc(y) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1171,7 +1173,7 @@ mod tests {
                 first: Bool
                 second: Bool
             }
-            theorem goal(p: Pair): p = Pair.new(Pair.first(p), Pair.second(p))
+            theorem goal(p: Pair) { p = Pair.new(Pair.first(p), Pair.second(p)) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1183,7 +1185,7 @@ mod tests {
                 first: Bool
                 second: Bool
             }
-            theorem goal(a: Bool, b: Bool): Pair.first(Pair.new(a, b)) = a
+            theorem goal(a: Bool, b: Bool) { Pair.first(Pair.new(a, b)) = a }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1195,7 +1197,7 @@ mod tests {
                 first: Bool
                 second: Bool
             }
-            theorem goal(a: Bool, b: Bool): Pair.second(Pair.new(a, b)) = b
+            theorem goal(a: Bool, b: Bool) { Pair.second(Pair.new(a, b)) = b }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1203,7 +1205,9 @@ mod tests {
     #[test]
     fn test_proving_parametric_theorem() {
         let text = r#"
-            theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c by {
+            theorem goal<T>(a: T, b: T, c: T) {
+                a = b & b = c -> a = c
+            } by {
                 if (a = b & b = c) {
                     a = c
                 }
@@ -1215,7 +1219,7 @@ mod tests {
     #[test]
     fn test_proving_parametric_theorem_no_block() {
         let text = r#"
-            theorem goal<T>(a: T, b: T, c: T): a = b & b = c -> a = c
+            theorem goal<T>(a: T, b: T, c: T) { a = b & b = c -> a = c }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1225,8 +1229,8 @@ mod tests {
         let text = r#"
             type Nat: axiom
             let zero: Nat = axiom
-            theorem foo<T>(a: T): a = a
-            theorem goal: foo(zero)
+            theorem foo<T>(a: T) { a = a }
+            theorem goal { foo(zero) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1237,7 +1241,7 @@ mod tests {
             type Nat: axiom
             define foo<T>(a: T) -> Bool: (a = a)
             let zero: Nat = axiom
-            theorem goal: foo(zero)
+            theorem goal { foo(zero) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1246,10 +1250,10 @@ mod tests {
     fn test_parametric_definition_and_theorem() {
         let text = r#"
             define foo<T>(a: T) -> Bool: axiom
-            axiom foo_true<T>(a: T): foo(a)
+            axiom foo_true<T>(a: T) { foo(a) }
             type Nat: axiom
             let zero: Nat = axiom
-            theorem goal: foo(zero)
+            theorem goal { foo(zero) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1258,10 +1262,10 @@ mod tests {
     fn test_parameter_name_can_change() {
         let text = r#"
             define foo<T>(a: T) -> Bool: axiom
-            axiom foo_true<U>(a: U): foo(a)
+            axiom foo_true<U>(a: U) { foo(a) }
             type Nat: axiom
             let zero: Nat = axiom
-            theorem goal: foo(zero)
+            theorem goal { foo(zero) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1273,9 +1277,9 @@ mod tests {
             let zero: Nat = axiom
             let foo: Nat -> Bool = axiom
             let bar: Nat -> Bool = axiom
-            axiom foo_true: foo(zero)
-            axiom foo_false: !foo(zero)
-            theorem goal: bar(zero)
+            axiom foo_true { foo(zero) }
+            axiom foo_false { !foo(zero) }
+            theorem goal { bar(zero) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Inconsistent);
     }
@@ -1283,7 +1287,7 @@ mod tests {
     #[test]
     fn test_using_true_and_false_in_a_proof() {
         let text = r#"
-        theorem goal(b: Bool): b = true | b = false
+        theorem goal(b: Bool) { b = true | b = false }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1291,9 +1295,9 @@ mod tests {
     #[test]
     fn test_finding_mildly_nontrivial_inconsistency() {
         let text = r#"
-            axiom bad: true = false
+            axiom bad { true = false }
             let b: Bool = axiom
-            theorem goal: b
+            theorem goal { b }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Inconsistent);
     }
@@ -1343,7 +1347,7 @@ mod tests {
             let zero: Nat = axiom
             let one: Nat = axiom
             define sign(a: Nat) -> Nat: if a = zero { zero } else { one }
-            theorem goal(a: Nat): sign(a) = zero | sign(a) = one
+            theorem goal(a: Nat) { sign(a) = zero | sign(a) = one }
         "#,
         );
     }
@@ -1358,10 +1362,10 @@ mod tests {
             let suc: Nat -> Nat = axiom
             let addx: (Nat, Nat) -> Nat = axiom
             let mulx: (Nat, Nat) -> Nat = axiom
-            axiom add_suc(a: Nat, b: Nat): addx(suc(a), b) = suc(addx(a, b))
-            axiom suc_ne(a: Nat): suc(a) != a
-            axiom mul_suc(a: Nat, b: Nat): addx(a, mulx(a, b)) = mulx(a, suc(b))
-            theorem goal(a: Nat): suc(a) != a
+            axiom add_suc(a: Nat, b: Nat) { addx(suc(a), b) = suc(addx(a, b)) }
+            axiom suc_ne(a: Nat) { suc(a) != a }
+            axiom mul_suc(a: Nat, b: Nat) { addx(a, mulx(a, b)) = mulx(a, suc(b)) }
+            theorem goal(a: Nat) { suc(a) != a }
         "#,
         );
     }
@@ -1374,7 +1378,7 @@ mod tests {
             type Nat: axiom
             let zero: Nat = axiom
             define apply(f: Nat -> Nat, a: Nat) -> Nat: f(a)
-            theorem goal: apply(function(x: Nat) { x }, zero) = zero
+            theorem goal { apply(function(x: Nat) { x }, zero) = zero }
         "#,
         );
     }
@@ -1389,7 +1393,7 @@ mod tests {
             let p: Nat = axiom
             let f: Nat -> Bool = is_min(gcd_term(p))
 
-            theorem goal: is_min(gcd_term(p)) = f
+            theorem goal { is_min(gcd_term(p)) = f }
         "#,
         );
     }
@@ -1401,12 +1405,12 @@ mod tests {
             type Nat: axiom
             let f: Nat -> Nat = axiom
             let g: Nat -> Nat = axiom
-            theorem goal: forall(x: Nat) { f(x) = g(x) } -> f = g
+            theorem goal { forall(x: Nat) { f(x) = g(x) } -> f = g }
         "#,
         );
     }
 
-    // These tests cover some principles of functional equality that aren't implemented yet.
+    // These tests cover some principles of functional equality that aren't implemented (yet?).
     //
     // #[test]
     // fn test_functional_substitution() {
@@ -1418,7 +1422,7 @@ mod tests {
     //         define gcd_term(p: Nat) -> (Nat -> Bool): axiom
     //         let p: Nat = axiom
     //         let f: Nat -> Bool = is_min(gcd_term(p))
-    //         theorem goal: find(is_min(gcd_term(p))) = find(f)
+    //         theorem goal { find(is_min(gcd_term(p))) = find(f) }
     //     "#,
     //     );
     // }
@@ -1431,7 +1435,7 @@ mod tests {
     //         let f: Nat -> Nat = axiom
     //         let g: Nat -> Nat = axiom
     //         let p: (Nat -> Nat) -> Nat = axiom
-    //         theorem goal: forall(x: Nat) { f(x) = g(x) } -> p(f) = p(g)
+    //         theorem goal { forall(x: Nat) { f(x) = g(x) } -> p(f) = p(g) }
     //         "#,
     //     );
     // }
@@ -1443,7 +1447,7 @@ mod tests {
             type Nat: axiom
             let zero: Nat = axiom
             let addx: (Nat, Nat) -> Nat = axiom
-            theorem goal(f: Nat -> Nat): f = addx(zero) -> f(zero) = addx(zero, zero)
+            theorem goal(f: Nat -> Nat) { f = addx(zero) -> f(zero) = addx(zero, zero) }
         "#,
         );
     }
@@ -1457,14 +1461,14 @@ mod tests {
             type Bar: axiom
             let bar: Bar = axiom
             let morph: Bar -> Bar = axiom
-            axiom meq(b: Bar): morph(b) = morph(bar)
+            axiom meq(b: Bar) { morph(b) = morph(bar) }
         "#,
         );
         p.mock(
             "/mock/main.ac",
             r#"
             import bar
-            theorem goal(a: bar.Bar, b: bar.Bar): bar.morph(a) = bar.morph(b)
+            theorem goal(a: bar.Bar, b: bar.Bar) { bar.morph(a) = bar.morph(b) }
         "#,
         );
         let (outcome, _) = prove(&mut p, "main", "goal");
@@ -1477,10 +1481,10 @@ mod tests {
             r#"
             type Nat: axiom
             let suc: Nat -> Nat = axiom
-            axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y
+            axiom suc_injective(x: Nat, y: Nat) { suc(x) = suc(y) -> x = y }
             let n: Nat = axiom
-            axiom hyp: suc(n) != n
-            theorem goal: suc(suc(n)) != suc(n)
+            axiom hyp { suc(n) != n }
+            theorem goal { suc(suc(n)) != suc(n) }
         "#,
         )
     }
@@ -1492,8 +1496,8 @@ mod tests {
             type Nat: axiom
             let zero: Nat = axiom
             let f: (Nat, Nat) -> Bool = axiom
-            axiom f_zero_right(x: Nat): f(x, zero)
-            theorem goal: exists(x: Nat) { f(zero, x) }
+            axiom f_zero_right(x: Nat) { f(x, zero) }
+            theorem goal { exists(x: Nat) { f(zero, x) } }
         "#,
         );
     }
@@ -1503,9 +1507,9 @@ mod tests {
         let text = r#"
             let a: Bool = axiom
             let b: Bool = axiom
-            axiom bimpa: b -> a
-            axiom bimpna: b -> !a
-            theorem goal: !b
+            axiom bimpa { b -> a }
+            axiom bimpna { b -> !a }
+            theorem goal { !b }
         "#;
         expect_proof(text, "goal", &[]);
     }
@@ -1517,9 +1521,9 @@ mod tests {
             let f: Nat -> Bool = axiom
             let g: Nat -> Bool = axiom
             let h: Nat -> Bool = axiom
-            axiom fimpg: forall(x: Nat) { f(x) -> g(x) }
-            axiom gimph: forall(x: Nat) { g(x) -> h(x) }
-            theorem goal: forall(x: Nat) { f(x) -> h(x) }
+            axiom fimpg { forall(x: Nat) { f(x) -> g(x) } }
+            axiom gimph { forall(x: Nat) { g(x) -> h(x) } }
+            theorem goal { forall(x: Nat) { f(x) -> h(x) } }
         "#;
         expect_proof(text, "goal", &[]);
     }
@@ -1531,9 +1535,9 @@ mod tests {
         let b: Bool = axiom
         let f: Nat -> Bool = axiom
         let g: Nat -> Bool = axiom
-        axiom forg(x: Nat): f(x) | g(x)
-        axiom fgimpb: forall(x: Nat) { f(x) | g(x) } -> b
-        theorem goal: b
+        axiom forg(x: Nat) { f(x) | g(x) }
+        axiom fgimpb { forall(x: Nat) { f(x) | g(x) } -> b }
+        theorem goal { b }
         "#;
         expect_proof(text, "goal", &[]);
     }
@@ -1545,9 +1549,9 @@ mod tests {
             let a: Bool = axiom
             let b: Bool = axiom
             let c: Bool = axiom
-            axiom aimpb: a -> b
-            axiom bimpc: b -> c
-            theorem goal: a -> c by {
+            axiom aimpb { a -> b }
+            axiom bimpc { b -> c }
+            theorem goal { a -> c } by {
                 b
             }
         "#,
@@ -1564,9 +1568,9 @@ mod tests {
             
             define foo<T>(x: T) -> Bool: axiom
 
-            axiom a12: foo(t1) -> foo(t2)
-            axiom a23: foo(t2) -> foo(t3)
-            theorem goal: foo(t1) -> foo(t3)
+            axiom a12 { foo(t1) -> foo(t2) }
+            axiom a23 { foo(t2) -> foo(t3) }
+            theorem goal { foo(t1) -> foo(t3) }
             "#;
 
         expect_proof(text, "goal", &[]);
@@ -1583,7 +1587,7 @@ mod tests {
         } else {
             c
         }
-        theorem goal: !a -> c
+        theorem goal { !a -> c }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1597,7 +1601,7 @@ mod tests {
         } else {
             b
         }
-        theorem goal: !a -> b
+        theorem goal { !a -> b }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1610,9 +1614,11 @@ mod tests {
         type Nat: axiom
         let zero: Nat = axiom
         define add(a: Nat, b: Nat) -> Nat: axiom
-        theorem add_zero_left(a: Nat): add(zero, a) = a
+        theorem add_zero_left(a: Nat) { add(zero, a) = a }
         
-        theorem add_to_zero(a: Nat, b: Nat): add(a, b) = zero -> a = zero & b = zero by {
+        theorem add_to_zero(a: Nat, b: Nat) {
+            add(a, b) = zero -> a = zero & b = zero
+        } by {
             define f(x: Nat) -> Bool: add_to_zero(x, b)
             f(zero)
         }
@@ -1637,10 +1643,11 @@ mod tests {
         type Nat: axiom
         let zero: Nat = axiom
         let suc: Nat -> Nat = axiom
-        axiom induction(f: Nat -> Bool):
+        axiom induction(f: Nat -> Bool) {
             f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
+        }
         let foo: Nat -> Bool = axiom
-        theorem goal: induction(foo)
+        theorem goal { induction(foo) }
         "#;
         expect_proof(text, "goal", &[]);
     }
@@ -1649,7 +1656,7 @@ mod tests {
     fn test_proof_condensing_false() {
         let text = r#"
         let a: Bool = axiom
-        axiom a_true: a
+        axiom a_true { a }
         if !a {
             false
         }
@@ -1664,9 +1671,9 @@ mod tests {
         let a: Nat = axiom
         let f: Nat -> Bool = axiom
         let g: Nat -> Bool = axiom
-        axiom fimpg(x: Nat): f(x) -> g(x)
-        axiom fa: f(a)
-        theorem goal: g(a)
+        axiom fimpg(x: Nat) { f(x) -> g(x) }
+        axiom fa { f(a) }
+        theorem goal { g(a) }
         "#;
         expect_proof(text, "goal", &[]);
     }
@@ -1684,7 +1691,7 @@ mod tests {
                 c
             }
         }
-        theorem goal: a -> c
+        theorem goal { a -> c }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1696,8 +1703,8 @@ mod tests {
         class Nat {
             define add(self: Nat, other: Nat) -> Nat: axiom
         }
-        theorem goal(a: Nat, b: Nat, c: Nat): Nat.add(Nat.add(a, b), c) = a + b + c
-        theorem antigoal(a: Nat, b: Nat, c: Nat): Nat.add(a, Nat.add(b, c)) = a + b + c
+        theorem goal(a: Nat, b: Nat, c: Nat) { Nat.add(Nat.add(a, b), c) = a + b + c }
+        theorem antigoal(a: Nat, b: Nat, c: Nat) { Nat.add(a, Nat.add(b, c)) = a + b + c }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
         assert_eq!(prove_text(text, "antigoal"), Outcome::Exhausted);
@@ -1711,8 +1718,8 @@ mod tests {
             define add(self: Nat, other: Nat) -> Nat: axiom
             define mul(self: Nat, other: Nat) -> Nat: axiom
         }
-        theorem goal1(a: Nat, b: Nat, c: Nat): Nat.add(Nat.mul(a, b), c) = a * b + c
-        theorem goal2(a: Nat, b: Nat, c: Nat): Nat.add(a, Nat.mul(b, c)) = a + b * c
+        theorem goal1(a: Nat, b: Nat, c: Nat) { Nat.add(Nat.mul(a, b), c) = a * b + c }
+        theorem goal2(a: Nat, b: Nat, c: Nat) { Nat.add(a, Nat.mul(b, c)) = a + b * c }
         "#;
         assert_eq!(prove_text(text, "goal1"), Outcome::Success);
         assert_eq!(prove_text(text, "goal2"), Outcome::Success);
@@ -1726,9 +1733,9 @@ mod tests {
             define suc(self: Nat) -> Nat: axiom
             define add(self: Nat, other: Nat) -> Nat: axiom
         }
-        theorem goal1(a: Nat): a.suc.suc = Nat.suc(Nat.suc(a))
-        theorem goal2(a: Nat): a.suc.suc = Nat.suc(a).suc
-        theorem goal3(a: Nat, b: Nat): (a + b).suc = Nat.suc(Nat.add(a, b))
+        theorem goal1(a: Nat) { a.suc.suc = Nat.suc(Nat.suc(a)) }
+        theorem goal2(a: Nat) { a.suc.suc = Nat.suc(a).suc }
+        theorem goal3(a: Nat, b: Nat) { (a + b).suc = Nat.suc(Nat.add(a, b)) }
         "#;
         assert_eq!(prove_text(text, "goal1"), Outcome::Success);
         assert_eq!(prove_text(text, "goal2"), Outcome::Success);
@@ -1745,8 +1752,8 @@ mod tests {
             define read(self: Bag, other: Bag) -> Bag: axiom
         }
         default Bag
-        axiom comm(a: Bag, b: Bag): a.read(b) = b.read(a)
-        theorem goal: 12 = 21
+        axiom comm(a: Bag, b: Bag) { a.read(b) = b.read(a) }
+        theorem goal { 12 = 21 }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }

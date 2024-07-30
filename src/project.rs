@@ -914,7 +914,7 @@ mod tests {
             r#"
             import foo
             let new_foo: foo.Foo = axiom
-            theorem goal: foo.fooify(new_foo) = foo.foo
+            theorem goal { foo.fooify(new_foo) = foo.foo }
         "#,
         );
         p.load_module("foo").expect("loading foo failed");

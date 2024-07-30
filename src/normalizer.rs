@@ -555,17 +555,17 @@ mod tests {
         env.add("let one: Nat = suc(zero)");
         env.expect_type("one", "Nat");
 
-        env.add("axiom suc_injective(x: Nat, y: Nat): suc(x) = suc(y) -> x = y");
+        env.add("axiom suc_injective(x: Nat, y: Nat) { suc(x) = suc(y) -> x = y }");
         norm.check(&env, "suc_injective", &["suc(x0) != suc(x1) | x0 = x1"]);
         env.expect_type("suc_injective", "(Nat, Nat) -> Bool");
 
-        env.add("axiom suc_neq_zero(x: Nat): suc(x) != zero");
+        env.add("axiom suc_neq_zero(x: Nat) { suc(x) != zero }");
         norm.check(&env, "suc_neq_zero", &["zero != suc(x0)"]);
         env.expect_type("suc_neq_zero", "Nat -> Bool");
 
         env.add(
-            "axiom induction(f: Nat -> Bool):\
-            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }",
+            "axiom induction(f: Nat -> Bool) {\
+            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) } }",
         );
 
         norm.check(
@@ -582,13 +582,13 @@ mod tests {
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
-        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat): recursion(f, a, zero) = a");
+        env.add("axiom recursion_base(f: Nat -> Nat, a: Nat) { recursion(f, a, zero) = a }");
         env.expect_type("recursion_base", "(Nat -> Nat, Nat) -> Bool");
         norm.check(&env, "recursion_base", &["recursion(x0, x1, zero) = x1"]);
 
         env.add(
-            "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat):\
-            recursion(f, a, suc(n)) = f(recursion(f, a, n))",
+            "axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat) {\
+            recursion(f, a, suc(n)) = f(recursion(f, a, n)) }",
         );
         env.expect_type("recursion_step", "(Nat -> Nat, Nat, Nat) -> Bool");
         norm.check(
@@ -602,10 +602,10 @@ mod tests {
     fn test_bool_formulas() {
         let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
-        env.add("theorem one(a: Bool): a -> a | (a | a)");
+        env.add("theorem one(a: Bool) { a -> a | (a | a) }");
         norm.check(&env, "one", &["!x0 | x0"]);
 
-        env.add("theorem two(a: Bool): a -> a & (a & a)");
+        env.add("theorem two(a: Bool) { a -> a & (a & a) }");
         norm.check(&env, "two", &["!x0 | x0", "!x0 | x0", "!x0 | x0"]);
     }
 
@@ -614,10 +614,10 @@ mod tests {
         let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
-        env.add("theorem one(n: Nat): n = n");
+        env.add("theorem one(n: Nat) { n = n }");
         norm.check(&env, "one", &[]);
 
-        env.add("theorem two(n: Nat): n = n | n != n");
+        env.add("theorem two(n: Nat) { n = n | n != n }");
         norm.check(&env, "two", &[]);
     }
 
@@ -626,7 +626,7 @@ mod tests {
         let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
         env.add("type Nat: axiom");
-        env.add("theorem exists_eq(x: Nat): exists(y: Nat) { x = y }");
+        env.add("theorem exists_eq(x: Nat) { exists(y: Nat) { x = y } }");
         norm.check(&env, "exists_eq", &["s0(x0) = x0"]);
     }
 
@@ -642,7 +642,7 @@ mod tests {
             let cc: Nat = axiom
             define specific_borf(x: Nat) -> Bool: also_borf(x, bb, cc)
             define always_true(f: Nat -> Bool) -> Bool: forall(n: Nat) { f(n) }
-            theorem goal: !always_true(specific_borf)
+            theorem goal { !always_true(specific_borf) }
         "#,
         );
         let mut norm = Normalizer::new();
@@ -659,7 +659,7 @@ mod tests {
             let n1: Nat = axiom
             let n2: Nat = axiom
             let n3: Nat = axiom
-            theorem goal: (n0 = n1) = (n2 = n3)
+            theorem goal { (n0 = n1) = (n2 = n3) }
             "#,
         );
         let mut norm = Normalizer::new();
@@ -676,7 +676,7 @@ mod tests {
             let n1: Nat = axiom
             let n2: Nat = axiom
             let n3: Nat = axiom
-            theorem goal: (n0 = n1) != (n2 = n3)
+            theorem goal { (n0 = n1) != (n2 = n3) }
             "#,
         );
         let mut norm = Normalizer::new();
@@ -691,7 +691,7 @@ mod tests {
             type Nat: axiom
             let addx: (Nat, Nat) -> Nat = axiom
             define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { addx(a, b) }
-            theorem goal(a: Nat, b: Nat): adder(a)(b) = adder(b)(a)
+            theorem goal(a: Nat, b: Nat) { adder(a)(b) = adder(b)(a) }
             "#,
         );
         let mut norm = Normalizer::new();
@@ -706,7 +706,7 @@ mod tests {
             type Nat: axiom
             let zero: Nat = axiom
             define zerof(a: Nat) -> (Nat -> Nat): function(b: Nat) { zero }
-            theorem goal(a: Nat, b: Nat): zerof(a) = zerof(b)
+            theorem goal(a: Nat, b: Nat) { zerof(a) = zerof(b) }
             "#,
         );
         let mut norm = Normalizer::new();
@@ -722,7 +722,7 @@ mod tests {
             let zero: Nat = axiom
             let one: Nat = axiom
             let addx: (Nat, Nat) -> Nat = axiom
-            theorem goal: exists(x: Nat) { addx(x, zero) = one }
+            theorem goal { exists(x: Nat) { addx(x, zero) = one } }
             "#,
         );
         let mut norm = Normalizer::new();
@@ -739,7 +739,7 @@ mod tests {
             let one: Nat = axiom
             let ltx: (Nat, Nat) -> Bool = axiom
             let addx: (Nat, Nat) -> Nat = axiom
-            theorem foo(x0: Nat, x1: Nat): addx(addx(x0, zero), x1) != zero | ltx(x1, zero)
+            theorem foo(x0: Nat, x1: Nat) { addx(addx(x0, zero), x1) != zero | ltx(x1, zero) }
             "#,
         );
         let mut norm = Normalizer::new();
