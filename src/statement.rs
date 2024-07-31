@@ -1353,7 +1353,7 @@ mod tests {
         zip(dash)
         fo(fum)
         "},
-            "TODO",
+            "unexpected token",
         );
     }
 }

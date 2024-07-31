@@ -488,14 +488,17 @@ fn parse_partial_expressions(
         }
         if token.token_type.is_binary() {
             match (expected_type, token.token_type) {
+                (ExpressionType::Value, TokenType::Colon) => {
+                    return Err(Error::new(&token, "unexpected colon in value"));
+                }
                 (ExpressionType::Value, _) => {
-                    // Anything can be in a value
+                    // Anything else can be in a value
                 }
                 (_, TokenType::Comma)
                 | (_, TokenType::RightArrow)
-                | (_, TokenType::Colon)
-                | (_, TokenType::Dot) => {
-                    // Okay in either types or declarations
+                | (_, TokenType::Dot)
+                | (ExpressionType::Declaration, TokenType::Colon) => {
+                    // These are okay
                 }
                 (ExpressionType::Type, _) => {
                     return Err(Error::new(&token, "unexpected token in type"));
@@ -808,11 +811,6 @@ mod tests {
         check_value("forall(x: nat) { (suc(x) = x + 1) }");
         check_value("exists(x: nat) { (x = 0) }");
         check_value("exists(f: (nat, nat) -> nat) { (f(0, 0) = 0) }");
-    }
-
-    #[test]
-    fn test_function_signatures() {
-        check_type("foo(a: bool, b: nat) -> bool");
     }
 
     #[test]
