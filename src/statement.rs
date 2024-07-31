@@ -326,6 +326,26 @@ fn parse_theorem_statement(
     Ok(statement)
 }
 
+// Finish the rest of a variable satisfy statement after we've gotten the quantifiers
+fn complete_variable_satisfy(
+    keyword: Token,
+    tokens: &mut TokenIter,
+    quantifiers: Vec<Expression>,
+) -> Result<Statement> {
+    let (condition, last_token) =
+        Expression::parse_value(tokens, Terminator::Is(TokenType::NewLine))?;
+    let es = VariableSatisfyStatement {
+        quantifiers,
+        condition,
+    };
+    let statement = Statement {
+        first_token: keyword,
+        last_token,
+        statement: StatementInfo::VariableSatisfy(es),
+    };
+    Ok(statement)
+}
+
 // Parses a statement where the "let" keyword has already been found.
 // This might not be a LetStatement because multiple statement types can start with "let".
 fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
@@ -334,19 +354,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
             if token.token_type == TokenType::LeftParen {
                 // This is a parenthesized let..satisfy.
                 let (_, quantifiers, _) = parse_args(tokens, TokenType::Satisfy)?;
-                Token::expect_type(tokens, TokenType::LeftBrace)?;
-                let (condition, last_token) =
-                    Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
-                let vss = VariableSatisfyStatement {
-                    quantifiers,
-                    condition,
-                };
-                let statement = Statement {
-                    first_token: keyword,
-                    last_token,
-                    statement: StatementInfo::VariableSatisfy(vss),
-                };
-                return Ok(statement);
+                return complete_variable_satisfy(keyword, tokens, quantifiers);
             }
         }
         None => return Err(tokens.error("unexpected end of file")),
@@ -363,7 +371,13 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         return Err(Error::new(&keyword, "invalid variable name"));
     }
     Token::expect_type(tokens, TokenType::Colon)?;
-    let (type_expr, _) = Expression::parse_type(tokens, Terminator::Is(TokenType::Equals))?;
+    let (type_expr, t) = Expression::parse_type(
+        tokens,
+        Terminator::Or(TokenType::Equals, TokenType::Satisfy),
+    )?;
+    if t.token_type == TokenType::Satisfy {
+        todo!("create quantifiers");
+    }
     let (value, last_token) = Expression::parse_value(tokens, Terminator::Is(TokenType::NewLine))?;
     let ls = LetStatement {
         name,
