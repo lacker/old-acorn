@@ -85,10 +85,14 @@ pub struct IfStatement {
     pub token: Token,
 }
 
-// Exists statements introduce new variables to the outside block.
-pub struct ExistsStatement {
+// A variable satisfy statement introduces new variables to the outside block.
+// It is written like:
+//   let a: Nat satisfy {
+//     a > 0
+//   }
+pub struct VariableSatisfyStatement {
     pub quantifiers: Vec<Expression>,
-    pub claim: Expression,
+    pub condition: Expression,
 }
 
 // Struct statements define a new type
@@ -148,7 +152,7 @@ pub enum StatementInfo {
     Type(TypeStatement),
     ForAll(ForAllStatement),
     If(IfStatement),
-    Exists(ExistsStatement),
+    VariableSatisfy(VariableSatisfyStatement),
     Struct(StructStatement),
     Import(ImportStatement),
     Class(ClassStatement),
@@ -322,12 +326,32 @@ fn parse_theorem_statement(
     Ok(statement)
 }
 
-// Parses a let statement where the "let" keyword has already been found.
+// Parses a statement where the "let" keyword has already been found.
+// This might not be a LetStatement because multiple statement types can start with "let".
 fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = match tokens.next() {
-        Some(t) => t,
+    match tokens.peek() {
+        Some(token) => {
+            if token.token_type == TokenType::LeftParen {
+                // This is a parenthesized let..satisfy.
+                let (_, quantifiers, _) = parse_args(tokens, TokenType::Satisfy)?;
+                Token::expect_type(tokens, TokenType::LeftBrace)?;
+                let (condition, last_token) =
+                    Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
+                let vss = VariableSatisfyStatement {
+                    quantifiers,
+                    condition,
+                };
+                let statement = Statement {
+                    first_token: keyword,
+                    last_token,
+                    statement: StatementInfo::VariableSatisfy(vss),
+                };
+                return Ok(statement);
+            }
+        }
         None => return Err(tokens.error("unexpected end of file")),
-    };
+    }
+    let name_token = tokens.next().unwrap();
     match name_token.token_type {
         TokenType::Identifier | TokenType::Number => {}
         _ => {
@@ -484,14 +508,14 @@ fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     let (_, quantifiers, _) = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, last_token) =
         Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
-    let es = ExistsStatement {
+    let es = VariableSatisfyStatement {
         quantifiers,
-        claim: condition,
+        condition,
     };
     let statement = Statement {
         first_token: keyword,
         last_token,
-        statement: StatementInfo::Exists(es),
+        statement: StatementInfo::VariableSatisfy(es),
     };
     Ok(statement)
 }
@@ -750,14 +774,14 @@ impl Statement {
                 Ok(())
             }
 
-            StatementInfo::Exists(es) => {
+            StatementInfo::VariableSatisfy(es) => {
                 let new_indentation = add_indent(indentation);
                 write!(f, "exists")?;
                 write_args(f, &es.quantifiers)?;
                 write!(
                     f,
                     " {{\n{}{}\n{}}}",
-                    &new_indentation, es.claim, indentation
+                    &new_indentation, es.condition, indentation
                 )
             }
 

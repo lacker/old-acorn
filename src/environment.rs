@@ -990,7 +990,7 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::Exists(es) => {
+            StatementInfo::VariableSatisfy(es) => {
                 // We need to prove the general existence claim
                 let mut stack = Stack::new();
                 let (quant_names, quant_types) =
@@ -999,7 +999,7 @@ impl Environment {
                 let general_claim_value = self.bindings.evaluate_value_with_stack(
                     &mut stack,
                     project,
-                    &es.claim,
+                    &es.condition,
                     Some(&AcornType::Bool),
                 )?;
                 let general_claim =
@@ -1021,7 +1021,7 @@ impl Environment {
                 // We can then assume the specific existence claim with the named constants
                 let specific_claim =
                     self.bindings
-                        .evaluate_value(project, &es.claim, Some(&AcornType::Bool))?;
+                        .evaluate_value(project, &es.condition, Some(&AcornType::Bool))?;
                 self.add_node(
                     project,
                     true,

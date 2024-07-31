@@ -54,6 +54,7 @@ pub enum TokenType {
     From,
     Solve,
     Problem,
+    Satisfy,
 }
 
 // The token types that we export via the language server protocol
@@ -274,6 +275,7 @@ impl TokenType {
             TokenType::From => "from",
             TokenType::Solve => "solve",
             TokenType::Problem => "problem",
+            TokenType::Satisfy => "satisfy",
         }
     }
 
@@ -441,7 +443,8 @@ impl Token {
             | TokenType::Default
             | TokenType::From
             | TokenType::Solve
-            | TokenType::Problem => Some(SemanticTokenType::KEYWORD),
+            | TokenType::Problem
+            | TokenType::Satisfy => Some(SemanticTokenType::KEYWORD),
 
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
@@ -577,6 +580,7 @@ impl Token {
                             "from" => TokenType::From,
                             "solve" => TokenType::Solve,
                             "problem" => TokenType::Problem,
+                            "satisfy" => TokenType::Satisfy,
                             _ => TokenType::Identifier,
                         }
                     }
