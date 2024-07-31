@@ -11,6 +11,8 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 //    (int, bool) -> bool
 // And declaration expressions, like
 //   p: bool
+// Declaration expressions also include comma-separated declarations, like
+//   p: bool, q: bool
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum ExpressionType {
     Value,
@@ -485,13 +487,21 @@ fn parse_partial_expressions(
             return Ok((partials, token));
         }
         if token.token_type.is_binary() {
-            if expected_type != ExpressionType::Value {
-                match token.token_type {
-                    TokenType::Comma
-                    | TokenType::RightArrow
-                    | TokenType::Colon
-                    | TokenType::Dot => {}
-                    _ => return Err(Error::new(&token, "expected a type expression")),
+            match (expected_type, token.token_type) {
+                (ExpressionType::Value, _) => {
+                    // Anything can be in a value
+                }
+                (_, TokenType::Comma)
+                | (_, TokenType::RightArrow)
+                | (_, TokenType::Colon)
+                | (_, TokenType::Dot) => {
+                    // Okay in either types or declarations
+                }
+                (ExpressionType::Type, _) => {
+                    return Err(Error::new(&token, "unexpected token in type"));
+                }
+                (ExpressionType::Declaration, _) => {
+                    return Err(Error::new(&token, "unexpected token in declaration"));
                 }
             }
             partials.push_back(PartialExpression::Binary(token));
