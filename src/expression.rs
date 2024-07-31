@@ -14,7 +14,8 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum ExpressionType {
     Value,
-    Other,
+    Type,
+    Declaration,
 }
 
 // An Expression represents the basic structuring of tokens into a syntax tree.
@@ -391,31 +392,42 @@ impl Expression {
         Ok((expression, terminator))
     }
 
-    // TODO: remove
-    pub fn parse_old(
+    pub fn parse_value(
         tokens: &mut TokenIter,
-        is_value: bool,
-        termination: Terminator,
+        terminator: Terminator,
     ) -> Result<(Expression, Token)> {
-        let expr_type = if is_value {
-            ExpressionType::Value
-        } else {
-            ExpressionType::Other
-        };
-        Expression::parse(tokens, expr_type, termination)
+        Expression::parse(tokens, ExpressionType::Value, terminator)
     }
 
-    pub fn expect_parse(input: &str, is_value: bool) -> Expression {
+    pub fn parse_type(
+        tokens: &mut TokenIter,
+        terminator: Terminator,
+    ) -> Result<(Expression, Token)> {
+        Expression::parse(tokens, ExpressionType::Type, terminator)
+    }
+
+    pub fn parse_declaration(
+        tokens: &mut TokenIter,
+        terminator: Terminator,
+    ) -> Result<(Expression, Token)> {
+        Expression::parse(tokens, ExpressionType::Declaration, terminator)
+    }
+
+    fn expect_parse(input: &str, expected_type: ExpressionType) -> Expression {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        match Expression::parse_old(&mut tokens, is_value, Terminator::Is(TokenType::NewLine)) {
+        match Expression::parse(
+            &mut tokens,
+            expected_type,
+            Terminator::Is(TokenType::NewLine),
+        ) {
             Ok((e, _)) => e,
             Err(e) => panic!("unexpected error parsing: {}", e),
         }
     }
 
     pub fn expect_value(input: &str) -> Expression {
-        Expression::expect_parse(input, true)
+        Expression::expect_parse(input, ExpressionType::Value)
     }
 }
 
@@ -521,7 +533,7 @@ fn parse_partial_expressions(
                 let left_paren = Token::expect_type(tokens, TokenType::LeftParen)?;
                 let (args, right_paren) = Expression::parse(
                     tokens,
-                    ExpressionType::Other,
+                    ExpressionType::Declaration,
                     Terminator::Is(TokenType::RightParen),
                 )?;
                 let group = Expression::Grouping(left_paren, Box::new(args), right_paren);
@@ -545,13 +557,13 @@ fn parse_partial_expressions(
                     return Err(Error::new(&token, "'if' expressions cannot be used here"));
                 }
                 let (condition, _) =
-                    Expression::parse_old(tokens, true, Terminator::Is(TokenType::LeftBrace))?;
+                    Expression::parse_value(tokens, Terminator::Is(TokenType::LeftBrace))?;
                 let (if_block, _) =
-                    Expression::parse_old(tokens, true, Terminator::Is(TokenType::RightBrace))?;
+                    Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
                 Token::expect_type(tokens, TokenType::Else)?;
                 Token::expect_type(tokens, TokenType::LeftBrace)?;
                 let (else_block, last_right_brace) =
-                    Expression::parse_old(tokens, true, Terminator::Is(TokenType::RightBrace))?;
+                    Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
                 let exp = Expression::IfThenElse(
                     token,
                     Box::new(condition),
@@ -703,24 +715,28 @@ fn combine_partial_expressions(
 mod tests {
     use super::*;
 
-    fn expect_optimal(input: &str, is_value: bool) {
-        let output = Expression::expect_parse(input, is_value).to_string();
+    fn expect_optimal(input: &str, expected_type: ExpressionType) {
+        let output = Expression::expect_parse(input, expected_type).to_string();
         assert_eq!(input, output);
     }
 
     fn check_value(input: &str) {
-        expect_optimal(input, true);
+        expect_optimal(input, ExpressionType::Value);
     }
 
     fn check_type(input: &str) {
-        expect_optimal(input, false);
+        expect_optimal(input, ExpressionType::Type);
     }
 
     // Expects a parse error, or not-an-expression, but not a lex error
-    fn expect_error(input: &str, is_value: bool) {
+    fn expect_error(input: &str, expected_type: ExpressionType) {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        let res = Expression::parse_old(&mut tokens, is_value, Terminator::Is(TokenType::NewLine));
+        let res = Expression::parse(
+            &mut tokens,
+            expected_type,
+            Terminator::Is(TokenType::NewLine),
+        );
         match res {
             Err(_) => {}
             Ok((e, _)) => panic!("unexpectedly parsed {} => {}", input, e),
@@ -729,7 +745,7 @@ mod tests {
 
     // Expects the input to be an application at the top level
     fn expect_application(input: &str) {
-        let exp = Expression::expect_parse(input, true);
+        let exp = Expression::expect_parse(input, ExpressionType::Value);
         if let Expression::Apply(_, _) = exp {
             // That's what we expect
             return;
@@ -739,7 +755,7 @@ mod tests {
     }
 
     fn expect_dot(input: &str) {
-        let exp = Expression::expect_parse(input, true);
+        let exp = Expression::expect_parse(input, ExpressionType::Value);
         if let Expression::Binary(_, token, _) = &exp {
             if token.token_type == TokenType::Dot {
                 // That's what we expect
@@ -751,11 +767,11 @@ mod tests {
     }
 
     fn check_not_value(input: &str) {
-        expect_error(input, true);
+        expect_error(input, ExpressionType::Value);
     }
 
     fn check_not_type(input: &str) {
-        expect_error(input, false);
+        expect_error(input, ExpressionType::Type);
     }
 
     #[test]

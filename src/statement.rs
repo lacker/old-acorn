@@ -247,9 +247,8 @@ fn parse_args(
     // Parse the arguments list
     let mut args = Vec::new();
     loop {
-        let (exp, t) = Expression::parse_old(
+        let (exp, t) = Expression::parse_declaration(
             tokens,
-            false,
             Terminator::Or(TokenType::Comma, TokenType::RightParen),
         )?;
         args.push(exp);
@@ -280,7 +279,7 @@ fn parse_theorem_statement(
         ));
     }
     let (claim, right_brace) =
-        Expression::parse_old(tokens, true, Terminator::Is(TokenType::RightBrace))?;
+        Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
 
     // Look for a "by" block, optionally after some newlines
     let (body, last_token) = loop {
@@ -340,9 +339,8 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         return Err(Error::new(&keyword, "invalid variable name"));
     }
     Token::expect_type(tokens, TokenType::Colon)?;
-    let (type_expr, _) = Expression::parse_old(tokens, false, Terminator::Is(TokenType::Equals))?;
-    let (value, last_token) =
-        Expression::parse_old(tokens, true, Terminator::Is(TokenType::NewLine))?;
+    let (type_expr, _) = Expression::parse_type(tokens, Terminator::Is(TokenType::Equals))?;
+    let (value, last_token) = Expression::parse_value(tokens, Terminator::Is(TokenType::NewLine))?;
     let ls = LetStatement {
         name,
         name_token,
@@ -370,10 +368,9 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
             "only one type parameter is supported",
         ));
     }
-    let (return_type, _) =
-        Expression::parse_old(tokens, false, Terminator::Is(TokenType::LeftBrace))?;
+    let (return_type, _) = Expression::parse_type(tokens, Terminator::Is(TokenType::LeftBrace))?;
     let (return_value, last_token) =
-        Expression::parse_old(tokens, true, Terminator::Is(TokenType::RightBrace))?;
+        Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
     let ds = DefineStatement {
         name,
         name_token,
@@ -399,7 +396,7 @@ fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
     }
     Token::expect_type(tokens, TokenType::Colon)?;
     Token::skip_newlines(tokens);
-    let (type_expr, _) = Expression::parse_old(tokens, false, Terminator::Is(TokenType::NewLine))?;
+    let (type_expr, _) = Expression::parse_type(tokens, Terminator::Is(TokenType::NewLine))?;
     let last_token = type_expr.last_token().clone();
     let ts = TypeStatement { name, type_expr };
     let statement = Statement {
@@ -460,7 +457,7 @@ fn parse_else_body(tokens: &mut TokenIter) -> Result<Option<Body>> {
 fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let token = tokens.peek().unwrap().clone();
     let (condition, left_brace) =
-        Expression::parse_old(tokens, true, Terminator::Is(TokenType::LeftBrace))?;
+        Expression::parse_value(tokens, Terminator::Is(TokenType::LeftBrace))?;
     let (statements, right_brace) = parse_block(tokens)?;
     let body = Body {
         left_brace,
@@ -486,7 +483,7 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
 fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let (_, quantifiers, _) = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, last_token) =
-        Expression::parse_old(tokens, true, Terminator::Is(TokenType::RightBrace))?;
+        Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
     let es = ExistsStatement {
         quantifiers,
         claim: condition,
@@ -530,9 +527,8 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
             }
             TokenType::Identifier => {
                 Token::expect_type(tokens, TokenType::Colon)?;
-                let (type_expr, t) = Expression::parse_old(
+                let (type_expr, t) = Expression::parse_type(
                     tokens,
-                    false,
                     Terminator::Or(TokenType::NewLine, TokenType::RightBrace),
                 )?;
                 if t.token_type == TokenType::RightBrace {
@@ -644,7 +640,7 @@ fn parse_class_statement(keyword: Token, tokens: &mut TokenIter) -> Result<State
 
 // Parses a solve statement where the "solve" keyword has already been found.
 fn parse_solve_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let (target, _) = Expression::parse_old(tokens, true, Terminator::Is(TokenType::By))?;
+    let (target, _) = Expression::parse_value(tokens, Terminator::Is(TokenType::By))?;
     let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
     let (statements, right_brace) = parse_block(tokens)?;
     let body = Body {
@@ -892,11 +888,8 @@ impl Statement {
                     }
                     TokenType::Default => {
                         let keyword = tokens.next().unwrap();
-                        let (type_expr, last_token) = Expression::parse_old(
-                            tokens,
-                            true,
-                            Terminator::Is(TokenType::NewLine),
-                        )?;
+                        let (type_expr, last_token) =
+                            Expression::parse_type(tokens, Terminator::Is(TokenType::NewLine))?;
                         let ds = DefaultStatement { type_expr };
                         let s = Statement {
                             first_token: keyword,
@@ -936,9 +929,8 @@ impl Statement {
                             return Err(Error::new(token, "unexpected token at the top level"));
                         }
                         let first_token = tokens.peek().unwrap().clone();
-                        let (claim, token) = Expression::parse_old(
+                        let (claim, token) = Expression::parse_value(
                             tokens,
-                            true,
                             Terminator::Or(TokenType::NewLine, TokenType::RightBrace),
                         )?;
                         let block_ended = token.token_type == TokenType::RightBrace;
