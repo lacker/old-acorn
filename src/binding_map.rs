@@ -1624,7 +1624,7 @@ impl BindingMap {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
         let (expression, _) =
-            Expression::parse(&mut tokens, false, Terminator::Is(TokenType::NewLine)).unwrap();
+            Expression::parse_old(&mut tokens, false, Terminator::Is(TokenType::NewLine)).unwrap();
         match self.evaluate_type(&Project::new_mock(), &expression) {
             Ok(t) => t,
             Err(error) => panic!("Error evaluating type expression: {}", error),
@@ -1643,7 +1643,7 @@ impl BindingMap {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
         let expression =
-            match Expression::parse(&mut tokens, false, Terminator::Is(TokenType::NewLine)) {
+            match Expression::parse_old(&mut tokens, false, Terminator::Is(TokenType::NewLine)) {
                 Ok((expression, _)) => expression,
                 Err(_) => {
                     // We expect a bad type so this is fine

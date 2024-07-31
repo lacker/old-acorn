@@ -4,7 +4,6 @@ use tower_lsp::lsp_types::Range;
 
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
-// An Expression represents the basic structuring of tokens into a syntax tree.
 // There are three sorts of expressions.
 // Value expressions, like:
 //    1 + 2
@@ -12,6 +11,13 @@ use crate::token::{Error, Result, Token, TokenIter, TokenType};
 //    (int, bool) -> bool
 // And declaration expressions, like
 //   p: bool
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+enum ExpressionType {
+    Value,
+    Other,
+}
+
+// An Expression represents the basic structuring of tokens into a syntax tree.
 // The expression does not typecheck and enforce semantics; it's just parsing into a tree.
 #[derive(Debug)]
 pub enum Expression {
@@ -367,26 +373,41 @@ impl Expression {
         }
     }
 
+    fn parse(
+        tokens: &mut TokenIter,
+        expr_type: ExpressionType,
+        termination: Terminator,
+    ) -> Result<(Expression, Token)> {
+        let (partial_expressions, terminator) =
+            parse_partial_expressions(tokens, expr_type == ExpressionType::Value, termination)?;
+        let expression = combine_partial_expressions(
+            partial_expressions,
+            expr_type == ExpressionType::Value,
+            tokens,
+        )?;
+        Ok((expression, terminator))
+    }
+
     // Parses a single expression from the provided tokens.
     // termination determines what tokens are allowed to be the terminator.
     // Consumes the terminating token and returns it.
-    pub fn parse(
+    pub fn parse_old(
         tokens: &mut TokenIter,
         is_value: bool,
         termination: Terminator,
     ) -> Result<(Expression, Token)> {
-        let (partial_expressions, terminator) =
-            parse_partial_expressions(tokens, is_value, termination)?;
-        Ok((
-            combine_partial_expressions(partial_expressions, is_value, tokens)?,
-            terminator,
-        ))
+        let expr_type = if is_value {
+            ExpressionType::Value
+        } else {
+            ExpressionType::Other
+        };
+        Expression::parse(tokens, expr_type, termination)
     }
 
     pub fn expect_parse(input: &str, is_value: bool) -> Expression {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        match Expression::parse(&mut tokens, is_value, Terminator::Is(TokenType::NewLine)) {
+        match Expression::parse_old(&mut tokens, is_value, Terminator::Is(TokenType::NewLine)) {
             Ok((e, _)) => e,
             Err(e) => panic!("unexpected error parsing: {}", e),
         }
@@ -470,7 +491,7 @@ fn parse_partial_expressions(
         match token.token_type {
             TokenType::LeftParen => {
                 let (subexpression, last_token) =
-                    Expression::parse(tokens, is_value, Terminator::Is(TokenType::RightParen))?;
+                    Expression::parse_old(tokens, is_value, Terminator::Is(TokenType::RightParen))?;
 
                 // A group that has no operator before it gets an implicit apply.
                 if matches!(partials.back(), Some(PartialExpression::Expression(_))) {
@@ -492,11 +513,11 @@ fn parse_partial_expressions(
             TokenType::ForAll | TokenType::Exists | TokenType::Function => {
                 let left_paren = Token::expect_type(tokens, TokenType::LeftParen)?;
                 let (args, right_paren) =
-                    Expression::parse(tokens, is_value, Terminator::Is(TokenType::RightParen))?;
+                    Expression::parse_old(tokens, is_value, Terminator::Is(TokenType::RightParen))?;
                 let group = Expression::Grouping(left_paren, Box::new(args), right_paren);
                 Token::expect_type(tokens, TokenType::LeftBrace)?;
                 let (subexpression, right_brace) =
-                    Expression::parse(tokens, is_value, Terminator::Is(TokenType::RightBrace))?;
+                    Expression::parse_old(tokens, is_value, Terminator::Is(TokenType::RightBrace))?;
                 let binder = Expression::Binder(
                     token,
                     Box::new(group),
@@ -511,13 +532,13 @@ fn parse_partial_expressions(
                     return Err(Error::new(&token, "if-then-else cannot express a type"));
                 }
                 let (condition, _) =
-                    Expression::parse(tokens, true, Terminator::Is(TokenType::LeftBrace))?;
+                    Expression::parse_old(tokens, true, Terminator::Is(TokenType::LeftBrace))?;
                 let (if_block, _) =
-                    Expression::parse(tokens, true, Terminator::Is(TokenType::RightBrace))?;
+                    Expression::parse_old(tokens, true, Terminator::Is(TokenType::RightBrace))?;
                 Token::expect_type(tokens, TokenType::Else)?;
                 Token::expect_type(tokens, TokenType::LeftBrace)?;
                 let (else_block, last_right_brace) =
-                    Expression::parse(tokens, true, Terminator::Is(TokenType::RightBrace))?;
+                    Expression::parse_old(tokens, true, Terminator::Is(TokenType::RightBrace))?;
                 let exp = Expression::IfThenElse(
                     token,
                     Box::new(condition),
@@ -686,7 +707,7 @@ mod tests {
     fn expect_error(input: &str, is_value: bool) {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
-        let res = Expression::parse(&mut tokens, is_value, Terminator::Is(TokenType::NewLine));
+        let res = Expression::parse_old(&mut tokens, is_value, Terminator::Is(TokenType::NewLine));
         match res {
             Err(_) => {}
             Ok((e, _)) => panic!("unexpectedly parsed {} => {}", input, e),
