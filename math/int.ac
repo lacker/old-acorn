@@ -53,10 +53,12 @@ theorem one_neq_zero { 1 != 0 } by {
 // Subtraction that goes from naturals into integers.
 // We will use this as the primary representation for proving things about integers, so we prove
 // as many useful things about sub_nat as we can, before defining more stuff.
-define sub_nat(m: Nat, n: Nat) -> Int: if n <= m {
-    from_nat(m - n)
-} else {
-    negate(from_nat(n - m))
+define sub_nat(m: Nat, n: Nat) -> Int {
+    if n <= m {
+        from_nat(m - n)
+    } else {
+        negate(from_nat(n - m))
+    }
 }
 
 theorem sub_nat_zero_right(n: Nat) { sub_nat(n, nat.0) = from_nat(n) }
@@ -222,11 +224,11 @@ theorem sub_nat_double_cancel_right(p: Nat, q: Nat, r: Nat, s: Nat, t: Nat) {
 // Now that we've proven a bunch of stuff about sub_nat, we define the positive and negative parts so that we can
 // represent each integer as a sub_nat, and start defining useful functions on integers.
 
-define is_negative(a: Int) -> Bool: a != from_nat(abs(a))
+define is_negative(a: Int) -> Bool { a != from_nat(abs(a)) }
 
 theorem zero_not_neg { !is_negative(0) }
 
-define is_positive(a: Int) -> Bool: is_negative(negate(a))
+define is_positive(a: Int) -> Bool { is_negative(negate(a)) }
 
 theorem zero_not_pos { !is_positive(0) } by {
     negate(0) = 0
@@ -254,16 +256,20 @@ theorem non_pos_is_neg_abs(a: Int) { !is_positive(a) -> a = negate(from_nat(abs(
     from_nat(abs(a)) = negate(a)
 }
 
-define pos_part(a: Int) -> Nat: if is_positive(a) {
-    abs(a)
-} else {
-    nat.0
+define pos_part(a: Int) -> Nat {
+    if is_positive(a) {
+        abs(a)
+    } else {
+        nat.0
+    }
 }
 
-define neg_part(a: Int) -> Nat: if is_positive(a) {
-    nat.0
-} else {
-    abs(a)
+define neg_part(a: Int) -> Nat {
+    if is_positive(a) {
+        nat.0
+    } else {
+        abs(a)
+    }
 }
 
 theorem sub_nat_parts(a: Int) { sub_nat(pos_part(a), neg_part(a)) = a } by {
@@ -311,8 +317,9 @@ theorem add_part_sub_nat(r: Nat, s: Nat) { r + neg_part(sub_nat(r, s)) = s + pos
 // Addition, and theorems about addition
 
 class Int {
-    define add(self: Int, other: Int) -> Int: sub_nat(pos_part(self) + pos_part(other),
-                                                      neg_part(self) + neg_part(other))
+    define add(self: Int, other: Int) -> Int {
+        sub_nat(pos_part(self) + pos_part(other), neg_part(self) + neg_part(other))
+    }
 }
 
 theorem add_zero_left(a: Int) { (0 + a) = a } by {
@@ -520,7 +527,9 @@ theorem add_comm_4(a: Int, b: Int, c: Int, d: Int) { (a + b) + (c + d) = (a + c)
 // Subtraction, and theorems about subtraction
 
 class Int {
-    define sub(self: Int, other: Int) -> Int: self + negate(other)
+    define sub(self: Int, other: Int) -> Int {
+        self + negate(other)
+    }
 }
 
 theorem sub_zero_right(a: Int) { a - 0 = a } by {
@@ -571,10 +580,12 @@ theorem sub_add_cancel_right(a: Int, b: Int, c: Int) { (a + c) - (b + c) = a - b
 
 // Integer-natural multiplication
 
-define mul_nat(a: Int, n: Nat) -> Int: if is_negative(a) {
-    negate(from_nat(abs(a) * n))
-} else {
-    from_nat(abs(a) * n)
+define mul_nat(a: Int, n: Nat) -> Int {
+    if is_negative(a) {
+        negate(from_nat(abs(a) * n))
+    } else {
+        from_nat(abs(a) * n)
+    }
 }
 
 theorem mul_nat_zero_right(a: Int) { mul_nat(a, Nat.0) = 0 } by {
@@ -635,7 +646,7 @@ theorem mul_nat_suc(a: Int, n: Nat) { mul_nat(a, n.suc) = (mul_nat(a, n) + a) } 
 }
 
 theorem mul_nat_distrib_right(a: Int, b: Int, n: Nat) { mul_nat(a + b, n) = (mul_nat(a, n) + mul_nat(b, n)) } by {
-    define f(x: Nat) -> Bool: mul_nat_distrib_right(a, b, x)
+    define f(x: Nat) -> Bool { mul_nat_distrib_right(a, b, x) }
     nat.induction(f)
 
     // Prove the base case
@@ -669,13 +680,15 @@ theorem mul_nat_from_nat_left(a: Nat, b: Nat) { mul_nat(from_nat(a), b) = from_n
 // Integer-integer multiplication
 
 class Int {
-    define mul(self: Int, n: Int) -> Int: if is_positive(n) {
-        mul_nat(self, abs(n))
-    } else {
-        negate(mul_nat(self, abs(n)))
+    define mul(self: Int, n: Int) -> Int {
+        if is_positive(n) {
+            mul_nat(self, abs(n))
+        } else {
+            negate(mul_nat(self, abs(n)))
+        }
     }
 
-    define read(self: Int, other: Int) -> Int: 10 * self + other
+    define read(self: Int, other: Int) -> Int { 10 * self + other }
 }
 
 theorem mul_zero_right(a: Int) { a * 0 = 0 } by {
@@ -1001,8 +1014,8 @@ theorem mul_assoc(a: Int, b: Int, c: Int) { a * b * c = a * (b * c) } by {
 // Comparison operators
 
 class Int {
-    define lt(self: Int, b: Int) -> Bool: is_positive(b - self)
-    define lte(self: Int, b: Int) -> Bool: (self < b) | self = b
+    define lt(self: Int, b: Int) -> Bool { is_positive(b - self) }
+    define lte(self: Int, b: Int) -> Bool { (self < b) | self = b }
 }
 
 theorem lt_not_ref(a: Int) { !(a < a) } by {
@@ -1188,7 +1201,7 @@ theorem lte_from_nat(j: Nat, k: Nat) { j <= k -> from_nat(j) <= from_nat(k) } by
 
 // Units and dividing
 
-define is_unit(a: Int) -> Bool: abs(a) = nat.1
+define is_unit(a: Int) -> Bool { abs(a) = nat.1 }
 
 theorem two_units(u: Int) { is_unit(u) -> u = 1 | u = negate(1) } by {
     abs(u) = Nat.1
@@ -1210,10 +1223,12 @@ theorem mul_units(u: Int, v: Int) { is_unit(u) & is_unit(v) -> is_unit(u * v) } 
 }
 
 // Like the sign function, but we force it to be a unit, by considering 0 to have sign 1
-define unit_sign(a: Int) -> Int: if is_negative(a) {
-    negate(1)
-} else {
-    1
+define unit_sign(a: Int) -> Int {
+    if is_negative(a) {
+        negate(1)
+    } else {
+        1
+    }
 }
 
 theorem unit_sign_is_unit(a: Int) { is_unit(unit_sign(a)) } by {
@@ -1249,7 +1264,9 @@ theorem abs_alt_decomp(a: Int) { unit_sign(a) * a = from_nat(abs(a)) } by {
     unit_sign(a) * a = 1 * from_nat(abs(a))
 }
 
-define divides(a: Int, b: Int) -> Bool: exists(d: Int) { d * a = b }
+define divides(a: Int, b: Int) -> Bool {
+    exists(d: Int) { d * a = b }
+}
 
 theorem div_trans(a: Int, b: Int, c: Int) { divides(a, b) & divides(b, c) -> divides(a, c) } by {
     exists(d: Int) { d * a = b }
@@ -1310,7 +1327,9 @@ theorem div_pos_imp_lte(a: Int, b: Int) { divides(a, b) & is_positive(b) -> a <=
 
 // Theorems that relate to the GCD
 
-define gcd(a: Int, b: Int) -> Int: from_nat(nat_gcd.gcd(abs(a), abs(b)))
+define gcd(a: Int, b: Int) -> Int {
+    from_nat(nat_gcd.gcd(abs(a), abs(b)))
+}
 
 theorem gcd_nonneg(a: Int, b: Int) { !is_negative(gcd(a, b)) }
 
@@ -1346,8 +1365,10 @@ theorem gcd_is_gcd(a: Int, b: Int, d: Int) { a != 0 & b != 0 & divides(d, a) & d
 
 // Theorems about the span of a linear combination
 
-define spans(a: Int, b: Int, c: Int) -> Bool: exists(d: Int, e: Int) {
-    d * a + e * b = c
+define spans(a: Int, b: Int, c: Int) -> Bool {
+    exists(d: Int, e: Int) {
+        d * a + e * b = c
+    }
 }
 
 theorem spans_zero(a: Int, b: Int) { spans(a, b, 0) } by {

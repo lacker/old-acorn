@@ -2,30 +2,34 @@ from nat import Nat, NatPair, divides, mod
 default Nat
 
 // One step is taking the pair (a, b) and replacing with (b, a mod b).
-define gcd_step(p: NatPair) -> NatPair: if p.second = 0 {
-    p
-} else {
-    NatPair.new(p.second, mod(p.first, p.second))
+define gcd_step(p: NatPair) -> NatPair {
+    if p.second = 0 {
+        p
+    } else {
+        NatPair.new(p.second, mod(p.first, p.second))
+    }
 }
 
 // n steps of the gcd algorithm.
-define gcd_step_n(p: NatPair, n: Nat) -> NatPair: nat.recursion(gcd_step, p, n)
+define gcd_step_n(p: NatPair, n: Nat) -> NatPair { nat.recursion(gcd_step, p, n) }
 
-define false_below(f: Nat -> Bool, n: Nat) -> Bool: forall(x: Nat) { x < n -> !f(x) }
+define false_below(f: Nat -> Bool, n: Nat) -> Bool { forall(x: Nat) { x < n -> !f(x) } }
 
 theorem all_false_below(f: Nat -> Bool) {
     forall(x: Nat) { false_below(f, x) } -> forall(x: Nat) { !f(x) }
 }
 
 // is_min(f)(x) tells you whether x is the smallest value for which f is true.
-define is_min(f: Nat -> Bool) -> (Nat -> Bool): function(x: Nat) {
-    f(x) & false_below(f, x)
+define is_min(f: Nat -> Bool) -> (Nat -> Bool) {
+    function(x: Nat) {
+        f(x) & false_below(f, x)
+    }
 }
 
 theorem has_min(f: Nat -> Bool, n: Nat) {
     f(n) -> exists(m: Nat) { is_min(f)(m) }
 } by {
-    define g(x: Nat) -> Bool: has_min(f, x)
+    define g(x: Nat) -> Bool { has_min(f, x) }
     nat.strong_induction(g)
     forall(k: Nat) {
         if nat.true_below(g, k) {
@@ -47,8 +51,10 @@ theorem has_min(f: Nat -> Bool, n: Nat) {
 }
 
 // A decreasing_to_zero function strictly decreases until it hits zero.
-define decreasing_to_zero(f: Nat -> Nat) -> Bool: forall(x: Nat) {
-    f(x) = 0 | f(x.suc) < f(x)
+define decreasing_to_zero(f: Nat -> Nat) -> Bool {
+    forall(x: Nat) {
+        f(x) = 0 | f(x.suc) < f(x)
+    }
 }
 
 theorem no_infinite_decreasing(f: Nat -> Nat) {
@@ -119,11 +125,15 @@ theorem gcd_terminates(p: NatPair) {
     dtz_terminates(f)
 }
 
-define gcd_termination(p: NatPair) -> (Nat -> Bool): function(n: Nat) {
-    gcd_step_n(p, n).second = 0
+define gcd_termination(p: NatPair) -> (Nat -> Bool) {
+    function(n: Nat) {
+        gcd_step_n(p, n).second = 0
+    }
 }
 
-define num_gcd_steps(p: NatPair) -> Nat: nat.find(is_min(gcd_termination(p)))
+define num_gcd_steps(p: NatPair) -> Nat {
+    nat.find(is_min(gcd_termination(p)))
+}
 
 theorem num_gcd_steps_terminates(p: NatPair) { gcd_step_n(p, num_gcd_steps(p)).second = 0 } by {
     exists(n: Nat) { is_min(gcd_termination(p))(n) }
@@ -133,11 +143,11 @@ theorem num_gcd_steps_terminates(p: NatPair) { gcd_step_n(p, num_gcd_steps(p)).s
     gcd_termination(p)(num_gcd_steps(p))
 }
 
-define gcd_pair(p: NatPair) -> Nat: gcd_step_n(p, num_gcd_steps(p)).first
+define gcd_pair(p: NatPair) -> Nat { gcd_step_n(p, num_gcd_steps(p)).first }
 
-define gcd(a: Nat, b: Nat) -> Nat: gcd_pair(NatPair.new(a, b))
+define gcd(a: Nat, b: Nat) -> Nat { gcd_pair(NatPair.new(a, b)) }
 
-define divides_both(a: Nat, p: NatPair) -> Bool: divides(a, p.first) & divides(a, p.second)
+define divides_both(a: Nat, p: NatPair) -> Bool { divides(a, p.first) & divides(a, p.second) }
 
 theorem divides_both_step(a: Nat, p: NatPair) { divides_both(a, p) -> divides_both(a, gcd_step(p)) } by {
     divides(a, p.first)
@@ -275,7 +285,9 @@ theorem gcd_comm(a: Nat, b: Nat) { gcd(a, b) = gcd(b, a) } by {
 
 theorem gcd_nonzero_right(a: Nat, b: Nat) { b != 0 -> gcd(a, b) != 0 }
 
-define mod_maintains(f: Nat -> Bool) -> Bool: forall(a: Nat, b: Nat) { f(a) & f(b) -> f(mod(a, b)) }
+define mod_maintains(f: Nat -> Bool) -> Bool {
+    forall(a: Nat, b: Nat) { f(a) & f(b) -> f(mod(a, b)) }
+}
 
 theorem mod_maintains_imp_gcd(f: Nat -> Bool, a: Nat, b: Nat) { mod_maintains(f) & f(a) & f(b) -> f(gcd(a, b)) } by {
     let p: NatPair = NatPair.new(a, b)

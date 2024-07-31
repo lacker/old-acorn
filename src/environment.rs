@@ -1723,14 +1723,14 @@ mod tests {
     #[test]
     fn test_fn_equality() {
         let mut env = Environment::new_test();
-        env.add("define idb1(x: Bool) -> Bool: x");
+        env.add("define idb1(x: Bool) -> Bool { x }");
         env.expect_type("idb1", "Bool -> Bool");
-        env.add("define idb2(y: Bool) -> Bool: y");
+        env.add("define idb2(y: Bool) -> Bool { y }");
         env.expect_type("idb2", "Bool -> Bool");
         env.assert_def_eq("idb1", "idb2");
 
         env.add("type Nat: axiom");
-        env.add("define idn1(x: Nat) -> Nat: x");
+        env.add("define idn1(x: Nat) -> Nat { x }");
         env.expect_type("idn1", "Nat -> Nat");
         env.assert_def_ne("idb1", "idn1");
     }
@@ -1765,9 +1765,9 @@ mod tests {
     #[test]
     fn test_arg_binding() {
         let mut env = Environment::new_test();
-        env.bad("define qux(x: Bool, x: Bool) -> Bool: x");
+        env.bad("define qux(x: Bool, x: Bool) -> Bool { x }");
         assert!(!env.bindings.has_identifier("x"));
-        env.add("define qux(x: Bool, y: Bool) -> Bool: x");
+        env.add("define qux(x: Bool, y: Bool) -> Bool { x }");
         env.expect_type("qux", "(Bool, Bool) -> Bool");
 
         env.bad("theorem foo(x: Bool, x: Bool) { x }");
@@ -1787,7 +1787,7 @@ mod tests {
     #[test]
     fn test_no_double_grouped_arg_list() {
         let mut env = Environment::new_test();
-        env.add("define foo(x: Bool, y: Bool) -> Bool: x");
+        env.add("define foo(x: Bool, y: Bool) -> Bool { x }");
         env.add("let b: Bool = axiom");
         env.bad("foo((b, b))");
     }
@@ -1810,7 +1810,7 @@ mod tests {
     #[test]
     fn test_inline_function_value() {
         let mut env = Environment::new_test();
-        env.add("define ander(a: Bool) -> (Bool -> Bool): function(b: Bool) { a & b }");
+        env.add("define ander(a: Bool) -> (Bool -> Bool) { function(b: Bool) { a & b } }");
         env.expect_def(
             "ander",
             "function(x0: Bool) { function(x1: Bool) { (x0 & x1) } }",
@@ -1871,7 +1871,7 @@ mod tests {
         );
         env.expect_def("induction", "function(x0: Nat -> Bool, x1: Nat) { ((x0(zero) & forall(x2: Nat) { (x0(x2) -> x0(suc(x2))) }) -> x0(x1)) }");
 
-        env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
+        env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat { axiom }");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
 
         env.add("axiom recursion_base(f: Nat -> Nat, a: Nat) { recursion(f, a, zero) = a }");
@@ -1880,7 +1880,7 @@ mod tests {
             recursion(f, a, suc(n)) = f(recursion(f, a, n)) }",
         );
 
-        env.add("define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)");
+        env.add("define add(a: Nat, b: Nat) -> Nat { recursion(suc, a, b) }");
         env.expect_type("add", "(Nat, Nat) -> Nat");
 
         env.add("theorem add_zero_right(a: Nat) { add(a, zero) = a }");
@@ -1915,11 +1915,11 @@ axiom suc_neq_zero(x: Nat) { suc(x) != zero }
 axiom induction(f: Nat -> Bool) { f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) } }
 
 // The old version. In the modern codebase these are parametric.
-define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom
+define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat { axiom }
 axiom recursion_base(f: Nat -> Nat, a: Nat) { recursion(f, a, zero) = a }
 axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat) { recursion(f, a, suc(n)) = f(recursion(f, a, n)) }
 
-define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)
+define add(a: Nat, b: Nat) -> Nat { recursion(suc, a, b) }
 
 // Now let's have some theorems.
 
@@ -1946,7 +1946,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             type Nat: axiom
             theorem foo(a: Nat, b: Nat) { a = b } by {
                 let c: Nat = a
-                define d(e: Nat) -> Bool: foo(e, b)
+                define d(e: Nat) -> Bool { foo(e, b) }
             }
             "#,
         );
@@ -1986,7 +1986,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.add(
             r#"
             type Nat: axiom
-            define foo(x: Nat) -> Bool: axiom
+            define foo(x: Nat) -> Bool { axiom }
             theorem goal { true } by {
                 exists(z: Nat) { foo(z) }
                 foo(z)
@@ -2084,13 +2084,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     #[test]
     fn test_parametric_types_required_in_function_args() {
         let mut env = Environment::new_test();
-        env.bad("define foo<T>(a: Bool) -> Bool = a");
+        env.bad("define foo<T>(a: Bool) -> Bool { a }");
     }
 
     #[test]
     fn test_parametric_types_required_in_theorem_args() {
         let mut env = Environment::new_test();
-        env.bad("theorem foo<T>(a: Bool): a | !a");
+        env.bad("theorem foo<T>(a: Bool) { a | !a }");
     }
 
     #[test]
@@ -2098,7 +2098,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.add("let zero: Nat = axiom");
-        env.add("define eq<T>(a: T, b: T) -> Bool: a = b");
+        env.add("define eq<T>(a: T, b: T) -> Bool { a = b }");
         env.add("theorem t1 { eq(zero, zero) }");
         env.add("theorem t2 { eq(zero = zero, zero = zero) }");
         env.add("theorem t3 { eq(zero = zero, eq(zero, zero)) }");
@@ -2109,7 +2109,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     #[test]
     fn test_type_params_cleaned_up() {
         let mut env = Environment::new_test();
-        env.add("define foo<T>(a: T) -> Bool: axiom");
+        env.add("define foo<T>(a: T) -> Bool { axiom }");
         assert!(env.bindings.get_type_for_name("T").is_none());
     }
 
@@ -2141,7 +2141,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     fn test_reusing_type_name_as_fn_name() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("define Nat(x: Bool) -> Bool: x");
+        env.bad("define Nat(x: Bool) -> Bool { x }");
     }
 
     #[test]
@@ -2247,7 +2247,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     fn test_functional_definition_typechecking() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("define foo(f: Nat -> Nat) -> Bool: function(x: Nat) { true }");
+        env.bad("define foo(f: Nat -> Nat) -> Bool { function(x: Nat) { true } }");
     }
 
     #[test]
@@ -2255,7 +2255,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
         env.add("let zero: Nat = axiom");
-        env.add("define add3(a: Nat, b: Nat, c: Nat) -> Nat: axiom");
+        env.add("define add3(a: Nat, b: Nat, c: Nat) -> Nat { axiom }");
         env.add("let add0: (Nat, Nat) -> Nat = add3(zero)");
         env.add("let add00: Nat -> Nat = add3(zero, zero)");
         env.add("let add00_alt: Nat -> Nat = add0(zero)");
@@ -2285,8 +2285,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.add("let f: Bool -> Bool = function(a: Bool) { true }");
         env.bad("forall(A: Bool) { true }");
         env.add("forall(a: Bool) { true }");
-        env.bad("define foo(X: Bool) -> Bool: true");
-        env.add("define foo(x: Bool) -> Bool: true");
+        env.bad("define foo(X: Bool) -> Bool { true }");
+        env.add("define foo(x: Bool) -> Bool { true }");
         env.bad("theorem bar(X: Bool) { true }");
         env.add("theorem bar(x: Bool) { true }");
         env.bad("exists(A: Bool) { true }");
@@ -2325,7 +2325,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define add(self: Nat, other: Nat) -> Nat: axiom
+                define add(self: Nat, other: Nat) -> Nat { axiom }
             }
         "#,
         );
@@ -2346,7 +2346,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.bad(
             r#"
             class Nat {
-                define add(a: Nat, b: Nat) -> Nat: axiom
+                define add(a: Nat, b: Nat) -> Nat { axiom }
             }
             "#,
         );
@@ -2365,7 +2365,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     fn test_no_self_args_outside_class() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("define foo(self: Nat) -> Bool: true");
+        env.bad("define foo(self: Nat) -> Bool { true }");
     }
 
     #[test]
@@ -2396,7 +2396,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define add(self: Nat, other: Nat) -> Nat: axiom
+                define add(self: Nat, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) {
                 a.add(b) = b.add(a)
@@ -2412,7 +2412,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define add(self: Nat, other: Nat) -> Nat: axiom
+                define add(self: Nat, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a + b = b + a }
         "#,
@@ -2426,7 +2426,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define sub(self: Nat, other: Nat) -> Nat: axiom
+                define sub(self: Nat, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a - b = b - a }
         "#,
@@ -2440,7 +2440,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define mul(self: Nat, other: Nat) -> Nat: axiom
+                define mul(self: Nat, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a * b = b * a }
         "#,
@@ -2454,7 +2454,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define div(self: Nat, other: Nat) -> Nat: axiom
+                define div(self: Nat, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a / b = b / a }
         "#,
@@ -2468,7 +2468,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define mod(self: Nat, other: Nat) -> Nat: axiom
+                define mod(self: Nat, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a % b = b % a }
         "#,
@@ -2482,7 +2482,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define lt(self: Nat, other: Nat) -> Bool: axiom
+                define lt(self: Nat, other: Nat) -> Bool { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a < b = b < a }
         "#,
@@ -2496,7 +2496,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define gt(self: Nat, other: Nat) -> Bool: axiom
+                define gt(self: Nat, other: Nat) -> Bool { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a > b = b > a }
         "#,
@@ -2510,7 +2510,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define lte(self: Nat, other: Nat) -> Bool: axiom
+                define lte(self: Nat, other: Nat) -> Bool { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a <= b = b <= a }
         "#,
@@ -2524,7 +2524,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define gte(self: Nat, other: Nat) -> Bool: axiom
+                define gte(self: Nat, other: Nat) -> Bool { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a >= b = b >= a }
         "#,
@@ -2538,7 +2538,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.bad(
             r#"
             class Nat {
-                define add(self: Bool, other: Nat) -> Nat: axiom
+                define add(self: Bool, other: Nat) -> Nat { axiom }
             }
         "#,
         );
@@ -2566,7 +2566,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.bad(
             r#"
             class Nat {
-                define new(self: Bool, other: Nat) -> Bool: true
+                define new(self: Bool, other: Nat) -> Bool { true }
             }
         "#,
         );
@@ -2594,17 +2594,17 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define add(self: Nat, other: Nat) -> Nat: axiom
-                define sub(self: Nat, other: Nat) -> Nat: axiom
-                define mul(self: Nat, other: Nat) -> Nat: axiom
-                define div(self: Nat, other: Nat) -> Nat: axiom
-                define mod(self: Nat, other: Nat) -> Nat: axiom
-                define lt(self: Nat, other: Nat) -> Bool: axiom
-                define gt(self: Nat, other: Nat) -> Bool: axiom
-                define lte(self: Nat, other: Nat) -> Bool: axiom
-                define gte(self: Nat, other: Nat) -> Bool: axiom
-                define suc(self: Nat) -> Nat: axiom
-                define foo(self: Nat, other: Nat) -> Nat: axiom
+                define add(self: Nat, other: Nat) -> Nat { axiom }
+                define sub(self: Nat, other: Nat) -> Nat { axiom }
+                define mul(self: Nat, other: Nat) -> Nat { axiom }
+                define div(self: Nat, other: Nat) -> Nat { axiom }
+                define mod(self: Nat, other: Nat) -> Nat { axiom }
+                define lt(self: Nat, other: Nat) -> Bool { axiom }
+                define gt(self: Nat, other: Nat) -> Bool { axiom }
+                define lte(self: Nat, other: Nat) -> Bool { axiom }
+                define gte(self: Nat, other: Nat) -> Bool { axiom }
+                define suc(self: Nat) -> Nat { axiom }
+                define foo(self: Nat, other: Nat) -> Nat { axiom }
                 let 0: Nat = axiom
                 let 1: Nat = axiom
             }
@@ -2686,8 +2686,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             class Unary {
                 let 1: Unary = axiom 
-                define suc(self: Unary) -> Unary: axiom
-                define read(self: Unary, digit: Unary) -> Unary: self.suc
+                define suc(self: Unary) -> Unary { axiom }
+                define read(self: Unary, digit: Unary) -> Unary { self.suc }
             }
         "#,
         );
@@ -2746,7 +2746,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             type Nat: axiom
             class Nat {
                 let 0: Nat = axiom
-                define suc(self: Nat) -> Nat: axiom
+                define suc(self: Nat) -> Nat { axiom }
                 let 1: Nat = Nat.0.suc
                 let 2: Nat = Nat.1.suc
                 let 3: Nat = Nat.2.suc
@@ -2757,8 +2757,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
                 let 8: Nat = Nat.7.suc
                 let 9: Nat = Nat.8.suc
                 let 10: Nat = Nat.9.suc
-                define read(self: Nat, other: Nat) -> Nat: axiom
-                define add(self: Nat, other: Nat) -> Nat: axiom
+                define read(self: Nat, other: Nat) -> Nat { axiom }
+                define add(self: Nat, other: Nat) -> Nat { axiom }
             }
             default Nat
         "#,
@@ -2777,7 +2777,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             type Nat: axiom
             class Nat {
                 let 0: Nat = axiom
-                define suc(self: Nat) -> Nat: axiom
+                define suc(self: Nat) -> Nat { axiom }
                 let 1: Nat = Nat.0.suc
                 let 2: Nat = Nat.1.suc
                 let 3: Nat = Nat.2.suc
@@ -2788,8 +2788,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
                 let 8: Nat = Nat.7.suc
                 let 9: Nat = Nat.8.suc
                 let 10: Nat = Nat.9.suc
-                define read(self: Nat, other: Nat) -> Nat: axiom
-                define add(self: Nat, other: Nat) -> Nat: axiom
+                define read(self: Nat, other: Nat) -> Nat { axiom }
+                define add(self: Nat, other: Nat) -> Nat { axiom }
             }
         "#,
         );

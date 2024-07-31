@@ -1084,9 +1084,9 @@ mod tests {
             type Nat: axiom
             let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
-            define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom
+            define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat { axiom }
             axiom recursion_base(f: Nat -> Nat, a: Nat) { recursion(f, a, zero) = a }
-            define add(a: Nat, b: Nat) -> Nat: recursion(suc, a, b)
+            define add(a: Nat, b: Nat) -> Nat { recursion(suc, a, b) }
             theorem add_zero_right(a: Nat) { add(a, zero) = a }
         "#;
         expect_proof(text, "add_zero_right", &[]);
@@ -1107,7 +1107,7 @@ mod tests {
         let text = r#"
             type Nat: axiom
             let addx: (Nat, Nat) -> Nat = axiom
-            define adder(a: Nat) -> (Nat -> Nat): function(b: Nat) { addx(a, b) }
+            define adder(a: Nat) -> (Nat -> Nat) { function(b: Nat) { addx(a, b) } }
             theorem goal(a: Nat, b: Nat) { addx(a, b) = adder(a)(b) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
@@ -1118,8 +1118,8 @@ mod tests {
         let text = r#"
             type Nat: axiom
             let addx: (Nat, Nat) -> Nat = axiom
-            define ltex(a: Nat, b: Nat) -> Bool: exists(c: Nat) { addx(a, c) = b }
-            define ltx(a: Nat, b: Nat) -> Bool: ltex(a, b) & a != b
+            define ltex(a: Nat, b: Nat) -> Bool { exists(c: Nat) { addx(a, c) = b } }
+            define ltx(a: Nat, b: Nat) -> Bool { ltex(a, b) & a != b }
             theorem goal(a: Nat) { !ltx(a, a) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
@@ -1239,7 +1239,7 @@ mod tests {
     fn test_applying_parametric_function() {
         let text = r#"
             type Nat: axiom
-            define foo<T>(a: T) -> Bool: (a = a)
+            define foo<T>(a: T) -> Bool { (a = a) }
             let zero: Nat = axiom
             theorem goal { foo(zero) }
         "#;
@@ -1249,7 +1249,7 @@ mod tests {
     #[test]
     fn test_parametric_definition_and_theorem() {
         let text = r#"
-            define foo<T>(a: T) -> Bool: axiom
+            define foo<T>(a: T) -> Bool { axiom }
             axiom foo_true<T>(a: T) { foo(a) }
             type Nat: axiom
             let zero: Nat = axiom
@@ -1261,7 +1261,7 @@ mod tests {
     #[test]
     fn test_parameter_name_can_change() {
         let text = r#"
-            define foo<T>(a: T) -> Bool: axiom
+            define foo<T>(a: T) -> Bool { axiom }
             axiom foo_true<U>(a: U) { foo(a) }
             type Nat: axiom
             let zero: Nat = axiom
@@ -1346,7 +1346,7 @@ mod tests {
             type Nat: axiom
             let zero: Nat = axiom
             let one: Nat = axiom
-            define sign(a: Nat) -> Nat: if a = zero { zero } else { one }
+            define sign(a: Nat) -> Nat { if a = zero { zero } else { one } }
             theorem goal(a: Nat) { sign(a) = zero | sign(a) = one }
         "#,
         );
@@ -1377,7 +1377,7 @@ mod tests {
             r#"
             type Nat: axiom
             let zero: Nat = axiom
-            define apply(f: Nat -> Nat, a: Nat) -> Nat: f(a)
+            define apply(f: Nat -> Nat, a: Nat) -> Nat { f(a) }
             theorem goal { apply(function(x: Nat) { x }, zero) = zero }
         "#,
         );
@@ -1388,8 +1388,8 @@ mod tests {
         prove_all_succeeds(
             r#"
             type Nat: axiom
-            define is_min(f: Nat -> Bool) -> (Nat -> Bool): axiom
-            define gcd_term(p: Nat) -> (Nat -> Bool): axiom
+            define is_min(f: Nat -> Bool) -> (Nat -> Bool) { axiom }
+            define gcd_term(p: Nat) -> (Nat -> Bool) { axiom }
             let p: Nat = axiom
             let f: Nat -> Bool = is_min(gcd_term(p))
 
@@ -1417,9 +1417,9 @@ mod tests {
     //     prove_all_succeeds(
     //         r#"
     //         type Nat: axiom
-    //         define find(f: Nat -> Bool) -> Nat: axiom
-    //         define is_min(f: Nat -> Bool) -> (Nat -> Bool): axiom
-    //         define gcd_term(p: Nat) -> (Nat -> Bool): axiom
+    //         define find(f: Nat -> Bool) -> Nat { axiom }
+    //         define is_min(f: Nat -> Bool) -> (Nat -> Bool) { axiom }
+    //         define gcd_term(p: Nat) -> (Nat -> Bool) { axiom }
     //         let p: Nat = axiom
     //         let f: Nat -> Bool = is_min(gcd_term(p))
     //         theorem goal { find(is_min(gcd_term(p))) = find(f) }
@@ -1566,7 +1566,7 @@ mod tests {
             let t2: Thing = axiom
             let t3: Thing = axiom
             
-            define foo<T>(x: T) -> Bool: axiom
+            define foo<T>(x: T) -> Bool { axiom }
 
             axiom a12 { foo(t1) -> foo(t2) }
             axiom a23 { foo(t2) -> foo(t3) }
@@ -1613,13 +1613,13 @@ mod tests {
         let text = r#"
         type Nat: axiom
         let zero: Nat = axiom
-        define add(a: Nat, b: Nat) -> Nat: axiom
+        define add(a: Nat, b: Nat) -> Nat { axiom }
         theorem add_zero_left(a: Nat) { add(zero, a) = a }
         
         theorem add_to_zero(a: Nat, b: Nat) {
             add(a, b) = zero -> a = zero & b = zero
         } by {
-            define f(x: Nat) -> Bool: add_to_zero(x, b)
+            define f(x: Nat) -> Bool { add_to_zero(x, b) }
             f(zero)
         }
         "#;
@@ -1701,7 +1701,7 @@ mod tests {
         let text = r#"
         type Nat: axiom
         class Nat {
-            define add(self: Nat, other: Nat) -> Nat: axiom
+            define add(self: Nat, other: Nat) -> Nat { axiom }
         }
         theorem goal(a: Nat, b: Nat, c: Nat) { Nat.add(Nat.add(a, b), c) = a + b + c }
         theorem antigoal(a: Nat, b: Nat, c: Nat) { Nat.add(a, Nat.add(b, c)) = a + b + c }
@@ -1715,8 +1715,8 @@ mod tests {
         let text = r#"
         type Nat: axiom
         class Nat {
-            define add(self: Nat, other: Nat) -> Nat: axiom
-            define mul(self: Nat, other: Nat) -> Nat: axiom
+            define add(self: Nat, other: Nat) -> Nat { axiom }
+            define mul(self: Nat, other: Nat) -> Nat { axiom }
         }
         theorem goal1(a: Nat, b: Nat, c: Nat) { Nat.add(Nat.mul(a, b), c) = a * b + c }
         theorem goal2(a: Nat, b: Nat, c: Nat) { Nat.add(a, Nat.mul(b, c)) = a + b * c }
@@ -1730,8 +1730,8 @@ mod tests {
         let text = r#"
         type Nat: axiom
         class Nat {
-            define suc(self: Nat) -> Nat: axiom
-            define add(self: Nat, other: Nat) -> Nat: axiom
+            define suc(self: Nat) -> Nat { axiom }
+            define add(self: Nat, other: Nat) -> Nat { axiom }
         }
         theorem goal1(a: Nat) { a.suc.suc = Nat.suc(Nat.suc(a)) }
         theorem goal2(a: Nat) { a.suc.suc = Nat.suc(a).suc }
@@ -1749,7 +1749,7 @@ mod tests {
         class Bag {
             let 1: Bag = axiom
             let 2: Bag = axiom
-            define read(self: Bag, other: Bag) -> Bag: axiom
+            define read(self: Bag, other: Bag) -> Bag { axiom }
         }
         default Bag
         axiom comm(a: Bag, b: Bag) { a.read(b) = b.read(a) }

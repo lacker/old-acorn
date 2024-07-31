@@ -755,7 +755,7 @@ mod tests {
     type AlsoFoo: Foo
     type NotFoo: axiom
     let foo: Foo = axiom
-    define fooify(x: Foo) -> Foo: foo
+    define fooify(x: Foo) -> Foo { foo }
     "#;
 
     #[test]

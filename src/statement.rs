@@ -369,9 +369,9 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
             "only one type parameter is supported",
         ));
     }
-    let (return_type, _) = Expression::parse(tokens, false, Terminator::Is(TokenType::Colon))?;
+    let (return_type, _) = Expression::parse(tokens, false, Terminator::Is(TokenType::LeftBrace))?;
     let (return_value, last_token) =
-        Expression::parse(tokens, true, Terminator::Is(TokenType::NewLine))?;
+        Expression::parse(tokens, true, Terminator::Is(TokenType::RightBrace))?;
     let ds = DefineStatement {
         name,
         name_token,
@@ -698,10 +698,15 @@ impl Statement {
             }
 
             StatementInfo::Define(ds) => {
+                let new_indentation = add_indent(indentation);
                 write!(f, "define {}", ds.name)?;
                 write_type_params(f, &ds.type_params)?;
                 write_args(f, &ds.args)?;
-                write!(f, " -> {}: {}", ds.return_type, ds.return_value)
+                write!(
+                    f,
+                    " -> {} {{\n{}{}\n{}}}",
+                    ds.return_type, new_indentation, ds.return_value, indentation
+                )
             }
 
             StatementInfo::Theorem(ts) => {
@@ -805,6 +810,7 @@ impl Statement {
     // Tries to parse a single statement from the provided tokens.
     // If in_block is true, we might get a right brace instead of a statement.
     // Returns statement, as well as the right brace token, if the current block ended.
+    // Returns Ok((None, None)) if the end of the file was reached.
     //
     // Normally, this function consumes the final newline.
     // When it's a right brace that ends a block, though, the last token consumed is the right brace.
@@ -998,15 +1004,35 @@ mod tests {
         }
     }
 
+    fn fail_with(input: &str, expected_error: &str) {
+        match Statement::parse_str(input) {
+            Ok(statement) => panic!("expected failure but got statement: {}", statement),
+            Err(e) => {
+                if !e.to_string().contains(expected_error) {
+                    panic!("expected error '{}', got '{}'", expected_error, e);
+                }
+            }
+        }
+    }
+
     #[test]
     fn test_definition_statements() {
         ok("let a: int = x + 2");
         ok("let f: int -> bool = compose(g, h)");
         ok("let f: int -> int = x -> x + 1");
         ok("let g: (int, int, int) -> bool = swap(h)");
-        ok("define or(p: bool, q: bool) -> bool: (!p -> q)");
-        ok("define and(p: bool, q: bool) -> bool: !(p -> !q)");
-        ok("define iff(p: bool, q: bool) -> bool: (p -> q) & (q -> p)");
+        ok(indoc! {"
+        define orx(p: bool, q: bool) -> bool {
+            (!p -> q)
+        }"});
+        ok(indoc! {"
+        define andx(p: bool, q: bool) -> bool {
+            !(p -> !q)
+        }"});
+        ok(indoc! {"
+        define iff(p: bool, q: bool) -> bool {
+            (p -> q) & (q -> p)
+        }"});
     }
 
     #[test]
@@ -1079,7 +1105,10 @@ mod tests {
             axiom induction(f: Nat -> bool, n: Nat) {
                 f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)
             }"});
-        ok("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat: axiom");
+        ok(indoc! {"
+        define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat {
+            axiom
+        }"});
         ok(indoc! {"
         axiom recursion_base(f: Nat -> Nat, a: Nat) {
             recursion(f, a, 0) = a
@@ -1088,7 +1117,10 @@ mod tests {
             axiom recursion_step(f: Nat -> Nat, a: Nat, n: Nat) {
                 recursion(f, a, suc(n)) = f(recursion(f, a, n))
             }"});
-        ok("define add(x: Nat, y: Nat) -> Nat: recursion(suc, x, y)");
+        ok(indoc! {"
+        define add(x: Nat, y: Nat) -> Nat {
+            recursion(suc, x, y)
+        }"});
         ok(indoc! {"
         theorem add_zero_right(a: Nat) {
             add(a, 0) = a
@@ -1162,7 +1194,10 @@ mod tests {
 
     #[test]
     fn test_defined_variable_names_lowercased() {
-        ok("define foo(x: Bool) -> Bool: true");
+        ok(indoc! {"
+        define foo(x: Bool) -> Bool {
+            true
+        }"});
         fail("define Foo(x: Bool) -> Bool: true");
     }
 
@@ -1253,7 +1288,10 @@ mod tests {
 
     #[test]
     fn test_parametric_definition() {
-        ok("define recursion<T>(f: T -> T, a: T, n: Nat) -> Nat: axiom");
+        ok(indoc! {"
+        define recursion<T>(f: T -> T, a: T, n: Nat) -> Nat {
+            axiom
+        }"});
     }
 
     #[test]
@@ -1307,5 +1345,18 @@ mod tests {
         solve 1 - 1 by {
             1 - 1 = 0
         }"});
+    }
+
+    #[test]
+    fn test_failing_early_on_bad_define_syntax() {
+        fail_with(
+            indoc! {"
+        define foo(x: Nat) -> Nat: bar
+        baz(qux)
+        zip(dash)
+        fo(fum)
+        "},
+            "TODO",
+        );
     }
 }
