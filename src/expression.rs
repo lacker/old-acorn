@@ -373,24 +373,25 @@ impl Expression {
         }
     }
 
+    // Parses a single expression from the provided tokens.
+    // termination determines what tokens are allowed to be the terminator.
+    // Consumes the terminating token and returns it.
     fn parse(
         tokens: &mut TokenIter,
-        expr_type: ExpressionType,
+        expected_type: ExpressionType,
         termination: Terminator,
     ) -> Result<(Expression, Token)> {
         let (partial_expressions, terminator) =
-            parse_partial_expressions(tokens, expr_type == ExpressionType::Value, termination)?;
+            parse_partial_expressions(tokens, expected_type, termination)?;
         let expression = combine_partial_expressions(
             partial_expressions,
-            expr_type == ExpressionType::Value,
+            expected_type == ExpressionType::Value,
             tokens,
         )?;
         Ok((expression, terminator))
     }
 
-    // Parses a single expression from the provided tokens.
-    // termination determines what tokens are allowed to be the terminator.
-    // Consumes the terminating token and returns it.
+    // TODO: remove
     pub fn parse_old(
         tokens: &mut TokenIter,
         is_value: bool,
@@ -463,7 +464,7 @@ impl PartialExpression {
 // Consumes the terminating token from the iterator and returns it.
 fn parse_partial_expressions(
     tokens: &mut TokenIter,
-    is_value: bool,
+    expected_type: ExpressionType,
     termination: Terminator,
 ) -> Result<(VecDeque<PartialExpression>, Token)> {
     let mut partials = VecDeque::<PartialExpression>::new();
@@ -472,7 +473,7 @@ fn parse_partial_expressions(
             return Ok((partials, token));
         }
         if token.token_type.is_binary() {
-            if !is_value {
+            if expected_type != ExpressionType::Value {
                 match token.token_type {
                     TokenType::Comma
                     | TokenType::RightArrow
@@ -490,8 +491,11 @@ fn parse_partial_expressions(
         }
         match token.token_type {
             TokenType::LeftParen => {
-                let (subexpression, last_token) =
-                    Expression::parse_old(tokens, is_value, Terminator::Is(TokenType::RightParen))?;
+                let (subexpression, last_token) = Expression::parse(
+                    tokens,
+                    expected_type,
+                    Terminator::Is(TokenType::RightParen),
+                )?;
 
                 // A group that has no operator before it gets an implicit apply.
                 if matches!(partials.back(), Some(PartialExpression::Expression(_))) {
@@ -511,13 +515,22 @@ fn parse_partial_expressions(
             }
 
             TokenType::ForAll | TokenType::Exists | TokenType::Function => {
+                if expected_type != ExpressionType::Value {
+                    return Err(Error::new(&token, "quantifiers cannot be used here"));
+                }
                 let left_paren = Token::expect_type(tokens, TokenType::LeftParen)?;
-                let (args, right_paren) =
-                    Expression::parse_old(tokens, is_value, Terminator::Is(TokenType::RightParen))?;
+                let (args, right_paren) = Expression::parse(
+                    tokens,
+                    ExpressionType::Other,
+                    Terminator::Is(TokenType::RightParen),
+                )?;
                 let group = Expression::Grouping(left_paren, Box::new(args), right_paren);
                 Token::expect_type(tokens, TokenType::LeftBrace)?;
-                let (subexpression, right_brace) =
-                    Expression::parse_old(tokens, is_value, Terminator::Is(TokenType::RightBrace))?;
+                let (subexpression, right_brace) = Expression::parse(
+                    tokens,
+                    ExpressionType::Value,
+                    Terminator::Is(TokenType::RightBrace),
+                )?;
                 let binder = Expression::Binder(
                     token,
                     Box::new(group),
@@ -528,8 +541,8 @@ fn parse_partial_expressions(
             }
 
             TokenType::If => {
-                if !is_value {
-                    return Err(Error::new(&token, "if-then-else cannot express a type"));
+                if expected_type != ExpressionType::Value {
+                    return Err(Error::new(&token, "'if' expressions cannot be used here"));
                 }
                 let (condition, _) =
                     Expression::parse_old(tokens, true, Terminator::Is(TokenType::LeftBrace))?;
