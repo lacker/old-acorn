@@ -384,8 +384,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
             tokens.next();
             let args = Declaration::parse_list(tokens)?;
             tokens.expect_type(TokenType::RightArrow)?;
-            let (ret_dec, _) =
-                Declaration::parse(tokens, false, Terminator::Is(TokenType::Satisfy))?;
+            let (ret_dec, _) = Declaration::parse(tokens, Terminator::Is(TokenType::Satisfy))?;
             tokens.expect_type(TokenType::LeftBrace)?;
             let (value, right_brace) =
                 Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;

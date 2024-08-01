@@ -119,13 +119,9 @@ impl fmt::Display for Declaration {
 
 impl Declaration {
     // Parses an expression that should contain a single declaration.
-    // numeral_ok is whether it's okay to declare a numeral here.
-    pub fn parse(
-        tokens: &mut TokenIter,
-        numeral_ok: bool,
-        terminator: Terminator,
-    ) -> Result<(Declaration, Token)> {
-        let name_token = tokens.expect_variable_name(numeral_ok)?;
+    // This rejects numerals.
+    pub fn parse(tokens: &mut TokenIter, terminator: Terminator) -> Result<(Declaration, Token)> {
+        let name_token = tokens.expect_variable_name(false)?;
         tokens.expect_type(TokenType::Colon)?;
         let (type_expr, token) = Expression::parse_type(tokens, terminator)?;
 
@@ -146,7 +142,6 @@ impl Declaration {
         loop {
             let (declaration, last_token) = Declaration::parse(
                 tokens,
-                false,
                 Terminator::Or(TokenType::Comma, TokenType::RightParen),
             )?;
             declarations.push(declaration);
