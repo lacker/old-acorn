@@ -126,13 +126,16 @@ impl Declaration {
     pub fn new(expr: Expression) -> Result<Declaration> {
         match expr {
             Expression::Binary(left, token, right) if token.token_type == TokenType::Colon => {
-                if left.token().token_type != TokenType::Identifier {
-                    return Err(Error::new(
-                        left.token(),
-                        "expected an identifier in this declaration",
-                    ));
-                }
                 let name_token = left.token();
+                match name_token.token_type {
+                    TokenType::Identifier | TokenType::Number => {}
+                    _ => {
+                        return Err(Error::new(
+                            name_token,
+                            "expected an identifier in this declaration",
+                        ));
+                    }
+                }
                 let name = name_token.text().to_string();
                 if !Token::is_valid_variable_name(&name) {
                     return Err(Error::new(name_token, "invalid variable name"));

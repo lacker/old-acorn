@@ -351,30 +351,20 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         }
         None => return Err(tokens.error("unexpected end of file")),
     }
-    let name_token = tokens.next().unwrap();
-    match name_token.token_type {
-        TokenType::Identifier | TokenType::Number => {}
-        _ => {
-            return Err(Error::new(&name_token, "expected identifier or number"));
-        }
-    };
-    let name = name_token.text().to_string();
-    if !Token::is_valid_variable_name(&name) {
-        return Err(Error::new(&keyword, "invalid variable name"));
-    }
-    Token::expect_type(tokens, TokenType::Colon)?;
-    let (type_expr, t) = Expression::parse_type(
+    let (declaration, middle_token) = Expression::parse_declaration(
         tokens,
         Terminator::Or(TokenType::Equals, TokenType::Satisfy),
     )?;
-    if t.token_type == TokenType::Satisfy {
-        todo!("create quantifiers");
+    if middle_token.token_type == TokenType::Satisfy {
+        let quantifiers = vec![declaration];
+        return complete_variable_satisfy(keyword, tokens, quantifiers);
     }
+
     let (value, last_token) = Expression::parse_value(tokens, Terminator::Is(TokenType::NewLine))?;
     let ls = LetStatement {
-        name,
-        name_token,
-        type_expr,
+        name: declaration.name_token.text().to_string(),
+        name_token: declaration.name_token,
+        type_expr: declaration.type_expr,
         value,
     };
     Ok(Statement {
