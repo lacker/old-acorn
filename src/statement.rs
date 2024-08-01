@@ -91,7 +91,7 @@ pub struct IfStatement {
 //     a > 0
 //   }
 pub struct VariableSatisfyStatement {
-    pub quantifiers: Vec<Declaration>,
+    pub declarations: Vec<Declaration>,
     pub condition: Expression,
 }
 
@@ -322,12 +322,12 @@ fn parse_theorem_statement(
 fn complete_variable_satisfy(
     keyword: Token,
     tokens: &mut TokenIter,
-    quantifiers: Vec<Declaration>,
+    declarations: Vec<Declaration>,
 ) -> Result<Statement> {
     let (condition, last_token) =
         Expression::parse_value(tokens, Terminator::Is(TokenType::NewLine))?;
     let es = VariableSatisfyStatement {
-        quantifiers,
+        declarations,
         condition,
     };
     let statement = Statement {
@@ -345,8 +345,8 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         Some(token) => {
             if token.token_type == TokenType::LeftParen {
                 // This is a parenthesized let..satisfy.
-                let (_, quantifiers, _) = parse_args(tokens, TokenType::Satisfy)?;
-                return complete_variable_satisfy(keyword, tokens, quantifiers);
+                let (_, declarations, _) = parse_args(tokens, TokenType::Satisfy)?;
+                return complete_variable_satisfy(keyword, tokens, declarations);
             }
         }
         None => return Err(tokens.error("unexpected end of file")),
@@ -356,8 +356,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         Terminator::Or(TokenType::Equals, TokenType::Satisfy),
     )?;
     if middle_token.token_type == TokenType::Satisfy {
-        let quantifiers = vec![declaration];
-        return complete_variable_satisfy(keyword, tokens, quantifiers);
+        return complete_variable_satisfy(keyword, tokens, vec![declaration]);
     }
 
     let (value, last_token) = Expression::parse_value(tokens, Terminator::Is(TokenType::NewLine))?;
@@ -500,12 +499,13 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
 }
 
 // Parses an exists statement where the "exists" keyword has already been found.
+// TODO: eliminate this
 fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let (_, quantifiers, _) = parse_args(tokens, TokenType::LeftBrace)?;
     let (condition, last_token) =
         Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
     let es = VariableSatisfyStatement {
-        quantifiers,
+        declarations: quantifiers,
         condition,
     };
     let statement = Statement {
@@ -773,7 +773,7 @@ impl Statement {
             StatementInfo::VariableSatisfy(es) => {
                 let new_indentation = add_indent(indentation);
                 write!(f, "exists")?;
-                write_args(f, &es.quantifiers)?;
+                write_args(f, &es.declarations)?;
                 write!(
                     f,
                     " {{\n{}{}\n{}}}",

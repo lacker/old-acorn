@@ -995,7 +995,7 @@ impl Environment {
                 let mut stack = Stack::new();
                 let (quant_names, quant_types) =
                     self.bindings
-                        .bind_args(&mut stack, project, &es.quantifiers, false)?;
+                        .bind_args(&mut stack, project, &es.declarations, false)?;
                 let general_claim_value = self.bindings.evaluate_value_with_stack(
                     &mut stack,
                     project,
