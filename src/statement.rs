@@ -277,7 +277,7 @@ fn parse_args(
     }
 
     // Parse the arguments list
-    let declarations = Expression::parse_declaration_list(tokens)?;
+    let declarations = Declaration::parse_list(tokens)?;
     let terminator = tokens.expect_type(terminator)?;
     return Ok((type_params, declarations, terminator));
 }
@@ -379,7 +379,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         }
         None => return Err(tokens.error("unexpected end of file")),
     }
-    let (declaration, middle_token) = Expression::parse_declaration(
+    let (declaration, middle_token) = Declaration::parse(
         tokens,
         Terminator::Or(TokenType::Equals, TokenType::Satisfy),
     )?;

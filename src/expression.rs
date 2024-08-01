@@ -123,29 +123,44 @@ impl fmt::Display for Declaration {
 }
 
 impl Declaration {
-    pub fn new(expr: Expression) -> Result<Declaration> {
-        match expr {
-            Expression::Binary(left, token, right) if token.token_type == TokenType::Colon => {
-                let name_token = left.token();
-                match name_token.token_type {
-                    TokenType::Identifier | TokenType::Number => {}
-                    _ => {
-                        return Err(Error::new(
-                            name_token,
-                            "expected an identifier in this declaration",
-                        ));
-                    }
-                }
-                let name = name_token.text().to_string();
-                if !Token::is_valid_variable_name(&name) {
-                    return Err(Error::new(name_token, "invalid variable name"));
-                }
-                Ok(Declaration {
-                    name_token: name_token.clone(),
-                    type_expr: *right,
-                })
+    // Parses an expression that should contain a single declaration.
+    pub fn parse(tokens: &mut TokenIter, terminator: Terminator) -> Result<(Declaration, Token)> {
+        let name_token = tokens.expect_token()?;
+        if name_token.token_type != TokenType::Identifier
+            && name_token.token_type != TokenType::Number
+        {
+            return Err(Error::new(&name_token, "expected an identifier"));
+        }
+        let name = name_token.text().to_string();
+        if !Token::is_valid_variable_name(&name) {
+            return Err(Error::new(&name_token, "invalid variable name"));
+        }
+        tokens.expect_type(TokenType::Colon)?;
+        let (type_expr, token) = Expression::parse_type(tokens, terminator)?;
+
+        Ok((
+            Declaration {
+                name_token,
+                type_expr,
+            },
+            token,
+        ))
+    }
+
+    // Parses a declaration list, after the opening left parenthesis has already been consumed.
+    // Consumes a closing right paren.
+    // Returns the declarations.
+    pub fn parse_list(tokens: &mut TokenIter) -> Result<Vec<Declaration>> {
+        let mut declarations = Vec::new();
+        loop {
+            let (declaration, last_token) = Declaration::parse(
+                tokens,
+                Terminator::Or(TokenType::Comma, TokenType::RightParen),
+            )?;
+            declarations.push(declaration);
+            if last_token.token_type == TokenType::RightParen {
+                return Ok(declarations);
             }
-            _ => Err(Error::new(expr.token(), "expected a declaration")),
         }
     }
 
@@ -462,34 +477,6 @@ impl Expression {
         Expression::parse(tokens, ExpressionType::Type, terminator)
     }
 
-    // Parses an expression that should contain a single declaration.
-    pub fn parse_declaration(
-        tokens: &mut TokenIter,
-        terminator: Terminator,
-    ) -> Result<(Declaration, Token)> {
-        let (expr, last_token) =
-            Expression::parse(tokens, ExpressionType::Declaration, terminator)?;
-        let declaration = Declaration::new(expr)?;
-        Ok((declaration, last_token))
-    }
-
-    // Parses a declaration list, after the opening left parenthesis has already been consumed.
-    // Consumes a closing right paren.
-    // Returns the declarations.
-    pub fn parse_declaration_list(tokens: &mut TokenIter) -> Result<Vec<Declaration>> {
-        let mut declarations = Vec::new();
-        loop {
-            let (declaration, last_token) = Expression::parse_declaration(
-                tokens,
-                Terminator::Or(TokenType::Comma, TokenType::RightParen),
-            )?;
-            declarations.push(declaration);
-            if last_token.token_type == TokenType::RightParen {
-                return Ok(declarations);
-            }
-        }
-    }
-
     fn expect_parse(input: &str, expected_type: ExpressionType) -> Expression {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
@@ -625,7 +612,7 @@ fn parse_partial_expressions(
                     return Err(Error::new(&token, "quantifiers cannot be used here"));
                 }
                 tokens.expect_type(TokenType::LeftParen)?;
-                let args = Expression::parse_declaration_list(tokens)?;
+                let args = Declaration::parse_list(tokens)?;
                 tokens.expect_type(TokenType::LeftBrace)?;
                 let (subexpression, right_brace) = Expression::parse(
                     tokens,
