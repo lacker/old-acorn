@@ -623,9 +623,9 @@ fn parse_partial_expressions(
                 if expected_type != ExpressionType::Value {
                     return Err(Error::new(&token, "quantifiers cannot be used here"));
                 }
-                Token::expect_type(tokens, TokenType::LeftParen)?;
+                tokens.expect_type(TokenType::LeftParen)?;
                 let args = Expression::parse_declaration_list(tokens)?;
-                Token::expect_type(tokens, TokenType::LeftBrace)?;
+                tokens.expect_type(TokenType::LeftBrace)?;
                 let (subexpression, right_brace) = Expression::parse(
                     tokens,
                     ExpressionType::Value,
@@ -643,8 +643,8 @@ fn parse_partial_expressions(
                     Expression::parse_value(tokens, Terminator::Is(TokenType::LeftBrace))?;
                 let (if_block, _) =
                     Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
-                Token::expect_type(tokens, TokenType::Else)?;
-                Token::expect_type(tokens, TokenType::LeftBrace)?;
+                tokens.expect_type(TokenType::Else)?;
+                tokens.expect_type(TokenType::LeftBrace)?;
                 let (else_block, last_right_brace) =
                     Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
                 let exp = Expression::IfThenElse(

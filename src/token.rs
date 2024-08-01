@@ -389,16 +389,6 @@ impl Token {
         }
     }
 
-    pub fn skip_newlines(tokens: &mut TokenIter) {
-        while let Some(token) = tokens.peek() {
-            if token.token_type == TokenType::NewLine {
-                tokens.next();
-            } else {
-                break;
-            }
-        }
-    }
-
     fn identifierish(ch: char) -> bool {
         ch.is_alphanumeric() || ch == '_'
     }
@@ -623,23 +613,6 @@ impl Token {
         false
     }
 
-    // Pops off one token, expecting it to be there.
-    pub fn expect_token(tokens: &mut TokenIter) -> Result<Token> {
-        tokens.next().ok_or(tokens.error("unexpected end of file"))
-    }
-
-    // Pops off one token, expecting it to be of a known type.
-    pub fn expect_type(tokens: &mut TokenIter, expected: TokenType) -> Result<Token> {
-        let token = match tokens.next() {
-            Some(t) => t,
-            None => return Err(tokens.error("unexpected end of file")),
-        };
-        if token.token_type != expected {
-            return Err(Error::new(&token, &format!("expected {:?}", expected)));
-        }
-        Ok(token)
-    }
-
     pub fn is_valid_type_name(name: &str) -> bool {
         // Get the first character
         match name.chars().next() {
@@ -731,6 +704,33 @@ impl TokenIter {
         match self.peek() {
             Some(token) => Error::new(token, message),
             None => Error::new(&self.last, message),
+        }
+    }
+
+    // Pops off one token, expecting it to be there.
+    pub fn expect_token(&mut self) -> Result<Token> {
+        self.next().ok_or(self.error("unexpected end of file"))
+    }
+
+    // Pops off one token, expecting it to be of a known type.
+    pub fn expect_type(&mut self, expected: TokenType) -> Result<Token> {
+        let token = match self.next() {
+            Some(t) => t,
+            None => return Err(self.error("unexpected end of file")),
+        };
+        if token.token_type != expected {
+            return Err(Error::new(&token, &format!("expected {:?}", expected)));
+        }
+        Ok(token)
+    }
+
+    pub fn skip_newlines(&mut self) {
+        while let Some(token) = self.peek() {
+            if token.token_type == TokenType::NewLine {
+                self.next();
+            } else {
+                break;
+            }
         }
     }
 }

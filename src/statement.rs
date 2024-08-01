@@ -218,16 +218,16 @@ fn parse_args(
     tokens: &mut TokenIter,
     terminator: TokenType,
 ) -> Result<(Vec<Token>, Vec<Declaration>, Token)> {
-    let mut token = Token::expect_token(tokens)?;
+    let mut token = tokens.expect_token()?;
     if token.token_type == terminator {
         return Ok((vec![], vec![], token));
     }
     let mut type_params = vec![];
     if token.token_type == TokenType::LessThan {
         loop {
-            let token = Token::expect_type(tokens, TokenType::Identifier)?;
+            let token = tokens.expect_type(TokenType::Identifier)?;
             type_params.push(token);
-            let token = Token::expect_token(tokens)?;
+            let token = tokens.expect_token()?;
             match token.token_type {
                 TokenType::GreaterThan => {
                     break;
@@ -243,7 +243,7 @@ fn parse_args(
                 }
             }
         }
-        token = Token::expect_token(tokens)?;
+        token = tokens.expect_token()?;
     }
     if token.token_type != TokenType::LeftParen {
         return Err(Error::new(&token, "expected an argument list"));
@@ -251,7 +251,7 @@ fn parse_args(
 
     // Parse the arguments list
     let declarations = Expression::parse_declaration_list(tokens)?;
-    let terminator = Token::expect_type(tokens, terminator)?;
+    let terminator = tokens.expect_type(terminator)?;
     return Ok((type_params, declarations, terminator));
 }
 
@@ -262,7 +262,7 @@ fn parse_theorem_statement(
     tokens: &mut TokenIter,
     axiomatic: bool,
 ) -> Result<Statement> {
-    let token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let token = tokens.expect_type(TokenType::Identifier)?;
     let name = token.text().to_string();
     if !Token::is_valid_variable_name(&name) {
         return Err(Error::new(&token, "invalid theorem name"));
@@ -289,7 +289,7 @@ fn parse_theorem_statement(
                     break (None, right_brace);
                 }
                 tokens.next();
-                let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+                let left_brace = tokens.expect_type(TokenType::LeftBrace)?;
                 let (statements, right_brace) = parse_block(tokens)?;
                 let body = Body {
                     left_brace,
@@ -376,7 +376,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
 
 // Parses a define statement where the "define" keyword has already been found.
 fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name_token = tokens.expect_type(TokenType::Identifier)?;
     let name = name_token.text().to_string();
     if !Token::is_valid_variable_name(&name) {
         return Err(Error::new(&keyword, "invalid variable name"));
@@ -409,13 +409,13 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 
 // Parses a type statement where the "type" keyword has already been found.
 fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name_token = tokens.expect_type(TokenType::Identifier)?;
     let name = name_token.text().to_string();
     if !Token::is_valid_type_name(&name) {
         return Err(Error::new(&name_token, "invalid type name"));
     }
-    Token::expect_type(tokens, TokenType::Colon)?;
-    Token::skip_newlines(tokens);
+    tokens.expect_type(TokenType::Colon)?;
+    tokens.skip_newlines();
     let (type_expr, _) = Expression::parse_type(tokens, Terminator::Is(TokenType::NewLine))?;
     let last_token = type_expr.last_token().clone();
     let ts = TypeStatement { name, type_expr };
@@ -463,7 +463,7 @@ fn parse_else_body(tokens: &mut TokenIter) -> Result<Option<Body>> {
             None => return Ok(None),
         }
     }
-    let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+    let left_brace = tokens.expect_type(TokenType::LeftBrace)?;
     let (statements, right_brace) = parse_block(tokens)?;
     let body = Body {
         left_brace,
@@ -518,15 +518,15 @@ fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 
 // Parses a struct statement where the "struct" keyword has already been found.
 fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name_token = tokens.expect_type(TokenType::Identifier)?;
     let name = name_token.text().to_string();
     if !Token::is_valid_type_name(&name) {
         return Err(Error::new(&name_token, "invalid struct name"));
     }
-    Token::expect_type(tokens, TokenType::LeftBrace)?;
+    tokens.expect_type(TokenType::LeftBrace)?;
     let mut fields = Vec::new();
     loop {
-        let token = Token::expect_token(tokens)?;
+        let token = tokens.expect_token()?;
         match token.token_type {
             TokenType::NewLine => {
                 continue;
@@ -546,7 +546,7 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
                 });
             }
             TokenType::Identifier => {
-                Token::expect_type(tokens, TokenType::Colon)?;
+                tokens.expect_type(TokenType::Colon)?;
                 let (type_expr, t) = Expression::parse_type(
                     tokens,
                     Terminator::Or(TokenType::NewLine, TokenType::RightBrace),
@@ -572,9 +572,9 @@ fn parse_module_components(
 ) -> Result<(Vec<String>, Token)> {
     let mut components = Vec::new();
     let last_token = loop {
-        let token = Token::expect_type(tokens, TokenType::Identifier)?;
+        let token = tokens.expect_type(TokenType::Identifier)?;
         components.push(token.text().to_string());
-        let token = Token::expect_token(tokens)?;
+        let token = tokens.expect_token()?;
         if token.token_type == terminator {
             break token;
         }
@@ -606,8 +606,8 @@ fn parse_from_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
     let (components, _) = parse_module_components(tokens, TokenType::Import)?;
     let mut names = vec![];
     let last_token = loop {
-        let token = Token::expect_type(tokens, TokenType::Identifier)?;
-        let separator = Token::expect_token(tokens)?;
+        let token = tokens.expect_type(TokenType::Identifier)?;
+        let separator = tokens.expect_token()?;
         match separator.token_type {
             TokenType::NewLine => {
                 names.push(token.clone());
@@ -633,12 +633,12 @@ fn parse_from_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
 
 // Parses a class statement where the "class" keyword has already been found.
 fn parse_class_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = Token::expect_type(tokens, TokenType::Identifier)?;
+    let name_token = tokens.expect_type(TokenType::Identifier)?;
     let name = name_token.text().to_string();
     if !Token::is_valid_type_name(&name) {
         return Err(Error::new(&name_token, "invalid class name"));
     }
-    let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+    let left_brace = tokens.expect_type(TokenType::LeftBrace)?;
     let (statements, right_brace) = parse_block(tokens)?;
     let body = Body {
         left_brace,
@@ -661,7 +661,7 @@ fn parse_class_statement(keyword: Token, tokens: &mut TokenIter) -> Result<State
 // Parses a solve statement where the "solve" keyword has already been found.
 fn parse_solve_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let (target, _) = Expression::parse_value(tokens, Terminator::Is(TokenType::By))?;
-    let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+    let left_brace = tokens.expect_type(TokenType::LeftBrace)?;
     let (statements, right_brace) = parse_block(tokens)?;
     let body = Body {
         left_brace,
@@ -930,7 +930,7 @@ impl Statement {
                     }
                     TokenType::Problem => {
                         let keyword = tokens.next().unwrap();
-                        let left_brace = Token::expect_type(tokens, TokenType::LeftBrace)?;
+                        let left_brace = tokens.expect_type(TokenType::LeftBrace)?;
                         let (statements, right_brace) = parse_block(tokens)?;
                         let body = Body {
                             left_brace,
