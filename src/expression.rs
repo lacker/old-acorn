@@ -4,20 +4,15 @@ use tower_lsp::lsp_types::Range;
 
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
-// There are three sorts of expressions.
+// There are two sorts of expressions.
 // Value expressions, like:
 //    1 + 2
 // Type expressions, like:
 //    (int, bool) -> bool
-// And declaration expressions, like
-//   p: bool
-// Declaration expressions also include comma-separated declarations, like
-//   p: bool, q: bool
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum ExpressionType {
     Value,
     Type,
-    Declaration,
 }
 
 // An Expression represents the basic structuring of tokens into a syntax tree.
@@ -540,7 +535,7 @@ impl PartialExpression {
 // Consumes the terminating token from the iterator and returns it.
 fn parse_partial_expressions(
     tokens: &mut TokenIter,
-    mut expected_type: ExpressionType,
+    expected_type: ExpressionType,
     termination: Terminator,
 ) -> Result<(VecDeque<PartialExpression>, Token)> {
     let mut partials = VecDeque::<PartialExpression>::new();
@@ -555,13 +550,6 @@ fn parse_partial_expressions(
                 }
                 (ExpressionType::Value, _) => {
                     // Anything else can be in a value
-                }
-                (ExpressionType::Declaration, TokenType::Colon) => {
-                    // Declarations after the colons are types
-                    expected_type = ExpressionType::Type;
-                }
-                (ExpressionType::Declaration, _) => {
-                    return Err(Error::new(&token, "unexpected token in declaration"));
                 }
                 (ExpressionType::Type, TokenType::Comma)
                 | (ExpressionType::Type, TokenType::RightArrow)
@@ -581,9 +569,6 @@ fn parse_partial_expressions(
         }
         match token.token_type {
             TokenType::LeftParen => {
-                if expected_type == ExpressionType::Declaration {
-                    return Err(Error::new(&token, "unexpected parenthesis in declaration"));
-                }
                 let (subexpression, last_token) = Expression::parse(
                     tokens,
                     expected_type,
@@ -744,17 +729,8 @@ fn combine_partial_expressions(
 
         return match partial {
             PartialExpression::Binary(token) => {
-                let (left_type, right_type) = match expected_type {
-                    ExpressionType::Declaration => {
-                        if token.token_type != TokenType::Colon {
-                            return Err(Error::new(&token, "expected a declaration here"));
-                        }
-                        (ExpressionType::Value, ExpressionType::Type)
-                    }
-                    _ => (expected_type, expected_type),
-                };
-                let left = combine_partial_expressions(partials, left_type, iter)?;
-                let right = combine_partial_expressions(right_partials, right_type, iter)?;
+                let left = combine_partial_expressions(partials, expected_type, iter)?;
+                let right = combine_partial_expressions(right_partials, expected_type, iter)?;
                 Ok(Expression::Binary(Box::new(left), token, Box::new(right)))
             }
             PartialExpression::ImplicitApply(_) => {
