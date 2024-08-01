@@ -771,14 +771,18 @@ impl Statement {
                 Ok(())
             }
 
-            StatementInfo::VariableSatisfy(es) => {
+            StatementInfo::VariableSatisfy(vss) => {
                 let new_indentation = add_indent(indentation);
-                write!(f, "exists")?;
-                write_args(f, &es.declarations)?;
+                write!(f, "let ")?;
+                if vss.declarations.len() == 1 {
+                    write!(f, "{}", vss.declarations[0])?;
+                } else {
+                    write_args(f, &vss.declarations)?;
+                }
                 write!(
                     f,
-                    " {{\n{}{}\n{}}}",
-                    &new_indentation, es.condition, indentation
+                    " satisfy {{\n{}{}\n{}}}",
+                    &new_indentation, vss.condition, indentation
                 )
             }
 
@@ -1254,16 +1258,34 @@ mod tests {
     }
 
     #[test]
-    fn test_exists_statement() {
+    fn test_let_satisfy_statement() {
         ok(indoc! {"
-        exists(x: Nat) {
+        let x: Nat satisfy {
             x > 0
+        }"});
+    }
+
+    #[test]
+    fn test_let_satisfy_multivar_statement() {
+        ok(indoc! {"
+        let (x: Nat, y: Nat) satisfy {
+            x > y
         }"});
     }
 
     #[test]
     fn test_single_line_exists_statement() {
         should_parse("exists(x: Nat) { x > 0 }");
+    }
+
+    #[test]
+    fn test_single_line_let_satisfy_statement() {
+        should_parse("let x: Nat satisfy { x > 0 }");
+    }
+
+    #[test]
+    fn test_single_line_let_satisfy_multivar_statement() {
+        should_parse("let (x: Nat, y: Nat) satisfy { x > y }");
     }
 
     #[test]
