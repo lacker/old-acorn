@@ -250,7 +250,7 @@ fn parse_args(
     }
 
     // Parse the arguments list
-    let (declarations, _) = Expression::parse_declaration_list(tokens)?;
+    let declarations = Expression::parse_declaration_list(tokens)?;
     let terminator = Token::expect_type(tokens, terminator)?;
     return Ok((type_params, declarations, terminator));
 }

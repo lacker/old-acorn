@@ -476,8 +476,9 @@ impl Expression {
     }
 
     // Parses a declaration list, after the opening left parenthesis has already been consumed.
-    // Returns the declarations and the closing right paren.
-    pub fn parse_declaration_list(tokens: &mut TokenIter) -> Result<(Vec<Declaration>, Token)> {
+    // Consumes a closing right paren.
+    // Returns the declarations.
+    pub fn parse_declaration_list(tokens: &mut TokenIter) -> Result<Vec<Declaration>> {
         let mut declarations = Vec::new();
         loop {
             let (declaration, last_token) = Expression::parse_declaration(
@@ -486,7 +487,7 @@ impl Expression {
             )?;
             declarations.push(declaration);
             if last_token.token_type == TokenType::RightParen {
-                return Ok((declarations, last_token));
+                return Ok(declarations);
             }
         }
     }
@@ -620,7 +621,7 @@ fn parse_partial_expressions(
                     return Err(Error::new(&token, "quantifiers cannot be used here"));
                 }
                 Token::expect_type(tokens, TokenType::LeftParen)?;
-                let (args, _) = Expression::parse_declaration_list(tokens)?;
+                let args = Expression::parse_declaration_list(tokens)?;
                 Token::expect_type(tokens, TokenType::LeftBrace)?;
                 let (subexpression, right_brace) = Expression::parse(
                     tokens,
