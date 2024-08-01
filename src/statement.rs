@@ -212,7 +212,7 @@ fn parse_block(tokens: &mut TokenIter) -> Result<(Vec<Statement>, Token)> {
 // The first element is an optional template. For example, the <T> in:
 // <T>(a: T, f: T -> T)
 // The second element is an optional parenthesized list of arguments.
-// Finally we have the terminator token.
+// Finally we have the terminator token. This should appear after the closing paren.
 // Returns the type params, the arguments, and the terminator token.
 fn parse_args(
     tokens: &mut TokenIter,
@@ -248,19 +248,11 @@ fn parse_args(
     if token.token_type != TokenType::LeftParen {
         return Err(Error::new(&token, "expected an argument list"));
     }
+
     // Parse the arguments list
-    let mut declarations = Vec::new();
-    loop {
-        let (decl, t) = Expression::parse_declaration(
-            tokens,
-            Terminator::Or(TokenType::Comma, TokenType::RightParen),
-        )?;
-        declarations.push(decl);
-        if t.token_type == TokenType::RightParen {
-            let terminator = Token::expect_type(tokens, terminator)?;
-            return Ok((type_params, declarations, terminator));
-        }
-    }
+    let (declarations, _) = Expression::parse_declaration_list(tokens)?;
+    let terminator = Token::expect_type(tokens, terminator)?;
+    return Ok((type_params, declarations, terminator));
 }
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been found.

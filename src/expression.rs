@@ -464,26 +464,17 @@ impl Expression {
         Expression::parse(tokens, ExpressionType::Type, terminator)
     }
 
-    // Parses an expression that should contain a single declaration.
-    pub fn parse_declaration(
-        tokens: &mut TokenIter,
-        terminator: Terminator,
-    ) -> Result<(Declaration, Token)> {
-        let (expr, last_token) =
-            Expression::parse(tokens, ExpressionType::Declaration, terminator)?;
-        let declaration = Declaration::new(expr)?;
-        Ok((declaration, last_token))
-    }
-
     // Parses a declaration list, after the opening left parenthesis has already been consumed.
     // Returns the declarations and the closing right paren.
     pub fn parse_declaration_list(tokens: &mut TokenIter) -> Result<(Vec<Declaration>, Token)> {
         let mut declarations = Vec::new();
         loop {
-            let (declaration, last_token) = Expression::parse_declaration(
+            let (expr, last_token) = Expression::parse(
                 tokens,
+                ExpressionType::Declaration,
                 Terminator::Or(TokenType::Comma, TokenType::RightParen),
             )?;
+            let declaration = Declaration::new(expr)?;
             declarations.push(declaration);
             if last_token.token_type == TokenType::RightParen {
                 return Ok((declarations, last_token));
