@@ -95,6 +95,33 @@ pub struct VariableSatisfyStatement {
     pub condition: Expression,
 }
 
+// A function satisfy statement introduces a new function to the outside block,
+// by giving a condition that the output of the function obeys, and claiming that
+// there is such a function.
+// It's like a combination of a "define" and a "theorem".
+pub struct FunctionSatisfyStatement {
+    // Name of the new function.
+    pub name: String,
+    pub name_token: Token,
+
+    // Arguments for the function. These names are bound within both the condition and the body.
+    pub args: Vec<Declaration>,
+
+    // When we define a function this way, its return value gets a name.
+    // The name is bound within the condition, but not within the body.
+    pub return_name: String,
+    pub return_type: Expression,
+
+    // The condition is the only thing we know about the function, that the condition is true.
+    pub condition: Expression,
+
+    // The body is a proof that such a function exists, or more specifically, that an output
+    // exists for every input.
+    // This is implicitly using the axiom of choice. It's convenient for the axiom of choice
+    // to just be true. Maybe we have to worry about this more in the future.
+    pub body: Option<Body>,
+}
+
 // Struct statements define a new type
 pub struct StructStatement {
     pub name: String,
