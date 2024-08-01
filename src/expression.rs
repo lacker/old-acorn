@@ -43,10 +43,10 @@ pub enum Expression {
 
     // A binder is an expression that binds variables, like a forall/exists/function.
     // The first token is the binder keyword, like "forall".
-    // The first expression is the argument list, like "(x: Nat, y: Nat)".
-    // The second expression is the body block.
+    // The declarations are the argument list, like "(x: Nat, y: Nat)".
+    // The expression is the body block.
     // The last token is the closing brace.
-    Binder(Token, Box<Expression>, Box<Expression>, Token),
+    Binder(Token, Vec<Declaration>, Box<Expression>, Token),
 
     // If-then-else expressions have to have the else block.
     // The first token is the "if" keyword.
@@ -94,7 +94,9 @@ impl fmt::Display for Expression {
                 write!(f, "({})", e)
             }
             Expression::Binder(token, args, sub, _) => {
-                write!(f, "{}{} {{ {} }}", token, args, sub)
+                write!(f, "{}", token)?;
+                Declaration::write_vec(f, args)?;
+                write!(f, " {{ {} }}", sub)
             }
             Expression::IfThenElse(_, cond, if_block, else_block, _) => {
                 write!(
@@ -104,6 +106,58 @@ impl fmt::Display for Expression {
                 )
             }
         }
+    }
+}
+
+// A single variable declaration, like "p: bool".
+#[derive(Debug)]
+pub struct Declaration {
+    pub name_token: Token,
+    pub type_expr: Expression,
+}
+
+impl fmt::Display for Declaration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {}", self.name_token, self.type_expr)
+    }
+}
+
+impl Declaration {
+    pub fn new(expr: Expression) -> Result<Declaration> {
+        match expr {
+            Expression::Binary(left, token, right) if token.token_type == TokenType::Colon => {
+                if left.token().token_type != TokenType::Identifier {
+                    return Err(Error::new(
+                        left.token(),
+                        "expected an identifier in this declaration",
+                    ));
+                }
+                let name_token = left.token();
+                let name = name_token.text().to_string();
+                if !Token::is_valid_variable_name(&name) {
+                    return Err(Error::new(name_token, "invalid variable name"));
+                }
+                Ok(Declaration {
+                    name_token: name_token.clone(),
+                    type_expr: *right,
+                })
+            }
+            _ => Err(Error::new(expr.token(), "expected a declaration")),
+        }
+    }
+
+    fn write_vec(f: &mut fmt::Formatter, decls: &Vec<Declaration>) -> fmt::Result {
+        let mut first = true;
+        for decl in decls {
+            if first {
+                write!(f, "(")?;
+                first = false;
+            } else {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", decl)?;
+        }
+        write!(f, ")")
     }
 }
 
@@ -199,7 +253,7 @@ impl Expression {
             Expression::Binder(token, args, sub, _) => {
                 println!("Binder:");
                 println!("  token: {}", token);
-                println!("  args: {}", args);
+                println!("  args: {:?}", args);
                 println!("  subexpression: {}", sub);
             }
             Expression::IfThenElse(token, cond, if_block, else_block, _) => {
@@ -394,6 +448,7 @@ impl Expression {
         Ok((expression, terminator))
     }
 
+    // Parse an expression that should represent a value.
     pub fn parse_value(
         tokens: &mut TokenIter,
         terminator: Terminator,
@@ -401,6 +456,7 @@ impl Expression {
         Expression::parse(tokens, ExpressionType::Value, terminator)
     }
 
+    // Parse an expression that should represent a type.
     pub fn parse_type(
         tokens: &mut TokenIter,
         terminator: Terminator,
@@ -408,11 +464,31 @@ impl Expression {
         Expression::parse(tokens, ExpressionType::Type, terminator)
     }
 
+    // Parses an expression that should contain a single declaration.
     pub fn parse_declaration(
         tokens: &mut TokenIter,
         terminator: Terminator,
-    ) -> Result<(Expression, Token)> {
-        Expression::parse(tokens, ExpressionType::Declaration, terminator)
+    ) -> Result<(Declaration, Token)> {
+        let (expr, last_token) =
+            Expression::parse(tokens, ExpressionType::Declaration, terminator)?;
+        let declaration = Declaration::new(expr)?;
+        Ok((declaration, last_token))
+    }
+
+    // Parses a declaration list, after the opening left parenthesis has already been consumed.
+    // Returns the declarations and the closing right paren.
+    pub fn parse_declaration_list(tokens: &mut TokenIter) -> Result<(Vec<Declaration>, Token)> {
+        let mut declarations = Vec::new();
+        loop {
+            let (declaration, last_token) = Expression::parse_declaration(
+                tokens,
+                Terminator::Or(TokenType::Comma, TokenType::RightParen),
+            )?;
+            declarations.push(declaration);
+            if last_token.token_type == TokenType::RightParen {
+                return Ok((declarations, last_token));
+            }
+        }
     }
 
     fn expect_parse(input: &str, expected_type: ExpressionType) -> Expression {
@@ -543,25 +619,15 @@ fn parse_partial_expressions(
                 if expected_type != ExpressionType::Value {
                     return Err(Error::new(&token, "quantifiers cannot be used here"));
                 }
-                let left_paren = Token::expect_type(tokens, TokenType::LeftParen)?;
-                let (args, right_paren) = Expression::parse(
-                    tokens,
-                    ExpressionType::Declaration,
-                    Terminator::Is(TokenType::RightParen),
-                )?;
-                let group = Expression::Grouping(left_paren, Box::new(args), right_paren);
+                Token::expect_type(tokens, TokenType::LeftParen)?;
+                let (args, _) = Expression::parse_declaration_list(tokens)?;
                 Token::expect_type(tokens, TokenType::LeftBrace)?;
                 let (subexpression, right_brace) = Expression::parse(
                     tokens,
                     ExpressionType::Value,
                     Terminator::Is(TokenType::RightBrace),
                 )?;
-                let binder = Expression::Binder(
-                    token,
-                    Box::new(group),
-                    Box::new(subexpression),
-                    right_brace,
-                );
+                let binder = Expression::Binder(token, args, Box::new(subexpression), right_brace);
                 partials.push_back(PartialExpression::Expression(binder));
             }
 

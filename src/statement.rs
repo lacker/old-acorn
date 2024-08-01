@@ -1,6 +1,6 @@
 use tower_lsp::lsp_types::Range;
 
-use crate::expression::{Expression, Terminator};
+use crate::expression::{Declaration, Expression, Terminator};
 use crate::token::{Error, Result, Token, TokenIter, TokenType};
 
 use std::fmt;
@@ -31,7 +31,7 @@ pub struct DefineStatement {
     pub type_params: Vec<Token>,
 
     // A list of the named arg types, like "a: int" and "b: int".
-    pub args: Vec<Expression>,
+    pub args: Vec<Declaration>,
 
     // The specified return type of the function, like "int"
     pub return_type: Expression,
@@ -50,7 +50,7 @@ pub struct TheoremStatement {
     pub axiomatic: bool,
     pub name: String,
     pub type_params: Vec<Token>,
-    pub args: Vec<Expression>,
+    pub args: Vec<Declaration>,
     pub claim: Expression,
     pub body: Option<Body>,
 }
@@ -70,7 +70,7 @@ pub struct TypeStatement {
 
 // ForAll statements create a new block in which new variables are introduced.
 pub struct ForAllStatement {
-    pub quantifiers: Vec<Expression>,
+    pub quantifiers: Vec<Declaration>,
     pub body: Body,
 }
 
@@ -91,7 +91,7 @@ pub struct IfStatement {
 //     a > 0
 //   }
 pub struct VariableSatisfyStatement {
-    pub quantifiers: Vec<Expression>,
+    pub quantifiers: Vec<Declaration>,
     pub condition: Expression,
 }
 
@@ -217,7 +217,7 @@ fn parse_block(tokens: &mut TokenIter) -> Result<(Vec<Statement>, Token)> {
 fn parse_args(
     tokens: &mut TokenIter,
     terminator: TokenType,
-) -> Result<(Vec<Token>, Vec<Expression>, Token)> {
+) -> Result<(Vec<Token>, Vec<Declaration>, Token)> {
     let mut token = Token::expect_token(tokens)?;
     if token.token_type == terminator {
         return Ok((vec![], vec![], token));
@@ -249,16 +249,16 @@ fn parse_args(
         return Err(Error::new(&token, "expected an argument list"));
     }
     // Parse the arguments list
-    let mut args = Vec::new();
+    let mut declarations = Vec::new();
     loop {
-        let (exp, t) = Expression::parse_declaration(
+        let (decl, t) = Expression::parse_declaration(
             tokens,
             Terminator::Or(TokenType::Comma, TokenType::RightParen),
         )?;
-        args.push(exp);
+        declarations.push(decl);
         if t.token_type == TokenType::RightParen {
             let terminator = Token::expect_type(tokens, terminator)?;
-            return Ok((type_params, args, terminator));
+            return Ok((type_params, declarations, terminator));
         }
     }
 }
@@ -330,7 +330,7 @@ fn parse_theorem_statement(
 fn complete_variable_satisfy(
     keyword: Token,
     tokens: &mut TokenIter,
-    quantifiers: Vec<Expression>,
+    quantifiers: Vec<Declaration>,
 ) -> Result<Statement> {
     let (condition, last_token) =
         Expression::parse_value(tokens, Terminator::Is(TokenType::NewLine))?;
@@ -710,7 +710,7 @@ fn write_type_params(f: &mut fmt::Formatter, type_params: &[Token]) -> fmt::Resu
     Ok(())
 }
 
-fn write_args(f: &mut fmt::Formatter, args: &[Expression]) -> fmt::Result {
+fn write_args(f: &mut fmt::Formatter, args: &[Declaration]) -> fmt::Result {
     if args.len() == 0 {
         return Ok(());
     }
@@ -1080,9 +1080,6 @@ mod tests {
         }"});
         ok(indoc! {"axiom contraposition {
             (!p -> !q) -> (q -> p)
-        }"});
-        ok(indoc! {"axiom modus_ponens(p, p -> q) {
-            q
         }"});
         ok(indoc! {"theorem and_comm {
             p & q <-> q & p

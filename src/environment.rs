@@ -723,7 +723,7 @@ impl Environment {
             let class_type = AcornType::Data(self.module_id, class_name.to_string());
             if arg_types[0] != class_type {
                 return Err(Error::new(
-                    &ds.args[0].token(),
+                    &ds.args[0].name_token,
                     "self must be the class type",
                 ));
             }
@@ -936,7 +936,7 @@ impl Environment {
                 for quantifier in &fas.quantifiers {
                     let (arg_name, arg_type) = self
                         .bindings
-                        .parse_declaration(project, quantifier, false)?;
+                        .evaluate_declaration(project, quantifier, false)?;
                     args.push((arg_name, arg_type));
                 }
 
