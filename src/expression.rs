@@ -120,7 +120,7 @@ impl fmt::Display for Declaration {
 impl Declaration {
     // Parses an expression that should contain a single declaration.
     // numeral_ok is whether it's okay to declare a numeral here.
-    pub fn parse(
+    fn parse(
         tokens: &mut TokenIter,
         numeral_ok: bool,
         terminator: Terminator,

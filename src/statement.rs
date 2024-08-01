@@ -375,11 +375,16 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         }
         None => return Err(tokens.error("unexpected end of file")),
     }
-    let (declaration, middle_token) = Declaration::parse(
+    let name_token = tokens.expect_variable_name(true)?;
+    tokens.expect_type(TokenType::Colon)?;
+    let (type_expr, middle_token) = Expression::parse_type(
         tokens,
-        true,
         Terminator::Or(TokenType::Equals, TokenType::Satisfy),
     )?;
+    let declaration = Declaration {
+        name_token,
+        type_expr,
+    };
     if middle_token.token_type == TokenType::Satisfy {
         return complete_variable_satisfy(keyword, tokens, vec![declaration]);
     }
