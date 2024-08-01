@@ -180,6 +180,7 @@ pub enum StatementInfo {
     ForAll(ForAllStatement),
     If(IfStatement),
     VariableSatisfy(VariableSatisfyStatement),
+    FunctionSatisfy(FunctionSatisfyStatement),
     Struct(StructStatement),
     Import(ImportStatement),
     Class(ClassStatement),
@@ -376,24 +377,55 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         None => return Err(tokens.error("unexpected end of file")),
     }
     let name_token = tokens.expect_variable_name(true)?;
+    let name = name_token.text().to_string();
+    if let Some(token) = tokens.peek() {
+        if token.token_type == TokenType::LeftParen {
+            // This is a parenthesized let..satisfy.
+            tokens.next();
+            let args = Declaration::parse_list(tokens)?;
+            tokens.expect_type(TokenType::RightArrow)?;
+            let (ret_dec, _) =
+                Declaration::parse(tokens, false, Terminator::Is(TokenType::Satisfy))?;
+            tokens.expect_type(TokenType::LeftBrace)?;
+            let (value, right_brace) =
+                Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
+            let fss = FunctionSatisfyStatement {
+                name,
+                name_token,
+                args,
+                return_name: ret_dec.name_token.text().to_string(),
+                return_type: ret_dec.type_expr,
+                condition: value,
+                body: None,
+            };
+            return Ok(Statement {
+                first_token: keyword,
+                last_token: right_brace,
+                statement: StatementInfo::FunctionSatisfy(fss),
+            });
+        }
+    }
     tokens.expect_type(TokenType::Colon)?;
     let (type_expr, middle_token) = Expression::parse_type(
         tokens,
         Terminator::Or(TokenType::Equals, TokenType::Satisfy),
     )?;
-    let declaration = Declaration {
-        name_token,
-        type_expr,
-    };
     if middle_token.token_type == TokenType::Satisfy {
-        return complete_variable_satisfy(keyword, tokens, vec![declaration]);
+        return complete_variable_satisfy(
+            keyword,
+            tokens,
+            vec![Declaration {
+                name_token,
+                type_expr,
+            }],
+        );
     }
 
     let (value, last_token) = Expression::parse_value(tokens, Terminator::Is(TokenType::NewLine))?;
     let ls = LetStatement {
-        name: declaration.name_token.text().to_string(),
-        name_token: declaration.name_token,
-        type_expr: declaration.type_expr,
+        name,
+        name_token,
+        type_expr,
         value,
     };
     Ok(Statement {
@@ -791,6 +823,19 @@ impl Statement {
                     " satisfy {{\n{}{}\n{}}}",
                     &new_indentation, vss.condition, indentation
                 )
+            }
+
+            StatementInfo::FunctionSatisfy(fss) => {
+                let new_indentation = add_indent(indentation);
+                write!(f, "let {}", fss.name)?;
+                write_args(f, &fss.args)?;
+                write!(
+                    f,
+                    " -> {}: {} satisfy {{\n",
+                    fss.return_name, fss.return_type
+                )?;
+                write!(f, "{}{}\n", new_indentation, fss.condition)?;
+                write!(f, "{}}}", indentation)
             }
 
             StatementInfo::Struct(ss) => {
@@ -1288,12 +1333,8 @@ mod tests {
     #[test]
     fn test_function_satisfy_statement() {
         ok(indoc! {"
-        let mod(a: Nat, m: Nat) -> r: Nat satisfy {
-            if m = 0 {
-                r = a
-            } else {
-                r < m & exists(d: Nat) { d * m + r = a }
-            }
+        let foo(a: Nat, m: Nat) -> r: Nat satisfy {
+            r = a + m
         }"});
     }
 

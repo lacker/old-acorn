@@ -990,16 +990,16 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::VariableSatisfy(es) => {
+            StatementInfo::VariableSatisfy(vss) => {
                 // We need to prove the general existence claim
                 let mut stack = Stack::new();
                 let (quant_names, quant_types) =
                     self.bindings
-                        .bind_args(&mut stack, project, &es.declarations, false)?;
+                        .bind_args(&mut stack, project, &vss.declarations, false)?;
                 let general_claim_value = self.bindings.evaluate_value_with_stack(
                     &mut stack,
                     project,
-                    &es.condition,
+                    &vss.condition,
                     Some(&AcornType::Bool),
                 )?;
                 let general_claim =
@@ -1019,9 +1019,11 @@ impl Environment {
                 }
 
                 // We can then assume the specific existence claim with the named constants
-                let specific_claim =
-                    self.bindings
-                        .evaluate_value(project, &es.condition, Some(&AcornType::Bool))?;
+                let specific_claim = self.bindings.evaluate_value(
+                    project,
+                    &vss.condition,
+                    Some(&AcornType::Bool),
+                )?;
                 self.add_node(
                     project,
                     true,
@@ -1030,6 +1032,10 @@ impl Environment {
                 );
 
                 Ok(())
+            }
+
+            StatementInfo::FunctionSatisfy(_fss) => {
+                todo!();
             }
 
             StatementInfo::Struct(ss) => {
