@@ -441,13 +441,8 @@ impl Expression {
         expected_type: ExpressionType,
         termination: Terminator,
     ) -> Result<(Expression, Token)> {
-        let (partial_expressions, terminator) =
-            parse_partial_expressions(tokens, expected_type, termination)?;
-        let expression = combine_partial_expressions(
-            partial_expressions,
-            expected_type == ExpressionType::Value,
-            tokens,
-        )?;
+        let (partials, terminator) = parse_partial_expressions(tokens, expected_type, termination)?;
+        let expression = combine_partial_expressions(partials, expected_type, tokens)?;
         Ok((expression, terminator))
     }
 
@@ -558,7 +553,7 @@ impl PartialExpression {
 // Consumes the terminating token from the iterator and returns it.
 fn parse_partial_expressions(
     tokens: &mut TokenIter,
-    expected_type: ExpressionType,
+    mut expected_type: ExpressionType,
     termination: Terminator,
 ) -> Result<(VecDeque<PartialExpression>, Token)> {
     let mut partials = VecDeque::<PartialExpression>::new();
@@ -574,17 +569,20 @@ fn parse_partial_expressions(
                 (ExpressionType::Value, _) => {
                     // Anything else can be in a value
                 }
-                (_, TokenType::Comma)
-                | (_, TokenType::RightArrow)
-                | (_, TokenType::Dot)
-                | (ExpressionType::Declaration, TokenType::Colon) => {
-                    // These are okay
-                }
-                (ExpressionType::Type, _) => {
-                    return Err(Error::new(&token, "unexpected token in type"));
+                (ExpressionType::Declaration, TokenType::Colon) => {
+                    // Declarations after the colons are types
+                    expected_type = ExpressionType::Type;
                 }
                 (ExpressionType::Declaration, _) => {
                     return Err(Error::new(&token, "unexpected token in declaration"));
+                }
+                (ExpressionType::Type, TokenType::Comma)
+                | (ExpressionType::Type, TokenType::RightArrow)
+                | (ExpressionType::Type, TokenType::Dot) => {
+                    // These are okay in types
+                }
+                (ExpressionType::Type, _) => {
+                    return Err(Error::new(&token, "unexpected token in type"));
                 }
             }
             partials.push_back(PartialExpression::Binary(token));
@@ -596,6 +594,9 @@ fn parse_partial_expressions(
         }
         match token.token_type {
             TokenType::LeftParen => {
+                if expected_type == ExpressionType::Declaration {
+                    return Err(Error::new(&token, "unexpected parenthesis in declaration"));
+                }
                 let (subexpression, last_token) = Expression::parse(
                     tokens,
                     expected_type,
@@ -676,8 +677,9 @@ fn parse_partial_expressions(
 // If there are no operators, return None.
 fn find_last_operator(
     partials: &VecDeque<PartialExpression>,
-    is_value: bool,
+    expected_type: ExpressionType,
 ) -> Result<Option<usize>> {
+    let is_value = expected_type == ExpressionType::Value;
     let operators = partials.iter().enumerate().filter_map(|(i, partial)| {
         match partial {
             PartialExpression::Unary(token) => {
@@ -722,7 +724,7 @@ fn find_last_operator(
 // This algorithm is quadratic, so perhaps we should improve it at some point.
 fn combine_partial_expressions(
     mut partials: VecDeque<PartialExpression>,
-    is_value: bool,
+    expected_type: ExpressionType,
     iter: &mut TokenIter,
 ) -> Result<Expression> {
     if partials.len() == 0 {
@@ -738,13 +740,13 @@ fn combine_partial_expressions(
 
     // If there are operators, find the operator that should operate last,
     // and recurse on each of the two sides.
-    if let Some(index) = find_last_operator(&partials, is_value)? {
+    if let Some(index) = find_last_operator(&partials, expected_type)? {
         if index == 0 {
             let partial = partials.pop_front().unwrap();
             if let PartialExpression::Unary(token) = partial {
                 return Ok(Expression::Unary(
                     token,
-                    Box::new(combine_partial_expressions(partials, is_value, iter)?),
+                    Box::new(combine_partial_expressions(partials, expected_type, iter)?),
                 ));
             }
             return Err(Error::new(partial.token(), "expected unary operator"));
@@ -753,18 +755,24 @@ fn combine_partial_expressions(
         let mut right_partials = partials.split_off(index);
         let partial = right_partials.pop_front().unwrap();
 
-        // If the operator is a colon, then the right side is definitely a type
-        let right_is_value = is_value && partial.token().token_type != TokenType::Colon;
-
         return match partial {
             PartialExpression::Binary(token) => {
-                let left = combine_partial_expressions(partials, is_value, iter)?;
-                let right = combine_partial_expressions(right_partials, right_is_value, iter)?;
+                let (left_type, right_type) = match expected_type {
+                    ExpressionType::Declaration => {
+                        if token.token_type != TokenType::Colon {
+                            return Err(Error::new(&token, "expected a declaration here"));
+                        }
+                        (ExpressionType::Value, ExpressionType::Type)
+                    }
+                    _ => (expected_type, expected_type),
+                };
+                let left = combine_partial_expressions(partials, left_type, iter)?;
+                let right = combine_partial_expressions(right_partials, right_type, iter)?;
                 Ok(Expression::Binary(Box::new(left), token, Box::new(right)))
             }
             PartialExpression::ImplicitApply(_) => {
-                let left = combine_partial_expressions(partials, is_value, iter)?;
-                let right = combine_partial_expressions(right_partials, right_is_value, iter)?;
+                let left = combine_partial_expressions(partials, expected_type, iter)?;
+                let right = combine_partial_expressions(right_partials, expected_type, iter)?;
                 Ok(Expression::Apply(Box::new(left), Box::new(right)))
             }
             _ => Err(Error::new(partial.token(), "expected binary operator")),
