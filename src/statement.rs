@@ -1262,7 +1262,7 @@ mod tests {
     }
 
     #[test]
-    fn test_let_satisfy_statement() {
+    fn test_variable_satisfy_statement() {
         ok(indoc! {"
         let x: Nat satisfy {
             x > 0
@@ -1270,7 +1270,7 @@ mod tests {
     }
 
     #[test]
-    fn test_let_satisfy_multivar_statement() {
+    fn test_variable_satisfy_multivar_statement() {
         ok(indoc! {"
         let (x: Nat, y: Nat) satisfy {
             x > y
@@ -1278,13 +1278,25 @@ mod tests {
     }
 
     #[test]
-    fn test_single_line_let_satisfy_statement() {
+    fn test_single_line_variable_satisfy_statement() {
         should_parse("let x: Nat satisfy { x > 0 }");
     }
 
     #[test]
-    fn test_single_line_let_satisfy_multivar_statement() {
+    fn test_single_line_variable_satisfy_multivar_statement() {
         should_parse("let (x: Nat, y: Nat) satisfy { x > y }");
+    }
+
+    #[test]
+    fn test_function_satisfy_statement() {
+        ok(indoc! {"
+        let mod(a: Nat, m: Nat) -> r: Nat satisfy {
+            if m = 0 {
+                r = a
+            } else {
+                r < m & exists(d: Nat) { d * m + r = a }
+            }
+        }"});
     }
 
     #[test]
