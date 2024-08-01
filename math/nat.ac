@@ -296,7 +296,7 @@ theorem zero_or_suc(a: Nat) {
 }
 
 theorem lte_cancel_suc(a: Nat, b: Nat) { a.suc <= b.suc -> a <= b } by {
-    exists(c: Nat) { a.suc + c = b.suc }
+    let c: Nat satisfy { a.suc + c = b.suc }
     a.suc + c = b.suc
     (a + c).suc = b.suc
     a + c = b
@@ -320,7 +320,7 @@ theorem lt_not_symm(a: Nat, b: Nat) { a < b -> !(b < a) } by {
                     y != 0
                     zero_or_suc(y)
                     y = 0 | exists(z: Nat) { y = z.suc }
-                    exists(z: Nat) { y = z.suc }
+                    let (z: Nat) satisfy { y = z.suc }
                     x.suc < z.suc
                     x < z
                     !z < x
@@ -336,7 +336,7 @@ theorem lt_not_symm(a: Nat, b: Nat) { a < b -> !(b < a) } by {
 theorem lt_diff(a: Nat, b: Nat) {
     a < b -> exists(c: Nat) { a + c = b & c != 0 }
 } by {
-    exists(c: Nat) { a + c = b }
+    let (c: Nat) satisfy { a + c = b }
     b != a
     c != 0
 }
@@ -354,8 +354,8 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat) { a <= b & b <= c -> a <= c } by {
         if f(z) {
             forall(x: Nat, y: Nat) {
                 if x <= y & y <= z.suc {
-                    exists(d: Nat) { x + d = y }
-                    exists(e: Nat) { y + e = z.suc }
+                    let (d: Nat) satisfy { x + d = y }
+                    let (e: Nat) satisfy { y + e = z.suc }
                     x + (d + e) = z.suc
                     x <= z.suc
                 }
@@ -433,8 +433,8 @@ theorem lt_suc(a: Nat) { a < a.suc } by {
 }
 
 theorem lt_suc_left(a: Nat, b: Nat) { a < b -> a.suc = b | a.suc < b } by {
-    exists(c: Nat) { a + c = b & c != 0 }
-    exists(d: Nat) { d.suc = c }
+    let (c: Nat) satisfy { a + c = b & c != 0 }
+    let (d: Nat) satisfy { d.suc = c }
     if d = 0 {
         a + 1 = b
         a.suc = b
@@ -455,7 +455,7 @@ theorem lt_suc_right(a: Nat, b: Nat) { a < b.suc -> a = b | a < b } by {
 }
 
 theorem lt_add_left(a: Nat, b: Nat, c: Nat) { b < c -> a + b < a + c } by {
-    exists(d: Nat) { b + d = c }
+    let (d: Nat) satisfy { b + d = c }
     c != b
     d != 0
     a + b + d = a + c
@@ -516,12 +516,12 @@ theorem division_theorem(m: Nat, n: Nat) {
 } by {
     define f(x: Nat) -> Bool { division_theorem(x, n) }
     induction(f)
-    exists(k0: Nat) { k0 * n = 0 }
+    let (k0: Nat) satisfy { k0 * n = 0 }
     f(0)
     forall(x: Nat) {
         if f(x) {
             division_theorem(x, n)
-            exists(q: Nat, r: Nat) {
+            let (q: Nat, r: Nat) satisfy {
                 r < n & x = q * n + r
             }
             if r.suc = n {
@@ -551,7 +551,7 @@ define is_composite(a: Nat) -> Bool {
 
 theorem mul_to_zero(a: Nat, b: Nat) { a * b = 0 -> a = 0 | b = 0 } by {
     if a != 0 & b != 0 {
-        exists(pred_a: Nat) { pred_a.suc = a }
+        let (pred_a: Nat) satisfy { pred_a.suc = a }
         pred_a.suc * b = 0
         b + pred_a * b = 0
         false
@@ -561,7 +561,7 @@ theorem mul_to_zero(a: Nat, b: Nat) { a * b = 0 -> a = 0 | b = 0 } by {
 theorem divisor_lt(a: Nat, b: Nat, c: Nat) {
     a != 0 & 1 < b & a * b = c -> a < c
 } by {
-    exists(d: Nat) { 1 + d = b & d != 0 }
+    let (d: Nat) satisfy { 1 + d = b & d != 0 }
     a * (1 + d) = c
     1 + d = d.suc
     a * d.suc = c
@@ -627,8 +627,8 @@ theorem strong_induction(f: Nat -> Bool) {
 theorem divides_trans(a: Nat, b: Nat, c: Nat) {
     divides(a, b) & divides(b, c) -> divides(a, c)
 } by {
-    exists(d: Nat) { a * d = b }
-    exists(e: Nat) { b * e = c }
+    let (d: Nat) satisfy { a * d = b }
+    let (e: Nat) satisfy { b * e = c }
     a * (d * e) = c
 }
 
@@ -645,7 +645,7 @@ theorem has_prime_divisor(n: Nat) {
                 has_prime_divisor(k)
             }
             if is_composite(k) {
-                exists(b: Nat, c: Nat) {
+                let (b: Nat, c: Nat) satisfy {
                     1 < b & 1 < c & k = b * c
                 }
                 b != 0
@@ -653,7 +653,7 @@ theorem has_prime_divisor(n: Nat) {
                 b * c = k
                 b < k
                 has_prime_divisor(b)
-                exists(p: Nat) {
+                let (p: Nat) satisfy {
                     is_prime(p) & divides(p, b)
                 }
                 divides(p, k)
@@ -780,20 +780,20 @@ theorem lte_one_factorial(a: Nat) { 1 <= factorial(a) } by {
 }
 
 theorem lt_imp_lt_suc(a: Nat, b: Nat) { a < b -> a < b.suc } by {
-    exists(c: Nat) { a + c = b & c != 0 }
+    let (c: Nat) satisfy { a + c = b & c != 0 }
     a + c.suc = b.suc
     c.suc != 0
 }
 
 theorem lte_mul_both(a: Nat, b: Nat, c: Nat) { b <= c -> a * b <= a * c } by {
-    exists(d: Nat) { b + d = c }
+    let (d: Nat) satisfy { b + d = c }
     a * (b + d) = a * c
     a * b + a * d = a * c
     a * b <= a * c
 }
 
 theorem lt_mul_both(a: Nat, b: Nat, c: Nat) { a != 0 & b < c -> a * b < a * c } by {
-    exists(d: Nat) { b + d = c }
+    let (d: Nat) satisfy { b + d = c }
     c != b
     d != 0
     a * (b + d) = a * c
@@ -834,13 +834,13 @@ theorem mul_to_one(a: Nat, b: Nat) { a * b = 1 -> a = 1 } by {
 }
 
 theorem divides_suc(a: Nat, b: Nat) { divides(a, b) & divides(a, b.suc) -> a = 1 } by {
-    exists(k0: Nat) { a * k0 = b.suc }
+    let (k0: Nat) satisfy { a * k0 = b.suc }
     a != 0
-    exists(c: Nat) { a * c = b }
-    exists(d: Nat) { a * d = b.suc }
+    let (c: Nat) satisfy { a * c = b }
+    let (d: Nat) satisfy { a * d = b.suc }
     a * c < a * d
     c <= d
-    exists(e: Nat) { c + e = d }
+    let (e: Nat) satisfy { c + e = d }
     a * (c + e) = b.suc
     a * c + a * e = b.suc
     b + a * e = b.suc
@@ -860,7 +860,7 @@ theorem exists_infinite_primes(n: Nat) {
         false
     }
     1 < m
-    exists(p: Nat) {
+    let (p: Nat) satisfy {
         is_prime(p) & divides(p, m)
     }
     p != 1
@@ -878,7 +878,7 @@ theorem divides_zero(a: Nat) { divides(a, 0) }
 theorem zero_divides(a: Nat) { divides(0, a) -> a = 0 }
 
 theorem divides_mul(a: Nat, b: Nat, d: Nat) { divides(d, a) -> divides(d, a * b) } by {
-    exists(q: Nat) { q * d = a }
+    let (q: Nat) satisfy { q * d = a }
     q * d * b = a * b
     d * q * b = a * b
     d * (q * b) = a * b
@@ -892,7 +892,7 @@ theorem lte_mul(a: Nat, b: Nat) { b != 0 -> a <= a * b } by {
 
 theorem divides_lte(a: Nat, b: Nat) { divides(a, b) -> b = 0 | a <= b } by {
     if b != 0 {
-        exists(q: Nat) { q * a = b }
+        let (q: Nat) satisfy { q * a = b }
         if q = 0 {
             b = 0
             false
@@ -906,8 +906,8 @@ theorem divides_lte(a: Nat, b: Nat) { divides(a, b) -> b = 0 | a <= b } by {
 theorem divides_add(a: Nat, b: Nat, d: Nat) {
     divides(d, a) & divides(d, b) -> divides(d, a + b)
 } by {
-    exists(qa: Nat) { qa * d = a }
-    exists(qb: Nat) { qb * d = b }
+    let (qa: Nat) satisfy { qa * d = a }
+    let (qb: Nat) satisfy { qb * d = b }
     (qa + qb) * d = qa * d + b
     (qa + qb) * d = a + b
     divides(d, (qa + qb) * d)
@@ -933,7 +933,7 @@ theorem divides_symm(a: Nat, b: Nat) { divides(a, b) & divides(b, a) -> a = b } 
 }
 
 theorem cross_sum_lte(a: Nat, b: Nat, c: Nat, d: Nat) { a + b = c + d & a <= c -> d <= b } by {
-    exists(e: Nat) { a + e = c }
+    let (e: Nat) satisfy { a + e = c }
     a + b = a + e + d
     a + b = a + (e + d)
     b = e + d
@@ -970,7 +970,7 @@ theorem sub_def(a: Nat, b: Nat) {
         is_sub(a, b)(0)
     } else {
         b <= a
-        exists(x: Nat) { x + b = a }
+        let (x: Nat) satisfy { x + b = a }
         is_sub(a, b)(x)
     }
 }
@@ -981,7 +981,7 @@ class Nat {
 
 theorem sub_is_sub(a: Nat, b: Nat) { is_sub(a, b)(a - b) } by {
     let f: Nat -> Bool = is_sub(a, b)
-    exists(x: Nat) { is_sub(a, b)(x) }
+    let (x: Nat) satisfy { is_sub(a, b)(x) }
     f(x)
     f(find(f))
     is_sub(a, b)(find(f))
@@ -1021,7 +1021,7 @@ theorem mod_def(a: Nat, m: Nat) {
 } by {
     if m != 0 {
         0 < m
-        exists(q: Nat, r: Nat) {
+        let (q: Nat, r: Nat) satisfy {
             r < m & a = q * m + r
         }
         is_mod(a, m)(r)
@@ -1041,7 +1041,7 @@ theorem mod_is_mod(a: Nat, m: Nat) { is_mod(a, m)(mod(a, m)) } by {
         is_mod(a, m)(mod(a, m))
     } else {
         0 < m
-        exists(q: Nat, r: Nat) { r < m & q * m + r = a }
+        let (q: Nat, r: Nat) satisfy { r < m & q * m + r = a }
         is_mod(a, m)(r)
         f(r)
         f(find(f))
@@ -1057,9 +1057,9 @@ theorem add_mod(a: Nat, m: Nat) {
         mod(a, 0) = a
         0 * 0 = 0
         0 * 0 + mod(a, 0) = a
-        exists(q: Nat) { q * m + mod(a, m) = a }
+        let (q: Nat) satisfy { q * m + mod(a, m) = a }
     } else {
-        exists(q: Nat) { q * m + mod(a, m) = a }
+        let (q: Nat) satisfy { q * m + mod(a, m) = a }
     }
 }
 
@@ -1070,7 +1070,7 @@ theorem mod_of_zero(m: Nat) { mod(0, m) = 0 }
 theorem mod_lte(a: Nat, m: Nat) { mod(a, m) <= a }
 
 theorem div_sub_mod(a: Nat, m: Nat) { divides(m, a - mod(a, m)) } by {
-    exists(q: Nat) { q * m + mod(a, m) = a }
+    let (q: Nat) satisfy { q * m + mod(a, m) = a }
     a - mod(a, m) = q * m
     divides(m, q * m)
 }
@@ -1109,8 +1109,8 @@ theorem sub_right_distrib(a: Nat, b: Nat, c: Nat) {
 theorem divides_sub(a: Nat, b: Nat, d: Nat) {
     divides(d, a) & divides(d, b) -> divides(d, a - b)
 } by {
-    exists(qa: Nat) { qa * d = a }
-    exists(qb: Nat) { qb * d = b }
+    let (qa: Nat) satisfy { qa * d = a }
+    let (qb: Nat) satisfy { qb * d = b }
     a - b = qa * d - qb * d
     a - b = (qa - qb) * d
     divides(d, (qa - qb) * d)
@@ -1120,7 +1120,7 @@ theorem divides_sub(a: Nat, b: Nat, d: Nat) {
 theorem divides_mod(a: Nat, m: Nat, d: Nat) {
     divides(d, a) & divides(d, m) -> divides(d, mod(a, m))
 } by {
-    exists(q: Nat) { q * m + mod(a, m) = a }
+    let (q: Nat) satisfy { q * m + mod(a, m) = a }
     mod(a, m) = a - q * m
     divides(d, q * m)
     divides(d, a - q * m)
@@ -1142,7 +1142,7 @@ theorem div_imp_mod(a: Nat, m: Nat) { divides(m, a) -> mod(a, m) = 0 } by {
 }
 
 theorem small_mod(a: Nat, m: Nat) { a < m -> mod(a, m) = a } by {
-    exists(q: Nat) { q * m + mod(a, m) = a }
+    let (q: Nat) satisfy { q * m + mod(a, m) = a }
     if q = 0 {
         0 + mod(a, m) = a
         mod(a, m) = a
@@ -1179,7 +1179,7 @@ theorem divides_add_copy(a: Nat, b: Nat, d: Nat) {
 theorem divides_unmod(d: Nat, a: Nat, m: Nat) {
     divides(d, m) & divides(d, mod(a, m)) -> divides(d, a)
 } by {
-    exists(q: Nat) { q * m + mod(a, m) = a }
+    let (q: Nat) satisfy { q * m + mod(a, m) = a }
     divides(m, q * m)
     divides(d, q * m)
     divides(d, q * m + mod(a, m))

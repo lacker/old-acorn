@@ -98,7 +98,7 @@ theorem sub_nat_add_right(p: Nat, q: Nat) { sub_nat(p, p + q) = negate(from_nat(
 theorem sub_nat_eq_helper(m: Nat, n: Nat, p: Nat, q: Nat) {
     m + n = p + q & p <= m -> sub_nat(m, p) = sub_nat(q, n)
 } by {
-    exists(d: Nat) { p + d = m }
+    let (d: Nat) satisfy { p + d = m }
     sub_nat(m, p) = from_nat(d)
     m + n = p + d + n
     p + q = p + d + n
@@ -119,12 +119,12 @@ theorem sub_nat_eq(m: Nat, n: Nat, p: Nat, q: Nat) { m + n = p + q -> sub_nat(m,
 
 theorem sub_nat_imp_add(i: Nat, j: Nat, k: Nat) { sub_nat(i, j) = from_nat(k) -> j + k = i } by {
     if j <= i {
-        exists(d: Nat) { j + d = i }
+        let (d: Nat) satisfy { j + d = i }
         sub_nat(i, j) = from_nat(d)
         d = k
         j + k = i
     } else {
-        exists(d: Nat) { i + d = j }
+        let (d: Nat) satisfy { i + d = j }
         sub_nat(i, j) = negate(from_nat(d))
         from_nat(k) = negate(from_nat(d))
         k = nat.0
@@ -136,7 +136,7 @@ theorem sub_nat_imp_add(i: Nat, j: Nat, k: Nat) { sub_nat(i, j) = from_nat(k) ->
 
 theorem sub_nat_negate_imp_add(i: Nat, j: Nat, k: Nat) { sub_nat(i, j) = negate(from_nat(k)) -> i + k = j } by {
     if j <= i {
-        exists(d: Nat) { j + d = i }
+        let (d: Nat) satisfy { j + d = i }
         sub_nat(i, j) = from_nat(d)
         from_nat(d) = negate(from_nat(k))
         d = nat.0
@@ -145,7 +145,7 @@ theorem sub_nat_negate_imp_add(i: Nat, j: Nat, k: Nat) { sub_nat(i, j) = negate(
         i + k = j
     } else {
         i <= j
-        exists(d: Nat) { i + d = j }
+        let (d: Nat) satisfy { i + d = j }
         sub_nat(j, i) = from_nat(d)
         sub_nat(i, j) = negate(from_nat(d))
         abs(sub_nat(j, i)) = d
@@ -158,14 +158,14 @@ theorem sub_nat_negate_imp_add(i: Nat, j: Nat, k: Nat) { sub_nat(i, j) = negate(
 
 theorem sub_nat_cancel_right(i: Nat, j: Nat, k: Nat) { sub_nat(i, k) = sub_nat(j, k) -> i = j } by {
     if k <= i {
-        exists(d: Nat) { k + d = i }
+        let (d: Nat) satisfy { k + d = i }
         sub_nat(i, k) = from_nat(d)
         sub_nat(j, k) = from_nat(d)
         k + d = j
         i = j
     } else {
         i <= k
-        exists(d: Nat) { i + d = k }
+        let (d: Nat) satisfy { i + d = k }
         sub_nat(k, i) = from_nat(d)
         sub_nat(i, k) = negate(from_nat(d))
         sub_nat(j, k) = negate(from_nat(d))
@@ -189,7 +189,7 @@ theorem sub_nat_add_cancel_left(m: Nat, n: Nat, k: Nat) { sub_nat(m, n) = sub_na
 theorem sub_nat_imp_add_eq_helper(m: Nat, n: Nat, p: Nat, q: Nat) {
     sub_nat(m, p) = sub_nat(q, n) & p <= m -> m + n = p + q
 } by {
-    exists(d: Nat) { p + d = m }
+    let (d: Nat) satisfy { p + d = m }
     sub_nat(m, p) = from_nat(d)
     sub_nat(q, n) = from_nat(d)
     n + d = q
@@ -1078,7 +1078,7 @@ theorem abs_add_nonpos(a: Int, b: Int) {
 theorem triangle_nonpos_lte_nonneg(a: Int, b: Int) {
     !is_negative(a) & !is_positive(b) & abs(b) <= abs(a) -> abs(a + b) <= abs(a) + abs(b)
 } by {
-    exists(n: Nat) { n + abs(b) = abs(a) }
+    let (n: Nat) satisfy { n + abs(b) = abs(a) }
     from_nat(n) + from_nat(abs(b)) = from_nat(abs(a))
     from_nat(n) + negate(b) = from_nat(abs(a))
     from_nat(n) + negate(b) = a
@@ -1182,7 +1182,7 @@ theorem lte_and_lt(a: Int, b: Int, c: Int) { a <= b & b < c -> a < c } by {
 }
 
 theorem lt_from_nat(j: Nat, k: Nat) { j < k -> from_nat(j) < from_nat(k) } by {
-    exists(d: Nat) { d + j = k & d != nat.0 }
+    let (d: Nat) satisfy { d + j = k & d != nat.0 }
     from_nat(d) + from_nat(j) = from_nat(k)
     from_nat(k) - from_nat(j) = from_nat(d)
     is_positive(from_nat(d))
@@ -1269,21 +1269,21 @@ define divides(a: Int, b: Int) -> Bool {
 }
 
 theorem div_trans(a: Int, b: Int, c: Int) { divides(a, b) & divides(b, c) -> divides(a, c) } by {
-    exists(d: Int) { d * a = b }
-    exists(e: Int) { e * b = c }
+    let (d: Int) satisfy { d * a = b }
+    let (e: Int) satisfy { e * b = c }
     e * (d * a) = c
     e * d * a = c
     divides(a, c)
 }
 
 theorem div_imp_div_abs(a: Int, b: Int) { divides(a, b) -> nat.divides(abs(a), abs(b)) } by {
-    exists(d: Int) { d * a = b }
+    let (d: Int) satisfy { d * a = b }
     abs(d) * abs(a) = abs(b)
     nat.divides(abs(a), abs(b))
 }
 
 theorem div_from_nat(j: Nat, k: Nat) { nat.divides(j, k) -> divides(from_nat(j), from_nat(k)) } by {
-    exists(n: Nat) { n * j = k }
+    let (n: Nat) satisfy { n * j = k }
     from_nat(n) * from_nat(j) = from_nat(k)
     divides(from_nat(j), from_nat(k))
 }
@@ -1380,7 +1380,7 @@ theorem spans_left(a: Int, b: Int) { spans(a, b, a) } by {
 }
 
 theorem spans_comm(a: Int, b: Int, c: Int) { spans(a, b, c) -> spans(b, a, c) } by {
-    exists(d: Int, e: Int) { d * a + e * b = c }
+    let (d: Int, e: Int) satisfy { d * a + e * b = c }
     e * b + d * a = c
 }
 
@@ -1401,15 +1401,15 @@ theorem spans_div_right(a: Int, b: Int, c: Int) { divides(b, c) -> spans(a, b, c
 }
 
 theorem spans_mul(a: Int, b: Int, c: Int, d: Int) { spans(a, b, c) -> spans(a, b, d * c) } by {
-    exists(e: Int, f: Int) { e * a + f * b = c }
+    let (e: Int, f: Int) satisfy { e * a + f * b = c }
     d * c = d * (e * a + f * b)
     d * c = d * (e * a) + d * (f * b)
     d * c = d * e * a + d * f * b
 }
 
 theorem spans_add(a: Int, b: Int, c: Int, d: Int) { spans(a, b, c) & spans(a, b, d) -> spans(a, b, c + d) } by {
-    exists(e: Int, f: Int) { e * a + f * b = c }
-    exists(g: Int, h: Int) { g * a + h * b = d }
+    let (e: Int, f: Int) satisfy { e * a + f * b = c }
+    let (g: Int, h: Int) satisfy { g * a + h * b = d }
     c + d = (e * a + f * b) + (g * a + h * b)
     c + d = (e * a + g * a) + (f * b + h * b)
     c + d = (e + g) * a + (f + h) * b
@@ -1425,7 +1425,7 @@ let mod: (Nat, Nat) -> Nat = nat.mod
 theorem spans_nat_mod(a: Int, b: Int, k: Nat, m: Nat) {
     spans(a, b, from_nat(k)) & spans(a, b, from_nat(m)) -> spans(a, b, from_nat(mod(k, m)))
 } by {
-    exists(d: Nat) { d * m + mod(k, m) = k }
+    let (d: Nat) satisfy { d * m + mod(k, m) = k }
     from_nat(d * m) + from_nat(mod(k, m)) = from_nat(k)
     from_nat(d) * from_nat(m) + from_nat(mod(k, m)) = from_nat(k)
     negate(negate(from_nat(d) * from_nat(m))) = from_nat(k) - from_nat(mod(k, m))

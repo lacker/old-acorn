@@ -97,7 +97,7 @@ theorem no_infinite_decreasing(f: Nat -> Nat) {
 theorem dtz_terminates(f: Nat -> Nat) {
     decreasing_to_zero(f) -> exists(n: Nat) { f(n) = 0 }
 } by {
-    exists(n: Nat) { f(n) <= f(n.suc) }
+    let (n: Nat) satisfy { f(n) <= f(n.suc) }
     f(n) = 0 | f(n.suc) < f(n)
     f(n) = 0
 }

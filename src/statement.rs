@@ -499,24 +499,6 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
     Ok(statement)
 }
 
-// Parses an exists statement where the "exists" keyword has already been found.
-// TODO: eliminate this
-fn parse_exists_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let (_, quantifiers, _) = parse_args(tokens, TokenType::LeftBrace)?;
-    let (condition, last_token) =
-        Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
-    let es = VariableSatisfyStatement {
-        declarations: quantifiers,
-        condition,
-    };
-    let statement = Statement {
-        first_token: keyword,
-        last_token,
-        statement: StatementInfo::VariableSatisfy(es),
-    };
-    Ok(statement)
-}
-
 // Parses a struct statement where the "struct" keyword has already been found.
 fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let name_token = tokens.expect_type(TokenType::Identifier)?;
@@ -889,11 +871,6 @@ impl Statement {
                     TokenType::If => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_if_statement(keyword, tokens)?;
-                        return Ok((Some(s), None));
-                    }
-                    TokenType::Exists => {
-                        let keyword = tokens.next().unwrap();
-                        let s = parse_exists_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
                     TokenType::Struct => {
@@ -1271,11 +1248,6 @@ mod tests {
         let (x: Nat, y: Nat) satisfy {
             x > y
         }"});
-    }
-
-    #[test]
-    fn test_single_line_exists_statement() {
-        should_parse("exists(x: Nat) { x > 0 }");
     }
 
     #[test]
