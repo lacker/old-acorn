@@ -318,14 +318,15 @@ fn parse_theorem_statement(
     Ok(statement)
 }
 
-// Finish the rest of a variable satisfy statement after we've gotten the quantifiers
+// Finish the rest of a variable satisfy statement, after we've consumed the 'satisfy' keyword
 fn complete_variable_satisfy(
     keyword: Token,
     tokens: &mut TokenIter,
     declarations: Vec<Declaration>,
 ) -> Result<Statement> {
+    tokens.expect_type(TokenType::LeftBrace)?;
     let (condition, last_token) =
-        Expression::parse_value(tokens, Terminator::Is(TokenType::NewLine))?;
+        Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
     let es = VariableSatisfyStatement {
         declarations,
         condition,

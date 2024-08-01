@@ -1981,14 +1981,14 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     }
 
     #[test]
-    fn test_exists_exports_names() {
+    fn test_let_satisfy_exports_names() {
         let mut env = Environment::new_test();
         env.add(
             r#"
             type Nat: axiom
             define foo(x: Nat) -> Bool { axiom }
             theorem goal { true } by {
-                exists(z: Nat) { foo(z) }
+                let z: Nat satisfy { foo(z) }
                 foo(z)
             }
         "#,
@@ -2289,8 +2289,6 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.add("define foo(x: Bool) -> Bool { true }");
         env.bad("theorem bar(X: Bool) { true }");
         env.add("theorem bar(x: Bool) { true }");
-        env.bad("exists(A: Bool) { true }");
-        env.add("exists(a: Bool) { true }");
     }
 
     #[test]
