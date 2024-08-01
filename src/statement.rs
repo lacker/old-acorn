@@ -289,11 +289,7 @@ fn parse_theorem_statement(
     tokens: &mut TokenIter,
     axiomatic: bool,
 ) -> Result<Statement> {
-    let token = tokens.expect_type(TokenType::Identifier)?;
-    let name = token.text().to_string();
-    if !Token::is_valid_variable_name(&name) {
-        return Err(Error::new(&token, "invalid theorem name"));
-    }
+    let name_token = tokens.expect_variable_name(false)?;
     let (type_params, args, _) = parse_args(tokens, TokenType::LeftBrace)?;
     if type_params.len() > 1 {
         return Err(Error::new(
@@ -331,7 +327,7 @@ fn parse_theorem_statement(
 
     let ts = TheoremStatement {
         axiomatic,
-        name,
+        name: name_token.text().to_string(),
         type_params,
         args,
         claim,
@@ -381,6 +377,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
     }
     let (declaration, middle_token) = Declaration::parse(
         tokens,
+        true,
         Terminator::Or(TokenType::Equals, TokenType::Satisfy),
     )?;
     if middle_token.token_type == TokenType::Satisfy {
@@ -403,11 +400,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
 
 // Parses a define statement where the "define" keyword has already been found.
 fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = tokens.expect_type(TokenType::Identifier)?;
-    let name = name_token.text().to_string();
-    if !Token::is_valid_variable_name(&name) {
-        return Err(Error::new(&keyword, "invalid variable name"));
-    }
+    let name_token = tokens.expect_variable_name(false)?;
     let (type_params, args, _) = parse_args(tokens, TokenType::RightArrow)?;
     if type_params.len() > 1 {
         return Err(Error::new(
@@ -419,7 +412,7 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
     let (return_value, last_token) =
         Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
     let ds = DefineStatement {
-        name,
+        name: name_token.text().to_string(),
         name_token,
         type_params,
         args,

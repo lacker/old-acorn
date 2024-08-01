@@ -431,9 +431,6 @@ impl BindingMap {
         expect_self: bool,
     ) -> token::Result<(String, AcornType)> {
         let name = declaration.name_token.text().to_string();
-        if !Token::is_valid_variable_name(&name) {
-            return Err(Error::new(&declaration.name_token, "invalid variable name"));
-        }
         if expect_self && name != "self" {
             return Err(Error::new(
                 &declaration.name_token,
@@ -625,7 +622,7 @@ impl BindingMap {
             }
             Some(NamedEntity::Type(t)) => {
                 if let AcornType::Data(module, type_name) = t {
-                    if name_token.token_type == TokenType::Number {
+                    if name_token.token_type == TokenType::Numeral {
                         let value = self.evaluate_number_with_type(
                             name_token,
                             project,
@@ -678,7 +675,7 @@ impl BindingMap {
                             ))
                         }
                     }
-                    TokenType::Number => {
+                    TokenType::Numeral => {
                         let (module, type_name) = match &self.default {
                             Some((module, type_name)) => (module, type_name),
                             None => {
@@ -865,7 +862,7 @@ impl BindingMap {
                     check_type(token, expected_type, &AcornType::Bool)?;
                     Ok(AcornValue::Bool(token.token_type == TokenType::True))
                 }
-                TokenType::Identifier | TokenType::Number => {
+                TokenType::Identifier | TokenType::Numeral => {
                     let entity = self.evaluate_name(token, project, stack, None)?;
                     Ok(entity.expect_value(expected_type, token)?)
                 }
@@ -1369,7 +1366,7 @@ impl BindingMap {
 
         // Handle numeric literals
         if parts.len() == 2 && parts[1].chars().all(|ch| ch.is_ascii_digit()) {
-            let numeral = TokenType::Number.new_token(parts[1]);
+            let numeral = TokenType::Numeral.new_token(parts[1]);
 
             // If it's the default type, we don't need to scope it
             if let Some((module, type_name)) = &self.default {

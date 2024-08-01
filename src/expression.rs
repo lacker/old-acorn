@@ -119,8 +119,13 @@ impl fmt::Display for Declaration {
 
 impl Declaration {
     // Parses an expression that should contain a single declaration.
-    pub fn parse(tokens: &mut TokenIter, terminator: Terminator) -> Result<(Declaration, Token)> {
-        let name_token = tokens.expect_variable_name()?;
+    // numeral_ok is whether it's okay to declare a numeral here.
+    pub fn parse(
+        tokens: &mut TokenIter,
+        numeral_ok: bool,
+        terminator: Terminator,
+    ) -> Result<(Declaration, Token)> {
+        let name_token = tokens.expect_variable_name(numeral_ok)?;
         tokens.expect_type(TokenType::Colon)?;
         let (type_expr, token) = Expression::parse_type(tokens, terminator)?;
 
@@ -141,6 +146,7 @@ impl Declaration {
         loop {
             let (declaration, last_token) = Declaration::parse(
                 tokens,
+                false,
                 Terminator::Or(TokenType::Comma, TokenType::RightParen),
             )?;
             declarations.push(declaration);
@@ -316,7 +322,7 @@ impl Expression {
     // Ignores the type.
     pub fn to_digit(&self) -> Option<char> {
         match self {
-            Expression::Singleton(token) if token.token_type == TokenType::Number => {
+            Expression::Singleton(token) if token.token_type == TokenType::Numeral => {
                 let text = token.text();
                 if text.len() == 1 {
                     text.chars().next()
@@ -334,7 +340,7 @@ impl Expression {
     // Whether this is a number of any type.
     pub fn is_number(&self) -> bool {
         match self {
-            Expression::Singleton(token) => token.token_type == TokenType::Number,
+            Expression::Singleton(token) => token.token_type == TokenType::Numeral,
             Expression::Binary(_, token, right) if token.token_type == TokenType::Dot => {
                 right.is_number()
             }
@@ -349,7 +355,7 @@ impl Expression {
             Expression::Singleton(token) => {
                 let mut text = token.text().to_string();
                 text.push(digit);
-                Expression::Singleton(TokenType::Number.new_token(&text))
+                Expression::Singleton(TokenType::Numeral.new_token(&text))
             }
             Expression::Binary(left, token, right) if token.token_type == TokenType::Dot => {
                 let new_right = Expression::generate_number(*right, digit);
@@ -576,7 +582,7 @@ fn parse_partial_expressions(
             }
 
             TokenType::Identifier
-            | TokenType::Number
+            | TokenType::Numeral
             | TokenType::Axiom
             | TokenType::True
             | TokenType::False => {

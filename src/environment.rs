@@ -635,7 +635,7 @@ impl Environment {
         ls: &LetStatement,
         range: Range,
     ) -> token::Result<()> {
-        if class.is_none() && ls.name_token.token_type == TokenType::Number {
+        if class.is_none() && ls.name_token.token_type == TokenType::Numeral {
             return Err(Error::new(
                 &ls.name_token,
                 "numeric literals may not be defined outside of a class",
@@ -662,7 +662,7 @@ impl Environment {
             ));
         }
         let acorn_type = self.bindings.evaluate_type(project, &ls.type_expr)?;
-        if ls.name_token.token_type == TokenType::Number {
+        if ls.name_token.token_type == TokenType::Numeral {
             if acorn_type != AcornType::Data(self.module_id, class.unwrap().to_string()) {
                 return Err(Error::new(
                     &ls.type_expr.token(),

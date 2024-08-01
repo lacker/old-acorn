@@ -49,7 +49,7 @@ pub enum TokenType {
     Asterisk,
     Percent,
     Slash,
-    Number,
+    Numeral,
     Default,
     From,
     Solve,
@@ -270,7 +270,7 @@ impl TokenType {
             TokenType::Asterisk => "*",
             TokenType::Percent => "%",
             TokenType::Slash => "/",
-            TokenType::Number => "<number>",
+            TokenType::Numeral => "<number>",
             TokenType::Default => "default",
             TokenType::From => "from",
             TokenType::Solve => "solve",
@@ -285,7 +285,7 @@ impl TokenType {
             TokenType::Identifier => "identifier".to_string(),
             TokenType::Invalid => "invalid".to_string(),
             TokenType::NewLine => "newline".to_string(),
-            TokenType::Number => "number".to_string(),
+            TokenType::Numeral => "number".to_string(),
             _ => format!("\"{}\"", self.to_str()),
         }
     }
@@ -445,7 +445,7 @@ impl Token {
                 }
             }
 
-            TokenType::Number => Some(SemanticTokenType::NUMBER),
+            TokenType::Numeral => Some(SemanticTokenType::NUMBER),
 
             TokenType::Comma
             | TokenType::Invalid
@@ -536,7 +536,7 @@ impl Token {
                                 _ => break,
                             }
                         }
-                        TokenType::Number
+                        TokenType::Numeral
                     }
                     t if Token::identifierish(t) => {
                         let end = loop {
@@ -624,15 +624,6 @@ impl Token {
             }
         }
         name.chars().all(|c| c.is_alphanumeric())
-    }
-
-    // Includes numeric constants like 5
-    pub fn is_valid_variable_name(name: &str) -> bool {
-        // Get the first character
-        match name.chars().next() {
-            None => false,
-            Some(c) => c.is_ascii_lowercase() || c.is_ascii_digit(),
-        }
     }
 }
 
@@ -725,16 +716,23 @@ impl TokenIter {
     }
 
     // Pops off one token, expecting it to be a variable name.
-    pub fn expect_variable_name(&mut self) -> Result<Token> {
+    pub fn expect_variable_name(&mut self, numeral_ok: bool) -> Result<Token> {
         let name_token = self.expect_token()?;
-        if name_token.token_type != TokenType::Identifier
-            && name_token.token_type != TokenType::Number
-        {
-            return Err(Error::new(&name_token, "expected a variable name"));
-        }
-        let name = name_token.text().to_string();
-        if !Token::is_valid_variable_name(&name) {
-            return Err(Error::new(&name_token, "invalid variable name"));
+        match name_token.token_type {
+            TokenType::Identifier => match name_token.text().chars().next() {
+                Some(c) => {
+                    if !c.is_ascii_lowercase() {
+                        return Err(Error::new(&name_token, "invalid variable name"));
+                    }
+                }
+                None => return Err(Error::new(&name_token, "empty token (probably a bug)")),
+            },
+            TokenType::Numeral => {
+                if !numeral_ok {
+                    return Err(Error::new(&name_token, "did not expect a numeral here"));
+                }
+            }
+            _ => return Err(Error::new(&name_token, "expected a variable name")),
         }
         Ok(name_token)
     }
