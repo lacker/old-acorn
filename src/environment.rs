@@ -2002,6 +2002,19 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     }
 
     #[test]
+    fn test_environment_with_function_satisfy() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+            type Nat: axiom
+            let flip(a: Bool) -> b: Bool satisfy {
+                a != b
+            }
+        "#,
+        );
+    }
+
+    #[test]
     fn test_if_block_ending_with_exists() {
         let mut p = Project::new_mock();
         p.mock(
