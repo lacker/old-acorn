@@ -724,6 +724,21 @@ impl TokenIter {
         Ok(token)
     }
 
+    // Pops off one token, expecting it to be a variable name.
+    pub fn expect_variable_name(&mut self) -> Result<Token> {
+        let name_token = self.expect_token()?;
+        if name_token.token_type != TokenType::Identifier
+            && name_token.token_type != TokenType::Number
+        {
+            return Err(Error::new(&name_token, "expected a variable name"));
+        }
+        let name = name_token.text().to_string();
+        if !Token::is_valid_variable_name(&name) {
+            return Err(Error::new(&name_token, "invalid variable name"));
+        }
+        Ok(name_token)
+    }
+
     pub fn skip_newlines(&mut self) {
         while let Some(token) = self.peek() {
             if token.token_type == TokenType::NewLine {
