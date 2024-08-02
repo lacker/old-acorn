@@ -837,7 +837,12 @@ impl Statement {
                 write_args(f, &fss.declarations[..i])?;
                 write!(f, " -> {} satisfy {{\n", fss.declarations[i],)?;
                 write!(f, "{}{}\n", new_indentation, fss.condition)?;
-                write!(f, "{}}}", indentation)
+                write!(f, "{}}}", indentation)?;
+                if let Some(body) = &fss.body {
+                    write!(f, " by")?;
+                    write_block(f, &body.statements, indentation)?;
+                }
+                Ok(())
             }
 
             StatementInfo::Struct(ss) => {
