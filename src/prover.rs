@@ -1769,4 +1769,20 @@ mod tests {
         "#;
         prove_all_succeeds(text);
     }
+
+    #[test]
+    fn test_prover_function_satisfy_with_by_block() {
+        let text = r#"
+        let flip(a: Bool) -> b: Bool satisfy {
+            forall(c: Bool) {
+                c = a | c = b
+            }
+        } by {
+            forall(c: Bool) {
+                c = a | c = !a
+            }
+        }
+        "#;
+        prove_all_succeeds(text);
+    }
 }
