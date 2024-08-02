@@ -280,9 +280,11 @@ fn parse_args(
 }
 
 // Parses a by block if that's the next thing in the token stream.
+// Takes the right brace that ended the previous expression.
+// Returns the last token parsed..
 // Consumes newlines in any case.
-fn parse_by_block(tokens: &mut TokenIter) -> Result<Option<Body>> {
-    Ok(loop {
+fn parse_by_block(right_brace: Token, tokens: &mut TokenIter) -> Result<(Option<Body>, Token)> {
+    loop {
         match tokens.peek() {
             Some(token) => {
                 if token.token_type == TokenType::NewLine {
@@ -290,20 +292,24 @@ fn parse_by_block(tokens: &mut TokenIter) -> Result<Option<Body>> {
                     continue;
                 }
                 if token.token_type != TokenType::By {
-                    break None;
+                    break;
                 }
                 tokens.next();
                 let left_brace = tokens.expect_type(TokenType::LeftBrace)?;
                 let (statements, right_brace) = parse_block(tokens)?;
-                break Some(Body {
-                    left_brace,
-                    statements,
-                    right_brace: right_brace.clone(),
-                });
+                return Ok((
+                    Some(Body {
+                        left_brace,
+                        statements,
+                        right_brace: right_brace.clone(),
+                    }),
+                    right_brace,
+                ));
             }
-            None => break None,
+            None => break,
         }
-    })
+    }
+    Ok((None, right_brace))
 }
 
 // Parses a theorem where the keyword identifier (axiom or theorem) has already been found.
@@ -324,11 +330,7 @@ fn parse_theorem_statement(
     let (claim, right_brace) =
         Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
 
-    let body = parse_by_block(tokens)?;
-    let last_token = match &body {
-        Some(b) => b.right_brace.clone(),
-        None => right_brace,
-    };
+    let (body, last_token) = parse_by_block(right_brace, tokens)?;
 
     let ts = TheoremStatement {
         axiomatic,
@@ -393,16 +395,17 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
             tokens.expect_type(TokenType::LeftBrace)?;
             let (condition, right_brace) =
                 Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
+            let (body, last_token) = parse_by_block(right_brace, tokens)?;
             let fss = FunctionSatisfyStatement {
                 name,
                 name_token,
                 declarations,
                 condition,
-                body: None,
+                body,
             };
             return Ok(Statement {
                 first_token: keyword,
-                last_token: right_brace,
+                last_token,
                 statement: StatementInfo::FunctionSatisfy(fss),
             });
         }
