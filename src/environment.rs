@@ -1073,14 +1073,16 @@ impl Environment {
                 self.definition_ranges
                     .insert(fss.name.clone(), definition_range);
 
-                let (_, arg_names, arg_types, condition, _) = self.bindings.evaluate_subvalue(
-                    project,
-                    &[],
-                    &fss.declarations,
-                    None,
-                    &fss.condition,
-                    false,
-                )?;
+                let (_, mut arg_names, mut arg_types, condition, _) =
+                    self.bindings.evaluate_subvalue(
+                        project,
+                        &[],
+                        &fss.declarations,
+                        None,
+                        &fss.condition,
+                        false,
+                    )?;
+
                 let unbound_condition = condition
                     .ok_or_else(|| Error::new(&statement.first_token, "missing condition"))?;
                 if unbound_condition.get_type() != AcornType::Bool {
@@ -1092,12 +1094,14 @@ impl Environment {
 
                 // The return variable shouldn't become a block arg, because we're trying to
                 // prove its existence.
-                let mut block_args = vec![];
-                for (arg_name, arg_type) in arg_names.iter().zip(&arg_types) {
-                    block_args.push((arg_name.clone(), arg_type.clone()));
-                }
-                let (_, return_type) = block_args.pop().unwrap();
-                let num_free = block_args.len() as AtomId;
+                let _return_name = arg_names.pop().unwrap();
+                let return_type = arg_types.pop().unwrap();
+                let block_args: Vec<_> = arg_names
+                    .iter()
+                    .cloned()
+                    .zip(arg_types.iter().cloned())
+                    .collect();
+                let num_args = block_args.len() as AtomId;
 
                 let block = self.new_block(
                     project,
@@ -1126,7 +1130,7 @@ impl Environment {
                         .collect(),
                 );
                 let external_condition =
-                    unbound_condition.bind_values(num_free, num_free, &[function_term]);
+                    unbound_condition.bind_values(num_args, num_args, &[function_term]);
 
                 let prop = Proposition::definition(
                     external_condition,
