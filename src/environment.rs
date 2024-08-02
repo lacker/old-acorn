@@ -1058,8 +1058,22 @@ impl Environment {
                 )?;
                 let unbound_condition = condition
                     .ok_or_else(|| Error::new(&statement.first_token, "missing condition"))?;
+                if unbound_condition.get_type() != AcornType::Bool {
+                    return Err(Error::new(
+                        &fss.condition.token(),
+                        "condition must be a boolean",
+                    ));
+                }
 
-                todo!();
+                // The return variable shouldn't become a block arg, because we're trying to
+                // prove its existence.
+                let mut block_args = vec![];
+                for (arg_name, arg_type) in arg_names.iter().zip(&arg_types) {
+                    block_args.push((arg_name.clone(), arg_type.clone()));
+                }
+                block_args.pop();
+
+                todo!("create the block, and also an external proposition");
             }
 
             StatementInfo::Struct(ss) => {
