@@ -950,42 +950,17 @@ axiom choice<T>(f: T -> Bool) {
     exists(x: T) { f(x) } -> f(find(f))
 }
 
-// is_sub(a, b)(x) tells you whether a - b = x.
 // This is a "bounded" version of subtraction that returns 0 instead of negative numbers.
-define is_sub(a: Nat, b: Nat) -> (Nat -> Bool) {
-    function(x: Nat) {
-        // Defining sub(a, b) = x
-        if a < b {
-            x = 0
-        } else {
-            x + b = a
-        }
-    }
-}
-
-let nat_sub(a: Nat, b: Nat) -> d: Nat satisfy {
-    is_sub(a, b)(d)
-} by {
+let bounded_sub(a: Nat, b: Nat) -> d: Nat satisfy {
     if a < b {
-        is_sub(a, b)(0)
+        d = 0
     } else {
-        b <= a
-        let (x: Nat) satisfy { x + b = a }
-        is_sub(a, b)(x)
+        d + b = a
     }
 }
 
 class Nat {
-    define sub(self: Nat, b: Nat) -> Nat { nat_sub(self, b) }
-}
-
-theorem sub_is_sub(a: Nat, b: Nat) { is_sub(a, b)(a - b) } by {
-    let f: Nat -> Bool = is_sub(a, b)
-    let (x: Nat) satisfy { is_sub(a, b)(x) }
-    f(x)
-    f(find(f))
-    is_sub(a, b)(find(f))
-    is_sub(a, b)(a - b)
+    define sub(self: Nat, b: Nat) -> Nat { bounded_sub(self, b) }
 }
 
 theorem sub_lt(a: Nat, b: Nat) { a < b -> a - b = 0 }
