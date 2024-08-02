@@ -222,6 +222,11 @@ enum BlockParams<'a> {
     // The expression to solve for, and the range of the "solve <target>" component.
     Solve(AcornValue, Range),
 
+    // (unbound goal, function return type, range of condition)
+    // This goal has one more unbound variable than the block args account for.
+    // The last one, we are trying to prove there exists a variable that satisfies the goal.
+    FunctionSatisfy(AcornValue, AcornType, Range),
+
     // No special params needed
     ForAll,
     Problem,
@@ -402,6 +407,19 @@ impl Environment {
                     self.theorem_range(theorem_name).unwrap(),
                     theorem_name.to_string(),
                 )))
+            }
+            BlockParams::FunctionSatisfy(unbound_goal, return_type, range) => {
+                // In the block, we need to prove this goal in bound form, so bind args to it.
+                let arg_values = args
+                    .iter()
+                    .map(|(name, _)| subenv.bindings.get_constant_value(name).unwrap())
+                    .collect::<Vec<_>>();
+                // The partial goal has variables 0..args.len() bound to the block's args,
+                // but there one last variable that needs to be existentially quantified.
+                let partial_goal = unbound_goal.bind_values(0, 0, &arg_values);
+                let bound_goal = AcornValue::new_exists(vec![return_type], partial_goal);
+                let prop = Proposition::anonymous(bound_goal, self.module_id, range);
+                Some(Goal::Prove(prop))
             }
             BlockParams::Solve(target, range) => Some(Goal::Solve(target, range)),
             BlockParams::ForAll | BlockParams::Problem => None,
@@ -842,8 +860,9 @@ impl Environment {
                     block_args.push((arg_name.clone(), arg_type.clone()));
                 }
 
-                // Externally we use the theorem in "forall" form
-                let forall_claim = AcornValue::new_forall(arg_types.clone(), unbound_claim.clone());
+                // Externally we use the theorem in unnamed, "forall" form
+                let external_claim =
+                    AcornValue::new_forall(arg_types.clone(), unbound_claim.clone());
 
                 let (premise, goal) = match &unbound_claim {
                     AcornValue::Binary(BinaryOp::Implies, left, right) => {
@@ -891,7 +910,7 @@ impl Environment {
                     ts.axiomatic,
                     Proposition::theorem(
                         ts.axiomatic,
-                        forall_claim,
+                        external_claim,
                         self.module_id,
                         range,
                         ts.name.to_string(),
@@ -1030,6 +1049,12 @@ impl Environment {
             }
 
             StatementInfo::FunctionSatisfy(fss) => {
+                if fss.name == "new" || fss.name == "self" {
+                    return Err(Error::new(
+                        &fss.name_token,
+                        &format!("'{}' is a reserved word. use a different name", fss.name),
+                    ));
+                }
                 if self.bindings.name_in_use(&fss.name) {
                     return Err(Error::new(
                         &statement.first_token,
@@ -1041,12 +1066,12 @@ impl Environment {
                 // It's smaller than the whole function statement because it doesn't
                 // include the proof block.
                 let def_last_token = fss.declarations.last().unwrap().type_expr.last_token();
-                let range = Range {
+                let definition_range = Range {
                     start: statement.first_token.start_pos(),
                     end: def_last_token.end_pos(),
                 };
                 self.definition_ranges
-                    .insert(fss.name_token.to_string(), range);
+                    .insert(fss.name.clone(), definition_range);
 
                 let (_, arg_names, arg_types, condition, _) = self.bindings.evaluate_subvalue(
                     project,
@@ -1071,9 +1096,48 @@ impl Environment {
                 for (arg_name, arg_type) in arg_names.iter().zip(&arg_types) {
                     block_args.push((arg_name.clone(), arg_type.clone()));
                 }
-                block_args.pop();
+                let (_, return_type) = block_args.pop().unwrap();
+                let num_free = block_args.len() as AtomId;
 
-                todo!("create the block, and also an external proposition");
+                let block = self.new_block(
+                    project,
+                    vec![],
+                    block_args,
+                    BlockParams::FunctionSatisfy(
+                        unbound_condition.clone(),
+                        return_type.clone(),
+                        fss.condition.range(),
+                    ),
+                    statement.first_line(),
+                    statement.last_line(),
+                    fss.body.as_ref(),
+                )?;
+
+                // We define this function not with an equality, but via the condition.
+                let function_type = AcornType::new_functional(arg_types.clone(), return_type);
+                self.bindings
+                    .add_constant(&fss.name, vec![], function_type.clone(), None);
+                let function_term = AcornValue::new_apply(
+                    AcornValue::Constant(self.module_id, fss.name.clone(), function_type, vec![]),
+                    arg_types
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, t)| AcornValue::Variable(i as AtomId, t))
+                        .collect(),
+                );
+                let external_condition =
+                    unbound_condition.bind_values(num_free, num_free, &[function_term]);
+
+                let prop = Proposition::definition(
+                    external_condition,
+                    self.module_id,
+                    definition_range,
+                    fss.name.clone(),
+                );
+
+                let index = self.add_node(project, false, prop, Some(block));
+                self.add_prop_lines(index, statement);
+                Ok(())
             }
 
             StatementInfo::Struct(ss) => {

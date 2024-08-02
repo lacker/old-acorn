@@ -555,7 +555,7 @@ impl AcornValue {
         self,
         first_binding_index: AtomId,
         stack_size: AtomId,
-        values: &Vec<AcornValue>,
+        values: &[AcornValue],
     ) -> AcornValue {
         match self {
             AcornValue::Variable(i, var_type) => {
