@@ -104,13 +104,9 @@ pub struct FunctionSatisfyStatement {
     pub name: String,
     pub name_token: Token,
 
-    // Arguments for the function. These names are bound within both the condition and the body.
-    pub args: Vec<Declaration>,
-
-    // When we define a function this way, its return value gets a name.
-    // The name is bound within the condition, but not within the body.
-    pub return_name: String,
-    pub return_type: Expression,
+    // The declarations are mostly arguments to the function, but the last one is the return
+    // value of the function.
+    pub declarations: Vec<Declaration>,
 
     // The condition is the only thing we know about the function, that the condition is true.
     pub condition: Expression,
@@ -382,18 +378,17 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         if token.token_type == TokenType::LeftParen {
             // This is a parenthesized let..satisfy.
             tokens.next();
-            let args = Declaration::parse_list(tokens)?;
+            let mut declarations = Declaration::parse_list(tokens)?;
             tokens.expect_type(TokenType::RightArrow)?;
-            let (ret_dec, _) = Declaration::parse(tokens, Terminator::Is(TokenType::Satisfy))?;
+            let (return_value, _) = Declaration::parse(tokens, Terminator::Is(TokenType::Satisfy))?;
+            declarations.push(return_value);
             tokens.expect_type(TokenType::LeftBrace)?;
             let (condition, right_brace) =
                 Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
             let fss = FunctionSatisfyStatement {
                 name,
                 name_token,
-                args,
-                return_name: ret_dec.name_token.text().to_string(),
-                return_type: ret_dec.type_expr,
+                declarations,
                 condition,
                 body: None,
             };
@@ -827,12 +822,9 @@ impl Statement {
             StatementInfo::FunctionSatisfy(fss) => {
                 let new_indentation = add_indent(indentation);
                 write!(f, "let {}", fss.name)?;
-                write_args(f, &fss.args)?;
-                write!(
-                    f,
-                    " -> {}: {} satisfy {{\n",
-                    fss.return_name, fss.return_type
-                )?;
+                let i = fss.declarations.len() - 1;
+                write_args(f, &fss.declarations[..i])?;
+                write!(f, " -> {} satisfy {{\n", fss.declarations[i],)?;
                 write!(f, "{}{}\n", new_indentation, fss.condition)?;
                 write!(f, "{}}}", indentation)
             }

@@ -833,14 +833,9 @@ impl Environment {
                         false,
                     )?;
 
-                let unbound_claim = if let Some(v) = value {
-                    v
-                } else {
-                    return Err(Error::new(
-                        &statement.first_token,
-                        "theorems must have values",
-                    ));
-                };
+                let unbound_claim = value.ok_or_else(|| {
+                    Error::new(&statement.first_token, "theorems must have values")
+                })?;
 
                 let mut block_args = vec![];
                 for (arg_name, arg_type) in arg_names.iter().zip(&arg_types) {
@@ -1034,7 +1029,36 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::FunctionSatisfy(_fss) => {
+            StatementInfo::FunctionSatisfy(fss) => {
+                if self.bindings.name_in_use(&fss.name) {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        &format!("function name '{}' already defined in this scope", fss.name),
+                    ));
+                }
+
+                // Figure out the range for this function definition.
+                // It's smaller than the whole function statement because it doesn't
+                // include the proof block.
+                let def_last_token = fss.declarations.last().unwrap().type_expr.last_token();
+                let range = Range {
+                    start: statement.first_token.start_pos(),
+                    end: def_last_token.end_pos(),
+                };
+                self.definition_ranges
+                    .insert(fss.name_token.to_string(), range);
+
+                let (_, arg_names, arg_types, condition, _) = self.bindings.evaluate_subvalue(
+                    project,
+                    &[],
+                    &fss.declarations,
+                    None,
+                    &fss.condition,
+                    false,
+                )?;
+                let unbound_condition = condition
+                    .ok_or_else(|| Error::new(&statement.first_token, "missing condition"))?;
+
                 todo!();
             }
 
@@ -1329,7 +1353,7 @@ impl Environment {
                     Some(body),
                 )?;
 
-                // TODO: stop making vacuous "true" propositions.
+                // It would be nice to not have to make a vacuous "true" proposition here.
                 let vacuous_prop = Proposition::anonymous(
                     AcornValue::Bool(true),
                     self.module_id,
