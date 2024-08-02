@@ -19,15 +19,14 @@ theorem all_false_below(f: Nat -> Bool) {
     forall(x: Nat) { false_below(f, x) } -> forall(x: Nat) { !f(x) }
 }
 
-// is_min(f)(x) tells you whether x is the smallest value for which f is true.
-define is_min(f: Nat -> Bool) -> (Nat -> Bool) {
-    function(x: Nat) {
-        f(x) & false_below(f, x)
-    }
+// is_min(f, m) tells you whether m is the smallest value for which f is true.
+define is_min(f: Nat -> Bool, m: Nat) -> Bool {
+    f(m) & false_below(f, m)
 }
 
+// If f is true anywhere on the naturals, it has a min.
 theorem has_min(f: Nat -> Bool, n: Nat) {
-    f(n) -> exists(m: Nat) { is_min(f)(m) }
+    f(n) -> exists(m: Nat) { is_min(f, m) }
 } by {
     define g(x: Nat) -> Bool { has_min(f, x) }
     nat.strong_induction(g)
@@ -35,7 +34,7 @@ theorem has_min(f: Nat -> Bool, n: Nat) {
         if nat.true_below(g, k) {
             if f(k) {
                 if false_below(f, k) {
-                    is_min(f)(k)
+                    is_min(f, k)
                     has_min(f, k)
                 } else {
                     exists(a: Nat) { a < k & f(a) }
@@ -132,13 +131,13 @@ define gcd_termination(p: NatPair) -> (Nat -> Bool) {
 }
 
 let num_gcd_steps(p: NatPair) -> n: Nat satisfy {
-    is_min(gcd_termination(p))(n)
+    is_min(gcd_termination(p), n)
 }
 
 theorem num_gcd_steps_terminates(p: NatPair) { gcd_step_n(p, num_gcd_steps(p)).second = 0 } by {
-    exists(n: Nat) { is_min(gcd_termination(p))(n) }
+    exists(n: Nat) { is_min(gcd_termination(p), n) }
     let f: Nat -> Bool = gcd_termination(p)
-    is_min(f)(num_gcd_steps(p))
+    is_min(f, num_gcd_steps(p))
     gcd_termination(p)(num_gcd_steps(p))
 }
 
