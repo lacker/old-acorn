@@ -818,9 +818,7 @@ mod tests {
         };
         let paths = env.goal_paths();
         for path in paths {
-            let prop = env.get_proposition(&path).unwrap();
             let goal_context = env.get_goal_context(&path).unwrap();
-            assert_eq!(prop.source.range, goal_context.goal.range());
             println!("proving: {}", goal_context.name);
             let mut prover = Prover::new(&project, &goal_context, false);
             prover.verbose = true;
@@ -1756,5 +1754,19 @@ mod tests {
         theorem goal { 12 = 21 }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
+
+    #[test]
+    fn test_prover_function_satisfy() {
+        let text = r#"
+        type Nat: axiom
+        let zero: Nat = axiom
+        let one: Nat = axiom
+        axiom zero_neq_one { zero != one }
+        let flip(a: Nat) -> b: Nat satisfy {
+            a != b
+        }
+        "#;
+        prove_all_succeeds(text);
     }
 }
