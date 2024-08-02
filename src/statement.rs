@@ -1330,6 +1330,16 @@ mod tests {
     }
 
     #[test]
+    fn test_function_satisfy_statement_with_by_block() {
+        ok(indoc! {"
+        let foo(a: Nat, m: Nat) -> r: Nat satisfy {
+            r > a + m
+        } by {
+            a + m + 1 > a + m
+        }"});
+    }
+
+    #[test]
     fn test_if_statement() {
         ok(indoc! {"
         if x > 1 {
