@@ -978,50 +978,19 @@ theorem sub_zero(a: Nat) { a - 0 = a }
 
 theorem add_imp_sub(a: Nat, b: Nat, c: Nat) { a + b = c -> c - b = a }
 
-// Let's define mod similarly to how we defined sub.
-define is_mod(a: Nat, m: Nat) -> (Nat -> Bool) {
-    function(r: Nat) {
-        if m != 0 {
-            r < m & exists(q: Nat) { q * m + r = a }
-        } else {
-            // It doesn't really matter how we define "mod 0".
-            // We pick a mod 0 = a.
-            r = a
-        }
+let mod(a: Nat, m: Nat) -> r: Nat satisfy {
+    if m != 0 {
+        r < m & exists(q: Nat) { q * m + r = a }
+    } else {
+        // It doesn't really matter how we define "mod 0".
+        // We pick a mod 0 = a.
+        r = a
     }
-}
-
-theorem mod_def(a: Nat, m: Nat) {
-    exists(r: Nat) { is_mod(a, m)(r) }
 } by {
     if m != 0 {
         0 < m
-        let (q: Nat, r: Nat) satisfy {
-            r < m & a = q * m + r
-        }
-        is_mod(a, m)(r)
     } else {
-        is_mod(a, m)(a)
-    }
-}
-
-define mod(a: Nat, m: Nat) -> Nat {
-    find(is_mod(a, m))
-}
-
-theorem mod_is_mod(a: Nat, m: Nat) { is_mod(a, m)(mod(a, m)) } by {
-    let f: Nat -> Bool = is_mod(a, m)
-    if m = 0 {
-        is_mod(a, m)(a)
-        is_mod(a, m)(mod(a, m))
-    } else {
-        0 < m
-        let (q: Nat, r: Nat) satisfy { r < m & q * m + r = a }
-        is_mod(a, m)(r)
-        f(r)
-        f(find(f))
-        f(mod(a, m))
-        is_mod(a, m)(mod(a, m))
+        a = a
     }
 }
 
