@@ -963,8 +963,8 @@ define is_sub(a: Nat, b: Nat) -> (Nat -> Bool) {
     }
 }
 
-theorem sub_def(a: Nat, b: Nat) {
-    exists(x: Nat) { is_sub(a, b)(x) }
+let nat_sub(a: Nat, b: Nat) -> d: Nat satisfy {
+    is_sub(a, b)(d)
 } by {
     if a < b {
         is_sub(a, b)(0)
@@ -976,7 +976,7 @@ theorem sub_def(a: Nat, b: Nat) {
 }
 
 class Nat {
-    define sub(self: Nat, b: Nat) -> Nat { find(is_sub(self, b)) }
+    define sub(self: Nat, b: Nat) -> Nat { nat_sub(self, b) }
 }
 
 theorem sub_is_sub(a: Nat, b: Nat) { is_sub(a, b)(a - b) } by {
