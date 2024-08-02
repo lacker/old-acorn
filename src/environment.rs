@@ -1124,13 +1124,14 @@ impl Environment {
                 let function_term = AcornValue::new_apply(
                     AcornValue::Constant(self.module_id, fss.name.clone(), function_type, vec![]),
                     arg_types
-                        .into_iter()
+                        .iter()
                         .enumerate()
-                        .map(|(i, t)| AcornValue::Variable(i as AtomId, t))
+                        .map(|(i, t)| AcornValue::Variable(i as AtomId, t.clone()))
                         .collect(),
                 );
-                let external_condition =
+                let return_bound =
                     unbound_condition.bind_values(num_args, num_args, &[function_term]);
+                let external_condition = AcornValue::ForAll(arg_types, Box::new(return_bound));
 
                 let prop = Proposition::definition(
                     external_condition,
