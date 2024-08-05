@@ -1699,7 +1699,7 @@ mod tests {
         let text = r#"
         type Nat: axiom
         class Nat {
-            define add(self: Nat, other: Nat) -> Nat { axiom }
+            define add(self, other: Nat) -> Nat { axiom }
         }
         theorem goal(a: Nat, b: Nat, c: Nat) { Nat.add(Nat.add(a, b), c) = a + b + c }
         theorem antigoal(a: Nat, b: Nat, c: Nat) { Nat.add(a, Nat.add(b, c)) = a + b + c }
@@ -1713,8 +1713,8 @@ mod tests {
         let text = r#"
         type Nat: axiom
         class Nat {
-            define add(self: Nat, other: Nat) -> Nat { axiom }
-            define mul(self: Nat, other: Nat) -> Nat { axiom }
+            define add(self, other: Nat) -> Nat { axiom }
+            define mul(self, other: Nat) -> Nat { axiom }
         }
         theorem goal1(a: Nat, b: Nat, c: Nat) { Nat.add(Nat.mul(a, b), c) = a * b + c }
         theorem goal2(a: Nat, b: Nat, c: Nat) { Nat.add(a, Nat.mul(b, c)) = a + b * c }
@@ -1728,8 +1728,8 @@ mod tests {
         let text = r#"
         type Nat: axiom
         class Nat {
-            define suc(self: Nat) -> Nat { axiom }
-            define add(self: Nat, other: Nat) -> Nat { axiom }
+            define suc(self) -> Nat { axiom }
+            define add(self, other: Nat) -> Nat { axiom }
         }
         theorem goal1(a: Nat) { a.suc.suc = Nat.suc(Nat.suc(a)) }
         theorem goal2(a: Nat) { a.suc.suc = Nat.suc(a).suc }
@@ -1747,7 +1747,7 @@ mod tests {
         class Bag {
             let 1: Bag = axiom
             let 2: Bag = axiom
-            define read(self: Bag, other: Bag) -> Bag { axiom }
+            define read(self, other: Bag) -> Bag { axiom }
         }
         numerals Bag
         axiom comm(a: Bag, b: Bag) { a.read(b) = b.read(a) }

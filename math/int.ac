@@ -317,7 +317,7 @@ theorem add_part_sub_nat(r: Nat, s: Nat) { r + neg_part(sub_nat(r, s)) = s + pos
 // Addition, and theorems about addition
 
 class Int {
-    define add(self: Int, other: Int) -> Int {
+    define add(self, other: Int) -> Int {
         sub_nat(pos_part(self) + pos_part(other), neg_part(self) + neg_part(other))
     }
 }
@@ -527,7 +527,7 @@ theorem add_comm_4(a: Int, b: Int, c: Int, d: Int) { (a + b) + (c + d) = (a + c)
 // Subtraction, and theorems about subtraction
 
 class Int {
-    define sub(self: Int, other: Int) -> Int {
+    define sub(self, other: Int) -> Int {
         self + negate(other)
     }
 }
@@ -680,7 +680,7 @@ theorem mul_nat_from_nat_left(a: Nat, b: Nat) { mul_nat(from_nat(a), b) = from_n
 // Integer-integer multiplication
 
 class Int {
-    define mul(self: Int, n: Int) -> Int {
+    define mul(self, n: Int) -> Int {
         if is_positive(n) {
             mul_nat(self, abs(n))
         } else {
@@ -688,7 +688,7 @@ class Int {
         }
     }
 
-    define read(self: Int, other: Int) -> Int { 10 * self + other }
+    define read(self, other: Int) -> Int { 10 * self + other }
 }
 
 theorem mul_zero_right(a: Int) { a * 0 = 0 } by {
@@ -1014,8 +1014,8 @@ theorem mul_assoc(a: Int, b: Int, c: Int) { a * b * c = a * (b * c) } by {
 // Comparison operators
 
 class Int {
-    define lt(self: Int, b: Int) -> Bool { is_positive(b - self) }
-    define lte(self: Int, b: Int) -> Bool { (self < b) or self = b }
+    define lt(self, b: Int) -> Bool { is_positive(b - self) }
+    define lte(self, b: Int) -> Bool { (self < b) or self = b }
 }
 
 theorem lt_not_ref(a: Int) { not (a < a) } by {

@@ -108,6 +108,8 @@ pub struct FunctionSatisfyStatement {
     // value of the function.
     pub declarations: Vec<Declaration>,
 
+    pub satisfy_token: Token,
+
     // The condition is the only thing we know about the function, that the condition is true.
     pub condition: Expression,
 
@@ -390,7 +392,8 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
             tokens.next();
             let mut declarations = Declaration::parse_list(tokens)?;
             tokens.expect_type(TokenType::RightArrow)?;
-            let (return_value, _) = Declaration::parse(tokens, Terminator::Is(TokenType::Satisfy))?;
+            let (return_value, satisfy_token) =
+                Declaration::parse(tokens, Terminator::Is(TokenType::Satisfy))?;
             declarations.push(return_value);
             tokens.expect_type(TokenType::LeftBrace)?;
             let (condition, right_brace) =
@@ -400,6 +403,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
                 name,
                 name_token,
                 declarations,
+                satisfy_token,
                 condition,
                 body,
             };
@@ -419,10 +423,7 @@ fn parse_let_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stateme
         return complete_variable_satisfy(
             keyword,
             tokens,
-            vec![Declaration {
-                name_token,
-                type_expr,
-            }],
+            vec![Declaration::Typed(name_token, type_expr)],
         );
     }
 

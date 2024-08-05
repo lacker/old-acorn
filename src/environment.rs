@@ -705,7 +705,7 @@ impl Environment {
     fn add_define_statement(
         &mut self,
         project: &Project,
-        class: Option<&str>,
+        class_name: Option<&str>,
         ds: &DefineStatement,
         range: Range,
     ) -> token::Result<()> {
@@ -715,7 +715,7 @@ impl Environment {
                 &format!("'{}' is a reserved word. use a different name", ds.name),
             ));
         }
-        let name = match class {
+        let name = match class_name {
             Some(c) => format!("{}.{}", c, ds.name),
             None => ds.name.clone(),
         };
@@ -734,14 +734,14 @@ impl Environment {
                 &ds.args,
                 Some(&ds.return_type),
                 &ds.return_value,
-                class.is_some(),
+                class_name,
             )?;
 
-        if let Some(class_name) = class {
+        if let Some(class_name) = class_name {
             let class_type = AcornType::Data(self.module_id, class_name.to_string());
             if arg_types[0] != class_type {
                 return Err(Error::new(
-                    &ds.args[0].name_token,
+                    ds.args[0].token(),
                     "self must be the class type",
                 ));
             }
@@ -841,15 +841,9 @@ impl Environment {
                 };
                 self.definition_ranges.insert(ts.name.to_string(), range);
 
-                let (type_params, arg_names, arg_types, value, _) =
-                    self.bindings.evaluate_subvalue(
-                        project,
-                        &ts.type_params,
-                        &ts.args,
-                        None,
-                        &ts.claim,
-                        false,
-                    )?;
+                let (type_params, arg_names, arg_types, value, _) = self
+                    .bindings
+                    .evaluate_subvalue(project, &ts.type_params, &ts.args, None, &ts.claim, None)?;
 
                 let unbound_claim = value.ok_or_else(|| {
                     Error::new(&statement.first_token, "theorems must have values")
@@ -948,9 +942,8 @@ impl Environment {
                 }
                 let mut args = vec![];
                 for quantifier in &fas.quantifiers {
-                    let (arg_name, arg_type) = self
-                        .bindings
-                        .evaluate_declaration(project, quantifier, false)?;
+                    let (arg_name, arg_type) =
+                        self.bindings.evaluate_declaration(project, quantifier)?;
                     args.push((arg_name, arg_type));
                 }
 
@@ -1009,7 +1002,7 @@ impl Environment {
                 let mut stack = Stack::new();
                 let (quant_names, quant_types) =
                     self.bindings
-                        .bind_args(&mut stack, project, &vss.declarations, false)?;
+                        .bind_args(&mut stack, project, &vss.declarations, None)?;
                 let general_claim_value = self.bindings.evaluate_value_with_stack(
                     &mut stack,
                     project,
@@ -1065,10 +1058,9 @@ impl Environment {
                 // Figure out the range for this function definition.
                 // It's smaller than the whole function statement because it doesn't
                 // include the proof block.
-                let def_last_token = fss.declarations.last().unwrap().type_expr.last_token();
                 let definition_range = Range {
                     start: statement.first_token.start_pos(),
-                    end: def_last_token.end_pos(),
+                    end: fss.satisfy_token.end_pos(),
                 };
                 self.definition_ranges
                     .insert(fss.name.clone(), definition_range);
@@ -1080,7 +1072,7 @@ impl Environment {
                         &fss.declarations,
                         None,
                         &fss.condition,
-                        false,
+                        None,
                     )?;
 
                 let unbound_condition = condition
@@ -2442,7 +2434,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define add(self: Nat, other: Nat) -> Nat { axiom }
+                define add(self, other: Nat) -> Nat { axiom }
             }
         "#,
         );
@@ -2473,8 +2465,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     fn test_no_self_variables() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("let foo: Bool = exists(self: Nat) { true }");
-        env.bad("let foo: Bool = forall(self: Nat) { true }");
+        env.bad("let foo: Bool = exists(self) { true }");
+        env.bad("let foo: Bool = forall(self) { true }");
         env.bad("let self: Nat = axiom");
     }
 
@@ -2482,28 +2474,28 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     fn test_no_self_args_outside_class() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("define foo(self: Nat) -> Bool { true }");
+        env.bad("define foo(self) -> Bool { true }");
     }
 
     #[test]
     fn test_no_self_as_forall_arg() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("forall(self: Nat) { true }");
+        env.bad("forall(self) { true }");
     }
 
     #[test]
     fn test_no_self_as_exists_arg() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("exists(self: Nat) { true }");
+        env.bad("exists(self) { true }");
     }
 
     #[test]
     fn test_no_self_as_lambda_arg() {
         let mut env = Environment::new_test();
         env.add("type Nat: axiom");
-        env.bad("let f: Nat -> Bool = lambda(self: Nat) { true }");
+        env.bad("let f: Nat -> Bool = lambda(self) { true }");
     }
 
     #[test]
@@ -2513,7 +2505,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define add(self: Nat, other: Nat) -> Nat { axiom }
+                define add(self, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) {
                 a.add(b) = b.add(a)
@@ -2529,7 +2521,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define add(self: Nat, other: Nat) -> Nat { axiom }
+                define add(self, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a + b = b + a }
         "#,
@@ -2543,7 +2535,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define sub(self: Nat, other: Nat) -> Nat { axiom }
+                define sub(self, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a - b = b - a }
         "#,
@@ -2557,7 +2549,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define mul(self: Nat, other: Nat) -> Nat { axiom }
+                define mul(self, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a * b = b * a }
         "#,
@@ -2571,7 +2563,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define div(self: Nat, other: Nat) -> Nat { axiom }
+                define div(self, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a / b = b / a }
         "#,
@@ -2585,7 +2577,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define mod(self: Nat, other: Nat) -> Nat { axiom }
+                define mod(self, other: Nat) -> Nat { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a % b = b % a }
         "#,
@@ -2599,7 +2591,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define lt(self: Nat, other: Nat) -> Bool { axiom }
+                define lt(self, other: Nat) -> Bool { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a < b = b < a }
         "#,
@@ -2613,7 +2605,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define gt(self: Nat, other: Nat) -> Bool { axiom }
+                define gt(self, other: Nat) -> Bool { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a > b = b > a }
         "#,
@@ -2627,7 +2619,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define lte(self: Nat, other: Nat) -> Bool { axiom }
+                define lte(self, other: Nat) -> Bool { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a <= b = b <= a }
         "#,
@@ -2641,7 +2633,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define gte(self: Nat, other: Nat) -> Bool { axiom }
+                define gte(self, other: Nat) -> Bool { axiom }
             }
             theorem goal(a: Nat, b: Nat) { a >= b = b >= a }
         "#,
@@ -2711,17 +2703,17 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             type Nat: axiom
             class Nat {
-                define add(self: Nat, other: Nat) -> Nat { axiom }
-                define sub(self: Nat, other: Nat) -> Nat { axiom }
-                define mul(self: Nat, other: Nat) -> Nat { axiom }
-                define div(self: Nat, other: Nat) -> Nat { axiom }
-                define mod(self: Nat, other: Nat) -> Nat { axiom }
-                define lt(self: Nat, other: Nat) -> Bool { axiom }
-                define gt(self: Nat, other: Nat) -> Bool { axiom }
-                define lte(self: Nat, other: Nat) -> Bool { axiom }
-                define gte(self: Nat, other: Nat) -> Bool { axiom }
-                define suc(self: Nat) -> Nat { axiom }
-                define foo(self: Nat, other: Nat) -> Nat { axiom }
+                define add(self, other: Nat) -> Nat { axiom }
+                define sub(self, other: Nat) -> Nat { axiom }
+                define mul(self, other: Nat) -> Nat { axiom }
+                define div(self, other: Nat) -> Nat { axiom }
+                define mod(self, other: Nat) -> Nat { axiom }
+                define lt(self, other: Nat) -> Bool { axiom }
+                define gt(self, other: Nat) -> Bool { axiom }
+                define lte(self, other: Nat) -> Bool { axiom }
+                define gte(self, other: Nat) -> Bool { axiom }
+                define suc(self) -> Nat { axiom }
+                define foo(self, other: Nat) -> Nat { axiom }
                 let 0: Nat = axiom
                 let 1: Nat = axiom
             }
@@ -2803,8 +2795,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             class Unary {
                 let 1: Unary = axiom 
-                define suc(self: Unary) -> Unary { axiom }
-                define read(self: Unary, digit: Unary) -> Unary { self.suc }
+                define suc(self) -> Unary { axiom }
+                define read(self, digit: Unary) -> Unary { self.suc }
             }
         "#,
         );
@@ -2833,8 +2825,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             class Nat {
                 let 1: Nat = axiom
-                define suc(self: Nat) -> Nat: axiom
-                define read(self: Nat, digit: Bool) -> Nat: Nat.1
+                define suc(self) -> Nat: axiom
+                define read(self, digit: Bool) -> Nat: Nat.1
             }
         "#,
         );
@@ -2848,8 +2840,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             r#"
             class Nat {
                 let 1: Nat = axiom
-                define suc(self: Nat) -> Nat: axiom
-                define read(self: Nat, digit: Nat) -> Bool: true
+                define suc(self) -> Nat: axiom
+                define read(self, digit: Nat) -> Bool: true
             }
         "#,
         );
@@ -2863,7 +2855,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             type Nat: axiom
             class Nat {
                 let 0: Nat = axiom
-                define suc(self: Nat) -> Nat { axiom }
+                define suc(self) -> Nat { axiom }
                 let 1: Nat = Nat.0.suc
                 let 2: Nat = Nat.1.suc
                 let 3: Nat = Nat.2.suc
@@ -2874,8 +2866,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
                 let 8: Nat = Nat.7.suc
                 let 9: Nat = Nat.8.suc
                 let 10: Nat = Nat.9.suc
-                define read(self: Nat, other: Nat) -> Nat { axiom }
-                define add(self: Nat, other: Nat) -> Nat { axiom }
+                define read(self, other: Nat) -> Nat { axiom }
+                define add(self, other: Nat) -> Nat { axiom }
             }
             numerals Nat
         "#,
@@ -2894,7 +2886,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             type Nat: axiom
             class Nat {
                 let 0: Nat = axiom
-                define suc(self: Nat) -> Nat { axiom }
+                define suc(self) -> Nat { axiom }
                 let 1: Nat = Nat.0.suc
                 let 2: Nat = Nat.1.suc
                 let 3: Nat = Nat.2.suc
@@ -2905,8 +2897,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
                 let 8: Nat = Nat.7.suc
                 let 9: Nat = Nat.8.suc
                 let 10: Nat = Nat.9.suc
-                define read(self: Nat, other: Nat) -> Nat { axiom }
-                define add(self: Nat, other: Nat) -> Nat { axiom }
+                define read(self, other: Nat) -> Nat { axiom }
+                define add(self, other: Nat) -> Nat { axiom }
             }
         "#,
         );

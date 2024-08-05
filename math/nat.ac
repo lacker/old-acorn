@@ -4,7 +4,7 @@
 type Nat: axiom
 
 class Nat {
-    define suc(self: Nat) -> Nat { axiom }
+    define suc(self) -> Nat { axiom }
     let 0: Nat = axiom
     let 1: Nat = Nat.0.suc
     let 2: Nat = Nat.1.suc
@@ -33,7 +33,7 @@ axiom recursion_base<T>(f: T -> T, a: T) { recursion(f, a, 0) = a }
 axiom recursion_step<T>(f: T -> T, a: T, n: Nat) { recursion(f, a, n.suc) = f(recursion(f, a, n)) }
 
 class Nat {
-    define add(self: Nat, b: Nat) -> Nat { recursion(Nat.suc, self, b) }
+    define add(self, b: Nat) -> Nat { recursion(Nat.suc, self, b) }
 }
 
 // Now let's have some theorems.
@@ -126,11 +126,11 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { a + b + c = a + (b + c) } by {
 }
 
 class Nat {
-    define mul(self: Nat, b: Nat) -> Nat {
+    define mul(self, b: Nat) -> Nat {
         recursion(Nat.add(self), 0, b)
     }
 
-    define read(self: Nat, other: Nat) -> Nat {
+    define read(self, other: Nat) -> Nat {
         10 * self + other
     }
 }
@@ -263,9 +263,9 @@ theorem mul_one_left(a: Nat) { 1 * a = a }
 
 
 class Nat {
-    define lte(self: Nat, b: Nat) -> Bool { exists(c: Nat) { self + c = b } }
+    define lte(self, b: Nat) -> Bool { exists(c: Nat) { self + c = b } }
 
-    define lt(self: Nat, b: Nat) -> Bool { self <= b and self != b }
+    define lt(self, b: Nat) -> Bool { self <= b and self != b }
 }
 
 theorem lt_not_ref(a: Nat) { not (a < a) }
@@ -950,7 +950,7 @@ let bounded_sub(a: Nat, b: Nat) -> d: Nat satisfy {
 }
 
 class Nat {
-    define sub(self: Nat, b: Nat) -> Nat { bounded_sub(self, b) }
+    define sub(self, b: Nat) -> Nat { bounded_sub(self, b) }
 }
 
 theorem sub_lt(a: Nat, b: Nat) { a < b -> a - b = 0 }

@@ -106,32 +106,54 @@ impl fmt::Display for Expression {
 
 // A single variable declaration, like "p: bool".
 #[derive(Debug)]
-pub struct Declaration {
-    pub name_token: Token,
-    pub type_expr: Expression,
+pub enum Declaration {
+    // (name token, type expression)
+    Typed(Token, Expression),
+
+    // Just the token 'self'.
+    SelfToken(Token),
 }
 
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.name_token, self.type_expr)
+        match self {
+            Declaration::Typed(name_token, type_expr) => {
+                write!(f, "{}: {}", name_token, type_expr)
+            }
+            Declaration::SelfToken(token) => write!(f, "{}", token),
+        }
     }
 }
 
 impl Declaration {
+    pub fn token(&self) -> &Token {
+        match self {
+            Declaration::Typed(token, _) => token,
+            Declaration::SelfToken(token) => token,
+        }
+    }
+
     // Parses an expression that should contain a single declaration.
     // This rejects numerals.
     pub fn parse(tokens: &mut TokenIter, terminator: Terminator) -> Result<(Declaration, Token)> {
         let name_token = tokens.expect_variable_name(false)?;
+        if name_token.text() == "self" {
+            let token = tokens.expect_token()?;
+            if token.token_type == TokenType::Colon {
+                return Err(Error::new(&token, "no type is needed after 'self'"));
+            }
+            if !terminator.matches(&token.token_type) {
+                return Err(Error::new(
+                    &token,
+                    &format!("expected {} but found \"{}\"", terminator, token),
+                ));
+            }
+            return Ok((Declaration::SelfToken(name_token.clone()), token));
+        }
         tokens.expect_type(TokenType::Colon)?;
         let (type_expr, token) = Expression::parse_type(tokens, terminator)?;
 
-        Ok((
-            Declaration {
-                name_token,
-                type_expr,
-            },
-            token,
-        ))
+        Ok((Declaration::Typed(name_token, type_expr), token))
     }
 
     // Parses a declaration list, after the opening left parenthesis has already been consumed.

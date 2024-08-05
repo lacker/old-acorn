@@ -423,37 +423,34 @@ impl BindingMap {
     }
 
     // Evaluates a variable declaration in this context.
-    // expect_self is true if the first argument is expected to be "self".
+    // expect_self is whether we expect this to be a "self" declaration.
     pub fn evaluate_declaration(
         &self,
         project: &Project,
         declaration: &Declaration,
-        expect_self: bool,
     ) -> token::Result<(String, AcornType)> {
-        let name = declaration.name_token.text().to_string();
-        if expect_self && name != "self" {
-            return Err(Error::new(
-                &declaration.name_token,
-                "expected 'self' as the first argument",
-            ));
-        }
-        if !expect_self && name == "self" {
-            return Err(Error::new(
-                &declaration.name_token,
-                "cannot use 'self' as an argument name here",
-            ));
-        }
-        let acorn_type = self.evaluate_type(project, &declaration.type_expr)?;
-        Ok((name, acorn_type))
+        match declaration {
+            Declaration::Typed(name_token, type_expr) => {
+                let acorn_type = self.evaluate_type(project, &type_expr)?;
+                return Ok((name_token.to_string(), acorn_type));
+            }
+            Declaration::SelfToken(name_token) => {
+                return Err(Error::new(
+                    &name_token,
+                    "cannot use 'self' as an argument here",
+                ));
+            }
+        };
     }
 
     // Parses a list of named argument declarations and adds them to the stack.
+    // class_name should be provided if these are the arguments of a new member function.
     pub fn bind_args<'a, I>(
         &self,
         stack: &mut Stack,
         project: &Project,
         declarations: I,
-        is_member_function: bool,
+        class_name: Option<&str>,
     ) -> token::Result<(Vec<String>, Vec<AcornType>)>
     where
         I: IntoIterator<Item = &'a Declaration>,
@@ -461,18 +458,34 @@ impl BindingMap {
         let mut names = Vec::new();
         let mut types = Vec::new();
         for (i, declaration) in declarations.into_iter().enumerate() {
-            let expect_self = is_member_function && i == 0;
-            let (name, acorn_type) =
-                self.evaluate_declaration(project, declaration, expect_self)?;
+            if class_name.is_some() && i == 0 {
+                match declaration {
+                    Declaration::SelfToken(_) => {
+                        names.push("self".to_string());
+                        types.push(AcornType::Data(
+                            self.module,
+                            class_name.unwrap().to_string(),
+                        ));
+                        continue;
+                    }
+                    _ => {
+                        return Err(Error::new(
+                            declaration.token(),
+                            "first argument of a member function must be 'self'",
+                        ));
+                    }
+                }
+            }
+            let (name, acorn_type) = self.evaluate_declaration(project, declaration)?;
             if self.name_in_use(&name) {
                 return Err(Error::new(
-                    &declaration.name_token,
+                    declaration.token(),
                     "cannot redeclare a name in an argument list",
                 ));
             }
             if names.contains(&name) {
                 return Err(Error::new(
-                    &declaration.name_token,
+                    declaration.token(),
                     "cannot declare a name twice in one argument list",
                 ));
             }
@@ -1087,7 +1100,7 @@ impl BindingMap {
                 if args.len() < 1 {
                     return Err(Error::new(token, "binders must have at least one argument"));
                 }
-                let (arg_names, arg_types) = self.bind_args(stack, project, args, false)?;
+                let (arg_names, arg_types) = self.bind_args(stack, project, args, None)?;
                 let body_type = match token.token_type {
                     TokenType::ForAll => Some(&AcornType::Bool),
                     TokenType::Exists => Some(&AcornType::Bool),
@@ -1156,6 +1169,8 @@ impl BindingMap {
     //
     // Both the argument types and the value can be polymorphic, with the ith type parameter
     // represented as AcornType::Generic(i).
+    // class_name should be provided if this is the definition of a member function.
+    //
     // The return value is "unbound" in the sense that it has variable atoms that are not
     // bound within any lambda, exists, or forall value.
     pub fn evaluate_subvalue(
@@ -1165,7 +1180,7 @@ impl BindingMap {
         args: &[Declaration],
         value_type_expr: Option<&Expression>,
         value_expr: &Expression,
-        is_member_function: bool,
+        class_name: Option<&str>,
     ) -> token::Result<(
         Vec<String>,
         Vec<String>,
@@ -1190,7 +1205,7 @@ impl BindingMap {
         }
         let mut stack = Stack::new();
         let (arg_names, specific_arg_types) =
-            self.bind_args(&mut stack, project, args, is_member_function)?;
+            self.bind_args(&mut stack, project, args, class_name)?;
 
         // Check for possible errors in the specification.
         // Each type has to be used by some argument so that we know how to
@@ -1446,10 +1461,7 @@ impl BindingMap {
             let name_token = TokenType::Identifier.new_token(&var_name);
             var_names.push(var_name);
             let type_expr = self.type_to_expr(arg_type)?;
-            let var_name = Declaration {
-                name_token,
-                type_expr,
-            };
+            let var_name = Declaration::Typed(name_token, type_expr);
             let decl = var_name;
             decls.push(decl);
         }
