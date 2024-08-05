@@ -306,34 +306,32 @@ class SearchPanel implements Disposable {
     let lineText = editor.document.lineAt(line).text;
 
     // Figure out how much to indent at the base level of the inserted code.
-    let indent = "";
-    if (addBlock) {
-      indent = tab;
-    } else {
-      for (let i = 0; i < lineText.length; i++) {
-        if (lineText[i] === " ") {
-          indent += " ";
-          continue;
-        }
-        if (lineText[i] === "\t") {
-          indent += tab;
-          continue;
-        }
-        if (lineText[i] === "}") {
-          // We're inserting into a block that this line closes.
-          // So we want the inserted code to be more indented than this line is.
-          indent += tab;
-        }
-        break;
+    let indentBase = "";
+    for (let i = 0; i < lineText.length; i++) {
+      if (lineText[i] === " ") {
+        indentBase += " ";
+        continue;
       }
+      if (lineText[i] === "\t") {
+        indentBase += tab;
+        continue;
+      }
+      if (lineText[i] === "}" && !addBlock) {
+        // We're inserting into a block that this line closes.
+        // So we want the inserted code to be more indented than this line is.
+        indentBase += tab;
+      }
+      break;
     }
+
     let formatted = [];
+    let indentEachLine = addBlock ? indentBase + tab : indentBase;
     for (let c of code) {
-      formatted.push(indent + c.replace(/\t/g, tab) + "\n");
+      formatted.push(indentEachLine + c.replace(/\t/g, tab) + "\n");
     }
 
     if (addBlock) {
-      let text = " by {\n" + formatted.join("") + "}";
+      let text = " by {\n" + formatted.join("") + indentBase + "}";
       await this.insertAtLineEnd(editor, line, text);
     } else {
       await this.insertAtLineStart(editor, line, formatted.join(""));

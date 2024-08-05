@@ -54,9 +54,7 @@ problem {
 
 problem {
     solve 2 + 2 by {
-        let f(todo1: Bool) -> todo2: Bool satisfy {
-            2 + 2 = 2 + (1 + 1)
-        }
+        2 + 2 = 2 + (1 + 1)
         2 + 2 = (2 + 1) + 1
         2 + 2 = 3 + 1
         2 + 2 = 4
