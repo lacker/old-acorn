@@ -398,9 +398,6 @@ impl Token {
             TokenType::Identifier => Some(SemanticTokenType::VARIABLE),
 
             TokenType::RightArrow
-            | TokenType::Not
-            | TokenType::Or
-            | TokenType::And
             | TokenType::LeftRightArrow
             | TokenType::Equals
             | TokenType::NotEquals
@@ -434,7 +431,10 @@ impl Token {
             | TokenType::From
             | TokenType::Solve
             | TokenType::Problem
-            | TokenType::Satisfy => Some(SemanticTokenType::KEYWORD),
+            | TokenType::Satisfy
+            | TokenType::Not
+            | TokenType::Or
+            | TokenType::And => Some(SemanticTokenType::KEYWORD),
 
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
