@@ -50,7 +50,7 @@ pub enum TokenType {
     Percent,
     Slash,
     Numeral,
-    Default,
+    Numerals,
     From,
     Solve,
     Problem,
@@ -271,7 +271,7 @@ impl TokenType {
             TokenType::Percent => "%",
             TokenType::Slash => "/",
             TokenType::Numeral => "<numeral>",
-            TokenType::Default => "default",
+            TokenType::Numerals => "numerals",
             TokenType::From => "from",
             TokenType::Solve => "solve",
             TokenType::Problem => "problem",
@@ -430,7 +430,7 @@ impl Token {
             | TokenType::False
             | TokenType::Else
             | TokenType::Class
-            | TokenType::Default
+            | TokenType::Numerals
             | TokenType::From
             | TokenType::Solve
             | TokenType::Problem
@@ -566,7 +566,7 @@ impl Token {
                             "false" => TokenType::False,
                             "else" => TokenType::Else,
                             "class" => TokenType::Class,
-                            "default" => TokenType::Default,
+                            "numerals" => TokenType::Numerals,
                             "from" => TokenType::From,
                             "solve" => TokenType::Solve,
                             "problem" => TokenType::Problem,

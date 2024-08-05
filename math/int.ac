@@ -20,7 +20,7 @@ class Int {
     let 10: Int = from_nat(Nat.10)
 }
 
-default Int
+numerals Int
 
 axiom neg_zero { negate(0) = 0 }
 

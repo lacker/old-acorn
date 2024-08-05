@@ -1749,7 +1749,7 @@ mod tests {
             let 2: Bag = axiom
             define read(self: Bag, other: Bag) -> Bag { axiom }
         }
-        default Bag
+        numerals Bag
         axiom comm(a: Bag, b: Bag) { a.read(b) = b.read(a) }
         theorem goal { 12 = 21 }
         "#;

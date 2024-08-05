@@ -1023,7 +1023,7 @@ mod tests {
             class Nat {
                 let 0: Nat = axiom
             }
-            default Nat
+            numerals Nat
         "#,
         );
         p.mock(

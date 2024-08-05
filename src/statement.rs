@@ -145,8 +145,8 @@ pub struct ClassStatement {
     pub body: Body,
 }
 
-// A default statement determines what class is used for numeric literals.
-pub struct DefaultStatement {
+// A numerals statement determines what class is used for numeric literals.
+pub struct NumeralsStatement {
     pub type_expr: Expression,
 }
 
@@ -180,7 +180,7 @@ pub enum StatementInfo {
     Structure(StructureStatement),
     Import(ImportStatement),
     Class(ClassStatement),
-    Default(DefaultStatement),
+    Numerals(NumeralsStatement),
     Solve(SolveStatement),
     Problem(Body),
 }
@@ -873,7 +873,7 @@ impl Statement {
                 write_block(f, &cs.body.statements, indentation)
             }
 
-            StatementInfo::Default(ds) => {
+            StatementInfo::Numerals(ds) => {
                 write!(f, "default {}", ds.type_expr)
             }
 
@@ -965,15 +965,15 @@ impl Statement {
                         let s = parse_class_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
-                    TokenType::Default => {
+                    TokenType::Numerals => {
                         let keyword = tokens.next().unwrap();
                         let (type_expr, last_token) =
                             Expression::parse_type(tokens, Terminator::Is(TokenType::NewLine))?;
-                        let ds = DefaultStatement { type_expr };
+                        let ds = NumeralsStatement { type_expr };
                         let s = Statement {
                             first_token: keyword,
                             last_token,
-                            statement: StatementInfo::Default(ds),
+                            statement: StatementInfo::Numerals(ds),
                         };
                         return Ok((Some(s), None));
                     }

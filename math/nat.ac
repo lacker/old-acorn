@@ -18,7 +18,7 @@ class Nat {
     let 10: Nat = Nat.9.suc
 }
 
-default Nat
+numerals Nat
 
 axiom suc_injective(x: Nat, y: Nat) { x.suc = y.suc -> x = y }
 

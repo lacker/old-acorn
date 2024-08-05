@@ -1,5 +1,5 @@
 from nat import Nat, NatPair, divides, mod
-default Nat
+numerals Nat
 
 // One step is taking the pair (a, b) and replacing with (b, a mod b).
 define gcd_step(p: NatPair) -> NatPair {

@@ -1,6 +1,6 @@
 import nat
 from int import Int
-default Int
+numerals Int
 
 // One-digit integer addition problems.
 

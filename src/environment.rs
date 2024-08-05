@@ -1371,7 +1371,7 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::Default(ds) => {
+            StatementInfo::Numerals(ds) => {
                 self.add_other_lines(statement);
                 let acorn_type = self.bindings.evaluate_type(project, &ds.type_expr)?;
                 if let AcornType::Data(module, typename) = acorn_type {
@@ -1380,7 +1380,7 @@ impl Environment {
                 } else {
                     Err(Error::new(
                         &ds.type_expr.token(),
-                        "default type must be a data type",
+                        "numerals type must be a data type",
                     ))
                 }
             }
@@ -2725,7 +2725,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
                 let 0: Nat = axiom
                 let 1: Nat = axiom
             }
-            default Nat
+            numerals Nat
         "#,
         );
         env.bindings.expect_good_code("0 + 1");
@@ -2773,13 +2773,13 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     }
 
     #[test]
-    fn test_default_statement() {
+    fn test_numerals_statement() {
         let mut env = Environment::new_test();
         env.add("type Foo: axiom");
-        env.add("default Foo");
-        env.bad("default Bar");
-        env.bad("default Bool");
-        env.bad("default Foo -> Foo");
+        env.add("numerals Foo");
+        env.bad("numerals Bar");
+        env.bad("numerals Bool");
+        env.bad("numerals Foo -> Foo");
     }
 
     #[test]
@@ -2790,7 +2790,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     }
 
     #[test]
-    fn test_no_top_level_numbers_without_a_default() {
+    fn test_no_top_level_numbers_without_a_numerals() {
         let mut env = Environment::new_test();
         env.bad("let foo: Bool = (0 = 0)");
     }
@@ -2808,7 +2808,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             }
         "#,
         );
-        env.add("default Unary");
+        env.add("numerals Unary");
         env.add("let two: Unary = 11");
     }
 
@@ -2877,7 +2877,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
                 define read(self: Nat, other: Nat) -> Nat { axiom }
                 define add(self: Nat, other: Nat) -> Nat { axiom }
             }
-            default Nat
+            numerals Nat
         "#,
         );
         env.bindings.expect_good_code("7");
