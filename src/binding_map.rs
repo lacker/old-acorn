@@ -872,7 +872,7 @@ impl BindingMap {
                 )),
             },
             Expression::Unary(token, expr) => match token.token_type {
-                TokenType::Exclam => {
+                TokenType::Not => {
                     check_type(token, expected_type, &AcornType::Bool)?;
                     let value = self.evaluate_value_with_stack(
                         stack,
@@ -939,7 +939,7 @@ impl BindingMap {
                         Box::new(right_value),
                     ))
                 }
-                TokenType::Ampersand => {
+                TokenType::And => {
                     check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value_with_stack(
                         stack,
@@ -959,7 +959,7 @@ impl BindingMap {
                         Box::new(right_value),
                     ))
                 }
-                TokenType::Pipe => {
+                TokenType::Or => {
                     check_type(token, expected_type, &AcornType::Bool)?;
                     let left_value = self.evaluate_value_with_stack(
                         stack,
@@ -1536,7 +1536,7 @@ impl BindingMap {
             }
             AcornValue::Not(x) => {
                 let x = self.value_to_expr(x, var_names, next_x, next_k)?;
-                Ok(Expression::Unary(TokenType::Exclam.generate(), Box::new(x)))
+                Ok(Expression::Unary(TokenType::Not.generate(), Box::new(x)))
             }
             AcornValue::ForAll(quants, value) => self.generate_quantifier_expr(
                 TokenType::ForAll,

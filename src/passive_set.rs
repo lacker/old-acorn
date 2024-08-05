@@ -237,9 +237,9 @@ mod tests {
     #[test]
     fn test_passive_set_simplification() {
         let mut passive_set = PassiveSet::new();
-        passive_set.push(ProofStep::mock("c0(c1) | c0(c2)"));
+        passive_set.push(ProofStep::mock("c0(c1) or c0(c2)"));
         // This should match *both* the literals in our existing clause
-        passive_set.simplify(3, &ProofStep::mock("!c0(x0)"));
+        passive_set.simplify(3, &ProofStep::mock("not c0(x0)"));
         let step = passive_set.pop().unwrap();
         assert_eq!(step.clause.to_string(), "<empty>");
     }

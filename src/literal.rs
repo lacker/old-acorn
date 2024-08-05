@@ -26,7 +26,7 @@ impl fmt::Display for Literal {
             }
         } else {
             if self.is_boolean() {
-                write!(f, "!{}", self.left)
+                write!(f, "not {}", self.left)
             } else {
                 write!(f, "{} != {}", self.left, self.right)
             }
@@ -88,8 +88,8 @@ impl Literal {
             let left = Term::parse(parts.next().unwrap());
             let right = Term::parse(parts.next().unwrap());
             Literal::equals(left, right)
-        } else if s.starts_with("!") {
-            let term = Term::parse(&s[1..]);
+        } else if s.starts_with("not ") {
+            let term = Term::parse(&s[4..]);
             Literal::negative(term)
         } else {
             let term = Term::parse(s);

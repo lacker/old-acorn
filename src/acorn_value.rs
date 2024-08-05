@@ -43,8 +43,8 @@ impl BinaryOp {
             BinaryOp::Implies => TokenType::RightArrow,
             BinaryOp::Equals => TokenType::Equals,
             BinaryOp::NotEquals => TokenType::NotEquals,
-            BinaryOp::And => TokenType::Ampersand,
-            BinaryOp::Or => TokenType::Pipe,
+            BinaryOp::And => TokenType::And,
+            BinaryOp::Or => TokenType::Or,
         }
     }
 }
@@ -130,7 +130,7 @@ impl fmt::Display for Subvalue<'_> {
                 )
             }
             AcornValue::Not(a) => {
-                write!(f, "!{}", Subvalue::new(a, self.stack_size))
+                write!(f, "not {}", Subvalue::new(a, self.stack_size))
             }
             AcornValue::ForAll(args, body) => fmt_binder(f, "forall", args, body, self.stack_size),
             AcornValue::Exists(args, body) => fmt_binder(f, "exists", args, body, self.stack_size),

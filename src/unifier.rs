@@ -531,7 +531,8 @@ mod tests {
         let t = Term::parse("c2(x0, x1, c1(c1(c0)))");
         let pm_clause = Clause::parse("c2(x0, x1, c1(c1(c0))) = x0(x0(x1))");
         let target_path = &[0];
-        let resolution_clause = Clause::parse("c1(c1(x0(x1))) != c1(x2(x3)) | c1(x0(x1)) = x2(x3)");
+        let resolution_clause =
+            Clause::parse("c1(c1(x0(x1))) != c1(x2(x3)) or c1(x0(x1)) = x2(x3)");
         let mut u = Unifier::new();
         u.assert_unify(Scope::Left, &s, Scope::Right, &u_subterm);
         u.print();
@@ -540,7 +541,7 @@ mod tests {
         let new_clause = Clause::new(literals);
         assert!(
             new_clause.to_string()
-                == "c1(c2(c1, x0, c1(c1(c0)))) != c1(x1(x2)) | c1(c1(x0)) = x1(x2)"
+                == "c1(c2(c1, x0, c1(c1(c0)))) != c1(x1(x2)) or c1(c1(x0)) = x1(x2)"
         );
     }
 

@@ -63,7 +63,7 @@ impl fmt::Display for Expression {
         match self {
             Expression::Singleton(token) => write!(f, "{}", token),
             Expression::Unary(token, subexpression) => {
-                write!(f, "{}{}", token, subexpression)
+                write!(f, "{} {}", token, subexpression)
             }
             Expression::Binary(left, token, right) => {
                 let left_spacer = if token.token_type.left_space() {
@@ -824,11 +824,11 @@ mod tests {
     fn test_value_parsing() {
         check_value("p -> (q -> p)");
         check_value("(p -> (q -> r)) -> ((p -> q) -> (p -> r))");
-        check_value("(p <-> q) = ((p -> q) & (q -> p))");
-        check_value("p & q <-> q & p");
-        check_value("(p & q) & r <-> p & (q & r)");
-        check_value("p | q <-> q | p");
-        check_value("(p | q) | r <-> p | (q | r)");
+        check_value("(p <-> q) = ((p -> q) and (q -> p))");
+        check_value("p and q <-> q and p");
+        check_value("(p and q) and r <-> p and (q and r)");
+        check_value("p or q <-> q or p");
+        check_value("(p or q) or r <-> p or (q or r)");
     }
 
     #[test]

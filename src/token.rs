@@ -18,9 +18,9 @@ pub enum TokenType {
     Colon,
     Dot,
     RightArrow,
-    Exclam,
-    Pipe,
-    Ampersand,
+    Not,
+    Or,
+    And,
     LeftRightArrow,
     Equals,
     NotEquals,
@@ -84,7 +84,7 @@ const MAGIC_METHOD_NAMES: &[(&str, TokenType)] = &[
 impl TokenType {
     pub fn is_unary(&self) -> bool {
         match self {
-            TokenType::Exclam => true,
+            TokenType::Not => true,
             _ => false,
         }
     }
@@ -94,8 +94,8 @@ impl TokenType {
             TokenType::Plus => true,
             TokenType::Minus => true,
             TokenType::RightArrow => true,
-            TokenType::Pipe => true,
-            TokenType::Ampersand => true,
+            TokenType::Or => true,
+            TokenType::And => true,
             TokenType::LeftRightArrow => true,
             TokenType::Equals => true,
             TokenType::NotEquals => true,
@@ -143,9 +143,9 @@ impl TokenType {
             TokenType::LessThanOrEquals => 8,
             TokenType::Equals => 7,
             TokenType::NotEquals => 7,
-            TokenType::Exclam => 6,
-            TokenType::Pipe => 5,
-            TokenType::Ampersand => 5,
+            TokenType::Not => 6,
+            TokenType::Or => 5,
+            TokenType::And => 5,
             TokenType::LeftRightArrow => 4,
             TokenType::RightArrow => 3,
             TokenType::Colon => 2,
@@ -239,9 +239,9 @@ impl TokenType {
             TokenType::Colon => ":",
             TokenType::Dot => ".",
             TokenType::RightArrow => "->",
-            TokenType::Exclam => "!",
-            TokenType::Pipe => "|",
-            TokenType::Ampersand => "&",
+            TokenType::Not => "not",
+            TokenType::Or => "or",
+            TokenType::And => "and",
             TokenType::LeftRightArrow => "<->",
             TokenType::Equals => "=",
             TokenType::NotEquals => "!=",
@@ -398,9 +398,9 @@ impl Token {
             TokenType::Identifier => Some(SemanticTokenType::VARIABLE),
 
             TokenType::RightArrow
-            | TokenType::Exclam
-            | TokenType::Pipe
-            | TokenType::Ampersand
+            | TokenType::Not
+            | TokenType::Or
+            | TokenType::And
             | TokenType::LeftRightArrow
             | TokenType::Equals
             | TokenType::NotEquals
@@ -489,10 +489,8 @@ impl Token {
                     '.' => TokenType::Dot,
                     '!' => match char_indices.next_if_eq(&(char_index + 1, '=')) {
                         Some(_) => TokenType::NotEquals,
-                        None => TokenType::Exclam,
+                        None => TokenType::Invalid,
                     },
-                    '|' => TokenType::Pipe,
-                    '&' => TokenType::Ampersand,
                     '=' => TokenType::Equals,
                     '+' => TokenType::Plus,
                     '*' => TokenType::Asterisk,
@@ -571,6 +569,9 @@ impl Token {
                             "solve" => TokenType::Solve,
                             "problem" => TokenType::Problem,
                             "satisfy" => TokenType::Satisfy,
+                            "and" => TokenType::And,
+                            "or" => TokenType::Or,
+                            "not" => TokenType::Not,
                             _ => TokenType::Identifier,
                         }
                     }

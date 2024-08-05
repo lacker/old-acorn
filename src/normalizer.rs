@@ -556,7 +556,7 @@ mod tests {
         env.expect_type("one", "Nat");
 
         env.add("axiom suc_injective(x: Nat, y: Nat) { suc(x) = suc(y) -> x = y }");
-        norm.check(&env, "suc_injective", &["suc(x0) != suc(x1) | x0 = x1"]);
+        norm.check(&env, "suc_injective", &["suc(x0) != suc(x1) or x0 = x1"]);
         env.expect_type("suc_injective", "(Nat, Nat) -> Bool");
 
         env.add("axiom suc_neq_zero(x: Nat) { suc(x) != zero }");
@@ -565,15 +565,15 @@ mod tests {
 
         env.add(
             "axiom induction(f: Nat -> Bool) {\
-            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) } }",
+            f(zero) and forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) } }",
         );
 
         norm.check(
             &env,
             "induction",
             &[
-                "!x0(zero) | x0(s0(x0)) | x0(x1)",
-                "!x0(suc(s0(x0))) | !x0(zero) | x0(x1)",
+                "not x0(zero) or x0(s0(x0)) or x0(x1)",
+                "not x0(suc(s0(x0))) or not x0(zero) or x0(x1)",
             ],
         );
 
@@ -602,11 +602,15 @@ mod tests {
     fn test_bool_formulas() {
         let mut env = Environment::new_test();
         let mut norm = Normalizer::new();
-        env.add("theorem one(a: Bool) { a -> a | (a | a) }");
-        norm.check(&env, "one", &["!x0 | x0"]);
+        env.add("theorem one(a: Bool) { a -> a or (a or a) }");
+        norm.check(&env, "one", &["not x0 or x0"]);
 
-        env.add("theorem two(a: Bool) { a -> a & (a & a) }");
-        norm.check(&env, "two", &["!x0 | x0", "!x0 | x0", "!x0 | x0"]);
+        env.add("theorem two(a: Bool) { a -> a and (a and a) }");
+        norm.check(
+            &env,
+            "two",
+            &["not x0 or x0", "not x0 or x0", "not x0 or x0"],
+        );
     }
 
     #[test]
@@ -617,7 +621,7 @@ mod tests {
         env.add("theorem one(n: Nat) { n = n }");
         norm.check(&env, "one", &[]);
 
-        env.add("theorem two(n: Nat) { n = n | n != n }");
+        env.add("theorem two(n: Nat) { n = n or n != n }");
         norm.check(&env, "two", &[]);
     }
 
@@ -642,11 +646,11 @@ mod tests {
             let cc: Nat = axiom
             define specific_borf(x: Nat) -> Bool { also_borf(x, bb, cc) }
             define always_true(f: Nat -> Bool) -> Bool { forall(n: Nat) { f(n) } }
-            theorem goal { !always_true(specific_borf) }
+            theorem goal { not always_true(specific_borf) }
         "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["!always_true(specific_borf)"]);
+        norm.check(&env, "goal", &["not always_true(specific_borf)"]);
     }
 
     #[test]
@@ -663,7 +667,11 @@ mod tests {
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["n1 != n0 | n3 = n2", "n3 != n2 | n1 = n0"]);
+        norm.check(
+            &env,
+            "goal",
+            &["n1 != n0 or n3 = n2", "n3 != n2 or n1 = n0"],
+        );
     }
 
     #[test]
@@ -680,7 +688,11 @@ mod tests {
             "#,
         );
         let mut norm = Normalizer::new();
-        norm.check(&env, "goal", &["n3 != n2 | n1 != n0", "n3 = n2 | n1 = n0"]);
+        norm.check(
+            &env,
+            "goal",
+            &["n3 != n2 or n1 != n0", "n3 = n2 or n1 = n0"],
+        );
     }
 
     #[test]
@@ -739,14 +751,14 @@ mod tests {
             let one: Nat = axiom
             let ltx: (Nat, Nat) -> Bool = axiom
             let addx: (Nat, Nat) -> Nat = axiom
-            theorem foo(x0: Nat, x1: Nat) { addx(addx(x0, zero), x1) != zero | ltx(x1, zero) }
+            theorem foo(x0: Nat, x1: Nat) { addx(addx(x0, zero), x1) != zero or ltx(x1, zero) }
             "#,
         );
         let mut norm = Normalizer::new();
         norm.check(
             &env,
             "foo",
-            &["addx(addx(x0, zero), x1) != zero | ltx(x1, zero)"],
+            &["addx(addx(x0, zero), x1) != zero or ltx(x1, zero)"],
         );
     }
 }

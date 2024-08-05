@@ -899,8 +899,8 @@ mod tests {
     #[test]
     fn test_finds_negative_example() {
         let text = r#"
-            axiom not_f(x: Thing) { !f(x) }
-            theorem goal { !f(t) }
+            axiom not_f(x: Thing) { not f(x) }
+            theorem goal { not f(t) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -937,9 +937,9 @@ mod tests {
     #[test]
     fn test_negative_rewriting() {
         let text = r#"
-            axiom not_f_t { !f(t) }
+            axiom not_f_t { not f(t) }
             axiom g_id(x: Thing) { g(x, x) = x }
-            theorem goal { !f(g(t, t)) }
+            theorem goal { not f(g(t, t)) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
     }
@@ -956,7 +956,7 @@ mod tests {
     #[test]
     fn test_equality_resolution() {
         let text = r#"
-            axiom foo(x: Thing) { x != t | f(t) }
+            axiom foo(x: Thing) { x != t or f(t) }
             theorem goal { f(t) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
@@ -965,7 +965,7 @@ mod tests {
     #[test]
     fn test_equality_factoring() {
         let text = r#"
-            axiom foo(x: Thing, y: Thing) { x = t | y = t }
+            axiom foo(x: Thing, y: Thing) { x = t or y = t }
             theorem goal(x: Thing) { x = t2 }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
@@ -986,8 +986,8 @@ mod tests {
     #[test]
     fn test_prover_avoids_loops() {
         let text = r#"
-            axiom trivial(x: Thing) { !f(h(x)) | f(h(x)) }
-            axiom arbitrary(x: Thing) { f(h(x)) | f(x) }
+            axiom trivial(x: Thing) { not f(h(x)) or f(h(x)) }
+            axiom arbitrary(x: Thing) { f(h(x)) or f(x) }
             theorem goal { f(t) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
@@ -996,7 +996,7 @@ mod tests {
     #[test]
     fn test_synthesis_avoids_loops() {
         let text = r#"
-            axiom foo(x: Thing -> Bool) { x(t) | f(h(t)) }
+            axiom foo(x: Thing -> Bool) { x(t) or f(h(t)) }
             theorem goal { f(t2) }
             "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Exhausted);
@@ -1093,8 +1093,8 @@ mod tests {
     #[test]
     fn test_second_literal_matches_goal() {
         let text = r#"
-            axiom axiom1 { f(g(t, t)) | f(t2) }
-            axiom axiom2 { !f(g(t, t)) | f(t2) }
+            axiom axiom1 { f(g(t, t)) or f(t2) }
+            axiom axiom2 { not f(g(t, t)) or f(t2) }
             theorem goal { f(t2) }
         "#;
         assert_eq!(prove_thing(text, "goal"), Outcome::Success);
@@ -1117,8 +1117,8 @@ mod tests {
             type Nat: axiom
             let addx: (Nat, Nat) -> Nat = axiom
             define ltex(a: Nat, b: Nat) -> Bool { exists(c: Nat) { addx(a, c) = b } }
-            define ltx(a: Nat, b: Nat) -> Bool { ltex(a, b) & a != b }
-            theorem goal(a: Nat) { !ltx(a, a) }
+            define ltx(a: Nat, b: Nat) -> Bool { ltex(a, b) and a != b }
+            theorem goal(a: Nat) { not ltx(a, a) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1130,7 +1130,7 @@ mod tests {
             let zero: Nat = axiom
             let one: Nat = axiom
             let suc: Nat -> Nat = axiom
-            axiom zero_or_suc(a: Nat) { a = zero | exists(b: Nat) { a = suc(b) } }
+            axiom zero_or_suc(a: Nat) { a = zero or exists(b: Nat) { a = suc(b) } }
             axiom one_neq_zero { one != zero }
             theorem goal { exists(x: Nat) { one = suc(x) } }
         "#;
@@ -1144,7 +1144,7 @@ mod tests {
             let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
             let y: Nat = axiom
-            axiom zero_or_suc(a: Nat) { a = zero | exists(b: Nat) { a = suc(b) } }
+            axiom zero_or_suc(a: Nat) { a = zero or exists(b: Nat) { a = suc(b) } }
             theorem goal { zero_or_suc(y) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
@@ -1157,7 +1157,7 @@ mod tests {
             let zero: Nat = axiom
             let suc: Nat -> Nat = axiom
             let y: Nat = axiom
-            axiom zero_or_suc(a: Nat) { a = zero | exists(b: Nat) { a = suc(b) } }
+            axiom zero_or_suc(a: Nat) { a = zero or exists(b: Nat) { a = suc(b) } }
             axiom y_not_zero { y != zero }
             theorem goal { zero_or_suc(y) }
         "#;
@@ -1204,9 +1204,9 @@ mod tests {
     fn test_proving_parametric_theorem() {
         let text = r#"
             theorem goal<T>(a: T, b: T, c: T) {
-                a = b & b = c -> a = c
+                a = b and b = c -> a = c
             } by {
-                if (a = b & b = c) {
+                if (a = b and b = c) {
                     a = c
                 }
             }
@@ -1217,7 +1217,7 @@ mod tests {
     #[test]
     fn test_proving_parametric_theorem_no_block() {
         let text = r#"
-            theorem goal<T>(a: T, b: T, c: T) { a = b & b = c -> a = c }
+            theorem goal<T>(a: T, b: T, c: T) { a = b and b = c -> a = c }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1276,7 +1276,7 @@ mod tests {
             let foo: Nat -> Bool = axiom
             let bar: Nat -> Bool = axiom
             axiom foo_true { foo(zero) }
-            axiom foo_false { !foo(zero) }
+            axiom foo_false { not foo(zero) }
             theorem goal { bar(zero) }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Inconsistent);
@@ -1285,7 +1285,7 @@ mod tests {
     #[test]
     fn test_using_true_and_false_in_a_proof() {
         let text = r#"
-        theorem goal(b: Bool) { b = true | b = false }
+        theorem goal(b: Bool) { b = true or b = false }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1318,7 +1318,7 @@ mod tests {
             r#"
             let b: Bool = axiom
             if b != b {
-                b | !b
+                b or not b
                 false
             }
         "#,
@@ -1345,7 +1345,7 @@ mod tests {
             let zero: Nat = axiom
             let one: Nat = axiom
             define sign(a: Nat) -> Nat { if a = zero { zero } else { one } }
-            theorem goal(a: Nat) { sign(a) = zero | sign(a) = one }
+            theorem goal(a: Nat) { sign(a) = zero or sign(a) = one }
         "#,
         );
     }
@@ -1506,8 +1506,8 @@ mod tests {
             let a: Bool = axiom
             let b: Bool = axiom
             axiom bimpa { b -> a }
-            axiom bimpna { b -> !a }
-            theorem goal { !b }
+            axiom bimpna { b -> not a }
+            theorem goal { not b }
         "#;
         expect_proof(text, "goal", &[]);
     }
@@ -1533,8 +1533,8 @@ mod tests {
         let b: Bool = axiom
         let f: Nat -> Bool = axiom
         let g: Nat -> Bool = axiom
-        axiom forg(x: Nat) { f(x) | g(x) }
-        axiom fgimpb { forall(x: Nat) { f(x) | g(x) } -> b }
+        axiom forg(x: Nat) { f(x) or g(x) }
+        axiom fgimpb { forall(x: Nat) { f(x) or g(x) } -> b }
         theorem goal { b }
         "#;
         expect_proof(text, "goal", &[]);
@@ -1585,7 +1585,7 @@ mod tests {
         } else {
             c
         }
-        theorem goal { !a -> c }
+        theorem goal { not a -> c }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1599,7 +1599,7 @@ mod tests {
         } else {
             b
         }
-        theorem goal { !a -> b }
+        theorem goal { not a -> b }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1615,7 +1615,7 @@ mod tests {
         theorem add_zero_left(a: Nat) { add(zero, a) = a }
         
         theorem add_to_zero(a: Nat, b: Nat) {
-            add(a, b) = zero -> a = zero & b = zero
+            add(a, b) = zero -> a = zero and b = zero
         } by {
             define f(x: Nat) -> Bool { add_to_zero(x, b) }
             f(zero)
@@ -1626,7 +1626,7 @@ mod tests {
             text,
             "f(zero)",
             &[
-                "if !add_to_zero(zero, b) {",
+                "if not add_to_zero(zero, b) {",
                 "\tadd(zero, b) = zero",
                 "\tb != zero",
                 "\tfalse",
@@ -1642,7 +1642,7 @@ mod tests {
         let zero: Nat = axiom
         let suc: Nat -> Nat = axiom
         axiom induction(f: Nat -> Bool) {
-            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
+            f(zero) and forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
         }
         let foo: Nat -> Bool = axiom
         theorem goal { induction(foo) }
@@ -1655,7 +1655,7 @@ mod tests {
         let text = r#"
         let a: Bool = axiom
         axiom a_true { a }
-        if !a {
+        if not a {
             false
         }
         "#;
@@ -1775,11 +1775,11 @@ mod tests {
         let text = r#"
         let flip(a: Bool) -> b: Bool satisfy {
             forall(c: Bool) {
-                c = a | c = b
+                c = a or c = b
             }
         } by {
             forall(c: Bool) {
-                c = a | c = !a
+                c = a or c = not a
             }
         }
         "#;

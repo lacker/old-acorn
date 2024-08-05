@@ -82,7 +82,7 @@ impl fmt::Display for DisplayLiteral<'_> {
             }
         } else {
             if self.literal.is_boolean() {
-                write!(f, "!{}", self.term(&self.literal.left),)
+                write!(f, "not {}", self.term(&self.literal.left),)
             } else {
                 write!(
                     f,
@@ -107,7 +107,7 @@ impl fmt::Display for DisplayClause<'_> {
         }
         for (i, literal) in self.clause.literals.iter().enumerate() {
             if i > 0 {
-                write!(f, " | ")?;
+                write!(f, " or ")?;
             }
             write!(
                 f,

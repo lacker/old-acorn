@@ -1902,24 +1902,24 @@ mod tests {
     fn test_argless_theorem() {
         let mut env = Environment::new_test();
         env.add("let b: Bool = axiom");
-        env.add("theorem foo { b | !b }");
-        env.expect_def("foo", "(b | !b)");
+        env.add("theorem foo { b or not b }");
+        env.expect_def("foo", "(b or not b)");
     }
 
     #[test]
     fn test_forall_value() {
         let mut env = Environment::new_test();
-        env.add("let p: Bool = forall(x: Bool) { x | !x }");
-        env.expect_def("p", "forall(x0: Bool) { (x0 | !x0) }");
+        env.add("let p: Bool = forall(x: Bool) { x or not x }");
+        env.expect_def("p", "forall(x0: Bool) { (x0 or not x0) }");
     }
 
     #[test]
     fn test_inline_function_value() {
         let mut env = Environment::new_test();
-        env.add("define ander(a: Bool) -> (Bool -> Bool) { function(b: Bool) { a & b } }");
+        env.add("define ander(a: Bool) -> (Bool -> Bool) { function(b: Bool) { a and b } }");
         env.expect_def(
             "ander",
-            "function(x0: Bool) { function(x1: Bool) { (x0 & x1) } }",
+            "function(x0: Bool) { function(x1: Bool) { (x0 and x1) } }",
         );
     }
 
@@ -1973,9 +1973,9 @@ mod tests {
 
         env.add(
             "axiom induction(f: Nat -> Bool, n: Nat) {
-            f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n) }",
+            f(zero) and forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n) }",
         );
-        env.expect_def("induction", "function(x0: Nat -> Bool, x1: Nat) { ((x0(zero) & forall(x2: Nat) { (x0(x2) -> x0(suc(x2))) }) -> x0(x1)) }");
+        env.expect_def("induction", "function(x0: Nat -> Bool, x1: Nat) { ((x0(zero) and forall(x2: Nat) { (x0(x2) -> x0(suc(x2))) }) -> x0(x1)) }");
 
         env.add("define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat { axiom }");
         env.expect_type("recursion", "(Nat -> Nat, Nat, Nat) -> Nat");
@@ -1997,7 +1997,7 @@ mod tests {
         env.add(
             "theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)) }",
         );
-        env.add("theorem not_suc_eq_zero(x: Nat) { !(suc(x) = zero) }");
+        env.add("theorem not_suc_eq_zero(x: Nat) { not (suc(x) = zero) }");
     }
 
     #[test]
@@ -2018,7 +2018,7 @@ axiom suc_injective(x: Nat, y: Nat) { suc(x) = suc(y) -> x = y }
 
 axiom suc_neq_zero(x: Nat) { suc(x) != zero }
 
-axiom induction(f: Nat -> Bool) { f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) } }
+axiom induction(f: Nat -> Bool) { f(zero) and forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) } }
 
 // The old version. In the modern codebase these are parametric.
 define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat { axiom }
@@ -2209,7 +2209,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     #[test]
     fn test_parametric_types_required_in_theorem_args() {
         let mut env = Environment::new_test();
-        env.bad("theorem foo<T>(a: Bool) { a | !a }");
+        env.bad("theorem foo<T>(a: Bool) { a or not a }");
     }
 
     #[test]
@@ -2294,7 +2294,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     #[test]
     fn test_parsing_true_false_keywords() {
         let mut env = Environment::new_test();
-        env.add("let b: Bool = true | false");
+        env.add("let b: Bool = true or false");
     }
 
     #[test]
@@ -2303,7 +2303,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.add("let b: Bool = axiom");
         env.bad(
             r#"
-            if b = !b {
+            if b = not b {
                 false
                 b
             }
@@ -2331,7 +2331,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.add(
             r#"
             axiom induction(f: Nat -> Bool) {
-                f(zero) & forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
+                f(zero) and forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
             }
             "#,
         );
@@ -2391,7 +2391,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             b
         }
         else {
-            !b
+            not b
         }
         "#,
         );
@@ -2921,7 +2921,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         let mut env = Environment::new_test();
         env.add(
             r#"
-            let b: Bool = true | false
+            let b: Bool = true or false
             solve b by {
                 b = true
             }
@@ -2934,8 +2934,8 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         let mut env = Environment::new_test();
         env.add(
             r#"
-            let b: Bool = true | false
-            if b | b {
+            let b: Bool = true or false
+            if b or b {
                 solve b by {
                     b = true
                 }
@@ -2949,9 +2949,9 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         let mut env = Environment::new_test();
         env.add(
             r#"
-            let b: Bool = true | false
-            solve b | b by {
-                b | b = b
+            let b: Bool = true or false
+            solve b or b by {
+                b or b = b
             }
             "#,
         );
@@ -2962,7 +2962,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         let mut env = Environment::new_test();
         env.add(
             r#"
-            let b: Bool = true | false
+            let b: Bool = true or false
             solve b by {
             }
             "#,
@@ -2977,7 +2977,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.add(
             r#"
             problem {
-                let b: Bool = true | false
+                let b: Bool = true or false
                 solve b by {
                 }
             }

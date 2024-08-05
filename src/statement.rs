@@ -1099,15 +1099,15 @@ mod tests {
         ok("let g: (int, int, int) -> bool = swap(h)");
         ok(indoc! {"
         define orx(p: bool, q: bool) -> bool {
-            (!p -> q)
+            (not p -> q)
         }"});
         ok(indoc! {"
         define andx(p: bool, q: bool) -> bool {
-            !(p -> !q)
+            not (p -> not q)
         }"});
         ok(indoc! {"
         define iff(p: bool, q: bool) -> bool {
-            (p -> q) & (q -> p)
+            (p -> q) and (q -> p)
         }"});
     }
 
@@ -1120,19 +1120,19 @@ mod tests {
             (p -> (q -> r)) -> ((p -> q) -> (p -> r))
         }"});
         ok(indoc! {"axiom contraposition {
-            (!p -> !q) -> (q -> p)
+            (not p -> not q) -> (q -> p)
         }"});
         ok(indoc! {"theorem and_comm {
-            p & q <-> q & p
+            p and q <-> q and p
         }"});
         ok(indoc! {"theorem and_assoc {
-            (p & q) & r <-> p & (q & r)
+            (p and q) and r <-> p and (q and r)
         }"});
         ok(indoc! {"theorem or_comm {
-            p | q <-> q | p
+            p or q <-> q or p
         }"});
         ok(indoc! {"theorem or_assoc {
-            (p | q) | r <-> p | (q | r)
+            (p or q) or r <-> p or (q or r)
         }"});
         ok(indoc! {"theorem suc_gt_zero(x: nat) {
             suc(x) > 0
@@ -1159,7 +1159,7 @@ mod tests {
 
     #[test]
     fn test_forall_value_in_statement() {
-        ok("let p: bool = forall(b: bool) { b | !b }");
+        ok("let p: bool = forall(b: bool) { b or not b }");
     }
 
     #[test]
@@ -1176,7 +1176,7 @@ mod tests {
         }"});
         ok(indoc! {"
             axiom induction(f: Nat -> bool, n: Nat) {
-                f(0) & forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)
+                f(0) and forall(k: Nat) { f(k) -> f(suc(k)) } -> f(n)
             }"});
         ok(indoc! {"
         define recursion(f: Nat -> Nat, a: Nat, n: Nat) -> Nat {

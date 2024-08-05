@@ -19,7 +19,7 @@ impl fmt::Display for Clause {
         }
         for (i, literal) in self.literals.iter().enumerate() {
             if i > 0 {
-                write!(f, " | ")?;
+                write!(f, " or ")?;
             }
             write!(f, "{}", literal)?;
         }
@@ -55,7 +55,7 @@ impl Clause {
 
     pub fn parse(s: &str) -> Clause {
         Clause::new(
-            s.split(" | ")
+            s.split(" or ")
                 .map(|x| Literal::parse(x))
                 .collect::<Vec<_>>(),
         )

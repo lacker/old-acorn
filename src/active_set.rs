@@ -879,7 +879,7 @@ mod tests {
     #[test]
     fn test_matching_entire_literal() {
         let mut set = ActiveSet::new();
-        let mut step = ProofStep::mock("!c2(c0(c0(x0))) | c1(x0) != x0");
+        let mut step = ProofStep::mock("not c2(c0(c0(x0))) or c1(x0) != x0");
         step.truthiness = Truthiness::Factual;
         set.activate(step);
         let mut step = ProofStep::mock("c1(c3) = c3");
@@ -888,7 +888,7 @@ mod tests {
         assert_eq!(new_clauses.len(), 1);
         assert_eq!(
             new_clauses[0].clause.to_string(),
-            "!c2(c0(c0(c3)))".to_string()
+            "not c2(c0(c0(c3)))".to_string()
         );
     }
 
@@ -898,13 +898,13 @@ mod tests {
         let mut set = ActiveSet::new();
 
         // Nonreflexive rule of less-than
-        let step = ProofStep::mock("!c1(x0, x0)");
+        let step = ProofStep::mock("not c1(x0, x0)");
         set.activate(step);
 
         // Trichotomy
-        let clause = Clause::parse("c1(x0, x1) | c1(x1, x0) | x0 = x1");
+        let clause = Clause::parse("c1(x0, x1) or c1(x1, x0) or x0 = x1");
         let output = ActiveSet::equality_factoring(&clause);
-        assert_eq!(output[0].to_string(), "c1(x0, x0) | x0 = x0");
+        assert_eq!(output[0].to_string(), "c1(x0, x0) or x0 = x0");
     }
 
     #[test]
