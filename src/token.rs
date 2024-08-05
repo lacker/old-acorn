@@ -40,7 +40,7 @@ pub enum TokenType {
     If,
     By,
     Function,
-    Struct,
+    Structure,
     Import,
     True,
     False,
@@ -261,7 +261,7 @@ impl TokenType {
             TokenType::If => "if",
             TokenType::By => "by",
             TokenType::Function => "function",
-            TokenType::Struct => "struct",
+            TokenType::Structure => "structure",
             TokenType::Import => "import",
             TokenType::True => "true",
             TokenType::False => "false",
@@ -270,7 +270,7 @@ impl TokenType {
             TokenType::Asterisk => "*",
             TokenType::Percent => "%",
             TokenType::Slash => "/",
-            TokenType::Numeral => "<number>",
+            TokenType::Numeral => "<numeral>",
             TokenType::Default => "default",
             TokenType::From => "from",
             TokenType::Solve => "solve",
@@ -424,7 +424,7 @@ impl Token {
             | TokenType::If
             | TokenType::By
             | TokenType::Function
-            | TokenType::Struct
+            | TokenType::Structure
             | TokenType::Import
             | TokenType::True
             | TokenType::False
@@ -560,7 +560,7 @@ impl Token {
                             "if" => TokenType::If,
                             "by" => TokenType::By,
                             "function" => TokenType::Function,
-                            "struct" => TokenType::Struct,
+                            "structure" => TokenType::Structure,
                             "import" => TokenType::Import,
                             "true" => TokenType::True,
                             "false" => TokenType::False,

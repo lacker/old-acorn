@@ -1165,9 +1165,9 @@ mod tests {
     }
 
     #[test]
-    fn test_struct_new_equation() {
+    fn test_structure_new_equation() {
         let text = r#"
-            struct Pair {
+            structure Pair {
                 first: Bool
                 second: Bool
             }
@@ -1177,9 +1177,9 @@ mod tests {
     }
 
     #[test]
-    fn test_struct_first_member_equation() {
+    fn test_structure_first_member_equation() {
         let text = r#"
-            struct Pair {
+            structure Pair {
                 first: Bool
                 second: Bool
             }
@@ -1189,9 +1189,9 @@ mod tests {
     }
 
     #[test]
-    fn test_struct_second_member_equation() {
+    fn test_structure_second_member_equation() {
         let text = r#"
-            struct Pair {
+            structure Pair {
                 first: Bool
                 second: Bool
             }

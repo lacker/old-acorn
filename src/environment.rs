@@ -1145,7 +1145,7 @@ impl Environment {
                 Ok(())
             }
 
-            StatementInfo::Struct(ss) => {
+            StatementInfo::Structure(ss) => {
                 self.add_other_lines(statement);
                 if self.bindings.has_type_name(&ss.name) {
                     return Err(Error::new(
@@ -2157,11 +2157,11 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     }
 
     #[test]
-    fn test_struct_new_definition() {
+    fn test_structure_new_definition() {
         let mut env = Environment::new_test();
         env.add(
             r#"
-        struct BoolPair {
+        structure BoolPair {
             first: Bool
             second: Bool
         }
@@ -2173,14 +2173,14 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
     }
 
     #[test]
-    fn test_struct_cant_contain_itself() {
+    fn test_structure_cant_contain_itself() {
         // It seems like this would be okay, but type theory says it isn't okay, and
         // there's definitely a paradox if we allow full self-reference in type construction,
         // so let's ban it.
         let mut env = Environment::new_test();
         env.bad(
             r#"
-        struct InfiniteBools {
+        structure InfiniteBools {
             head: Bool
             tail: InfiniteBools
         }
@@ -2193,7 +2193,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         let mut env = Environment::new_test();
         env.bad(
             r#"
-        struct NaiveSet {
+        structure NaiveSet {
             set: NaiveSet -> Bool 
         }
         "#,
@@ -2667,7 +2667,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         env.add(
             r#"
             type Nat: axiom
-            struct NatPair {
+            structure NatPair {
                 first: Nat
                 second: Nat
             }

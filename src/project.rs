@@ -936,7 +936,7 @@ mod tests {
         p.mock(
             "/mock/boolpair.ac",
             r#"
-            struct BoolPair {
+            structure BoolPair {
                 first: Bool
                 second: Bool
             }
@@ -960,12 +960,12 @@ mod tests {
     }
 
     #[test]
-    fn test_struct_aliasing() {
+    fn test_structure_aliasing() {
         let mut p = Project::new_mock();
         p.mock(
             "/mock/stuff.ac",
             r#"
-            struct Foo {
+            structure Foo {
                 member: Bool
             }
             type Bar: Foo

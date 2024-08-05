@@ -664,7 +664,7 @@ theorem has_prime_divisor(n: Nat) {
     }
 }
 
-struct NatPair {
+structure NatPair {
     first: Nat
     second: Nat
 }

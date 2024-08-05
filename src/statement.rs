@@ -119,7 +119,7 @@ pub struct FunctionSatisfyStatement {
 }
 
 // Struct statements define a new type
-pub struct StructStatement {
+pub struct StructureStatement {
     pub name: String,
     pub name_token: Token,
 
@@ -177,7 +177,7 @@ pub enum StatementInfo {
     If(IfStatement),
     VariableSatisfy(VariableSatisfyStatement),
     FunctionSatisfy(FunctionSatisfyStatement),
-    Struct(StructStatement),
+    Structure(StructureStatement),
     Import(ImportStatement),
     Class(ClassStatement),
     Default(DefaultStatement),
@@ -583,7 +583,7 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
                 return Ok(Statement {
                     first_token: keyword,
                     last_token: token,
-                    statement: StatementInfo::Struct(StructStatement {
+                    statement: StatementInfo::Structure(StructureStatement {
                         name,
                         name_token,
                         fields,
@@ -845,9 +845,9 @@ impl Statement {
                 Ok(())
             }
 
-            StatementInfo::Struct(ss) => {
+            StatementInfo::Structure(ss) => {
                 let new_indentation = add_indent(indentation);
-                write!(f, "struct {} {{\n", ss.name)?;
+                write!(f, "structure {} {{\n", ss.name)?;
                 for (name, type_expr) in &ss.fields {
                     write!(f, "{}{}: {}\n", new_indentation, name, type_expr)?;
                 }
@@ -950,7 +950,7 @@ impl Statement {
                         let s = parse_if_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
-                    TokenType::Struct => {
+                    TokenType::Structure => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_struct_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
@@ -1284,13 +1284,13 @@ mod tests {
     }
 
     #[test]
-    fn test_struct_names_titlecased() {
+    fn test_structure_names_titlecased() {
         ok(indoc! {"
-        struct Foo {
+        structure Foo {
             bar: Nat
         }"});
         fail(indoc! {"
-        struct foo {
+        structure foo {
             bar: Nat
         }"});
     }
@@ -1364,9 +1364,9 @@ mod tests {
     }
 
     #[test]
-    fn test_struct_statement() {
+    fn test_structure_statement() {
         ok(indoc! {"
-        struct NatPair {
+        structure NatPair {
             first: Nat
             second: Nat
         }"});
