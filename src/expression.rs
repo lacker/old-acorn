@@ -602,7 +602,8 @@ fn parse_partial_expressions(
             | TokenType::Numeral
             | TokenType::Axiom
             | TokenType::True
-            | TokenType::False => {
+            | TokenType::False
+            | TokenType::SelfToken => {
                 partials.push_back(PartialExpression::Expression(Expression::Singleton(token)));
             }
 

@@ -707,6 +707,14 @@ impl BindingMap {
                         )?;
                         Ok(NamedEntity::Value(value))
                     }
+                    TokenType::SelfToken => {
+                        if let Some((i, t)) = stack.get(name) {
+                            // This is a stack variable
+                            Ok(NamedEntity::Value(AcornValue::Variable(*i, t.clone())))
+                        } else {
+                            Err(Error::new(name_token, "unexpected location for 'self'"))
+                        }
+                    }
                     t => Err(Error::new(name_token, &format!("unexpected {:?} token", t))),
                 }
             }
@@ -875,7 +883,7 @@ impl BindingMap {
                     check_type(token, expected_type, &AcornType::Bool)?;
                     Ok(AcornValue::Bool(token.token_type == TokenType::True))
                 }
-                TokenType::Identifier | TokenType::Numeral => {
+                TokenType::Identifier | TokenType::Numeral | TokenType::SelfToken => {
                     let entity = self.evaluate_name(token, project, stack, None)?;
                     Ok(entity.expect_value(expected_type, token)?)
                 }

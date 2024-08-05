@@ -55,6 +55,7 @@ pub enum TokenType {
     Solve,
     Problem,
     Satisfy,
+    SelfToken,
 }
 
 // The token types that we export via the language server protocol
@@ -276,6 +277,7 @@ impl TokenType {
             TokenType::Solve => "solve",
             TokenType::Problem => "problem",
             TokenType::Satisfy => "satisfy",
+            TokenType::SelfToken => "self",
         }
     }
 
@@ -434,7 +436,8 @@ impl Token {
             | TokenType::Satisfy
             | TokenType::Not
             | TokenType::Or
-            | TokenType::And => Some(SemanticTokenType::KEYWORD),
+            | TokenType::And
+            | TokenType::SelfToken => Some(SemanticTokenType::KEYWORD),
 
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
@@ -572,6 +575,7 @@ impl Token {
                             "and" => TokenType::And,
                             "or" => TokenType::Or,
                             "not" => TokenType::Not,
+                            "self" => TokenType::SelfToken,
                             _ => TokenType::Identifier,
                         }
                     }
@@ -720,6 +724,7 @@ impl TokenIter {
     pub fn expect_variable_name(&mut self, numeral_ok: bool) -> Result<Token> {
         let name_token = self.expect_token()?;
         match name_token.token_type {
+            TokenType::SelfToken => {}
             TokenType::Identifier => match name_token.text().chars().next() {
                 Some(c) => {
                     if !c.is_ascii_lowercase() {
