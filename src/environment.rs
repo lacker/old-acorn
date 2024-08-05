@@ -1614,18 +1614,11 @@ impl Environment {
                         None => return Err(format!("block at path {:?} has no goal", path)),
                     };
 
-                    let proof_insertion_line = if block.env.implicit {
-                        // Insert the proof, along with an explicit block, after the statement
-                        block.env.last_line() + 1
-                    } else {
-                        // Insert the proof at the end of the existing block
-                        block.env.last_line()
-                    };
                     return Ok(block.env.make_goal_context(
                         global_facts,
                         local_facts,
                         goal.clone(),
-                        proof_insertion_line,
+                        block.env.last_line(),
                     ));
                 }
                 env = &block.env;

@@ -269,8 +269,11 @@ class SearchPanel implements Disposable {
   }
 
   // Inserts a proof at the given line.
-  // If addBlock is true, the inserted code will be wrapped in a "by" block.
-  // Code already at that line will be shifted down, so that it follows the inserted code.
+  // If addBlock is true, the inserted code will be wrapped in a "by" block and inserted at
+  // the end of the line.
+  // If addBlock is false, the inserted code will be inserted at the start of the line.
+  // Either way, any code after the insertion will be shifted down, so that it follows
+  // the inserted code.
   async insertProof(
     uri: string,
     version: number,
@@ -331,7 +334,7 @@ class SearchPanel implements Disposable {
 
     if (addBlock) {
       let text = " by {\n" + formatted.join("") + "}";
-      await this.insertAtLineEnd(editor, line - 1, text);
+      await this.insertAtLineEnd(editor, line, text);
     } else {
       await this.insertAtLineStart(editor, line, formatted.join(""));
     }

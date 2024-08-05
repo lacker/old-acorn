@@ -101,6 +101,8 @@ pub struct ProofStepInfo {
 #[serde(rename_all = "camelCase")]
 pub struct SearchStatus {
     // Code for the proof that can be inserted.
+    // This code has a standardized indentation. The base level is zero, and tabs are used for
+    // nexted levels. The UI is responsible for making indentation match the surroundings.
     // If we don't have a proof, this is None.
     pub code: Option<Vec<String>>,
 
@@ -192,7 +194,8 @@ pub struct SearchResponse {
     pub goal_range: Option<Range>,
 
     // The line where we would insert a proof for this goal.
-    // We insert proofs at the beginning of the line.
+    // For "by" blocks, we add the keyword at the end of the line.
+    // For other blocks, we insert the proof at the beginning of the line.
     pub proof_insertion_line: u32,
 
     // Whether the goal already has an appropriate block to put the proof in.
