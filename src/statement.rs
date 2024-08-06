@@ -191,6 +191,7 @@ pub enum StatementInfo {
     VariableSatisfy(VariableSatisfyStatement),
     FunctionSatisfy(FunctionSatisfyStatement),
     Structure(StructureStatement),
+    Inductive(InductiveStatement),
     Import(ImportStatement),
     Class(ClassStatement),
     Numerals(NumeralsStatement),
@@ -635,7 +636,15 @@ fn parse_inductive_statement(keyword: Token, tokens: &mut TokenIter) -> Result<S
                         "inductive types must have a constructor",
                     ));
                 }
-                todo!("return a statement");
+                return Ok(Statement {
+                    first_token: keyword,
+                    last_token: tokens.next().unwrap(),
+                    statement: StatementInfo::Inductive(InductiveStatement {
+                        name: type_token.to_string(),
+                        name_token: type_token,
+                        constructors,
+                    }),
+                });
             }
             _ => {}
         }
@@ -897,6 +906,18 @@ impl Statement {
                 write!(f, "structure {} {{\n", ss.name)?;
                 for (name, type_expr) in &ss.fields {
                     write!(f, "{}{}: {}\n", new_indentation, name, type_expr)?;
+                }
+                write!(f, "{}}}", indentation)
+            }
+
+            StatementInfo::Inductive(is) => {
+                let new_indentation = add_indent(indentation);
+                write!(f, "inductive {} {{\n", is.name)?;
+                for (name, type_expr) in &is.constructors {
+                    match type_expr {
+                        Some(te) => write!(f, "{}{}{}\n", new_indentation, name, te)?,
+                        None => write!(f, "{}{}\n", new_indentation, name)?,
+                    }
                 }
                 write!(f, "{}}}", indentation)
             }

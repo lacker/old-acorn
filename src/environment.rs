@@ -1251,6 +1251,21 @@ impl Environment {
                 Ok(())
             }
 
+            StatementInfo::Inductive(is) => {
+                self.add_other_lines(statement);
+                if self.bindings.has_type_name(&is.name) {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        "type name already defined in this scope",
+                    ));
+                }
+
+                // Add the new type first, because we can have self-reference in the inductive type.
+                let inductive_type = self.bindings.add_data_type(&is.name);
+
+                todo!("inductive statements {}", inductive_type);
+            }
+
             StatementInfo::Import(is) => {
                 self.add_other_lines(statement);
 
