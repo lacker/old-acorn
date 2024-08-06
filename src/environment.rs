@@ -1259,6 +1259,10 @@ impl Environment {
                         "type name already defined in this scope",
                     ));
                 }
+                let range = Range {
+                    start: statement.first_token.start_pos(),
+                    end: is.name_token.end_pos(),
+                };
 
                 // Add the new type first, because we can have self-reference in the inductive type.
                 let inductive_type = self.bindings.add_data_type(&is.name);
@@ -1299,6 +1303,40 @@ impl Environment {
                         .add_constant(constructor_name, vec![], constructor_type, None);
                     constructor_fns
                         .push(self.bindings.get_constant_value(constructor_name).unwrap());
+                }
+
+                // The "no confusion" property. Different constructors give different results.
+                for i in 0..constructors.len() {
+                    let (_, i_arg_types) = &constructors[i];
+                    let i_fn = constructor_fns[i].clone();
+                    let i_vars: Vec<_> = i_arg_types
+                        .iter()
+                        .enumerate()
+                        .map(|(k, t)| AcornValue::Variable(k as AtomId, t.clone()))
+                        .collect();
+                    let i_app = AcornValue::new_apply(i_fn, i_vars);
+                    for j in 0..i {
+                        let (_, j_arg_types) = &constructors[j];
+                        let j_fn = constructor_fns[j].clone();
+                        let j_vars: Vec<_> = j_arg_types
+                            .iter()
+                            .enumerate()
+                            .map(|(k, t)| {
+                                AcornValue::Variable((k + i_arg_types.len()) as AtomId, t.clone())
+                            })
+                            .collect();
+                        let j_app = AcornValue::new_apply(j_fn, j_vars);
+                        let inequality = AcornValue::new_not_equals(i_app.clone(), j_app);
+                        let mut quantifiers = i_arg_types.clone();
+                        quantifiers.extend(j_arg_types.clone());
+                        let claim = AcornValue::new_forall(quantifiers, inequality);
+                        self.add_node(
+                            project,
+                            true,
+                            Proposition::definition(claim, self.module_id, range, is.name.clone()),
+                            None,
+                        );
+                    }
                 }
 
                 Ok(())
