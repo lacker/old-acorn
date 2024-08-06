@@ -1201,6 +1201,18 @@ mod tests {
     }
 
     #[test]
+    fn test_inductive_no_confusion_property() {
+        let text = r#"
+            inductive Nat {
+                zero
+                suc(Nat)
+            }
+            theorem goal(a: Nat) { Nat.suc(a) != Nat.zero }
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
+
+    #[test]
     fn test_proving_parametric_theorem() {
         let text = r#"
             theorem goal<T>(a: T, b: T, c: T) {
