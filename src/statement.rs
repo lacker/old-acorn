@@ -120,13 +120,23 @@ pub struct FunctionSatisfyStatement {
     pub body: Option<Body>,
 }
 
-// Struct statements define a new type
+// Struct statements define a new type by combining existing types
 pub struct StructureStatement {
     pub name: String,
     pub name_token: Token,
 
     // Each field contains a field name-token and a type expression
     pub fields: Vec<(Token, Expression)>,
+}
+
+// Inductive statements define a new type by defining a set of constructors.
+pub struct InductiveStatement {
+    pub name: String,
+    pub name_token: Token,
+
+    // Each constructor has a name token and an expression for a list of types.
+    // The types can refer to the inductive type itself.
+    pub constructors: Vec<(Token, Expression)>,
 }
 
 pub struct ImportStatement {
@@ -472,16 +482,15 @@ fn parse_define_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
 
 // Parses a type statement where the "type" keyword has already been found.
 fn parse_type_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = tokens.expect_type(TokenType::Identifier)?;
-    let name = name_token.text().to_string();
-    if !Token::is_valid_type_name(&name) {
-        return Err(Error::new(&name_token, "invalid type name"));
-    }
+    let name_token = tokens.expect_type_name()?;
     tokens.expect_type(TokenType::Colon)?;
     tokens.skip_newlines();
     let (type_expr, _) = Expression::parse_type(tokens, Terminator::Is(TokenType::NewLine))?;
     let last_token = type_expr.last_token().clone();
-    let ts = TypeStatement { name, type_expr };
+    let ts = TypeStatement {
+        name: name_token.to_string(),
+        type_expr,
+    };
     let statement = Statement {
         first_token: keyword,
         last_token,
@@ -562,13 +571,9 @@ fn parse_if_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statemen
     Ok(statement)
 }
 
-// Parses a struct statement where the "struct" keyword has already been found.
-fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = tokens.expect_type(TokenType::Identifier)?;
-    let name = name_token.text().to_string();
-    if !Token::is_valid_type_name(&name) {
-        return Err(Error::new(&name_token, "invalid struct name"));
-    }
+// Parses a structure statement where the "structure" keyword has already been found.
+fn parse_structure_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    let name_token = tokens.expect_type_name()?;
     tokens.expect_type(TokenType::LeftBrace)?;
     let mut fields = Vec::new();
     loop {
@@ -585,7 +590,7 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
                     first_token: keyword,
                     last_token: token,
                     statement: StatementInfo::Structure(StructureStatement {
-                        name,
+                        name: name_token.to_string(),
                         name_token,
                         fields,
                     }),
@@ -607,6 +612,12 @@ fn parse_struct_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Stat
             }
         }
     }
+}
+
+// Parses an inductive statement where the "inductive" keyword has already been found.
+fn parse_inductive_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
+    let name_token = tokens.expect_variable_name(false)?;
+    todo!("parse_inductive_statement");
 }
 
 // Parses a module component list, like "foo.bar.baz".
@@ -679,11 +690,7 @@ fn parse_from_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statem
 
 // Parses a class statement where the "class" keyword has already been found.
 fn parse_class_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = tokens.expect_type(TokenType::Identifier)?;
-    let name = name_token.text().to_string();
-    if !Token::is_valid_type_name(&name) {
-        return Err(Error::new(&name_token, "invalid class name"));
-    }
+    let name_token = tokens.expect_type_name()?;
     let left_brace = tokens.expect_type(TokenType::LeftBrace)?;
     let (statements, right_brace) = parse_block(tokens)?;
     let body = Body {
@@ -692,7 +699,7 @@ fn parse_class_statement(keyword: Token, tokens: &mut TokenIter) -> Result<State
         right_brace: right_brace.clone(),
     };
     let cs = ClassStatement {
-        name,
+        name: name_token.to_string(),
         name_token,
         body,
     };
@@ -953,7 +960,7 @@ impl Statement {
                     }
                     TokenType::Structure => {
                         let keyword = tokens.next().unwrap();
-                        let s = parse_struct_statement(keyword, tokens)?;
+                        let s = parse_structure_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
                     TokenType::Import => {
@@ -1400,6 +1407,14 @@ mod tests {
     #[test]
     fn test_inductive_fields_need_newlines() {
         fail("inductive Nat { zero }");
+    }
+
+    #[test]
+    fn test_inductive_statements_must_have_base_case() {
+        fail(indoc! {"
+        inductive Nat {
+            suc(Nat)
+        }"});
     }
 
     #[test]

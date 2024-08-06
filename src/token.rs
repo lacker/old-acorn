@@ -621,19 +621,6 @@ impl Token {
         }
         false
     }
-
-    pub fn is_valid_type_name(name: &str) -> bool {
-        // Get the first character
-        match name.chars().next() {
-            None => return false,
-            Some(c) => {
-                if !c.is_ascii_uppercase() {
-                    return false;
-                }
-            }
-        }
-        name.chars().all(|c| c.is_alphanumeric())
-    }
 }
 
 #[derive(Debug)]
@@ -743,6 +730,26 @@ impl TokenIter {
                 }
             }
             _ => return Err(Error::new(&name_token, "expected a variable name")),
+        }
+        Ok(name_token)
+    }
+
+    // Pops off one token, expecting it to be a type name.
+    pub fn expect_type_name(&mut self) -> Result<Token> {
+        let name_token = self.expect_type(TokenType::Identifier)?;
+        for (i, char) in name_token.text().chars().enumerate() {
+            if i == 0 {
+                if !char.is_ascii_uppercase() {
+                    return Err(Error::new(
+                        &name_token,
+                        "type names must start with an uppercase letter",
+                    ));
+                }
+            } else {
+                if !char.is_alphanumeric() {
+                    return Err(Error::new(&name_token, "type names must be alphanumeric"));
+                }
+            }
         }
         Ok(name_token)
     }

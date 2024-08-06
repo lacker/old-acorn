@@ -792,13 +792,6 @@ impl Environment {
         match &statement.statement {
             StatementInfo::Type(ts) => {
                 self.add_other_lines(statement);
-                if !Token::is_valid_type_name(&ts.name) {
-                    return Err(Error::new(
-                        &ts.type_expr.token(),
-                        &format!("invalid type name '{}'.", ts.name),
-                    ));
-                }
-
                 if self.bindings.name_in_use(&ts.name) {
                     return Err(Error::new(
                         &ts.type_expr.token(),

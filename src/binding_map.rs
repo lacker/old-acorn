@@ -422,6 +422,15 @@ impl BindingMap {
         }
     }
 
+    // Evaluates a list of types.
+    pub fn evaluate_type_list(
+        &self,
+        project: &Project,
+        expression: &Expression,
+    ) -> token::Result<Vec<AcornType>> {
+        todo!("evaluate_type_list");
+    }
+
     // Evaluates a variable declaration in this context.
     // expect_self is whether we expect this to be a "self" declaration.
     pub fn evaluate_declaration(
