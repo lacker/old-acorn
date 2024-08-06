@@ -1263,9 +1263,9 @@ impl Environment {
                 // Add the new type first, because we can have self-reference in the inductive type.
                 let inductive_type = self.bindings.add_data_type(&is.name);
 
-                // Parse a (name token, type list) pair for each constructor.
-                let mut has_base = false;
+                // Parse (member name, list of arg types) for each constructor.
                 let mut constructors = vec![];
+                let mut has_base = false;
                 for (name_token, type_list_expr) in &is.constructors {
                     let type_list = match type_list_expr {
                         Some(expr) => {
@@ -1280,7 +1280,8 @@ impl Environment {
                         // This provides a base case
                         has_base = true;
                     }
-                    constructors.push((name_token.text(), type_list));
+                    let member_name = format!("{}.{}", is.name, name_token.text());
+                    constructors.push((member_name, type_list));
                 }
                 if !has_base {
                     return Err(Error::new(
@@ -1289,7 +1290,18 @@ impl Environment {
                     ));
                 }
 
-                todo!("inductive statements {}", inductive_type);
+                // Define the constructors.
+                let mut constructor_fns = vec![];
+                for (constructor_name, type_list) in &constructors {
+                    let constructor_type =
+                        AcornType::new_functional(type_list.clone(), inductive_type.clone());
+                    self.bindings
+                        .add_constant(constructor_name, vec![], constructor_type, None);
+                    constructor_fns
+                        .push(self.bindings.get_constant_value(constructor_name).unwrap());
+                }
+
+                Ok(())
             }
 
             StatementInfo::Import(is) => {
