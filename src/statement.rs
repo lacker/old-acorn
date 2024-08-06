@@ -616,7 +616,7 @@ fn parse_structure_statement(keyword: Token, tokens: &mut TokenIter) -> Result<S
 
 // Parses an inductive statement where the "inductive" keyword has already been found.
 fn parse_inductive_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = tokens.expect_variable_name(false)?;
+    let name_token = tokens.expect_type_name()?;
     todo!("parse_inductive_statement");
 }
 
@@ -961,6 +961,11 @@ impl Statement {
                     TokenType::Structure => {
                         let keyword = tokens.next().unwrap();
                         let s = parse_structure_statement(keyword, tokens)?;
+                        return Ok((Some(s), None));
+                    }
+                    TokenType::Inductive => {
+                        let keyword = tokens.next().unwrap();
+                        let s = parse_inductive_statement(keyword, tokens)?;
                         return Ok((Some(s), None));
                     }
                     TokenType::Import => {
