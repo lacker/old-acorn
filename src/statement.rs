@@ -1374,13 +1374,32 @@ mod tests {
     }
 
     #[test]
-    fn test_no_empty_structs() {
-        fail("struct Foo {}");
+    fn test_no_empty_structures() {
+        fail("structure Foo {}");
     }
 
     #[test]
-    fn test_struct_fields_need_newlines() {
-        fail("struct Foo { bar: Nat }");
+    fn test_structure_fields_need_newlines() {
+        fail("structure Foo { bar: Nat }");
+    }
+
+    #[test]
+    fn test_inductive_statement() {
+        ok(indoc! {"
+        inductive Nat {
+            zero
+            suc(Nat)
+        }"});
+    }
+
+    #[test]
+    fn test_no_empty_inductive_statements() {
+        fail("inductive Nat {}");
+    }
+
+    #[test]
+    fn test_inductive_fields_need_newlines() {
+        fail("inductive Nat { zero }");
     }
 
     #[test]

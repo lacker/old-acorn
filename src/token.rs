@@ -56,6 +56,7 @@ pub enum TokenType {
     Problem,
     Satisfy,
     SelfToken,
+    Inductive,
 }
 
 // The token types that we export via the language server protocol
@@ -278,6 +279,7 @@ impl TokenType {
             TokenType::Problem => "problem",
             TokenType::Satisfy => "satisfy",
             TokenType::SelfToken => "self",
+            TokenType::Inductive => "inductive",
         }
     }
 
@@ -437,7 +439,8 @@ impl Token {
             | TokenType::Not
             | TokenType::Or
             | TokenType::And
-            | TokenType::SelfToken => Some(SemanticTokenType::KEYWORD),
+            | TokenType::SelfToken
+            | TokenType::Inductive => Some(SemanticTokenType::KEYWORD),
 
             TokenType::NewLine => {
                 // Comments are encoded as newlines because syntactically they act like newlines.
@@ -576,6 +579,7 @@ impl Token {
                             "or" => TokenType::Or,
                             "not" => TokenType::Not,
                             "self" => TokenType::SelfToken,
+                            "inductive" => TokenType::Inductive,
                             _ => TokenType::Identifier,
                         }
                     }
