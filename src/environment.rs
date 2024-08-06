@@ -1263,6 +1263,32 @@ impl Environment {
                 // Add the new type first, because we can have self-reference in the inductive type.
                 let inductive_type = self.bindings.add_data_type(&is.name);
 
+                // Parse a (name token, type list) pair for each constructor.
+                let mut has_base = false;
+                let mut constructors = vec![];
+                for (name_token, type_list_expr) in &is.constructors {
+                    let type_list = match type_list_expr {
+                        Some(expr) => {
+                            let mut type_list = vec![];
+                            self.bindings
+                                .evaluate_type_list(project, expr, &mut type_list)?;
+                            type_list
+                        }
+                        None => vec![],
+                    };
+                    if !type_list.contains(&inductive_type) {
+                        // This provides a base case
+                        has_base = true;
+                    }
+                    constructors.push((name_token.text(), type_list));
+                }
+                if !has_base {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        "inductive type must have a base case",
+                    ));
+                }
+
                 todo!("inductive statements {}", inductive_type);
             }
 
@@ -2174,9 +2200,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
 
     #[test]
     fn test_structure_cant_contain_itself() {
-        // It seems like this would be okay, but type theory says it isn't okay, and
-        // there's definitely a paradox if we allow full self-reference in type construction,
-        // so let's ban it.
+        // If you want a type to contain itself, it has to be inductive, not a structure.
         let mut env = Environment::new_test();
         env.bad(
             r#"
@@ -2185,6 +2209,49 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             tail: InfiniteBools
         }
         "#,
+        );
+    }
+
+    #[test]
+    fn test_inductive_new_definition() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+        inductive Nat {
+            zero
+            suc(Nat)
+        }
+        theorem goal(n: Nat) {
+            n = Nat.zero or exists(k: Nat) { n = Nat.suc(k) }
+        }
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_inductive_constructor_can_be_member() {
+        let mut env = Environment::new_test();
+        env.add(
+            r#"
+        inductive Nat {
+            zero
+            suc(Nat)
+        }
+        theorem goal(n: Nat) {
+            n = Nat.zero or exists(k: Nat) { n = k.suc }
+        }
+        "#,
+        );
+    }
+
+    #[test]
+    fn test_inductive_statements_must_have_base_case() {
+        let mut env = Environment::new_test();
+        env.bad(
+            r#"
+        inductive Nat {
+            suc(Nat)
+        }"#,
         );
     }
 

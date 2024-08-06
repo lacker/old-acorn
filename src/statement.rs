@@ -1487,14 +1487,6 @@ mod tests {
     }
 
     #[test]
-    fn test_inductive_statements_must_have_base_case() {
-        fail(indoc! {"
-        inductive Nat {
-            suc(Nat)
-        }"});
-    }
-
-    #[test]
     fn test_parametric_theorem() {
         ok(indoc! {"
         axiom recursion_base<T>(f: T -> T, a: T) {
