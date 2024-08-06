@@ -598,12 +598,13 @@ fn parse_partial_expressions(
                 partials.push_back(PartialExpression::Expression(group));
             }
 
-            TokenType::Identifier
-            | TokenType::Numeral
-            | TokenType::Axiom
-            | TokenType::True
-            | TokenType::False
-            | TokenType::SelfToken => {
+            TokenType::Identifier | TokenType::Axiom => {
+                partials.push_back(PartialExpression::Expression(Expression::Singleton(token)));
+            }
+            TokenType::Numeral | TokenType::True | TokenType::False | TokenType::SelfToken => {
+                if expected_type == ExpressionType::Type {
+                    return Err(Error::new(&token, "expected a type but found a value"));
+                }
                 partials.push_back(PartialExpression::Expression(Expression::Singleton(token)));
             }
 
@@ -864,16 +865,16 @@ mod tests {
 
     #[test]
     fn test_quantifiers() {
-        check_value("forall(x: nat) { (suc(x) = x + 1) }");
-        check_value("exists(x: nat) { (x = 0) }");
-        check_value("exists(f: (nat, nat) -> nat) { (f(0, 0) = 0) }");
+        check_value("forall(x: Nat) { (suc(x) = x + 1) }");
+        check_value("exists(x: Nat) { (x = 0) }");
+        check_value("exists(f: (Nat, Nat) -> Nat) { (f(0, 0) = 0) }");
     }
 
     #[test]
     fn test_type_parsing() {
-        check_type("bool");
-        check_type("bool -> bool");
-        check_type("(bool, bool) -> bool");
+        check_type("Bool");
+        check_type("Bool -> Bool");
+        check_type("(Bool, Bool) -> Bool");
     }
 
     #[test]

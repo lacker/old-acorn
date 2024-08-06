@@ -576,11 +576,10 @@ fn parse_structure_statement(keyword: Token, tokens: &mut TokenIter) -> Result<S
     let name_token = tokens.expect_type_name()?;
     tokens.expect_type(TokenType::LeftBrace)?;
     let mut fields = Vec::new();
-    loop {
-        let token = tokens.expect_token()?;
+    while let Some(token) = tokens.peek() {
         match token.token_type {
             TokenType::NewLine => {
-                continue;
+                tokens.next();
             }
             TokenType::RightBrace => {
                 if fields.len() == 0 {
@@ -588,7 +587,7 @@ fn parse_structure_statement(keyword: Token, tokens: &mut TokenIter) -> Result<S
                 }
                 return Ok(Statement {
                     first_token: keyword,
-                    last_token: token,
+                    last_token: tokens.next().unwrap(),
                     statement: StatementInfo::Structure(StructureStatement {
                         name: name_token.to_string(),
                         name_token,
@@ -596,7 +595,8 @@ fn parse_structure_statement(keyword: Token, tokens: &mut TokenIter) -> Result<S
                     }),
                 });
             }
-            TokenType::Identifier => {
+            _ => {
+                let token = tokens.expect_variable_name(false)?;
                 tokens.expect_type(TokenType::Colon)?;
                 let (type_expr, t) = Expression::parse_type(
                     tokens,
@@ -607,16 +607,17 @@ fn parse_structure_statement(keyword: Token, tokens: &mut TokenIter) -> Result<S
                 }
                 fields.push((token, type_expr));
             }
-            _ => {
-                return Err(Error::new(&token, "expected field name"));
-            }
         }
     }
+    Err(Error::new(&keyword, "unterminated structure statement"))
 }
 
 // Parses an inductive statement where the "inductive" keyword has already been found.
 fn parse_inductive_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
     let name_token = tokens.expect_type_name()?;
+    tokens.expect_type(TokenType::LeftBrace)?;
+    // let mut constructors = vec![];
+
     todo!("parse_inductive_statement");
 }
 
@@ -1393,6 +1394,18 @@ mod tests {
     #[test]
     fn test_structure_fields_need_newlines() {
         fail("structure Foo { bar: Nat }");
+    }
+
+    #[test]
+    fn test_structure_fields_capitalized_correctly() {
+        fail(indoc! {"
+        structure fooBar {
+            foo: Bar
+        }"});
+        fail(indoc! {"
+        structure FooBar {
+            Foo: Bar
+        }"});
     }
 
     #[test]
