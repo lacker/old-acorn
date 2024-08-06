@@ -427,8 +427,19 @@ impl BindingMap {
         &self,
         project: &Project,
         expression: &Expression,
-    ) -> token::Result<Vec<AcornType>> {
-        todo!("evaluate_type_list");
+        output: &mut Vec<AcornType>,
+    ) -> token::Result<()> {
+        match expression {
+            Expression::Grouping(_, e, _) => self.evaluate_type_list(project, e, output),
+            Expression::Binary(left, token, right) if token.token_type == TokenType::Comma => {
+                self.evaluate_type_list(project, left, output)?;
+                self.evaluate_type_list(project, right, output)
+            }
+            e => {
+                output.push(self.evaluate_type(project, e)?);
+                Ok(())
+            }
+        }
     }
 
     // Evaluates a variable declaration in this context.
