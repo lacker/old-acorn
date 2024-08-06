@@ -478,7 +478,7 @@ impl Expression {
         Expression::parse(tokens, ExpressionType::Value, terminator)
     }
 
-    // Parse an expression that should represent a type.
+    // Parse an expression that should represent a type, or part of a type.
     pub fn parse_type(
         tokens: &mut TokenIter,
         terminator: Terminator,

@@ -135,8 +135,9 @@ pub struct InductiveStatement {
     pub name_token: Token,
 
     // Each constructor has a name token and an expression for a list of types.
+    // If the expression is None, the constructor is a base value.
     // The types can refer to the inductive type itself.
-    pub constructors: Vec<(Token, Expression)>,
+    pub constructors: Vec<(Token, Option<Expression>)>,
 }
 
 pub struct ImportStatement {
@@ -614,11 +615,48 @@ fn parse_structure_statement(keyword: Token, tokens: &mut TokenIter) -> Result<S
 
 // Parses an inductive statement where the "inductive" keyword has already been found.
 fn parse_inductive_statement(keyword: Token, tokens: &mut TokenIter) -> Result<Statement> {
-    let name_token = tokens.expect_type_name()?;
+    let type_token = tokens.expect_type_name()?;
     tokens.expect_type(TokenType::LeftBrace)?;
-    // let mut constructors = vec![];
-
-    todo!("parse_inductive_statement");
+    let mut constructors = vec![];
+    loop {
+        let next_type = match tokens.peek() {
+            Some(token) => token.token_type,
+            None => break,
+        };
+        match next_type {
+            TokenType::NewLine => {
+                tokens.next();
+                continue;
+            }
+            TokenType::RightBrace => {
+                if constructors.len() == 0 {
+                    return Err(Error::new(
+                        &type_token,
+                        "inductive types must have a constructor",
+                    ));
+                }
+                todo!("return a statement");
+            }
+            _ => {}
+        }
+        let name_token = tokens.expect_variable_name(true)?;
+        let next_type = match tokens.peek() {
+            Some(token) => token.token_type,
+            None => break,
+        };
+        if next_type == TokenType::NewLine {
+            // A no-argument constructor
+            constructors.push((name_token, None));
+            continue;
+        }
+        if next_type != TokenType::LeftParen {
+            return Err(Error::new(&name_token, "expected a constructor definition"));
+        }
+        let (type_list_expr, _) =
+            Expression::parse_type(tokens, Terminator::Is(TokenType::NewLine))?;
+        constructors.push((name_token, Some(type_list_expr)));
+    }
+    Err(Error::new(&keyword, "unterminated inductive statement"))
 }
 
 // Parses a module component list, like "foo.bar.baz".
