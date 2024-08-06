@@ -1339,6 +1339,35 @@ impl Environment {
                     }
                 }
 
+                // The "canonical form" principle. Any item of this type must be created by one
+                // of the constructors.
+                // It seems like this is implied by induction but let's just stick it in.
+                // x0 is going to be the "generic item of this type".
+                let mut disjunction = None;
+                for (i, constructor_fn) in constructor_fns.iter().enumerate() {
+                    let (_, arg_types) = &constructors[i];
+                    let args = arg_types
+                        .iter()
+                        .enumerate()
+                        .map(|(k, t)| AcornValue::Variable((k + 1) as AtomId, t.clone()))
+                        .collect();
+                    let app = AcornValue::new_apply(constructor_fn.clone(), args);
+                    let var = AcornValue::Variable(0, inductive_type.clone());
+                    let equality = AcornValue::new_equals(var, app);
+                    let exists = AcornValue::new_exists(arg_types.clone(), equality);
+                    disjunction = match disjunction {
+                        None => Some(exists),
+                        Some(d) => Some(AcornValue::new_or(d, exists)),
+                    };
+                }
+                let claim = AcornValue::new_forall(vec![inductive_type], disjunction.unwrap());
+                self.add_node(
+                    project,
+                    true,
+                    Proposition::definition(claim, self.module_id, range, is.name.clone()),
+                    None,
+                );
+
                 Ok(())
             }
 

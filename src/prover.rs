@@ -1213,6 +1213,18 @@ mod tests {
     }
 
     #[test]
+    fn test_inductive_canonical_form_principle() {
+        let text = r#"
+            inductive Nat {
+                zero
+                suc(Nat)
+            }
+            theorem goal(a: Nat) { a = Nat.zero or exists(b: Nat) { a = Nat.suc(b) } }
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
+
+    #[test]
     fn test_proving_parametric_theorem() {
         let text = r#"
             theorem goal<T>(a: T, b: T, c: T) {
