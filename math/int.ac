@@ -53,9 +53,42 @@ class Int {
 
 numerals Int
 
-let negate: Int -> Int = axiom
+define neg_nat(n: Nat) -> Int {
+    if n = Nat.0 {
+        0
+    } else {
+        Int.neg_suc(n - Nat.1)
+    }
+}
 
-axiom neg_zero { negate(0) = 0 }
+theorem neg_nat_zero { neg_nat(Nat.0) = 0 }
+
+define negate_case_1(a: Int, b: Int) -> Bool {
+    exists(n: Nat) {
+        a = from_nat(n) and b = neg_nat(n)
+    }
+}
+
+define negate_case_2(a: Int, b: Int) -> Bool {
+    exists(n: Nat) {
+        a = Int.neg_suc(n) and b = from_nat(n.suc)
+    }
+}
+
+let negate(a: Int) -> b: Int satisfy {
+    negate_case_1(a, b) or negate_case_2(a, b)
+}
+
+theorem neg_zero {
+    negate(0) = 0
+} by {
+    if negate_case_1(0, negate(0)) {
+        negate(0) = 0
+    } else {
+        negate_case_2(0, negate(0))
+        false
+    }
+}
 
 axiom neg_neg(a: Int) { negate(negate(a)) = a }
 
