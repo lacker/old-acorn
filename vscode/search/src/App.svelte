@@ -131,6 +131,10 @@
     <br />
     {#if searchResponse.status.outcome === null}
       <pre>Working...</pre>
+    {:else if searchResponse.status.outcome === "Inconsistent"}
+      <pre>Local assumptions are inconsistent.</pre>
+      <pre>If this is a proof by contradiction, put a `false` at the end of this block.</pre>
+      <pre>If there shouldn't be a contradiction, please report a bug!</pre>
     {:else if searchResponse.status.steps === null}
       <pre>Proof search failed.</pre>
     {:else if searchResponse.status.code === null}

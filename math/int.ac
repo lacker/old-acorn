@@ -1,10 +1,41 @@
 import nat_gcd
 from nat import Nat
-type Int: axiom
 
-let from_nat: Nat -> Int = axiom
-let negate: Int -> Int = axiom
-let abs: Int -> Nat = axiom
+inductive Int {
+    // The normal x -> x map
+    from_nat(Nat)
+
+    // x -> -(x+1)
+    neg_suc(Nat)
+}
+
+let from_nat: Nat -> Int = Int.from_nat
+
+// match syntax would be nicer for defining these basic functions on inductive types
+define abs_case_1(a: Int, n: Nat) -> Bool {
+    a = Int.from_nat(n)
+}
+
+define abs_case_2(a: Int, n: Nat) -> Bool {
+    exists(k: Nat) {
+        a = Int.neg_suc(k) and n = k.suc
+    }
+}
+
+let abs(a: Int) -> n: Nat satisfy {
+    abs_case_1(a, n) or abs_case_2(a, n)
+}
+
+theorem abs_from_nat(n: Nat) {
+    abs(from_nat(n)) = n
+} by {
+    if abs_case_1(from_nat(n), abs(from_nat(n))) {
+        abs(from_nat(n)) = n
+    } else {
+        abs_case_2(from_nat(n), abs(from_nat(n)))
+        false
+    }
+}
 
 class Int {
     let 0: Int = from_nat(Nat.0)
@@ -22,13 +53,13 @@ class Int {
 
 numerals Int
 
+let negate: Int -> Int = axiom
+
 axiom neg_zero { negate(0) = 0 }
 
 axiom neg_neg(a: Int) { negate(negate(a)) = a }
 
 axiom abs_neg(a: Int) { abs(negate(a)) = abs(a) }
-
-axiom abs_from_nat(n: Nat) { abs(from_nat(n)) = n }
 
 axiom neg_or_pos(a: Int) { a = from_nat(abs(a)) or a = negate(from_nat(abs(a))) }
 
