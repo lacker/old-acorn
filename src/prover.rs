@@ -1237,6 +1237,18 @@ mod tests {
     }
 
     #[test]
+    fn test_prover_gets_structural_induction() {
+        let text = r#"
+            inductive Nat {
+                zero
+                suc(Nat)
+            }
+            theorem goal(f: Nat -> Bool) { Nat.induction(f) }
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
+
+    #[test]
     fn test_proving_parametric_theorem() {
         let text = r#"
             theorem goal<T>(a: T, b: T, c: T) {
