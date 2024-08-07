@@ -1370,6 +1370,9 @@ impl Environment {
                 // Ie if Type.construct(x0, x1) = Type.construct(x2, x3) then x0 = x2 and x1 = x3.
                 for (i, constructor_fn) in constructor_fns.iter().enumerate() {
                     let (_, arg_types) = &constructors[i];
+                    if arg_types.is_empty() {
+                        continue;
+                    }
 
                     // First construct the equality.
                     // "Type.construct(x0, x1) = Type.construct(x2, x3)"
@@ -1390,7 +1393,27 @@ impl Environment {
                     let equality = AcornValue::new_equals(lhs, rhs);
 
                     // Then construct the implication, that the corresponding args are equal.
-                    // TODO
+                    let mut conjunction_parts = vec![];
+                    for (i, arg_type) in arg_types.iter().enumerate() {
+                        let left = AcornValue::Variable(i as AtomId, arg_type.clone());
+                        let right =
+                            AcornValue::Variable((i + arg_types.len()) as AtomId, arg_type.clone());
+                        let arg_equality = AcornValue::new_equals(left, right);
+                        conjunction_parts.push(arg_equality);
+                    }
+                    let conjunction = AcornValue::reduce(BinaryOp::And, conjunction_parts);
+                    let mut forall_types = arg_types.clone();
+                    forall_types.extend_from_slice(&arg_types);
+                    let claim = AcornValue::new_forall(
+                        forall_types,
+                        AcornValue::new_implies(equality, conjunction),
+                    );
+                    self.add_node(
+                        project,
+                        true,
+                        Proposition::definition(claim, self.module_id, range, is.name.clone()),
+                        None,
+                    );
                 }
 
                 Ok(())
