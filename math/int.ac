@@ -647,7 +647,7 @@ theorem mul_nat_suc(a: Int, n: Nat) { mul_nat(a, n.suc) = (mul_nat(a, n) + a) } 
 
 theorem mul_nat_distrib_right(a: Int, b: Int, n: Nat) { mul_nat(a + b, n) = (mul_nat(a, n) + mul_nat(b, n)) } by {
     define f(x: Nat) -> Bool { mul_nat_distrib_right(a, b, x) }
-    nat.induction(f)
+    Nat.induction(f)
 
     // Prove the base case
     mul_nat(a + b, nat.0) = 0

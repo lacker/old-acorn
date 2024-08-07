@@ -5,14 +5,6 @@ inductive Nat {
     suc(Nat)
 }
 
-theorem suc_injective(x: Nat, y: Nat) { x.suc = y.suc -> x = y }
-
-theorem suc_neq_zero(x: Nat) { x.suc != Nat.0 }
-
-axiom induction(f: Nat -> Bool) {
-    f(Nat.0) and forall(k: Nat) { f(k) -> f(k.suc) } -> forall(n: Nat) { f(n) }
-}
-
 define recursion<T>(f: T -> T, a: T, n: Nat) -> T { axiom }
 axiom recursion_base<T>(f: T -> T, a: T) { recursion(f, a, Nat.0) = a }
 axiom recursion_step<T>(f: T -> T, a: T, n: Nat) { recursion(f, a, n.suc) = f(recursion(f, a, n)) }
@@ -44,7 +36,7 @@ theorem one_plus_one { 1 + 1 = 2  } by {
 }
 
 theorem add_zero_left(a: Nat) { 0 + a = a } by {
-    induction(add_zero_left)
+    Nat.induction(add_zero_left)
     0 + 0 = 0
     add_zero_left(0)
     forall(x: Nat) {
@@ -60,7 +52,7 @@ theorem add_suc_right(a: Nat, b: Nat) { a + b.suc = (a + b).suc }
 
 theorem add_suc_left(a: Nat, b: Nat) { a.suc + b = (a + b).suc } by {
     define f(x: Nat) -> Bool { add_suc_left(a, x) }
-    induction(f)
+    Nat.induction(f)
     add_suc_left(a, 0)
     f(0)
     forall(x: Nat) {
@@ -76,7 +68,7 @@ theorem add_one_right(a: Nat) { a + 1 = a.suc }
 theorem add_one_left(a: Nat) { 1 + a = a.suc }
 
 theorem suc_ne(a: Nat) { a.suc != a } by {
-    induction(suc_ne)
+    Nat.induction(suc_ne)
     suc_ne(0)
     forall(x: Nat) {
         if suc_ne(x) {
@@ -88,7 +80,7 @@ theorem suc_ne(a: Nat) { a.suc != a } by {
 }
 
 theorem suc_suc_ne(a: Nat) { a.suc.suc != a } by {
-    induction(suc_suc_ne)
+    Nat.induction(suc_suc_ne)
     suc_suc_ne(0)
     forall(x: Nat) {
         if suc_suc_ne(x) {
@@ -99,7 +91,7 @@ theorem suc_suc_ne(a: Nat) { a.suc.suc != a } by {
 
 theorem add_comm(a: Nat, b: Nat) { a + b = b + a } by {
     define f(x: Nat) -> Bool { add_comm(x, b) }
-    induction(f)
+    Nat.induction(f)
     add_comm(0, b)
     f(0)
     forall(x: Nat) {
@@ -112,7 +104,7 @@ theorem add_comm(a: Nat, b: Nat) { a + b = b + a } by {
 
 theorem add_assoc(a: Nat, b: Nat, c: Nat) { a + b + c = a + (b + c) } by {
     define f(x: Nat) -> Bool { add_assoc(x, b, c) }
-    induction(f)
+    Nat.induction(f)
     forall(x: Nat) {
         if f(x) {
             x.suc + b + c = (x + b + c).suc
@@ -136,7 +128,7 @@ class Nat {
 theorem mul_zero_right(a: Nat) { a * 0 = 0 }
 
 theorem mul_zero_left(a: Nat) { 0 * a = 0 } by {
-    induction(mul_zero_left)
+    Nat.induction(mul_zero_left)
     mul_zero_left(0)
     forall(x: Nat) {
         if mul_zero_left(x) {
@@ -150,7 +142,7 @@ theorem mul_suc_right(a: Nat, b: Nat) { a * b.suc = a + a * b }
 
 theorem mul_suc_left(a: Nat, b: Nat) { a.suc * b = b + a * b } by {
     define f(x: Nat) -> Bool { mul_suc_left(a, x) }
-    induction(f)
+    Nat.induction(f)
     0 + a * 0 = 0
     f(0)
     forall(x: Nat) {
@@ -183,7 +175,7 @@ theorem mul_one_one { 1 * 1 = 1 } by {
 
 theorem mul_comm(a: Nat, b: Nat) { a * b = b * a } by {
     define f(x: Nat) -> Bool { mul_comm(x, b) }
-    induction(f)
+    Nat.induction(f)
     f(0)
     forall(x: Nat) {
         if f(x) {
@@ -207,7 +199,7 @@ theorem distrib_left(a: Nat, b: Nat, c: Nat) {
     a * (b + c) = a * b + a * c
 } by {
     define f(x: Nat) -> Bool { distrib_left(x, b, c) }
-    induction(f)
+    Nat.induction(f)
     0 * b + 0 = 0
     distrib_left(0, b, c)
     f(0)
@@ -236,7 +228,7 @@ theorem distrib_right(a: Nat, b: Nat, c: Nat) {
 
 theorem mul_assoc(a: Nat, b: Nat, c: Nat) { a * b * c = a * (b * c) } by {
     define f(x: Nat) -> Bool { mul_assoc(x, b, c) }
-    induction(f)
+    Nat.induction(f)
     f(0)
     forall(x: Nat) {
         if f(x) {
@@ -272,7 +264,7 @@ theorem lte_ref(a: Nat) { a <= a }
 
 theorem add_to_zero(a: Nat, b: Nat) { a + b = 0 -> a = 0 and b = 0 } by {
     define f(x: Nat) -> Bool { add_to_zero(x, b) }
-    induction(f)
+    Nat.induction(f)
     f(0)
     forall(x: Nat) {
         add_to_zero(x.suc, b)
@@ -290,7 +282,7 @@ theorem zero_or_suc(a: Nat) {
     define f(x: Nat) -> Bool {
         a = 0 or exists(b: Nat) { a = b.suc }
     }
-    induction(f)
+    Nat.induction(f)
 }
 
 theorem lte_cancel_suc(a: Nat, b: Nat) { a.suc <= b.suc -> a <= b } by {
@@ -309,7 +301,7 @@ theorem lt_not_symm(a: Nat, b: Nat) { a < b -> not (b < a) } by {
     define f(x: Nat) -> Bool {
         forall(y: Nat) { lt_not_symm(x, y) }
     }
-    induction(f)
+    Nat.induction(f)
     f(0)
     forall(x: Nat) {
         if f(x) {
@@ -343,7 +335,7 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat) { a <= b and b <= c -> a <= c } by {
     define f(z: Nat) -> Bool {
         forall(x: Nat, y: Nat) { lte_trans(x, y, z) }
     }
-    induction(f)
+    Nat.induction(f)
     forall(x: Nat, y: Nat) {
         lte_trans(x, y, 0)
     }
@@ -390,7 +382,7 @@ theorem lt_trans(a: Nat, b: Nat, c: Nat) { a < b and b < c -> a < c } by {
 
 theorem add_cancels_left(a: Nat, b: Nat, c: Nat) { a + b = a + c -> b = c } by {
     define f(x: Nat) -> Bool { add_cancels_left(x, b, c) }
-    induction(f)
+    Nat.induction(f)
     f(0)
     forall(x: Nat) {
         if f(x) {
@@ -463,7 +455,7 @@ theorem lt_add_left(a: Nat, b: Nat, c: Nat) { b < c -> a + b < a + c } by {
 
 theorem trichotomy(a: Nat, b: Nat) { a < b or b < a or a = b } by {
     define f(x: Nat) -> Bool { trichotomy(a, x) }
-    induction(f)
+    Nat.induction(f)
     trichotomy(a, 0)
     f(0)
     forall(x: Nat) {
@@ -513,7 +505,7 @@ theorem division_theorem(m: Nat, n: Nat) {
     }
 } by {
     define f(x: Nat) -> Bool { division_theorem(x, n) }
-    induction(f)
+    Nat.induction(f)
     let (k0: Nat) satisfy { k0 * n = 0 }
     f(0)
     forall(x: Nat) {
@@ -590,7 +582,7 @@ theorem strong_induction(f: Nat -> Bool) {
     define g(x: Nat) -> Bool {
         true_below(f, x)
     }
-    induction(g)
+    Nat.induction(g)
     g(0)
     forall(x: Nat) {
         if g(x) {
@@ -689,7 +681,7 @@ define fac_pair(n: Nat) -> NatPair {
 }
 
 theorem fac_pair_first(n: Nat) { fac_pair(n).first = n } by {
-    induction(fac_pair_first)
+    Nat.induction(fac_pair_first)
     fac_pair_first(0)
     forall(x: Nat) {
         if fac_pair_first(x) {
@@ -735,7 +727,7 @@ theorem divides_factorial(k: Nat, n: Nat) {
     define f(x: Nat) -> Bool {
         divides_factorial(k, x)
     }
-    induction(f)
+    Nat.induction(f)
     f(0)
     forall(x: Nat) {
         if f(x) {
@@ -765,7 +757,7 @@ theorem factorial_nondecreasing(n: Nat) { factorial(n) <= factorial(n.suc) } by 
 }
 
 theorem lte_one_factorial(a: Nat) { 1 <= factorial(a) } by {
-    induction(lte_one_factorial)
+    Nat.induction(lte_one_factorial)
     lte_one_factorial(0)
     forall(x: Nat) {
         if lte_one_factorial(x) {
