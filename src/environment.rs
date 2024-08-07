@@ -1343,7 +1343,7 @@ impl Environment {
                 // of the constructors.
                 // It seems like this is implied by induction but let's just stick it in.
                 // x0 is going to be the "generic item of this type".
-                let mut disjunction = None;
+                let mut disjunction_parts = vec![];
                 for (i, constructor_fn) in constructor_fns.iter().enumerate() {
                     let (_, arg_types) = &constructors[i];
                     let args = arg_types
@@ -1355,12 +1355,10 @@ impl Environment {
                     let var = AcornValue::Variable(0, inductive_type.clone());
                     let equality = AcornValue::new_equals(var, app);
                     let exists = AcornValue::new_exists(arg_types.clone(), equality);
-                    disjunction = match disjunction {
-                        None => Some(exists),
-                        Some(d) => Some(AcornValue::new_or(d, exists)),
-                    };
+                    disjunction_parts.push(exists);
                 }
-                let claim = AcornValue::new_forall(vec![inductive_type], disjunction.unwrap());
+                let disjunction = AcornValue::reduce(BinaryOp::Or, disjunction_parts);
+                let claim = AcornValue::new_forall(vec![inductive_type], disjunction);
                 self.add_node(
                     project,
                     true,
@@ -1369,7 +1367,31 @@ impl Environment {
                 );
 
                 // The next principle is that each constructor is injective.
-                // Ie if Type.construct(a, b) = Type.construct(c, d) then a = c and b = d.
+                // Ie if Type.construct(x0, x1) = Type.construct(x2, x3) then x0 = x2 and x1 = x3.
+                for (i, constructor_fn) in constructor_fns.iter().enumerate() {
+                    let (_, arg_types) = &constructors[i];
+
+                    // First construct the equality.
+                    // "Type.construct(x0, x1) = Type.construct(x2, x3)"
+                    let left_args = arg_types
+                        .iter()
+                        .enumerate()
+                        .map(|(k, t)| AcornValue::Variable(k as AtomId, t.clone()))
+                        .collect();
+                    let lhs = AcornValue::new_apply(constructor_fn.clone(), left_args);
+                    let right_args = arg_types
+                        .iter()
+                        .enumerate()
+                        .map(|(k, t)| {
+                            AcornValue::Variable((k + arg_types.len()) as AtomId, t.clone())
+                        })
+                        .collect();
+                    let rhs = AcornValue::new_apply(constructor_fn.clone(), right_args);
+                    let equality = AcornValue::new_equals(lhs, rhs);
+
+                    // Then construct the implication, that the corresponding args are equal.
+                    // TODO
+                }
 
                 Ok(())
             }

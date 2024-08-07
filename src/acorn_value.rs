@@ -1481,4 +1481,21 @@ impl AcornValue {
             _ => (None, self.negate()),
         }
     }
+
+    // Combine a bunch of values with the given binary operator.
+    pub fn reduce(op: BinaryOp, args: Vec<AcornValue>) -> AcornValue {
+        if args.is_empty() {
+            panic!("cannot reduce with no arguments");
+        }
+
+        let mut answer = None;
+        for arg in args {
+            if let Some(a) = answer {
+                answer = Some(AcornValue::Binary(op, Box::new(a), Box::new(arg)));
+            } else {
+                answer = Some(arg);
+            }
+        }
+        answer.unwrap()
+    }
 }
