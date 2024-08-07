@@ -1,15 +1,12 @@
 // The axioms of Peano arithmetic.
 // Contains enough detail that we can prove these with "check".
 
-type Nat: axiom
-
-class Nat {
-    define suc(self) -> Nat { axiom }
-    let 0: Nat = axiom
+inductive Nat {
+    0
+    suc(Nat)
 }
 
-
-axiom suc_injective(x: Nat, y: Nat) { x.suc = y.suc -> x = y }
+theorem suc_injective(x: Nat, y: Nat) { x.suc = y.suc -> x = y }
 
 axiom suc_neq_zero(x: Nat) { x.suc != Nat.0 }
 
