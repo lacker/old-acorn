@@ -6,6 +6,22 @@ type Nat: axiom
 class Nat {
     define suc(self) -> Nat { axiom }
     let 0: Nat = axiom
+}
+
+
+axiom suc_injective(x: Nat, y: Nat) { x.suc = y.suc -> x = y }
+
+axiom suc_neq_zero(x: Nat) { x.suc != Nat.0 }
+
+axiom induction(f: Nat -> Bool) {
+    f(Nat.0) and forall(k: Nat) { f(k) -> f(k.suc) } -> forall(n: Nat) { f(n) }
+}
+
+define recursion<T>(f: T -> T, a: T, n: Nat) -> T { axiom }
+axiom recursion_base<T>(f: T -> T, a: T) { recursion(f, a, Nat.0) = a }
+axiom recursion_step<T>(f: T -> T, a: T, n: Nat) { recursion(f, a, n.suc) = f(recursion(f, a, n)) }
+
+class Nat {
     let 1: Nat = Nat.0.suc
     let 2: Nat = Nat.1.suc
     let 3: Nat = Nat.2.suc
@@ -16,25 +32,11 @@ class Nat {
     let 8: Nat = Nat.7.suc
     let 9: Nat = Nat.8.suc
     let 10: Nat = Nat.9.suc
+    define add(self, b: Nat) -> Nat { recursion(Nat.suc, self, b) }
 }
 
 numerals Nat
 
-axiom suc_injective(x: Nat, y: Nat) { x.suc = y.suc -> x = y }
-
-axiom suc_neq_zero(x: Nat) { x.suc != 0 }
-
-axiom induction(f: Nat -> Bool) {
-    f(0) and forall(k: Nat) { f(k) -> f(k.suc) } -> forall(n: Nat) { f(n) }
-}
-
-define recursion<T>(f: T -> T, a: T, n: Nat) -> T { axiom }
-axiom recursion_base<T>(f: T -> T, a: T) { recursion(f, a, 0) = a }
-axiom recursion_step<T>(f: T -> T, a: T, n: Nat) { recursion(f, a, n.suc) = f(recursion(f, a, n)) }
-
-class Nat {
-    define add(self, b: Nat) -> Nat { recursion(Nat.suc, self, b) }
-}
 
 // Now let's have some theorems.
 
