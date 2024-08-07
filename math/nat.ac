@@ -1,6 +1,5 @@
-// The axioms of Peano arithmetic.
+// The axioms of arithmetic.
 // Contains enough detail that we can prove these with "check".
-
 inductive Nat {
     0
     suc(Nat)
@@ -8,7 +7,7 @@ inductive Nat {
 
 theorem suc_injective(x: Nat, y: Nat) { x.suc = y.suc -> x = y }
 
-axiom suc_neq_zero(x: Nat) { x.suc != Nat.0 }
+theorem suc_neq_zero(x: Nat) { x.suc != Nat.0 }
 
 axiom induction(f: Nat -> Bool) {
     f(Nat.0) and forall(k: Nat) { f(k) -> f(k.suc) } -> forall(n: Nat) { f(n) }

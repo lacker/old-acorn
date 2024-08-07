@@ -8,20 +8,16 @@
       "name": "comment.line.double-slash"
     },
     {
-      "match": "\\b(if|else|forall|exists|by|function)\\b",
+      "match": "\\b(if|else|forall|exists|by|function|satisfy|and|or|not)\\b",
       "name": "keyword.control"
     },
     {
-      "match": "-|>|<|!|\\||&|\\+",
+      "match": "-|>|<|\\+",
       "name": "keyword.operator"
     },
     {
-      "match": "\\b(let|axiom|define|theorem|type|struct|class|default)\\b",
+      "match": "\\b(let|axiom|define|theorem|type|structure|inductive|class|numerals)\\b",
       "name": "keyword.declaration"
-    },
-    {
-      "match": "\\bBool\\b",
-      "name": "keyword.type"
     },
     {
       "match": "\\bimport\\b",
