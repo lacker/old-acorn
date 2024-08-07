@@ -1474,7 +1474,9 @@ impl Environment {
                     vec![],
                     lambda_claim.get_type(),
                     Some(lambda_claim),
-                ); // The forall form is the anonymous truth of induction. We add that as a proposition.
+                );
+                self.bindings.mark_as_theorem(&name);
+                // The forall form is the anonymous truth of induction. We add that as a proposition.
                 let forall_claim = AcornValue::new_forall(vec![hyp_type], conjunction);
                 self.add_node(
                     project,
