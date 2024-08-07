@@ -1225,6 +1225,18 @@ mod tests {
     }
 
     #[test]
+    fn test_inductive_constructors_injective() {
+        let text = r#"
+            inductive Nat {
+                zero
+                suc(Nat)
+            }
+            theorem goal(a: Nat, b: Nat) { Nat.suc(a) = Nat.suc(b) -> a = b }
+        "#;
+        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+    }
+
+    #[test]
     fn test_proving_parametric_theorem() {
         let text = r#"
             theorem goal<T>(a: T, b: T, c: T) {

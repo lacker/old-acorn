@@ -1368,6 +1368,9 @@ impl Environment {
                     None,
                 );
 
+                // The next principle is that each constructor is injective.
+                // Ie if Type.construct(a, b) = Type.construct(c, d) then a = c and b = d.
+
                 Ok(())
             }
 
