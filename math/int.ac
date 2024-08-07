@@ -63,6 +63,14 @@ define neg_nat(n: Nat) -> Int {
 
 theorem neg_nat_zero { neg_nat(Nat.0) = 0 }
 
+theorem neg_nat_suc(n: Nat) {
+    neg_nat(n.suc) = Int.neg_suc(n)
+} by {
+    n.suc != Nat.0
+    neg_nat(n.suc) = Int.neg_suc(n.suc - Nat.1)
+    n.suc - Nat.1 = n
+}
+
 define negate_case_1(a: Int, b: Int) -> Bool {
     exists(n: Nat) {
         a = from_nat(n) and b = neg_nat(n)
@@ -90,7 +98,50 @@ theorem neg_zero {
     }
 }
 
-axiom neg_neg(a: Int) { negate(negate(a)) = a }
+theorem neg_neg_suc(n: Nat) {
+    negate(Int.neg_suc(n)) = from_nat(n.suc)
+} by {
+    if negate_case_1(Int.neg_suc(n), negate(Int.neg_suc(n))) {
+        false
+    } else {
+        negate_case_2(Int.neg_suc(n), negate(Int.neg_suc(n)))
+        negate(Int.neg_suc(n)) = from_nat(n.suc)
+    }
+}
+
+theorem neg_from_nat(n: Nat) {
+    negate(from_nat(n)) = neg_nat(n)
+} by {
+    if negate_case_1(from_nat(n), negate(from_nat(n))) {
+        negate(from_nat(n)) = neg_nat(n)
+    } else {
+        negate_case_2(from_nat(n), negate(from_nat(n)))
+        false
+    }
+}
+
+theorem neg_neg(a: Int) {
+    negate(negate(a)) = a
+} by {
+    if negate_case_1(a, negate(a)) {
+        let n: Nat satisfy { a = from_nat(n) and negate(a) = neg_nat(n) }
+        if n = Nat.0 {
+            negate(negate(a)) = a
+        } else {
+            let pred: Nat satisfy { n = pred.suc }
+            negate(a) = Int.neg_suc(n - Nat.1)
+            n - Nat.1 = pred
+            negate(a) = Int.neg_suc(pred)
+            negate(Int.neg_suc(pred)) = from_nat(pred.suc)
+            negate(negate(a)) = a
+        }
+    } else {
+        negate_case_2(a, negate(a))
+        let n: Nat satisfy { a = Int.neg_suc(n) and negate(a) = from_nat(n.suc) }
+        negate(from_nat(n.suc)) = neg_nat(n.suc)
+        negate(negate(a)) = a
+    }
+}
 
 axiom abs_neg(a: Int) { abs(negate(a)) = abs(a) }
 
