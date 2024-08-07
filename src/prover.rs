@@ -1243,7 +1243,16 @@ mod tests {
                 zero
                 suc(Nat)
             }
-            theorem goal(f: Nat -> Bool) { Nat.induction(f) }
+            let f: Nat -> Bool = axiom
+            axiom base {
+                f(Nat.zero)
+            }
+            axiom step(k: Nat) {
+                f(k) -> f(k.suc)
+            }
+            theorem goal(n: Nat) {
+                f(n)
+            }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
