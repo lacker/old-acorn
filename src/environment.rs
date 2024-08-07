@@ -1465,10 +1465,19 @@ impl Environment {
                     conjunction_parts.push(conjunction_part);
                 }
                 let conjunction = AcornValue::reduce(BinaryOp::And, conjunction_parts);
+                let conclusion = AcornValue::new_forall(
+                    vec![inductive_type.clone()],
+                    AcornValue::new_apply(
+                        AcornValue::Variable(0, hyp_type.clone()),
+                        vec![AcornValue::Variable(1, inductive_type.clone())],
+                    ),
+                );
+                let unbound_claim = AcornValue::new_implies(conjunction, conclusion);
+
                 // The lambda form is the functional form, which we bind in the environment.
                 let name = format!("{}.induction", is.name);
                 let lambda_claim =
-                    AcornValue::new_lambda(vec![hyp_type.clone()], conjunction.clone());
+                    AcornValue::new_lambda(vec![hyp_type.clone()], unbound_claim.clone());
                 self.bindings.add_constant(
                     &name,
                     vec![],
@@ -1476,8 +1485,9 @@ impl Environment {
                     Some(lambda_claim),
                 );
                 self.bindings.mark_as_theorem(&name);
+
                 // The forall form is the anonymous truth of induction. We add that as a proposition.
-                let forall_claim = AcornValue::new_forall(vec![hyp_type], conjunction);
+                let forall_claim = AcornValue::new_forall(vec![hyp_type], unbound_claim);
                 self.add_node(
                     project,
                     true,
