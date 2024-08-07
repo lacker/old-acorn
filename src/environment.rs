@@ -1358,7 +1358,7 @@ impl Environment {
                     disjunction_parts.push(exists);
                 }
                 let disjunction = AcornValue::reduce(BinaryOp::Or, disjunction_parts);
-                let claim = AcornValue::new_forall(vec![inductive_type], disjunction);
+                let claim = AcornValue::new_forall(vec![inductive_type.clone()], disjunction);
                 self.add_node(
                     project,
                     true,
@@ -1415,6 +1415,73 @@ impl Environment {
                         None,
                     );
                 }
+
+                // Structural induction.
+                // The type for the inductive hypothesis.
+                let hyp_type =
+                    AcornType::new_functional(vec![inductive_type.clone()], AcornType::Bool);
+                // x0 represents the inductive hypothesis.
+                // Think of the inductive principle as (conjunction) -> (conclusion).
+                // The conjunction is a case for each constructor.
+                // The conclusion is that x0 holds for all items of the type.
+                let mut conjunction_parts = vec![];
+                for (i, constructor_fn) in constructor_fns.iter().enumerate() {
+                    let (_, arg_types) = &constructors[i];
+                    let mut args = vec![];
+                    let mut conditions = vec![];
+                    for (j, arg_type) in arg_types.iter().enumerate() {
+                        // x0 is the inductive hypothesis so we start at 1 for the
+                        // constructor arguments.
+                        let id = (j + 1) as AtomId;
+                        args.push(AcornValue::Variable(id, arg_type.clone()));
+                        if arg_type == &inductive_type {
+                            // The inductive case for this constructor includes a condition
+                            // that the inductive hypothesis holds for this argument.
+                            conditions.push(AcornValue::new_apply(
+                                AcornValue::Variable(0, hyp_type.clone()),
+                                vec![AcornValue::Variable(id, arg_type.clone())],
+                            ));
+                        }
+                    }
+
+                    let new_instance = AcornValue::new_apply(constructor_fn.clone(), args);
+                    let instance_claim = AcornValue::new_apply(
+                        AcornValue::Variable(0, hyp_type.clone()),
+                        vec![new_instance],
+                    );
+                    let unbound = if conditions.is_empty() {
+                        // This is a base case. We just need to show that the inductive hypothesis
+                        // holds for this constructor.
+                        instance_claim
+                    } else {
+                        // This is an inductive case. Given the conditions, we show that
+                        // the inductive hypothesis holds for this constructor.
+                        AcornValue::new_implies(
+                            AcornValue::reduce(BinaryOp::And, conditions),
+                            instance_claim,
+                        )
+                    };
+                    let conjunction_part = AcornValue::new_forall(arg_types.clone(), unbound);
+                    conjunction_parts.push(conjunction_part);
+                }
+                let conjunction = AcornValue::reduce(BinaryOp::And, conjunction_parts);
+                // The lambda form is the functional form, which we bind in the environment.
+                let name = format!("{}.induction", is.name);
+                let lambda_claim =
+                    AcornValue::new_lambda(vec![hyp_type.clone()], conjunction.clone());
+                self.bindings.add_constant(
+                    &name,
+                    vec![],
+                    lambda_claim.get_type(),
+                    Some(lambda_claim),
+                ); // The forall form is the anonymous truth of induction. We add that as a proposition.
+                let forall_claim = AcornValue::new_forall(vec![hyp_type], conjunction);
+                self.add_node(
+                    project,
+                    true,
+                    Proposition::theorem(true, forall_claim, self.module_id, range, name),
+                    None,
+                );
 
                 Ok(())
             }
