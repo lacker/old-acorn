@@ -11,7 +11,7 @@ define gcd_step(p: NatPair) -> NatPair {
 }
 
 // n steps of the gcd algorithm.
-define gcd_step_n(p: NatPair, n: Nat) -> NatPair { nat.recursion(gcd_step, p, n) }
+define gcd_step_n(p: NatPair, n: Nat) -> NatPair { nat.repeat(gcd_step, p, n) }
 
 define false_below(f: Nat -> Bool, n: Nat) -> Bool { forall(x: Nat) { x < n -> not f(x) } }
 
