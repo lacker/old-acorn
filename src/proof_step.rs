@@ -130,7 +130,7 @@ impl Rule {
             | Rule::FunctionElimination(rewritten)
             | Rule::Specialization(rewritten) => vec![ProofStepId::Active(*rewritten)],
             Rule::MultipleRewrite(multi_rewrite_info) => {
-                let mut answer = vec![];
+                let mut answer = vec![ProofStepId::Active(multi_rewrite_info.inequality_id)];
                 for id in &multi_rewrite_info.active_ids {
                     answer.push(ProofStepId::Active(*id));
                 }
