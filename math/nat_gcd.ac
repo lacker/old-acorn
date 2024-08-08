@@ -132,6 +132,8 @@ define gcd_termination(p: NatPair) -> (Nat -> Bool) {
 
 let num_gcd_steps(p: NatPair) -> n: Nat satisfy {
     is_min(gcd_termination(p), n)
+} by {
+    gcd_terminates(p)
 }
 
 theorem num_gcd_steps_terminates(p: NatPair) { gcd_step_n(p, num_gcd_steps(p)).second = 0 } by {
@@ -209,11 +211,18 @@ theorem divides_gcd_step_n_converse(d: Nat, p: NatPair, n: Nat) {
 } by {
     let f: Nat -> Bool = function(x: Nat) { divides_gcd_step_n_converse(d, p, x) }
     Nat.induction(f)
+    if divides_both(d, gcd_step_n(p, 0)) {
+        divides_both(d, p)
+    }
     divides_gcd_step_n_converse(d, p, 0)
     f(0)
     forall(x: Nat) {
         if f(x) {
             if divides_both(d, gcd_step_n(p, x.suc)) {
+                divides_gcd_step_n_converse(d, p, x)
+                divides_both(d, nat.repeat(gcd_step, p, Nat.suc(x)))
+                divides_both(d, gcd_step(nat.repeat(gcd_step, p, x)))
+                divides_both(d, gcd_step_n(p, x))
                 divides_both(d, p)
             }
             divides_gcd_step_n_converse(d, p, x.suc)

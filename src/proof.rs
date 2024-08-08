@@ -350,7 +350,7 @@ impl<'a> Proof<'a> {
         while self.nodes[0].consequences.len() > 1 {
             assert!(matches!(self.nodes[0].value, NodeValue::NegatedGoal));
 
-            // Find the earliest consequence, the min on consequnces
+            // Find the earliest consequence, the min on consequences
             let consequence_id = self.nodes[0].consequences.iter().min().unwrap();
             self.contract(*consequence_id);
         }
