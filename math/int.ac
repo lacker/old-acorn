@@ -195,7 +195,16 @@ theorem abs_neg(a: Int) {
     }
 }
 
-axiom neg_or_pos(a: Int) { a = from_nat(abs(a)) or a = negate(from_nat(abs(a))) }
+theorem neg_or_pos(a: Int) {
+    a = from_nat(abs(a)) or a = negate(from_nat(abs(a)))
+} by {
+    if abs_case_1(a, abs(a)) {
+        a = from_nat(abs(a))
+    } else {
+        abs_case_2(a, abs(a))
+        a = negate(from_nat(abs(a)))
+    }
+}
 
 theorem from_eq_neg_from(p: Nat, q: Nat) {
     from_nat(p) = negate(from_nat(q)) -> p = nat.0 and q = nat.0
