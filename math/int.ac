@@ -71,6 +71,22 @@ theorem neg_nat_suc(n: Nat) {
     n.suc - Nat.1 = n
 }
 
+theorem abs_neg_nat(n: Nat) {
+    abs(neg_nat(n)) = n
+} by {
+    if n = Nat.0 {
+        abs(neg_nat(n)) = n
+    } else {
+        abs_case_2(neg_nat(n), abs(neg_nat(n)))
+        let k: Nat satisfy { neg_nat(n) = Int.neg_suc(k) and abs(neg_nat(n)) = k.suc }
+        neg_nat(n) = Int.neg_suc(n - Nat.1)
+        k = n - Nat.1
+        n = (n - Nat.1).suc
+        k.suc = n
+        abs(neg_nat(n)) = n
+    }
+}
+
 define negate_case_1(a: Int, b: Int) -> Bool {
     exists(n: Nat) {
         a = from_nat(n) and b = neg_nat(n)
@@ -161,7 +177,23 @@ theorem fix_neg(a: Int) {
     }
 }
 
-axiom abs_neg(a: Int) { abs(negate(a)) = abs(a) }
+theorem abs_neg(a: Int) {
+    abs(negate(a)) = abs(a)
+} by {
+    if negate_case_1(a, negate(a)) {
+        let n: Nat satisfy { a = from_nat(n) and negate(a) = neg_nat(n) }
+        abs(neg_nat(n)) = abs(from_nat(n))
+        abs(neg_nat(n)) = n
+        abs(from_nat(n)) = n
+        abs(negate(a)) = abs(a)
+    } else {
+        negate_case_2(a, negate(a))
+        let n: Nat satisfy { a = Int.neg_suc(n) and negate(a) = from_nat(n.suc) }
+        abs(from_nat(n.suc)) = abs(Int.neg_suc(n))
+        abs(from_nat(n.suc)) = n.suc
+        abs(negate(a)) = abs(a)
+    }
+}
 
 axiom neg_or_pos(a: Int) { a = from_nat(abs(a)) or a = negate(from_nat(abs(a))) }
 
