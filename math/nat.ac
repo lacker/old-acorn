@@ -1102,6 +1102,7 @@ theorem divides_mod(a: Nat, m: Nat, d: Nat) {
     divides(d, a) and divides(d, m) -> divides(d, mod(a, m))
 } by {
     let (q: Nat) satisfy { q * m + mod(a, m) = a }
+    mod(a, m) + q * m = a
     mod(a, m) = a - q * m
     divides(d, q * m)
     divides(d, a - q * m)
