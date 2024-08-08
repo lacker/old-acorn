@@ -143,11 +143,29 @@ theorem neg_neg(a: Int) {
     }
 }
 
+theorem fix_neg(a: Int) {
+    negate(a) = a -> a = 0
+} by {
+    if negate(a) = a {
+        if negate_case_1(a, negate(a)) {
+            let n: Nat satisfy { a = from_nat(n) and negate(a) = neg_nat(n) }
+            negate(a) = Int.from_nat(n)
+            Int.neg_suc(Nat.sub(n, Nat.1)) != neg_nat(n)
+            n = Nat.0
+            Int.from_nat(Nat.0) = a
+            a = 0
+        } else {
+            negate_case_2(a, negate(a))
+            let n: Nat satisfy { a = Int.neg_suc(n) and negate(a) = from_nat(n.suc) }
+            false
+        }
+        a = 0
+    }
+}
+
 axiom abs_neg(a: Int) { abs(negate(a)) = abs(a) }
 
 axiom neg_or_pos(a: Int) { a = from_nat(abs(a)) or a = negate(from_nat(abs(a))) }
-
-axiom fix_neg(a: Int) { negate(a) = a -> a = 0 }
 
 theorem from_eq_neg_from(p: Nat, q: Nat) {
     from_nat(p) = negate(from_nat(q)) -> p = nat.0 and q = nat.0
