@@ -991,7 +991,16 @@ theorem mod_by_zero(a: Nat) { mod(a, 0) = a }
 
 theorem mod_of_zero(m: Nat) { mod(0, m) = 0 }
 
-theorem mod_lte(a: Nat, m: Nat) { mod(a, m) <= a }
+theorem mod_lte(a: Nat, m: Nat) {
+    mod(a, m) <= a
+} by {
+    if m = 0 {
+        mod(a, m) <= a
+    } else {
+        let q: Nat satisfy { q * m + mod(a, m) = a }
+        mod(a, m) <= a
+    }
+}
 
 theorem div_sub_mod(a: Nat, m: Nat) { divides(m, a - mod(a, m)) } by {
     let (q: Nat) satisfy { q * m + mod(a, m) = a }
