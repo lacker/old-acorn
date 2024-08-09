@@ -68,7 +68,7 @@ struct SearchTask {
     // While we are proving, most of the time the thread running the 'run' method
     // will hold a write lock on the prover.
     // The task will release and reacquire the lock intermittently, and the RwLock is fair so other
-    // theads get a chance to use the prover.
+    // threads get a chance to use the prover.
     prover: Arc<RwLock<Prover>>,
 
     // The module that we're searching for a proof in
