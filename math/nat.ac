@@ -327,7 +327,7 @@ theorem add_to_zero(a: Nat, b: Nat) { a + b = 0 -> a = 0 and b = 0 } by {
 
 theorem only_zero_lte_zero(a: Nat) { a <= 0 -> a = 0 }
 
-theorem not_lt_zero(a: Nat) { not (a < 0) }
+theorem not_lt_zero(a: Nat) { not a < 0 }
 
 theorem zero_or_suc(a: Nat) {
     a = 0 or exists(b: Nat) { a = b.suc }
@@ -350,7 +350,7 @@ theorem lt_cancel_suc(a: Nat, b: Nat) {
     a.suc < b.suc -> a < b
 }
 
-theorem lt_not_symm(a: Nat, b: Nat) { a < b -> not (b < a) } by {
+theorem lt_not_symm(a: Nat, b: Nat) { a < b -> not b < a } by {
     define f(x: Nat) -> Bool {
         forall(y: Nat) { lt_not_symm(x, y) }
     }
@@ -375,6 +375,7 @@ theorem lt_not_symm(a: Nat, b: Nat) { a < b -> not (b < a) } by {
             f(x.suc)
         }
     }
+    f(a)
 }
 
 theorem lt_diff(a: Nat, b: Nat) {
