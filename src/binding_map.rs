@@ -1528,46 +1528,36 @@ impl BindingMap {
                             return Ok(Expression::generate_binary(left, op, right));
                         }
 
+                        // Long numeric literals
                         if name == "read" && args[0].is_number() {
-                            // Handle long numeric literals
                             if let Some(digit) = args[1].to_digit() {
                                 let left = args.remove(0);
                                 return Ok(Expression::generate_number(left, digit));
                             }
                         }
                     }
+
+                    // General member functions
+                    let instance = args.remove(0);
+                    let bound = Expression::generate_binary(
+                        instance,
+                        TokenType::Dot,
+                        Expression::generate_identifier(&name),
+                    );
+                    if args.len() == 0 {
+                        // Like foo.bar
+                        return Ok(bound);
+                    } else {
+                        // Like foo.bar(baz, qux)
+                        let applied = Expression::Apply(
+                            Box::new(bound),
+                            Box::new(Expression::generate_grouping(args)),
+                        );
+                        return Ok(applied);
+                    }
                 }
 
                 let f = self.value_to_expr(&fa.function, var_names, next_x, next_k)?;
-
-                if let Expression::Singleton(fname) = &f {
-                    // TODO: eliminate this whole block after it's handled above
-
-                    let parts = fname.text().split('.').collect::<Vec<_>>();
-                    if parts.len() == 2 && self.has_type_name(parts[0]) {
-                        let class_type = self.get_type_for_name(parts[0]).unwrap();
-                        if &fa.args[0].get_type() == class_type {
-                            // This is a member function
-                            let instance = args.remove(0);
-                            let bound = Expression::generate_binary(
-                                instance,
-                                TokenType::Dot,
-                                Expression::generate_identifier(parts[1]),
-                            );
-                            if args.len() == 0 {
-                                // Like foo.bar
-                                return Ok(bound);
-                            } else {
-                                // Like foo.bar(baz, qux)
-                                let applied = Expression::Apply(
-                                    Box::new(bound),
-                                    Box::new(Expression::generate_grouping(args)),
-                                );
-                                return Ok(applied);
-                            }
-                        }
-                    }
-                }
                 let grouped_args = Expression::generate_grouping(args);
                 Ok(Expression::Apply(Box::new(f), Box::new(grouped_args)))
             }
