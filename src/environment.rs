@@ -1792,13 +1792,10 @@ impl Environment {
         let name = match &goal {
             Goal::Prove(proposition) => match proposition.name() {
                 Some(name) => name.to_string(),
-                None => self
-                    .bindings
-                    .value_to_code(&proposition.value, &mut 0)
-                    .unwrap(),
+                None => self.bindings.value_to_code(&proposition.value).unwrap(),
             },
             Goal::Solve(value, _) => {
-                let value_str = self.bindings.value_to_code(value, &mut 0).unwrap();
+                let value_str = self.bindings.value_to_code(value).unwrap();
                 format!("solve {}", value_str)
             }
         };

@@ -722,7 +722,7 @@ impl Project {
             .expect("could not evaluate");
         let output = env
             .bindings
-            .value_to_code(&value, &mut 0)
+            .value_to_code(&value)
             .expect("could not convert to code");
 
         if output != expected {

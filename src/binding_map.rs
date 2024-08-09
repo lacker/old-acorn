@@ -1392,14 +1392,11 @@ impl BindingMap {
     // For example, it might refer to a constant that is not in scope.
     // Takes a next_k parameter so that it can be used sequentially in the middle of
     // a bunch of code generation.
-    pub fn value_to_code(
-        &self,
-        value: &AcornValue,
-        next_k: &mut u32,
-    ) -> Result<String, CodeGenError> {
+    pub fn value_to_code(&self, value: &AcornValue) -> Result<String, CodeGenError> {
         let mut var_names = vec![];
         let mut next_x = 0;
-        let expr = self.value_to_expr(value, &mut var_names, &mut next_x, next_k)?;
+        let mut next_k = 0;
+        let expr = self.value_to_expr(value, &mut var_names, &mut next_x, &mut next_k)?;
         Ok(expr.to_string())
     }
 
@@ -1689,10 +1686,7 @@ impl BindingMap {
         let value = self
             .evaluate_value(&project, &expression, None)
             .expect("evaluate_value failed");
-        let mut next_k = 0;
-        let output_code = self
-            .value_to_code(&value, &mut next_k)
-            .expect("value_to_code failed");
+        let output_code = self.value_to_code(&value).expect("value_to_code failed");
         assert_eq!(input_code, output_code);
     }
 }

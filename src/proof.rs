@@ -86,7 +86,6 @@ impl<'a> ProofNode<'a> {
         &self,
         normalizer: &Normalizer,
         bindings: &BindingMap,
-        next_k: &mut u32,
     ) -> Result<String, CodeGenError> {
         match &self.value {
             NodeValue::Clause(clause) => {
@@ -94,7 +93,7 @@ impl<'a> ProofNode<'a> {
                 if self.negated {
                     value = value.pretty_negate();
                 }
-                bindings.value_to_code(&value, next_k)
+                bindings.value_to_code(&value)
             }
             NodeValue::Contradiction => Ok("false".to_string()),
             NodeValue::NegatedGoal => Err(CodeGenError::ExplicitGoal),
@@ -569,7 +568,7 @@ impl<'a> Proof<'a> {
 
         if node.starts_reduction() {
             proven.insert(node_id);
-            let condition = node.to_code(normalizer, bindings, next_k)?;
+            let condition = node.to_code(normalizer, bindings)?;
             output.push(format!("{}if {} {{", "\t".repeat(tab_level), condition));
             let contradiction = match self.find_contradiction(node_id) {
                 Some(id) => id,
@@ -612,7 +611,7 @@ impl<'a> Proof<'a> {
             return Ok(());
         }
 
-        match node.to_code(normalizer, bindings, next_k) {
+        match node.to_code(normalizer, bindings) {
             Ok(code) => {
                 output.push(format!("{}{}", "\t".repeat(tab_level), code));
                 Ok(())
