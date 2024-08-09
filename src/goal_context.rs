@@ -38,6 +38,7 @@ impl Goal {
 // A goal and the information that can be used to achieve it.
 pub struct GoalContext<'a> {
     env: &'a Environment,
+    pub module_id: ModuleId,
 
     // Facts that occur outside any block, before this goal.
     global_facts: Vec<Proposition>,
@@ -69,6 +70,7 @@ impl GoalContext<'_> {
     ) -> GoalContext {
         GoalContext {
             env,
+            module_id: env.module_id,
             global_facts,
             local_facts,
             name,

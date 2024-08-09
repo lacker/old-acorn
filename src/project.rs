@@ -1019,11 +1019,10 @@ mod tests {
         p.mock(
             "/mock/nat.ac",
             r#"
-            type Nat: axiom
-            class Nat {
-                let 0: Nat = axiom
+            inductive Nat {
+                0
+                suc(Nat)
             }
-            numerals Nat
         "#,
         );
         p.mock(

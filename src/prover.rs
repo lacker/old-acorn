@@ -8,11 +8,13 @@ use tower_lsp::lsp_types::Url;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::active_set::ActiveSet;
+use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
 use crate::goal_context::{Goal, GoalContext};
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::literal::Literal;
+use crate::module::ModuleId;
 use crate::normalizer::{Normalization, NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
@@ -26,6 +28,7 @@ pub struct Prover {
     // The normalizer is used when we are turning the facts and goals from the environment into
     // clauses that we can use internally.
     normalizer: Normalizer,
+    module_id: ModuleId,
 
     // The "active" clauses are the ones we use for reasoning.
     active_set: ActiveSet,
@@ -107,6 +110,7 @@ impl Prover {
     ) -> Prover {
         let mut p = Prover {
             normalizer: Normalizer::new(),
+            module_id: goal_context.module_id,
             active_set: ActiveSet::new(),
             passive_set: PassiveSet::new(),
             verbose,
@@ -670,18 +674,33 @@ impl Prover {
         }
     }
 
+    // Attempts to convert this clause to code, but shows the clause form if that's all we can.
+    fn clause_to_code(&self, bindings: Option<&BindingMap>, clause: &Clause) -> String {
+        if let Some(bindings) = bindings {
+            let denormalized = self.normalizer.denormalize(clause);
+
+            if let Ok(code) = bindings.value_to_code(&denormalized) {
+                return code;
+            }
+        }
+        self.display(clause).to_string()
+    }
+
     // Convert a clause to a jsonable form
     // We only take active ids, because the others have no external meaning.
-    pub fn to_clause_info(&self, active_id: Option<usize>, clause: &Clause) -> ClauseInfo {
+    // If we are given a binding map, use it to make a nicer-looking display.
+    pub fn to_clause_info(
+        &self,
+        bindings: Option<&BindingMap>,
+        id: Option<usize>,
+        clause: &Clause,
+    ) -> ClauseInfo {
         let text = if clause.is_impossible() {
             None
         } else {
-            Some(self.display(clause).to_string())
+            Some(self.clause_to_code(bindings, clause))
         };
-        ClauseInfo {
-            text,
-            id: active_id,
-        }
+        ClauseInfo { text, id }
     }
 
     fn to_proof_step_info(
@@ -690,11 +709,12 @@ impl Prover {
         active_id: Option<usize>,
         step: &ProofStep,
     ) -> ProofStepInfo {
-        let clause = self.to_clause_info(active_id, &step.clause);
+        let bindings = project.get_env(self.module_id).map(|env| &env.bindings);
+        let clause = self.to_clause_info(bindings, active_id, &step.clause);
         let mut premises = vec![];
         for (description, id) in self.descriptive_dependencies(&step) {
             let clause = self.get_clause(id);
-            let clause_info = self.to_clause_info(id.active_id(), clause);
+            let clause_info = self.to_clause_info(bindings, id.active_id(), clause);
             premises.push((description, clause_info));
         }
         let (rule, location) = match &step.rule {
