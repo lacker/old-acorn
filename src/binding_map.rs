@@ -1527,26 +1527,24 @@ impl BindingMap {
                             let left = args.pop().unwrap();
                             return Ok(Expression::generate_binary(left, op, right));
                         }
+
+                        if name == "read" && args[0].is_number() {
+                            // Handle long numeric literals
+                            if let Some(digit) = args[1].to_digit() {
+                                let left = args.remove(0);
+                                return Ok(Expression::generate_number(left, digit));
+                            }
+                        }
                     }
                 }
 
                 let f = self.value_to_expr(&fa.function, var_names, next_x, next_k)?;
 
                 if let Expression::Singleton(fname) = &f {
-                    // TODO: eliminate this whole block after it's handled by member_apply_expr
+                    // TODO: eliminate this whole block after it's handled above
 
                     let parts = fname.text().split('.').collect::<Vec<_>>();
                     if parts.len() == 2 && self.has_type_name(parts[0]) {
-                        if args.len() == 2 {
-                            if parts[1] == "read" && args[0].is_number() {
-                                // Handle long numeric literals
-                                if let Some(digit) = args[1].to_digit() {
-                                    let left = args.remove(0);
-                                    return Ok(Expression::generate_number(left, digit));
-                                }
-                            }
-                        }
-
                         let class_type = self.get_type_for_name(parts[0]).unwrap();
                         if &fa.args[0].get_type() == class_type {
                             // This is a member function
