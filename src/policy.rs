@@ -9,7 +9,8 @@ pub struct Score {
     // Contradictions are the most important thing
     contradiction: bool,
 
-    // Whether this is a basic step. Basic steps can be stated without proof.
+    // Whether this is a basic step.
+    // Theorems provable with only basic steps do not need any further proof.
     pub basic: bool,
 
     // Higher scores are preferred, using subsequent heuristics for tiebreaks.
