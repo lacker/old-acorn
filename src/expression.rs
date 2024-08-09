@@ -298,6 +298,18 @@ impl Expression {
         Expression::Singleton(TokenType::Identifier.new_token(s))
     }
 
+    pub fn generate_identifier_chain(parts: &[&str]) -> Expression {
+        let mut answer = Expression::generate_identifier(parts[0]);
+        for part in &parts[1..] {
+            answer = Expression::Binary(
+                Box::new(answer),
+                TokenType::Dot.generate(),
+                Box::new(Expression::generate_identifier(part)),
+            );
+        }
+        answer
+    }
+
     // Generates a comma-separated grouping
     pub fn generate_grouping(mut exprs: Vec<Expression>) -> Expression {
         assert_ne!(exprs.len(), 0);

@@ -66,6 +66,9 @@ pub enum AcornValue {
     // A constant, defined in a particular module.
     // (module, constant name, type, type parameters)
     // The type parameters can be empty.
+    //
+    // The name can have a dot in it, indicating this value is <typename>.<constantname>.
+    //
     // When the type parameters are not empty, this indicates a polymorphic constant
     // whose type can still be inferred.
     // This sort of pre-type-inference value should only exist during parsing.
@@ -1497,5 +1500,23 @@ impl AcornValue {
             }
         }
         answer.unwrap()
+    }
+
+    // If this value is a member function or member variable, represent it as a type, plus
+    // the name of the member.
+    pub fn as_member(&self) -> Option<(AcornType, String)> {
+        match &self {
+            AcornValue::Constant(module_id, name, _, _) => {
+                let parts = name.split('.').collect::<Vec<_>>();
+                if parts.len() != 2 {
+                    return None;
+                }
+                let type_name = parts[0];
+                let member_name = parts[1];
+                let type_id = AcornType::Data(*module_id, type_name.to_string());
+                Some((type_id, member_name.to_string()))
+            }
+            _ => None,
+        }
     }
 }

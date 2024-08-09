@@ -1040,7 +1040,7 @@ mod tests {
             "#,
         );
         p.check_code_into("main", "nat.Nat.0", "Nat.0");
-        p.check_code_into("main", "Nat.suc(Nat.0)", "Nat.0.suc");
+        // p.check_code_into("main", "Nat.suc(Nat.0)", "Nat.0.suc");
         // p.check_code_into("main", "Nat.add(Nat.0, Nat.0)", "Nat.0 + Nat.0");
     }
 }

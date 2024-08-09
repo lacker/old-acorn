@@ -1402,7 +1402,7 @@ impl BindingMap {
 
     // Given a module and a name, find an expression that refers to the name.
     fn name_to_expr(&self, module: ModuleId, name: &str) -> Result<Expression, CodeGenError> {
-        let parts = name.split('.').collect::<Vec<_>>();
+        let mut parts = name.split('.').collect::<Vec<_>>();
 
         // Handle numeric literals
         if parts.len() == 2 && parts[1].chars().all(|ch| ch.is_ascii_digit()) {
@@ -1424,8 +1424,13 @@ impl BindingMap {
             ));
         }
 
+        if parts.len() > 2 {
+            return Err(CodeGenError::UnhandledValue("unexpected dots".to_string()));
+        }
+
         // Handle local constants
         if module == self.module {
+            // TODO: this generates an identifier token with a dot, which is wrong
             return Ok(Expression::generate_identifier(name));
         }
 
@@ -1452,13 +1457,8 @@ impl BindingMap {
         // Refer to this constant using its module
         match self.reverse_modules.get(&module) {
             Some(module_name) => {
-                let lhs = Expression::generate_identifier(module_name);
-                let rhs = Expression::generate_identifier(name);
-                Ok(Expression::Binary(
-                    Box::new(lhs),
-                    TokenType::Dot.generate(),
-                    Box::new(rhs),
-                ))
+                parts.insert(0, module_name);
+                Ok(Expression::generate_identifier_chain(&parts))
             }
             None => Err(CodeGenError::UnimportedModule(module)),
         }
@@ -1500,6 +1500,31 @@ impl BindingMap {
         ))
     }
 
+    // Attempts to create an expression for a member function application using member syntax.
+    // If we can't, returns None.
+    fn member_expr(
+        &self,
+        class_type: AcornType,
+        member_name: String,
+        args: &Vec<AcornValue>,
+        next_x: &mut u32,
+        next_k: &mut u32,
+    ) -> Result<Option<Expression>, CodeGenError> {
+        if class_type != args[0].get_type() {
+            return Ok(None);
+        }
+
+        // Infix operators
+        if let Some(op) = TokenType::from_magic_method_name(&member_name) {
+            if args.len() == 2 {
+                let left = self.value_to_expr(&args[0], &mut vec![], next_x, next_k)?;
+                let right = self.value_to_expr(&args[1], &mut vec![], next_x, next_k)?;
+                return Ok(Some(Expression::generate_binary(left, op, right)));
+            }
+        }
+        Ok(None)
+    }
+
     // Convert an AcornValue to an Expression.
     fn value_to_expr(
         &self,
@@ -1514,22 +1539,23 @@ impl BindingMap {
             }
             AcornValue::Constant(module, name, _, _) => self.name_to_expr(*module, name),
             AcornValue::Application(fa) => {
+                if let Some((class, name)) = fa.function.as_member() {
+                    if let Some(expr) = self.member_expr(class, name, &fa.args, next_x, next_k)? {
+                        return Ok(expr);
+                    }
+                }
+
                 let f = self.value_to_expr(&fa.function, var_names, next_x, next_k)?;
                 let mut args = vec![];
                 for arg in &fa.args {
                     args.push(self.value_to_expr(arg, var_names, next_x, next_k)?);
                 }
                 if let Expression::Singleton(fname) = &f {
+                    // TODO: eliminate this whole block after it's handled by member_apply_expr
+
                     let parts = fname.text().split('.').collect::<Vec<_>>();
                     if parts.len() == 2 && self.has_type_name(parts[0]) {
                         if args.len() == 2 {
-                            if let Some(op) = TokenType::from_magic_method_name(parts[1]) {
-                                // This is an infix operator
-                                let right = args.pop().unwrap();
-                                let left = args.pop().unwrap();
-                                return Ok(Expression::generate_binary(left, op, right));
-                            }
-
                             if parts[1] == "read" && args[0].is_number() {
                                 // Handle long numeric literals
                                 if let Some(digit) = args[1].to_digit() {
