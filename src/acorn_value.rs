@@ -1502,9 +1502,8 @@ impl AcornValue {
         answer.unwrap()
     }
 
-    // If this value is a member function or member variable, represent it as a type, plus
-    // the name of the member.
-    pub fn as_member(&self) -> Option<(AcornType, String)> {
+    // If this value is a member function or member variable of the given type, return its name.
+    pub fn is_member(&self, class: &AcornType) -> Option<String> {
         match &self {
             AcornValue::Constant(module_id, name, _, _) => {
                 let parts = name.split('.').collect::<Vec<_>>();
@@ -1514,7 +1513,11 @@ impl AcornValue {
                 let type_name = parts[0];
                 let member_name = parts[1];
                 let type_id = AcornType::Data(*module_id, type_name.to_string());
-                Some((type_id, member_name.to_string()))
+                if type_id == *class {
+                    Some(member_name.to_string())
+                } else {
+                    None
+                }
             }
             _ => None,
         }
