@@ -762,7 +762,6 @@ impl Prover {
 #[cfg(test)]
 mod tests {
     use crate::code_gen_error::CodeGenError;
-    use crate::module::Module;
     use crate::project::Project;
 
     use super::*;
@@ -775,11 +774,7 @@ mod tests {
         goal_name: &str,
     ) -> (Outcome, Result<Vec<String>, CodeGenError>) {
         let module_id = project.load_module(module_name).expect("load failed");
-        let env = match project.get_module(module_id) {
-            Module::Ok(env) => env,
-            Module::Error(e) => panic!("get_module error: {}", e),
-            _ => panic!("unexpected get_module result"),
-        };
+        let env = project.get_env(module_id).unwrap();
         let goal_context = env.get_goal_context_by_name(goal_name);
         let mut prover = Prover::new(&project, &goal_context, false);
         prover.verbose = true;
@@ -811,11 +806,7 @@ mod tests {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
         let module_id = project.load_module("main").expect("load failed");
-        let env = match project.get_module(module_id) {
-            Module::Ok(env) => env,
-            Module::Error(e) => panic!("get_module error: {}", e),
-            _ => panic!("unexpected get_module result"),
-        };
+        let env = project.get_env(module_id).unwrap();
         let paths = env.goal_paths();
         for path in paths {
             let goal_context = env.get_goal_context(&path).unwrap();
