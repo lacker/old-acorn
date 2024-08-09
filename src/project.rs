@@ -1023,6 +1023,14 @@ mod tests {
                 0
                 suc(Nat)
             }
+
+            numerals Nat
+
+            class Nat {
+                define add(self, other: Nat) -> Nat {
+                    0
+                }
+            }
         "#,
         );
         p.mock(
@@ -1032,5 +1040,7 @@ mod tests {
             "#,
         );
         p.check_code_into("main", "nat.Nat.0", "Nat.0");
+        p.check_code_into("main", "Nat.suc(Nat.0)", "Nat.0.suc");
+        // p.check_code_into("main", "Nat.add(Nat.0, Nat.0)", "Nat.0 + Nat.0");
     }
 }
