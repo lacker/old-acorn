@@ -72,6 +72,10 @@ struct SubtermInfo {
     // Note that this contains duplicates.
     // We do use duplicates to prevent factual-factual rewrites, but it is displeasing.
     rewrites: Vec<Rewrite>,
+
+    // The depth of the subterm is the maximum depth of a clause that needs to be activated
+    // to use this subterm.
+    depth: u32,
 }
 
 // A SubtermLocation describes somewhere that the subterm exists among the activated clauses.
@@ -279,7 +283,13 @@ impl ActiveSet {
                     let id1 = self.graph.insert_term(&u_subterm);
                     for rewrite in &rewrites {
                         let id2 = self.graph.insert_term(&rewrite.term);
-                        self.add_to_term_graph(rewrite.pattern_id, Some(target_id), id1, id2, true);
+                        self.add_to_term_graph(
+                            rewrite.pattern_id,
+                            Some(target_step.depth),
+                            id1,
+                            id2,
+                            true,
+                        );
                     }
 
                     // Populate the subterm info.
@@ -288,6 +298,7 @@ impl ActiveSet {
                         term: u_subterm.clone(),
                         locations: vec![],
                         rewrites,
+                        depth: target_step.depth,
                     });
                     self.subterm_map.insert(u_subterm.clone(), id);
                     self.subterm_unifier.insert(u_subterm, id);
@@ -367,16 +378,12 @@ impl ActiveSet {
                 }
                 let new_subterm = unifier.apply(Scope::Left, t);
 
-                let mut first_target_id = None;
                 for location in &subterm_info.locations {
                     if location.target_id == pattern_id {
                         // Don't rewrite a literal with itself
                         continue;
                     }
                     let target_id = location.target_id;
-                    if first_target_id.is_none() {
-                        first_target_id = Some(target_id);
-                    }
                     let target_step = self.get_step(target_id);
 
                     if pattern_step.truthiness == Truthiness::Factual
@@ -398,12 +405,10 @@ impl ActiveSet {
                     output.push(ps);
                 }
 
-                if first_target_id.is_some() {
-                    // Add this rewrite to the term graph.
-                    let id1 = self.graph.insert_term(&subterm);
-                    let id2 = self.graph.insert_term(&new_subterm);
-                    self.add_to_term_graph(pattern_id, first_target_id, id1, id2, true);
-                }
+                // Add this rewrite to the term graph.
+                let id1 = self.graph.insert_term(&subterm);
+                let id2 = self.graph.insert_term(&new_subterm);
+                self.add_to_term_graph(pattern_id, Some(subterm_info.depth), id1, id2, true);
 
                 self.subterms[subterm_id].rewrites.push(Rewrite {
                     pattern_id,
@@ -696,16 +701,16 @@ impl ActiveSet {
     fn add_to_term_graph(
         &mut self,
         pattern_id: usize,
-        inspiration_id: Option<usize>,
+        inspiration_depth: Option<u32>,
         term1: TermId,
         term2: TermId,
         equal: bool,
     ) {
         if equal {
             self.graph
-                .set_terms_equal(term1, term2, pattern_id, inspiration_id);
+                .set_terms_equal(term1, term2, pattern_id, inspiration_depth);
         } else {
-            assert!(inspiration_id.is_none());
+            assert!(inspiration_depth.is_none());
             self.graph.set_terms_not_equal(term1, term2, pattern_id);
         }
     }

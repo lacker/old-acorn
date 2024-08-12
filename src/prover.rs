@@ -452,20 +452,17 @@ impl Prover {
             let rewrite_step = self.active_set.get_step(rewrite_info.pattern_id);
             truthiness = truthiness.combine(rewrite_step.truthiness);
 
-            // Check whether the inspiration for this rewrite was depth-zero
-            let depth_zero_inspiration = match rewrite_info.inspiration_id {
-                None => true,
-                Some(id) => {
-                    let inspiration_step = self.active_set.get_step(id);
-                    inspiration_step.depth == 0
+            // Check whether we need to explicitly add a specialized clause to make
+            // this rewrite a basic proof.
+            match rewrite_info.subterm_depth {
+                None | Some(0) => {
+                    // No extra specialized clause needed
+                    active_ids.push(rewrite_info.pattern_id);
+                    max_depth = max_depth.max(rewrite_step.depth);
+                    continue;
                 }
+                Some(_) => {}
             };
-            if depth_zero_inspiration {
-                // No extra passive clause needed
-                active_ids.push(rewrite_info.pattern_id);
-                max_depth = max_depth.max(rewrite_step.depth);
-                continue;
-            }
 
             // Create a new proof step, without activating it, to express the
             // specific equality used by this rewrite.

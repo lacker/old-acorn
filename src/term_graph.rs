@@ -21,11 +21,10 @@ pub struct RewriteStep {
     // We know this rewrite is true based on the pattern step alone.
     pub pattern_id: StepId,
 
-    // The external id of the rule that inspired this rewrite.
-    // For example, if we see that f(g(a, b)) = h(a, b), we might become interested in rewriting
-    // g(a, b).
-    // If this rewrite is an exact math to the pattern, the inspiration is None.
-    pub inspiration_id: Option<StepId>,
+    // The depth of the subterm that inspired this rewrite.
+    // If this rewrite is an exact math to the pattern, there is no particular subterm, so the
+    // subterm depth is None.
+    pub subterm_depth: Option<u32>,
 }
 
 // The goal of the TermGraph is to find a contradiction.
@@ -488,11 +487,11 @@ impl TermGraph {
         term1: TermId,
         term2: TermId,
         pattern_id: StepId,
-        inspiration_id: Option<StepId>,
+        subterm_depth: Option<u32>,
     ) {
         let step = RewriteStep {
             pattern_id,
-            inspiration_id,
+            subterm_depth,
         };
         self.pending.push((term1, term2, Some(step)));
         self.process_pending();
