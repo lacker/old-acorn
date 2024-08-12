@@ -42,6 +42,7 @@ theorem add_zero_left(a: Nat) { 0 + a = a } by {
     forall(x: Nat) {
         if add_zero_left(x) {
             0 + x = x
+            repeat(Nat.suc, 0, x.suc) = repeat(Nat.suc, 0, x).suc
             0 + x.suc = x.suc
             add_zero_left(x.suc)
         }
