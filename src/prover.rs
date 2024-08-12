@@ -340,7 +340,7 @@ impl Prover {
             "\n{}{} generated (depth {}):\n    {}",
             preface,
             step.rule.name(),
-            step.depth,
+            step.depth(),
             self.display(&step.clause)
         );
 
@@ -458,7 +458,7 @@ impl Prover {
                 None | Some(0) => {
                     // No extra specialized clause needed
                     active_ids.push(rewrite_info.pattern_id);
-                    max_depth = max_depth.max(rewrite_step.depth);
+                    max_depth = max_depth.max(rewrite_step.depth());
                     continue;
                 }
                 Some(_) => {}
@@ -475,7 +475,7 @@ impl Prover {
             }
             new_clauses.insert(clause.clone());
             let step = ProofStep::new_specialization(rewrite_info.pattern_id, rewrite_step, clause);
-            max_depth = max_depth.max(step.depth);
+            max_depth = max_depth.max(step.depth());
             let passive_id = self.useful_passive.len() as u32;
             self.useful_passive.push(step);
             passive_ids.push(passive_id);
@@ -742,7 +742,7 @@ impl Prover {
             premises,
             rule,
             location,
-            depth: step.depth,
+            depth: step.depth(),
         }
     }
 

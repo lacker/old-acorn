@@ -208,7 +208,7 @@ impl<'a> Proof<'a> {
             premises: vec![],
             consequences: vec![],
             sources: vec![],
-            depth: step.depth,
+            depth: step.depth(),
         });
 
         if let Rule::Assumption(source) = &step.rule {

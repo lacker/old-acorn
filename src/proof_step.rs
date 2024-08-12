@@ -202,9 +202,13 @@ pub struct ProofStep {
     // This does not deduplicate among different branches, so it may be an overestimate.
     pub proof_size: u32,
 
-    // The depth is the number of serial "non-cheap" steps required to reach this step.
-    // TODO: "cheap" is a heuristic and thus it should be based on the Score.
-    pub depth: u32,
+    // The dependency depth is the largest depth of any dependency.
+    pub dependency_depth: u32,
+
+    // Some proof steps are categorized as "basic".
+    // In a user-written proof, these can be assumed without being explicitly stated.
+    // In the prover, we can use them to prove other things without increasing the depth.
+    pub basic: bool,
 }
 
 impl fmt::Display for ProofStep {
@@ -220,7 +224,8 @@ impl ProofStep {
         rule: Rule,
         simplification_rules: Vec<usize>,
         proof_size: u32,
-        depth: u32,
+        dependency_depth: u32,
+        basic: bool,
     ) -> ProofStep {
         ProofStep {
             clause,
@@ -228,7 +233,17 @@ impl ProofStep {
             rule,
             simplification_rules,
             proof_size,
-            depth,
+            dependency_depth,
+            basic,
+        }
+    }
+    // If this proof step is basic, its depth is the same as its dependency depth.
+    // If this proof step is not basic, its depth is one more than its dependency depth.
+    pub fn depth(&self) -> u32 {
+        if self.basic {
+            self.dependency_depth
+        } else {
+            self.dependency_depth + 1
         }
     }
 
@@ -236,7 +251,7 @@ impl ProofStep {
     // Assumptions are always cheap, but as we add more theorems we will have to revisit that.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness, source: &Source) -> ProofStep {
         let rule = Rule::Assumption(source.clone());
-        ProofStep::new(clause, truthiness, rule, vec![], 0, 0)
+        ProofStep::new(clause, truthiness, rule, vec![], 0, 0, true)
     }
 
     // Construct a new ProofStep that is a direct implication of a single activated step,
@@ -249,7 +264,8 @@ impl ProofStep {
             rule,
             vec![],
             activated_step.proof_size + 1,
-            activated_step.depth,
+            activated_step.depth(),
+            true,
         )
     }
 
@@ -265,7 +281,8 @@ impl ProofStep {
             Rule::Specialization(general_id),
             vec![],
             general_step.proof_size + 1,
-            general_step.depth + 1,
+            general_step.depth(),
+            false,
         )
     }
 
@@ -282,11 +299,10 @@ impl ProofStep {
             negative_id,
         });
 
-        let cheap =
+        let basic =
             positive_step.clause.contains(&clause) || negative_step.clause.contains(&clause);
 
-        let depth =
-            std::cmp::max(positive_step.depth, negative_step.depth) + if cheap { 0 } else { 1 };
+        let dependency_depth = std::cmp::max(positive_step.depth(), negative_step.depth());
 
         ProofStep::new(
             clause,
@@ -294,7 +310,8 @@ impl ProofStep {
             rule,
             vec![],
             positive_step.proof_size + negative_step.proof_size + 1,
-            depth,
+            dependency_depth,
+            basic,
         )
     }
 
@@ -328,15 +345,14 @@ impl ProofStep {
         });
 
         // We only compare against the target
-        let cheap = if clause.is_impossible() {
+        let basic = if clause.is_impossible() {
             true
         } else {
             assert_eq!(clause.literals.len(), 1);
             assert_eq!(target_step.clause.literals.len(), 1);
             clause.literals[0].extended_kbo_cmp(&target_step.clause.literals[0]) == Ordering::Less
         };
-        let depth =
-            std::cmp::max(pattern_step.depth, target_step.depth) + if cheap { 0 } else { 1 };
+        let dependency_depth = std::cmp::max(pattern_step.depth(), target_step.depth());
 
         ProofStep::new(
             clause,
@@ -344,7 +360,8 @@ impl ProofStep {
             rule,
             vec![],
             pattern_step.proof_size + target_step.proof_size + 1,
-            depth,
+            dependency_depth,
+            basic,
         )
     }
 
@@ -354,7 +371,7 @@ impl ProofStep {
         active_ids: Vec<usize>,
         passive_ids: Vec<u32>,
         truthiness: Truthiness,
-        depth: u32,
+        dependency_depth: u32,
     ) -> ProofStep {
         let rule = Rule::MultipleRewrite(MultipleRewriteInfo {
             inequality_id,
@@ -362,8 +379,17 @@ impl ProofStep {
             passive_ids,
         });
 
-        // Multiple rewrites don't add to depth. It's the specializations that can be expensive.
-        ProofStep::new(Clause::impossible(), truthiness, rule, vec![], 0, depth)
+        // Multiple rewrites are always basic themselves.
+        // It's the specializations that can be expensive.
+        ProofStep::new(
+            Clause::impossible(),
+            truthiness,
+            rule,
+            vec![],
+            0,
+            dependency_depth,
+            true,
+        )
     }
 
     // Create a replacement for this clause that has extra simplification rules.
@@ -380,13 +406,15 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
+        // TODO: the new clause might be basic, now, even if it wasn't before.
         ProofStep::new(
             new_clause,
             new_truthiness,
             self.rule,
             rules,
             self.proof_size,
-            self.depth,
+            self.dependency_depth,
+            self.basic,
         )
     }
 
@@ -400,6 +428,7 @@ impl ProofStep {
             vec![],
             0,
             0,
+            true,
         )
     }
 

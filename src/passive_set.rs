@@ -95,7 +95,7 @@ impl PassiveSet {
             step.truthiness,
             &step.rule,
             step.proof_size,
-            step.depth,
+            step.depth(),
         );
         let id = self.clauses.len();
         for (i, literal) in step.clause.literals.iter().enumerate() {
