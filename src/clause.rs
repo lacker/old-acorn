@@ -115,9 +115,10 @@ impl Clause {
         self.literals.iter().filter(|x| x.positive).count()
     }
 
-    // Whether it is cheap to conclude this clause from the other clause.
-    // We don't want there to be extremely long chains of reasoning, each step of which it is
-    // cheap to conclude from the previous one.
+    // We extend the KBO, which is a partial ordering, to a complete ordering.
+    // This function returns that ordering.
+    // This is useful because we cannot have an arbitrarily long chain of clauses that are all
+    // less than the previous one. This ordering is a proxy for "simplicity".
     pub fn extended_kbo_less_than(&self, other: &Clause) -> bool {
         if self.len() == other.len() {
             self.literals[0].extended_kbo_cmp(&other.literals[0]) == Ordering::Less
