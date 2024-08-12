@@ -18,7 +18,14 @@ type StepId = usize;
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Ord, PartialOrd)]
 pub struct RewriteStep {
     // The external id of the rule used for this rewrite.
-    pub id: StepId,
+    // We know this rewrite is true based on the pattern step alone.
+    pub pattern_id: StepId,
+
+    // The external id of the rule that inspired this rewrite.
+    // For example, if we see that f(g(a, b)) = h(a, b), we might become interested in rewriting
+    // g(a, b).
+    // If this rewrite is an exact math to the pattern, the inspiration is None.
+    pub inspiration_id: Option<StepId>,
 
     // Whether this concrete rewrite is based on the rule exactly, or a specialization of it.
     pub exact: bool,
@@ -479,8 +486,18 @@ impl TermGraph {
         };
     }
 
-    pub fn set_terms_equal(&mut self, term1: TermId, term2: TermId, step_id: StepId, exact: bool) {
-        let step = RewriteStep { id: step_id, exact };
+    pub fn set_terms_equal(
+        &mut self,
+        term1: TermId,
+        term2: TermId,
+        pattern_id: StepId,
+        inspiration_id: Option<StepId>,
+    ) {
+        let step = RewriteStep {
+            pattern_id,
+            inspiration_id,
+            exact: inspiration_id.is_none(),
+        };
         self.pending.push((term1, term2, Some(step)));
         self.process_pending();
     }
@@ -601,7 +618,7 @@ impl TermGraph {
         for (term_a, term_b, step) in path {
             match step {
                 Some(step) => {
-                    output.insert(step.id);
+                    output.insert(step.pattern_id);
                 }
                 None => {
                     let (head_a, args_a) = self.as_compound(term_a);
@@ -703,7 +720,7 @@ impl TermGraph {
 
     #[cfg(test)]
     fn set_eq(&mut self, t1: TermId, t2: TermId, id: usize) {
-        self.set_terms_equal(t1, t2, id, true);
+        self.set_terms_equal(t1, t2, id, None);
         self.validate();
         self.assert_eq(t1, t2);
     }

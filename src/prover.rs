@@ -449,12 +449,20 @@ impl Prover {
         let inequality_step = self.active_set.get_step(contradiction.inequality_id);
         let mut truthiness = inequality_step.truthiness;
         for (left, right, rewrite_info) in contradiction.rewrite_chain {
-            let rewrite_step = self.active_set.get_step(rewrite_info.id);
+            let rewrite_step = self.active_set.get_step(rewrite_info.pattern_id);
             truthiness = truthiness.combine(rewrite_step.truthiness);
 
-            if rewrite_info.exact {
+            // Check whether the inspiration for this rewrite was depth-zero
+            let depth_zero_inspiration = match rewrite_info.inspiration_id {
+                None => true,
+                Some(id) => {
+                    let inspiration_step = self.active_set.get_step(id);
+                    inspiration_step.depth == 0
+                }
+            };
+            if depth_zero_inspiration {
                 // No extra passive clause needed
-                active_ids.push(rewrite_info.id);
+                active_ids.push(rewrite_info.pattern_id);
                 max_depth = max_depth.max(rewrite_step.depth);
                 continue;
             }
@@ -465,10 +473,11 @@ impl Prover {
             let clause = Clause::new(vec![literal]);
             if new_clauses.contains(&clause) {
                 // We already created a step for this equality
+                // TODO: is it really okay to not insert any sort of id here?
                 continue;
             }
             new_clauses.insert(clause.clone());
-            let step = ProofStep::new_specialization(rewrite_info.id, rewrite_step, clause);
+            let step = ProofStep::new_specialization(rewrite_info.pattern_id, rewrite_step, clause);
             max_depth = max_depth.max(step.depth);
             let passive_id = self.useful_passive.len() as u32;
             self.useful_passive.push(step);

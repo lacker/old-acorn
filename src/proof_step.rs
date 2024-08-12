@@ -362,7 +362,7 @@ impl ProofStep {
             passive_ids,
         });
 
-        // Multiple rewrites don't add to depth. It's the specializations that are expensive.
+        // Multiple rewrites don't add to depth. It's the specializations that can be expensive.
         ProofStep::new(Clause::impossible(), truthiness, rule, vec![], 0, depth)
     }
 
