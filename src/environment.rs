@@ -918,13 +918,37 @@ impl Environment {
                     self.includes_explicit_false = true;
                 }
 
-                let index = self.add_node(
-                    project,
-                    false,
-                    Proposition::anonymous(claim, self.module_id, statement.range()),
-                    None,
-                );
-                self.add_prop_lines(index, statement);
+                // Check for whether this proposition is just a theorem citation.
+                let is_citation = match claim.is_named_function_call() {
+                    Some((module_id, name)) => {
+                        if module_id == self.module_id {
+                            self.bindings.is_theorem(&name)
+                        } else {
+                            let bindings = project.get_bindings(module_id).unwrap();
+                            bindings.is_theorem(&name)
+                        }
+                    }
+                    None => false,
+                };
+
+                if is_citation {
+                    // We already know this is true, so we don't need to prove it
+                    self.add_node(
+                        project,
+                        true,
+                        Proposition::anonymous(claim, self.module_id, statement.range()),
+                        None,
+                    );
+                    self.add_other_lines(statement);
+                } else {
+                    let index = self.add_node(
+                        project,
+                        false,
+                        Proposition::anonymous(claim, self.module_id, statement.range()),
+                        None,
+                    );
+                    self.add_prop_lines(index, statement);
+                }
                 Ok(())
             }
 
