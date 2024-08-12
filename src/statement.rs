@@ -52,6 +52,7 @@ pub struct TheoremStatement {
     pub type_params: Vec<Token>,
     pub args: Vec<Declaration>,
     pub claim: Expression,
+    pub claim_right_brace: Token,
     pub body: Option<Body>,
 }
 
@@ -341,10 +342,10 @@ fn parse_theorem_statement(
             "only one type parameter is supported",
         ));
     }
-    let (claim, right_brace) =
+    let (claim, claim_right_brace) =
         Expression::parse_value(tokens, Terminator::Is(TokenType::RightBrace))?;
 
-    let (body, last_token) = parse_by_block(right_brace, tokens)?;
+    let (body, last_token) = parse_by_block(claim_right_brace.clone(), tokens)?;
 
     let ts = TheoremStatement {
         axiomatic,
@@ -352,6 +353,7 @@ fn parse_theorem_statement(
         type_params,
         args,
         claim,
+        claim_right_brace,
         body,
     };
     let statement = Statement {

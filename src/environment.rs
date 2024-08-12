@@ -830,7 +830,7 @@ impl Environment {
                 // include the proof block.
                 let range = Range {
                     start: statement.first_token.start_pos(),
-                    end: ts.claim.last_token().end_pos(),
+                    end: ts.claim_right_brace.end_pos(),
                 };
                 self.definition_ranges.insert(ts.name.to_string(), range);
 
