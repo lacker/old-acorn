@@ -145,11 +145,18 @@ impl PassiveSet {
                     continue;
                 }
             };
+
             let literal = &step.clause.literals[literal_index];
             let literal_positive = literal.positive;
 
             // We've only checked fingerprints. We need to check if they actually match.
             if !pair_specializes(left, right, &literal.left, &literal.right) {
+                continue;
+            }
+
+            if step.rule.is_assumption() && positive == literal_positive {
+                // This assumption is redundant, implied by an existing clause.
+                // But, let's keep it, because we might use it for rewrite inspiration.
                 continue;
             }
 
