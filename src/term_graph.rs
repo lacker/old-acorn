@@ -26,9 +26,6 @@ pub struct RewriteStep {
     // g(a, b).
     // If this rewrite is an exact math to the pattern, the inspiration is None.
     pub inspiration_id: Option<StepId>,
-
-    // Whether this concrete rewrite is based on the rule exactly, or a specialization of it.
-    pub exact: bool,
 }
 
 // The goal of the TermGraph is to find a contradiction.
@@ -496,7 +493,6 @@ impl TermGraph {
         let step = RewriteStep {
             pattern_id,
             inspiration_id,
-            exact: inspiration_id.is_none(),
         };
         self.pending.push((term1, term2, Some(step)));
         self.process_pending();
