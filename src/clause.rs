@@ -115,16 +115,37 @@ impl Clause {
         self.literals.iter().filter(|x| x.positive).count()
     }
 
-    // We extend the KBO, which is a partial ordering, to a complete ordering.
-    // This function returns that ordering.
-    // This is useful because we cannot have an arbitrarily long chain of clauses that are all
-    // less than the previous one. This ordering is a proxy for "simplicity".
-    pub fn extended_kbo_less_than(&self, other: &Clause) -> bool {
-        if self.len() == other.len() {
-            self.literals[0].extended_kbo_cmp(&other.literals[0]) == Ordering::Less
-        } else {
-            self.len() < other.len()
+    // Whether it is a basic inference to conclude this clause from the other clause.
+    // Basic inferences are those that the user can leave out when writing a proof.
+    // The number of basic inferences should be finite and relatively small, so that we can
+    // check all of them.
+    // Thus, this should be a well ordering, when you consider it as a partial order.
+    pub fn basic_inference_from(&self, other: &Clause) -> bool {
+        // Any contradiction is basic
+        if self.is_impossible() {
+            return true;
         }
+
+        // The only basic inference from a long clause is eliminating part of it.
+        // The core question is whether we allow instantiation of free variables.
+        // That is generally well ordered, but allows a huge number of basic inferences, so
+        // we don't consider instantiation to be basic, in general.
+        if other.len() != 1 {
+            return other.contains(&self);
+        }
+        if self.len() != 1 {
+            return false;
+        }
+
+        // Neither instantiation nor generalization is basic.
+        let self_literal = &self.literals[0];
+        let other_literal = &other.literals[0];
+        if self_literal.has_any_variable() || other_literal.has_any_variable() {
+            return false;
+        }
+
+        // After the above constraints, reducing the KBO is basic
+        self_literal.extended_kbo_cmp(other_literal) == Ordering::Less
     }
 
     // Whether every literal in this clause is exactly contained by the other clause.
