@@ -1043,4 +1043,36 @@ mod tests {
         p.check_code_into("main", "Nat.suc(Nat.0)", "Nat.0.suc");
         p.check_code_into("main", "Nat.add(Nat.0, Nat.0)", "Nat.0 + Nat.0");
     }
+
+    #[test]
+    fn test_imported_numbers_codegen_with_numerals() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/nat.ac",
+            r#"
+            inductive Nat {
+                0
+                suc(Nat)
+            }
+
+            numerals Nat
+
+            class Nat {
+                define add(self, other: Nat) -> Nat {
+                    0
+                }
+            }
+        "#,
+        );
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            from nat import Nat
+            numerals Nat
+            "#,
+        );
+        p.check_code_into("main", "nat.Nat.0", "0");
+        // p.check_code_into("main", "Nat.suc(Nat.0)", "0.suc");
+        // p.check_code_into("main", "Nat.add(Nat.0, Nat.0)", "0 + 0");
+    }
 }
