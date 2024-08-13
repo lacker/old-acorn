@@ -726,6 +726,7 @@ impl Project {
             .expect("could not convert to code");
 
         if output != expected {
+            println!("XXX value: {:?}", value);
             panic!(
                 "\nconverted:\n  {}\nto value:\n  {}\nand back to:\n  {}\nbut expected:\n  {}\n",
                 input, value, output, expected
@@ -1072,7 +1073,7 @@ mod tests {
             "#,
         );
         p.check_code_into("main", "nat.Nat.0", "0");
-        // p.check_code_into("main", "Nat.suc(Nat.0)", "0.suc");
-        // p.check_code_into("main", "Nat.add(Nat.0, Nat.0)", "0 + 0");
+        p.check_code_into("main", "Nat.suc(Nat.0)", "0.suc");
+        p.check_code_into("main", "Nat.add(Nat.0, Nat.0)", "0 + 0");
     }
 }

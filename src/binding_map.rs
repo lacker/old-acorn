@@ -1401,6 +1401,10 @@ impl BindingMap {
     }
 
     // Given a module and a name, find an expression that refers to the name.
+    // Note that:
+    //   module, the canonical module of the entity we are trying to express
+    // is different from
+    //   self.module, the module we are trying to express the name in
     fn name_to_expr(&self, module: ModuleId, name: &str) -> Result<Expression, CodeGenError> {
         let mut parts = name.split('.').collect::<Vec<_>>();
 
@@ -1409,8 +1413,8 @@ impl BindingMap {
             let numeral = TokenType::Numeral.new_token(parts[1]);
 
             // If it's the default type, we don't need to scope it
-            if let Some((module, type_name)) = &self.default {
-                if *module == self.module && type_name == parts[0] {
+            if let Some((default_module, default_type_name)) = &self.default {
+                if *default_module == module && default_type_name == parts[0] {
                     return Ok(Expression::Singleton(numeral));
                 }
             }
