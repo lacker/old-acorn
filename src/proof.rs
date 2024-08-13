@@ -301,23 +301,13 @@ impl<'a> Proof<'a> {
         }
     }
 
-    // This is really just a heuristic.
+    // "Ugly" is what we call a node that we are not capable of printing.
     fn is_ugly(&self, node_id: NodeId) -> bool {
         let node = &self.nodes[node_id as usize];
         let clause = match &node.value {
             NodeValue::Contradiction | NodeValue::NegatedGoal => return false,
             NodeValue::Clause(clause) => clause,
         };
-
-        if clause.len() > 1 {
-            // Clauses with a bunch of literals are ugly because they are hard to read.
-            return true;
-        }
-
-        if clause.has_any_variable() {
-            // Unbound variables are ugly because we'll have to stick in extra "forall" and "exists".
-            return true;
-        }
 
         if clause.has_skolem() {
             // Skolem constants are ugly because they don't have a user-visible name.

@@ -326,9 +326,15 @@ theorem add_to_zero(a: Nat, b: Nat) { a + b = 0 -> a = 0 and b = 0 } by {
     }
 }
 
-theorem only_zero_lte_zero(a: Nat) { a <= 0 -> a = 0 }
+theorem only_zero_lte_zero(a: Nat) {
+    a <= 0 -> a = 0
+} by {
+    exists(k0: Nat) { a + k0 = 0 }
+}
 
-theorem not_lt_zero(a: Nat) { not a < 0 }
+theorem not_lt_zero(a: Nat) {
+    not a < 0
+}
 
 theorem zero_or_suc(a: Nat) {
     a = 0 or exists(b: Nat) { a = b.suc }
@@ -349,6 +355,10 @@ theorem lte_cancel_suc(a: Nat, b: Nat) { a.suc <= b.suc -> a <= b } by {
 
 theorem lt_cancel_suc(a: Nat, b: Nat) {
     a.suc < b.suc -> a < b
+} by {
+    a.suc <= b.suc
+    b.suc != a.suc
+    a <= b and b != a
 }
 
 theorem lt_not_symm(a: Nat, b: Nat) { a < b -> not b < a } by {
@@ -367,6 +377,7 @@ theorem lt_not_symm(a: Nat, b: Nat) { a < b -> not b < a } by {
                     let (z: Nat) satisfy { y = z.suc }
                     x.suc < z.suc
                     x < z
+                    lt_not_symm(x, z)
                     not z < x
                     not (z.suc < x.suc)
                     not (y < x.suc)
@@ -382,6 +393,7 @@ theorem lt_not_symm(a: Nat, b: Nat) { a < b -> not b < a } by {
 theorem lt_diff(a: Nat, b: Nat) {
     a < b -> exists(c: Nat) { a + c = b and c != 0 }
 } by {
+    a <= b
     let (c: Nat) satisfy { a + c = b }
     b != a
     c != 0
@@ -394,6 +406,7 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat) { a <= b and b <= c -> a <= c } by {
     Nat.induction(f)
     forall(x: Nat, y: Nat) {
         if x <= y and y <= 0 {
+            y = 0
             x <= 0
         }
         lte_trans(x, y, 0)
