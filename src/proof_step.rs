@@ -298,6 +298,8 @@ impl ProofStep {
             negative_id,
         });
 
+        let truthiness = positive_step.truthiness.combine(negative_step.truthiness);
+
         let basic = clause.basic_inference_from(&positive_step.clause)
             || clause.basic_inference_from(&negative_step.clause);
 
@@ -305,7 +307,7 @@ impl ProofStep {
 
         ProofStep::new(
             clause,
-            positive_step.truthiness.combine(negative_step.truthiness),
+            truthiness,
             rule,
             vec![],
             positive_step.proof_size + negative_step.proof_size + 1,
