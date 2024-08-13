@@ -393,7 +393,7 @@ impl ProofStep {
     }
 
     // Create a replacement for this clause that has extra simplification rules.
-    // It's hard to handle depth well, here. So we just don't change it.
+    // We could probably handle basicness better if we had access to all of the source clauses.
     pub fn simplify(
         self,
         new_clause: Clause,
