@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt;
 
 use crate::clause::Clause;
@@ -246,6 +247,48 @@ impl ProofStep {
         }
     }
 
+    // Whether the new clause is a basic implication from this proof step.
+    fn is_basic_implication(&self, new_clause: &Clause) -> bool {
+        // Any contradiction is basic
+        if new_clause.is_impossible() {
+            return true;
+        }
+
+        if self.rule.is_negated_goal() && new_clause.len() > 1 {
+            // We need to make these basic so that single rule applications involving
+            // multiple resolutions can be basic.
+            return true;
+        }
+
+        if self.truthiness == Truthiness::Counterfactual
+            && self.clause.len() > 1
+            && self.depth() == 0
+            && new_clause.len() > 1
+        {
+            // Another case to catch single rule applications involving multiple resolutions.
+            return true;
+        }
+
+        // We need to be very restrictive about basic implications from general theorems.
+        // The only basic inference from a long clause is eliminating part of it.
+        if self.clause.len() != 1 {
+            return self.clause.contains(&new_clause);
+        }
+        if new_clause.len() != 1 {
+            return false;
+        }
+
+        // Neither instantiation nor generalization is basic.
+        let new_literal = &new_clause.literals[0];
+        let self_literal = &self.clause.literals[0];
+        if new_literal.has_any_variable() || self_literal.has_any_variable() {
+            return false;
+        }
+
+        // For concrete single literals, reducing the KBO is basic.
+        new_literal.extended_kbo_cmp(self_literal) == Ordering::Less
+    }
+
     // Construct a new assumption ProofStep that is not dependent on any other steps.
     // Assumptions are always basic, but as we add more theorems we will have to revisit that.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness, source: &Source) -> ProofStep {
@@ -300,8 +343,8 @@ impl ProofStep {
 
         let truthiness = positive_step.truthiness.combine(negative_step.truthiness);
 
-        let basic = clause.basic_inference_from(&positive_step.clause)
-            || clause.basic_inference_from(&negative_step.clause);
+        let basic = positive_step.is_basic_implication(&clause)
+            || negative_step.is_basic_implication(&clause);
 
         let dependency_depth = std::cmp::max(positive_step.depth(), negative_step.depth());
 
@@ -346,8 +389,8 @@ impl ProofStep {
         });
 
         // We only compare against the target
-        let basic = clause.basic_inference_from(&pattern_step.clause)
-            || clause.basic_inference_from(&target_step.clause);
+        let basic =
+            pattern_step.is_basic_implication(&clause) || target_step.is_basic_implication(&clause);
         let dependency_depth = std::cmp::max(pattern_step.depth(), target_step.depth());
 
         ProofStep::new(
