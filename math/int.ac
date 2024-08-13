@@ -1745,6 +1745,7 @@ theorem spans_nat_mod(a: Int, b: Int, k: Nat, m: Nat) {
     Int.from_nat(mod(k, m)) = Int.from_nat(k) + negate(Int.from_nat(d) * Int.from_nat(m))
     spans(a, b, Int.from_nat(d) * Int.from_nat(m))
     spans(a, b, negate(Int.from_nat(d) * Int.from_nat(m)))
+    spans(a, b, Int.from_nat(k) + negate(Int.from_nat(d) * Int.from_nat(m)))
     spans(a, b, Int.from_nat(mod(k, m)))
 }
 

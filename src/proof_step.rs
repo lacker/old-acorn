@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::fmt;
 
 use crate::clause::Clause;
@@ -299,8 +298,8 @@ impl ProofStep {
             negative_id,
         });
 
-        let basic =
-            positive_step.clause.contains(&clause) || negative_step.clause.contains(&clause);
+        let basic = clause.basic_inference_from(&positive_step.clause)
+            || clause.basic_inference_from(&negative_step.clause);
 
         let dependency_depth = std::cmp::max(positive_step.depth(), negative_step.depth());
 
@@ -345,13 +344,8 @@ impl ProofStep {
         });
 
         // We only compare against the target
-        let basic = if clause.is_impossible() {
-            true
-        } else {
-            assert_eq!(clause.literals.len(), 1);
-            assert_eq!(target_step.clause.literals.len(), 1);
-            clause.literals[0].extended_kbo_cmp(&target_step.clause.literals[0]) == Ordering::Less
-        };
+        let basic = clause.basic_inference_from(&pattern_step.clause)
+            || clause.basic_inference_from(&target_step.clause);
         let dependency_depth = std::cmp::max(pattern_step.depth(), target_step.depth());
 
         ProofStep::new(
