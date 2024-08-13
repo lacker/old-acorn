@@ -406,7 +406,7 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
-        // TODO: the new clause might be basic, now, even if it wasn't before.
+        let new_basic = self.basic || new_clause.is_impossible();
         ProofStep::new(
             new_clause,
             new_truthiness,
@@ -414,7 +414,7 @@ impl ProofStep {
             rules,
             self.proof_size,
             self.dependency_depth,
-            self.basic,
+            new_basic,
         )
     }
 
