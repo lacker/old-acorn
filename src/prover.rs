@@ -621,6 +621,10 @@ impl Prover {
         self.search_for_contradiction(500, 0.05, false)
     }
 
+    pub fn quick_basic_search(&mut self) -> Outcome {
+        self.search_for_contradiction(500, 0.05, true)
+    }
+
     // If basic_only is set, we only search for a basic proof.
     pub fn search_for_contradiction(
         &mut self,
@@ -827,8 +831,8 @@ mod tests {
         prove_as_main(text, goal_name).0
     }
 
-    // Proves all the goals in the provided text, returning any non-Success outcome.
-    fn prove_all_no_crash(text: &str) -> Outcome {
+    // Verifies all the goals in the provided text, returning any non-Success outcome.
+    fn verify(text: &str) -> Outcome {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
         let module_id = project.load_module("main").expect("load failed");
@@ -839,7 +843,7 @@ mod tests {
             println!("proving: {}", goal_context.name);
             let mut prover = Prover::new(&project, &goal_context, false);
             prover.verbose = true;
-            let outcome = prover.quick_search();
+            let outcome = prover.quick_basic_search();
             if outcome != Outcome::Success {
                 return outcome;
             }
@@ -847,8 +851,8 @@ mod tests {
         Outcome::Success
     }
 
-    fn prove_all_succeeds(text: &str) {
-        assert_eq!(prove_all_no_crash(text), Outcome::Success);
+    fn verify_succeeds(text: &str) {
+        assert_eq!(verify(text), Outcome::Success);
     }
 
     fn expect_proof(text: &str, goal_name: &str, expected: &[&str]) {
@@ -1376,7 +1380,7 @@ mod tests {
 
     #[test]
     fn test_proving_explicit_false_okay() {
-        prove_all_succeeds(
+        verify_succeeds(
             r#"
             let b: Bool = axiom
             if b != b {
@@ -1388,7 +1392,7 @@ mod tests {
 
     #[test]
     fn test_subsequent_explicit_false_ok() {
-        prove_all_succeeds(
+        verify_succeeds(
             r#"
             let b: Bool = axiom
             if b != b {
@@ -1408,26 +1412,74 @@ mod tests {
                 c
             }
         "#;
-        assert_eq!(prove_all_no_crash(text), Outcome::Inconsistent);
+        assert_eq!(verify(text), Outcome::Inconsistent);
     }
 
     #[test]
-    fn test_if_else_expression() {
-        prove_all_succeeds(
+    fn test_verify_if_else_expression() {
+        verify_succeeds(
             r#"
             type Nat: axiom
             let zero: Nat = axiom
             let one: Nat = axiom
-            define sign(a: Nat) -> Nat { if a = zero { zero } else { one } }
-            theorem goal(a: Nat) { sign(a) = zero or sign(a) = one }
+            define sign(a: Nat) -> Nat {
+                if a = zero {
+                    zero
+                } else {
+                    one
+                }
+            }
+            theorem goal(a: Nat) {
+                sign(a) = zero or sign(a) = one
+            }
         "#,
+        );
+    }
+
+    #[test]
+    fn test_verify_complicated_theorem_application() {
+        verify_succeeds(
+            r#"
+            type Nat: axiom
+            let a: Nat = axiom
+            let b: Nat = axiom
+            let c: Nat = axiom
+            let f: (Nat, Nat) -> Bool = axiom
+            axiom trans(x: Nat, y: Nat, z: Nat) {
+                f(x, y) and f(y, z) -> f(x, z)
+            }
+            axiom fab { f(a, b) }
+            axiom fbc { f(b, c) }
+            theorem goal {
+                f(a, c)
+            }
+            "#,
+        );
+    }
+
+    #[test]
+    fn test_verify_existence_theorem() {
+        verify_succeeds(
+            r#"
+            type Nat: axiom
+            let a: Nat = axiom
+            let f: Nat -> Bool = axiom
+            let g: (Nat, Nat) -> Bool = axiom
+            axiom foo(x: Nat) {
+                f(x) -> exists(y: Nat) { g(x, y) and g(y, x) }
+            }
+            axiom fa { f(a) }
+            theorem goal {
+                exists(y: Nat) { g(a, y) and g(y, a) }
+            }
+            "#,
         );
     }
 
     #[test]
     fn test_rewrite_consistency() {
         // In practice this caught an inconsistency that came from bad rewrite logic.
-        prove_all_succeeds(
+        verify_succeeds(
             r#"
             type Nat: axiom
             let zero: Nat = axiom
@@ -1445,7 +1497,7 @@ mod tests {
     #[test]
     fn test_normalization_failure_doesnt_crash() {
         // We can't normalize lambdas inside function calls, but we shouldn't crash on them.
-        prove_all_no_crash(
+        verify(
             r#"
             type Nat: axiom
             let zero: Nat = axiom
@@ -1457,7 +1509,7 @@ mod tests {
 
     #[test]
     fn test_functional_definition() {
-        prove_all_succeeds(
+        verify_succeeds(
             r#"
             type Nat: axiom
             define is_min(f: Nat -> Bool) -> (Nat -> Bool) { axiom }
@@ -1472,7 +1524,7 @@ mod tests {
 
     #[test]
     fn test_functional_equality_definition() {
-        prove_all_succeeds(
+        verify_succeeds(
             r#"
             type Nat: axiom
             let f: Nat -> Nat = axiom
@@ -1514,7 +1566,7 @@ mod tests {
 
     #[test]
     fn test_proving_with_partial_application() {
-        prove_all_succeeds(
+        verify_succeeds(
             r#"
             type Nat: axiom
             let zero: Nat = axiom
@@ -1549,7 +1601,7 @@ mod tests {
 
     #[test]
     fn test_backward_nonbranching_reasoning() {
-        prove_all_succeeds(
+        verify_succeeds(
             r#"
             type Nat: axiom
             let suc: Nat -> Nat = axiom
@@ -1563,7 +1615,7 @@ mod tests {
 
     #[test]
     fn test_basic_unification() {
-        prove_all_succeeds(
+        verify_succeeds(
             r#"
             type Nat: axiom
             let zero: Nat = axiom
@@ -1616,7 +1668,7 @@ mod tests {
 
     #[test]
     fn test_assuming_lhs_of_implication() {
-        prove_all_succeeds(
+        verify_succeeds(
             r#"
             let a: Bool = axiom
             let b: Bool = axiom
@@ -1841,7 +1893,7 @@ mod tests {
             a != b
         }
         "#;
-        prove_all_succeeds(text);
+        verify_succeeds(text);
     }
 
     #[test]
@@ -1857,6 +1909,6 @@ mod tests {
             }
         }
         "#;
-        prove_all_succeeds(text);
+        verify_succeeds(text);
     }
 }
