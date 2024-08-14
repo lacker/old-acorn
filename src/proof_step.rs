@@ -379,6 +379,7 @@ impl ProofStep {
         };
         let new_u = u.replace_at_path(path, new_subterm.clone());
         let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
+        let basic = new_literal.extended_kbo_cmp(&target_literal) == Ordering::Less;
         let clause = Clause::new(vec![new_literal]);
 
         let rule = Rule::Rewrite(RewriteInfo {
@@ -388,9 +389,6 @@ impl ProofStep {
             target_truthiness: target_step.truthiness,
         });
 
-        // We only compare against the target
-        let basic =
-            pattern_step.is_basic_implication(&clause) || target_step.is_basic_implication(&clause);
         let dependency_depth = std::cmp::max(pattern_step.depth(), target_step.depth());
 
         ProofStep::new(
@@ -419,7 +417,7 @@ impl ProofStep {
         });
 
         // Multiple rewrites are always basic themselves.
-        // It's the specializations that can be expensive.
+        // It's the specializations that may require explicit steps.
         ProofStep::new(
             Clause::impossible(),
             truthiness,
