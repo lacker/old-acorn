@@ -22,7 +22,7 @@ walkdir = "2.4.0"
 debug = true
 
 [[bin]]
-name = "check"
+name = "verify"
 test = false
 
 [[bin]]
