@@ -1085,7 +1085,7 @@ mod tests {
             axiom a34(x: Bool) { f3(x) -> f4(x) }
             theorem goal(x: Bool) { f4(b) }
         "#;
-        expect_proof(text, "goal", &[]);
+        expect_proof(text, "goal", &["f2(b)", "f3(b)"]);
     }
 
     #[test]
@@ -1702,6 +1702,7 @@ mod tests {
             &[
                 "if not add_to_zero(zero, b) {",
                 "\tadd(zero, b) = zero",
+                "\tb != zero",
                 "\tfalse",
                 "}",
             ],

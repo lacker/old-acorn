@@ -277,19 +277,8 @@ impl ProofStep {
         if self.clause.len() != 1 {
             return self.clause.contains(&new_clause);
         }
-        if new_clause.len() != 1 {
-            return false;
-        }
 
-        // Neither instantiation nor generalization is basic.
-        let new_literal = &new_clause.literals[0];
-        let self_literal = &self.clause.literals[0];
-        if new_literal.has_any_variable() || self_literal.has_any_variable() {
-            return false;
-        }
-
-        // For concrete single literals, reducing the KBO is basic.
-        new_literal.extended_kbo_cmp(self_literal) == Ordering::Less
+        false
     }
 
     // Construct a new assumption ProofStep that is not dependent on any other steps.
