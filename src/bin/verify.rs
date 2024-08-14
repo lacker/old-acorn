@@ -1,13 +1,14 @@
-// Checks an acorn file, or the whole project, to see if it compiles.
+// Verifies an acorn file, or the whole project.
+// Verification checks that every statement has a basic proof.
 //
 // This is the CLI equivalent of what the IDE runs when you save.
 //
 // Try:
-//   cargo run --bin=check nat
+//   cargo build --release --bin=verify; time ~/acorn/target/release/verify
 
 use acorn::project::Project;
 
-const USAGE: &str = "Usage: cargo run --bin=check [module name]";
+const USAGE: &str = "Usage: cargo run --bin=verify [module name]";
 
 #[tokio::main]
 async fn main() {
