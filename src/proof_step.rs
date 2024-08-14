@@ -400,7 +400,7 @@ impl ProofStep {
 
     // Create a replacement for this clause that has extra simplification rules.
     // We could probably handle basicness better if we had access to all of the source clauses.
-    pub fn simplify(
+    pub fn new_simplified(
         self,
         new_clause: Clause,
         new_rules: Vec<usize>,

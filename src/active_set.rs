@@ -644,7 +644,7 @@ impl ActiveSet {
             let rewrite_step = self.get_step(*i);
             new_truthiness = new_truthiness.combine(rewrite_step.truthiness);
         }
-        Some(step.simplify(simplified_clause, new_rules, new_truthiness))
+        Some(step.new_simplified(simplified_clause, new_rules, new_truthiness))
     }
 
     fn add_resolution_targets(

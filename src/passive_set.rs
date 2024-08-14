@@ -4,7 +4,7 @@ use crate::clause::Clause;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
 use crate::policy::{ManualPolicy, Score};
-use crate::proof_step::{ProofStep, Truthiness};
+use crate::proof_step::ProofStep;
 use crate::specializer::Specializer;
 use crate::term::Term;
 
@@ -130,7 +130,7 @@ impl PassiveSet {
     fn simplify_one_direction(
         &mut self,
         activated_id: usize,
-        activated_truthiness: Truthiness,
+        activated_step: &ProofStep,
         left: &Term,
         right: &Term,
         positive: bool,
@@ -179,8 +179,8 @@ impl PassiveSet {
                 Some(clause) => clause,
                 None => continue,
             };
-            let new_truthiness = activated_truthiness.combine(step.truthiness);
-            new_steps.push(step.simplify(new_clause, vec![activated_id], new_truthiness));
+            let new_truthiness = activated_step.truthiness.combine(step.truthiness);
+            new_steps.push(step.new_simplified(new_clause, vec![activated_id], new_truthiness));
         }
         for step in new_steps {
             self.push(step);
@@ -195,20 +195,14 @@ impl PassiveSet {
         let literal = &step.clause.literals[0];
         self.simplify_one_direction(
             activated_id,
-            step.truthiness,
+            &step,
             &literal.left,
             &literal.right,
             literal.positive,
         );
         if !literal.strict_kbo() {
             let (right, left) = literal.normalized_reversed();
-            self.simplify_one_direction(
-                activated_id,
-                step.truthiness,
-                &right,
-                &left,
-                literal.positive,
-            );
+            self.simplify_one_direction(activated_id, &step, &right, &left, literal.positive);
         }
     }
 
