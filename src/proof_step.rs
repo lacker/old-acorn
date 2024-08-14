@@ -260,7 +260,8 @@ impl ProofStep {
     // Construct a new ProofStep that is a direct implication of a single activated step,
     // not requiring any other clauses.
     pub fn new_direct(activated_step: &ProofStep, rule: Rule, clause: Clause) -> ProofStep {
-        let basic = activated_step.rule.is_negated_goal()
+        let basic = activated_step.proof_size == 0
+            || activated_step.rule.is_negated_goal()
             || activated_step.clause.len() == 1
             || clause.len() > 1;
         ProofStep::new(
