@@ -297,12 +297,12 @@ impl Prover {
             Rule::Assumption(_) => {}
             Rule::Resolution(info) => {
                 answer.push((
-                    "positive resolver".to_string(),
-                    ProofStepId::Active(info.positive_id),
+                    "short resolver".to_string(),
+                    ProofStepId::Active(info.short_id),
                 ));
                 answer.push((
-                    "negative resolver".to_string(),
-                    ProofStepId::Active(info.negative_id),
+                    "long resolver".to_string(),
+                    ProofStepId::Active(info.long_id),
                 ));
             }
             Rule::Rewrite(info) => {

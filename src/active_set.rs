@@ -197,12 +197,14 @@ impl ActiveSet {
         // We want to only do resolution when the shorter clause can be entirely eliminated.
         // Thus, we check that all the literals in the shorter clause are either duplicates of
         // literals in the longer clause, or being canceled in the resolution.
-        let (short_clause, short_index, long_clause, long_index) =
+        let (short_id, short_step, short_index, long_id, long_step, long_index) =
             if pos_clause.len() < neg_clause.len() {
-                (pos_clause, pos_index, neg_clause, neg_index)
+                (pos_id, pos_step, pos_index, neg_id, neg_step, neg_index)
             } else {
-                (neg_clause, neg_index, pos_clause, pos_index)
+                (neg_id, neg_step, neg_index, pos_id, pos_step, pos_index)
             };
+        let short_clause = &short_step.clause;
+        let long_clause = &long_step.clause;
         for (i, literal) in short_clause.literals.iter().enumerate() {
             if i == short_index {
                 continue;
@@ -251,7 +253,7 @@ impl ActiveSet {
 
         // Gather the output data
         let clause = Clause::new(literals);
-        let step = ProofStep::new_resolution(pos_id, pos_step, neg_id, neg_step, clause);
+        let step = ProofStep::new_resolution(short_id, short_step, long_id, long_step, clause);
         Some(step)
     }
 

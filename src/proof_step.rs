@@ -66,9 +66,12 @@ impl Truthiness {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolutionInfo {
     // Which clauses were used as the sources.
-    // Resolution requires one positive and one negative clause.
-    pub positive_id: usize,
-    pub negative_id: usize,
+    // The short clause must have only one literal.
+    pub short_id: usize,
+
+    // The long clause will usually have more than one literal. It can have just one literal
+    // if we're finding a contradiction.
+    pub long_id: usize,
 }
 
 // Information about a rewrite inference.
@@ -118,8 +121,8 @@ impl Rule {
         match self {
             Rule::Assumption(_) => vec![],
             Rule::Resolution(info) => vec![
-                ProofStepId::Active(info.positive_id),
-                ProofStepId::Active(info.negative_id),
+                ProofStepId::Active(info.short_id),
+                ProofStepId::Active(info.long_id),
             ],
             Rule::Rewrite(info) => vec![
                 ProofStepId::Active(info.pattern_id),
@@ -330,30 +333,27 @@ impl ProofStep {
 
     // Construct a new ProofStep via resolution.
     pub fn new_resolution(
-        positive_id: usize,
-        positive_step: &ProofStep,
-        negative_id: usize,
-        negative_step: &ProofStep,
+        short_id: usize,
+        short_step: &ProofStep,
+        long_id: usize,
+        long_step: &ProofStep,
         clause: Clause,
     ) -> ProofStep {
-        let rule = Rule::Resolution(ResolutionInfo {
-            positive_id,
-            negative_id,
-        });
+        let rule = Rule::Resolution(ResolutionInfo { short_id, long_id });
 
-        let truthiness = positive_step.truthiness.combine(negative_step.truthiness);
+        let truthiness = short_step.truthiness.combine(long_step.truthiness);
 
-        let basic = positive_step.is_basic_implication(&clause)
-            || negative_step.is_basic_implication(&clause);
+        let basic =
+            short_step.is_basic_implication(&clause) || long_step.is_basic_implication(&clause);
 
-        let dependency_depth = std::cmp::max(positive_step.depth(), negative_step.depth());
+        let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
 
         ProofStep::new(
             clause,
             truthiness,
             rule,
             vec![],
-            positive_step.proof_size + negative_step.proof_size + 1,
+            short_step.proof_size + long_step.proof_size + 1,
             dependency_depth,
             basic,
         )
