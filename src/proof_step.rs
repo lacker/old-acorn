@@ -250,32 +250,6 @@ impl ProofStep {
         }
     }
 
-    // Whether the new clause is a basic resolution from this long clause.
-    fn is_basic_resolution(&self, new_clause: &Clause) -> bool {
-        // Any contradiction is basic
-        if new_clause.is_impossible() {
-            return true;
-        }
-
-        if self.truthiness == Truthiness::Counterfactual
-            && self.clause.len() > 1
-            && self.depth() == 0
-            && new_clause.len() > 1
-        {
-            // This should be basic so that single rule applications involving multiple
-            // resolutions can be basic.
-            return true;
-        }
-
-        // We need to be very restrictive about basic implications from general theorems.
-        // The only basic inference from a long clause is eliminating part of it.
-        if self.clause.len() != 1 {
-            return self.clause.contains(&new_clause);
-        }
-
-        false
-    }
-
     // Construct a new assumption ProofStep that is not dependent on any other steps.
     // Assumptions are always basic, but as we add more theorems we will have to revisit that.
     pub fn new_assumption(clause: Clause, truthiness: Truthiness, source: &Source) -> ProofStep {
@@ -327,7 +301,21 @@ impl ProofStep {
 
         let truthiness = short_step.truthiness.combine(long_step.truthiness);
 
-        let basic = long_step.is_basic_resolution(&clause);
+        // We need to ensure that a single theorem application is basic, even if it
+        // requires multiple steps of resolution.
+        let basic = if clause.is_impossible() {
+            true
+        } else {
+            assert!(long_step.clause.len() > 1);
+            if long_step.truthiness == Truthiness::Counterfactual
+                && long_step.depth() == 0
+                && clause.len() > 1
+            {
+                true
+            } else {
+                long_step.clause.contains(&clause)
+            }
+        };
 
         let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
 
