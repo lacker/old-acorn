@@ -622,10 +622,12 @@ theorem division_theorem(m: Nat, n: Nat) {
                 n + q * n = x.suc
                 x.suc = q.suc * n
                 x.suc = q.suc * n + 0
+                division_theorem(x.suc, n)
                 f(x.suc)
             } else {
                 r.suc < n
                 x.suc = q * n + r.suc
+                division_theorem(x.suc, n)
                 f(x.suc)
             }
             f(x.suc)
@@ -659,6 +661,7 @@ theorem divisor_lt(a: Nat, b: Nat, c: Nat) {
     a + a * d = c
     a * d != 0
     a != c
+    a <= c
 }
 
 define is_prime(a: Nat) -> Bool {
@@ -684,6 +687,7 @@ theorem strong_induction(f: Nat -> Bool) {
         true_below(f, x)
     }
     Nat.induction(g)
+    true_below(f, 0)
     g(0)
     forall(x: Nat) {
         if g(x) {
@@ -792,6 +796,7 @@ theorem fac_pair_first(n: Nat) { fac_pair(n).first = n } by {
             let a: Nat = fac_pair(x).second
             NatPair.new(fac_pair(x).first, a) = fac_pair(x)
             fac_pair(x) = NatPair.new(x, a)
+            repeat(fac_helper, NatPair.new(0, 1), x.suc) = fac_helper(fac_pair(x))
             fac_pair(x.suc) = fac_helper(fac_pair(x))
             fac_pair(x.suc) = NatPair.new(x.suc, x.suc * a)
             let b: Nat = x.suc * a
@@ -814,13 +819,16 @@ theorem factorial_zero { factorial(0) = 1 } by {
 
 theorem factorial_one { factorial(1) = 1 } by {
     fac_pair(0) = NatPair.new(0, 1)
+    fac_helper(repeat(fac_helper, NatPair.new(0, 1), 0)) = repeat(fac_helper, NatPair.new(0, 1), 0.suc)
     fac_pair(1) = fac_helper(fac_pair(0))
     fac_pair(1) = NatPair.new(1, 1 * 1)
     fac_pair(1) = NatPair.new(1, 1)
+    fac_pair(1).second = 1
 }
 
 theorem factorial_step(n: Nat) { factorial(n.suc) = n.suc * factorial(n) } by {
     fac_pair(n) = NatPair.new(n, factorial(n))
+    repeat(fac_helper, NatPair.new(0, 1), n.suc) = fac_helper(fac_pair(n))
     fac_pair(n.suc) = fac_helper(fac_pair(n))
 
     fac_pair(n.suc) = NatPair.new(n.suc, n.suc * factorial(n))
@@ -834,9 +842,12 @@ theorem divides_factorial(k: Nat, n: Nat) {
         divides_factorial(k, x)
     }
     Nat.induction(f)
+    not k <= 0
+    divides_factorial(k, 0)
     f(0)
     forall(x: Nat) {
         if f(x) {
+            divides_factorial(k, x)
             k <= x -> divides(k, factorial(x))
             if k <= x.suc {
                 if k = x.suc {
@@ -853,6 +864,7 @@ theorem divides_factorial(k: Nat, n: Nat) {
                 }
                 divides_factorial(k, x.suc)
             }
+            divides_factorial(k, x.suc)
             f(x.suc)
         }
     }
@@ -864,6 +876,7 @@ theorem factorial_nondecreasing(n: Nat) { factorial(n) <= factorial(n.suc) } by 
 
 theorem lte_one_factorial(a: Nat) { 1 <= factorial(a) } by {
     Nat.induction(lte_one_factorial)
+    1 <= factorial(0)
     lte_one_factorial(0)
     forall(x: Nat) {
         if lte_one_factorial(x) {
@@ -917,6 +930,7 @@ theorem lt_cancel_mul(a: Nat, b: Nat, c: Nat) { a != 0 and a * b < a * c -> b < 
 theorem mul_to_one(a: Nat, b: Nat) { a * b = 1 -> a = 1 } by {
     1 != 0
     a != 0
+    not a < 0.suc
     not (a < 1)
     b != 0
     if 1 < a {
@@ -963,6 +977,7 @@ theorem exists_infinite_primes(n: Nat) {
     if p <= n {
         divides_factorial(p, n)
         divides(p, factorial(n))
+        divides(p, factorial(n).suc)
         false
     }
     not (p <= n)
@@ -981,6 +996,7 @@ theorem divides_mul(a: Nat, b: Nat, d: Nat) { divides(d, a) -> divides(d, a * b)
 }
 
 theorem lte_mul(a: Nat, b: Nat) { b != 0 -> a <= a * b } by {
+    not b < 0.suc
     not (b < 1)
     1 <= b
     a * 1 <= a * b
@@ -1058,7 +1074,11 @@ class Nat {
 
 theorem sub_lt(a: Nat, b: Nat) { a < b -> a - b = 0 }
 
-theorem add_sub(a: Nat, b: Nat) { b <= a -> a - b + b = a }
+theorem add_sub(a: Nat, b: Nat) {
+    b <= a -> a - b + b = a
+} by {
+    not a < b
+}
 
 theorem sub_add(a: Nat, b: Nat) { (a + b) - b = a } by {
     b <= a + b

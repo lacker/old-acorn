@@ -313,7 +313,6 @@ impl ProofStep {
             || clause.len() != 1
             || (long_step.rule.is_assumption()
                 && clause.has_skolem()
-                && !clause.has_any_variable()
                 && !short_step.clause.has_skolem());
         let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
 
@@ -412,7 +411,9 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
-        let new_basic = self.proof_size == 0 || new_clause.len() != 1;
+        let new_basic = self.proof_size == 0
+            || new_clause.len() != 1
+            || (new_clause.has_skolem() && !new_clause.has_any_variable());
         ProofStep::new(
             new_clause,
             new_truthiness,
