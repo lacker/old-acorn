@@ -260,7 +260,9 @@ impl ProofStep {
     // Construct a new ProofStep that is a direct implication of a single activated step,
     // not requiring any other clauses.
     pub fn new_direct(activated_step: &ProofStep, rule: Rule, clause: Clause) -> ProofStep {
-        let basic = activated_step.clause.len() == 1 || clause.len() > 1;
+        let basic = activated_step.rule.is_negated_goal()
+            || activated_step.clause.len() == 1
+            || clause.len() > 1;
         ProofStep::new(
             clause,
             activated_step.truthiness,
@@ -303,7 +305,12 @@ impl ProofStep {
 
         // We need to ensure that a single theorem application is basic, even if it
         // requires multiple steps of resolution.
-        let basic = clause.len() != 1;
+        // This is still hacky due to the normalization process. A theorem application
+        // that looks like a single step to the user may require multiple steps of resolution.
+        let basic = short_step.rule.is_negated_goal()
+            || long_step.rule.is_negated_goal()
+            || clause.len() != 1
+            || (clause.has_skolem() && !short_step.clause.has_skolem());
         let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
 
         ProofStep::new(
