@@ -259,8 +259,8 @@ impl ProofStep {
 
     // Construct a new ProofStep that is a direct implication of a single activated step,
     // not requiring any other clauses.
-    // Depth does not increase.
     pub fn new_direct(activated_step: &ProofStep, rule: Rule, clause: Clause) -> ProofStep {
+        let basic = activated_step.clause.len() == 1 || clause.len() > 1;
         ProofStep::new(
             clause,
             activated_step.truthiness,
@@ -268,7 +268,7 @@ impl ProofStep {
             vec![],
             activated_step.proof_size + 1,
             activated_step.depth(),
-            true,
+            basic,
         )
     }
 
@@ -303,20 +303,7 @@ impl ProofStep {
 
         // We need to ensure that a single theorem application is basic, even if it
         // requires multiple steps of resolution.
-        let basic = if clause.is_impossible() {
-            true
-        } else {
-            assert!(long_step.clause.len() > 1);
-            if long_step.truthiness == Truthiness::Counterfactual
-                && long_step.depth() == 0
-                && clause.len() > 1
-            {
-                true
-            } else {
-                long_step.clause.contains(&clause)
-            }
-        };
-
+        let basic = clause.len() != 1;
         let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
 
         ProofStep::new(
@@ -387,7 +374,7 @@ impl ProofStep {
             passive_ids,
         });
 
-        // Multiple rewrites are always basic themselves.
+        // Multiple rewrites are always basic themselves because they lead to contradictions.
         // It's the specializations that may require explicit steps.
         ProofStep::new(
             Clause::impossible(),
@@ -414,7 +401,7 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
-        let new_basic = self.basic || new_clause.is_impossible();
+        let new_basic = new_clause.len() != 1;
         ProofStep::new(
             new_clause,
             new_truthiness,

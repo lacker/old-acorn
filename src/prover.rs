@@ -1508,7 +1508,7 @@ mod tests {
     }
 
     #[test]
-    fn test_functional_definition() {
+    fn test_verify_functional_definition() {
         verify_succeeds(
             r#"
             type Nat: axiom
@@ -1883,7 +1883,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prover_function_satisfy() {
+    fn test_verify_function_satisfy() {
         let text = r#"
         type Nat: axiom
         let zero: Nat = axiom
@@ -1897,7 +1897,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prover_function_satisfy_with_by_block() {
+    fn test_verify_function_satisfy_with_by_block() {
         let text = r#"
         let flip(a: Bool) -> b: Bool satisfy {
             forall(c: Bool) {
