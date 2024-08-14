@@ -250,16 +250,10 @@ impl ProofStep {
         }
     }
 
-    // Whether the new clause is a basic implication from this proof step.
-    fn is_basic_implication(&self, new_clause: &Clause) -> bool {
+    // Whether the new clause is a basic resolution from this long clause.
+    fn is_basic_resolution(&self, new_clause: &Clause) -> bool {
         // Any contradiction is basic
         if new_clause.is_impossible() {
-            return true;
-        }
-
-        if self.rule.is_negated_goal() && new_clause.len() > 1 {
-            // We need to make these basic so that single rule applications involving
-            // multiple resolutions can be basic.
             return true;
         }
 
@@ -268,7 +262,8 @@ impl ProofStep {
             && self.depth() == 0
             && new_clause.len() > 1
         {
-            // Another case to catch single rule applications involving multiple resolutions.
+            // This should be basic so that single rule applications involving multiple
+            // resolutions can be basic.
             return true;
         }
 
@@ -332,8 +327,7 @@ impl ProofStep {
 
         let truthiness = short_step.truthiness.combine(long_step.truthiness);
 
-        let basic =
-            short_step.is_basic_implication(&clause) || long_step.is_basic_implication(&clause);
+        let basic = long_step.is_basic_resolution(&clause);
 
         let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
 
