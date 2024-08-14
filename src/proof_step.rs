@@ -311,7 +311,10 @@ impl ProofStep {
         let basic = short_step.rule.is_negated_goal()
             || long_step.rule.is_negated_goal()
             || clause.len() != 1
-            || (clause.has_skolem() && !short_step.clause.has_skolem());
+            || (long_step.rule.is_assumption()
+                && clause.has_skolem()
+                && !clause.has_any_variable()
+                && !short_step.clause.has_skolem());
         let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
 
         ProofStep::new(
@@ -409,7 +412,7 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
-        let new_basic = new_clause.len() != 1;
+        let new_basic = self.proof_size == 0 || new_clause.len() != 1;
         ProofStep::new(
             new_clause,
             new_truthiness,

@@ -433,6 +433,8 @@ theorem lt_and_lte(a: Nat, b: Nat, c: Nat) { a < b and b <= c -> a < c } by {
     a <= c
     if a = c {
         c < b
+        not b < a
+        b != a
         false
     }
     a < c
@@ -467,6 +469,7 @@ theorem add_cancels_left(a: Nat, b: Nat, c: Nat) { a + b = a + c -> b = c } by {
                 (x + c).suc = x.suc + b
                 (x + b).suc = (x + c).suc
                 x + b = x + c
+                add_cancels_left(x, b, c)
                 b = c
             }
             x.suc + b = x.suc + c -> b = c
@@ -514,6 +517,7 @@ theorem lt_suc_left(a: Nat, b: Nat) { a < b -> a.suc = b or a.suc < b } by {
         (a + d).suc = b
         a.suc + d = b
         a.suc != b
+        a.suc <= b
         a.suc < b
     }
 }
@@ -543,10 +547,12 @@ theorem trichotomy(a: Nat, b: Nat) { a < b or b < a or a = b } by {
     f(0)
     forall(x: Nat) {
         if f(x) {
+            trichotomy(a, x)
             a < x or x < a or a = x
             if a < x {
                 x <= x.suc
                 a < x.suc
+                trichotomy(a, x.suc)
                 f(x.suc)
             }
             if x < a {
@@ -554,11 +560,13 @@ theorem trichotomy(a: Nat, b: Nat) { a < b or b < a or a = b } by {
                 if x.suc = a {
                     f(x.suc)
                 } else {
+                    trichotomy(a, x.suc)
                     f(x.suc)
                 }
             }
             if a = x {
                 a < x.suc
+                trichotomy(a, x.suc)
                 f(x.suc)
             }
             f(x.suc)
@@ -568,6 +576,7 @@ theorem trichotomy(a: Nat, b: Nat) { a < b or b < a or a = b } by {
 
 theorem lt_or_lte(a: Nat, b: Nat) { a < b or b <= a } by {
     if not (a < b) and not (b <= a) {
+        not b < a
         b = a
         false
     }
@@ -575,6 +584,7 @@ theorem lt_or_lte(a: Nat, b: Nat) { a < b or b <= a } by {
 
 theorem lt_imp_lte_suc(a: Nat, b: Nat) { a < b -> a.suc <= b } by {
     if not (a.suc <= b) {
+        not a.suc < b
         a.suc = b
         false
     }
@@ -597,6 +607,7 @@ theorem division_theorem(m: Nat, n: Nat) {
     define f(x: Nat) -> Bool { division_theorem(x, n) }
     Nat.induction(f)
     let (k0: Nat) satisfy { k0 * n = 0 }
+    division_theorem(0, n)
     f(0)
     forall(x: Nat) {
         if f(x) {

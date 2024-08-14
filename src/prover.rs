@@ -836,7 +836,7 @@ mod tests {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
         let module_id = project.load_module("main").expect("load failed");
-        let env = project.get_env(module_id).unwrap();
+        let env = project.get_env(module_id).expect("get_env failed");
         let paths = env.goal_paths();
         for path in paths {
             let goal_context = env.get_goal_context(&path).unwrap();
@@ -1416,7 +1416,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_if_else_expression() {
+    fn test_verify_if_else_function() {
         verify_succeeds(
             r#"
             type Nat: axiom
