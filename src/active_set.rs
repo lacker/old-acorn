@@ -520,6 +520,9 @@ impl ActiveSet {
     //   t != v | u = v | R
     //
     // "s = t" must be the first clause, but "u = v" can be any of them.
+    //
+    // I find this rule to be unintuitive, extracting an inequality from only equalities.
+    //
     // TODO: This "first clause" constraint seems incomplete or mistaken.
     pub fn equality_factoring(clause: &Clause) -> Vec<Clause> {
         let mut answer = vec![];
