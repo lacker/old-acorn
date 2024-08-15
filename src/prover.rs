@@ -761,25 +761,38 @@ impl Prover {
         }
         let step = self.to_proof_step_info(project, Some(id), self.active_set.get_step(id));
         let mut consequences = vec![];
+        let mut num_consequences = 0;
+        let limit = 100;
 
         // Check if the final step is a consequence of this clause
         if let Some((final_step, _)) = &self.result {
             if final_step.depends_on_active(id) {
                 consequences.push(self.to_proof_step_info(project, None, &final_step));
+                num_consequences += 1;
             }
         }
 
         // Check the active set for consequences
         for (i, step) in self.active_set.find_consequences(id) {
-            consequences.push(self.to_proof_step_info(project, Some(i), step));
+            if consequences.len() < limit {
+                consequences.push(self.to_proof_step_info(project, Some(i), step));
+            }
+            num_consequences += 1;
         }
 
         // Check the passive set for consequences
         for step in self.passive_set.find_consequences(id) {
-            consequences.push(self.to_proof_step_info(project, None, step));
+            if consequences.len() < limit {
+                consequences.push(self.to_proof_step_info(project, None, step));
+            }
+            num_consequences += 1;
         }
 
-        Some(InfoResult { step, consequences })
+        Some(InfoResult {
+            step,
+            consequences,
+            num_consequences,
+        })
     }
 }
 

@@ -268,8 +268,13 @@ pub struct InfoResult {
     // How we proved this clause
     pub step: ProofStepInfo,
 
-    // The clauses that this clause can be used to prove
+    // The clauses that this clause can be used to prove.
+    // Might be truncated.
     pub consequences: Vec<ProofStepInfo>,
+
+    // The full number of consequences.
+    // If this is larger than the length of consequences, we truncated the list.
+    pub num_consequences: usize,
 }
 
 // If the request is out of sync with the server state, and we want to just ignore this request,
