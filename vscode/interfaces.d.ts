@@ -71,6 +71,7 @@ interface InfoResult {
   clause: ClauseInfo;
   step: ProofStepInfo;
   consequences: Array<ProofStepInfo>;
+  numConsequences: number;
 }
 
 interface InfoResponse {

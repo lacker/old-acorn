@@ -194,6 +194,11 @@
             <br />
             <ProofStep {step} {clauseClick} {showLocation} />
           {/each}
+          {#if infoResult.numConsequences > infoResult.consequences.length}
+            <br />
+            Truncated. Showing {infoResult.consequences.length} out of {infoResult.numConsequences}
+            clauses.
+          {/if}
         {/if}
       {/if}
     </div>
