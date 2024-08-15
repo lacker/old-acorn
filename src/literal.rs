@@ -218,7 +218,7 @@ impl Literal {
 // Literals are ordered so that you can normalize a clause by sorting its literals.
 // This is using a traditional saturation-based ordering, which might not really make sense.
 // Anyway.
-// Negative literals come first.
+// Negative literals come first. We depend on that in miscellaneous places.
 // Then, we order backwards by term ordering for the left term.
 // Then, backwards (I guess?) for the right term.
 impl PartialOrd for Literal {

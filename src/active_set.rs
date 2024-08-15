@@ -435,33 +435,33 @@ impl ActiveSet {
     // then if we can unify u and v, we can eliminate this literal from the clause.
     pub fn equality_resolution(clause: &Clause) -> Vec<Clause> {
         let mut answer = vec![];
-        if clause.literals.is_empty() {
-            return answer;
-        }
 
-        // We only do the first due to tradition.
-        // Logically it seems like maybe we should allow others.
-        let first = &clause.literals[0];
-        if first.positive {
-            return answer;
-        }
+        for i in 0..clause.literals.len() {
+            // See if we can eliminate the ith literal.
+            let literal = &clause.literals[i];
+            if literal.positive {
+                // Negative literals come before positive ones so we're done
+                break;
+            }
 
-        // The variables are in the same scope, which we will call "left".
-        let mut unifier = Unifier::new();
-        if !unifier.unify(Scope::Left, &first.left, Scope::Left, &first.right) {
-            return answer;
-        }
+            // The variables are in the same scope, which we will call "left".
+            let mut unifier = Unifier::new();
+            if !unifier.unify(Scope::Left, &literal.left, Scope::Left, &literal.right) {
+                continue;
+            }
 
-        // We can do equality resolution
-        let literals = clause
-            .literals
-            .iter()
-            .skip(1)
-            .map(|literal| unifier.apply_to_literal(Scope::Left, literal))
-            .collect();
-        let new_clause = Clause::new(literals);
-        if !new_clause.is_tautology() {
-            answer.push(new_clause);
+            // We can do equality resolution
+            let mut new_literals = vec![];
+            for (j, lit) in clause.literals.iter().enumerate() {
+                if j != i {
+                    new_literals.push(unifier.apply_to_literal(Scope::Left, lit));
+                }
+            }
+
+            let new_clause = Clause::new(new_literals);
+            if !new_clause.is_tautology() {
+                answer.push(new_clause);
+            }
         }
 
         answer
