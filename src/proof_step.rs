@@ -89,7 +89,7 @@ pub struct RewriteInfo {
 }
 
 // Always a contradiction, found by rewriting one side of an inequality into the other.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MultipleRewriteInfo {
     pub inequality_id: usize,
     pub active_ids: Vec<usize>,
@@ -97,7 +97,7 @@ pub struct MultipleRewriteInfo {
 }
 
 // The rules that can generate new clauses, along with the clause ids used to generate.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Rule {
     Assumption(Source),
 
@@ -113,6 +113,9 @@ pub enum Rule {
 
     // A contradiction found by repeatedly rewriting identical terms.
     MultipleRewrite(MultipleRewriteInfo),
+
+    // A contradiction between a number of passive clauses.
+    PassiveContradiction(u32),
 }
 
 impl Rule {
@@ -142,6 +145,7 @@ impl Rule {
                 }
                 answer
             }
+            Rule::PassiveContradiction(n) => (0..*n).map(|id| ProofStepId::Passive(id)).collect(),
         }
     }
 
@@ -156,6 +160,7 @@ impl Rule {
             Rule::FunctionElimination(_) => "Function Elimination",
             Rule::Specialization(_) => "Specialization",
             Rule::MultipleRewrite(..) => "Multiple Rewrite",
+            Rule::PassiveContradiction(..) => "Passive Contradiction",
         }
     }
 
@@ -183,7 +188,7 @@ impl Rule {
 
 // A proof is made up of ProofSteps.
 // Each ProofStep contains an output clause, plus a bunch of information we track about it.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ProofStep {
     // The proof step is primarily defined by a clause that it proves.
     // Semantically, this clause is implied by the input clauses (activated and existing).
@@ -390,6 +395,29 @@ impl ProofStep {
             rule,
             vec![],
             0,
+            dependency_depth,
+            true,
+        )
+    }
+
+    // Assumes the provided steps are indexed by passive id, and that we use all of them.
+    pub fn new_passive_contradiction(passive_steps: &[ProofStep]) -> ProofStep {
+        let rule = Rule::PassiveContradiction(passive_steps.len() as u32);
+        let mut truthiness = Truthiness::Factual;
+        let mut dependency_depth = 0;
+        let mut proof_size = 0;
+        for step in passive_steps {
+            truthiness = truthiness.combine(step.truthiness);
+            dependency_depth = std::cmp::max(dependency_depth, step.depth());
+            proof_size += step.proof_size;
+        }
+
+        ProofStep::new(
+            Clause::impossible(),
+            truthiness,
+            rule,
+            vec![],
+            proof_size,
             dependency_depth,
             true,
         )

@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
@@ -7,6 +5,8 @@ use crate::policy::{ManualPolicy, Score};
 use crate::proof_step::ProofStep;
 use crate::specializer::Specializer;
 use crate::term::Term;
+use std::collections::hash_map::Entry;
+use std::collections::{BTreeSet, HashMap};
 
 // The PassiveSet stores a bunch of clauses.
 // A clause in the passive set can be activated, and it can be simplified, but to do
@@ -26,6 +26,14 @@ pub struct PassiveSet {
     // We currently don't clean this up by removing old clause ids, so when we retrieve from
     // it we need to check that the clause is still in the passive set.
     literals: FingerprintSpecializer<(usize, usize)>,
+
+    // Stores every clause in clauses that is just a single literal, along with its index.
+    // The format is
+    // (left, right) -> (positive, index into clauses)
+    singles: HashMap<(Term, Term), (bool, usize)>,
+
+    // Set if we ever discover a contradiction between two members of the passive set.
+    contradiction: Option<(usize, usize)>,
 }
 
 // Whether (left1, right2) can be specialized to get (left2, right2).
@@ -85,6 +93,8 @@ impl PassiveSet {
             clauses: vec![],
             queue: BTreeSet::new(),
             literals: FingerprintSpecializer::new(),
+            singles: HashMap::new(),
+            contradiction: None,
         }
     }
 
@@ -98,8 +108,27 @@ impl PassiveSet {
             step.depth(),
         );
         let id = self.clauses.len();
+
         for (i, literal) in step.clause.literals.iter().enumerate() {
             self.literals.insert(literal, (id, i));
+        }
+        if step.clause.literals.len() == 1 {
+            let literal = &step.clause.literals[0];
+            match self
+                .singles
+                .entry((literal.left.clone(), literal.right.clone()))
+            {
+                Entry::Occupied(e) => {
+                    let (existing_positive, existing_id) = e.get();
+                    if *existing_positive != literal.positive {
+                        // We have a contradiction.
+                        self.contradiction = Some((*existing_id, id));
+                    }
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert((literal.positive, id));
+                }
+            }
         }
         self.clauses.push(Some((step, score)));
         self.queue.insert((score, id));
@@ -184,6 +213,23 @@ impl PassiveSet {
         }
         for step in new_steps {
             self.push(step);
+        }
+    }
+
+    // If we don't have both of the clauses, we just return the ones we have.
+    // This is wrong but I'm not sure if we'll ever run into it.
+    pub fn get_contradiction(&self) -> Option<Vec<ProofStep>> {
+        match self.contradiction {
+            None => None,
+            Some((id1, id2)) => {
+                let mut steps = vec![];
+                for id in &[id1, id2] {
+                    if let Some((step, _)) = &self.clauses[*id] {
+                        steps.push(step.clone());
+                    }
+                }
+                Some(steps)
+            }
         }
     }
 

@@ -322,6 +322,11 @@ impl Prover {
                     answer.push(("specialization".to_string(), ProofStepId::Passive(id)));
                 }
             }
+            Rule::PassiveContradiction(n) => {
+                for id in 0..*n {
+                    answer.push(("clause".to_string(), ProofStepId::Passive(id)));
+                }
+            }
         }
 
         for rule in &step.simplification_rules {
@@ -489,11 +494,25 @@ impl Prover {
         self.report_contradiction(step)
     }
 
+    fn report_passive_contradiction(&mut self, passive_steps: Vec<ProofStep>) -> Outcome {
+        let final_step = ProofStep::new_passive_contradiction(&passive_steps);
+        assert!(self.useful_passive.is_empty());
+        for mut passive_step in passive_steps {
+            passive_step.basic = true;
+            self.useful_passive.push(passive_step);
+        }
+        self.report_contradiction(final_step)
+    }
+
     // Activates the next clause from the queue, unless we're already done.
     // Returns the outcome if the prover finished, otherwise None.
     pub fn activate_next(&mut self) -> Option<Outcome> {
         if let Some((_, outcome)) = &self.result {
             return Some(*outcome);
+        }
+
+        if let Some(passive_steps) = self.passive_set.get_contradiction() {
+            return Some(self.report_passive_contradiction(passive_steps));
         }
 
         let step = match self.passive_set.pop() {
@@ -588,7 +607,11 @@ impl Prover {
             }
         }
 
-        // Regular proofs typically look simpler than term graph proofs, so check them first.
+        // Sometimes we find a bunch of contradictions at once.
+        // It doesn't really matter what we pick, so we guess which is most likely
+        // to be aesthetically pleasing.
+        // First regular contradictions (in the loop above), then term graph.
+
         if let Some(contradiction) = self.active_set.graph.get_contradiction() {
             return Some(self.report_term_graph_contradiction(contradiction));
         }
@@ -1762,7 +1785,6 @@ mod tests {
             "f(zero)",
             &[
                 "if not add_to_zero(zero, b) {",
-                "\tadd(zero, b) = zero",
                 "\tb != zero",
                 "\tfalse",
                 "}",
