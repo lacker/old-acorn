@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use tower_lsp::lsp_types::{Range, Url};
 
-use crate::prover::Prover;
+use crate::prover::{Outcome, Prover};
 
 // The language server stores one progress struct, and returns it at any time.
 // 0/0 only occurs at initialization. It means "there have never been any progress bars".
@@ -132,24 +132,19 @@ impl SearchStatus {
         }
     }
 
-    fn new(
-        code: Option<Vec<String>>,
-        code_error: Option<String>,
-        steps: Option<Vec<ProofStepInfo>>,
+    // Indicate that the search found a proof
+    pub fn found_proof(
+        code: Vec<String>,
+        steps: Vec<ProofStepInfo>,
         prover: &Prover,
     ) -> SearchStatus {
         SearchStatus {
-            code,
-            code_error,
-            steps,
-            outcome: prover.get_outcome().map(|o| o.to_string()),
+            code: Some(code),
+            code_error: None,
+            steps: Some(steps),
+            outcome: Some(Outcome::Success.to_string()),
             num_activated: prover.num_activated(),
         }
-    }
-
-    // Indicate that the search found a proof
-    pub fn success(code: Vec<String>, steps: Vec<ProofStepInfo>, prover: &Prover) -> SearchStatus {
-        SearchStatus::new(Some(code), None, Some(steps), prover)
     }
 
     // Indicate a failure during code generation.
@@ -158,12 +153,35 @@ impl SearchStatus {
         error: String,
         prover: &Prover,
     ) -> SearchStatus {
-        SearchStatus::new(None, Some(error), Some(steps), prover)
+        SearchStatus {
+            code: None,
+            code_error: Some(error),
+            steps: Some(steps),
+            outcome: Some(Outcome::Success.to_string()),
+            num_activated: prover.num_activated(),
+        }
     }
 
-    // Indicate that the search does not have a proof.
-    pub fn no_proof(prover: &Prover) -> SearchStatus {
-        SearchStatus::new(None, None, None, prover)
+    // Indicate that the search is still ongoing.
+    pub fn pending(prover: &Prover) -> SearchStatus {
+        SearchStatus {
+            code: None,
+            code_error: None,
+            steps: None,
+            outcome: None,
+            num_activated: prover.num_activated(),
+        }
+    }
+
+    // Indicate that the search failed to find a proof, and has stopped.
+    pub fn stopped(prover: &Prover, outcome: Outcome) -> SearchStatus {
+        SearchStatus {
+            code: None,
+            code_error: None,
+            steps: None,
+            outcome: Some(outcome.to_string()),
+            num_activated: prover.num_activated(),
+        }
     }
 }
 

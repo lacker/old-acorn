@@ -48,6 +48,8 @@ pub struct Prover {
     pub hit_trace: bool,
 
     // The result of the proof search, if there is one.
+    // If we haven't found a result yet, this is None. The prover can still return an Outcome
+    // that indicates a temporary outcome, like a timeout.
     result: Option<(ProofStep, Outcome)>,
 
     // Clauses that we never activated, but we did use to find a contradiction.
@@ -160,13 +162,6 @@ impl Prover {
             },
         }
         p
-    }
-
-    pub fn get_outcome(&self) -> Option<Outcome> {
-        match &self.result {
-            Some((_, outcome)) => Some(*outcome),
-            None => None,
-        }
     }
 
     pub fn set_trace(&mut self, trace: &str) {
@@ -605,7 +600,7 @@ impl Prover {
     // Designed to be called multiple times in succession.
     // The time-based limit is set low, so that it feels interactive.
     pub fn partial_search(&mut self) -> Outcome {
-        self.search_for_contradiction(10000, 0.1, false)
+        self.search_for_contradiction(100000, 0.1, false)
     }
 
     // Search to see if this goal can be satisfied using "basic" reasoning.
@@ -652,7 +647,7 @@ impl Prover {
                 if self.verbose {
                     println!("active set size hit the limit: {}", self.active_set.len());
                 }
-                break;
+                return Outcome::Constrained;
             }
             let elapsed = start_time.elapsed().as_secs_f32();
             if elapsed >= seconds {
@@ -660,10 +655,9 @@ impl Prover {
                     println!("active set size: {}", self.active_set.len());
                     println!("prover hit time limit after {} seconds", elapsed);
                 }
-                break;
+                return Outcome::Timeout;
             }
         }
-        Outcome::Timeout
     }
 
     fn display<'a>(&'a self, clause: &'a Clause) -> DisplayClause<'a> {

@@ -7,7 +7,6 @@
 
 const USAGE: &str = "cargo run --release --bin=search <module name> <line number>";
 
-use acorn::interfaces::SearchStatus;
 use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
 
@@ -65,8 +64,7 @@ async fn main() {
                 println!("All possibilities have been exhausted.");
             }
             Outcome::Timeout => {
-                let status = SearchStatus::no_proof(&prover);
-                println!("activated {} steps", status.num_activated);
+                println!("activated {} steps", prover.num_activated());
                 continue;
             }
             Outcome::Interrupted => {

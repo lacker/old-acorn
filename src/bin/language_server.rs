@@ -151,16 +151,17 @@ impl SearchTask {
                     let steps = prover.to_proof_info(&project, &proof);
 
                     match proof.to_code(&env.bindings) {
-                        Ok(code) => SearchStatus::success(code, steps, &prover),
+                        Ok(code) => SearchStatus::found_proof(code, steps, &prover),
                         Err(e) => SearchStatus::code_gen_error(steps, e.to_string(), &prover),
                     }
                 }
 
                 Outcome::Inconsistent
                 | Outcome::Exhausted
-                | Outcome::Timeout
                 | Outcome::Constrained
-                | Outcome::Error => SearchStatus::no_proof(&prover),
+                | Outcome::Error => SearchStatus::stopped(&prover, outcome),
+
+                Outcome::Timeout => SearchStatus::pending(&prover),
 
                 Outcome::Interrupted => {
                     // No point in providing a result for this task, since nobody is listening.
@@ -514,7 +515,7 @@ impl Backend {
         let superseded = Arc::new(AtomicBool::new(false));
         let mut prover = Prover::new(&project, &goal_context, false);
         prover.stop_flags.push(superseded.clone());
-        let status = SearchStatus::no_proof(&prover);
+        let status = SearchStatus::pending(&prover);
 
         // Create a new search task
         let new_task = SearchTask {
