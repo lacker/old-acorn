@@ -600,7 +600,7 @@ impl Prover {
     // Designed to be called multiple times in succession.
     // The time-based limit is set low, so that it feels interactive.
     pub fn partial_search(&mut self) -> Outcome {
-        self.search_for_contradiction(100000, 0.1, false)
+        self.search_for_contradiction(10000, 0.1, false)
     }
 
     // Search to see if this goal can be satisfied using "basic" reasoning.
@@ -862,6 +862,10 @@ mod tests {
         assert_eq!(verify(text), Outcome::Success);
     }
 
+    fn verify_not_basic(text: &str) {
+        assert_eq!(verify(text), Outcome::Exhausted);
+    }
+
     fn expect_proof(text: &str, goal_name: &str, expected: &[&str]) {
         let (outcome, code) = prove_as_main(text, goal_name);
         assert_eq!(outcome, Outcome::Success);
@@ -1096,7 +1100,7 @@ mod tests {
             axiom a34(x: Bool) { f3(x) -> f4(x) }
             theorem goal(x: Bool) { f4(b) }
         "#;
-        expect_proof(text, "goal", &["f2(b)"]);
+        expect_proof(text, "goal", &["f2(b)", "f3(b)"]);
     }
 
     #[test]
@@ -1525,7 +1529,7 @@ mod tests {
         );
     }
 
-    // These tests cover some principles of functional equality that don't work right.
+    // These tests involve proving functional equality. They don't work right.
     //
     // #[test]
     // fn test_verify_functional_definition() {
@@ -1902,15 +1906,74 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_function_satisfy_with_by_block() {
+    fn test_not_basic_boolean_soup() {
+        // This goal is not provable.
+        // We should be able to quickly tell there is no basic proof.
+        // I'm not sure what goes wrong, it's a mess of nested boolean formulas.
         let text = r#"
-        let flip(a: Bool) -> b: Bool satisfy {
-            forall(c: Bool) {
-                c = a or c = b
+        theorem goal(a: Bool, b: Bool, c: Bool) {
+            a = b or a = not c
+        }
+        "#;
+        verify_not_basic(text);
+    }
+
+    #[test]
+    fn test_not_basic_resolution_trap() {
+        // This is a trap for the resolution algorithm, because repeated resolution
+        // against the negated goal will give longer and longer formulas.
+        let text = r#"
+        type Nat: axiom
+        let f: Nat -> Nat = axiom
+        let g: Nat -> Bool = axiom
+        let a: Nat = axiom
+        axiom ga { g(a) }
+        theorem goal {
+            not forall(x: Nat) { g(x) -> g(f(x)) }
+        }
+        "#;
+        verify_not_basic(text);
+    }
+
+    #[test]
+    fn test_verify_if_else_theorem() {
+        let text = r#"
+        type Nat: axiom
+        let f: Nat -> Bool = axiom
+        let g: Nat -> Bool = axiom
+        let h: Nat -> Bool = axiom
+        axiom fgh(a: Nat) {
+            if f(a) {
+                g(a)
+            } else {
+                h(a)
+            }
+        }
+        theorem goal(a: Nat) {
+            g(a) or h(a)
+        }
+        "#;
+        verify_succeeds(text);
+    }
+
+    #[test]
+    fn test_verify_function_satisfy_with_if_else() {
+        let text = r#"
+        type Nat: axiom
+        let suc: Nat -> Nat = axiom
+        let zero: Nat = axiom
+        axiom base(a: Nat) {
+            a = zero or exists(b: Nat) { a = suc(b) }
+        }
+        let pred(a: Nat) -> b: Nat satisfy {
+            if a = zero {
+                b = zero
+            } else {
+                suc(b) = a
             }
         } by {
-            forall(c: Bool) {
-                c = a or c = not a
+            if a != zero {
+                exists(b: Nat) { a = suc(b) }
             }
         }
         "#;

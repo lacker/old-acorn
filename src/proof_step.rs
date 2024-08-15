@@ -308,9 +308,7 @@ impl ProofStep {
         // requires multiple steps of resolution.
         // This is still hacky due to the normalization process. A theorem application
         // that looks like a single step to the user may require multiple steps of resolution.
-        let basic = short_step.rule.is_negated_goal()
-            || long_step.rule.is_negated_goal()
-            || clause.len() != 1
+        let basic = clause.len() != 1
             || (long_step.rule.is_assumption()
                 && clause.has_skolem()
                 && !short_step.clause.has_skolem());

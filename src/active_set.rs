@@ -204,6 +204,14 @@ impl ActiveSet {
                 (neg_id, neg_step, neg_index, pos_id, pos_step, pos_index)
             };
         let short_clause = &short_step.clause;
+
+        // Experimental.
+        // TODO: if we can really skip out here, we might be able to make our data structures
+        // more efficient elsewhere.
+        if short_clause.len() > 1 {
+            return None;
+        }
+
         let long_clause = &long_step.clause;
         for (i, literal) in short_clause.literals.iter().enumerate() {
             if i == short_index {

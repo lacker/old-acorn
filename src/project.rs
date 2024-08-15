@@ -726,7 +726,6 @@ impl Project {
             .expect("could not convert to code");
 
         if output != expected {
-            println!("XXX value: {:?}", value);
             panic!(
                 "\nconverted:\n  {}\nto value:\n  {}\nand back to:\n  {}\nbut expected:\n  {}\n",
                 input, value, output, expected
