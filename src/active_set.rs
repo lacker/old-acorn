@@ -430,26 +430,26 @@ impl ActiveSet {
     }
 
     // Tries to do inference using the equality resolution (ER) rule.
-    // This assumes we are operating on the first literal.
-    // Specifically, when the first literal is of the form
+    // Specifically, when one first literal is of the form
     //   u != v
     // then if we can unify u and v, we can eliminate this literal from the clause.
-    pub fn equality_resolution(clause: &Clause) -> Option<Clause> {
+    pub fn equality_resolution(clause: &Clause) -> Vec<Clause> {
+        let mut answer = vec![];
         if clause.literals.is_empty() {
-            return None;
+            return answer;
         }
 
         // We only do the first due to tradition.
         // Logically it seems like maybe we should allow others.
         let first = &clause.literals[0];
         if first.positive {
-            return None;
+            return answer;
         }
 
         // The variables are in the same scope, which we will call "left".
         let mut unifier = Unifier::new();
         if !unifier.unify(Scope::Left, &first.left, Scope::Left, &first.right) {
-            return None;
+            return answer;
         }
 
         // We can do equality resolution
@@ -459,12 +459,12 @@ impl ActiveSet {
             .skip(1)
             .map(|literal| unifier.apply_to_literal(Scope::Left, literal))
             .collect();
-        let answer = Clause::new(literals);
-        if answer.is_tautology() {
-            None
-        } else {
-            Some(answer)
+        let new_clause = Clause::new(literals);
+        if !new_clause.is_tautology() {
+            answer.push(new_clause);
         }
+
+        answer
     }
 
     // Tries to do inference using the function elimination (FE) rule.
@@ -769,7 +769,7 @@ impl ActiveSet {
 
         // Unification-based inferences don't need to be done on specialization, because
         // they can operate directly on the general form.
-        if let Some(new_clause) = ActiveSet::equality_resolution(&activated_step.clause) {
+        for new_clause in ActiveSet::equality_resolution(&activated_step.clause) {
             output.push(ProofStep::new_direct(
                 &activated_step,
                 Rule::EqualityResolution(activated_id),
@@ -872,16 +872,17 @@ mod tests {
             Literal::not_equals(Term::parse("x0"), Term::parse("c0")),
             Literal::equals(Term::parse("x0"), Term::parse("c1")),
         ]);
-        let new_clause = ActiveSet::equality_resolution(&old_clause).unwrap();
-        assert!(new_clause.literals.len() == 1);
-        assert_eq!(format!("{}", new_clause), "c1 = c0".to_string());
+        let clauses = ActiveSet::equality_resolution(&old_clause);
+        assert_eq!(clauses.len(), 1);
+        assert!(clauses[0].len() == 1);
+        assert_eq!(format!("{}", clauses[0]), "c1 = c0".to_string());
     }
 
     #[test]
     fn test_mutually_recursive_equality_resolution() {
         // This is a bug we ran into. It shouldn't work
         let clause = Clause::parse("c0(x0, c0(x1, c1(x2))) != c0(c0(x2, x1), x0)");
-        assert!(ActiveSet::equality_resolution(&clause).is_none());
+        assert!(ActiveSet::equality_resolution(&clause).is_empty());
     }
 
     #[test]
