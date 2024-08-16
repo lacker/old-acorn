@@ -364,6 +364,21 @@ impl BindingMap {
         self.modules.contains_key(name)
     }
 
+    // Whether this value is calling a theorem on some arguments.
+    pub fn is_citation(&self, project: &Project, claim: &AcornValue) -> bool {
+        match claim.is_named_function_call() {
+            Some((module_id, name)) => {
+                if module_id == self.module {
+                    self.is_theorem(&name)
+                } else {
+                    let bindings = project.get_bindings(module_id).unwrap();
+                    bindings.is_theorem(&name)
+                }
+            }
+            None => false,
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // Tools for parsing Expressions and similar structures
     ////////////////////////////////////////////////////////////////////////////////

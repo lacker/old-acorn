@@ -824,6 +824,14 @@ impl Environment {
                     Error::new(&statement.first_token, "theorems must have values")
                 })?;
 
+                let is_citation = self.bindings.is_citation(project, &unbound_claim);
+                if is_citation && ts.body.is_some() {
+                    return Err(Error::new(
+                        &statement.first_token,
+                        "citations do not need proof blocks",
+                    ));
+                }
+
                 let mut block_args = vec![];
                 for (arg_name, arg_type) in arg_names.iter().zip(&arg_types) {
                     block_args.push((arg_name.clone(), arg_type.clone()));
@@ -860,7 +868,9 @@ impl Environment {
                     Some(lambda_claim.clone()),
                 );
 
-                let block = if ts.axiomatic {
+                let already_proven = ts.axiomatic || is_citation;
+
+                let block = if already_proven {
                     None
                 } else {
                     Some(self.new_block(
@@ -876,9 +886,9 @@ impl Environment {
 
                 let index = self.add_node(
                     project,
-                    ts.axiomatic,
+                    already_proven,
                     Proposition::theorem(
-                        ts.axiomatic,
+                        already_proven,
                         external_claim,
                         self.module_id,
                         range,
@@ -900,20 +910,7 @@ impl Environment {
                     self.includes_explicit_false = true;
                 }
 
-                // Check for whether this proposition is just a theorem citation.
-                let is_citation = match claim.is_named_function_call() {
-                    Some((module_id, name)) => {
-                        if module_id == self.module_id {
-                            self.bindings.is_theorem(&name)
-                        } else {
-                            let bindings = project.get_bindings(module_id).unwrap();
-                            bindings.is_theorem(&name)
-                        }
-                    }
-                    None => false,
-                };
-
-                if is_citation {
+                if self.bindings.is_citation(project, &claim) {
                     // We already know this is true, so we don't need to prove it
                     self.add_node(
                         project,

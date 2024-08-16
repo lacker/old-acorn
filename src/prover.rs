@@ -1344,14 +1344,15 @@ mod tests {
     }
 
     #[test]
-    fn test_applying_parametric_theorem() {
-        let text = r#"
+    fn test_citing_parametric_theorem() {
+        verify_succeeds(
+            r#"
             type Nat: axiom
             let zero: Nat = axiom
             theorem foo<T>(a: T) { a = a }
             theorem goal { foo(zero) }
-        "#;
-        assert_eq!(prove_text(text, "goal"), Outcome::Success);
+        "#,
+        );
     }
 
     #[test]
