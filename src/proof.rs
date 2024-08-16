@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
+use crate::acorn_value::AcornValue;
 use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::code_gen_error::CodeGenError;
@@ -28,7 +29,10 @@ enum NodeValue<'a> {
 
     // The goal is not explicitly represented by a clause or the negation of a clause, and
     // in general cannot be, because it may require multiple clauses.
-    NegatedGoal,
+    // Thus, we represent the negated goal using a value.
+    // We only need to store a negated goal - we never generate the positive goal,
+    // because it's already expressed in the code.
+    NegatedGoal(AcornValue),
 }
 
 impl fmt::Display for NodeValue<'_> {
@@ -36,7 +40,7 @@ impl fmt::Display for NodeValue<'_> {
         match self {
             NodeValue::Clause(clause) => write!(f, "Clause({})", clause),
             NodeValue::Contradiction => write!(f, "Contradiction"),
-            NodeValue::NegatedGoal => write!(f, "NegatedGoal"),
+            NodeValue::NegatedGoal(v) => write!(f, "NegatedGoal({})", v),
         }
     }
 }
@@ -97,14 +101,20 @@ impl<'a> ProofNode<'a> {
                 bindings.value_to_code(&value)
             }
             NodeValue::Contradiction => Ok("false".to_string()),
-            NodeValue::NegatedGoal => Err(CodeGenError::ExplicitGoal),
+            NodeValue::NegatedGoal(v) => {
+                if self.negated {
+                    Err(CodeGenError::ExplicitGoal)
+                } else {
+                    bindings.value_to_code(v)
+                }
+            }
         }
     }
 
     fn is_positive_goal(&self) -> bool {
         match &self.value {
             NodeValue::Clause(_) | NodeValue::Contradiction => false,
-            NodeValue::NegatedGoal => self.negated,
+            NodeValue::NegatedGoal(_) => self.negated,
         }
     }
 }
@@ -173,7 +183,7 @@ fn move_sources_and_premises(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeI
 
 impl<'a> Proof<'a> {
     // Creates a new proof, with just one node for the negated goal.
-    pub fn new<'b>(normalizer: &'a Normalizer) -> Proof<'a> {
+    pub fn new<'b>(normalizer: &'a Normalizer, negated_goal: &AcornValue) -> Proof<'a> {
         let mut proof = Proof {
             normalizer,
             all_steps: vec![],
@@ -183,7 +193,7 @@ impl<'a> Proof<'a> {
         };
 
         let negated_goal = ProofNode {
-            value: NodeValue::NegatedGoal,
+            value: NodeValue::NegatedGoal(negated_goal.clone()),
             negated: false,
             premises: vec![],
             consequences: vec![],
@@ -241,7 +251,7 @@ impl<'a> Proof<'a> {
         let node = &self.nodes[node_id as usize];
         match &node.value {
             NodeValue::Clause(_) => {}
-            NodeValue::Contradiction | NodeValue::NegatedGoal => return,
+            NodeValue::Contradiction | NodeValue::NegatedGoal(_) => return,
         };
 
         // Remove the node from the graph.
@@ -275,7 +285,7 @@ impl<'a> Proof<'a> {
     fn is_basic(&self, node_id: NodeId) -> bool {
         let node = &self.nodes[node_id as usize];
         match node.value {
-            NodeValue::Contradiction | NodeValue::NegatedGoal => return false,
+            NodeValue::Contradiction | NodeValue::NegatedGoal(_) => return false,
             _ => {}
         };
 
@@ -306,7 +316,7 @@ impl<'a> Proof<'a> {
     fn is_ugly(&self, node_id: NodeId) -> bool {
         let node = &self.nodes[node_id as usize];
         let clause = match &node.value {
-            NodeValue::Contradiction | NodeValue::NegatedGoal => return false,
+            NodeValue::Contradiction | NodeValue::NegatedGoal(_) => return false,
             NodeValue::Clause(clause) => clause,
         };
 
@@ -326,6 +336,8 @@ impl<'a> Proof<'a> {
         }
     }
 
+    // TODO: this seems totally wrong?
+    //
     // Some nodes in an indirect proof cannot be turned into nodes in a direct proof.
     // This happens when we assume the goal is false, use it to prove both A and B,
     // and then together A plus B lead to a contradiction.
@@ -339,7 +351,7 @@ impl<'a> Proof<'a> {
     // after premises. This method must be called before directing the proof.
     fn contract_indirect(&mut self) {
         while self.nodes[0].consequences.len() > 1 {
-            assert!(matches!(self.nodes[0].value, NodeValue::NegatedGoal));
+            assert!(matches!(self.nodes[0].value, NodeValue::NegatedGoal(_)));
 
             // Find the earliest consequence, the min on consequences
             let consequence_id = self.nodes[0].consequences.iter().min().unwrap();
@@ -357,7 +369,7 @@ impl<'a> Proof<'a> {
                 }
             ),
             NodeValue::Contradiction => "contradiction".to_string(),
-            NodeValue::NegatedGoal => "negated-goal".to_string(),
+            NodeValue::NegatedGoal(_) => "negated-goal".to_string(),
         }
     }
 

@@ -69,6 +69,9 @@ pub struct Prover {
     // to the user.
     // It's better to catch errors before proving, but sometimes we don't.
     pub error: Option<String>,
+
+    // A value expressing the negation of the goal we are trying to prove, if there is one.
+    negated_goal: Option<AcornValue>,
 }
 
 // The outcome of a prover operation.
@@ -124,6 +127,7 @@ impl Prover {
             error: None,
             solve: None,
             useful_passive: vec![],
+            negated_goal: None,
         };
 
         // Find the relevant facts that should be imported into this environment
@@ -150,6 +154,7 @@ impl Prover {
                 if let Some(hypo) = hypo {
                     p.add_assumption(prop.with_value(hypo), Truthiness::Hypothetical);
                 }
+                p.negated_goal = Some(counter.clone());
                 p.add_assumption(prop.with_negated_goal(counter), Truthiness::Counterfactual);
             }
             Goal::Solve(value, _) => match p.normalizer.term_from_value(value) {
@@ -409,7 +414,11 @@ impl Prover {
         for step in &self.useful_passive {
             self.active_set.find_upstream(step, &mut useful_active);
         }
-        let mut proof = Proof::new(&self.normalizer);
+        let negated_goal = match &self.negated_goal {
+            Some(negated_goal) => negated_goal,
+            None => return None,
+        };
+        let mut proof = Proof::new(&self.normalizer, negated_goal);
         let mut active_ids: Vec<_> = useful_active.iter().collect();
         active_ids.sort();
         for i in active_ids {
@@ -1842,14 +1851,10 @@ mod tests {
             let h: Nat -> Bool = axiom
             axiom fimpg(x: Nat) { f(x) -> g(x) }
             axiom gimph(x: Nat) { g(x) -> h(x) }
-            axiom nfimph(x: Nat) { not f(x) -> h(x) }
-            theorem goal(x: Nat) { h(x) }
+            axiom fimpnh(x: Nat) { f(x) -> not h(x) }
+            theorem goal(x: Nat) { not f(x) }
         "#;
-        expect_proof(
-            text,
-            "goal",
-            &["if not h(x) {", "\tnot g(x)", "\tfalse", "}"],
-        );
+        expect_proof(text, "goal", &["if f(x) {", "\tg(x)", "\tfalse", "}"]);
     }
 
     #[test]
