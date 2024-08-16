@@ -522,7 +522,7 @@ impl Environment {
                 .map(|(i, acorn_type)| AcornValue::Variable(i as AtomId, acorn_type.clone()))
                 .collect();
             let app = AcornValue::Application(FunctionApplication {
-                function: Box::new(constant),
+                function: Box::new(constant.clone()),
                 args,
             });
             AcornValue::ForAll(
@@ -534,14 +534,14 @@ impl Environment {
                 )),
             )
         } else {
-            AcornValue::Binary(BinaryOp::Equals, Box::new(constant), Box::new(definition))
+            AcornValue::new_equals(constant.clone(), definition)
         };
         let range = self.definition_ranges.get(name).unwrap().clone();
 
         self.add_node(
             project,
             true,
-            Proposition::constant_definition(claim, self.module_id, range, name.to_string()),
+            Proposition::constant_definition(claim, self.module_id, range, constant),
             None,
         );
     }
@@ -1109,8 +1109,10 @@ impl Environment {
                 let function_type = AcornType::new_functional(arg_types.clone(), return_type);
                 self.bindings
                     .add_constant(&fss.name, vec![], function_type.clone(), None);
+                let function_constant =
+                    AcornValue::Constant(self.module_id, fss.name.clone(), function_type, vec![]);
                 let function_term = AcornValue::new_apply(
-                    AcornValue::Constant(self.module_id, fss.name.clone(), function_type, vec![]),
+                    function_constant.clone(),
                     arg_types
                         .iter()
                         .enumerate()
@@ -1125,7 +1127,7 @@ impl Environment {
                     external_condition,
                     self.module_id,
                     definition_range,
-                    fss.name.clone(),
+                    function_constant,
                 );
 
                 let index = self.add_node(project, false, prop, Some(block));

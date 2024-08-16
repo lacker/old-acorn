@@ -20,7 +20,7 @@ pub enum SourceType {
     TypeDefinition(String),
 
     // A proposition that is implicit in the definition of a constant
-    ConstantDefinition(String),
+    ConstantDefinition(AcornValue),
 
     // A premise for a block that contains the current environment
     Premise,
@@ -62,7 +62,7 @@ impl Source {
             SourceType::Theorem(name) => format!("the '{}' theorem", name),
             SourceType::Anonymous => format!("line {}", self.user_visible_line()),
             SourceType::TypeDefinition(name) => format!("the '{}' definition", name),
-            SourceType::ConstantDefinition(name) => format!("the '{}' definition", name),
+            SourceType::ConstantDefinition(value) => format!("the '{}' definition", value),
             SourceType::Premise => "an assumed premise".to_string(),
             SourceType::NegatedGoal => "negating the goal".to_string(),
         }
@@ -156,14 +156,14 @@ impl Proposition {
         value: AcornValue,
         module: ModuleId,
         range: Range,
-        name: String,
+        constant: AcornValue,
     ) -> Proposition {
         Proposition {
             value,
             source: Source {
                 module,
                 range,
-                source_type: SourceType::ConstantDefinition(name),
+                source_type: SourceType::ConstantDefinition(constant),
             },
         }
     }
