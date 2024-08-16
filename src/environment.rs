@@ -357,20 +357,6 @@ impl Environment {
                 None
             }
             BlockParams::Theorem(theorem_name, premise, unbound_goal) => {
-                let theorem_type = self
-                    .bindings
-                    .get_type_for_identifier(theorem_name)
-                    .unwrap()
-                    .clone();
-
-                // The theorem as a named function from args -> bool.
-                let functional_theorem = AcornValue::new_specialized(
-                    self.module_id,
-                    theorem_name.to_string(),
-                    theorem_type,
-                    param_pairs,
-                );
-
                 let arg_values = args
                     .iter()
                     .map(|(name, _)| subenv.bindings.get_constant_value(name).unwrap())
@@ -378,9 +364,7 @@ impl Environment {
 
                 // Within the theorem block, the theorem is treated like a function,
                 // with propositions to define its identity.
-                // This is a compromise initially inspired by the desire so to do induction
-                // without writing a separate definition for the inductive hypothesis.
-                // (Outside the theorem block, theorems are inlined.)
+                // This makes it less annoying to define inductive hypotheses.
                 subenv.add_identity_props(project, theorem_name);
 
                 if let Some((unbound_premise, premise_range)) = premise {
@@ -398,11 +382,9 @@ impl Environment {
 
                 // We can prove the goal either in bound or in function form
                 let bound_goal = unbound_goal.bind_values(0, 0, &arg_values);
-                let functional_goal = AcornValue::new_apply(functional_theorem, arg_values);
-                let value = AcornValue::new_or(functional_goal, bound_goal);
                 Some(Goal::Prove(Proposition::theorem(
                     false,
-                    value,
+                    bound_goal,
                     self.module_id,
                     self.theorem_range(theorem_name).unwrap(),
                     theorem_name.to_string(),

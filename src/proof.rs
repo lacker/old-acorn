@@ -336,29 +336,6 @@ impl<'a> Proof<'a> {
         }
     }
 
-    // TODO: this seems totally wrong?
-    //
-    // Some nodes in an indirect proof cannot be turned into nodes in a direct proof.
-    // This happens when we assume the goal is false, use it to prove both A and B,
-    // and then together A plus B lead to a contradiction.
-    // A and B cannot be directly proven from our assumptions; they are only true in the
-    // context of a proof by contradiction.
-    // Since we want don't want to express "the negative goal" itself in our proof, we
-    // eliminate this sort of node that is adjacent to the negative goal until we find
-    // at least one node whose negation can be directly proven.
-    //
-    // This algorithm relies on the ordering of the nodes, that consequences must come
-    // after premises. This method must be called before directing the proof.
-    fn contract_indirect(&mut self) {
-        while self.nodes[0].consequences.len() > 1 {
-            assert!(matches!(self.nodes[0].value, NodeValue::NegatedGoal(_)));
-
-            // Find the earliest consequence, the min on consequences
-            let consequence_id = self.nodes[0].consequences.iter().min().unwrap();
-            self.contract(*consequence_id);
-        }
-    }
-
     fn display(&self, value: &NodeValue) -> String {
         match value {
             NodeValue::Clause(clause) => format!(
@@ -486,7 +463,6 @@ impl<'a> Proof<'a> {
         assert!(!self.condensed);
         self.remove_ugly();
         self.remove_basic();
-        self.contract_indirect();
         self.remove_conditional(0);
         self.condensed = true;
     }

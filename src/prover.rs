@@ -1209,7 +1209,7 @@ mod tests {
             let suc: Nat -> Nat = axiom
             let y: Nat = axiom
             axiom zero_or_suc(a: Nat) { a = zero or exists(b: Nat) { a = suc(b) } }
-            theorem goal { zero_or_suc(y) }
+            theorem goal { y = zero or exists(b: Nat) { y = suc(b) } }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1223,7 +1223,7 @@ mod tests {
             let y: Nat = axiom
             axiom zero_or_suc(a: Nat) { a = zero or exists(b: Nat) { a = suc(b) } }
             axiom y_not_zero { y != zero }
-            theorem goal { zero_or_suc(y) }
+            theorem goal { y = zero or exists(b: Nat) { y = suc(b) } }
         "#;
         assert_eq!(prove_text(text, "goal"), Outcome::Success);
     }
@@ -1811,7 +1811,7 @@ mod tests {
             f(zero) and forall(k: Nat) { f(k) -> f(suc(k)) } -> forall(n: Nat) { f(n) }
         }
         let foo: Nat -> Bool = axiom
-        theorem goal { induction(foo) }
+        theorem goal { foo(zero) and forall(k: Nat) { foo(k) -> foo(suc(k)) } -> forall(n: Nat) { foo(n) } }
         "#;
         expect_proof(text, "goal", &[]);
     }
