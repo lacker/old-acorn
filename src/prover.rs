@@ -495,12 +495,12 @@ impl Prover {
     }
 
     fn report_passive_contradiction(&mut self, passive_steps: Vec<ProofStep>) -> Outcome {
-        let final_step = ProofStep::new_passive_contradiction(&passive_steps);
         assert!(self.useful_passive.is_empty());
         for mut passive_step in passive_steps {
             passive_step.basic = true;
             self.useful_passive.push(passive_step);
         }
+        let final_step = ProofStep::new_passive_contradiction(&self.useful_passive);
         self.report_contradiction(final_step)
     }
 
