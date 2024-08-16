@@ -1834,6 +1834,25 @@ mod tests {
     }
 
     #[test]
+    fn test_proof_indirect_from_goal() {
+        let text = r#"
+            type Nat: axiom
+            let f: Nat -> Bool = axiom
+            let g: Nat -> Bool = axiom
+            let h: Nat -> Bool = axiom
+            axiom fimpg(x: Nat) { f(x) -> g(x) }
+            axiom gimph(x: Nat) { g(x) -> h(x) }
+            axiom nfimph(x: Nat) { not f(x) -> h(x) }
+            theorem goal(x: Nat) { h(x) }
+        "#;
+        expect_proof(
+            text,
+            "goal",
+            &["if not h(x) {", "\tnot g(x)", "\tfalse", "}"],
+        );
+    }
+
+    #[test]
     fn test_nested_if_else() {
         let text = r#"
         let a: Bool = axiom
