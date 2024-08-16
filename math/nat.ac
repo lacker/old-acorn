@@ -430,6 +430,7 @@ theorem lte_trans(a: Nat, b: Nat, c: Nat) { a <= b and b <= c -> a <= c } by {
             f(z.suc)
         }
     }
+    f(c)
 }
 
 theorem lt_and_lte(a: Nat, b: Nat, c: Nat) { a < b and b <= c -> a < c } by {
@@ -1113,6 +1114,7 @@ let mod(a: Nat, m: Nat) -> r: Nat satisfy {
 } by {
     if m != 0 {
         0 < m
+        let (q: Nat, r: Nat) satisfy { r < m and q * m + r = a }
     } else {
         a = a
     }
