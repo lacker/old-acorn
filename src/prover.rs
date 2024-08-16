@@ -831,6 +831,7 @@ impl Prover {
 #[cfg(test)]
 mod tests {
     use crate::code_gen_error::CodeGenError;
+    use crate::module::Module;
     use crate::project::Project;
 
     use super::*;
@@ -875,7 +876,11 @@ mod tests {
         let mut project = Project::new_mock();
         project.mock("/mock/main.ac", text);
         let module_id = project.load_module("main").expect("load failed");
-        let env = project.get_env(module_id).expect("get_env failed");
+        let env = match project.get_module(module_id) {
+            Module::Ok(env) => env,
+            Module::Error(e) => panic!("error: {}", e),
+            _ => panic!("no module"),
+        };
         let paths = env.goal_paths();
         for path in paths {
             let goal_context = env.get_goal_context(&path).unwrap();
@@ -2023,6 +2028,21 @@ mod tests {
                 exists(b: Nat) { a = suc(b) }
             }
         }
+        "#;
+        verify_succeeds(text);
+    }
+
+    #[test]
+    fn test_verify_function_definition() {
+        let text = r#"
+        type Nat: axiom
+        let a: Nat = axiom
+        let f: Nat -> Bool = axiom
+        let g: Nat -> Bool = axiom
+        let h: Nat -> Bool = axiom
+        define some(x: Nat) -> Bool { f(x) or g(x) or h(x) }
+        axiom somea { f(a) or g(a) or h(a) }
+        theorem goal { some(a) }
         "#;
         verify_succeeds(text);
     }

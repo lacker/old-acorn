@@ -324,6 +324,7 @@ theorem add_to_zero(a: Nat, b: Nat) { a + b = 0 -> a = 0 and b = 0 } by {
     }
     f(a)
     add_to_zero(a, b)
+    a = 0
 }
 
 theorem only_zero_lte_zero(a: Nat) {
