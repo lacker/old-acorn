@@ -126,11 +126,7 @@ impl GoalContext<'_> {
                 continue;
             }
             for monomorph_key in monomorph_keys.unwrap() {
-                let monomorph = fact.value.specialize(&monomorph_key.params);
-                if monomorph.is_parametric() {
-                    panic!("monomorph {} is still parametric", monomorph);
-                }
-                let new_fact = fact.with_value(monomorph);
+                let new_fact = fact.specialize(&monomorph_key.params);
                 if i < num_global {
                     global_out.push(new_fact);
                 } else {

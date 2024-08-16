@@ -1,5 +1,6 @@
 use tower_lsp::lsp_types::Range;
 
+use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::module::ModuleId;
 
@@ -184,5 +185,14 @@ impl Proposition {
             SourceType::Theorem(name) => Some(name),
             _ => None,
         }
+    }
+
+    // Specializes a templated proposition.
+    pub fn specialize(&self, params: &[(String, AcornType)]) -> Proposition {
+        let monomorph = self.value.specialize(params);
+        if monomorph.is_parametric() {
+            panic!("monomorph {} is still parametric", monomorph);
+        }
+        self.with_value(monomorph)
     }
 }
