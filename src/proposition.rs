@@ -16,8 +16,11 @@ pub enum SourceType {
     // An anonymous proposition that has previously been proved
     Anonymous,
 
-    // A proposition that is implicit in the definition of a struct or constant
-    Definition(String),
+    // A proposition that is implicit in the definition of a type
+    TypeDefinition(String),
+
+    // A proposition that is implicit in the definition of a constant
+    ConstantDefinition(String),
 
     // A premise for a block that contains the current environment
     Premise,
@@ -58,7 +61,8 @@ impl Source {
             SourceType::Axiom(name) => format!("the '{}' axiom", name),
             SourceType::Theorem(name) => format!("the '{}' theorem", name),
             SourceType::Anonymous => format!("line {}", self.user_visible_line()),
-            SourceType::Definition(name) => format!("the '{}' definition", name),
+            SourceType::TypeDefinition(name) => format!("the '{}' definition", name),
+            SourceType::ConstantDefinition(name) => format!("the '{}' definition", name),
             SourceType::Premise => "an assumed premise".to_string(),
             SourceType::NegatedGoal => "negating the goal".to_string(),
         }
@@ -132,7 +136,7 @@ impl Proposition {
         }
     }
 
-    pub fn definition(
+    pub fn type_definition(
         value: AcornValue,
         module: ModuleId,
         range: Range,
@@ -143,7 +147,23 @@ impl Proposition {
             source: Source {
                 module,
                 range,
-                source_type: SourceType::Definition(name),
+                source_type: SourceType::TypeDefinition(name),
+            },
+        }
+    }
+
+    pub fn constant_definition(
+        value: AcornValue,
+        module: ModuleId,
+        range: Range,
+        name: String,
+    ) -> Proposition {
+        Proposition {
+            value,
+            source: Source {
+                module,
+                range,
+                source_type: SourceType::ConstantDefinition(name),
             },
         }
     }

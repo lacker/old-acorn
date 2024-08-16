@@ -541,7 +541,7 @@ impl Environment {
         self.add_node(
             project,
             true,
-            Proposition::definition(claim, self.module_id, range, name.to_string()),
+            Proposition::constant_definition(claim, self.module_id, range, name.to_string()),
             None,
         );
     }
@@ -1121,7 +1121,7 @@ impl Environment {
                     unbound_condition.bind_values(num_args, num_args, &[function_term]);
                 let external_condition = AcornValue::ForAll(arg_types, Box::new(return_bound));
 
-                let prop = Proposition::definition(
+                let prop = Proposition::constant_definition(
                     external_condition,
                     self.module_id,
                     definition_range,
@@ -1208,7 +1208,7 @@ impl Environment {
                 self.add_node(
                     project,
                     true,
-                    Proposition::definition(new_claim, self.module_id, range, ss.name.clone()),
+                    Proposition::type_definition(new_claim, self.module_id, range, ss.name.clone()),
                     None,
                 );
 
@@ -1241,7 +1241,7 @@ impl Environment {
                     self.add_node(
                         project,
                         true,
-                        Proposition::definition(
+                        Proposition::type_definition(
                             member_claim,
                             self.module_id,
                             range,
@@ -1336,7 +1336,12 @@ impl Environment {
                         self.add_node(
                             project,
                             true,
-                            Proposition::definition(claim, self.module_id, range, is.name.clone()),
+                            Proposition::type_definition(
+                                claim,
+                                self.module_id,
+                                range,
+                                is.name.clone(),
+                            ),
                             None,
                         );
                     }
@@ -1365,7 +1370,7 @@ impl Environment {
                 self.add_node(
                     project,
                     true,
-                    Proposition::definition(claim, self.module_id, range, is.name.clone()),
+                    Proposition::type_definition(claim, self.module_id, range, is.name.clone()),
                     None,
                 );
 
@@ -1414,7 +1419,7 @@ impl Environment {
                     self.add_node(
                         project,
                         true,
-                        Proposition::definition(claim, self.module_id, range, is.name.clone()),
+                        Proposition::type_definition(claim, self.module_id, range, is.name.clone()),
                         None,
                     );
                 }
