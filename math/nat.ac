@@ -616,8 +616,9 @@ theorem division_theorem(m: Nat, n: Nat) {
     }
 } by {
     define f(x: Nat) -> Bool { division_theorem(x, n) }
-    Nat.induction(f)
-    let (k0: Nat) satisfy { k0 * n = 0 }
+    if 0 < n {
+        0 = 0 * n + 0
+    }
     division_theorem(0, n)
     f(0)
     forall(x: Nat) {
