@@ -2076,4 +2076,19 @@ mod tests {
         "#;
         verify_succeeds(text);
     }
+
+    #[test]
+    fn test_verify_not_basic_definition_trap() {
+        // This will infinite loop if you allow free resolutions against definition.
+        let text = r#"
+        type Nat: axiom
+        let z: Nat = axiom
+        let f: Nat -> Bool = axiom
+        let suc: Nat -> Nat = axiom
+        define decr(x: Nat) -> Bool { f(x) and not f(suc(x))}
+        axiom fz { f(z) }
+        theorem goal { exists(x: Nat) { decr(x) } }
+        "#;
+        verify_not_basic(text);
+    }
 }
