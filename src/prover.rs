@@ -2033,7 +2033,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_function_definition() {
+    fn test_verify_or_contraction() {
         let text = r#"
         type Nat: axiom
         let a: Nat = axiom
@@ -2043,6 +2043,36 @@ mod tests {
         define some(x: Nat) -> Bool { f(x) or g(x) or h(x) }
         axiom somea { f(a) or g(a) or h(a) }
         theorem goal { some(a) }
+        "#;
+        verify_succeeds(text);
+    }
+
+    #[test]
+    fn test_verify_fimp_expansion() {
+        let text = r#"
+        type Nat: axiom
+        let a: Nat = axiom
+        let f: Nat -> Bool = axiom
+        let g: Nat -> Bool = axiom
+        let h: Nat -> Bool = axiom
+        define fimp(x: Nat) -> Bool { f(x) -> (g(x) and h(x)) }
+        axiom fimpa { fimp(a) }
+        theorem goal { f(a) -> (g(a) and h(a)) }
+        "#;
+        verify_succeeds(text);
+    }
+
+    #[test]
+    fn test_verify_fimp_contraction() {
+        let text = r#"
+        type Nat: axiom
+        let a: Nat = axiom
+        let f: Nat -> Bool = axiom
+        let g: Nat -> Bool = axiom
+        let h: Nat -> Bool = axiom
+        define fimp(x: Nat) -> Bool { f(x) -> (g(x) and h(x)) }
+        axiom fimpa { f(a) -> (g(a) and h(a)) }
+        theorem goal { fimp(a) }
         "#;
         verify_succeeds(text);
     }
