@@ -50,9 +50,10 @@ struct ProofNode<'a> {
     // The value that should be displayed to represent this node in the graph.
     value: NodeValue<'a>,
 
-    // Whether the value is negated from its original value when it is part of the proof.
-    // When we are proving the goal, we represent it as a negated negated goal.
-    // This way the negated goal works more like other sources.
+    // Whether the value in the proof is negated from the value used in the Prover.
+    // This is a bit unintuitive for the NegatedGoal.
+    // The prover uses the negated goal. Thus, a proof node representing the original goal
+    // (which can be left implicit) would have node.negated = true.
     negated: bool,
 
     // Which other steps this step depends on.
