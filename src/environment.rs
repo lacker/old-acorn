@@ -521,10 +521,7 @@ impl Environment {
                 .enumerate()
                 .map(|(i, acorn_type)| AcornValue::Variable(i as AtomId, acorn_type.clone()))
                 .collect();
-            let app = AcornValue::Application(FunctionApplication {
-                function: Box::new(constant.clone()),
-                args,
-            });
+            let app = AcornValue::new_apply(constant.clone(), args);
             AcornValue::ForAll(
                 acorn_types,
                 Box::new(AcornValue::Binary(
