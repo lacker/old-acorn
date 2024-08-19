@@ -193,8 +193,12 @@ impl Prover {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
                 // We have a false assumption, so we're done already.
-                let final_step =
-                    ProofStep::new_assumption(Clause::impossible(), truthiness, &assumption.source);
+                let final_step = ProofStep::new_assumption(
+                    Clause::impossible(),
+                    truthiness,
+                    &assumption.source,
+                    None,
+                );
                 self.report_contradiction(final_step);
                 return;
             }
@@ -204,7 +208,7 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let step = ProofStep::new_assumption(clause, truthiness, &assumption.source);
+            let step = ProofStep::new_assumption(clause, truthiness, &assumption.source, None);
             self.passive_set.push(step);
         }
     }
@@ -754,16 +758,16 @@ impl Prover {
             premises.push((description, clause_info));
         }
         let (rule, location) = match &step.rule {
-            Rule::Assumption(source) => {
+            Rule::Assumption(info) => {
                 let location = project
-                    .path_from_module(source.module)
+                    .path_from_module(info.source.module)
                     .and_then(|path| Url::from_file_path(path).ok())
                     .map(|uri| Location {
                         uri,
-                        range: source.range,
+                        range: info.source.range,
                     });
 
-                (source.description(), location)
+                (info.source.description(), location)
             }
             _ => (step.rule.name().to_lowercase(), None),
         };

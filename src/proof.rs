@@ -222,11 +222,11 @@ impl<'a> Proof<'a> {
             depth: step.depth(),
         });
 
-        if let Rule::Assumption(source) = &step.rule {
-            if source.source_type == SourceType::NegatedGoal {
+        if let Rule::Assumption(info) = &step.rule {
+            if info.source.source_type == SourceType::NegatedGoal {
                 insert_edge(&mut self.nodes, 0, node_id);
             } else {
-                self.nodes[node_id as usize].sources.push(source);
+                self.nodes[node_id as usize].sources.push(&info.source);
             }
         }
 

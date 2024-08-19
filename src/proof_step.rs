@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::fmt;
 
+use crate::atom::Atom;
 use crate::clause::Clause;
 use crate::literal::Literal;
 use crate::proposition::{Source, SourceType};
@@ -96,10 +97,18 @@ pub struct MultipleRewriteInfo {
     pub passive_ids: Vec<u32>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssumptionInfo {
+    pub source: Source,
+
+    // If this assumption is the definition of a particular atom, this is the atom.
+    pub defined_atom: Option<Atom>,
+}
+
 // The rules that can generate new clauses, along with the clause ids used to generate.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Rule {
-    Assumption(Source),
+    Assumption(AssumptionInfo),
 
     // Rules based on multiple source clauses
     Resolution(ResolutionInfo),
@@ -180,7 +189,7 @@ impl Rule {
 
     pub fn is_negated_goal(&self) -> bool {
         match self {
-            Rule::Assumption(source) => matches!(source.source_type, SourceType::NegatedGoal),
+            Rule::Assumption(info) => matches!(info.source.source_type, SourceType::NegatedGoal),
             _ => false,
         }
     }
@@ -257,8 +266,17 @@ impl ProofStep {
 
     // Construct a new assumption ProofStep that is not dependent on any other steps.
     // Assumptions are always basic, but as we add more theorems we will have to revisit that.
-    pub fn new_assumption(clause: Clause, truthiness: Truthiness, source: &Source) -> ProofStep {
-        let rule = Rule::Assumption(source.clone());
+    pub fn new_assumption(
+        clause: Clause,
+        truthiness: Truthiness,
+        source: &Source,
+        defined_atom: Option<Atom>,
+    ) -> ProofStep {
+        let source = source.clone();
+        let rule = Rule::Assumption(AssumptionInfo {
+            source,
+            defined_atom,
+        });
         ProofStep::new(clause, truthiness, rule, vec![], 0, 0, true)
     }
 
@@ -308,7 +326,7 @@ impl ProofStep {
             // We don't want to include it in the printed proof, so we consider it basic.
             return true;
         }
-        if let Rule::Assumption(_source) = &long_step.rule {
+        if let Rule::Assumption(info) = &long_step.rule {
             if clause.has_skolem() && !short_step.clause.has_skolem() {
                 // This is a resolution that is removing a skolem variable. This is another
                 // case where we don't want the user to see the details, because we
@@ -316,6 +334,10 @@ impl ProofStep {
                 // include this as part of a single step, because we need skolem resolution
                 // in order to prove exists statements.
                 return true;
+            }
+
+            if let Some(defined_atom) = info.defined_atom {
+                // TODO
             }
         }
         false
@@ -474,7 +496,10 @@ impl ProofStep {
         ProofStep::new(
             clause,
             Truthiness::Factual,
-            Rule::Assumption(Source::mock()),
+            Rule::Assumption(AssumptionInfo {
+                source: Source::mock(),
+                defined_atom: None,
+            }),
             vec![],
             0,
             0,
