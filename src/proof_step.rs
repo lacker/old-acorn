@@ -326,6 +326,9 @@ impl ProofStep {
             // We don't want to include it in the printed proof, so we consider it basic.
             return true;
         }
+        if !long_step.clause.has_any_variable() {
+            return true;
+        }
         if let Rule::Assumption(info) = &long_step.rule {
             if clause.has_skolem() && !short_step.clause.has_skolem() {
                 // This resolution is removing a skolem variable. This is another
