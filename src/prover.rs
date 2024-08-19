@@ -20,7 +20,7 @@ use crate::passive_set::PassiveSet;
 use crate::project::Project;
 use crate::proof::Proof;
 use crate::proof_step::{ProofStep, ProofStepId, Rule, Truthiness};
-use crate::proposition::Proposition;
+use crate::proposition::{Proposition, SourceType};
 use crate::term::Term;
 use crate::term_graph::TermGraphContradiction;
 
@@ -189,6 +189,22 @@ impl Prover {
     }
 
     fn add_assumption(&mut self, assumption: Proposition, truthiness: Truthiness) {
+        let defined_atom = match &assumption.source.source_type {
+            SourceType::ConstantDefinition(value) => {
+                match self.normalizer.term_from_value(&value) {
+                    Ok(term) => Some(term.get_head().clone()),
+                    Err(NormalizationError(s)) => {
+                        self.error = Some(s);
+                        return;
+                    }
+                }
+            }
+            _ => None,
+        };
+        println!(
+            "XXX assumption {}, defined_atom {:?}",
+            assumption.value, defined_atom
+        );
         let clauses = match self.normalize_proposition(assumption.value) {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
@@ -208,7 +224,8 @@ impl Prover {
             }
         };
         for clause in clauses {
-            let step = ProofStep::new_assumption(clause, truthiness, &assumption.source, None);
+            let step =
+                ProofStep::new_assumption(clause, truthiness, &assumption.source, defined_atom);
             self.passive_set.push(step);
         }
     }
@@ -1799,16 +1816,7 @@ mod tests {
         }
         "#;
 
-        expect_proof(
-            text,
-            "f(zero)",
-            &[
-                "if not add_to_zero(zero, b) {",
-                "\tb != zero",
-                "\tfalse",
-                "}",
-            ],
-        );
+        expect_proof(text, "f(zero)", &["add_to_zero(zero, b)"]);
     }
 
     #[test]
