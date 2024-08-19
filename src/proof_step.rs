@@ -347,6 +347,35 @@ impl ProofStep {
         false
     }
 
+    // Analogous to resolution_is_basic.
+    // It seems like ideally these would be more the same. Like it's just going to be trouble
+    // when we can achieve the same result in two ways, one via resolution and one via simplification,
+    // and the two ways disagree on whether it's basic.
+    fn simplification_is_basic(self: &ProofStep, clause: &Clause) -> bool {
+        if self.basic {
+            return true;
+        }
+        if self.proof_size == 0 {
+            return true;
+        }
+        if clause.len() != 1 {
+            return true;
+        }
+        if clause.has_skolem() && !clause.has_any_variable() {
+            return true;
+        }
+        if let Rule::Assumption(info) = &self.rule {
+            if let Some(defined_atom) = info.defined_atom {
+                if !clause.has_head(&defined_atom) {
+                    // This resolution is replacing an atom with its definition, or
+                    // part of its definition.
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     // Construct a new ProofStep via resolution.
     pub fn new_resolution(
         short_id: usize,
@@ -480,9 +509,7 @@ impl ProofStep {
             .chain(new_rules.iter())
             .cloned()
             .collect();
-        let new_basic = self.proof_size == 0
-            || new_clause.len() != 1
-            || (new_clause.has_skolem() && !new_clause.has_any_variable());
+        let new_basic = self.basic || self.simplification_is_basic(&new_clause);
         ProofStep::new(
             new_clause,
             new_truthiness,
