@@ -191,6 +191,7 @@ theorem divides_gcd_step_n(d: Nat, p: NatPair, n: Nat) {
 theorem divides_gcd_pair(d: Nat, p: NatPair) {
     divides_both(d, p) -> divides(d, gcd_pair(p))
 } by {
+    divides_both(d, gcd_step_n(p, num_gcd_steps(p)))
     divides(d, gcd_step_n(p, num_gcd_steps(p)).first)
 }
 
@@ -295,11 +296,14 @@ theorem gcd_nonzero_left(a: Nat, b: Nat) { a != 0 -> gcd(a, b) != 0 } by {
 }
 
 theorem gcd_zero_right(a: Nat) { gcd(a, 0) = a } by {
+    divides(a, a)
+    divides(a, 0)
     divides(a, gcd(a, 0))
     divides(gcd(a, 0), a)
 }
 
 theorem gcd_zero_left(a: Nat) { gcd(0, a) = a } by {
+    divides(gcd(a, 0), gcd(0, a))
     divides(a, gcd(0, a))
     divides(gcd(0, a), a)
 }
@@ -329,6 +333,7 @@ theorem mod_maintains_imp_gcd(f: Nat -> Bool, a: Nat, b: Nat) { mod_maintains(f)
     g(0)
     forall(x: Nat) {
         if g(x) {
+            nat.repeat(gcd_step, p, x.suc) = gcd_step(gcd_step_n(p, x))
             gcd_step_n(p, x.suc) = gcd_step(gcd_step_n(p, x))
             f(gcd_step_n(p, x).first)
             f(gcd_step_n(p, x).second)
@@ -340,7 +345,8 @@ theorem mod_maintains_imp_gcd(f: Nat -> Bool, a: Nat, b: Nat) { mod_maintains(f)
                 g(x.suc)
             } else {
                 gcd_step_n(p, x.suc).first = gcd_step_n(p, x).second
-                NatPair.new(gcd_step_n(p, x).second, mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second)) = gcd_step(gcd_step_n(p, x))
+                NatPair.new(gcd_step_n(p, x).second,
+                            mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second)) = gcd_step(gcd_step_n(p, x))
                 gcd_step_n(p, x.suc).second = mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second)
                 f(gcd_step_n(p, x.suc).first)
                 f(mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second))
