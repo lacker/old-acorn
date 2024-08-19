@@ -418,22 +418,22 @@ impl ProofStep {
     // We could probably handle basicness better if we had access to all of the source clauses.
     pub fn new_simplified(
         long_step: ProofStep,
-        new_rules: Vec<usize>,
-        new_truthiness: Truthiness,
+        short_steps: &[(usize, &ProofStep)],
         new_clause: Clause,
     ) -> ProofStep {
-        let rules = long_step
-            .simplification_rules
-            .iter()
-            .chain(new_rules.iter())
-            .cloned()
-            .collect();
         let new_basic = long_step.basic || long_step.simplification_is_basic(&new_clause);
+
+        let mut new_truthiness = long_step.truthiness;
+        let mut new_rules = long_step.simplification_rules;
+        for (short_id, short_step) in short_steps {
+            new_truthiness = new_truthiness.combine(short_step.truthiness);
+            new_rules.push(*short_id);
+        }
         ProofStep::new(
             new_clause,
             new_truthiness,
             long_step.rule,
-            rules,
+            new_rules,
             long_step.proof_size,
             long_step.dependency_depth,
             new_basic,

@@ -627,7 +627,7 @@ impl ActiveSet {
                     // This literal is already known to be false.
                     // Thus, we can just omit it from the disjunction.
                     if let Some(id) = id {
-                        new_rules.push(id);
+                        new_rules.push((id, self.get_step(id)));
                     }
                     continue;
                 }
@@ -650,15 +650,9 @@ impl ActiveSet {
         if self.is_known_long_clause(&simplified_clause) {
             return None;
         }
-        let mut new_truthiness = step.truthiness;
-        for i in &new_rules {
-            let simplification_step = self.get_step(*i);
-            new_truthiness = new_truthiness.combine(simplification_step.truthiness);
-        }
         Some(ProofStep::new_simplified(
             step,
-            new_rules,
-            new_truthiness,
+            &new_rules,
             simplified_clause,
         ))
     }
