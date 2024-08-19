@@ -209,7 +209,12 @@ impl PassiveSet {
                 None => continue,
             };
             let new_truthiness = activated_step.truthiness.combine(step.truthiness);
-            new_steps.push(step.new_simplified(new_clause, vec![activated_id], new_truthiness));
+            new_steps.push(ProofStep::new_simplified(
+                step,
+                vec![activated_id],
+                new_truthiness,
+                new_clause,
+            ));
         }
         for step in new_steps {
             self.push(step);

@@ -655,7 +655,12 @@ impl ActiveSet {
             let simplification_step = self.get_step(*i);
             new_truthiness = new_truthiness.combine(simplification_step.truthiness);
         }
-        Some(step.new_simplified(simplified_clause, new_rules, new_truthiness))
+        Some(ProofStep::new_simplified(
+            step,
+            new_rules,
+            new_truthiness,
+            simplified_clause,
+        ))
     }
 
     fn add_resolution_targets(

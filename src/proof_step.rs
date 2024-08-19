@@ -414,28 +414,28 @@ impl ProofStep {
     }
 
     // Create a replacement for this clause that has extra simplification rules.
-    // self is essentially the long step. It doesn't have an id because it isn't activated.
+    // The long step doesn't have an id because it isn't activated.
     // We could probably handle basicness better if we had access to all of the source clauses.
     pub fn new_simplified(
-        self,
-        new_clause: Clause,
+        long_step: ProofStep,
         new_rules: Vec<usize>,
         new_truthiness: Truthiness,
+        new_clause: Clause,
     ) -> ProofStep {
-        let rules = self
+        let rules = long_step
             .simplification_rules
             .iter()
             .chain(new_rules.iter())
             .cloned()
             .collect();
-        let new_basic = self.basic || self.simplification_is_basic(&new_clause);
+        let new_basic = long_step.basic || long_step.simplification_is_basic(&new_clause);
         ProofStep::new(
             new_clause,
             new_truthiness,
-            self.rule,
+            long_step.rule,
             rules,
-            self.proof_size,
-            self.dependency_depth,
+            long_step.proof_size,
+            long_step.dependency_depth,
             new_basic,
         )
     }
