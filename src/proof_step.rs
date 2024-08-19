@@ -327,6 +327,7 @@ impl ProofStep {
             return true;
         }
         if !long_step.clause.has_any_variable() {
+            // The "trivial" case.
             return true;
         }
         if let Rule::Assumption(info) = &long_step.rule {
@@ -336,6 +337,7 @@ impl ProofStep {
                 // don't have a great way to print the skolem variable. But we need to
                 // include this as part of a single step, because we need skolem resolution
                 // in order to prove exists statements.
+                // This is like "ugliness-resolution".
                 return true;
             }
 
@@ -343,6 +345,7 @@ impl ProofStep {
                 if !clause.has_head(&defined_atom) {
                     // This resolution is replacing an atom with its definition, or
                     // part of its definition.
+                    // This counts as part of the "trivial" case.
                     return true;
                 }
             }
@@ -356,15 +359,19 @@ impl ProofStep {
     // and the two ways disagree on whether it's basic.
     fn simplification_is_basic(self: &ProofStep, clause: &Clause) -> bool {
         if self.basic {
+            // A hack because we don't have enough information available.
             return true;
         }
         if self.proof_size == 0 {
+            // The "trivial" case.
             return true;
         }
         if clause.len() != 1 {
+            // The "partial" case.
             return true;
         }
         if clause.has_skolem() && !clause.has_any_variable() {
+            // The "ugly" case.
             return true;
         }
         if let Rule::Assumption(info) = &self.rule {
@@ -372,6 +379,7 @@ impl ProofStep {
                 if !clause.has_head(&defined_atom) {
                     // This resolution is replacing an atom with its definition, or
                     // part of its definition.
+                    // This counts as part of the "trivial" case.
                     return true;
                 }
             }
@@ -385,23 +393,50 @@ impl ProofStep {
         short_step: &ProofStep,
         long_id: usize,
         long_step: &ProofStep,
-        clause: Clause,
+        new_clause: Clause,
     ) -> ProofStep {
         let rule = Rule::Resolution(ResolutionInfo { short_id, long_id });
 
         let truthiness = short_step.truthiness.combine(long_step.truthiness);
 
-        let basic = ProofStep::resolution_is_basic(short_step, long_step, &clause);
+        let basic = ProofStep::resolution_is_basic(short_step, long_step, &new_clause);
         let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
 
         ProofStep::new(
-            clause,
+            new_clause,
             truthiness,
             rule,
             vec![],
             short_step.proof_size + long_step.proof_size + 1,
             dependency_depth,
             basic,
+        )
+    }
+
+    // Create a replacement for this clause that has extra simplification rules.
+    // self is essentially the long step. It doesn't have an id because it isn't activated.
+    // We could probably handle basicness better if we had access to all of the source clauses.
+    pub fn new_simplified(
+        self,
+        new_clause: Clause,
+        new_rules: Vec<usize>,
+        new_truthiness: Truthiness,
+    ) -> ProofStep {
+        let rules = self
+            .simplification_rules
+            .iter()
+            .chain(new_rules.iter())
+            .cloned()
+            .collect();
+        let new_basic = self.basic || self.simplification_is_basic(&new_clause);
+        ProofStep::new(
+            new_clause,
+            new_truthiness,
+            self.rule,
+            rules,
+            self.proof_size,
+            self.dependency_depth,
+            new_basic,
         )
     }
 
@@ -495,32 +530,6 @@ impl ProofStep {
             proof_size,
             dependency_depth,
             true,
-        )
-    }
-
-    // Create a replacement for this clause that has extra simplification rules.
-    // We could probably handle basicness better if we had access to all of the source clauses.
-    pub fn new_simplified(
-        self,
-        new_clause: Clause,
-        new_rules: Vec<usize>,
-        new_truthiness: Truthiness,
-    ) -> ProofStep {
-        let rules = self
-            .simplification_rules
-            .iter()
-            .chain(new_rules.iter())
-            .cloned()
-            .collect();
-        let new_basic = self.basic || self.simplification_is_basic(&new_clause);
-        ProofStep::new(
-            new_clause,
-            new_truthiness,
-            self.rule,
-            rules,
-            self.proof_size,
-            self.dependency_depth,
-            new_basic,
         )
     }
 

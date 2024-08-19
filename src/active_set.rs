@@ -652,8 +652,8 @@ impl ActiveSet {
         }
         let mut new_truthiness = step.truthiness;
         for i in &new_rules {
-            let rewrite_step = self.get_step(*i);
-            new_truthiness = new_truthiness.combine(rewrite_step.truthiness);
+            let simplification_step = self.get_step(*i);
+            new_truthiness = new_truthiness.combine(simplification_step.truthiness);
         }
         Some(step.new_simplified(simplified_clause, new_rules, new_truthiness))
     }
