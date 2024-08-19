@@ -213,6 +213,11 @@ impl Literal {
     pub fn has_skolem(&self) -> bool {
         self.left.has_skolem() || self.right.has_skolem()
     }
+
+    // Whether either side of the literal has this as its head.
+    pub fn has_head(&self, head: &Atom) -> bool {
+        self.left.get_head() == head || self.right.get_head() == head
+    }
 }
 
 // Literals are ordered so that you can normalize a clause by sorting its literals.

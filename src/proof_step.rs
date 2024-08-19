@@ -328,7 +328,7 @@ impl ProofStep {
         }
         if let Rule::Assumption(info) = &long_step.rule {
             if clause.has_skolem() && !short_step.clause.has_skolem() {
-                // This is a resolution that is removing a skolem variable. This is another
+                // This resolution is removing a skolem variable. This is another
                 // case where we don't want the user to see the details, because we
                 // don't have a great way to print the skolem variable. But we need to
                 // include this as part of a single step, because we need skolem resolution
@@ -337,7 +337,11 @@ impl ProofStep {
             }
 
             if let Some(defined_atom) = info.defined_atom {
-                // TODO
+                if !clause.has_head(&defined_atom) {
+                    // This resolution is replacing an atom with its definition, or
+                    // part of its definition.
+                    return true;
+                }
             }
         }
         false

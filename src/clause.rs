@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::atom::AtomId;
+use crate::atom::{Atom, AtomId};
 use crate::literal::Literal;
 
 // A clause is a disjunction (an "or") of literals, universally quantified over some variables.
@@ -122,5 +122,10 @@ impl Clause {
             }
         }
         true
+    }
+
+    // Whether any top level term has the given atom as its head.
+    pub fn has_head(&self, atom: &Atom) -> bool {
+        self.literals.iter().any(|x| x.has_head(atom))
     }
 }
