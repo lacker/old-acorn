@@ -389,10 +389,10 @@ impl ProofStep {
 
     // Construct a new ProofStep via resolution.
     pub fn new_resolution(
-        short_id: usize,
-        short_step: &ProofStep,
         long_id: usize,
         long_step: &ProofStep,
+        short_id: usize,
+        short_step: &ProofStep,
         new_clause: Clause,
     ) -> ProofStep {
         let rule = Rule::Resolution(ResolutionInfo { short_id, long_id });

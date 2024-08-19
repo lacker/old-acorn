@@ -261,7 +261,7 @@ impl ActiveSet {
 
         // Gather the output data
         let clause = Clause::new(literals);
-        let step = ProofStep::new_resolution(short_id, short_step, long_id, long_step, clause);
+        let step = ProofStep::new_resolution(long_id, long_step, short_id, short_step, clause);
         Some(step)
     }
 
