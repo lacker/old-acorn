@@ -209,10 +209,21 @@ impl Proposition {
 
     // Specializes a templated proposition.
     pub fn specialize(&self, params: &[(String, AcornType)]) -> Proposition {
-        let monomorph = self.value.specialize(params);
-        if monomorph.is_parametric() {
-            panic!("monomorph {} is still parametric", monomorph);
+        let value = self.value.specialize(params);
+        if value.is_parametric() {
+            panic!("monomorph {} is still parametric", value);
         }
-        self.with_value(monomorph)
+        let source = match &self.source.source_type {
+            SourceType::ConstantDefinition(v) => {
+                let new_type = SourceType::ConstantDefinition(v.specialize(params));
+                Source {
+                    module: self.source.module,
+                    range: self.source.range.clone(),
+                    source_type: new_type,
+                }
+            }
+            _ => self.source.clone(),
+        };
+        Proposition { value, source }
     }
 }
