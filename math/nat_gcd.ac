@@ -135,7 +135,7 @@ define gcd_termination(p: NatPair) -> (Nat -> Bool) {
 let num_gcd_steps(p: NatPair) -> n: Nat satisfy {
     is_min(gcd_termination(p), n)
 } by {
-    gcd_terminates(p)
+    exists(k: Nat) { gcd_termination(p, k) }
 }
 
 theorem num_gcd_steps_terminates(p: NatPair) { gcd_step_n(p, num_gcd_steps(p)).second = 0 } by {
