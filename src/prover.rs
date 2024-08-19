@@ -201,10 +201,6 @@ impl Prover {
             }
             _ => None,
         };
-        println!(
-            "XXX assumption {}, defined_atom {:?}",
-            assumption.value, defined_atom
-        );
         let clauses = match self.normalize_proposition(assumption.value) {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
