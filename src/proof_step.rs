@@ -297,6 +297,30 @@ impl ProofStep {
         )
     }
 
+    // We need to ensure that a single theorem application is basic, even if it
+    // requires multiple steps of resolution.
+    // This feels hacky due to the normalization process. A theorem application
+    // that looks like a single step to the user may require multiple steps of resolution.
+    fn resolution_is_basic(short_step: &ProofStep, long_step: &ProofStep, clause: &Clause) -> bool {
+        if clause.len() != 1 {
+            // This is a "partial" proof step. Think of a theorem where A, B, C implies D.
+            // When we resolve just against the A clause, we get a partial proof step.
+            // We don't want to include it in the printed proof, so we consider it basic.
+            return true;
+        }
+        if let Rule::Assumption(_source) = &long_step.rule {
+            if clause.has_skolem() && !short_step.clause.has_skolem() {
+                // This is a resolution that is removing a skolem variable. This is another
+                // case where we don't want the user to see the details, because we
+                // don't have a great way to print the skolem variable. But we need to
+                // include this as part of a single step, because we need skolem resolution
+                // in order to prove exists statements.
+                return true;
+            }
+        }
+        false
+    }
+
     // Construct a new ProofStep via resolution.
     pub fn new_resolution(
         short_id: usize,
@@ -309,14 +333,7 @@ impl ProofStep {
 
         let truthiness = short_step.truthiness.combine(long_step.truthiness);
 
-        // We need to ensure that a single theorem application is basic, even if it
-        // requires multiple steps of resolution.
-        // This is still hacky due to the normalization process. A theorem application
-        // that looks like a single step to the user may require multiple steps of resolution.
-        let basic = clause.len() != 1
-            || (long_step.rule.is_assumption()
-                && clause.has_skolem()
-                && !short_step.clause.has_skolem());
+        let basic = ProofStep::resolution_is_basic(short_step, long_step, &clause);
         let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
 
         ProofStep::new(
