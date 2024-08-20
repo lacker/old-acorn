@@ -171,7 +171,6 @@ theorem divides_gcd_step_n(d: Nat, p: NatPair, n: Nat) {
     divides_both(d, p) -> divides_both(d, gcd_step_n(p, n))
 } by {
     let f: Nat -> Bool = function(x: Nat) { divides_both(d, gcd_step_n(p, x)) }
-    Nat.induction(f)
     divides_both(d, nat.repeat(gcd_step, p, 0))
     divides_both(d, gcd_step_n(p, 0))
     f(0)
