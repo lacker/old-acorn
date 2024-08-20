@@ -2123,4 +2123,26 @@ mod tests {
         "#;
         verify_succeeds(text);
     }
+
+    #[test]
+    fn test_verify_not_basic_free_simplification_trap() {
+        // This will infinite loop if you let a 3-to-2 resolution plus a 2-to-1 simplification
+        // be zero depth.
+        let text = r#"
+        type Nat: axiom
+        let foo: Nat -> Nat = axiom
+        let bar: Nat -> Bool = axiom
+        let zap: Nat -> Bool = axiom
+        axiom expander(x: Nat) {
+            not zap(x) or not bar(x) or zap(foo(x))
+        }
+        axiom simplifier(x: Nat) {
+            bar(foo(x))
+        }
+        theorem goal(a: Nat) {
+            not zap(foo(a))
+        }
+        "#;
+        verify_not_basic(text);
+    }
 }
