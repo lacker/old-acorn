@@ -239,7 +239,7 @@ impl fmt::Display for ProofStep {
 
 impl ProofStep {
     // Construct a new assumption ProofStep that is not dependent on any other steps.
-    // Assumptions are always basic, but as we add more theorems we will have to revisit that.
+    // Assumptions are always depth zero, but eventually we may have to revisit that.
     pub fn new_assumption(
         clause: Clause,
         truthiness: Truthiness,

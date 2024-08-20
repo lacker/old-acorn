@@ -147,11 +147,11 @@ impl PassiveSet {
         self.queue.is_empty()
     }
 
-    // Whether we have more basic clauses to process.
-    pub fn has_basic(&self) -> bool {
+    // Whether we are done with the verification phase.
+    pub fn verification_complete(&self) -> bool {
         match self.queue.last() {
-            None => false,
-            Some((score, _)) => score.verification,
+            None => true,
+            Some((score, _)) => !score.needed_for_verification,
         }
     }
 

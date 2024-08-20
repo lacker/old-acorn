@@ -376,7 +376,7 @@ impl Project {
                 let start = std::time::Instant::now();
                 let goal_context = env.get_goal_context(&path).unwrap();
                 let mut prover = Prover::new(&self, &goal_context, false);
-                let outcome = prover.basic_search();
+                let outcome = prover.verification_search();
                 let elapsed = duration_as_f64_secs(start.elapsed());
                 let elapsed_str = format!("{:.3}s", elapsed);
                 done += 1;
@@ -393,7 +393,7 @@ impl Project {
                             "".to_string()
                         }
                     }
-                    Outcome::Exhausted => " has no basic proof".to_string(),
+                    Outcome::Exhausted => " could not be verified".to_string(),
                     Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
                     Outcome::Timeout => format!(" timed out after {}", elapsed_str),
                     Outcome::Interrupted => {

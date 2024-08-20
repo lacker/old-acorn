@@ -479,8 +479,7 @@ impl Prover {
             let rewrite_step = self.active_set.get_step(rewrite_info.pattern_id);
             truthiness = truthiness.combine(rewrite_step.truthiness);
 
-            // Check whether we need to explicitly add a specialized clause to make
-            // this rewrite a basic proof.
+            // Check whether we need to explicitly add a specialized clause to the proof.
             match rewrite_info.subterm_depth {
                 None | Some(0) => {
                     // No extra specialized clause needed
@@ -653,36 +652,37 @@ impl Prover {
         self.search_for_contradiction(10000, 0.1, false)
     }
 
-    // Search to see if this goal can be satisfied using "basic" reasoning.
-    // Basic reasoning is reasoning that we consider okay to leave implicit in the code.
+    // Search in verification mode to see if this goal can be easily proven.
     // The time-based limit is set high enough so that hopefully it will not apply,
-    // because we want the standard to be deterministic.
-    pub fn basic_search(&mut self) -> Outcome {
+    // because we don't want the result of verification to be machine-dependent.
+    pub fn verification_search(&mut self) -> Outcome {
         self.search_for_contradiction(3000, 4.0, true)
     }
 
-    // A single fast search, intended for most unit testing.
+    // A single fast search, intended for unit testing.
     pub fn quick_search(&mut self) -> Outcome {
         self.search_for_contradiction(500, 0.05, false)
     }
 
-    pub fn quick_basic_search(&mut self) -> Outcome {
+    // A restricted verification search, intended for unit testing.
+    pub fn quick_verification_search(&mut self) -> Outcome {
         self.search_for_contradiction(500, 0.05, true)
     }
 
-    // If basic_only is set, we only search for a basic proof.
+    // When 'verification' flag is set, the prover doesn't have to do arbitrarily deeply.
+    // It is allowed to finish as soon as it finishes checking all the verification steps.
     pub fn search_for_contradiction(
         &mut self,
         size: i32,
         seconds: f32,
-        basic_only: bool,
+        verification: bool,
     ) -> Outcome {
         if self.error.is_some() {
             return Outcome::Error;
         }
         let start_time = std::time::Instant::now();
         loop {
-            if basic_only && !self.passive_set.has_basic() {
+            if verification && self.passive_set.verification_complete() {
                 return Outcome::Exhausted;
             }
             if let Some(outcome) = self.activate_next() {
@@ -904,7 +904,7 @@ mod tests {
             println!("proving: {}", goal_context.name);
             let mut prover = Prover::new(&project, &goal_context, false);
             prover.verbose = true;
-            let outcome = prover.quick_basic_search();
+            let outcome = prover.quick_verification_search();
             if outcome != Outcome::Success {
                 return outcome;
             }
@@ -916,7 +916,7 @@ mod tests {
         assert_eq!(verify(text), Outcome::Success);
     }
 
-    fn verify_not_basic(text: &str) {
+    fn verify_fails(text: &str) {
         assert_eq!(verify(text), Outcome::Exhausted);
     }
 
@@ -1945,20 +1945,19 @@ mod tests {
     }
 
     #[test]
-    fn test_not_basic_boolean_soup() {
+    fn test_no_verify_boolean_soup() {
         // This goal is not provable.
-        // We should be able to quickly tell there is no basic proof.
-        // I'm not sure what goes wrong, it's a mess of nested boolean formulas.
+        // I'm not sure what ever went wrong, it's a mess of nested boolean formulas.
         let text = r#"
         theorem goal(a: Bool, b: Bool, c: Bool) {
             a = b or a = not c
         }
         "#;
-        verify_not_basic(text);
+        verify_fails(text);
     }
 
     #[test]
-    fn test_not_basic_resolution_trap() {
+    fn test_resolution_trap() {
         // This is a trap for the resolution algorithm, because repeated resolution
         // against the negated goal will give longer and longer formulas.
         let text = r#"
@@ -1971,7 +1970,7 @@ mod tests {
             not forall(x: Nat) { g(x) -> g(f(x)) }
         }
         "#;
-        verify_not_basic(text);
+        verify_fails(text);
     }
 
     #[test]
@@ -2065,7 +2064,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_not_basic_definition_trap() {
+    fn test_definition_trap() {
         // This will infinite loop if you allow free resolutions against definition.
         let text = r#"
         type Nat: axiom
@@ -2076,7 +2075,7 @@ mod tests {
         axiom fz { f(z) }
         theorem goal { exists(x: Nat) { decr(x) } }
         "#;
-        verify_not_basic(text);
+        verify_fails(text);
     }
 
     #[test]
@@ -2104,7 +2103,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_not_basic_free_simplification_trap() {
+    fn test_verify_free_simplification_trap() {
         // This will infinite loop if you let a 3-to-2 resolution plus a 2-to-1 simplification
         // be zero depth.
         let text = r#"
@@ -2122,7 +2121,7 @@ mod tests {
             not zap(foo(a))
         }
         "#;
-        verify_not_basic(text);
+        verify_fails(text);
     }
 
     #[test]
@@ -2135,7 +2134,7 @@ mod tests {
         axiom fxx(x: Nat) { f(x, x) = x }
         theorem goal(a: Nat) { g(a) }
         "#;
-        verify_not_basic(text);
+        verify_fails(text);
     }
 
     #[test]

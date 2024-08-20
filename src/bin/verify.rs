@@ -1,5 +1,4 @@
 // Verifies an acorn file, or the whole project.
-// Verification checks that every statement has a basic proof.
 //
 // This is the CLI equivalent of what the IDE runs when you save.
 //
