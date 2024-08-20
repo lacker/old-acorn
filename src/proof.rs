@@ -402,7 +402,7 @@ impl<'a> Proof<'a> {
     // !A
     //
     // and then continues with the new hypothesis.
-    fn remove_conditional(&mut self, from_id: NodeId) {
+    fn try_to_make_direct(&mut self, from_id: NodeId) {
         let mut from_id = from_id;
         loop {
             let node = &self.nodes[from_id as usize];
@@ -463,7 +463,7 @@ impl<'a> Proof<'a> {
         assert!(!self.condensed);
         self.remove_ugly();
         self.remove_basic();
-        self.remove_conditional(0);
+        self.try_to_make_direct(0);
         self.condensed = true;
     }
 
