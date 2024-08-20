@@ -314,17 +314,17 @@ impl Prover {
             Rule::Assumption(_) => {}
             Rule::Resolution(info) => {
                 answer.push((
-                    "short resolver".to_string(),
-                    ProofStepId::Active(info.short_id),
-                ));
-                answer.push((
                     "long resolver".to_string(),
                     ProofStepId::Active(info.long_id),
                 ));
+                answer.push((
+                    "short resolver".to_string(),
+                    ProofStepId::Active(info.short_id),
+                ));
             }
             Rule::Rewrite(info) => {
-                answer.push(("pattern".to_string(), ProofStepId::Active(info.pattern_id)));
                 answer.push(("target".to_string(), ProofStepId::Active(info.target_id)));
+                answer.push(("pattern".to_string(), ProofStepId::Active(info.pattern_id)));
             }
             Rule::EqualityFactoring(source)
             | Rule::EqualityResolution(source)
