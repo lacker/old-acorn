@@ -124,7 +124,7 @@ fn main() {
                     match outcome {
                         Some(Outcome::Success) => {
                             println!("Success! ({}s)", start_time.elapsed().as_secs_f32());
-                            prover.print_proof();
+                            prover.get_and_print_proof();
                             break;
                         }
                         Some(Outcome::Exhausted) => {

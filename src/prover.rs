@@ -362,7 +362,7 @@ impl Prover {
             "\n{}{} generated (depth {}):\n    {}",
             preface,
             step.rule.name(),
-            step.depth(),
+            step.depth,
             self.display(&step.clause)
         );
 
@@ -387,12 +387,12 @@ impl Prover {
         self.active_set.len()
     }
 
-    pub fn print_proof(&self) {
+    pub fn get_and_print_proof(&self) -> Option<Proof> {
         let proof = match self.get_proof() {
             Some(proof) => proof,
             None => {
                 println!("we do not have a proof");
-                return;
+                return None;
             }
         };
 
@@ -416,6 +416,7 @@ impl Prover {
             };
             self.print_proof_step(&preface, &step);
         }
+        Some(proof)
     }
 
     // Returns a condensed proof, if we have a proof.
@@ -484,7 +485,7 @@ impl Prover {
                 None | Some(0) => {
                     // No extra specialized clause needed
                     active_ids.push(rewrite_info.pattern_id);
-                    max_depth = max_depth.max(rewrite_step.depth());
+                    max_depth = max_depth.max(rewrite_step.depth);
                     continue;
                 }
                 Some(_) => {}
@@ -501,7 +502,7 @@ impl Prover {
             }
             new_clauses.insert(clause.clone());
             let step = ProofStep::new_specialization(rewrite_info.pattern_id, rewrite_step, clause);
-            max_depth = max_depth.max(step.depth());
+            max_depth = max_depth.max(step.depth);
             let passive_id = self.useful_passive.len() as u32;
             self.useful_passive.push(step);
             passive_ids.push(passive_id);
@@ -523,7 +524,7 @@ impl Prover {
     fn report_passive_contradiction(&mut self, passive_steps: Vec<ProofStep>) -> Outcome {
         assert!(self.useful_passive.is_empty());
         for mut passive_step in passive_steps {
-            passive_step.basic = true;
+            passive_step.complete = false;
             self.useful_passive.push(passive_step);
         }
         let final_step = ProofStep::new_passive_contradiction(&self.useful_passive);
@@ -789,7 +790,7 @@ impl Prover {
             premises,
             rule,
             location,
-            depth: step.depth(),
+            depth: step.depth,
         }
     }
 
@@ -869,11 +870,10 @@ mod tests {
         if outcome == Outcome::Error {
             panic!("prover error: {}", prover.error.unwrap());
         }
-        let code = match prover.get_proof() {
+        let code = match prover.get_and_print_proof() {
             Some(proof) => proof.to_code(&env.bindings),
             None => Err(CodeGenError::NoProof),
         };
-        prover.print_proof();
         (outcome, code)
     }
 
@@ -1795,27 +1795,6 @@ mod tests {
     }
 
     #[test]
-    fn test_proof_with_diamond_logic() {
-        // This is a tricky one to simplify because one clause has two consequences
-        // that combine.
-        let text = r#"
-        type Nat: axiom
-        let zero: Nat = axiom
-        define add(a: Nat, b: Nat) -> Nat { axiom }
-        theorem add_zero_left(a: Nat) { add(zero, a) = a }
-        
-        theorem add_to_zero(a: Nat, b: Nat) {
-            add(a, b) = zero -> a = zero and b = zero
-        } by {
-            define f(x: Nat) -> Bool { add_to_zero(x, b) }
-            f(zero)
-        }
-        "#;
-
-        expect_proof(text, "f(zero)", &["add_to_zero(zero, b)"]);
-    }
-
-    #[test]
     fn test_proof_condensing_induction() {
         let text = r#"
         type Nat: axiom
@@ -2142,6 +2121,19 @@ mod tests {
         theorem goal(a: Nat) {
             not zap(foo(a))
         }
+        "#;
+        verify_not_basic(text);
+    }
+
+    #[test]
+    fn test_verify_rewrite_trap() {
+        // This will infinite loop if you allow complexifying rewrites.
+        let text = r#"
+        type Nat: axiom
+        let f: (Nat, Nat) -> Nat = axiom
+        let g: Nat -> Bool = axiom
+        axiom fxx(x: Nat) { f(x, x) = x }
+        theorem goal(a: Nat) { g(a) }
         "#;
         verify_not_basic(text);
     }

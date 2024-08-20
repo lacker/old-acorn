@@ -9,19 +9,14 @@ pub struct Score {
     // Contradictions are the most important thing
     contradiction: bool,
 
-    // Whether this is a basic step.
-    // Theorems provable with only basic steps do not need any further proof.
-    pub basic: bool,
+    // Whether we need to check this step for proof verification.
+    pub verification: bool,
 
     // Higher scores are preferred, using subsequent heuristics for tiebreaks.
     heuristic1: i32,
     heuristic2: i32,
     heuristic3: i32,
 }
-
-// Don't bother differentiating depth for score purposes after this point.
-// Basic proofs ignore everything at max depth (and below).
-const MAX_DEPTH: i32 = 1;
 
 pub struct ManualPolicy {}
 
@@ -53,14 +48,16 @@ impl ManualPolicy {
         if clause.is_impossible() {
             return Score {
                 contradiction: true,
-                basic: true,
+                verification: true,
                 heuristic1: 0,
                 heuristic2: 0,
                 heuristic3: 0,
             };
         }
 
-        let heuristic1 = -(depth as i32).max(-MAX_DEPTH);
+        let min_heuristic1 = -2;
+
+        let heuristic1 = -(depth as i32).max(min_heuristic1);
 
         // Higher = more important, for the deterministic tier.
         let heuristic2 = match truthiness {
@@ -88,11 +85,11 @@ impl ManualPolicy {
             heuristic3 -= 3;
         }
 
-        let basic = heuristic1 > -MAX_DEPTH;
+        let verification = heuristic1 > min_heuristic1;
 
         Score {
             contradiction: false,
-            basic,
+            verification,
             heuristic1,
             heuristic2,
             heuristic3,

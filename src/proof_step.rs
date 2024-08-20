@@ -219,13 +219,16 @@ pub struct ProofStep {
     // This does not deduplicate among different branches, so it may be an overestimate.
     pub proof_size: u32,
 
-    // The dependency depth is the largest depth of any dependency.
-    pub dependency_depth: u32,
+    // Not every proof step counts toward depth.
+    // When we use a new long clause to resolve against, that counts toward depth, because
+    // it roughly corresponds to "using a theorem".
+    // When we use a rewrite backwards, increasing KBO, that also counts toward depth.
+    pub depth: u32,
 
-    // Some proof steps are categorized as "basic".
-    // In a user-written proof, these can be assumed without being explicitly stated.
-    // In the prover, we can use them to prove other things without increasing the depth.
-    pub basic: bool,
+    // A complete proof step is one that we are willing to turn into a line of code in a proof.
+    // Incomplete proof steps are things like halfway resolved theorems, or expressions
+    // that use anonymous skolem variables.
+    pub complete: bool,
 }
 
 impl fmt::Display for ProofStep {
@@ -235,35 +238,6 @@ impl fmt::Display for ProofStep {
 }
 
 impl ProofStep {
-    fn new(
-        clause: Clause,
-        truthiness: Truthiness,
-        rule: Rule,
-        simplification_rules: Vec<usize>,
-        proof_size: u32,
-        dependency_depth: u32,
-        basic: bool,
-    ) -> ProofStep {
-        ProofStep {
-            clause,
-            truthiness,
-            rule,
-            simplification_rules,
-            proof_size,
-            dependency_depth,
-            basic,
-        }
-    }
-    // If this proof step is basic, its depth is the same as its dependency depth.
-    // If this proof step is not basic, its depth is one more than its dependency depth.
-    pub fn depth(&self) -> u32 {
-        if self.basic {
-            self.dependency_depth
-        } else {
-            self.dependency_depth + 1
-        }
-    }
-
     // Construct a new assumption ProofStep that is not dependent on any other steps.
     // Assumptions are always basic, but as we add more theorems we will have to revisit that.
     pub fn new_assumption(
@@ -277,25 +251,32 @@ impl ProofStep {
             source,
             defined_atom,
         });
-        ProofStep::new(clause, truthiness, rule, vec![], 0, 0, true)
+        ProofStep {
+            clause,
+            truthiness,
+            rule,
+            simplification_rules: vec![],
+            proof_size: 0,
+            depth: 0,
+            complete: false,
+        }
     }
 
     // Construct a new ProofStep that is a direct implication of a single activated step,
     // not requiring any other clauses.
     pub fn new_direct(activated_step: &ProofStep, rule: Rule, clause: Clause) -> ProofStep {
-        let basic = activated_step.proof_size == 0
-            || activated_step.rule.is_negated_goal()
-            || activated_step.clause.len() == 1
-            || clause.len() > 1;
-        ProofStep::new(
+        // Direct implication does not add to depth.
+        let depth = activated_step.depth;
+        let complete = clause.is_complete();
+        ProofStep {
             clause,
-            activated_step.truthiness,
+            truthiness: activated_step.truthiness,
             rule,
-            vec![],
-            activated_step.proof_size + 1,
-            activated_step.depth(),
-            basic,
-        )
+            simplification_rules: vec![],
+            proof_size: activated_step.proof_size + 1,
+            depth,
+            complete,
+        }
     }
 
     // Construct a ProofStep that is a specialization of a general pattern.
@@ -304,87 +285,15 @@ impl ProofStep {
         general_step: &ProofStep,
         clause: Clause,
     ) -> ProofStep {
-        ProofStep::new(
+        ProofStep {
             clause,
-            general_step.truthiness,
-            Rule::Specialization(general_id),
-            vec![],
-            general_step.proof_size + 1,
-            general_step.depth(),
-            false,
-        )
-    }
-
-    // We need to ensure that a single theorem application is basic, even if it
-    // requires multiple steps of resolution.
-    // This feels hacky due to the normalization process. A theorem application
-    // that looks like a single step to the user may require multiple steps of resolution.
-    fn resolution_is_basic(short_step: &ProofStep, long_step: &ProofStep, clause: &Clause) -> bool {
-        if clause.len() != 1 {
-            // This is a "partial" proof step. Think of a theorem where A, B, C implies D.
-            // When we resolve just against the A clause, we get a partial proof step.
-            // We don't want to include it in the printed proof, so we consider it basic.
-            return true;
+            truthiness: general_step.truthiness,
+            rule: Rule::Specialization(general_id),
+            simplification_rules: vec![],
+            proof_size: general_step.proof_size + 1,
+            depth: general_step.depth,
+            complete: true,
         }
-        if !long_step.clause.has_any_variable() {
-            // The "trivial" case.
-            return true;
-        }
-        if let Rule::Assumption(info) = &long_step.rule {
-            if clause.has_skolem() && !short_step.clause.has_skolem() {
-                // This resolution is removing a skolem variable. This is another
-                // case where we don't want the user to see the details, because we
-                // don't have a great way to print the skolem variable. But we need to
-                // include this as part of a single step, because we need skolem resolution
-                // in order to prove exists statements.
-                // This is like "ugliness-resolution".
-                return true;
-            }
-
-            if let Some(defined_atom) = info.defined_atom {
-                if !clause.has_head(&defined_atom) {
-                    // This resolution is replacing an atom with its definition, or
-                    // part of its definition.
-                    // This counts as part of the "trivial" case.
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    // Analogous to resolution_is_basic.
-    // It seems like ideally these would be more the same. Like it's just going to be trouble
-    // when we can achieve the same result in two ways, one via resolution and one via simplification,
-    // and the two ways disagree on whether it's basic.
-    fn simplification_is_basic(self: &ProofStep, clause: &Clause) -> bool {
-        if self.basic {
-            // A hack because we don't have enough information available.
-            return true;
-        }
-        if self.proof_size == 0 {
-            // The "trivial" case.
-            return true;
-        }
-        if clause.len() != 1 {
-            // The "partial" case.
-            return true;
-        }
-        if clause.has_skolem() && !clause.has_any_variable() {
-            // The "ugly" case.
-            return true;
-        }
-        if let Rule::Assumption(info) = &self.rule {
-            if let Some(defined_atom) = info.defined_atom {
-                if !clause.has_head(&defined_atom) {
-                    // This resolution is replacing an atom with its definition, or
-                    // part of its definition.
-                    // This counts as part of the "trivial" case.
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     // Construct a new ProofStep via resolution.
@@ -393,51 +302,70 @@ impl ProofStep {
         long_step: &ProofStep,
         short_id: usize,
         short_step: &ProofStep,
-        new_clause: Clause,
+        clause: Clause,
     ) -> ProofStep {
         let rule = Rule::Resolution(ResolutionInfo { short_id, long_id });
 
         let truthiness = short_step.truthiness.combine(long_step.truthiness);
+        let proof_size = short_step.proof_size + long_step.proof_size + 1;
 
-        let basic = ProofStep::resolution_is_basic(short_step, long_step, &new_clause);
-        let dependency_depth = std::cmp::max(short_step.depth(), long_step.depth());
+        let depth = if long_step.depth <= short_step.depth {
+            if long_step.clause.contains(&clause) {
+                // This is just a simplification
+                short_step.depth
+            } else {
+                // This resolution is a new "theorem" that we are using.
+                // So we need to add one to depth.
+                short_step.depth + 1
+            }
+        } else {
+            // This resolution is essentially continuing to resolve a theorem
+            // statement that we have already fetched.
+            long_step.depth
+        };
 
-        ProofStep::new(
-            new_clause,
+        let complete = clause.is_complete();
+
+        ProofStep {
+            clause,
             truthiness,
             rule,
-            vec![],
-            short_step.proof_size + long_step.proof_size + 1,
-            dependency_depth,
-            basic,
-        )
+            simplification_rules: vec![],
+            proof_size,
+            depth,
+            complete,
+        }
     }
 
     // Create a replacement for this clause that has extra simplification rules.
     // The long step doesn't have an id because it isn't activated.
-    // We could probably handle basicness better if we had access to all of the source clauses.
     pub fn new_simplified(
         long_step: ProofStep,
         short_steps: &[(usize, &ProofStep)],
-        new_clause: Clause,
+        clause: Clause,
     ) -> ProofStep {
-        let new_basic = long_step.basic || long_step.simplification_is_basic(&new_clause);
-
-        let mut new_truthiness = long_step.truthiness;
-        let mut new_rules = long_step.simplification_rules;
+        let mut truthiness = long_step.truthiness;
+        let mut simplification_rules = long_step.simplification_rules;
+        let mut proof_size = long_step.proof_size;
+        let mut depth = long_step.depth;
         for (short_id, short_step) in short_steps {
-            new_truthiness = new_truthiness.combine(short_step.truthiness);
-            new_rules.push(*short_id);
+            truthiness = truthiness.combine(short_step.truthiness);
+            simplification_rules.push(*short_id);
+            proof_size += short_step.proof_size;
+            depth = u32::max(depth, short_step.depth);
         }
-        ProofStep::new(
-            new_clause,
-            new_truthiness,
-            long_step.rule,
-            new_rules,
-            long_step.proof_size,
-            long_step.dependency_depth,
-            new_basic,
-        )
+
+        let complete = clause.is_complete();
+
+        ProofStep {
+            clause,
+            truthiness,
+            rule: long_step.rule,
+            simplification_rules,
+            proof_size,
+            depth,
+            complete,
+        }
     }
 
     // Construct a new ProofStep via rewriting.
@@ -460,8 +388,10 @@ impl ProofStep {
         };
         let new_u = u.replace_at_path(path, new_subterm.clone());
         let new_literal = Literal::new(target_literal.positive, new_u, v.clone());
-        let basic = new_literal.extended_kbo_cmp(&target_literal) == Ordering::Less;
+        let simplifying = new_literal.extended_kbo_cmp(&target_literal) == Ordering::Less;
         let clause = Clause::new(vec![new_literal]);
+
+        let truthiness = pattern_step.truthiness.combine(target_step.truthiness);
 
         let rule = Rule::Rewrite(RewriteInfo {
             pattern_id,
@@ -470,17 +400,26 @@ impl ProofStep {
             target_truthiness: target_step.truthiness,
         });
 
-        let dependency_depth = std::cmp::max(pattern_step.depth(), target_step.depth());
+        let proof_size = pattern_step.proof_size + target_step.proof_size + 1;
 
-        ProofStep::new(
+        let dependency_depth = std::cmp::max(pattern_step.depth, target_step.depth);
+        let depth = if simplifying {
+            dependency_depth
+        } else {
+            dependency_depth + 1
+        };
+
+        let complete = clause.is_complete();
+
+        ProofStep {
             clause,
-            pattern_step.truthiness.combine(target_step.truthiness),
+            truthiness,
             rule,
-            vec![],
-            pattern_step.proof_size + target_step.proof_size + 1,
-            dependency_depth,
-            basic,
-        )
+            simplification_rules: vec![],
+            proof_size,
+            depth,
+            complete,
+        }
     }
 
     // A proof step for finding a contradiction via a series of rewrites.
@@ -489,7 +428,7 @@ impl ProofStep {
         active_ids: Vec<usize>,
         passive_ids: Vec<u32>,
         truthiness: Truthiness,
-        dependency_depth: u32,
+        depth: u32,
     ) -> ProofStep {
         let rule = Rule::MultipleRewrite(MultipleRewriteInfo {
             inequality_id,
@@ -497,57 +436,58 @@ impl ProofStep {
             passive_ids,
         });
 
-        // Multiple rewrites are always basic themselves because they lead to contradictions.
-        // It's the specializations that may require explicit steps.
-        ProofStep::new(
-            Clause::impossible(),
+        // proof size is wrong but we don't use it for a contradiction.
+        ProofStep {
+            clause: Clause::impossible(),
             truthiness,
             rule,
-            vec![],
-            0,
-            dependency_depth,
-            true,
-        )
+            simplification_rules: vec![],
+            proof_size: 0,
+            depth,
+            complete: true,
+        }
     }
 
     // Assumes the provided steps are indexed by passive id, and that we use all of them.
     pub fn new_passive_contradiction(passive_steps: &[ProofStep]) -> ProofStep {
         let rule = Rule::PassiveContradiction(passive_steps.len() as u32);
         let mut truthiness = Truthiness::Factual;
-        let mut dependency_depth = 0;
+        let mut depth = 0;
         let mut proof_size = 0;
         for step in passive_steps {
             truthiness = truthiness.combine(step.truthiness);
-            dependency_depth = std::cmp::max(dependency_depth, step.depth());
+            depth = std::cmp::max(depth, step.depth);
             proof_size += step.proof_size;
         }
 
-        ProofStep::new(
-            Clause::impossible(),
+        ProofStep {
+            clause: Clause::impossible(),
             truthiness,
             rule,
-            vec![],
+            simplification_rules: vec![],
             proof_size,
-            dependency_depth,
-            true,
-        )
+            depth,
+            complete: true,
+        }
     }
 
     // Construct a ProofStep with fake heuristic data for testing
     pub fn mock(s: &str) -> ProofStep {
         let clause = Clause::parse(s);
-        ProofStep::new(
+        let truthiness = Truthiness::Factual;
+        let rule = Rule::Assumption(AssumptionInfo {
+            source: Source::mock(),
+            defined_atom: None,
+        });
+        ProofStep {
             clause,
-            Truthiness::Factual,
-            Rule::Assumption(AssumptionInfo {
-                source: Source::mock(),
-                defined_atom: None,
-            }),
-            vec![],
-            0,
-            0,
-            true,
-        )
+            truthiness,
+            rule,
+            simplification_rules: vec![],
+            proof_size: 0,
+            depth: 0,
+            complete: true,
+        }
     }
 
     // The ids of the other clauses that this clause depends on.

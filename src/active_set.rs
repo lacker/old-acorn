@@ -295,7 +295,7 @@ impl ActiveSet {
                         let id2 = self.graph.insert_term(&rewrite.term);
                         self.add_to_term_graph(
                             rewrite.pattern_id,
-                            Some(target_step.depth()),
+                            Some(target_step.depth),
                             id1,
                             id2,
                             true,
@@ -308,7 +308,7 @@ impl ActiveSet {
                         term: u_subterm.clone(),
                         locations: vec![],
                         rewrites,
-                        depth: target_step.depth(),
+                        depth: target_step.depth,
                     });
                     self.subterm_map.insert(u_subterm.clone(), id);
                     self.subterm_unifier.insert(u_subterm, id);

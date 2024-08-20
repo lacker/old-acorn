@@ -43,7 +43,7 @@ async fn main() {
         match outcome {
             Outcome::Success => {
                 println!("Success!");
-                prover.print_proof();
+                prover.get_and_print_proof();
                 let proof = prover.get_proof().unwrap();
                 match proof.to_code(&env.bindings) {
                     Ok(code) => {
@@ -59,7 +59,7 @@ async fn main() {
             }
             Outcome::Inconsistent => {
                 println!("Found inconsistency!");
-                prover.print_proof();
+                prover.get_and_print_proof();
             }
             Outcome::Exhausted => {
                 println!("All possibilities have been exhausted.");

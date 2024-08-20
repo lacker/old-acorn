@@ -128,4 +128,15 @@ impl Clause {
     pub fn has_head(&self, atom: &Atom) -> bool {
         self.literals.iter().any(|x| x.has_head(atom))
     }
+
+    // Whether we are willing to turn this clause into a line of code in a proof.
+    pub fn is_complete(&self) -> bool {
+        if self.len() > 1 {
+            return false;
+        }
+        if self.has_skolem() {
+            return false;
+        }
+        true
+    }
 }

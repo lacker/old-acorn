@@ -105,7 +105,7 @@ impl PassiveSet {
             step.truthiness,
             &step.rule,
             step.proof_size,
-            step.depth(),
+            step.depth,
         );
         let id = self.clauses.len();
 
@@ -151,7 +151,7 @@ impl PassiveSet {
     pub fn has_basic(&self) -> bool {
         match self.queue.last() {
             None => false,
-            Some((score, _)) => score.basic,
+            Some((score, _)) => score.verification,
         }
     }
 
