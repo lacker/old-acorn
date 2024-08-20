@@ -668,15 +668,18 @@ impl Environment {
             }
         }
         let value = if ls.value.token().token_type == TokenType::Axiom {
-            AcornValue::Constant(self.module_id, name.clone(), acorn_type.clone(), vec![])
+            None
         } else {
-            self.bindings
-                .evaluate_value(project, &ls.value, Some(&acorn_type))?
+            Some(
+                self.bindings
+                    .evaluate_value(project, &ls.value, Some(&acorn_type))?,
+            )
         };
-        self.bindings
-            .add_constant(&name, vec![], acorn_type, Some(value));
-        self.definition_ranges.insert(name.clone(), range);
-        self.add_identity_props(project, &name);
+        if self.bindings.add_constant(&name, vec![], acorn_type, value) {
+            // This is a new constant, so we should track where it's defined
+            self.definition_ranges.insert(name.clone(), range);
+            self.add_identity_props(project, &name);
+        }
         Ok(())
     }
 
@@ -1541,11 +1544,7 @@ impl Environment {
 
                 // Bring the imported names into this environment
                 for name in &is.names {
-                    if self.bindings.import_name(project, module_id, name)? {
-                        self.definition_ranges
-                            .insert(name.to_string(), statement.range());
-                        self.add_identity_props(project, name.text());
-                    }
+                    self.bindings.import_name(project, module_id, name)?;
                 }
 
                 Ok(())

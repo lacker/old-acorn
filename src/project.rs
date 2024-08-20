@@ -1001,7 +1001,7 @@ mod tests {
         p.expect_ok("stuff");
         p.expect_ok("main");
         p.check_code("main", "x");
-        p.check_code("main", "y");
+        p.check_code_into("main", "y", "bar");
         p.check_code_into("main", "stuff.Foo.foo2", "Foo.foo2");
     }
 

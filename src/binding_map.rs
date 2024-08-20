@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
@@ -69,17 +69,25 @@ pub struct BindingMap {
     reverse_type_names: HashMap<AcornType, String>,
 
     // Maps an identifier name to its type.
+    // Has entries for both defined constants and aliases.
     identifier_types: HashMap<String, AcornType>,
 
-    // Maps the name of a constant to information about it.
+    // Maps the name of a constant defined in this scope to information about it.
     // Doesn't handle variables defined on the stack, only ones that will be in scope for the
     // entirety of this environment.
     // Includes "<datatype>.<constant>" for members.
     constants: HashMap<String, ConstantInfo>,
 
-    // Whenever a name from another environment has a local name in this environment,
-    // imported_names maps their canonical identifier to their local name.
-    imported_names: HashMap<(ModuleId, String), String>,
+    // The canonical identifier of a constant is the first place it is defined.
+    // There may be other names in this environment that refer to the same thing.
+    // When we create an AcornValue, we want to use the canonical name.
+    // The alias -> canonical name mapping is stored here.
+    alias_to_canonical: HashMap<String, (ModuleId, String)>,
+
+    // Whenever a name from some other scope has a local alias in this one,
+    // if we're generating code, we prefer to use the local name.
+    // Thus, preferred_names maps the canonical identifier to a local alias.
+    canonical_to_alias: HashMap<(ModuleId, String), String>,
 
     // Names that refer to other modules.
     // For example after "import foo", "foo" refers to a module.
@@ -90,6 +98,11 @@ pub struct BindingMap {
 
     // The default data type to use for numeric literals.
     default: Option<(ModuleId, String)>,
+
+    // Whether this constant is the name of a theorem in this context.
+    // Inside the block containing the proof of a theorem, the name is not considered to
+    // be a theorem.
+    theorems: HashSet<String>,
 }
 
 #[derive(Clone)]
@@ -100,11 +113,6 @@ struct ConstantInfo {
 
     // The definition of this constant, if it has one.
     definition: Option<AcornValue>,
-
-    // Whether this constant is the name of a theorem in this context.
-    // Inside the block containing the proof of a theorem, a theorem is just treated like a function, so
-    // this flag will be set to false.
-    theorem: bool,
 }
 
 // Return an error if the types don't match.
@@ -182,10 +190,12 @@ impl BindingMap {
             reverse_type_names: HashMap::new(),
             identifier_types: HashMap::new(),
             constants: HashMap::new(),
-            imported_names: HashMap::new(),
+            alias_to_canonical: HashMap::new(),
+            canonical_to_alias: HashMap::new(),
             modules: BTreeMap::new(),
             reverse_modules: HashMap::new(),
             default: None,
+            theorems: HashSet::new(),
         };
         answer.add_type_alias("Bool", AcornType::Bool);
         answer
@@ -231,7 +241,7 @@ impl BindingMap {
             panic!("type alias {} already bound", name);
         }
         if let AcornType::Data(module, type_name) = &acorn_type {
-            self.imported_names
+            self.canonical_to_alias
                 .entry((*module, type_name.clone()))
                 .or_insert(name.to_string());
         }
@@ -241,12 +251,24 @@ impl BindingMap {
     // Returns an AcornValue representing this name, if there is one.
     // Returns None if this name does not refer to a constant.
     pub fn get_constant_value(&self, name: &str) -> Option<AcornValue> {
-        let info = self.constants.get(name)?;
+        let constant_type = self.identifier_types.get(name)?.clone();
+
+        // Aliases
+        if let Some((canonical_module, canonical_name)) = self.alias_to_canonical.get(name) {
+            return Some(AcornValue::Constant(
+                *canonical_module,
+                canonical_name.clone(),
+                constant_type,
+                vec![],
+            ));
+        }
+
+        // Constants defined here
         Some(AcornValue::Constant(
             self.module,
             name.to_string(),
-            self.identifier_types[name].clone(),
-            info.params.clone(),
+            constant_type,
+            self.constants.get(name)?.params.clone(),
         ))
     }
 
@@ -293,35 +315,39 @@ impl BindingMap {
         self.default = Some((module, type_name));
     }
 
+    // Adds a constant.
+    // Returns whether this is a new constant - if it's just an alias, returns false.
     // This can also add members, by providing a name like "Foo.bar".
-    // It would be nice to not use string manipulation for this behavior.
     pub fn add_constant(
         &mut self,
         name: &str,
         params: Vec<String>,
         constant_type: AcornType,
         definition: Option<AcornValue>,
-    ) {
+    ) -> bool {
         if self.name_in_use(name) {
             panic!("constant name {} already bound", name);
         }
-
-        // Check if we are aliasing a constant from another module.
-        if let Some(AcornValue::Constant(module, external_name, _, _)) = &definition {
-            if *module != self.module {
-                let key = (*module, external_name.clone());
-                self.imported_names.entry(key).or_insert(name.to_string());
-            }
-        }
-
-        let info = ConstantInfo {
-            params,
-            definition,
-            theorem: false,
-        };
         self.identifier_types
             .insert(name.to_string(), constant_type);
+
+        // Check if we are aliasing some other constant.
+        if let Some(AcornValue::Constant(module, external_name, _, _)) = &definition {
+            let canonical = (*module, external_name.clone());
+            if *module != self.module {
+                // Prefer this alias locally to using the qualified, canonical name
+                self.canonical_to_alias
+                    .entry(canonical.clone())
+                    .or_insert(name.to_string());
+            }
+            self.alias_to_canonical.insert(name.to_string(), canonical);
+            return false;
+        }
+
+        // We're defining a new constant.
+        let info = ConstantInfo { params, definition };
         self.constants.insert(name.to_string(), info);
+        true
     }
 
     pub fn is_constant(&self, name: &str) -> bool {
@@ -329,17 +355,11 @@ impl BindingMap {
     }
 
     pub fn mark_as_theorem(&mut self, name: &str) {
-        if !self.constants.contains_key(name) {
-            panic!("cannot mark as theorem the unknown constant {}", name);
-        }
-        self.constants.get_mut(name).unwrap().theorem = true;
+        self.theorems.insert(name.to_string());
     }
 
     pub fn is_theorem(&self, name: &str) -> bool {
-        match self.constants.get(name) {
-            Some(info) => info.theorem,
-            None => false,
-        }
+        self.theorems.contains(name)
     }
 
     // Data types that come from type parameters get removed when they go out of scope.
@@ -857,13 +877,12 @@ impl BindingMap {
 
     // Imports a name from another module.
     // The name could either be a type or a value.
-    // Returns whether it was a value.
     pub fn import_name(
         &mut self,
         project: &Project,
         module: ModuleId,
         name_token: &Token,
-    ) -> token::Result<bool> {
+    ) -> token::Result<()> {
         if self.name_in_use(&name_token.text()) {
             return Err(Error::new(
                 name_token,
@@ -882,12 +901,14 @@ impl BindingMap {
         let entity = bindings.evaluate_name(name_token, project, &Stack::new(), None)?;
         match entity {
             NamedEntity::Value(value) => {
-                self.add_constant(&name_token.text(), vec![], value.get_type(), Some(value));
-                Ok(true)
+                if self.add_constant(&name_token.text(), vec![], value.get_type(), Some(value)) {
+                    return Err(Error::new(name_token, "alias failed mysteriously"));
+                }
+                Ok(())
             }
             NamedEntity::Type(acorn_type) => {
                 self.add_type_alias(&name_token.text(), acorn_type);
-                Ok(false)
+                Ok(())
             }
             NamedEntity::Module(_) => {
                 Err(Error::new(name_token, "cannot import modules indirectly"))
@@ -1455,7 +1476,7 @@ impl BindingMap {
 
         // Check if there's a local alias for this constant.
         let key = (module, name.to_string());
-        if let Some(alias) = self.imported_names.get(&key) {
+        if let Some(alias) = self.canonical_to_alias.get(&key) {
             return Ok(Expression::generate_identifier(alias));
         }
 
