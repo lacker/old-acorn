@@ -2099,4 +2099,23 @@ mod tests {
         "#;
         verify_not_basic(text);
     }
+
+    #[test]
+    fn test_verify_functional_existence() {
+        let text = r#"
+        type Nat: axiom
+        let is_min: (Nat -> Bool, Nat) -> Bool = axiom
+        let foo: Nat -> (Nat -> Bool) = axiom
+        axiom has_min(f: Nat -> Bool, n: Nat) {
+            f(n) -> exists(m: Nat) { is_min(f, m) }
+        }
+        axiom foo_is_true_somewhere(a: Nat) {
+            exists(b: Nat) { foo(a, b) }
+        }
+        let min_foo(a: Nat) -> b: Nat satisfy {
+            is_min(foo(a), b)
+        }
+        "#;
+        verify_succeeds(text);
+    }
 }
