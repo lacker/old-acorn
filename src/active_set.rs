@@ -758,9 +758,9 @@ impl ActiveSet {
     }
 
     // Generate all the inferences that can be made from a given clause, plus some existing clause.
-    // We do not simplify the inferences.
-    // (However, the prover will simplify the passive set using the new clause.)
-    // After generation, adds this clause to the active set.
+    // This function does not simplify the inferences, or use the inferences to simplify anything else.
+    // The prover will do all forms of simplification separately.
+    // After generation, this clause is added to the active set.
     // Returns the id of the new clause, and pairs describing how the generated clauses were proved.
     pub fn activate(&mut self, activated_step: ProofStep) -> (usize, Vec<ProofStep>) {
         let mut output = vec![];
