@@ -130,7 +130,7 @@ impl Clause {
     }
 
     // Whether we are willing to turn this clause into a line of code in a proof.
-    pub fn is_complete(&self) -> bool {
+    pub fn is_printable(&self) -> bool {
         if self.len() > 1 {
             return false;
         }

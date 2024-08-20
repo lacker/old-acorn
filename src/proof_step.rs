@@ -225,10 +225,10 @@ pub struct ProofStep {
     // When we use a rewrite backwards, increasing KBO, that also counts toward depth.
     pub depth: u32,
 
-    // A complete proof step is one that we are willing to turn into a line of code in a proof.
-    // Incomplete proof steps are things like halfway resolved theorems, or expressions
+    // A printable proof step is one that we are willing to turn into a line of code in a proof.
+    // Unprintable proof steps are things like halfway resolved theorems, or expressions
     // that use anonymous skolem variables.
-    pub complete: bool,
+    pub printable: bool,
 }
 
 impl fmt::Display for ProofStep {
@@ -258,7 +258,7 @@ impl ProofStep {
             simplification_rules: vec![],
             proof_size: 0,
             depth: 0,
-            complete: false,
+            printable: false,
         }
     }
 
@@ -267,7 +267,7 @@ impl ProofStep {
     pub fn new_direct(activated_step: &ProofStep, rule: Rule, clause: Clause) -> ProofStep {
         // Direct implication does not add to depth.
         let depth = activated_step.depth;
-        let complete = clause.is_complete();
+        let printable = clause.is_printable();
         ProofStep {
             clause,
             truthiness: activated_step.truthiness,
@@ -275,7 +275,7 @@ impl ProofStep {
             simplification_rules: vec![],
             proof_size: activated_step.proof_size + 1,
             depth,
-            complete,
+            printable,
         }
     }
 
@@ -292,7 +292,7 @@ impl ProofStep {
             simplification_rules: vec![],
             proof_size: general_step.proof_size + 1,
             depth: general_step.depth,
-            complete: true,
+            printable: true,
         }
     }
 
@@ -324,7 +324,7 @@ impl ProofStep {
             long_step.depth
         };
 
-        let complete = clause.is_complete();
+        let printable = clause.is_printable();
 
         ProofStep {
             clause,
@@ -333,7 +333,7 @@ impl ProofStep {
             simplification_rules: vec![],
             proof_size,
             depth,
-            complete,
+            printable,
         }
     }
 
@@ -355,7 +355,7 @@ impl ProofStep {
             depth = u32::max(depth, short_step.depth);
         }
 
-        let complete = clause.is_complete();
+        let printable = clause.is_printable();
 
         ProofStep {
             clause,
@@ -364,7 +364,7 @@ impl ProofStep {
             simplification_rules,
             proof_size,
             depth,
-            complete,
+            printable,
         }
     }
 
@@ -409,7 +409,7 @@ impl ProofStep {
             dependency_depth + 1
         };
 
-        let complete = clause.is_complete();
+        let printable = clause.is_printable();
 
         ProofStep {
             clause,
@@ -418,7 +418,7 @@ impl ProofStep {
             simplification_rules: vec![],
             proof_size,
             depth,
-            complete,
+            printable,
         }
     }
 
@@ -444,7 +444,7 @@ impl ProofStep {
             simplification_rules: vec![],
             proof_size: 0,
             depth,
-            complete: true,
+            printable: true,
         }
     }
 
@@ -467,7 +467,7 @@ impl ProofStep {
             simplification_rules: vec![],
             proof_size,
             depth,
-            complete: true,
+            printable: true,
         }
     }
 
@@ -486,7 +486,7 @@ impl ProofStep {
             simplification_rules: vec![],
             proof_size: 0,
             depth: 0,
-            complete: true,
+            printable: true,
         }
     }
 

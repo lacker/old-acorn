@@ -73,7 +73,7 @@ struct ProofNode<'a> {
 
     // From the ProofStep
     depth: u32,
-    complete: bool,
+    printable: bool,
 }
 
 impl<'a> ProofNode<'a> {
@@ -193,7 +193,7 @@ impl<'a> Proof<'a> {
             consequences: vec![],
             sources: vec![],
             depth: 0,
-            complete: false,
+            printable: false,
         };
         proof.nodes.push(negated_goal);
 
@@ -215,7 +215,7 @@ impl<'a> Proof<'a> {
             consequences: vec![],
             sources: vec![],
             depth: step.depth,
-            complete: step.complete,
+            printable: step.printable,
         });
 
         if let Rule::Assumption(info) = &step.rule {
@@ -287,14 +287,14 @@ impl<'a> Proof<'a> {
             _ => {}
         };
 
-        if !node.complete {
+        if !node.printable {
             return true;
         }
 
         // If we have a complete consequence, we can ditch this one.
         for consequence_id in &node.consequences {
             let consequence = &self.nodes[*consequence_id as usize];
-            if consequence.complete && consequence.depth == node.depth {
+            if consequence.printable && consequence.depth == node.depth {
                 return true;
             }
         }
