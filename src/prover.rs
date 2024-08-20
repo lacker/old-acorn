@@ -2137,4 +2137,33 @@ mod tests {
         "#;
         verify_not_basic(text);
     }
+
+    #[test]
+    fn test_prove_with_imported_skolem() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/foo.ac",
+            r#"
+            type Nat: axiom
+
+            let f: Nat -> Bool = axiom
+
+            axiom exists_a_fa {
+                exists(a: Nat) { f(a) }
+            }
+        "#,
+        );
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            from foo import Nat, f
+
+            theorem goal {
+                exists(a: Nat) { f(a) }
+            }
+        "#,
+        );
+        let (outcome, _) = prove(&mut p, "main", "goal");
+        assert_eq!(outcome, Outcome::Success);
+    }
 }
