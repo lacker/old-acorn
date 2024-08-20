@@ -2102,6 +2102,11 @@ mod tests {
 
     #[test]
     fn test_verify_functional_existence() {
+        // There are two tricky things about this resolution.
+        // In one of the directions, you have to resolve x0(x1) against foo(a, b).
+        // In the other direction, in the final literal-literal resolution, both sides
+        // still have a free variable. So we don't find it via simplification.
+        // Nevertheless, intuitively it is just one step.
         let text = r#"
         type Nat: axiom
         let is_min: (Nat -> Bool, Nat) -> Bool = axiom
