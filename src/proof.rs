@@ -276,7 +276,8 @@ impl<'a> Proof<'a> {
         }
     }
 
-    // An implicit node does not need to be converted into code.
+    // An implicit node either does not need to be converted into code or cannot be
+    // converted into code.
     fn is_implicit(&self, node_id: NodeId) -> bool {
         let node = &self.nodes[node_id as usize];
         if node.depth == 0 {
@@ -439,6 +440,18 @@ impl<'a> Proof<'a> {
         self.remove_implicit();
         self.try_to_make_direct(0);
         self.condensed = true;
+    }
+
+    // When a proposition has a simple proof, the proposition can be stated without providing
+    // any more detail.
+    //
+    // Whether or not a proof counts as simple is subjective. There's a tradeoff.
+    // If we call everything simple, the code will take too long to verify.
+    // If we call nothing simple, the code will be long and boring.
+    //
+    // The verification process checks that a simple proof exists for every proposition.
+    pub fn is_simple(&self) -> bool {
+        todo!();
     }
 
     // Finds the contradiction that this node eventually leads to.

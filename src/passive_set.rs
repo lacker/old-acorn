@@ -151,7 +151,7 @@ impl PassiveSet {
     pub fn verification_complete(&self) -> bool {
         match self.queue.last() {
             None => true,
-            Some((score, _)) => !score.needed_for_verification,
+            Some((score, _)) => !score.usable_for_verification,
         }
     }
 

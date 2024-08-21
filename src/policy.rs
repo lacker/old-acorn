@@ -9,8 +9,11 @@ pub struct Score {
     // Contradictions are the most important thing
     contradiction: bool,
 
-    // Whether this step must be activated before completing proof verification.
-    pub needed_for_verification: bool,
+    // Whether this step can be used during verification.
+    // Verification steps should always be activated before non-verification steps.
+    // Otherwise, we might discover a proof using non-verification steps, and then be
+    // unsure whether the proof is simple enough to pass verification or not.
+    pub usable_for_verification: bool,
 
     // Higher scores are preferred, using subsequent heuristics for tiebreaks.
     heuristic1: i32,
@@ -48,7 +51,7 @@ impl ManualPolicy {
         if clause.is_impossible() {
             return Score {
                 contradiction: true,
-                needed_for_verification: true,
+                usable_for_verification: true,
                 heuristic1: 0,
                 heuristic2: 0,
                 heuristic3: 0,
@@ -85,11 +88,11 @@ impl ManualPolicy {
             heuristic3 -= 3;
         }
 
-        let needed_for_verification = heuristic1 > min_heuristic1;
+        let usable_for_verification = heuristic1 > min_heuristic1;
 
         Score {
             contradiction: false,
-            needed_for_verification,
+            usable_for_verification,
             heuristic1,
             heuristic2,
             heuristic3,
