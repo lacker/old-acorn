@@ -65,6 +65,9 @@ pub struct Prover {
 
     // A value expressing the negation of the goal we are trying to prove, if there is one.
     negated_goal: Option<AcornValue>,
+
+    // Number of proof steps activated, not counting Factual ones.
+    non_factual_activated: usize,
 }
 
 // The outcome of a prover operation.
@@ -119,6 +122,7 @@ impl Prover {
             solve: None,
             useful_passive: vec![],
             negated_goal: None,
+            non_factual_activated: 0,
         };
 
         // Find the relevant facts that should be imported into this environment
@@ -521,6 +525,10 @@ impl Prover {
                 return Some(Outcome::Exhausted);
             }
         };
+
+        if step.truthiness != Truthiness::Factual {
+            self.non_factual_activated += 1;
+        }
 
         if step.clause.is_impossible() {
             return Some(self.report_contradiction(step));
