@@ -635,7 +635,7 @@ impl Prover {
         }
         let start_time = std::time::Instant::now();
         loop {
-            if verification && self.passive_set.verification_complete() {
+            if verification && !self.passive_set.verification_phase {
                 return Outcome::Exhausted;
             }
             if let Some(outcome) = self.activate_next() {
