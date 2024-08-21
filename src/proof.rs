@@ -141,6 +141,9 @@ pub struct Proof<'a> {
     // Instead, they are modified to have no content, with nothing depending on them.
     nodes: Vec<ProofNode<'a>>,
 
+    // Whether this proof was generated in the verification phase.
+    verification_phase: bool,
+
     // Whether we have called condense().
     condensed: bool,
 
@@ -177,13 +180,18 @@ fn move_sources_and_premises(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeI
 
 impl<'a> Proof<'a> {
     // Creates a new proof, with just one node for the negated goal.
-    pub fn new<'b>(normalizer: &'a Normalizer, negated_goal: &AcornValue) -> Proof<'a> {
+    pub fn new<'b>(
+        normalizer: &'a Normalizer,
+        negated_goal: &AcornValue,
+        verification_phase: bool,
+    ) -> Proof<'a> {
         let mut proof = Proof {
             normalizer,
             all_steps: vec![],
             nodes: vec![],
             condensed: false,
             id_map: HashMap::new(),
+            verification_phase,
         };
 
         let negated_goal = ProofNode {
@@ -448,9 +456,15 @@ impl<'a> Proof<'a> {
     // Whether or not a proof counts as simple is subjective. There's a tradeoff.
     // If we call everything simple, the code will take too long to verify.
     // If we call nothing simple, the code will be long and boring.
-    //
-    // The verification process checks that a simple proof exists for every proposition.
     pub fn is_simple(&self) -> bool {
+        // Verification quickly checks that a simple proof exists for every proposition.
+        // To save time during verification, we stop the prover after the verification phase.
+        // This means that if a proof was not found during the verification phase,
+        // we cannot consider it to be simple.
+        if !self.verification_phase {
+            return false;
+        }
+
         todo!();
     }
 

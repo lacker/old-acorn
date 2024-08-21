@@ -405,7 +405,11 @@ impl Prover {
             Some(negated_goal) => negated_goal,
             None => return None,
         };
-        let mut proof = Proof::new(&self.normalizer, negated_goal);
+        let mut proof = Proof::new(
+            &self.normalizer,
+            negated_goal,
+            self.passive_set.verification_phase,
+        );
         let mut active_ids: Vec<_> = useful_active.iter().collect();
         active_ids.sort();
         for i in active_ids {
