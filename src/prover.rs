@@ -11,7 +11,7 @@ use crate::active_set::ActiveSet;
 use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
-use crate::goal_context::{Goal, GoalContext};
+use crate::goal::{Goal, GoalContext};
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::literal::Literal;
 use crate::module::ModuleId;

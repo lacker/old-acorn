@@ -10,7 +10,7 @@ pub mod display;
 pub mod environment;
 pub mod expression;
 pub mod fingerprint;
-pub mod goal_context;
+pub mod goal;
 pub mod interfaces;
 pub mod literal;
 pub mod module;

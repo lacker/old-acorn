@@ -6,7 +6,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::{BindingMap, Stack};
-use crate::goal_context::{Goal, GoalContext};
+use crate::goal::{Goal, GoalContext};
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::proposition::Proposition;
