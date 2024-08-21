@@ -34,6 +34,11 @@ pub struct PassiveSet {
 
     // Set if we ever discover a contradiction between two members of the passive set.
     contradiction: Option<(usize, usize)>,
+
+    // verification_only is true when all of the steps activated out of the passive set
+    // have been usable for verification.
+    // When verification_only is false, any proof we find is not simple enough to be verified.
+    verification_only: bool,
 }
 
 // Whether (left1, right2) can be specialized to get (left2, right2).
@@ -95,6 +100,7 @@ impl PassiveSet {
             literals: FingerprintSpecializer::new(),
             singles: HashMap::new(),
             contradiction: None,
+            verification_only: true,
         }
     }
 
@@ -136,7 +142,10 @@ impl PassiveSet {
 
     pub fn pop(&mut self) -> Option<ProofStep> {
         // Remove the largest entry from queue
-        let (_, id) = self.queue.pop_last()?;
+        let (score, id) = self.queue.pop_last()?;
+        if !score.usable_for_verification {
+            self.verification_only = false;
+        }
         match self.clauses[id].take() {
             Some((step, _)) => Some(step),
             None => panic!("Queue and clauses are out of sync"),
@@ -149,10 +158,7 @@ impl PassiveSet {
 
     // Whether we are done with the verification phase.
     pub fn verification_complete(&self) -> bool {
-        match self.queue.last() {
-            None => true,
-            Some((score, _)) => !score.usable_for_verification,
-        }
+        !self.verification_only
     }
 
     // Checks just the left->right direction for simplification.
