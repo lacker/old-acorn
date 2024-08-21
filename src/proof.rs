@@ -10,6 +10,22 @@ use crate::normalizer::Normalizer;
 use crate::proof_step::{ProofStep, ProofStepId, Rule};
 use crate::proposition::{Source, SourceType};
 
+// Ranking for how difficult the proof was to find.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Difficulty {
+    // When we find a simple proof, it doesn't need to be any simpler.
+    // No need to prompt the user to add more steps.
+    Simple,
+
+    // An intermediate proof would be nice to make simpler if possible.
+    // However, if there's no way to do it, it's fine.
+    // So it's up to the Proof whether to suggest simplification or not.
+    Intermediate,
+
+    // A complicated proof definitely needs to be made simpler.
+    Complicated,
+}
+
 // To conveniently manipulate the proof, we store it as a directed graph with its own ids.
 // We need two sorts of ids because as we manipulate the condensed proof, the
 // condensed steps won't be 1-to-1 related to the reduction steps any more.
@@ -141,14 +157,14 @@ pub struct Proof<'a> {
     // Instead, they are modified to have no content, with nothing depending on them.
     nodes: Vec<ProofNode<'a>>,
 
-    // Whether this proof was generated in the verification phase.
-    verification_phase: bool,
-
     // Whether we have called condense().
     condensed: bool,
 
     // A map from proof step ids to the ids nodes that correspond to them.
     id_map: HashMap<ProofStepId, NodeId>,
+
+    // The difficulty of finding this proof.
+    difficulty: Difficulty,
 }
 
 fn remove_edge(nodes: &mut Vec<ProofNode>, from: NodeId, to: NodeId) {
@@ -183,7 +199,7 @@ impl<'a> Proof<'a> {
     pub fn new<'b>(
         normalizer: &'a Normalizer,
         negated_goal: &AcornValue,
-        verification_phase: bool,
+        difficulty: Difficulty,
     ) -> Proof<'a> {
         let mut proof = Proof {
             normalizer,
@@ -191,7 +207,7 @@ impl<'a> Proof<'a> {
             nodes: vec![],
             condensed: false,
             id_map: HashMap::new(),
-            verification_phase,
+            difficulty,
         };
 
         let negated_goal = ProofNode {
@@ -450,18 +466,9 @@ impl<'a> Proof<'a> {
         self.condensed = true;
     }
 
-    // When a proposition has a simple proof, the proposition can be stated without providing
-    // any more detail.
-    //
-    // Whether or not a proof counts as simple is subjective. There's a tradeoff.
-    // If we call everything simple, the code will take too long to verify.
-    // If we call nothing simple, the code will be long and boring.
-    pub fn is_simple(&self) -> bool {
-        // Verification quickly checks that a simple proof exists for every proposition.
-        // To save time during verification, we stop the prover after the verification phase.
-        // This means that if a proof was not found during the verification phase,
-        // we cannot consider it to be simple.
-        if !self.verification_phase {
+    pub fn needs_simplification(&self) -> bool {
+        // Simple proofs never need simplificatoin
+        if self.difficulty == Difficulty::Simple {
             return false;
         }
 

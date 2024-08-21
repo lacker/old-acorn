@@ -18,7 +18,7 @@ use crate::module::ModuleId;
 use crate::normalizer::{Normalization, NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
-use crate::proof::Proof;
+use crate::proof::{Difficulty, Proof};
 use crate::proof_step::{ProofStep, ProofStepId, Rule, Truthiness};
 use crate::proposition::{Proposition, SourceType};
 use crate::term::Term;
@@ -409,11 +409,17 @@ impl Prover {
             Some(negated_goal) => negated_goal,
             None => return None,
         };
-        let mut proof = Proof::new(
-            &self.normalizer,
-            negated_goal,
-            self.passive_set.verification_phase,
-        );
+
+        let difficulty = if !self.passive_set.verification_phase {
+            // Verification mode won't find this proof, so we definitely need a shorter one
+            Difficulty::Complicated
+        } else if self.non_factual_activated > 500 {
+            Difficulty::Intermediate
+        } else {
+            Difficulty::Simple
+        };
+
+        let mut proof = Proof::new(&self.normalizer, negated_goal, difficulty);
         let mut active_ids: Vec<_> = useful_active.iter().collect();
         active_ids.sort();
         for i in active_ids {
