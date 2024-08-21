@@ -51,17 +51,17 @@ pub struct Prover {
     // Setting any of these flags to true externally will stop the prover.
     pub stop_flags: Vec<Arc<AtomicBool>>,
 
-    // Whether we should report Outcome::Inconsistent when our assumptions lead to a
-    // contradiction. Otherwise we just treat it as a success.
-    report_inconsistency: bool,
-
-    // The normalized term we are solving for, if there is one.
-    solve: Option<Term>,
-
     // When this error message is set, it indicates a problem that needs to be reported upstream
     // to the user.
     // It's better to catch errors before proving, but sometimes we don't.
     pub error: Option<String>,
+
+    // Whether we expect a contradiction in this scope.
+    // Contradictions are okay if we expect one, not okay if we don't.
+    expect_contradiction: bool,
+
+    // The normalized term we are solving for, if there is one.
+    solve: Option<Term>,
 
     // A value expressing the negation of the goal we are trying to prove, if there is one.
     negated_goal: Option<AcornValue>,
@@ -114,7 +114,7 @@ impl Prover {
             verbose,
             result: None,
             stop_flags: vec![project.build_stopped.clone()],
-            report_inconsistency: !goal_context.includes_explicit_false(),
+            expect_contradiction: goal_context.includes_explicit_false(),
             error: None,
             solve: None,
             useful_passive: vec![],
@@ -423,7 +423,7 @@ impl Prover {
     // Handle the case when we found a contradiction
     fn report_contradiction(&mut self, step: ProofStep) -> Outcome {
         assert!(self.result.is_none());
-        let outcome = if step.truthiness != Truthiness::Counterfactual && self.report_inconsistency
+        let outcome = if step.truthiness != Truthiness::Counterfactual && !self.expect_contradiction
         {
             Outcome::Inconsistent
         } else {
