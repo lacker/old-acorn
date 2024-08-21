@@ -60,17 +60,6 @@ fn main() {
         std::io::stdin().read_line(&mut line).unwrap();
 
         // Most commands alter the debug output or print out some one-off debug info.
-        if let Some(trace) = trim_command("trace", &line) {
-            println!("setting trace: {}", trace);
-            prover.set_trace(trace);
-            continue;
-        }
-
-        if let Some(_) = trim_command("untrace", &line) {
-            println!("unsetting trace");
-            prover.unset_trace();
-            continue;
-        }
 
         if let Some(term_str) = trim_command("term", &line) {
             prover.print_term_info(term_str);
@@ -117,7 +106,6 @@ fn main() {
 
             "/" => {
                 // A / will try to prove the next proposition for a while.
-                prover.hit_trace = false;
                 let start_time = std::time::Instant::now();
                 loop {
                     let outcome = prover.activate_next();
@@ -135,12 +123,7 @@ fn main() {
                             println!("Inconsistency detected!");
                             break;
                         }
-                        Some(Outcome::Timeout) | None => {
-                            if prover.hit_trace {
-                                println!("trace found!");
-                                break;
-                            }
-                        }
+                        Some(Outcome::Timeout) | None => {}
                         Some(Outcome::Interrupted) => {
                             panic!("Interrupted!");
                         }

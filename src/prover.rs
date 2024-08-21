@@ -40,13 +40,6 @@ pub struct Prover {
     // A verbose prover prints out a lot of stuff.
     pub verbose: bool,
 
-    // If a trace string is set, we print out what happens with the clause matching it, regardless
-    // of verbosity.
-    trace: Option<String>,
-
-    // Whether we have hit the trace
-    pub hit_trace: bool,
-
     // The result of the proof search, if there is one.
     // If we haven't found a result yet, this is None. The prover can still return an Outcome
     // that indicates a temporary outcome, like a timeout.
@@ -119,8 +112,6 @@ impl Prover {
             active_set: ActiveSet::new(),
             passive_set: PassiveSet::new(),
             verbose,
-            trace: None,
-            hit_trace: false,
             result: None,
             stop_flags: vec![project.build_stopped.clone()],
             report_inconsistency: !goal_context.includes_explicit_false(),
@@ -168,15 +159,6 @@ impl Prover {
         }
         p
     }
-
-    pub fn set_trace(&mut self, trace: &str) {
-        self.trace = Some(trace.to_string());
-    }
-
-    pub fn unset_trace(&mut self) {
-        self.trace = None;
-    }
-
     fn normalize_proposition(&mut self, proposition: AcornValue) -> Normalization {
         if let Err(e) = proposition.validate() {
             return Normalization::Error(format!(
@@ -225,19 +207,6 @@ impl Prover {
             self.passive_set.push(step);
         }
     }
-
-    fn is_tracing(&mut self, clause: &Clause) -> bool {
-        if let Some(trace) = &self.trace {
-            let answer = self.display(clause).to_string().starts_with(trace);
-            if answer {
-                self.hit_trace = true;
-            }
-            answer
-        } else {
-            false
-        }
-    }
-
     pub fn print_stats(&self) {
         println!("{} clauses in the active set", self.active_set.len());
         println!("{} clauses in the passive set", self.passive_set.len());
@@ -549,14 +518,11 @@ impl Prover {
             }
         };
 
-        let tracing = self.is_tracing(&step.clause);
-        let verbose = self.verbose || tracing;
-
         if step.clause.is_impossible() {
             return Some(self.report_contradiction(step));
         }
 
-        if verbose {
+        if self.verbose {
             let prefix = match step.truthiness {
                 Truthiness::Factual => " fact",
                 Truthiness::Hypothetical => " hypothesis",
@@ -570,7 +536,7 @@ impl Prover {
             };
             println!("activating{}: {}", prefix, self.display(&step.clause));
         }
-        self.activate(step, verbose, tracing)
+        self.activate(step)
     }
 
     // Generates new passive clauses, simplifying appropriately, and adds them to the passive set.
@@ -583,12 +549,7 @@ impl Prover {
     // respect to every active clause.
     //
     // Returns the outcome if the prover finished, otherwise None.
-    fn activate(
-        &mut self,
-        activated_step: ProofStep,
-        verbose: bool,
-        tracing: bool,
-    ) -> Option<Outcome> {
+    fn activate(&mut self, activated_step: ProofStep) -> Option<Outcome> {
         // Use the step for simplification
         let activated_id = self.active_set.next_id();
         if activated_step.clause.literals.len() == 1 {
@@ -601,28 +562,20 @@ impl Prover {
 
         let print_limit = 30;
         let len = generated_clauses.len();
-        if verbose && len > 0 {
+        if self.verbose && len > 0 {
             println!(
                 "generated {} new clauses{}:",
                 len,
                 if len > print_limit { ", eg" } else { "" }
             );
         }
-        for (i, step) in generated_clauses.into_iter().enumerate() {
+        for step in generated_clauses {
             if step.finishes_proof() {
                 return Some(self.report_contradiction(step));
             }
 
             if step.automatic_reject() {
                 continue;
-            }
-
-            if tracing {
-                self.print_proof_step("", &step);
-            } else if verbose && (i < print_limit) {
-                println!("  {}", self.display(&step.clause));
-            } else if self.is_tracing(&step.clause) {
-                self.print_proof_step("", &step);
             }
 
             if let Some(simple_step) = self.active_set.simplify(step) {
