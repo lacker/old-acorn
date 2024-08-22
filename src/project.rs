@@ -286,10 +286,10 @@ impl Project {
 
     // Builds all open modules, and calls the event handler on any build events.
     //
-    // There are two ways a build can go wrong.
-    // An error is a human problem, like a syntax error or a type error.
-    // A warning indicates that the prover could not prove something.
-    // This may or may not be a human problem.
+    // There are two levels of severity, for problems with the build.
+    // An error is a problem in the code, like a syntax error or a type error.
+    // A warning is a problem in the mathematics.
+    // Either the prover could not prove something, or the proof was not simple enough.
     //
     // Returns whether the build was entirely good, no errors or warnings.
     pub fn build(&self, handler: &mut impl FnMut(BuildEvent)) -> bool {
@@ -384,15 +384,20 @@ impl Project {
                 let mut success = false;
                 let mut is_slow_warning = false;
                 let description = match outcome {
-                    Outcome::Success => {
-                        if self.warn_when_slow && elapsed > 0.1 {
-                            is_slow_warning = true;
-                            format!(" took {}", elapsed_str)
-                        } else {
-                            success = true;
-                            "".to_string()
+                    Outcome::Success => match prover.get_proof() {
+                        None => " had a missing proof".to_string(),
+                        Some(proof) => {
+                            if proof.needs_simplification() {
+                                " needs simplification".to_string()
+                            } else if self.warn_when_slow && elapsed > 0.1 {
+                                is_slow_warning = true;
+                                format!(" took {}", elapsed_str)
+                            } else {
+                                success = true;
+                                "".to_string()
+                            }
                         }
-                    }
+                    },
                     Outcome::Exhausted => " could not be verified".to_string(),
                     Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
                     Outcome::Timeout => format!(" timed out after {}", elapsed_str),
@@ -408,7 +413,7 @@ impl Project {
                 };
 
                 let (diagnostic, log_message) = if !success {
-                    // This is a failure
+                    // This is a problem that needs to be reported
                     let severity = Some(if exit_early {
                         DiagnosticSeverity::ERROR
                     } else {
