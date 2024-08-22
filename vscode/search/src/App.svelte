@@ -135,19 +135,22 @@
       <pre>Local assumptions are inconsistent.</pre>
       <pre>If this is a proof by contradiction, put a `false` at the end of this block.</pre>
       <pre>If there shouldn't be a contradiction, please report a bug!</pre>
-    {:else if searchResponse.status.steps === null}
-      <pre>Proof search failed.</pre>
+    {:else if !searchResponse.status.needsSimplification}
+      <pre>The proposition follows trivially.</pre>
     {:else if searchResponse.status.code === null}
       <pre>Error during code generation:</pre>
       <pre>    {searchResponse.status.codeError}</pre>
     {:else if searchResponse.status.code.length === 0}
-      <div class="mono">The proposition follows trivially.</div>
+      <pre>We found a proof, but it needs to be simplified, and we couldn't
+           decide how to simplify it. Sorry!</pre>
+    {:else if searchResponse.status.steps === null}
+      <pre>We could not find a proof.</pre>
     {:else}
-      <pre>{["Proof found:\n"]
+      <pre>{["The proof needs to be simplified. Try this:\n"]
           .concat(searchResponse.status.code)
           .join("\n\t")
           .replace(/\t/g, spaces(4))}</pre>
-      <button on:click={insertProof}>Insert proof</button>
+      <button on:click={insertProof}>Insert code</button>
     {/if}
 
     {#if searchResponse.status.steps !== null}
