@@ -316,7 +316,7 @@ impl<'a> Proof<'a> {
             return true;
         }
 
-        // If we have a complete consequence, we can ditch this one.
+        // If we have a printable consequence at this depth, we can use that one instead.
         for consequence_id in &node.consequences {
             let consequence = &self.nodes[*consequence_id as usize];
             if consequence.printable && consequence.depth == node.depth {
@@ -327,9 +327,9 @@ impl<'a> Proof<'a> {
         false
     }
 
-    // Remove nodes that we don't need to turn into explicit lines of code.
+    // Remove nodes that we don't want to turn into explicit lines of code.
     fn remove_implicit(&mut self) {
-        for node_id in (0..self.nodes.len() as NodeId).rev() {
+        for node_id in 0..self.nodes.len() as NodeId {
             if self.is_implicit(node_id) {
                 self.contract(node_id)
             }
@@ -466,13 +466,34 @@ impl<'a> Proof<'a> {
         self.condensed = true;
     }
 
-    pub fn needs_simplification(&self) -> bool {
-        // Simple proofs never need simplificatoin
-        if self.difficulty == Difficulty::Simple {
+    // Whether this proof could be simplified.
+    // Since we already removed unprintable nodes, the proofs that cannot be simplified are
+    // the ones in which the goal node is proven directly, with sources only, no other
+    // nodes as premises.
+    pub fn has_simplification(&self) -> bool {
+        let goal_node = &self.nodes[0];
+
+        if goal_node.consequences.is_empty() && goal_node.premises.is_empty() {
+            // There are no other nodes connected to this goal that could be printed out
+            // to make a simplification.
             return false;
         }
 
-        todo!();
+        true
+    }
+
+    // When we run the verifier, or are using the IDE, a proof that needs simplification will
+    // show a warning.
+    pub fn needs_simplification(&self) -> bool {
+        match self.difficulty {
+            Difficulty::Simple => false,
+
+            // When the prover says the proof was intermediate difficulty, it's like saying,
+            // "It would be nice to simplify this, but if we can't figure out how, that's okay."
+            Difficulty::Intermediate => self.has_simplification(),
+
+            Difficulty::Complicated => true,
+        }
     }
 
     // Finds the contradiction that this node eventually leads to.
@@ -586,12 +607,11 @@ impl<'a> Proof<'a> {
                 output.push(format!("{}{}", "\t".repeat(tab_level), code));
                 Ok(())
             }
-            Err(CodeGenError::Skolem(_)) => {
-                // Just ignore these and don't generate the skolem lines.
-                // Maybe the other lines are good enough.
-                Ok(())
+            Err(e) => {
+                // We should have already filtered out any unprintable nodes, so if we
+                // hit this code path it indicates a bug.
+                Err(e)
             }
-            Err(e) => Err(e),
         }
     }
 }
