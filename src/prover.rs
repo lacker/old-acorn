@@ -163,6 +163,7 @@ impl Prover {
         }
         p
     }
+
     fn normalize_proposition(&mut self, proposition: AcornValue) -> Normalization {
         if let Err(e) = proposition.validate() {
             return Normalization::Error(format!(
