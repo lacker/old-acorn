@@ -140,6 +140,19 @@ impl PassiveSet {
         self.queue.insert((score, id));
     }
 
+    // Whether we can pop another proof step from the passive set and still use a resulting
+    // proof for verification.
+    pub fn can_pop_for_verification(&self) -> bool {
+        if !self.verification_phase {
+            return false;
+        }
+        if let Some((score, _)) = self.queue.iter().next_back() {
+            score.usable_for_verification
+        } else {
+            false
+        }
+    }
+
     pub fn pop(&mut self) -> Option<ProofStep> {
         // Remove the largest entry from queue
         let (score, id) = self.queue.pop_last()?;
