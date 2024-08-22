@@ -116,6 +116,10 @@ pub struct SearchStatus {
     // A stringification of the prover's Outcome, if it has finished.
     pub outcome: Option<String>,
 
+    // Whether this proof needs simplification.
+    // None if the search hasn't succeeded, so we don't have a proof.
+    pub needs_simplification: Option<bool>,
+
     // How many clauses we have activated.
     // Any id below this, we can handle info requests to provide information for it.
     pub num_activated: usize,
@@ -128,36 +132,25 @@ impl SearchStatus {
             code_error: None,
             steps: None,
             outcome: None,
+            needs_simplification: None,
             num_activated: 0,
         }
     }
 
     // Indicate that the search found a proof
-    pub fn found_proof(
-        code: Vec<String>,
+    pub fn success(
+        code: Option<Vec<String>>,
+        code_error: Option<String>,
         steps: Vec<ProofStepInfo>,
+        needs_simplification: bool,
         prover: &Prover,
     ) -> SearchStatus {
         SearchStatus {
-            code: Some(code),
-            code_error: None,
+            code,
+            code_error,
             steps: Some(steps),
             outcome: Some(Outcome::Success.to_string()),
-            num_activated: prover.num_activated(),
-        }
-    }
-
-    // Indicate a failure during code generation.
-    pub fn code_gen_error(
-        steps: Vec<ProofStepInfo>,
-        error: String,
-        prover: &Prover,
-    ) -> SearchStatus {
-        SearchStatus {
-            code: None,
-            code_error: Some(error),
-            steps: Some(steps),
-            outcome: Some(Outcome::Success.to_string()),
+            needs_simplification: Some(needs_simplification),
             num_activated: prover.num_activated(),
         }
     }
@@ -169,6 +162,7 @@ impl SearchStatus {
             code_error: None,
             steps: None,
             outcome: None,
+            needs_simplification: None,
             num_activated: prover.num_activated(),
         }
     }
@@ -180,6 +174,7 @@ impl SearchStatus {
             code_error: None,
             steps: None,
             outcome: Some(outcome.to_string()),
+            needs_simplification: None,
             num_activated: prover.num_activated(),
         }
     }

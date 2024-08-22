@@ -46,6 +46,7 @@ interface SearchStatus {
   codeError: string | null;
   steps: Array<ProofStepInfo> | null;
   outcome: string | null;
+  needsSimplification: boolean | null;
   numActivated: number;
 }
 

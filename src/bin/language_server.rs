@@ -150,10 +150,12 @@ impl SearchTask {
                     let proof = prover.get_proof().unwrap();
                     let steps = prover.to_proof_info(&project, &proof);
 
-                    match proof.to_code(&env.bindings) {
-                        Ok(code) => SearchStatus::found_proof(code, steps, &prover),
-                        Err(e) => SearchStatus::code_gen_error(steps, e.to_string(), &prover),
-                    }
+                    let (code, error) = match proof.to_code(&env.bindings) {
+                        Ok(code) => (Some(code), None),
+                        Err(e) => (None, Some(e.to_string())),
+                    };
+
+                    SearchStatus::success(code, error, steps, proof.needs_simplification(), &prover)
                 }
 
                 Outcome::Inconsistent
