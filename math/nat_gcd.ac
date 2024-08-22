@@ -342,9 +342,10 @@ theorem mod_maintains_imp_gcd(f: Nat -> Bool, a: Nat, b: Nat) { mod_maintains(f)
                 f(gcd_step_n(p, x.suc).second)
                 g(x.suc)
             } else {
-                gcd_step_n(p, x.suc).first = gcd_step_n(p, x).second
                 NatPair.new(gcd_step_n(p, x).second,
                             mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second)) = gcd_step(gcd_step_n(p, x))
+                gcd_step_n(p, x.suc).first = gcd_step_n(p, x).second
+                mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second) = gcd_step(gcd_step_n(p, x)).second
                 gcd_step_n(p, x.suc).second = mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second)
                 f(gcd_step_n(p, x.suc).first)
                 f(mod(gcd_step_n(p, x).first, gcd_step_n(p, x).second))

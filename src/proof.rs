@@ -319,6 +319,9 @@ impl<'a> Proof<'a> {
         // If we have a printable consequence at this depth, we can use that one instead.
         for consequence_id in &node.consequences {
             let consequence = &self.nodes[*consequence_id as usize];
+            if let NodeValue::Contradiction = consequence.value {
+                continue;
+            }
             if consequence.printable && consequence.depth == node.depth {
                 return true;
             }

@@ -373,6 +373,7 @@ impl Prover {
             "in total, we activated {} proof steps.",
             self.active_set.len()
         );
+        println!("non-factual activations: {}", self.non_factual_activated);
 
         println!("the proof uses {} steps:", proof.all_steps.len());
         for (id, step) in &proof.all_steps {
