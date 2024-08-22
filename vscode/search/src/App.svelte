@@ -138,7 +138,7 @@
     {:else if searchResponse.status.steps === null}
       <pre>Proof search failed.</pre>
     {:else if searchResponse.status.code === null}
-      <pre>Code generation failed:</pre>
+      <pre>Error during code generation:</pre>
       <pre>    {searchResponse.status.codeError}</pre>
     {:else if searchResponse.status.code.length === 0}
       <div class="mono">The proposition follows trivially.</div>
