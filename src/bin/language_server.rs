@@ -493,8 +493,8 @@ impl Backend {
             }
         };
 
-        let path = match env.get_path_for_line(params.selected_line) {
-            Ok(path) => path,
+        let iter = match env.node_for_line(params.selected_line) {
+            Ok(iter) => iter,
             Err(s) => return self.search_fail(params, &s),
         };
 
@@ -504,13 +504,13 @@ impl Backend {
         if let Some(current_task) = self.search_task.read().await.as_ref() {
             if current_task.document.url == params.uri
                 && current_task.document.version == params.version
-                && current_task.path == path
+                && current_task.path == iter.path
             {
                 return Ok(current_task.response().await);
             }
         }
 
-        let goal_context = match env.get_goal_context(&path) {
+        let goal_context = match env.get_goal_context(&iter) {
             Ok(goal_context) => goal_context,
             Err(s) => return self.search_fail(params, &s),
         };
@@ -526,7 +526,7 @@ impl Backend {
             prover: Arc::new(RwLock::new(prover)),
             module_name,
             selected_line: params.selected_line,
-            path,
+            path: iter.path,
             goal_name: goal_context.name.clone(),
             goal_range: goal_context.goal.range(),
             status: Arc::new(RwLock::new(status)),

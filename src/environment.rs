@@ -94,6 +94,13 @@ struct Node {
     block: Option<Block>,
 }
 
+// A NodeIterator is used to traverse the nodes in an environment.
+#[derive(Debug, PartialEq, Eq)]
+pub struct NodeIterator {
+    // The "path" to a node is a list of indices to recursively go into env.nodes.
+    pub path: Vec<usize>,
+}
+
 // Proofs are structured into blocks.
 // The environment specific to this block can have a bunch of propositions that need to be
 // proved, along with helper statements to express those propositions, but they are not
@@ -1698,30 +1705,17 @@ impl Environment {
         }
     }
 
-    // Will return a context for a subenvironment if this theorem has a block
-    pub fn get_theorem_context(&self, theorem_name: &str) -> GoalContext {
-        for (i, p) in self.nodes.iter().enumerate() {
-            if let Some(name) = p.claim.name() {
-                if name == theorem_name {
-                    return self.get_goal_context(&vec![i]).unwrap();
-                }
-            }
-        }
-        panic!("no top-level theorem named {}", theorem_name);
-    }
-
-    // The "path" to a goal is a list of indices to recursively go into env.nodes.
-    // This returns a path for all nodes that correspond to a goal within this environment,
+    // Returns a NodeIterator for all nodes that correspond to a goal within this environment,
     // or subenvironments, recursively.
-    // The order is "proving order", ie the goals inside the block are proved before the
+    // The order is "proving order", ie the goals inside the block are listed before the
     // root goal of a block.
-    pub fn goal_paths(&self) -> Vec<Vec<usize>> {
-        self.goal_paths_helper(&vec![])
+    pub fn postorder_nodes(&self) -> Vec<NodeIterator> {
+        self.postorder_helper(&vec![])
     }
 
-    // Find all goal paths from this environment, prepending 'prepend' to each path.
-    fn goal_paths_helper(&self, prepend: &Vec<usize>) -> Vec<Vec<usize>> {
-        let mut paths = Vec::new();
+    // Does a postorder traversal of this subenvironment, prepending 'prepend' to each path.
+    fn postorder_helper(&self, prepend: &Vec<usize>) -> Vec<NodeIterator> {
+        let mut answer = Vec::new();
         for (i, prop) in self.nodes.iter().enumerate() {
             if prop.structural {
                 continue;
@@ -1732,16 +1726,16 @@ impl Environment {
                 path
             };
             if let Some(block) = &prop.block {
-                let mut subpaths = block.env.goal_paths_helper(&path);
-                paths.append(&mut subpaths);
+                let mut subiters = block.env.postorder_helper(&path);
+                answer.append(&mut subiters);
                 if block.goal.is_some() {
-                    paths.push(path);
+                    answer.push(NodeIterator { path });
                 }
             } else {
-                paths.push(path);
+                answer.push(NodeIterator { path });
             }
         }
-        paths
+        answer
     }
 
     // Get all facts from this environment.
@@ -1800,11 +1794,11 @@ impl Environment {
 
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
-    pub fn get_goal_context(&self, path: &Vec<usize>) -> Result<GoalContext, String> {
+    pub fn get_goal_context(&self, node_iter: &NodeIterator) -> Result<GoalContext, String> {
         let mut global_facts = vec![];
         let mut local_facts = vec![];
         let mut env = self;
-        let mut it = path.iter().peekable();
+        let mut it = node_iter.path.iter().peekable();
         let mut global = true;
         while let Some(i) = it.next() {
             for previous_prop in &env.nodes[0..*i] {
@@ -1818,7 +1812,7 @@ impl Environment {
             global = false;
             let node = match env.nodes.get(*i) {
                 Some(p) => p,
-                None => return Err(format!("no node at path {:?}", path)),
+                None => return Err(format!("no node at {:?}", node_iter)),
             };
             if let Some(block) = &node.block {
                 if it.peek().is_none() {
@@ -1829,7 +1823,7 @@ impl Environment {
                     }
                     let goal = match &block.goal {
                         Some(goal) => goal,
-                        None => return Err(format!("block at path {:?} has no goal", path)),
+                        None => return Err(format!("block at {:?} has no goal", node_iter)),
                     };
 
                     return Ok(block.env.make_goal_context(
@@ -1856,7 +1850,7 @@ impl Environment {
     }
 
     pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
-        let paths = self.goal_paths();
+        let paths = self.postorder_nodes();
         let mut names = Vec::new();
         for path in paths {
             let context = self.get_goal_context(&path).unwrap();
@@ -1869,11 +1863,12 @@ impl Environment {
         panic!("no context found for {} in:\n{}\n", name, names.join("\n"));
     }
 
-    // Returns the path corresponding to the goal for a given zero-based line.
+    // Returns the node iterator for a given zero-based line.
     // This is a UI heuristic.
-    // Either returns a path to a proposition, or an error message explaining why this line
-    // is unusable. Error messages use one-based line numbers.
-    pub fn get_path_for_line(&self, line: u32) -> Result<Vec<usize>, String> {
+    // Either returns a NodeIterator for a proposition, or an error message explaining why this
+    // line is unusable.
+    // Error messages use one-based line numbers.
+    pub fn node_for_line(&self, line: u32) -> Result<NodeIterator, String> {
         let mut path = vec![];
         let mut block: Option<&Block> = None;
         let mut env = self;
@@ -1892,7 +1887,7 @@ impl Environment {
                             continue;
                         }
                         None => {
-                            return Ok(path);
+                            return Ok(NodeIterator { path });
                         }
                     }
                 }
@@ -1901,7 +1896,7 @@ impl Environment {
                         if block.goal.is_none() {
                             return Err(format!("no claim for block at line {}", line + 1));
                         }
-                        return Ok(path);
+                        return Ok(NodeIterator { path });
                     }
                     None => return Err(format!("brace but no block, line {}", line + 1)),
                 },
@@ -1922,7 +1917,7 @@ impl Environment {
                                 }
                                 if prop.block.is_none() {
                                     path.push(i);
-                                    return Ok(path);
+                                    return Ok(NodeIterator { path });
                                 }
                                 // We can't slide into a block, because the proof would be
                                 // inserted into the block, rather than here.
@@ -1939,7 +1934,7 @@ impl Environment {
                                         if block.goal.is_none() {
                                             return Err("slide to end but no claim".to_string());
                                         }
-                                        return Ok(path);
+                                        return Ok(NodeIterator { path });
                                     }
                                     None => {
                                         return Err(format!(

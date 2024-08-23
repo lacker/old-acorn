@@ -31,7 +31,7 @@ fn main() {
     let mut project = Project::new("math");
     let module_id = project.load_module(&module_name).unwrap();
     let env = project.get_env(module_id).unwrap();
-    let goal_paths = env.goal_paths();
+    let goal_paths = env.postorder_nodes();
     let goals = goal_paths
         .iter()
         .map(|path| env.get_goal_context(path).unwrap())
