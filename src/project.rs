@@ -312,7 +312,7 @@ impl Project {
             let module = self.get_module_by_name(target);
             match module {
                 Module::Ok(env) => {
-                    total += env.postorder_nodes().len() as i32;
+                    total += env.iter_goals().len() as i32;
                     envs.push(env);
                 }
                 Module::Error(e) => {
@@ -371,7 +371,7 @@ impl Project {
         let mut done: i32 = 0;
         for (target, env) in targets.iter().zip(envs) {
             let mut target_warnings = false;
-            let paths = env.postorder_nodes();
+            let paths = env.iter_goals();
             for path in paths.iter() {
                 let start = std::time::Instant::now();
                 let goal_context = env.get_goal_context(&path).unwrap();

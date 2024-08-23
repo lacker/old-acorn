@@ -49,7 +49,7 @@ mod prover_test {
             Module::Error(e) => panic!("error: {}", e),
             _ => panic!("no module"),
         };
-        let paths = env.postorder_nodes();
+        let paths = env.iter_goals();
         for path in paths {
             let goal_context = env.get_goal_context(&path).unwrap();
             println!("proving: {}", goal_context.name);

@@ -307,7 +307,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         );
         let module = p.expect_ok("main");
         let env = p.get_env(module).unwrap();
-        for path in env.postorder_nodes() {
+        for path in env.iter_goals() {
             env.get_goal_context(&path).unwrap();
         }
     }
@@ -328,7 +328,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
         );
         let module = p.expect_ok("main");
         let env = p.get_env(module).unwrap();
-        for path in env.postorder_nodes() {
+        for path in env.iter_goals() {
             env.get_goal_context(&path).unwrap();
         }
     }
@@ -1186,7 +1186,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             }
             "#,
         );
-        let goal_paths = env.postorder_nodes();
+        let goal_paths = env.iter_goals();
         assert_eq!(goal_paths.len(), 1);
     }
 

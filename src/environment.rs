@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 
 use tower_lsp::lsp_types::Range;
 
@@ -94,13 +95,6 @@ struct Node {
     block: Option<Block>,
 }
 
-// A NodeIterator is used to traverse the nodes in an environment.
-#[derive(Debug, PartialEq, Eq)]
-pub struct NodeIterator {
-    // The "path" to a node is a list of indices to recursively go into env.nodes.
-    pub path: Vec<usize>,
-}
-
 // Proofs are structured into blocks.
 // The environment specific to this block can have a bunch of propositions that need to be
 // proved, along with helper statements to express those propositions, but they are not
@@ -122,6 +116,16 @@ struct Block {
 
     // The environment created inside the block.
     env: Environment,
+}
+
+// A NodeIterator is used to traverse the nodes in an environment.
+pub struct NodeIterator<'a> {
+    // The "path" to a node is a list of indices to recursively go into env.nodes.
+    pub path: Vec<usize>,
+
+    // The external environment for this node.
+    // The last index in path is the index of the node in this environment.
+    env: &'a Environment,
 }
 
 impl Block {
@@ -237,6 +241,12 @@ enum BlockParams<'a> {
     // No special params needed
     ForAll,
     Problem,
+}
+
+impl fmt::Display for NodeIterator<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.path)
+    }
 }
 
 impl Environment {
@@ -1709,15 +1719,15 @@ impl Environment {
     // or subenvironments, recursively.
     // The order is "proving order", ie the goals inside the block are listed before the
     // root goal of a block.
-    pub fn postorder_nodes(&self) -> Vec<NodeIterator> {
-        self.postorder_helper(&vec![])
+    pub fn iter_goals(&self) -> Vec<NodeIterator> {
+        self.iter_goals_helper(&vec![])
     }
 
     // Does a postorder traversal of this subenvironment, prepending 'prepend' to each path.
-    fn postorder_helper(&self, prepend: &Vec<usize>) -> Vec<NodeIterator> {
+    fn iter_goals_helper(&self, prepend: &Vec<usize>) -> Vec<NodeIterator> {
         let mut answer = Vec::new();
-        for (i, prop) in self.nodes.iter().enumerate() {
-            if prop.structural {
+        for (i, node) in self.nodes.iter().enumerate() {
+            if node.structural {
                 continue;
             }
             let path = {
@@ -1725,14 +1735,14 @@ impl Environment {
                 path.push(i);
                 path
             };
-            if let Some(block) = &prop.block {
-                let mut subiters = block.env.postorder_helper(&path);
+            if let Some(block) = &node.block {
+                let mut subiters = block.env.iter_goals_helper(&path);
                 answer.append(&mut subiters);
                 if block.goal.is_some() {
-                    answer.push(NodeIterator { path });
+                    answer.push(NodeIterator { path, env: &self });
                 }
             } else {
-                answer.push(NodeIterator { path });
+                answer.push(NodeIterator { path, env: &self });
             }
         }
         answer
@@ -1812,7 +1822,7 @@ impl Environment {
             global = false;
             let node = match env.nodes.get(*i) {
                 Some(p) => p,
-                None => return Err(format!("no node at {:?}", node_iter)),
+                None => return Err(format!("no node at {}", node_iter)),
             };
             if let Some(block) = &node.block {
                 if it.peek().is_none() {
@@ -1823,7 +1833,7 @@ impl Environment {
                     }
                     let goal = match &block.goal {
                         Some(goal) => goal,
-                        None => return Err(format!("block at {:?} has no goal", node_iter)),
+                        None => return Err(format!("block at {} has no goal", node_iter)),
                     };
 
                     return Ok(block.env.make_goal_context(
@@ -1850,7 +1860,7 @@ impl Environment {
     }
 
     pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
-        let paths = self.postorder_nodes();
+        let paths = self.iter_goals();
         let mut names = Vec::new();
         for path in paths {
             let context = self.get_goal_context(&path).unwrap();
@@ -1887,7 +1897,7 @@ impl Environment {
                             continue;
                         }
                         None => {
-                            return Ok(NodeIterator { path });
+                            return Ok(NodeIterator { path, env: &self });
                         }
                     }
                 }
@@ -1896,7 +1906,7 @@ impl Environment {
                         if block.goal.is_none() {
                             return Err(format!("no claim for block at line {}", line + 1));
                         }
-                        return Ok(NodeIterator { path });
+                        return Ok(NodeIterator { path, env: &self });
                     }
                     None => return Err(format!("brace but no block, line {}", line + 1)),
                 },
@@ -1917,7 +1927,7 @@ impl Environment {
                                 }
                                 if prop.block.is_none() {
                                     path.push(i);
-                                    return Ok(NodeIterator { path });
+                                    return Ok(NodeIterator { path, env: &self });
                                 }
                                 // We can't slide into a block, because the proof would be
                                 // inserted into the block, rather than here.
@@ -1934,7 +1944,7 @@ impl Environment {
                                         if block.goal.is_none() {
                                             return Err("slide to end but no claim".to_string());
                                         }
-                                        return Ok(NodeIterator { path });
+                                        return Ok(NodeIterator { path, env: &self });
                                     }
                                     None => {
                                         return Err(format!(
