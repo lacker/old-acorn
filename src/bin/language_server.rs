@@ -504,7 +504,7 @@ impl Backend {
         if let Some(current_task) = self.search_task.read().await.as_ref() {
             if current_task.document.url == params.uri
                 && current_task.document.version == params.version
-                && current_task.path == iter.path
+                && current_task.path == iter.full_path()
             {
                 return Ok(current_task.response().await);
             }
@@ -526,7 +526,7 @@ impl Backend {
             prover: Arc::new(RwLock::new(prover)),
             module_name,
             selected_line: params.selected_line,
-            path: iter.path,
+            path: iter.full_path(),
             goal_name: goal_context.name.clone(),
             goal_range: goal_context.goal.range(),
             status: Arc::new(RwLock::new(status)),

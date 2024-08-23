@@ -119,13 +119,18 @@ struct Block {
 }
 
 // A NodeIterator is used to traverse the nodes in an environment.
+#[derive(Clone)]
 pub struct NodeIterator<'a> {
-    // The "path" to a node is a list of indices to recursively go into env.nodes.
-    pub path: Vec<usize>,
+    // The path from the module environment to this iterator's environment.
+    // Empty if this is the module environment.
+    path: Vec<usize>,
 
     // The external environment for this node.
     // The last index in path is the index of the node in this environment.
     env: &'a Environment,
+
+    // The index of the node within the environment.
+    index: usize,
 }
 
 impl Block {
@@ -246,6 +251,19 @@ enum BlockParams<'a> {
 impl fmt::Display for NodeIterator<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.path)
+    }
+}
+
+impl<'a> NodeIterator<'a> {
+    fn new(mut path: Vec<usize>, env: &'a Environment) -> Self {
+        let index = path.pop().unwrap();
+        NodeIterator { path, env, index }
+    }
+
+    pub fn full_path(&self) -> Vec<usize> {
+        let mut path = self.path.clone();
+        path.push(self.index);
+        path
     }
 }
 
@@ -1739,10 +1757,10 @@ impl Environment {
                 let mut subiters = block.env.iter_goals_helper(&path);
                 answer.append(&mut subiters);
                 if block.goal.is_some() {
-                    answer.push(NodeIterator { path, env: &self });
+                    answer.push(NodeIterator::new(path, &self));
                 }
             } else {
-                answer.push(NodeIterator { path, env: &self });
+                answer.push(NodeIterator::new(path, &self));
             }
         }
         answer
@@ -1808,7 +1826,8 @@ impl Environment {
         let mut global_facts = vec![];
         let mut local_facts = vec![];
         let mut env = self;
-        let mut it = node_iter.path.iter().peekable();
+        let full_path = node_iter.full_path();
+        let mut it = full_path.iter().peekable();
         let mut global = true;
         while let Some(i) = it.next() {
             for previous_prop in &env.nodes[0..*i] {
@@ -1897,7 +1916,7 @@ impl Environment {
                             continue;
                         }
                         None => {
-                            return Ok(NodeIterator { path, env: &self });
+                            return Ok(NodeIterator::new(path, &self));
                         }
                     }
                 }
@@ -1906,7 +1925,7 @@ impl Environment {
                         if block.goal.is_none() {
                             return Err(format!("no claim for block at line {}", line + 1));
                         }
-                        return Ok(NodeIterator { path, env: &self });
+                        return Ok(NodeIterator::new(path, &self));
                     }
                     None => return Err(format!("brace but no block, line {}", line + 1)),
                 },
@@ -1927,7 +1946,7 @@ impl Environment {
                                 }
                                 if prop.block.is_none() {
                                     path.push(i);
-                                    return Ok(NodeIterator { path, env: &self });
+                                    return Ok(NodeIterator::new(path, &self));
                                 }
                                 // We can't slide into a block, because the proof would be
                                 // inserted into the block, rather than here.
@@ -1944,7 +1963,7 @@ impl Environment {
                                         if block.goal.is_none() {
                                             return Err("slide to end but no claim".to_string());
                                         }
-                                        return Ok(NodeIterator { path, env: &self });
+                                        return Ok(NodeIterator::new(path, &self));
                                     }
                                     None => {
                                         return Err(format!(
