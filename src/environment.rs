@@ -72,9 +72,10 @@ pub struct Environment {
 }
 
 // Logically, the Environment is arranged like a tree structure.
-// It can have blocks that contain subenvironments, which contain more blocks, etc.
-// It can also have plain propositions.
-// The Node represents either one of these two children of an Environment.
+// There are three types of nodes.
+// 1. Structural nodes, that we can assume without proof
+// 2. Plain claims, that we need to prove
+// 3. Nodes with blocks, where we need to recurse into the block and prove those nodes.
 struct Node {
     // Whether this proposition has already been proved structurally.
     // For example, this could be an axiom, or a definition.
@@ -116,21 +117,6 @@ struct Block {
 
     // The environment created inside the block.
     env: Environment,
-}
-
-// A NodeIterator is used to traverse the nodes in an environment.
-#[derive(Clone)]
-pub struct NodeIterator<'a> {
-    // The path from the module environment to this iterator's environment.
-    // Empty if this is the module environment.
-    path: Vec<usize>,
-
-    // The external environment for this node.
-    // The last index in path is the index of the node in this environment.
-    env: &'a Environment,
-
-    // The index of the node within the environment.
-    index: usize,
 }
 
 impl Block {
@@ -248,6 +234,21 @@ enum BlockParams<'a> {
     Problem,
 }
 
+// A NodeIterator is used to traverse the nodes in an environment.
+#[derive(Clone)]
+pub struct NodeIterator<'a> {
+    // The path from the module environment to this iterator's environment.
+    // Empty if this is the module environment.
+    path: Vec<usize>,
+
+    // The external environment for this node.
+    // The last index in path is the index of the node in this environment.
+    env: &'a Environment,
+
+    // The index of the node within the environment.
+    index: usize,
+}
+
 impl fmt::Display for NodeIterator<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.path)
@@ -255,15 +256,38 @@ impl fmt::Display for NodeIterator<'_> {
 }
 
 impl<'a> NodeIterator<'a> {
-    fn new(mut path: Vec<usize>, env: &'a Environment) -> Self {
+    // Takes a path that includes the last index.
+    fn bad_new(mut path: Vec<usize>, env: &'a Environment) -> Self {
         let index = path.pop().unwrap();
         NodeIterator { path, env, index }
     }
 
+    // Only call this on a module level environment.
+    // Returns None if there are no nodes in the environment.
+    pub fn first(env: &'a Environment) -> Option<Self> {
+        assert_eq!(env.first_line, 0);
+        if env.nodes.is_empty() {
+            return None;
+        }
+        Some(NodeIterator {
+            env,
+            path: vec![],
+            index: 0,
+        })
+    }
+
+    // Can use this as an identifier for the iterator, to compare two of them
     pub fn full_path(&self) -> Vec<usize> {
         let mut path = self.path.clone();
         path.push(self.index);
         path
+    }
+
+    pub fn num_children(&self) -> usize {
+        match self.env.nodes[self.index].block {
+            Some(ref b) => b.env.nodes.len(),
+            None => 0,
+        }
     }
 }
 
@@ -1757,10 +1781,10 @@ impl Environment {
                 let mut subiters = block.env.iter_goals_helper(&path);
                 answer.append(&mut subiters);
                 if block.goal.is_some() {
-                    answer.push(NodeIterator::new(path, &self));
+                    answer.push(NodeIterator::bad_new(path, &self));
                 }
             } else {
-                answer.push(NodeIterator::new(path, &self));
+                answer.push(NodeIterator::bad_new(path, &self));
             }
         }
         answer
@@ -1916,7 +1940,7 @@ impl Environment {
                             continue;
                         }
                         None => {
-                            return Ok(NodeIterator::new(path, &self));
+                            return Ok(NodeIterator::bad_new(path, &self));
                         }
                     }
                 }
@@ -1925,7 +1949,7 @@ impl Environment {
                         if block.goal.is_none() {
                             return Err(format!("no claim for block at line {}", line + 1));
                         }
-                        return Ok(NodeIterator::new(path, &self));
+                        return Ok(NodeIterator::bad_new(path, &self));
                     }
                     None => return Err(format!("brace but no block, line {}", line + 1)),
                 },
@@ -1946,7 +1970,7 @@ impl Environment {
                                 }
                                 if prop.block.is_none() {
                                     path.push(i);
-                                    return Ok(NodeIterator::new(path, &self));
+                                    return Ok(NodeIterator::bad_new(path, &self));
                                 }
                                 // We can't slide into a block, because the proof would be
                                 // inserted into the block, rather than here.
@@ -1963,7 +1987,7 @@ impl Environment {
                                         if block.goal.is_none() {
                                             return Err("slide to end but no claim".to_string());
                                         }
-                                        return Ok(NodeIterator::new(path, &self));
+                                        return Ok(NodeIterator::bad_new(path, &self));
                                     }
                                     None => {
                                         return Err(format!(
