@@ -16,7 +16,7 @@ use crate::token::{self, Error, Token, TokenIter, TokenType};
 
 // Each line has a LineType, to handle line-based user interface.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum LineType {
+pub enum LineType {
     // Only used within subenvironments.
     // The line relates to the block, but is outside the opening brace for this block.
     Opening,
@@ -85,6 +85,20 @@ impl Environment {
         }
     }
 
+    // Create a child environment.
+    pub fn child(&self, first_line: u32, implicit: bool) -> Self {
+        Environment {
+            module_id: self.module_id,
+            bindings: self.bindings.clone(),
+            nodes: Vec::new(),
+            definition_ranges: self.definition_ranges.clone(),
+            includes_explicit_false: false,
+            first_line,
+            line_types: Vec::new(),
+            implicit,
+        }
+    }
+
     fn next_line(&self) -> u32 {
         self.line_types.len() as u32 + self.first_line
     }
@@ -93,13 +107,13 @@ impl Environment {
         self.next_line() - 1
     }
 
-    fn theorem_range(&self, name: &str) -> Option<Range> {
+    pub fn theorem_range(&self, name: &str) -> Option<Range> {
         self.definition_ranges.get(name).cloned()
     }
 
     // Add line types for the given range, inserting empties as needed.
     // If the line already has a type, do nothing.
-    fn add_line_types(&mut self, line_type: LineType, first: u32, last: u32) {
+    pub fn add_line_types(&mut self, line_type: LineType, first: u32, last: u32) {
         while self.next_line() < first {
             self.line_types.push(LineType::Empty);
         }
@@ -136,144 +150,12 @@ impl Environment {
         }
     }
 
-    // Creates a new block with a subenvironment by copying this environment and adding some stuff.
-    //
-    // Performance is quadratic because it clones a lot of the existing environment.
-    // Using different data structures should improve this when we need to.
-    //
-    // The types in args must be generic when type params are provided.
-    // If no body is provided, the block has no statements in it.
-    fn new_block(
-        &self,
-        project: &mut Project,
-        type_params: Vec<String>,
-        args: Vec<(String, AcornType)>,
-        params: BlockParams,
-        first_line: u32,
-        last_line: u32,
-        body: Option<&Body>,
-    ) -> token::Result<Block> {
-        let mut subenv = Environment {
-            module_id: self.module_id,
-            bindings: self.bindings.clone(),
-            nodes: Vec::new(),
-            definition_ranges: self.definition_ranges.clone(),
-            includes_explicit_false: false,
-            first_line,
-            line_types: Vec::new(),
-            implicit: body.is_none(),
-        };
-
-        // Inside the block, the type parameters are opaque data types.
-        let param_pairs: Vec<(String, AcornType)> = type_params
-            .iter()
-            .map(|s| (s.clone(), subenv.bindings.add_data_type(&s)))
-            .collect();
-
-        // Inside the block, the arguments are constants.
-        for (arg_name, generic_arg_type) in &args {
-            let specific_arg_type = generic_arg_type.specialize(&param_pairs);
-            subenv
-                .bindings
-                .add_constant(&arg_name, vec![], specific_arg_type, None);
-        }
-
-        let goal = match params {
-            BlockParams::Conditional(condition, range) => {
-                subenv.add_node(
-                    project,
-                    true,
-                    Proposition::premise(condition.clone(), self.module_id, range),
-                    None,
-                );
-                None
-            }
-            BlockParams::Theorem(theorem_name, premise, unbound_goal) => {
-                let arg_values = args
-                    .iter()
-                    .map(|(name, _)| subenv.bindings.get_constant_value(name).unwrap())
-                    .collect::<Vec<_>>();
-
-                // Within the theorem block, the theorem is treated like a function,
-                // with propositions to define its identity.
-                // This makes it less annoying to define inductive hypotheses.
-                subenv.add_identity_props(project, theorem_name);
-
-                if let Some((unbound_premise, premise_range)) = premise {
-                    // Add the premise to the environment, when proving the theorem.
-                    // The premise is unbound, so we need to bind the block's arg values.
-                    let bound = unbound_premise.bind_values(0, 0, &arg_values);
-
-                    subenv.add_node(
-                        project,
-                        true,
-                        Proposition::premise(bound, self.module_id, premise_range),
-                        None,
-                    );
-                }
-
-                // We can prove the goal either in bound or in function form
-                let bound_goal = unbound_goal.bind_values(0, 0, &arg_values);
-                Some(Goal::Prove(Proposition::theorem(
-                    false,
-                    bound_goal,
-                    self.module_id,
-                    self.theorem_range(theorem_name).unwrap(),
-                    theorem_name.to_string(),
-                )))
-            }
-            BlockParams::FunctionSatisfy(unbound_goal, return_type, range) => {
-                // In the block, we need to prove this goal in bound form, so bind args to it.
-                let arg_values = args
-                    .iter()
-                    .map(|(name, _)| subenv.bindings.get_constant_value(name).unwrap())
-                    .collect::<Vec<_>>();
-                // The partial goal has variables 0..args.len() bound to the block's args,
-                // but there one last variable that needs to be existentially quantified.
-                let partial_goal = unbound_goal.bind_values(0, 0, &arg_values);
-                let bound_goal = AcornValue::new_exists(vec![return_type], partial_goal);
-                let prop = Proposition::anonymous(bound_goal, self.module_id, range);
-                Some(Goal::Prove(prop))
-            }
-            BlockParams::Solve(target, range) => Some(Goal::Solve(target, range)),
-            BlockParams::ForAll | BlockParams::Problem => None,
-        };
-
-        match body {
-            Some(body) => {
-                subenv.add_line_types(
-                    LineType::Opening,
-                    first_line,
-                    body.left_brace.line_number as u32,
-                );
-                for s in &body.statements {
-                    subenv.add_statement(project, s)?;
-                }
-                subenv.add_line_types(
-                    LineType::Closing,
-                    body.right_brace.line_number as u32,
-                    body.right_brace.line_number as u32,
-                );
-            }
-            None => {
-                // The subenv is an implicit block, so consider all the lines to be "opening".
-                subenv.add_line_types(LineType::Opening, first_line, last_line);
-            }
-        };
-        Ok(Block {
-            type_params,
-            args,
-            env: subenv,
-            goal,
-        })
-    }
-
     // Adds a node to the environment tree.
     // This also macro-expands theorem names into their definitions.
     // Ideally, that would happen during expression parsing.
     // However, it needs to work with templated theorems, which makes it tricky/hacky to do the
     // type inference.
-    fn add_node(
+    pub fn add_node(
         &mut self,
         project: &Project,
         structural: bool,
@@ -318,7 +200,7 @@ impl Environment {
 
     // Adds a proposition, or multiple propositions, to represent the definition of the provided
     // constant.
-    fn add_identity_props(&mut self, project: &Project, name: &str) {
+    pub fn add_identity_props(&mut self, project: &Project, name: &str) {
         let definition = if let Some(d) = self.bindings.get_definition(name) {
             d.clone()
         } else {
@@ -410,8 +292,9 @@ impl Environment {
             // Conditional blocks with an empty body can just be ignored
             return Ok(None);
         }
-        let block = self.new_block(
+        let block = Block::new(
             project,
+            &self,
             vec![],
             vec![],
             BlockParams::Conditional(&condition, range),
@@ -705,8 +588,9 @@ impl Environment {
                 let block = if already_proven {
                     None
                 } else {
-                    Some(self.new_block(
+                    Some(Block::new(
                         project,
+                        &self,
                         type_params,
                         block_args,
                         BlockParams::Theorem(&ts.name, premise, goal),
@@ -775,8 +659,9 @@ impl Environment {
                     args.push((arg_name, arg_type));
                 }
 
-                let block = self.new_block(
+                let block = Block::new(
                     project,
+                    &self,
                     vec![],
                     args,
                     BlockParams::ForAll,
@@ -923,8 +808,9 @@ impl Environment {
                     .collect();
                 let num_args = block_args.len() as AtomId;
 
-                let block = self.new_block(
+                let block = Block::new(
                     project,
+                    &self,
                     vec![],
                     block_args,
                     BlockParams::FunctionSatisfy(
@@ -1462,8 +1348,9 @@ impl Environment {
                     end: ss.target.last_token().end_pos(),
                 };
 
-                let mut block = self.new_block(
+                let mut block = Block::new(
                     project,
+                    &self,
                     vec![],
                     vec![],
                     BlockParams::Solve(target.clone(), solve_range),
@@ -1496,8 +1383,9 @@ impl Environment {
             }
 
             StatementInfo::Problem(body) => {
-                let block = self.new_block(
+                let block = Block::new(
                     project,
+                    &self,
                     vec![],
                     vec![],
                     BlockParams::Problem,

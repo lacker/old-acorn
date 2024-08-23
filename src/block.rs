@@ -6,9 +6,11 @@ use tower_lsp::lsp_types::Range;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp};
 use crate::atom::AtomId;
-use crate::environment::Environment;
+use crate::environment::{Environment, LineType};
 use crate::goal::Goal;
+use crate::project::Project;
 use crate::proposition::Proposition;
+use crate::statement::Body;
 use crate::token::{self, Error, Token};
 
 // Proofs are structured into blocks.
@@ -19,12 +21,12 @@ pub struct Block {
     // The generic types that this block is polymorphic over.
     // Internally to the block, these are opaque data types.
     // Externally, these are generic data types.
-    pub type_params: Vec<String>,
+    type_params: Vec<String>,
 
     // The arguments to this block.
     // Internally to the block, the arguments are constants.
     // Externally, these arguments are variables.
-    pub args: Vec<(String, AcornType)>,
+    args: Vec<(String, AcornType)>,
 
     // The goal for a block is relative to its internal environment.
     // Everything in the block can be used to achieve this goal.
@@ -35,6 +37,122 @@ pub struct Block {
 }
 
 impl Block {
+    pub fn new(
+        project: &mut Project,
+        env: &Environment,
+        type_params: Vec<String>,
+        args: Vec<(String, AcornType)>,
+        params: BlockParams,
+        first_line: u32,
+        last_line: u32,
+        body: Option<&Body>,
+    ) -> token::Result<Block> {
+        let mut subenv = env.child(first_line, body.is_none());
+
+        // Inside the block, the type parameters are opaque data types.
+        let param_pairs: Vec<(String, AcornType)> = type_params
+            .iter()
+            .map(|s| (s.clone(), subenv.bindings.add_data_type(&s)))
+            .collect();
+
+        // Inside the block, the arguments are constants.
+        for (arg_name, generic_arg_type) in &args {
+            let specific_arg_type = generic_arg_type.specialize(&param_pairs);
+            subenv
+                .bindings
+                .add_constant(&arg_name, vec![], specific_arg_type, None);
+        }
+
+        let goal = match params {
+            BlockParams::Conditional(condition, range) => {
+                subenv.add_node(
+                    project,
+                    true,
+                    Proposition::premise(condition.clone(), env.module_id, range),
+                    None,
+                );
+                None
+            }
+            BlockParams::Theorem(theorem_name, premise, unbound_goal) => {
+                let arg_values = args
+                    .iter()
+                    .map(|(name, _)| subenv.bindings.get_constant_value(name).unwrap())
+                    .collect::<Vec<_>>();
+
+                // Within the theorem block, the theorem is treated like a function,
+                // with propositions to define its identity.
+                // This makes it less annoying to define inductive hypotheses.
+                subenv.add_identity_props(project, theorem_name);
+
+                if let Some((unbound_premise, premise_range)) = premise {
+                    // Add the premise to the environment, when proving the theorem.
+                    // The premise is unbound, so we need to bind the block's arg values.
+                    let bound = unbound_premise.bind_values(0, 0, &arg_values);
+
+                    subenv.add_node(
+                        project,
+                        true,
+                        Proposition::premise(bound, env.module_id, premise_range),
+                        None,
+                    );
+                }
+
+                // We can prove the goal either in bound or in function form
+                let bound_goal = unbound_goal.bind_values(0, 0, &arg_values);
+                Some(Goal::Prove(Proposition::theorem(
+                    false,
+                    bound_goal,
+                    env.module_id,
+                    env.theorem_range(theorem_name).unwrap(),
+                    theorem_name.to_string(),
+                )))
+            }
+            BlockParams::FunctionSatisfy(unbound_goal, return_type, range) => {
+                // In the block, we need to prove this goal in bound form, so bind args to it.
+                let arg_values = args
+                    .iter()
+                    .map(|(name, _)| subenv.bindings.get_constant_value(name).unwrap())
+                    .collect::<Vec<_>>();
+                // The partial goal has variables 0..args.len() bound to the block's args,
+                // but there one last variable that needs to be existentially quantified.
+                let partial_goal = unbound_goal.bind_values(0, 0, &arg_values);
+                let bound_goal = AcornValue::new_exists(vec![return_type], partial_goal);
+                let prop = Proposition::anonymous(bound_goal, env.module_id, range);
+                Some(Goal::Prove(prop))
+            }
+            BlockParams::Solve(target, range) => Some(Goal::Solve(target, range)),
+            BlockParams::ForAll | BlockParams::Problem => None,
+        };
+
+        match body {
+            Some(body) => {
+                subenv.add_line_types(
+                    LineType::Opening,
+                    first_line,
+                    body.left_brace.line_number as u32,
+                );
+                for s in &body.statements {
+                    subenv.add_statement(project, s)?;
+                }
+                subenv.add_line_types(
+                    LineType::Closing,
+                    body.right_brace.line_number as u32,
+                    body.right_brace.line_number as u32,
+                );
+            }
+            None => {
+                // The subenv is an implicit block, so consider all the lines to be "opening".
+                subenv.add_line_types(LineType::Opening, first_line, last_line);
+            }
+        };
+        Ok(Block {
+            type_params,
+            args,
+            env: subenv,
+            goal,
+        })
+    }
+
     // Convert a boolean value from the block's environment to a value in the outer environment.
     fn export_bool(&self, outer_env: &Environment, inner_value: &AcornValue) -> AcornValue {
         // The constants that were block arguments will export as "forall" variables.
