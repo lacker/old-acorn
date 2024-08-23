@@ -257,6 +257,7 @@ impl fmt::Display for NodeIterator<'_> {
 
 impl<'a> NodeIterator<'a> {
     // Takes a path that includes the last index.
+    // TODO: eliminate this and replace it with something less weird
     fn bad_new(mut path: Vec<usize>, env: &'a Environment) -> Self {
         let index = path.pop().unwrap();
         NodeIterator { path, env, index }
