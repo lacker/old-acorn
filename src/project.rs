@@ -474,7 +474,6 @@ impl Project {
     }
 
     // Set the file content. This has priority over the actual filesystem.
-    #[cfg(test)]
     pub fn mock(&mut self, filename: &str, content: &str) {
         assert!(!self.use_filesystem);
         self.update_file(PathBuf::from(filename), content, 0)
@@ -687,7 +686,7 @@ impl Project {
     }
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
-    #[cfg(test)]
+    // Only for testing.
     pub fn expect_ok(&mut self, module_name: &str) -> ModuleId {
         let module_id = self.load_module(module_name).expect("load failed");
         match self.get_module(module_id) {

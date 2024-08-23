@@ -294,7 +294,6 @@ impl BindingMap {
         self.type_names.contains_key(type_name)
     }
 
-    #[cfg(test)]
     pub fn has_identifier(&self, identifier: &str) -> bool {
         self.identifier_types.contains_key(identifier)
     }

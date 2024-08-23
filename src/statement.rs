@@ -1105,7 +1105,6 @@ impl Statement {
         }
     }
 
-    #[cfg(test)]
     pub fn parse_str(input: &str) -> Result<Statement> {
         let tokens = Token::scan(input);
         let mut tokens = TokenIter::new(tokens);
