@@ -129,7 +129,7 @@ impl Prover {
         let mut imported_facts = vec![];
         for dependency in project.all_dependencies(goal_context.module_id()) {
             let env = project.get_env(dependency).unwrap();
-            imported_facts.extend(env.get_facts());
+            imported_facts.extend(env.exported_facts());
         }
 
         let (global_facts, local_facts) = goal_context.monomorphize(imported_facts);

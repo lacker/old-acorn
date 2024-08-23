@@ -69,6 +69,9 @@ pub struct Environment {
     // Implicit blocks aren't written in the code; they are created for theorems that
     // the user has asserted without proof.
     pub implicit: bool,
+
+    // Whether this environment is at the top level of a module.
+    pub top_level: bool,
 }
 
 impl Environment {
@@ -82,6 +85,7 @@ impl Environment {
             first_line: 0,
             line_types: Vec::new(),
             implicit: false,
+            top_level: true,
         }
     }
 
@@ -96,6 +100,7 @@ impl Environment {
             first_line,
             line_types: Vec::new(),
             implicit,
+            top_level: false,
         }
     }
 
@@ -1427,8 +1432,9 @@ impl Environment {
         answer
     }
 
-    // Get all facts from this environment.
-    pub fn get_facts(&self) -> Vec<Proposition> {
+    // Get all facts that this environment exports.
+    pub fn exported_facts(&self) -> Vec<Proposition> {
+        assert!(self.top_level);
         let mut facts = Vec::new();
         for prop in &self.nodes {
             facts.push(prop.claim.clone());

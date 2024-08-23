@@ -372,6 +372,7 @@ impl<'a> NodeIterator<'a> {
     // Only call this on a module level environment.
     // Returns None if there are no nodes in the environment.
     pub fn first(env: &'a Environment) -> Option<Self> {
+        assert!(env.top_level);
         if env.nodes.is_empty() {
             return None;
         }
