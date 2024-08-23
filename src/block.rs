@@ -296,6 +296,50 @@ pub struct Node {
     pub block: Option<Block>,
 }
 
+impl Node {
+    pub fn new(
+        project: &Project,
+        env: &Environment,
+        structural: bool,
+        proposition: Proposition,
+        block: Option<Block>,
+    ) -> Self {
+        // Make sure we aren't adding an invalid claim.
+        proposition
+            .value
+            .validate()
+            .unwrap_or_else(|e| panic!("invalid claim: {} ({})", proposition.value, e));
+
+        if structural {
+            assert!(block.is_none());
+        }
+
+        let value = proposition
+            .value
+            .replace_constants_with_values(0, &|module_id, name| {
+                let bindings = if env.module_id == module_id {
+                    &env.bindings
+                } else {
+                    &project
+                        .get_env(module_id)
+                        .expect("missing module during add_proposition")
+                        .bindings
+                };
+                if bindings.is_theorem(name) {
+                    bindings.get_definition(name).clone()
+                } else {
+                    None
+                }
+            });
+        let claim = proposition.with_value(value);
+        Node {
+            structural,
+            claim,
+            block,
+        }
+    }
+}
+
 // A NodeIterator is used to traverse the nodes in an environment.
 #[derive(Clone)]
 pub struct NodeIterator<'a> {

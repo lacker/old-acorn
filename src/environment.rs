@@ -162,39 +162,8 @@ impl Environment {
         proposition: Proposition,
         block: Option<Block>,
     ) -> usize {
-        // Check if we're adding invalid claims.
-        proposition
-            .value
-            .validate()
-            .unwrap_or_else(|e| panic!("invalid claim: {} ({})", proposition.value, e));
-
-        if structural {
-            assert!(block.is_none());
-        }
-
-        let value = proposition
-            .value
-            .replace_constants_with_values(0, &|module_id, name| {
-                let bindings = if self.module_id == module_id {
-                    &self.bindings
-                } else {
-                    &project
-                        .get_env(module_id)
-                        .expect("missing module during add_proposition")
-                        .bindings
-                };
-                if bindings.is_theorem(name) {
-                    bindings.get_definition(name).clone()
-                } else {
-                    None
-                }
-            });
-        let claim = proposition.with_value(value);
-        self.nodes.push(Node {
-            structural,
-            claim,
-            block,
-        });
+        let node = Node::new(project, self, structural, proposition, block);
+        self.nodes.push(node);
         self.nodes.len() - 1
     }
 
