@@ -290,6 +290,27 @@ impl<'a> NodeIterator<'a> {
             None => 0,
         }
     }
+
+    // child_index must be less than num_children
+    pub fn descend(&mut self, child_index: usize) {
+        self.path.push(self.index);
+        self.env = match self.env.nodes[self.index].block {
+            Some(ref b) => &b.env,
+            None => panic!("descend called on a node without a block"),
+        };
+        self.index = child_index;
+    }
+
+    // Whether we can advance to the next sibling, keeping environment the same.
+    pub fn has_next(&self) -> bool {
+        self.index + 1 < self.env.nodes.len()
+    }
+
+    // Advances to the next sibling, keeping environment the same.
+    pub fn next(&mut self) {
+        assert!(self.has_next());
+        self.index += 1;
+    }
 }
 
 impl Environment {
