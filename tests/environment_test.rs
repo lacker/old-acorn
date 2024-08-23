@@ -1,6 +1,7 @@
 #[cfg(test)]
-mod tests {
-    use acorn::{environment::Environment, project::Project};
+mod environment_test {
+    use acorn::environment::Environment;
+    use acorn::project::Project;
 
     #[test]
     fn test_fn_equality() {
