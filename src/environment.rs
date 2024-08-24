@@ -1398,6 +1398,15 @@ impl Environment {
             }
         }
     }
+    // Get all facts that this environment exports.
+    pub fn exported_facts(&self) -> Vec<Proposition> {
+        assert!(self.top_level);
+        let mut facts = Vec::new();
+        for prop in &self.nodes {
+            facts.push(prop.claim.clone());
+        }
+        facts
+    }
 
     // Returns a NodeIterator for all nodes that correspond to a goal within this environment,
     // or subenvironments, recursively.
@@ -1430,16 +1439,6 @@ impl Environment {
             }
         }
         answer
-    }
-
-    // Get all facts that this environment exports.
-    pub fn exported_facts(&self) -> Vec<Proposition> {
-        assert!(self.top_level);
-        let mut facts = Vec::new();
-        for prop in &self.nodes {
-            facts.push(prop.claim.clone());
-        }
-        facts
     }
 
     // Gets the proposition at a certain path.
