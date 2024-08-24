@@ -1525,10 +1525,9 @@ impl Environment {
     }
 
     pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
-        let paths = self.iter_goals();
         let mut names = Vec::new();
-        for path in paths {
-            let context = self.get_goal_context(&path).unwrap();
+        for node in self.iter_goals() {
+            let context = node.goal_context().unwrap();
             if context.name == name {
                 return context;
             }

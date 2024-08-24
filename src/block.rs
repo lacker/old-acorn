@@ -429,7 +429,7 @@ impl<'a> NodeCursor<'a> {
     }
 
     // Get a goal context for the current node.
-    pub fn goal_context(&self) -> Result<GoalContext, String> {
+    pub fn goal_context(&self) -> Result<GoalContext<'a>, String> {
         let mut global_facts = vec![];
         let mut local_facts = vec![];
         for (env, i) in &self.annotated_path {
