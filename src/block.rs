@@ -365,18 +365,6 @@ impl fmt::Display for NodeCursor<'_> {
 }
 
 impl<'a> NodeCursor<'a> {
-    // Takes a path that includes the last index.
-    // TODO: eliminate this and replace it with something less weird
-    pub fn bad_new(mut path: Vec<usize>, env: &'a Environment) -> Self {
-        let index = path.pop().unwrap();
-        NodeCursor {
-            root: None,
-            initial: path,
-            env,
-            index,
-        }
-    }
-
     pub fn from_path(env: &'a Environment, path: &[usize]) -> Self {
         assert!(path.len() > 0);
         let mut iter = NodeCursor::new(env, path[0]);
