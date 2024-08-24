@@ -1445,24 +1445,6 @@ impl Environment {
         answer
     }
 
-    // Gets the proposition at a certain path.
-    pub fn get_proposition(&self, path: &Vec<usize>) -> Option<&Proposition> {
-        let mut env = self;
-        let mut it = path.iter().peekable();
-        while let Some(i) = it.next() {
-            if it.peek().is_none() {
-                return env.nodes.get(*i).map(|p| &p.claim);
-            }
-            let prop = env.nodes.get(*i)?;
-            if let Some(block) = &prop.block {
-                env = &block.env;
-            } else {
-                return None;
-            }
-        }
-        None
-    }
-
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
     // This does not include imported facts.
