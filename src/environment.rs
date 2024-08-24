@@ -108,7 +108,7 @@ impl Environment {
         self.line_types.len() as u32 + self.first_line
     }
 
-    fn last_line(&self) -> u32 {
+    pub fn last_line(&self) -> u32 {
         self.next_line() - 1
     }
 
@@ -1463,35 +1463,9 @@ impl Environment {
         None
     }
 
-    fn make_goal_context(
-        &self,
-        global_facts: Vec<Proposition>,
-        local_facts: Vec<Proposition>,
-        goal: Goal,
-        proof_insertion_line: u32,
-    ) -> GoalContext {
-        let name = match &goal {
-            Goal::Prove(proposition) => match proposition.name() {
-                Some(name) => name.to_string(),
-                None => self.bindings.value_to_code(&proposition.value).unwrap(),
-            },
-            Goal::Solve(value, _) => {
-                let value_str = self.bindings.value_to_code(value).unwrap();
-                format!("solve {}", value_str)
-            }
-        };
-        GoalContext::new(
-            &self,
-            global_facts,
-            local_facts,
-            name,
-            goal,
-            proof_insertion_line,
-        )
-    }
-
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
+    // This does not include imported facts.
     pub fn get_goal_context(&self, node_iter: &NodeCursor) -> Result<GoalContext, String> {
         let mut global_facts = vec![];
         let mut local_facts = vec![];
@@ -1525,7 +1499,8 @@ impl Environment {
                         None => return Err(format!("block at {} has no goal", node_iter)),
                     };
 
-                    return Ok(block.env.make_goal_context(
+                    return Ok(GoalContext::new(
+                        &block.env,
                         global_facts,
                         local_facts,
                         goal.clone(),
@@ -1537,7 +1512,8 @@ impl Environment {
                 // If there's no block on this prop, this must be the last element of the path
                 assert!(it.peek().is_none());
 
-                return Ok(env.make_goal_context(
+                return Ok(GoalContext::new(
+                    env,
                     global_facts,
                     local_facts,
                     Goal::Prove(node.claim.clone()),

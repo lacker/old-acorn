@@ -64,10 +64,19 @@ impl GoalContext<'_> {
         env: &Environment,
         global_facts: Vec<Proposition>,
         local_facts: Vec<Proposition>,
-        name: String,
         goal: Goal,
         proof_insertion_line: u32,
     ) -> GoalContext {
+        let name = match &goal {
+            Goal::Prove(proposition) => match proposition.name() {
+                Some(name) => name.to_string(),
+                None => env.bindings.value_to_code(&proposition.value).unwrap(),
+            },
+            Goal::Solve(value, _) => {
+                let value_str = env.bindings.value_to_code(value).unwrap();
+                format!("solve {}", value_str)
+            }
+        };
         GoalContext {
             env,
             module_id: env.module_id,
