@@ -7,7 +7,7 @@
 
 const USAGE: &str = "cargo run --release --bin=search <module name> <line number>";
 
-use acorn::block::NodeIterator;
+use acorn::block::NodeCursor;
 use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
 
@@ -33,7 +33,7 @@ async fn main() {
         }
     };
 
-    let iter = NodeIterator::from_path(env, &path);
+    let iter = NodeCursor::from_path(env, &path);
     let goal_context = env.get_goal_context(&iter).unwrap();
     println!("proving {} ...", goal_context.name);
     let verbose = true;

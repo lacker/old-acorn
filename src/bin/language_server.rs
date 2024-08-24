@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use acorn::block::NodeIterator;
+use acorn::block::NodeCursor;
 use acorn::interfaces::{
     InfoParams, InfoResponse, ProgressParams, ProgressResponse, SearchParams, SearchResponse,
     SearchStatus,
@@ -510,7 +510,7 @@ impl Backend {
                 return Ok(current_task.response().await);
             }
         }
-        let iter = NodeIterator::from_path(env, &path);
+        let iter = NodeCursor::from_path(env, &path);
         let goal_context = match env.get_goal_context(&iter) {
             Ok(goal_context) => goal_context,
             Err(s) => return self.search_fail(params, &s),

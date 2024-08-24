@@ -340,9 +340,9 @@ impl Node {
     }
 }
 
-// A NodeIterator is used to traverse the nodes in an environment.
+// A NodeCursor points at a node. It is used to traverse the nodes in an environment.
 #[derive(Clone)]
-pub struct NodeIterator<'a> {
+pub struct NodeCursor<'a> {
     // The module-level environment.
     root: Option<&'a Environment>,
 
@@ -358,18 +358,18 @@ pub struct NodeIterator<'a> {
     index: usize,
 }
 
-impl fmt::Display for NodeIterator<'_> {
+impl fmt::Display for NodeCursor<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.initial)
     }
 }
 
-impl<'a> NodeIterator<'a> {
+impl<'a> NodeCursor<'a> {
     // Takes a path that includes the last index.
     // TODO: eliminate this and replace it with something less weird
     pub fn bad_new(mut path: Vec<usize>, env: &'a Environment) -> Self {
         let index = path.pop().unwrap();
-        NodeIterator {
+        NodeCursor {
             root: None,
             initial: path,
             env,
@@ -379,7 +379,7 @@ impl<'a> NodeIterator<'a> {
 
     pub fn from_path(env: &'a Environment, path: &[usize]) -> Self {
         assert!(path.len() > 0);
-        let mut iter = NodeIterator::new(env, path[0]);
+        let mut iter = NodeCursor::new(env, path[0]);
         for &i in &path[1..] {
             iter.descend(i);
         }
@@ -391,7 +391,7 @@ impl<'a> NodeIterator<'a> {
     pub fn new(env: &'a Environment, index: usize) -> Self {
         assert!(env.top_level);
         assert!(env.nodes.len() > index);
-        NodeIterator {
+        NodeCursor {
             root: Some(env),
             initial: vec![],
             env,

@@ -6,7 +6,7 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::{BindingMap, Stack};
-use crate::block::{Block, BlockParams, Node, NodeIterator};
+use crate::block::{Block, BlockParams, Node, NodeCursor};
 use crate::goal::{Goal, GoalContext};
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
@@ -1408,16 +1408,16 @@ impl Environment {
         facts
     }
 
-    // Returns a NodeIterator for all nodes that correspond to a goal within this environment,
+    // Returns a NodeCursor for all nodes that correspond to a goal within this environment,
     // or subenvironments, recursively.
     // The order is "proving order", ie the goals inside the block are listed before the
     // root goal of a block.
-    pub fn iter_goals(&self) -> impl Iterator<Item = NodeIterator> {
+    pub fn iter_goals(&self) -> impl Iterator<Item = NodeCursor> {
         self.iter_goals_helper(&vec![]).into_iter()
     }
 
     // Does a postorder traversal of this subenvironment, prepending 'prepend' to each path.
-    fn iter_goals_helper(&self, prepend: &Vec<usize>) -> Vec<NodeIterator> {
+    fn iter_goals_helper(&self, prepend: &Vec<usize>) -> Vec<NodeCursor> {
         let mut answer = Vec::new();
         for (i, node) in self.nodes.iter().enumerate() {
             if node.structural {
@@ -1432,10 +1432,10 @@ impl Environment {
                 let mut subiters = block.env.iter_goals_helper(&path);
                 answer.append(&mut subiters);
                 if block.goal.is_some() {
-                    answer.push(NodeIterator::bad_new(path, &self));
+                    answer.push(NodeCursor::bad_new(path, &self));
                 }
             } else {
-                answer.push(NodeIterator::bad_new(path, &self));
+                answer.push(NodeCursor::bad_new(path, &self));
             }
         }
         answer
@@ -1488,7 +1488,7 @@ impl Environment {
 
     // Get a list of facts that are available at a certain path, along with the proposition
     // that should be proved there.
-    pub fn get_goal_context(&self, node_iter: &NodeIterator) -> Result<GoalContext, String> {
+    pub fn get_goal_context(&self, node_iter: &NodeCursor) -> Result<GoalContext, String> {
         let mut global_facts = vec![];
         let mut local_facts = vec![];
         let mut env = self;
