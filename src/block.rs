@@ -346,21 +346,21 @@ pub struct NodeIterator<'a> {
     // The module-level environment.
     root: Option<&'a Environment>,
 
-    // The path from the module environment to this iterator's environment.
+    // The path except for its last index.
     // Empty if root equals env.
-    path: Vec<usize>,
+    initial: Vec<usize>,
 
     // The external environment for this node.
     // The last index in path is the index of the node in this environment.
     env: &'a Environment,
 
-    // The index of the current node within env.
+    // The last index of the path, ie the index of the current node within env.
     index: usize,
 }
 
 impl fmt::Display for NodeIterator<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.path)
+        write!(f, "{:?}", self.initial)
     }
 }
 
@@ -371,25 +371,32 @@ impl<'a> NodeIterator<'a> {
         let index = path.pop().unwrap();
         NodeIterator {
             root: None,
-            path,
+            initial: path,
             env,
             index,
         }
     }
 
+    pub fn from_path(env: &'a Environment, path: &[usize]) -> Self {
+        assert!(path.len() > 0);
+        let mut iter = NodeIterator::new(env, path[0]);
+        for &i in &path[1..] {
+            iter.descend(i);
+        }
+        iter
+    }
+
     // Only call this on a module level environment.
     // Returns None if there are no nodes in the environment.
-    pub fn first(env: &'a Environment) -> Option<Self> {
+    pub fn new(env: &'a Environment, index: usize) -> Self {
         assert!(env.top_level);
-        if env.nodes.is_empty() {
-            return None;
-        }
-        Some(NodeIterator {
+        assert!(env.nodes.len() > index);
+        NodeIterator {
             root: Some(env),
-            path: vec![],
+            initial: vec![],
             env,
-            index: 0,
-        })
+            index,
+        }
     }
 
     pub fn current(&self) -> &'a Node {
@@ -397,8 +404,8 @@ impl<'a> NodeIterator<'a> {
     }
 
     // Can use this as an identifier for the iterator, to compare two of them
-    pub fn full_path(&self) -> Vec<usize> {
-        let mut path = self.path.clone();
+    pub fn path(&self) -> Vec<usize> {
+        let mut path = self.initial.clone();
         path.push(self.index);
         path
     }
@@ -412,7 +419,7 @@ impl<'a> NodeIterator<'a> {
 
     // child_index must be less than num_children
     pub fn descend(&mut self, child_index: usize) {
-        self.path.push(self.index);
+        self.initial.push(self.index);
         self.env = match &self.current().block {
             Some(b) => &b.env,
             None => panic!("descend called on a node without a block"),

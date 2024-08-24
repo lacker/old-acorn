@@ -1492,7 +1492,7 @@ impl Environment {
         let mut global_facts = vec![];
         let mut local_facts = vec![];
         let mut env = self;
-        let full_path = node_iter.full_path();
+        let full_path = node_iter.path();
         let mut it = full_path.iter().peekable();
         let mut global = true;
         while let Some(i) = it.next() {
@@ -1558,12 +1558,12 @@ impl Environment {
         panic!("no context found for {} in:\n{}\n", name, names.join("\n"));
     }
 
-    // Returns the node iterator for a given zero-based line.
+    // Returns the path to a given zero-based line.
     // This is a UI heuristic.
-    // Either returns a NodeIterator for a proposition, or an error message explaining why this
+    // Either returns a path to a proposition, or an error message explaining why this
     // line is unusable.
     // Error messages use one-based line numbers.
-    pub fn node_for_line(&self, line: u32) -> Result<NodeIterator, String> {
+    pub fn path_for_line(&self, line: u32) -> Result<Vec<usize>, String> {
         let mut path = vec![];
         let mut block: Option<&Block> = None;
         let mut env = self;
@@ -1582,7 +1582,7 @@ impl Environment {
                             continue;
                         }
                         None => {
-                            return Ok(NodeIterator::bad_new(path, &self));
+                            return Ok(path);
                         }
                     }
                 }
@@ -1591,7 +1591,7 @@ impl Environment {
                         if block.goal.is_none() {
                             return Err(format!("no claim for block at line {}", line + 1));
                         }
-                        return Ok(NodeIterator::bad_new(path, &self));
+                        return Ok(path);
                     }
                     None => return Err(format!("brace but no block, line {}", line + 1)),
                 },
@@ -1612,7 +1612,7 @@ impl Environment {
                                 }
                                 if prop.block.is_none() {
                                     path.push(i);
-                                    return Ok(NodeIterator::bad_new(path, &self));
+                                    return Ok(path);
                                 }
                                 // We can't slide into a block, because the proof would be
                                 // inserted into the block, rather than here.
@@ -1629,7 +1629,7 @@ impl Environment {
                                         if block.goal.is_none() {
                                             return Err("slide to end but no claim".to_string());
                                         }
-                                        return Ok(NodeIterator::bad_new(path, &self));
+                                        return Ok(path);
                                     }
                                     None => {
                                         return Err(format!(
