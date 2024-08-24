@@ -1186,8 +1186,7 @@ theorem add_assoc(a: Nat, b: Nat, c: Nat) { add(add(a, b), c) = add(a, add(b, c)
             }
             "#,
         );
-        let goal_paths = env.iter_goals();
-        assert_eq!(goal_paths.len(), 1);
+        assert_eq!(env.iter_goals().count(), 1);
     }
 
     #[test]

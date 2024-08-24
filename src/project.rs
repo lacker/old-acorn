@@ -312,7 +312,7 @@ impl Project {
             let module = self.get_module_by_name(target);
             match module {
                 Module::Ok(env) => {
-                    total += env.iter_goals().len() as i32;
+                    total += env.iter_goals().count() as i32;
                     envs.push(env);
                 }
                 Module::Error(e) => {
@@ -371,10 +371,9 @@ impl Project {
         let mut done: i32 = 0;
         for (target, env) in targets.iter().zip(envs) {
             let mut target_warnings = false;
-            let paths = env.iter_goals();
-            for path in paths.iter() {
+            for node in env.iter_goals() {
                 let start = std::time::Instant::now();
-                let goal_context = env.get_goal_context(&path).unwrap();
+                let goal_context = env.get_goal_context(&node).unwrap();
                 let mut prover = Prover::new(&self, &goal_context, false);
                 let outcome = prover.verification_search();
                 let elapsed = duration_as_f64_secs(start.elapsed());

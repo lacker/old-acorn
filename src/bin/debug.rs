@@ -31,10 +31,9 @@ fn main() {
     let mut project = Project::new("math");
     let module_id = project.load_module(&module_name).unwrap();
     let env = project.get_env(module_id).unwrap();
-    let goal_paths = env.iter_goals();
-    let goals = goal_paths
-        .iter()
-        .map(|path| env.get_goal_context(path).unwrap())
+    let goals = env
+        .iter_goals()
+        .map(|node| env.get_goal_context(&node).unwrap())
         .collect::<Vec<_>>();
 
     // Find the goal whose name matches theorem_name

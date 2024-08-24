@@ -1412,8 +1412,8 @@ impl Environment {
     // or subenvironments, recursively.
     // The order is "proving order", ie the goals inside the block are listed before the
     // root goal of a block.
-    pub fn iter_goals(&self) -> Vec<NodeIterator> {
-        self.iter_goals_helper(&vec![])
+    pub fn iter_goals(&self) -> impl Iterator<Item = NodeIterator> {
+        self.iter_goals_helper(&vec![]).into_iter()
     }
 
     // Does a postorder traversal of this subenvironment, prepending 'prepend' to each path.
