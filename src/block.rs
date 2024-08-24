@@ -418,4 +418,13 @@ impl<'a> NodeCursor<'a> {
         assert!(*index + 1 < env.nodes.len());
         *index += 1;
     }
+
+    pub fn can_ascend(&self) -> bool {
+        self.annotated_path.len() > 1
+    }
+
+    pub fn ascend(&mut self) {
+        assert!(self.can_ascend());
+        self.annotated_path.pop();
+    }
 }
