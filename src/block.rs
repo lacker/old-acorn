@@ -383,6 +383,10 @@ impl<'a> NodeIterator<'a> {
         })
     }
 
+    pub fn current(&self) -> &'a Node {
+        &self.env.nodes[self.index]
+    }
+
     // Can use this as an identifier for the iterator, to compare two of them
     pub fn full_path(&self) -> Vec<usize> {
         let mut path = self.path.clone();
@@ -400,8 +404,8 @@ impl<'a> NodeIterator<'a> {
     // child_index must be less than num_children
     pub fn descend(&mut self, child_index: usize) {
         self.path.push(self.index);
-        self.env = match self.env.nodes[self.index].block {
-            Some(ref b) => &b.env,
+        self.env = match &self.current().block {
+            Some(b) => &b.env,
             None => panic!("descend called on a node without a block"),
         };
         self.index = child_index;
