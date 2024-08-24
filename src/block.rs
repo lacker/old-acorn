@@ -344,7 +344,7 @@ impl Node {
 #[derive(Clone)]
 pub struct NodeCursor<'a> {
     // The module-level environment.
-    root: Option<&'a Environment>,
+    root: &'a Environment,
 
     // The path except for its last index.
     // Empty if root equals env.
@@ -380,7 +380,7 @@ impl<'a> NodeCursor<'a> {
         assert!(env.top_level);
         assert!(env.nodes.len() > index);
         NodeCursor {
-            root: Some(env),
+            root: env,
             initial: vec![],
             env,
             index,
