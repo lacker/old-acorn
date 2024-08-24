@@ -343,15 +343,18 @@ impl Node {
 // A NodeIterator is used to traverse the nodes in an environment.
 #[derive(Clone)]
 pub struct NodeIterator<'a> {
+    // The module-level environment.
+    root: Option<&'a Environment>,
+
     // The path from the module environment to this iterator's environment.
-    // Empty if this is the module environment.
+    // Empty if root equals env.
     path: Vec<usize>,
 
     // The external environment for this node.
     // The last index in path is the index of the node in this environment.
     env: &'a Environment,
 
-    // The index of the node within the environment.
+    // The index of the current node within env.
     index: usize,
 }
 
@@ -366,7 +369,12 @@ impl<'a> NodeIterator<'a> {
     // TODO: eliminate this and replace it with something less weird
     pub fn bad_new(mut path: Vec<usize>, env: &'a Environment) -> Self {
         let index = path.pop().unwrap();
-        NodeIterator { path, env, index }
+        NodeIterator {
+            root: None,
+            path,
+            env,
+            index,
+        }
     }
 
     // Only call this on a module level environment.
@@ -377,8 +385,9 @@ impl<'a> NodeIterator<'a> {
             return None;
         }
         Some(NodeIterator {
-            env,
+            root: Some(env),
             path: vec![],
+            env,
             index: 0,
         })
     }
