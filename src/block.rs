@@ -343,24 +343,15 @@ impl Node {
 // A NodeCursor points at a node. It is used to traverse the nodes in an environment.
 #[derive(Clone)]
 pub struct NodeCursor<'a> {
-    // The module-level environment.
-    root: &'a Environment,
-
-    // The path except for its last index.
-    // Empty if root equals env.
-    initial: Vec<usize>,
-
-    // The external environment for this node.
-    // The last index in path is the index of the node in this environment.
-    env: &'a Environment,
-
-    // The last index of the path, ie the index of the current node within env.
-    index: usize,
+    // All the environments that surround this node.
+    // (env, index) pairs tell you that the node env.nodes[index] to get to
+    // the next environment.
+    annotated_path: Vec<(&'a Environment, usize)>,
 }
 
 impl fmt::Display for NodeCursor<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.initial)
+        write!(f, "{:?}", self.path())
     }
 }
 
@@ -380,26 +371,26 @@ impl<'a> NodeCursor<'a> {
         assert!(env.top_level);
         assert!(env.nodes.len() > index);
         NodeCursor {
-            root: env,
-            initial: vec![],
-            env,
-            index,
+            annotated_path: vec![(env, index)],
         }
     }
 
+    pub fn env(&self) -> &'a Environment {
+        self.annotated_path.last().unwrap().0
+    }
+
     pub fn current(&self) -> &'a Node {
-        &self.env.nodes[self.index]
+        let (env, index) = self.annotated_path.last().unwrap();
+        &env.nodes[*index]
     }
 
     // Can use this as an identifier for the iterator, to compare two of them
     pub fn path(&self) -> Vec<usize> {
-        let mut path = self.initial.clone();
-        path.push(self.index);
-        path
+        self.annotated_path.iter().map(|(_, i)| *i).collect()
     }
 
     pub fn num_children(&self) -> usize {
-        match self.env.nodes[self.index].block {
+        match self.current().block {
             Some(ref b) => b.env.nodes.len(),
             None => 0,
         }
@@ -407,22 +398,24 @@ impl<'a> NodeCursor<'a> {
 
     // child_index must be less than num_children
     pub fn descend(&mut self, child_index: usize) {
-        self.initial.push(self.index);
-        self.env = match &self.current().block {
+        let new_env = match &self.current().block {
             Some(b) => &b.env,
             None => panic!("descend called on a node without a block"),
         };
-        self.index = child_index;
+        assert!(child_index < new_env.nodes.len());
+        self.annotated_path.push((new_env, child_index));
     }
 
     // Whether we can advance to the next sibling, keeping environment the same.
     pub fn has_next(&self) -> bool {
-        self.index + 1 < self.env.nodes.len()
+        let (env, index) = self.annotated_path.last().unwrap();
+        index + 1 < env.nodes.len()
     }
 
     // Advances to the next sibling, keeping environment the same.
     pub fn next(&mut self) {
-        assert!(self.has_next());
-        self.index += 1;
+        let (env, index) = self.annotated_path.last_mut().unwrap();
+        assert!(*index + 1 < env.nodes.len());
+        *index += 1;
     }
 }
