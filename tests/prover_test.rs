@@ -49,9 +49,8 @@ mod prover_test {
             Module::Error(e) => panic!("error: {}", e),
             _ => panic!("no module"),
         };
-        let paths = env.iter_goals();
-        for path in paths {
-            let goal_context = env.get_goal_context(&path).unwrap();
+        for node in env.iter_goals() {
+            let goal_context = node.goal_context().unwrap();
             println!("proving: {}", goal_context.name);
             let mut prover = Prover::new(&project, &goal_context, false);
             prover.verbose = true;

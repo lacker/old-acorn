@@ -7,7 +7,7 @@ use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::{BindingMap, Stack};
 use crate::block::{Block, BlockParams, Node, NodeCursor};
-use crate::goal::{Goal, GoalContext};
+use crate::goal::GoalContext;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::proposition::Proposition;
@@ -1443,67 +1443,6 @@ impl Environment {
             }
         }
         answer
-    }
-
-    // Get a list of facts that are available at a certain path, along with the proposition
-    // that should be proved there.
-    // This does not include imported facts.
-    pub fn get_goal_context(&self, node_iter: &NodeCursor) -> Result<GoalContext, String> {
-        let mut global_facts = vec![];
-        let mut local_facts = vec![];
-        let mut env = self;
-        let full_path = node_iter.path();
-        let mut it = full_path.iter().peekable();
-        let mut global = true;
-        while let Some(i) = it.next() {
-            for previous_prop in &env.nodes[0..*i] {
-                let fact = previous_prop.claim.clone();
-                if global {
-                    global_facts.push(fact);
-                } else {
-                    local_facts.push(fact);
-                }
-            }
-            global = false;
-            let node = match env.nodes.get(*i) {
-                Some(p) => p,
-                None => return Err(format!("no node at {}", node_iter)),
-            };
-            if let Some(block) = &node.block {
-                if it.peek().is_none() {
-                    // This is the last element of the path. It has a block, so we can use the
-                    // contents of the block to help prove it.
-                    for p in &block.env.nodes {
-                        local_facts.push(p.claim.clone());
-                    }
-                    let goal = match &block.goal {
-                        Some(goal) => goal,
-                        None => return Err(format!("block at {} has no goal", node_iter)),
-                    };
-
-                    return Ok(GoalContext::new(
-                        &block.env,
-                        global_facts,
-                        local_facts,
-                        goal.clone(),
-                        block.env.last_line(),
-                    ));
-                }
-                env = &block.env;
-            } else {
-                // If there's no block on this prop, this must be the last element of the path
-                assert!(it.peek().is_none());
-
-                return Ok(GoalContext::new(
-                    env,
-                    global_facts,
-                    local_facts,
-                    Goal::Prove(node.claim.clone()),
-                    node.claim.source.range.start.line,
-                ));
-            }
-        }
-        panic!("control should not get here");
     }
 
     pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
