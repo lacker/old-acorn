@@ -510,8 +510,8 @@ impl Backend {
                 return Ok(current_task.response().await);
             }
         }
-        let iter = NodeCursor::from_path(env, &path);
-        let goal_context = match env.get_goal_context(&iter) {
+        let node = NodeCursor::from_path(env, &path);
+        let goal_context = match node.goal_context() {
             Ok(goal_context) => goal_context,
             Err(s) => return self.search_fail(params, &s),
         };

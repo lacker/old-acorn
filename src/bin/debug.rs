@@ -33,7 +33,7 @@ fn main() {
     let env = project.get_env(module_id).unwrap();
     let goals = env
         .iter_goals()
-        .map(|node| env.get_goal_context(&node).unwrap())
+        .map(|node| node.goal_context().unwrap())
         .collect::<Vec<_>>();
 
     // Find the goal whose name matches theorem_name

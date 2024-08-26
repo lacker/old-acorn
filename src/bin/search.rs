@@ -33,8 +33,8 @@ async fn main() {
         }
     };
 
-    let iter = NodeCursor::from_path(env, &path);
-    let goal_context = env.get_goal_context(&iter).unwrap();
+    let node = NodeCursor::from_path(env, &path);
+    let goal_context = node.goal_context().unwrap();
     println!("proving {} ...", goal_context.name);
     let verbose = true;
     let mut prover = Prover::new(&project, &goal_context, verbose);
