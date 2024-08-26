@@ -373,7 +373,7 @@ impl Project {
             let mut target_warnings = false;
             for node in env.iter_goals() {
                 let start = std::time::Instant::now();
-                let goal_context = env.get_goal_context(&node).unwrap();
+                let goal_context = node.goal_context().expect("no goal context");
                 let mut prover = Prover::new(&self, &goal_context, false);
                 let outcome = prover.verification_search();
                 let elapsed = duration_as_f64_secs(start.elapsed());
