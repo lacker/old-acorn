@@ -338,6 +338,17 @@ impl Node {
             block,
         }
     }
+
+    // Whether this node corresponds to a goal that needs to be proved.
+    pub fn has_goal(&self) -> bool {
+        if self.structural {
+            return false;
+        }
+        match &self.block {
+            Some(b) => b.goal.is_some(),
+            None => true,
+        }
+    }
 }
 
 // A NodeCursor points at a node. It is used to traverse the nodes in an environment.
@@ -478,46 +489,15 @@ impl<'a> NodeCursor<'a> {
         }
     }
 
-    // Go to the first node in a postorder traversal.
-    // Return None if there are no nodes.
-    pub fn postorder_first(env: &'a Environment) -> Option<Self> {
-        if env.nodes.is_empty() {
-            return None;
-        }
-        let mut cursor = NodeCursor::new(env, 0);
-        while cursor.num_children() > 0 {
-            cursor.descend(0);
-        }
-        Some(cursor)
-    }
-
-    // Returns false if we are out of nodes.
-    pub fn postorder_next(&mut self) -> bool {
-        if self.has_next() {
-            self.next();
-            while self.num_children() > 0 {
-                self.descend(0);
-            }
-            return true;
-        }
-        if self.can_ascend() {
+    // Does a postorder traversal of everything with a goal, at and below this node
+    pub fn find_goals(&mut self, output: &mut Vec<NodeCursor<'a>>) {
+        for i in 0..self.num_children() {
+            self.descend(i);
+            self.find_goals(output);
             self.ascend();
-            return true;
         }
-        false
-    }
-}
-
-pub enum PostorderIterator<'a> {
-    New(&'a Environment),
-    Cursor(NodeCursor<'a>),
-    Done,
-}
-
-impl<'a> Iterator for PostorderIterator<'a> {
-    type Item = &'a NodeCursor<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!();
+        if self.current().has_goal() {
+            output.push(self.clone());
+        }
     }
 }
