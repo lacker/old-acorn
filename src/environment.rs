@@ -1413,36 +1413,12 @@ impl Environment {
     // The order is "proving order", ie the goals inside the block are listed before the
     // root goal of a block.
     pub fn iter_goals(&self) -> impl Iterator<Item = NodeCursor> {
-        self.iter_goals_helper(&self, &vec![]).into_iter()
-    }
-
-    // Does a postorder traversal of this subenvironment, prepending 'prepend' to each path.
-    fn iter_goals_helper<'a>(
-        &'a self,
-        root: &'a Environment,
-        prepend: &Vec<usize>,
-    ) -> Vec<NodeCursor> {
-        let mut answer = Vec::new();
-        for (i, node) in self.nodes.iter().enumerate() {
-            if node.structural {
-                continue;
-            }
-            let path = {
-                let mut path = prepend.clone();
-                path.push(i);
-                path
-            };
-            if let Some(block) = &node.block {
-                let mut subiters = block.env.iter_goals_helper(&root, &path);
-                answer.append(&mut subiters);
-                if block.goal.is_some() {
-                    answer.push(NodeCursor::from_path(&root, &path));
-                }
-            } else {
-                answer.push(NodeCursor::from_path(&root, &path));
-            }
+        let mut answer = vec![];
+        for i in 0..self.nodes.len() {
+            let mut cursor = NodeCursor::new(self, i);
+            cursor.find_goals(&mut answer);
         }
-        answer
+        answer.into_iter()
     }
 
     pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
