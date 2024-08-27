@@ -25,10 +25,11 @@ use crate::term::Term;
 use crate::term_graph::TermGraphContradiction;
 
 pub struct Prover {
+    module_id: ModuleId,
+
     // The normalizer is used when we are turning the facts and goals from the environment into
     // clauses that we can use internally.
     normalizer: Normalizer,
-    module_id: ModuleId,
 
     // The "active" clauses are the ones we use for reasoning.
     active_set: ActiveSet,
@@ -60,14 +61,14 @@ pub struct Prover {
     // Contradictions are okay if we expect one, not okay if we don't.
     expect_contradiction: bool,
 
+    // Number of proof steps activated, not counting Factual ones.
+    non_factual_activated: usize,
+
     // The normalized term we are solving for, if there is one.
     solve: Option<Term>,
 
     // A value expressing the negation of the goal we are trying to prove, if there is one.
     negated_goal: Option<AcornValue>,
-
-    // Number of proof steps activated, not counting Factual ones.
-    non_factual_activated: usize,
 }
 
 // The outcome of a prover operation.
@@ -136,45 +137,19 @@ impl Prover {
 
         // Load facts into the prover
         for fact in global_facts {
-            p.add_assumption(fact, Truthiness::Factual);
+            p.add_fact(fact, Truthiness::Factual);
         }
         for fact in local_facts {
-            p.add_assumption(fact, Truthiness::Hypothetical);
+            p.add_fact(fact, Truthiness::Hypothetical);
         }
-        match &goal_context.goal {
-            Goal::Prove(prop) => {
-                // Negate the goal and add it as a counterfactual assumption.
-                let (hypo, counter) = prop.value.to_placeholder().negate_goal();
-                if let Some(hypo) = hypo {
-                    p.add_assumption(prop.with_value(hypo), Truthiness::Hypothetical);
-                }
-                p.negated_goal = Some(counter.clone());
-                p.add_assumption(prop.with_negated_goal(counter), Truthiness::Counterfactual);
-            }
-            Goal::Solve(value, _) => match p.normalizer.term_from_value(value, true) {
-                Ok(term) => {
-                    p.solve = Some(term);
-                }
-                Err(NormalizationError(s)) => {
-                    p.error = Some(s);
-                }
-            },
-        }
+        p.set_goal(&goal_context.goal);
         p
     }
 
-    fn normalize_proposition(&mut self, proposition: AcornValue, local: bool) -> Normalization {
-        if let Err(e) = proposition.validate() {
-            return Normalization::Error(format!(
-                "validation error: {} while normalizing: {}",
-                e, proposition
-            ));
-        }
-        assert_eq!(proposition.get_type(), AcornType::Bool);
-        self.normalizer.normalize(proposition, local)
-    }
+    pub fn add_fact(&mut self, assumption: Proposition, truthiness: Truthiness) {
+        // The sequencing should be, first add facts, then set the goal, then prove.
+        assert!(!self.has_goal());
 
-    fn add_assumption(&mut self, assumption: Proposition, truthiness: Truthiness) {
         let local = truthiness != Truthiness::Factual;
         let defined_atom = match &assumption.source.source_type {
             SourceType::ConstantDefinition(value) => {
@@ -212,6 +187,49 @@ impl Prover {
             self.passive_set.push(step);
         }
     }
+
+    // Whether a goal has been set yet
+    pub fn has_goal(&self) -> bool {
+        self.negated_goal.is_some() || self.solve.is_some()
+    }
+
+    pub fn set_goal(&mut self, goal: &Goal) {
+        assert!(!self.has_goal());
+        match goal {
+            Goal::Prove(prop) => {
+                // Negate the goal and add it as a counterfactual assumption.
+                let (hypo, counter) = prop.value.to_placeholder().negate_goal();
+                if let Some(hypo) = hypo {
+                    self.add_fact(prop.with_value(hypo), Truthiness::Hypothetical);
+                }
+                self.add_fact(
+                    prop.with_negated_goal(counter.clone()),
+                    Truthiness::Counterfactual,
+                );
+                self.negated_goal = Some(counter);
+            }
+            Goal::Solve(value, _) => match self.normalizer.term_from_value(value, true) {
+                Ok(term) => {
+                    self.solve = Some(term);
+                }
+                Err(NormalizationError(s)) => {
+                    self.error = Some(s);
+                }
+            },
+        }
+    }
+
+    fn normalize_proposition(&mut self, proposition: AcornValue, local: bool) -> Normalization {
+        if let Err(e) = proposition.validate() {
+            return Normalization::Error(format!(
+                "validation error: {} while normalizing: {}",
+                e, proposition
+            ));
+        }
+        assert_eq!(proposition.get_type(), AcornType::Bool);
+        self.normalizer.normalize(proposition, local)
+    }
+
     pub fn print_stats(&self) {
         println!("{} clauses in the active set", self.active_set.len());
         println!("{} clauses in the passive set", self.passive_set.len());
