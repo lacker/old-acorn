@@ -138,7 +138,7 @@ impl Prover {
         for fact in global_facts {
             p.add_assumption(fact, Truthiness::Factual);
         }
-        p.normalizer.global_done = true;
+        p.normalizer.finish_global();
         for fact in local_facts {
             p.add_assumption(fact, Truthiness::Hypothetical);
         }

@@ -71,7 +71,7 @@ pub struct Normalizer {
 
     // Whether we are done entering global constants.
     // After global is done, any later constants that we see for the first time are local ones.
-    pub global_done: bool,
+    global_done: bool,
 }
 
 impl Normalizer {
@@ -94,6 +94,11 @@ impl Normalizer {
 
     pub fn is_skolem(&self, atom: &Atom) -> bool {
         matches!(atom, Atom::Skolem(_))
+    }
+
+    pub fn finish_global(&mut self) {
+        assert!(!self.global_done);
+        self.global_done = true;
     }
 
     // The input should already have negations moved inwards.
