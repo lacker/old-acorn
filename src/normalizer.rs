@@ -188,7 +188,9 @@ impl Normalizer {
     }
 
     // Constructs a new term from an AcornValue
-    // Returns an error if it's inconvertible
+    // Returns an error if it's inconvertible.
+    // The "local" flag here and elsewhere controls whether any newly discovered variables
+    // are local variables.
     pub fn term_from_value(&mut self, value: &AcornValue, local: bool) -> Result<Term> {
         match value {
             AcornValue::Variable(i, var_type) => {
