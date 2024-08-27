@@ -138,7 +138,6 @@ impl Prover {
         for fact in global_facts {
             p.add_assumption(fact, Truthiness::Factual);
         }
-        p.normalizer.finish_global();
         for fact in local_facts {
             p.add_assumption(fact, Truthiness::Hypothetical);
         }
@@ -152,7 +151,7 @@ impl Prover {
                 p.negated_goal = Some(counter.clone());
                 p.add_assumption(prop.with_negated_goal(counter), Truthiness::Counterfactual);
             }
-            Goal::Solve(value, _) => match p.normalizer.term_from_value(value) {
+            Goal::Solve(value, _) => match p.normalizer.term_from_value(value, true) {
                 Ok(term) => {
                     p.solve = Some(term);
                 }
@@ -164,7 +163,7 @@ impl Prover {
         p
     }
 
-    fn normalize_proposition(&mut self, proposition: AcornValue) -> Normalization {
+    fn normalize_proposition(&mut self, proposition: AcornValue, local: bool) -> Normalization {
         if let Err(e) = proposition.validate() {
             return Normalization::Error(format!(
                 "validation error: {} while normalizing: {}",
@@ -172,13 +171,14 @@ impl Prover {
             ));
         }
         assert_eq!(proposition.get_type(), AcornType::Bool);
-        self.normalizer.normalize(proposition)
+        self.normalizer.normalize(proposition, local)
     }
 
     fn add_assumption(&mut self, assumption: Proposition, truthiness: Truthiness) {
+        let local = truthiness != Truthiness::Factual;
         let defined_atom = match &assumption.source.source_type {
             SourceType::ConstantDefinition(value) => {
-                match self.normalizer.term_from_value(&value) {
+                match self.normalizer.term_from_value(&value, local) {
                     Ok(term) => Some(term.get_head().clone()),
                     Err(NormalizationError(s)) => {
                         self.error = Some(s);
@@ -188,7 +188,7 @@ impl Prover {
             }
             _ => None,
         };
-        let clauses = match self.normalize_proposition(assumption.value) {
+        let clauses = match self.normalize_proposition(assumption.value, local) {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
                 // We have a false assumption, so we're done already.

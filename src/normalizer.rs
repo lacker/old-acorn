@@ -68,10 +68,6 @@ pub struct Normalizer {
     pub type_map: TypeMap,
 
     constant_map: ConstantMap,
-
-    // Whether we are done entering global constants.
-    // After global is done, any later constants that we see for the first time are local ones.
-    global_done: bool,
 }
 
 impl Normalizer {
@@ -80,7 +76,6 @@ impl Normalizer {
             skolem_types: vec![],
             type_map: TypeMap::new(),
             constant_map: ConstantMap::new(),
-            global_done: false,
         }
     }
 
@@ -94,11 +89,6 @@ impl Normalizer {
 
     pub fn is_skolem(&self, atom: &Atom) -> bool {
         matches!(atom, Atom::Skolem(_))
-    }
-
-    pub fn finish_global(&mut self) {
-        assert!(!self.global_done);
-        self.global_done = true;
     }
 
     // The input should already have negations moved inwards.
@@ -181,21 +171,25 @@ impl Normalizer {
 
     // Constructs a new term from a function application
     // Function applications that are nested like f(x)(y) are flattened to f(x, y)
-    fn term_from_application(&mut self, application: &FunctionApplication) -> Result<Term> {
+    fn term_from_application(
+        &mut self,
+        application: &FunctionApplication,
+        local: bool,
+    ) -> Result<Term> {
         let term_type = self.type_map.add_type(&application.get_type());
-        let func_term = self.term_from_value(&application.function)?;
+        let func_term = self.term_from_value(&application.function, local)?;
         let head = func_term.head;
         let head_type = func_term.head_type;
         let mut args = func_term.args;
         for arg in &application.args {
-            args.push(self.term_from_value(arg)?);
+            args.push(self.term_from_value(arg, local)?);
         }
         Ok(Term::new(term_type, head_type, head, args))
     }
 
     // Constructs a new term from an AcornValue
     // Returns an error if it's inconvertible
-    pub fn term_from_value(&mut self, value: &AcornValue) -> Result<Term> {
+    pub fn term_from_value(&mut self, value: &AcornValue, local: bool) -> Result<Term> {
         match value {
             AcornValue::Variable(i, var_type) => {
                 let type_id = self.type_map.add_type(var_type);
@@ -208,12 +202,13 @@ impl Normalizer {
                     // Hacky. Turn the s-name back to an int
                     Atom::Skolem(name[1..].parse().unwrap())
                 } else {
-                    self.constant_map
-                        .add_constant(*module, name, self.global_done)
+                    self.constant_map.add_constant(*module, name, local)
                 };
                 Ok(Term::new(type_id, type_id, constant_atom, vec![]))
             }
-            AcornValue::Application(application) => Ok(self.term_from_application(application)?),
+            AcornValue::Application(application) => {
+                Ok(self.term_from_application(application, local)?)
+            }
             AcornValue::Specialized(module, name, _, parameters) => Ok(self
                 .type_map
                 .term_from_monomorph(*module, name, parameters, value.get_type())),
@@ -228,23 +223,27 @@ impl Normalizer {
     // Swaps left and right if needed, to sort.
     // Normalizes literals to <larger> = <smaller>, because that's the logical direction
     // to do rewrite-type lookups, on the larger literal first.
-    fn literal_from_value(&mut self, value: &AcornValue) -> Result<Literal> {
+    fn literal_from_value(&mut self, value: &AcornValue, local: bool) -> Result<Literal> {
         match value {
             AcornValue::Variable(_, _) | AcornValue::Constant(_, _, _, _) => {
-                Ok(Literal::positive(self.term_from_value(value)?))
+                Ok(Literal::positive(self.term_from_value(value, local)?))
             }
-            AcornValue::Application(app) => Ok(Literal::positive(self.term_from_application(app)?)),
+            AcornValue::Application(app) => {
+                Ok(Literal::positive(self.term_from_application(app, local)?))
+            }
             AcornValue::Binary(BinaryOp::Equals, left, right) => {
-                let left_term = self.term_from_value(&*left)?;
-                let right_term = self.term_from_value(&*right)?;
+                let left_term = self.term_from_value(&*left, local)?;
+                let right_term = self.term_from_value(&*right, local)?;
                 Ok(Literal::equals(left_term, right_term))
             }
             AcornValue::Binary(BinaryOp::NotEquals, left, right) => {
-                let left_term = self.term_from_value(&*left)?;
-                let right_term = self.term_from_value(&*right)?;
+                let left_term = self.term_from_value(&*left, local)?;
+                let right_term = self.term_from_value(&*right, local)?;
                 Ok(Literal::not_equals(left_term, right_term))
             }
-            AcornValue::Not(subvalue) => Ok(Literal::negative(self.term_from_value(subvalue)?)),
+            AcornValue::Not(subvalue) => {
+                Ok(Literal::negative(self.term_from_value(subvalue, local)?))
+            }
             _ => Err(NormalizationError(format!(
                 "Cannot convert {} to literal",
                 value
@@ -258,14 +257,18 @@ impl Normalizer {
     // Returns Ok(Some(cnf)) if it can be turned into CNF.
     // Returns Ok(None) if it's an impossibility.
     // Returns an error if we failed in some user-reportable way.
-    fn into_literal_lists(&mut self, value: &AcornValue) -> Result<Option<Vec<Vec<Literal>>>> {
+    fn into_literal_lists(
+        &mut self,
+        value: &AcornValue,
+        local: bool,
+    ) -> Result<Option<Vec<Vec<Literal>>>> {
         match value {
             AcornValue::Binary(BinaryOp::And, left, right) => {
-                let mut left = match self.into_literal_lists(left)? {
+                let mut left = match self.into_literal_lists(left, local)? {
                     Some(left) => left,
                     None => return Ok(None),
                 };
-                let right = match self.into_literal_lists(right)? {
+                let right = match self.into_literal_lists(right, local)? {
                     Some(right) => right,
                     None => return Ok(None),
                 };
@@ -273,8 +276,8 @@ impl Normalizer {
                 Ok(Some(left))
             }
             AcornValue::Binary(BinaryOp::Or, left, right) => {
-                let left = self.into_literal_lists(left)?;
-                let right = self.into_literal_lists(right)?;
+                let left = self.into_literal_lists(left, local)?;
+                let right = self.into_literal_lists(right, local)?;
                 match (left, right) {
                     (None, None) => Ok(None),
                     (Some(result), None) | (None, Some(result)) => Ok(Some(result)),
@@ -294,7 +297,7 @@ impl Normalizer {
             AcornValue::Bool(true) => Ok(Some(vec![])),
             AcornValue::Bool(false) => Ok(None),
             _ => {
-                let literal = self.literal_from_value(&value)?;
+                let literal = self.literal_from_value(&value, local)?;
                 if literal.is_tautology() {
                     Ok(Some(vec![]))
                 } else {
@@ -305,10 +308,10 @@ impl Normalizer {
     }
 
     // Turns a value that is already in CNF into a Normalization
-    fn normalize_cnf(&mut self, value: AcornValue) -> Normalization {
+    fn normalize_cnf(&mut self, value: AcornValue, local: bool) -> Normalization {
         let mut universal = vec![];
         let value = value.remove_forall(&mut universal);
-        match self.into_literal_lists(&value) {
+        match self.into_literal_lists(&value, local) {
             Ok(Some(lists)) => self.normalize_literal_lists(lists),
             Ok(None) => Normalization::Impossible,
             Err(NormalizationError(s)) => {
@@ -336,7 +339,7 @@ impl Normalizer {
 
     // Converts a value to CNF, then to a Normalization.
     // Does not handle the "definition" sorts of values.
-    fn convert_then_normalize(&mut self, value: AcornValue) -> Normalization {
+    fn convert_then_normalize(&mut self, value: AcornValue, local: bool) -> Normalization {
         // println!("\nnormalizing: {}", value);
         let value = value.replace_function_equality(0);
         let value = value.expand_lambdas(0);
@@ -346,11 +349,11 @@ impl Normalizer {
         let value = self.skolemize(&vec![], value);
         // println!("skolemized: {}", value);
 
-        self.normalize_cnf(value)
+        self.normalize_cnf(value, local)
     }
 
     // Converts a value to CNF.
-    pub fn normalize(&mut self, value: AcornValue) -> Normalization {
+    pub fn normalize(&mut self, value: AcornValue, local: bool) -> Normalization {
         if let AcornValue::Binary(BinaryOp::Equals, left, right) = &value {
             // Check for defining one constant to equal another constant.
             if let AcornValue::Constant(left_module, left_name, _, _) = left.as_ref() {
@@ -377,13 +380,13 @@ impl Normalizer {
                 // One as an equality between functions, another as an equality between
                 // primitive types, after applying the functions.
                 // If we handled functional types better in unification we might not need this.
-                let functional = self.normalize_cnf(value.clone());
-                let primitive = self.convert_then_normalize(value);
+                let functional = self.normalize_cnf(value.clone(), local);
+                let primitive = self.convert_then_normalize(value, local);
                 return functional.and(primitive);
             }
         }
 
-        self.convert_then_normalize(value)
+        self.convert_then_normalize(value, local)
     }
 
     // Variables are left unbound. Their types are accumulated.
@@ -495,7 +498,7 @@ impl Normalizer {
         denormalized
             .validate()
             .expect("denormalized clause should validate");
-        let renormalized = self.normalize(denormalized.clone()).expect_clauses();
+        let renormalized = self.normalize(denormalized.clone(), true).expect_clauses();
         if renormalized.len() != 1 {
             println!("original clause: {}", clause);
             println!("denormalized: {}", denormalized);
@@ -508,7 +511,7 @@ impl Normalizer {
     }
 
     fn check_value(&mut self, value: AcornValue, expected: &[&str]) {
-        let actual = self.normalize(value).expect_clauses();
+        let actual = self.normalize(value, true).expect_clauses();
         if actual.len() != expected.len() {
             panic!(
                 "expected {} clauses, got {}:\n{}",
