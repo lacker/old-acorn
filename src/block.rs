@@ -477,4 +477,47 @@ impl<'a> NodeCursor<'a> {
             ));
         }
     }
+
+    // Go to the first node in a postorder traversal.
+    // Return None if there are no nodes.
+    pub fn postorder_first(env: &'a Environment) -> Option<Self> {
+        if env.nodes.is_empty() {
+            return None;
+        }
+        let mut cursor = NodeCursor::new(env, 0);
+        while cursor.num_children() > 0 {
+            cursor.descend(0);
+        }
+        Some(cursor)
+    }
+
+    // Returns false if we are out of nodes.
+    pub fn postorder_next(&mut self) -> bool {
+        if self.has_next() {
+            self.next();
+            while self.num_children() > 0 {
+                self.descend(0);
+            }
+            return true;
+        }
+        if self.can_ascend() {
+            self.ascend();
+            return true;
+        }
+        false
+    }
+}
+
+pub enum PostorderIterator<'a> {
+    New(&'a Environment),
+    Cursor(NodeCursor<'a>),
+    Done,
+}
+
+impl<'a> Iterator for PostorderIterator<'a> {
+    type Item = &'a NodeCursor<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!();
+    }
 }
