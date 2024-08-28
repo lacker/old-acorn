@@ -48,7 +48,7 @@ pub struct Monomorphizer {
     output_facts: Vec<Fact>,
 
     // The monomorphic types that we need/want for each proposition.
-    // Parallel to polymorphic_facts.
+    // Parallel to input_facts.
     // The entry is None if the fact is not polymorphic.
     monomorphs_for_fact: Vec<Option<Vec<ParamList>>>,
 
