@@ -59,9 +59,9 @@ pub struct Prover {
     // It's better to catch errors before proving, but sometimes we don't.
     pub error: Option<String>,
 
-    // Whether we expect a contradiction in this scope.
-    // Contradictions are okay if we expect one, not okay if we don't.
-    expect_contradiction: bool,
+    // Whether we expect an inconsistency in this scope.
+    // This determines whether we treat a contradiction between facts as a success or a failure.
+    inconsistency_okay: bool,
 
     // Number of proof steps activated, not counting Factual ones.
     non_factual_activated: usize,
@@ -110,7 +110,7 @@ impl Prover {
     pub fn new<'a>(
         project: &'a Project,
         facts: Vec<Fact>,
-        goal_context: &'a GoalContext<'a>,
+        goal_context: &GoalContext,
         verbose: bool,
     ) -> Prover {
         let mut p = Prover {
@@ -121,7 +121,7 @@ impl Prover {
             verbose,
             result: None,
             stop_flags: vec![project.build_stopped.clone()],
-            expect_contradiction: goal_context.includes_explicit_false(),
+            inconsistency_okay: goal_context.inconsistency_okay,
             error: None,
             solve: None,
             useful_passive: vec![],
@@ -450,8 +450,7 @@ impl Prover {
     // Handle the case when we found a contradiction
     fn report_contradiction(&mut self, step: ProofStep) -> Outcome {
         assert!(self.result.is_none());
-        let outcome = if step.truthiness != Truthiness::Counterfactual && !self.expect_contradiction
-        {
+        let outcome = if step.truthiness != Truthiness::Counterfactual && !self.inconsistency_okay {
             Outcome::Inconsistent
         } else {
             Outcome::Success

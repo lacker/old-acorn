@@ -31,8 +31,7 @@ impl Goal {
 }
 
 // A goal along with some information related to it.
-pub struct GoalContext<'a> {
-    env: &'a Environment,
+pub struct GoalContext {
     pub module_id: ModuleId,
 
     // A printable name for this goal.
@@ -47,9 +46,13 @@ pub struct GoalContext<'a> {
 
     // Whether we need to insert a block, if we do insert a proof.
     pub insert_block: bool,
+
+    // Whether it's okay if we discover an inconsistency in the provided facts.
+    // If it's not okay, we warn the user.
+    pub inconsistency_okay: bool,
 }
 
-impl GoalContext<'_> {
+impl GoalContext {
     pub fn new(env: &Environment, goal: Goal, proof_insertion_line: u32) -> GoalContext {
         let name = match &goal {
             Goal::Prove(proposition) => match proposition.name() {
@@ -62,16 +65,12 @@ impl GoalContext<'_> {
             }
         };
         GoalContext {
-            env,
             module_id: env.module_id,
             name,
             goal,
             proof_insertion_line,
             insert_block: env.implicit,
+            inconsistency_okay: env.includes_explicit_false,
         }
-    }
-
-    pub fn includes_explicit_false(&self) -> bool {
-        self.env.includes_explicit_false
     }
 }
