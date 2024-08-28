@@ -99,8 +99,8 @@ impl Monomorphizer {
         }
     }
 
-    // Funny grab-bag of a helper function
-    pub fn monomorphize(input_facts: Vec<Fact>, goal: &Goal) -> Vec<Fact> {
+    // Do all monomorphization in one big batch.
+    pub fn batch(input_facts: Vec<Fact>, goal: &Goal) -> Vec<Fact> {
         let mut graph = Monomorphizer::new(&input_facts);
 
         for fact in &input_facts {

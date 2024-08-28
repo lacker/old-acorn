@@ -129,7 +129,7 @@ impl Prover {
             non_factual_activated: 0,
         };
 
-        let facts = Monomorphizer::monomorphize(facts, &goal_context.goal);
+        let facts = Monomorphizer::batch(facts, &goal_context.goal);
 
         // Load facts into the prover
         for fact in facts {
