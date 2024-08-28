@@ -144,13 +144,7 @@ impl Prover {
         goal_context: &'a GoalContext<'a>,
         verbose: bool,
     ) -> Prover {
-        // Find the relevant facts that should be imported into this environment
-        let mut facts = vec![];
-        for dependency in project.all_dependencies(goal_context.module_id) {
-            let env = project.get_env(dependency).unwrap();
-            facts.extend(env.exported_facts());
-        }
-
+        let mut facts = project.imported_facts(goal_context.module_id);
         for prop in &goal_context.global_props {
             facts.push(Fact::new(prop.clone(), Truthiness::Factual));
         }

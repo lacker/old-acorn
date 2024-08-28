@@ -10,6 +10,7 @@ use walkdir::WalkDir;
 
 use crate::binding_map::BindingMap;
 use crate::environment::Environment;
+use crate::fact::Fact;
 use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::prover::{Outcome, Prover};
 use crate::token::{self, Token};
@@ -682,6 +683,16 @@ impl Project {
         } else {
             None
         }
+    }
+
+    // All facts that the given module imports.
+    pub fn imported_facts(&self, module_id: ModuleId) -> Vec<Fact> {
+        let mut facts = vec![];
+        for dependency in self.all_dependencies(module_id) {
+            let env = self.get_env(dependency).unwrap();
+            facts.extend(env.exported_facts());
+        }
+        facts
     }
 
     // Expects the module to load successfully and for there to be no errors in the loaded module.
