@@ -111,28 +111,6 @@ impl GoalContext<'_> {
         for prop in &self.local_props {
             input_facts.push(Fact::new(prop.clone(), Truthiness::Hypothetical));
         }
-        let mut graph = Monomorphizer::new(&input_facts);
-
-        for fact in &input_facts {
-            fact.value.validate().unwrap_or_else(|e| {
-                panic!("bad fact: {} ({})", &fact.value, e);
-            });
-            graph.inspect_value(&input_facts, &fact.value);
-        }
-        graph.inspect_value(&input_facts, &self.goal.value());
-
-        assert!(input_facts.len() == graph.monomorphs_for_fact.len());
-
-        let mut output_facts = vec![];
-        for (fact, monomorph_keys) in input_facts.into_iter().zip(graph.monomorphs_for_fact) {
-            if monomorph_keys.is_none() {
-                output_facts.push(fact);
-                continue;
-            }
-            for monomorph_key in monomorph_keys.unwrap() {
-                output_facts.push(fact.specialize(&monomorph_key.params));
-            }
-        }
-        output_facts
+        Monomorphizer::monomorphize(input_facts, &self.goal)
     }
 }
