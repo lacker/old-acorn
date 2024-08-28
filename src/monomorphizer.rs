@@ -112,9 +112,9 @@ impl Monomorphizer {
             fact.value.validate().unwrap_or_else(|e| {
                 panic!("bad fact: {} ({})", &fact.value, e);
             });
-            graph.inspect_value(&input_facts, &fact.value);
+            graph.inspect_value(&fact.value);
         }
-        graph.inspect_value(&input_facts, &goal.value());
+        graph.inspect_value(&goal.value());
 
         assert!(input_facts.len() == graph.monomorphs_for_fact.len());
 
@@ -134,12 +134,7 @@ impl Monomorphizer {
 
     // Called when we realize that we need to monomorphize the constant specified by constant_key
     // using the types in monomorph_key.
-    fn add_monomorph(
-        &mut self,
-        facts: &[Fact],
-        constant_key: ConstantKey,
-        monomorph_params: &ParamList,
-    ) {
+    fn add_monomorph(&mut self, constant_key: ConstantKey, monomorph_params: &ParamList) {
         monomorph_params.assert_monomorph();
         let monomorphs = self
             .monomorphs_for_constant
@@ -185,7 +180,9 @@ impl Monomorphizer {
                     continue;
                 }
 
-                let monomorph = facts[fact_id].value.specialize(&fact_params.params);
+                let monomorph = self.input_facts[fact_id]
+                    .value
+                    .specialize(&fact_params.params);
                 if monomorph.is_parametric() {
                     // This is a little awkward. Completely monomorphizing this instance
                     // still doesn't monomorphize the whole fact.
@@ -193,17 +190,17 @@ impl Monomorphizer {
                     continue;
                 }
                 monomorphs_for_fact.push(fact_params);
-                self.inspect_value(facts, &monomorph);
+                self.inspect_value(&monomorph);
             }
         }
     }
 
     // Make sure that we are generating any monomorphizations that are used in this value.
-    pub fn inspect_value(&mut self, facts: &[Fact], value: &AcornValue) {
+    pub fn inspect_value(&mut self, value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {
-            self.add_monomorph(facts, constant_key, &ParamList::new(params));
+            self.add_monomorph(constant_key, &ParamList::new(params));
         }
     }
 }
