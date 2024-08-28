@@ -97,8 +97,8 @@ struct SearchTask {
     // Zero-based line where we would insert a proof for this goal
     proof_insertion_line: u32,
 
-    // Whether the goal already has an appropriate block to put the proof in.
-    has_block: bool,
+    // Whether we need to also insert a block, if we do insert a proof.
+    insert_block: bool,
 
     // The search id set by the extenson for the original search that created this task.
     // The extension may send new searches with essentially the same parameters, that we
@@ -121,7 +121,7 @@ impl SearchTask {
             goal_range: Some(self.goal_range.clone()),
             status,
             proof_insertion_line: self.proof_insertion_line,
-            has_block: self.has_block,
+            insert_block: self.insert_block,
             id: self.id,
         }
     }
@@ -533,7 +533,7 @@ impl Backend {
             status: Arc::new(RwLock::new(status)),
             superseded,
             proof_insertion_line: goal_context.proof_insertion_line,
-            has_block: !goal_context.implicit_block(),
+            insert_block: goal_context.insert_block,
             id: params.id,
         };
 

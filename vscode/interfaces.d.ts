@@ -58,7 +58,7 @@ interface SearchResponse {
   goalName: string | null;
   goalRange: Range | null;
   proofInsertionLine: number;
-  hasBlock: boolean;
+  insertBlock: boolean;
   status: SearchStatus;
   id: number;
 }

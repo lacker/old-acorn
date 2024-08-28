@@ -211,9 +211,8 @@ pub struct SearchResponse {
     // For other blocks, we insert the proof at the beginning of the line.
     pub proof_insertion_line: u32,
 
-    // Whether the goal already has an appropriate block to put the proof in.
-    // If this is false, to create the proof we'll need to create a "by" block.
-    pub has_block: bool,
+    // Whether we need to insert a new "by" block to hold code for this proof.
+    pub insert_block: bool,
 
     // The status of the search process.
     // If it has not completed yet, this is None.
@@ -234,7 +233,7 @@ impl SearchResponse {
             goal_range: None,
             status: SearchStatus::default(),
             proof_insertion_line: 0,
-            has_block: false,
+            insert_block: false,
             id: params.id,
         }
     }

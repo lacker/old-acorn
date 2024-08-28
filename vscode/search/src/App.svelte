@@ -82,7 +82,7 @@
       uri: searchResponse.uri,
       version: searchResponse.version,
       line: searchResponse.proofInsertionLine,
-      addBlock: !searchResponse.hasBlock,
+      insertBlock: searchResponse.insertBlock,
       code: searchResponse.status.code,
     });
   }

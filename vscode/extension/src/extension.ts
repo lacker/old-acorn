@@ -160,7 +160,7 @@ class SearchPanel implements Disposable {
           message.uri,
           message.version,
           message.line,
-          message.addBlock,
+          message.insertBlock,
           message.code
         );
         return;
@@ -269,16 +269,16 @@ class SearchPanel implements Disposable {
   }
 
   // Inserts a proof at the given line.
-  // If addBlock is true, the inserted code will be wrapped in a "by" block and inserted at
+  // If insertBlock is true, the inserted code will be wrapped in a "by" block and inserted at
   // the end of the line.
-  // If addBlock is false, the inserted code will be inserted at the start of the line.
+  // If insertBlock is false, the inserted code will be inserted at the start of the line.
   // Either way, any code after the insertion will be shifted down, so that it follows
   // the inserted code.
   async insertProof(
     uri: string,
     version: number,
     line: number,
-    addBlock: boolean,
+    insertBlock: boolean,
     code: string[]
   ) {
     let parts = uri.split("/");
@@ -316,7 +316,7 @@ class SearchPanel implements Disposable {
         indentBase += tab;
         continue;
       }
-      if (lineText[i] === "}" && !addBlock) {
+      if (lineText[i] === "}" && !insertBlock) {
         // We're inserting into a block that this line closes.
         // So we want the inserted code to be more indented than this line is.
         indentBase += tab;
@@ -325,12 +325,12 @@ class SearchPanel implements Disposable {
     }
 
     let formatted = [];
-    let indentEachLine = addBlock ? indentBase + tab : indentBase;
+    let indentEachLine = insertBlock ? indentBase + tab : indentBase;
     for (let c of code) {
       formatted.push(indentEachLine + c.replace(/\t/g, tab) + "\n");
     }
 
-    if (addBlock) {
+    if (insertBlock) {
       let text = " by {\n" + formatted.join("") + indentBase + "}";
       await this.insertAtLineEnd(editor, line, text);
     } else {
