@@ -16,6 +16,7 @@ pub mod goal;
 pub mod interfaces;
 pub mod literal;
 pub mod module;
+pub mod monomorphizer;
 pub mod normalizer;
 pub mod passive_set;
 pub mod pattern_tree;
