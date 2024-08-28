@@ -122,8 +122,7 @@ impl GoalContext<'_> {
 
         assert!(props.len() == graph.monomorphs_for_prop.len());
 
-        let mut global_out = vec![];
-        let mut local_out = vec![];
+        let mut facts = vec![];
         for (i, (prop, monomorph_keys)) in
             props.into_iter().zip(graph.monomorphs_for_prop).enumerate()
         {
@@ -133,24 +132,15 @@ impl GoalContext<'_> {
                 Truthiness::Hypothetical
             };
             if monomorph_keys.is_none() {
-                if i < num_global {
-                    global_out.push(Fact::new(prop, truthiness));
-                } else {
-                    local_out.push(Fact::new(prop, truthiness));
-                }
+                facts.push(Fact::new(prop, truthiness));
                 continue;
             }
             for monomorph_key in monomorph_keys.unwrap() {
                 let fact = Fact::new(prop.specialize(&monomorph_key.params), truthiness);
-                if i < num_global {
-                    global_out.push(fact);
-                } else {
-                    local_out.push(fact);
-                }
+                facts.push(fact);
             }
         }
-        global_out.extend(local_out.into_iter());
-        global_out
+        facts
     }
 }
 
