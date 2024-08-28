@@ -129,16 +129,12 @@ impl Prover {
         };
 
         // Find the relevant facts that should be imported into this environment
-        let mut imported_props = vec![];
+        let mut facts = vec![];
         for dependency in project.all_dependencies(goal_context.module_id()) {
             let env = project.get_env(dependency).unwrap();
-            imported_props.extend(env.exported_facts());
+            facts.extend(env.exported_facts());
         }
 
-        let mut facts = vec![];
-        for prop in imported_props {
-            facts.push(Fact::new(prop.clone(), Truthiness::Factual));
-        }
         for prop in &goal_context.global_props {
             facts.push(Fact::new(prop.clone(), Truthiness::Factual));
         }

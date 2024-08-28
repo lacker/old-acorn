@@ -7,9 +7,11 @@ use crate::acorn_value::{AcornValue, BinaryOp, FunctionApplication};
 use crate::atom::AtomId;
 use crate::binding_map::{BindingMap, Stack};
 use crate::block::{Block, BlockParams, Node, NodeCursor};
+use crate::fact::Fact;
 use crate::goal::GoalContext;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
+use crate::proof_step::Truthiness;
 use crate::proposition::Proposition;
 use crate::statement::{Body, DefineStatement, LetStatement, Statement, StatementInfo};
 use crate::token::{self, Error, Token, TokenIter, TokenType};
@@ -1398,12 +1400,13 @@ impl Environment {
             }
         }
     }
+
     // Get all facts that this environment exports.
-    pub fn exported_facts(&self) -> Vec<Proposition> {
+    pub fn exported_facts(&self) -> Vec<Fact> {
         assert!(self.top_level);
-        let mut facts = Vec::new();
-        for prop in &self.nodes {
-            facts.push(prop.claim.clone());
+        let mut facts = vec![];
+        for node in &self.nodes {
+            facts.push(Fact::new(node.claim.clone(), Truthiness::Factual));
         }
         facts
     }
