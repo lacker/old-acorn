@@ -2,7 +2,7 @@
 name = "acorn"
 version = "0.1.0"
 edition = "2021"
-default-run = "debug"
+default-run = "verify"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -23,10 +23,6 @@ debug = true
 
 [[bin]]
 name = "verify"
-test = false
-
-[[bin]]
-name = "debug"
 test = false
 
 [[bin]]
