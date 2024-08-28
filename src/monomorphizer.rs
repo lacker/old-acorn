@@ -44,8 +44,11 @@ impl ParamList {
 // Doesn't include facts in order to make memory ownership easier.
 // This only handles a single parametric type.
 pub struct Monomorphizer {
+    input_facts: Vec<Fact>,
+    output_facts: Vec<Fact>,
+
     // The monomorphic types that we need/want for each proposition.
-    // Parallel to input_facts.
+    // Parallel to polymorphic_facts.
     // The entry is None if the fact is not polymorphic.
     monomorphs_for_fact: Vec<Option<Vec<ParamList>>>,
 
@@ -53,7 +56,7 @@ pub struct Monomorphizer {
     monomorphs_for_constant: HashMap<ConstantKey, Vec<ParamList>>,
 
     // Where each parametric constant is mentioned in a parametric way.
-    // Lists (fact id, params for the constant) for each occurrence.
+    // Lists (index in polymorphic facts, params for the constant) for each occurrence.
     // parametric_instances only needs to be computed once.
     parametric_instances: HashMap<ConstantKey, Vec<(usize, ParamList)>>,
 }
@@ -61,10 +64,10 @@ pub struct Monomorphizer {
 impl Monomorphizer {
     // Populates monomorphs_for_constant, and puts None vs Some([]) in the right place for
     // monomorphs_for_fact.
-    fn new(facts: &[Fact]) -> Monomorphizer {
+    fn new(input_facts: Vec<Fact>) -> Monomorphizer {
         let mut monomorphs_for_fact = vec![];
         let mut parametric_instances = HashMap::new();
-        for (i, fact) in facts.iter().enumerate() {
+        for (i, fact) in input_facts.iter().enumerate() {
             let mut instances = vec![];
             fact.value.find_parametric(&mut instances);
             if instances.is_empty() {
@@ -93,6 +96,8 @@ impl Monomorphizer {
         }
 
         Monomorphizer {
+            input_facts,
+            output_facts: vec![],
             monomorphs_for_fact,
             monomorphs_for_constant: HashMap::new(),
             parametric_instances,
@@ -101,7 +106,7 @@ impl Monomorphizer {
 
     // Do all monomorphization in one big batch.
     pub fn batch(input_facts: Vec<Fact>, goal: &Goal) -> Vec<Fact> {
-        let mut graph = Monomorphizer::new(&input_facts);
+        let mut graph = Monomorphizer::new(input_facts.clone());
 
         for fact in &input_facts {
             fact.value.validate().unwrap_or_else(|e| {
@@ -113,17 +118,18 @@ impl Monomorphizer {
 
         assert!(input_facts.len() == graph.monomorphs_for_fact.len());
 
-        let mut output_facts = vec![];
-        for (fact, monomorph_keys) in input_facts.into_iter().zip(graph.monomorphs_for_fact) {
+        for (fact, monomorph_keys) in graph.input_facts.iter().zip(graph.monomorphs_for_fact) {
             if monomorph_keys.is_none() {
-                output_facts.push(fact);
+                graph.output_facts.push(fact.clone());
                 continue;
             }
             for monomorph_key in monomorph_keys.unwrap() {
-                output_facts.push(fact.specialize(&monomorph_key.params));
+                graph
+                    .output_facts
+                    .push(fact.specialize(&monomorph_key.params));
             }
         }
-        output_facts
+        graph.output_facts
     }
 
     // Called when we realize that we need to monomorphize the constant specified by constant_key
