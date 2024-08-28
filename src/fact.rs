@@ -4,7 +4,7 @@ use crate::proof_step::Truthiness;
 use crate::proposition::{Proposition, Source, SourceType};
 
 // A fact is a proposition that we already know to be true.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Fact {
     pub value: AcornValue,
     pub source: Source,
