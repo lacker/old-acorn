@@ -139,22 +139,6 @@ impl Prover {
         p
     }
 
-    pub fn old<'a>(
-        project: &'a Project,
-        goal_context: &'a GoalContext<'a>,
-        verbose: bool,
-    ) -> Prover {
-        let mut facts = project.imported_facts(goal_context.module_id);
-        for prop in &goal_context.global_props {
-            facts.push(Fact::new(prop.clone(), Truthiness::Factual));
-        }
-        for prop in &goal_context.local_props {
-            facts.push(Fact::new(prop.clone(), Truthiness::Hypothetical));
-        }
-
-        Prover::new(project, facts, goal_context, verbose)
-    }
-
     pub fn add_fact(&mut self, fact: Fact) {
         // The sequencing should be, first add facts, then set the goal, then prove.
         assert!(!self.has_goal());
