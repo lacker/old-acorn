@@ -16,6 +16,7 @@ use crate::goal::{Goal, GoalContext};
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::literal::Literal;
 use crate::module::ModuleId;
+use crate::monomorphizer::Monomorphizer;
 use crate::normalizer::{Normalization, NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
 use crate::project::Project;
@@ -128,13 +129,24 @@ impl Prover {
         };
 
         // Find the relevant facts that should be imported into this environment
-        let mut imported_facts = vec![];
+        let mut imported_props = vec![];
         for dependency in project.all_dependencies(goal_context.module_id()) {
             let env = project.get_env(dependency).unwrap();
-            imported_facts.extend(env.exported_facts());
+            imported_props.extend(env.exported_facts());
         }
 
-        let facts = goal_context.monomorphize(imported_facts);
+        let mut facts = vec![];
+        for prop in imported_props {
+            facts.push(Fact::new(prop.clone(), Truthiness::Factual));
+        }
+        for prop in &goal_context.global_props {
+            facts.push(Fact::new(prop.clone(), Truthiness::Factual));
+        }
+        for prop in &goal_context.local_props {
+            facts.push(Fact::new(prop.clone(), Truthiness::Hypothetical));
+        }
+
+        let facts = Monomorphizer::monomorphize(facts, &goal_context.goal);
 
         // Load facts into the prover
         for fact in facts {

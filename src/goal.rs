@@ -2,10 +2,7 @@ use tower_lsp::lsp_types::Range;
 
 use crate::acorn_value::AcornValue;
 use crate::environment::Environment;
-use crate::fact::Fact;
 use crate::module::ModuleId;
-use crate::monomorphizer::Monomorphizer;
-use crate::proof_step::Truthiness;
 use crate::proposition::Proposition;
 
 #[derive(Debug, Clone)]
@@ -39,10 +36,10 @@ pub struct GoalContext<'a> {
     pub module_id: ModuleId,
 
     // Propositions in global scope, but not imported ones.
-    global_props: Vec<Proposition>,
+    pub global_props: Vec<Proposition>,
 
     // Propositions that are in a block containing this goal.
-    local_props: Vec<Proposition>,
+    pub local_props: Vec<Proposition>,
 
     // A printable name for this goal.
     pub name: String,
@@ -96,21 +93,5 @@ impl GoalContext<'_> {
 
     pub fn module_id(&self) -> ModuleId {
         self.env.module_id
-    }
-
-    // Finds all relevant monomorphizations and a list of monomorphic facts.
-    // Sometimes we need to monomorphize an imported fact, so those need to be provided.
-    pub fn monomorphize(&self, imported_props: Vec<Proposition>) -> Vec<Fact> {
-        let mut input_facts = vec![];
-        for prop in imported_props {
-            input_facts.push(Fact::new(prop, Truthiness::Factual));
-        }
-        for prop in &self.global_props {
-            input_facts.push(Fact::new(prop.clone(), Truthiness::Factual));
-        }
-        for prop in &self.local_props {
-            input_facts.push(Fact::new(prop.clone(), Truthiness::Hypothetical));
-        }
-        Monomorphizer::monomorphize(input_facts, &self.goal)
     }
 }
