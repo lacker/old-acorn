@@ -467,19 +467,6 @@ impl<'a> NodeCursor<'a> {
 
     // Get a goal context for the current node.
     pub fn goal_context(&self) -> Result<GoalContext<'a>, String> {
-        let mut global_facts = vec![];
-        let mut local_facts = vec![];
-        for (env, i) in &self.annotated_path {
-            for prop in &env.nodes[0..*i] {
-                let fact = prop.claim.clone();
-                if env.top_level {
-                    global_facts.push(fact);
-                } else {
-                    local_facts.push(fact);
-                }
-            }
-        }
-
         let node = self.current();
         if node.structural {
             return Err(format!(
@@ -489,26 +476,18 @@ impl<'a> NodeCursor<'a> {
         }
 
         if let Some(block) = &node.block {
-            // We can use the contents of the block to help prove the block goal.
-            for p in &block.env.nodes {
-                local_facts.push(p.claim.clone());
-            }
             let goal = match &block.goal {
                 Some(goal) => goal,
                 None => return Err(format!("block at {} has no goal", self)),
             };
             Ok(GoalContext::new(
                 &block.env,
-                global_facts,
-                local_facts,
                 goal.clone(),
                 block.env.last_line(),
             ))
         } else {
             return Ok(GoalContext::new(
                 self.env(),
-                global_facts,
-                local_facts,
                 Goal::Prove(node.claim.clone()),
                 node.claim.source.range.start.line,
             ));

@@ -14,8 +14,10 @@ mod prover_test {
     ) -> (Outcome, Result<Vec<String>, CodeGenError>) {
         let module_id = project.load_module(module_name).expect("load failed");
         let env = project.get_env(module_id).unwrap();
-        let goal_context = env.get_goal_context_by_name(goal_name);
-        let mut prover = Prover::old(&project, &goal_context, false);
+        let node = env.get_node_by_name(goal_name);
+        let facts = node.get_facts(project);
+        let goal_context = node.goal_context().unwrap();
+        let mut prover = Prover::new(&project, facts, &goal_context, false);
         prover.verbose = true;
         let outcome = prover.quick_search();
         if outcome == Outcome::Error {
@@ -50,9 +52,10 @@ mod prover_test {
             _ => panic!("no module"),
         };
         for node in env.iter_goals() {
+            let facts = node.get_facts(&project);
             let goal_context = node.goal_context().unwrap();
             println!("proving: {}", goal_context.name);
-            let mut prover = Prover::old(&project, &goal_context, false);
+            let mut prover = Prover::new(&project, facts, &goal_context, false);
             prover.verbose = true;
             let outcome = prover.quick_verification_search();
             if outcome != Outcome::Success {

@@ -8,7 +8,6 @@ use crate::atom::AtomId;
 use crate::binding_map::{BindingMap, Stack};
 use crate::block::{Block, BlockParams, Node, NodeCursor};
 use crate::fact::Fact;
-use crate::goal::GoalContext;
 use crate::module::ModuleId;
 use crate::project::{LoadError, Project};
 use crate::proof_step::Truthiness;
@@ -1424,12 +1423,13 @@ impl Environment {
         answer.into_iter()
     }
 
-    pub fn get_goal_context_by_name(&self, name: &str) -> GoalContext {
+    // Used for integration testing.
+    pub fn get_node_by_name(&self, name: &str) -> NodeCursor {
         let mut names = Vec::new();
         for node in self.iter_goals() {
             let context = node.goal_context().unwrap();
             if context.name == name {
-                return context;
+                return node;
             }
             names.push(context.name);
         }

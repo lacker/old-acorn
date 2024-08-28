@@ -35,12 +35,6 @@ pub struct GoalContext<'a> {
     env: &'a Environment,
     pub module_id: ModuleId,
 
-    // Propositions in global scope, but not imported ones.
-    pub global_props: Vec<Proposition>,
-
-    // Propositions that are in a block containing this goal.
-    pub local_props: Vec<Proposition>,
-
     // A printable name for this goal.
     pub name: String,
 
@@ -55,13 +49,7 @@ pub struct GoalContext<'a> {
 }
 
 impl GoalContext<'_> {
-    pub fn new(
-        env: &Environment,
-        global_props: Vec<Proposition>,
-        local_props: Vec<Proposition>,
-        goal: Goal,
-        proof_insertion_line: u32,
-    ) -> GoalContext {
+    pub fn new(env: &Environment, goal: Goal, proof_insertion_line: u32) -> GoalContext {
         let name = match &goal {
             Goal::Prove(proposition) => match proposition.name() {
                 Some(name) => name.to_string(),
@@ -75,8 +63,6 @@ impl GoalContext<'_> {
         GoalContext {
             env,
             module_id: env.module_id,
-            global_props,
-            local_props,
             name,
             goal,
             proof_insertion_line,
