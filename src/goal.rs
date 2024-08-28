@@ -7,7 +7,9 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
 use crate::environment::Environment;
+use crate::fact::Fact;
 use crate::module::ModuleId;
+use crate::proof_step::Truthiness;
 use crate::proposition::Proposition;
 
 #[derive(Debug, Clone)]
@@ -103,11 +105,8 @@ impl GoalContext<'_> {
     // Finds all relevant monomorphizations and a list of monomorphic facts.
     // Returns (global facts, local facts).
     // Sometimes we need to monomorphize an imported fact, so those need to be provided.
-    pub fn monomorphize(
-        &self,
-        imported_facts: Vec<Proposition>,
-    ) -> (Vec<Proposition>, Vec<Proposition>) {
-        let mut facts = imported_facts;
+    pub fn monomorphize(&self, imported_props: Vec<Proposition>) -> Vec<Fact> {
+        let mut facts = imported_props;
         facts.extend(self.global_facts.iter().cloned());
         let num_global = facts.len();
         facts.extend(self.local_facts.iter().cloned());
@@ -126,16 +125,21 @@ impl GoalContext<'_> {
         let mut global_out = vec![];
         let mut local_out = vec![];
         for (i, (fact, monomorph_keys)) in facts.iter().zip(graph.monomorphs_for_fact).enumerate() {
+            let truthiness = if i < num_global {
+                Truthiness::Factual
+            } else {
+                Truthiness::Hypothetical
+            };
             if monomorph_keys.is_none() {
                 if i < num_global {
-                    global_out.push(fact.clone());
+                    global_out.push(Fact::new(fact.clone(), truthiness));
                 } else {
-                    local_out.push(fact.clone());
+                    local_out.push(Fact::new(fact.clone(), truthiness));
                 }
                 continue;
             }
             for monomorph_key in monomorph_keys.unwrap() {
-                let new_fact = fact.specialize(&monomorph_key.params);
+                let new_fact = Fact::new(fact.specialize(&monomorph_key.params), truthiness);
                 if i < num_global {
                     global_out.push(new_fact);
                 } else {
@@ -143,7 +147,8 @@ impl GoalContext<'_> {
                 }
             }
         }
-        (global_out, local_out)
+        global_out.extend(local_out.into_iter());
+        global_out
     }
 }
 

@@ -134,15 +134,10 @@ impl Prover {
             imported_facts.extend(env.exported_facts());
         }
 
-        let (global_props, local_props) = goal_context.monomorphize(imported_facts);
+        let facts = goal_context.monomorphize(imported_facts);
 
         // Load facts into the prover
-        for prop in global_props {
-            let fact = Fact::new(prop, Truthiness::Factual);
-            p.add_fact(fact);
-        }
-        for fact in local_props {
-            let fact = Fact::new(fact, Truthiness::Hypothetical);
+        for fact in facts {
             p.add_fact(fact);
         }
         p.set_goal(&goal_context.goal);
