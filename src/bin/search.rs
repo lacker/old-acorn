@@ -37,7 +37,7 @@ async fn main() {
     let goal_context = node.goal_context().unwrap();
     println!("proving {} ...", goal_context.name);
     let verbose = true;
-    let mut prover = Prover::new(&project, &goal_context, verbose);
+    let mut prover = Prover::old(&project, &goal_context, verbose);
 
     loop {
         let outcome = prover.partial_search();

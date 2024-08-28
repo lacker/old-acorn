@@ -109,6 +109,7 @@ impl fmt::Display for Outcome {
 impl Prover {
     pub fn new<'a>(
         project: &'a Project,
+        facts: Vec<Fact>,
         goal_context: &'a GoalContext<'a>,
         verbose: bool,
     ) -> Prover {
@@ -128,6 +129,21 @@ impl Prover {
             non_factual_activated: 0,
         };
 
+        let facts = Monomorphizer::monomorphize(facts, &goal_context.goal);
+
+        // Load facts into the prover
+        for fact in facts {
+            p.add_fact(fact);
+        }
+        p.set_goal(&goal_context.goal);
+        p
+    }
+
+    pub fn old<'a>(
+        project: &'a Project,
+        goal_context: &'a GoalContext<'a>,
+        verbose: bool,
+    ) -> Prover {
         // Find the relevant facts that should be imported into this environment
         let mut facts = vec![];
         for dependency in project.all_dependencies(goal_context.module_id) {
@@ -142,14 +158,7 @@ impl Prover {
             facts.push(Fact::new(prop.clone(), Truthiness::Hypothetical));
         }
 
-        let facts = Monomorphizer::monomorphize(facts, &goal_context.goal);
-
-        // Load facts into the prover
-        for fact in facts {
-            p.add_fact(fact);
-        }
-        p.set_goal(&goal_context.goal);
-        p
+        Prover::new(project, facts, goal_context, verbose)
     }
 
     pub fn add_fact(&mut self, fact: Fact) {
