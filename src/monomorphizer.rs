@@ -6,12 +6,12 @@ use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
 use crate::fact::Fact;
 use crate::goal::Goal;
-// For the purposes of the goal context, we store parameter lists that correspond to
-// monomorphizations.
+
+// A parameter lists corresponds to a monomorphization.
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub struct ParamList {
+struct ParamList {
     // Sorted
-    pub params: Vec<(String, AcornType)>,
+    params: Vec<(String, AcornType)>,
 }
 
 impl fmt::Display for ParamList {
@@ -47,7 +47,7 @@ pub struct Monomorphizer {
     // The monomorphic types that we need/want for each proposition.
     // Parallel to input_facts.
     // The entry is None if the fact is not polymorphic.
-    pub monomorphs_for_fact: Vec<Option<Vec<ParamList>>>,
+    monomorphs_for_fact: Vec<Option<Vec<ParamList>>>,
 
     // Indexed by constant id
     monomorphs_for_constant: HashMap<ConstantKey, Vec<ParamList>>,
@@ -61,7 +61,7 @@ pub struct Monomorphizer {
 impl Monomorphizer {
     // Populates monomorphs_for_constant, and puts None vs Some([]) in the right place for
     // monomorphs_for_fact.
-    pub fn new(facts: &[Fact]) -> Monomorphizer {
+    fn new(facts: &[Fact]) -> Monomorphizer {
         let mut monomorphs_for_fact = vec![];
         let mut parametric_instances = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
