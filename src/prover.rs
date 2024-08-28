@@ -130,7 +130,7 @@ impl Prover {
 
         // Find the relevant facts that should be imported into this environment
         let mut facts = vec![];
-        for dependency in project.all_dependencies(goal_context.module_id()) {
+        for dependency in project.all_dependencies(goal_context.module_id) {
             let env = project.get_env(dependency).unwrap();
             facts.extend(env.exported_facts());
         }

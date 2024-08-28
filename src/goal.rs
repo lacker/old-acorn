@@ -90,8 +90,4 @@ impl GoalContext<'_> {
     pub fn implicit_block(&self) -> bool {
         self.env.implicit
     }
-
-    pub fn module_id(&self) -> ModuleId {
-        self.env.module_id
-    }
 }
