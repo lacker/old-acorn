@@ -10,6 +10,7 @@ pub mod constant_map;
 pub mod display;
 pub mod environment;
 pub mod expression;
+pub mod fact;
 pub mod fingerprint;
 pub mod goal;
 pub mod interfaces;

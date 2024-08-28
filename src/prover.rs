@@ -11,6 +11,7 @@ use crate::active_set::ActiveSet;
 use crate::binding_map::BindingMap;
 use crate::clause::Clause;
 use crate::display::DisplayClause;
+use crate::fact::Fact;
 use crate::goal::{Goal, GoalContext};
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::literal::Literal;
@@ -20,7 +21,7 @@ use crate::passive_set::PassiveSet;
 use crate::project::Project;
 use crate::proof::{Difficulty, Proof};
 use crate::proof_step::{ProofStep, ProofStepId, Rule, Truthiness};
-use crate::proposition::{Proposition, SourceType};
+use crate::proposition::SourceType;
 use crate::term::Term;
 use crate::term_graph::TermGraphContradiction;
 
@@ -133,25 +134,27 @@ impl Prover {
             imported_facts.extend(env.exported_facts());
         }
 
-        let (global_facts, local_facts) = goal_context.monomorphize(imported_facts);
+        let (global_props, local_props) = goal_context.monomorphize(imported_facts);
 
         // Load facts into the prover
-        for fact in global_facts {
-            p.add_fact(fact, Truthiness::Factual);
+        for prop in global_props {
+            let fact = Fact::new(prop, Truthiness::Factual);
+            p.add_fact(fact);
         }
-        for fact in local_facts {
-            p.add_fact(fact, Truthiness::Hypothetical);
+        for fact in local_props {
+            let fact = Fact::new(fact, Truthiness::Hypothetical);
+            p.add_fact(fact);
         }
         p.set_goal(&goal_context.goal);
         p
     }
 
-    pub fn add_fact(&mut self, assumption: Proposition, truthiness: Truthiness) {
+    pub fn add_fact(&mut self, fact: Fact) {
         // The sequencing should be, first add facts, then set the goal, then prove.
         assert!(!self.has_goal());
 
-        let local = truthiness != Truthiness::Factual;
-        let defined_atom = match &assumption.source.source_type {
+        let local = fact.local();
+        let defined_atom = match &fact.source.source_type {
             SourceType::ConstantDefinition(value) => {
                 match self.normalizer.term_from_value(&value, local) {
                     Ok(term) => Some(term.get_head().clone()),
@@ -163,14 +166,14 @@ impl Prover {
             }
             _ => None,
         };
-        let clauses = match self.normalize_proposition(assumption.value, local) {
+        let clauses = match self.normalize_proposition(fact.value, local) {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
                 // We have a false assumption, so we're done already.
                 let final_step = ProofStep::new_assumption(
                     Clause::impossible(),
-                    truthiness,
-                    &assumption.source,
+                    fact.truthiness,
+                    &fact.source,
                     None,
                 );
                 self.report_contradiction(final_step);
@@ -183,7 +186,7 @@ impl Prover {
         };
         for clause in clauses {
             let step =
-                ProofStep::new_assumption(clause, truthiness, &assumption.source, defined_atom);
+                ProofStep::new_assumption(clause, fact.truthiness, &fact.source, defined_atom);
             self.passive_set.push(step);
         }
     }
@@ -200,12 +203,12 @@ impl Prover {
                 // Negate the goal and add it as a counterfactual assumption.
                 let (hypo, counter) = prop.value.to_placeholder().negate_goal();
                 if let Some(hypo) = hypo {
-                    self.add_fact(prop.with_value(hypo), Truthiness::Hypothetical);
+                    self.add_fact(Fact::new(prop.with_value(hypo), Truthiness::Hypothetical));
                 }
-                self.add_fact(
+                self.add_fact(Fact::new(
                     prop.with_negated_goal(counter.clone()),
                     Truthiness::Counterfactual,
-                );
+                ));
                 self.negated_goal = Some(counter);
             }
             Goal::Solve(value, _) => match self.normalizer.term_from_value(value, true) {
