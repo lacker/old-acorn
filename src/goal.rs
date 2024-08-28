@@ -42,11 +42,11 @@ pub struct GoalContext<'a> {
     env: &'a Environment,
     pub module_id: ModuleId,
 
-    // Facts that occur outside any block, before this goal.
-    global_facts: Vec<Proposition>,
+    // Propositions in global scope, but not imported ones.
+    global_props: Vec<Proposition>,
 
-    // Facts that are in a block containing this goal.
-    local_facts: Vec<Proposition>,
+    // Propositions that are in a block containing this goal.
+    local_props: Vec<Proposition>,
 
     // A printable name for this goal.
     pub name: String,
@@ -64,8 +64,8 @@ pub struct GoalContext<'a> {
 impl GoalContext<'_> {
     pub fn new(
         env: &Environment,
-        global_facts: Vec<Proposition>,
-        local_facts: Vec<Proposition>,
+        global_props: Vec<Proposition>,
+        local_props: Vec<Proposition>,
         goal: Goal,
         proof_insertion_line: u32,
     ) -> GoalContext {
@@ -82,8 +82,8 @@ impl GoalContext<'_> {
         GoalContext {
             env,
             module_id: env.module_id,
-            global_facts,
-            local_facts,
+            global_props,
+            local_props,
             name,
             goal,
             proof_insertion_line,
@@ -106,25 +106,27 @@ impl GoalContext<'_> {
     // Returns (global facts, local facts).
     // Sometimes we need to monomorphize an imported fact, so those need to be provided.
     pub fn monomorphize(&self, imported_props: Vec<Proposition>) -> Vec<Fact> {
-        let mut facts = imported_props;
-        facts.extend(self.global_facts.iter().cloned());
-        let num_global = facts.len();
-        facts.extend(self.local_facts.iter().cloned());
-        let mut graph = DependencyGraph::new(&facts);
+        let mut props = imported_props;
+        props.extend(self.global_props.iter().cloned());
+        let num_global = props.len();
+        props.extend(self.local_props.iter().cloned());
+        let mut graph = DependencyGraph::new(&props);
 
-        for fact in &facts {
-            fact.value.validate().unwrap_or_else(|e| {
-                panic!("bad fact: {} ({})", &fact.value, e);
+        for prop in &props {
+            prop.value.validate().unwrap_or_else(|e| {
+                panic!("bad fact: {} ({})", &prop.value, e);
             });
-            graph.inspect_value(&facts, &fact.value);
+            graph.inspect_value(&props, &prop.value);
         }
-        graph.inspect_value(&facts, &self.goal.value());
+        graph.inspect_value(&props, &self.goal.value());
 
-        assert!(facts.len() == graph.monomorphs_for_fact.len());
+        assert!(props.len() == graph.monomorphs_for_prop.len());
 
         let mut global_out = vec![];
         let mut local_out = vec![];
-        for (i, (fact, monomorph_keys)) in facts.iter().zip(graph.monomorphs_for_fact).enumerate() {
+        for (i, (prop, monomorph_keys)) in
+            props.into_iter().zip(graph.monomorphs_for_prop).enumerate()
+        {
             let truthiness = if i < num_global {
                 Truthiness::Factual
             } else {
@@ -132,18 +134,18 @@ impl GoalContext<'_> {
             };
             if monomorph_keys.is_none() {
                 if i < num_global {
-                    global_out.push(Fact::new(fact.clone(), truthiness));
+                    global_out.push(Fact::new(prop, truthiness));
                 } else {
-                    local_out.push(Fact::new(fact.clone(), truthiness));
+                    local_out.push(Fact::new(prop, truthiness));
                 }
                 continue;
             }
             for monomorph_key in monomorph_keys.unwrap() {
-                let new_fact = Fact::new(fact.specialize(&monomorph_key.params), truthiness);
+                let fact = Fact::new(prop.specialize(&monomorph_key.params), truthiness);
                 if i < num_global {
-                    global_out.push(new_fact);
+                    global_out.push(fact);
                 } else {
-                    local_out.push(new_fact);
+                    local_out.push(fact);
                 }
             }
         }
@@ -193,7 +195,7 @@ struct DependencyGraph {
     // The monomorphic types that we need/want for each fact.
     // Parallel to facts.
     // The entry is None if the fact is not polymorphic.
-    monomorphs_for_fact: Vec<Option<Vec<ParamList>>>,
+    monomorphs_for_prop: Vec<Option<Vec<ParamList>>>,
 
     // Indexed by constant id
     monomorphs_for_constant: HashMap<ConstantKey, Vec<ParamList>>,
@@ -239,7 +241,7 @@ impl DependencyGraph {
         }
 
         DependencyGraph {
-            monomorphs_for_fact,
+            monomorphs_for_prop: monomorphs_for_fact,
             monomorphs_for_constant: HashMap::new(),
             parametric_instances,
         }
@@ -290,7 +292,7 @@ impl DependencyGraph {
                 fact_params.sort();
                 let fact_params = ParamList::new(fact_params);
 
-                let monomorphs_for_fact = self.monomorphs_for_fact[fact_id]
+                let monomorphs_for_fact = self.monomorphs_for_prop[fact_id]
                     .as_mut()
                     .expect("Should have been Some");
                 if monomorphs_for_fact.contains(&fact_params) {
