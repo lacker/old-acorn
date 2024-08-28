@@ -4,7 +4,7 @@ use crate::acorn_value::AcornValue;
 use crate::environment::Environment;
 use crate::fact::Fact;
 use crate::module::ModuleId;
-use crate::monomorphizer::DependencyGraph;
+use crate::monomorphizer::Monomorphizer;
 use crate::proof_step::Truthiness;
 use crate::proposition::Proposition;
 
@@ -106,7 +106,7 @@ impl GoalContext<'_> {
         props.extend(self.global_props.iter().cloned());
         let num_global = props.len();
         props.extend(self.local_props.iter().cloned());
-        let mut graph = DependencyGraph::new(&props);
+        let mut graph = Monomorphizer::new(&props);
 
         for prop in &props {
             prop.value.validate().unwrap_or_else(|e| {

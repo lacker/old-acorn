@@ -43,7 +43,7 @@ impl ParamList {
 // A helper structure to determine which monomorphs are necessary.
 // Doesn't include facts in order to make memory ownership easier.
 // This only handles a single parametric type.
-pub struct DependencyGraph {
+pub struct Monomorphizer {
     // The monomorphic types that we need/want for each fact.
     // Parallel to facts.
     // The entry is None if the fact is not polymorphic.
@@ -58,11 +58,11 @@ pub struct DependencyGraph {
     parametric_instances: HashMap<ConstantKey, Vec<(usize, ParamList)>>,
 }
 
-impl DependencyGraph {
-    // Populates facts_for_constant, and puts None vs Some([]) in the right place for
-    // monomorphs_for_fact.
-    pub fn new(facts: &[Proposition]) -> DependencyGraph {
-        let mut monomorphs_for_fact = vec![];
+impl Monomorphizer {
+    // Populates monomorphs_for_constant, and puts None vs Some([]) in the right place for
+    // monomorphs_for_prop.
+    pub fn new(facts: &[Proposition]) -> Monomorphizer {
+        let mut monomorphs_for_prop = vec![];
         let mut parametric_instances = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
             let mut instances = vec![];
@@ -74,15 +74,15 @@ impl DependencyGraph {
                         // It could be something trivial and purely propositional, like
                         // forall(x: T) { x = x }
                         // Just skip it.
-                        monomorphs_for_fact.push(Some(vec![]));
+                        monomorphs_for_prop.push(Some(vec![]));
                         continue;
                     }
                 }
 
-                monomorphs_for_fact.push(None);
+                monomorphs_for_prop.push(None);
                 continue;
             }
-            monomorphs_for_fact.push(Some(vec![]));
+            monomorphs_for_prop.push(Some(vec![]));
             for (constant_key, params) in instances {
                 let params = ParamList::new(params);
                 parametric_instances
@@ -92,8 +92,8 @@ impl DependencyGraph {
             }
         }
 
-        DependencyGraph {
-            monomorphs_for_prop: monomorphs_for_fact,
+        Monomorphizer {
+            monomorphs_for_prop,
             monomorphs_for_constant: HashMap::new(),
             parametric_instances,
         }
