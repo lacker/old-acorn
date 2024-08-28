@@ -99,7 +99,6 @@ impl GoalContext<'_> {
     }
 
     // Finds all relevant monomorphizations and a list of monomorphic facts.
-    // Returns (global facts, local facts).
     // Sometimes we need to monomorphize an imported fact, so those need to be provided.
     pub fn monomorphize(&self, imported_props: Vec<Proposition>) -> Vec<Fact> {
         let mut props = imported_props;
