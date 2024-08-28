@@ -161,7 +161,7 @@ impl Prover {
             }
             _ => None,
         };
-        let clauses = match self.normalize_proposition(fact.value, local) {
+        let clauses = match self.normalize_proposition(&fact.value, local) {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
                 // We have a false assumption, so we're done already.
@@ -217,7 +217,7 @@ impl Prover {
         }
     }
 
-    fn normalize_proposition(&mut self, proposition: AcornValue, local: bool) -> Normalization {
+    fn normalize_proposition(&mut self, proposition: &AcornValue, local: bool) -> Normalization {
         if let Err(e) = proposition.validate() {
             return Normalization::Error(format!(
                 "validation error: {} while normalizing: {}",

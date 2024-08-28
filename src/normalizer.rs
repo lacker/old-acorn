@@ -341,7 +341,7 @@ impl Normalizer {
 
     // Converts a value to CNF, then to a Normalization.
     // Does not handle the "definition" sorts of values.
-    fn convert_then_normalize(&mut self, value: AcornValue, local: bool) -> Normalization {
+    fn convert_then_normalize(&mut self, value: &AcornValue, local: bool) -> Normalization {
         // println!("\nnormalizing: {}", value);
         let value = value.replace_function_equality(0);
         let value = value.expand_lambdas(0);
@@ -355,7 +355,7 @@ impl Normalizer {
     }
 
     // Converts a value to CNF.
-    pub fn normalize(&mut self, value: AcornValue, local: bool) -> Normalization {
+    pub fn normalize(&mut self, value: &AcornValue, local: bool) -> Normalization {
         if let AcornValue::Binary(BinaryOp::Equals, left, right) = &value {
             // Check for defining one constant to equal another constant.
             if let AcornValue::Constant(left_module, left_name, _, _) = left.as_ref() {
@@ -500,7 +500,7 @@ impl Normalizer {
         denormalized
             .validate()
             .expect("denormalized clause should validate");
-        let renormalized = self.normalize(denormalized.clone(), true).expect_clauses();
+        let renormalized = self.normalize(&denormalized, true).expect_clauses();
         if renormalized.len() != 1 {
             println!("original clause: {}", clause);
             println!("denormalized: {}", denormalized);
@@ -512,7 +512,7 @@ impl Normalizer {
         assert_eq!(clause, &renormalized[0]);
     }
 
-    fn check_value(&mut self, value: AcornValue, expected: &[&str]) {
+    fn check_value(&mut self, value: &AcornValue, expected: &[&str]) {
         let actual = self.normalize(value, true).expect_clauses();
         if actual.len() != expected.len() {
             panic!(
@@ -545,7 +545,7 @@ impl Normalizer {
             Some(val) => val,
             None => panic!("no value named {}", name),
         };
-        self.check_value(val, expected);
+        self.check_value(&val, expected);
     }
 }
 
