@@ -101,40 +101,38 @@ impl GoalContext<'_> {
     // Finds all relevant monomorphizations and a list of monomorphic facts.
     // Sometimes we need to monomorphize an imported fact, so those need to be provided.
     pub fn monomorphize(&self, imported_props: Vec<Proposition>) -> Vec<Fact> {
-        let mut props = imported_props;
-        props.extend(self.global_props.iter().cloned());
-        let num_global = props.len();
-        props.extend(self.local_props.iter().cloned());
-        let mut graph = Monomorphizer::new(&props);
-
-        for prop in &props {
-            prop.value.validate().unwrap_or_else(|e| {
-                panic!("bad fact: {} ({})", &prop.value, e);
-            });
-            graph.inspect_value(&props, &prop.value);
+        let mut input_facts = vec![];
+        for prop in imported_props {
+            input_facts.push(Fact::new(prop, Truthiness::Factual));
         }
-        graph.inspect_value(&props, &self.goal.value());
+        for prop in &self.global_props {
+            input_facts.push(Fact::new(prop.clone(), Truthiness::Factual));
+        }
+        for prop in &self.local_props {
+            input_facts.push(Fact::new(prop.clone(), Truthiness::Hypothetical));
+        }
+        let mut graph = Monomorphizer::new(&input_facts);
 
-        assert!(props.len() == graph.monomorphs_for_prop.len());
+        for fact in &input_facts {
+            fact.value.validate().unwrap_or_else(|e| {
+                panic!("bad fact: {} ({})", &fact.value, e);
+            });
+            graph.inspect_value(&input_facts, &fact.value);
+        }
+        graph.inspect_value(&input_facts, &self.goal.value());
 
-        let mut facts = vec![];
-        for (i, (prop, monomorph_keys)) in
-            props.into_iter().zip(graph.monomorphs_for_prop).enumerate()
-        {
-            let truthiness = if i < num_global {
-                Truthiness::Factual
-            } else {
-                Truthiness::Hypothetical
-            };
+        assert!(input_facts.len() == graph.monomorphs_for_fact.len());
+
+        let mut output_facts = vec![];
+        for (fact, monomorph_keys) in input_facts.into_iter().zip(graph.monomorphs_for_fact) {
             if monomorph_keys.is_none() {
-                facts.push(Fact::new(prop, truthiness));
+                output_facts.push(fact);
                 continue;
             }
             for monomorph_key in monomorph_keys.unwrap() {
-                let fact = Fact::new(prop.specialize(&monomorph_key.params), truthiness);
-                facts.push(fact);
+                output_facts.push(fact.specialize(&monomorph_key.params));
             }
         }
-        facts
+        output_facts
     }
 }

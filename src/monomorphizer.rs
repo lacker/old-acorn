@@ -4,8 +4,7 @@ use std::fmt;
 use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
-use crate::proposition::Proposition;
-
+use crate::fact::Fact;
 // For the purposes of the goal context, we store parameter lists that correspond to
 // monomorphizations.
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -44,10 +43,10 @@ impl ParamList {
 // Doesn't include facts in order to make memory ownership easier.
 // This only handles a single parametric type.
 pub struct Monomorphizer {
-    // The monomorphic types that we need/want for each fact.
-    // Parallel to facts.
+    // The monomorphic types that we need/want for each proposition.
+    // Parallel to input_facts.
     // The entry is None if the fact is not polymorphic.
-    pub monomorphs_for_prop: Vec<Option<Vec<ParamList>>>,
+    pub monomorphs_for_fact: Vec<Option<Vec<ParamList>>>,
 
     // Indexed by constant id
     monomorphs_for_constant: HashMap<ConstantKey, Vec<ParamList>>,
@@ -60,9 +59,9 @@ pub struct Monomorphizer {
 
 impl Monomorphizer {
     // Populates monomorphs_for_constant, and puts None vs Some([]) in the right place for
-    // monomorphs_for_prop.
-    pub fn new(facts: &[Proposition]) -> Monomorphizer {
-        let mut monomorphs_for_prop = vec![];
+    // monomorphs_for_fact.
+    pub fn new(facts: &[Fact]) -> Monomorphizer {
+        let mut monomorphs_for_fact = vec![];
         let mut parametric_instances = HashMap::new();
         for (i, fact) in facts.iter().enumerate() {
             let mut instances = vec![];
@@ -74,15 +73,15 @@ impl Monomorphizer {
                         // It could be something trivial and purely propositional, like
                         // forall(x: T) { x = x }
                         // Just skip it.
-                        monomorphs_for_prop.push(Some(vec![]));
+                        monomorphs_for_fact.push(Some(vec![]));
                         continue;
                     }
                 }
 
-                monomorphs_for_prop.push(None);
+                monomorphs_for_fact.push(None);
                 continue;
             }
-            monomorphs_for_prop.push(Some(vec![]));
+            monomorphs_for_fact.push(Some(vec![]));
             for (constant_key, params) in instances {
                 let params = ParamList::new(params);
                 parametric_instances
@@ -93,7 +92,7 @@ impl Monomorphizer {
         }
 
         Monomorphizer {
-            monomorphs_for_prop,
+            monomorphs_for_fact,
             monomorphs_for_constant: HashMap::new(),
             parametric_instances,
         }
@@ -103,7 +102,7 @@ impl Monomorphizer {
     // using the types in monomorph_key.
     fn add_monomorph(
         &mut self,
-        facts: &[Proposition],
+        facts: &[Fact],
         constant_key: ConstantKey,
         monomorph_params: &ParamList,
     ) {
@@ -144,7 +143,7 @@ impl Monomorphizer {
                 fact_params.sort();
                 let fact_params = ParamList::new(fact_params);
 
-                let monomorphs_for_fact = self.monomorphs_for_prop[fact_id]
+                let monomorphs_for_fact = self.monomorphs_for_fact[fact_id]
                     .as_mut()
                     .expect("Should have been Some");
                 if monomorphs_for_fact.contains(&fact_params) {
@@ -166,7 +165,7 @@ impl Monomorphizer {
     }
 
     // Make sure that we are generating any monomorphizations that are used in this value.
-    pub fn inspect_value(&mut self, facts: &[Proposition], value: &AcornValue) {
+    pub fn inspect_value(&mut self, facts: &[Fact], value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {
