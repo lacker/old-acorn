@@ -30,7 +30,7 @@ impl Goal {
     }
 }
 
-// A goal and the information that can be used to achieve it.
+// A goal along with some information related to it.
 pub struct GoalContext<'a> {
     env: &'a Environment,
     pub module_id: ModuleId,

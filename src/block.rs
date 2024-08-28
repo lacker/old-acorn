@@ -7,8 +7,10 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::{AcornValue, BinaryOp};
 use crate::atom::AtomId;
 use crate::environment::{Environment, LineType};
+use crate::fact::Fact;
 use crate::goal::{Goal, GoalContext};
 use crate::project::Project;
+use crate::proof_step::Truthiness;
 use crate::proposition::Proposition;
 use crate::statement::Body;
 use crate::token::{self, Error, Token};
@@ -437,6 +439,30 @@ impl<'a> NodeCursor<'a> {
     pub fn ascend(&mut self) {
         assert!(self.can_ascend());
         self.annotated_path.pop();
+    }
+
+    // All facts from the current module that can be used to prove the current node.
+    // In particular this does not include imported facts.
+    pub fn get_facts(&self) -> Vec<Fact> {
+        let mut facts = vec![];
+        for (env, i) in &self.annotated_path {
+            for prop in &env.nodes[0..*i] {
+                let truthiness = if env.top_level {
+                    Truthiness::Factual
+                } else {
+                    Truthiness::Hypothetical
+                };
+                facts.push(Fact::new(prop.claim.clone(), truthiness));
+            }
+        }
+
+        if let Some(block) = &self.current().block {
+            for p in &block.env.nodes {
+                facts.push(Fact::new(p.claim.clone(), Truthiness::Hypothetical));
+            }
+        }
+
+        facts
     }
 
     // Get a goal context for the current node.
