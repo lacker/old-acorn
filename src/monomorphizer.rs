@@ -196,7 +196,7 @@ impl Monomorphizer {
     }
 
     // Make sure that we are generating any monomorphizations that are used in this value.
-    pub fn inspect_value(&mut self, value: &AcornValue) {
+    fn inspect_value(&mut self, value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {
