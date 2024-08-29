@@ -132,12 +132,17 @@ impl Prover {
             negated_goal: None,
             non_factual_activated: 0,
         };
+
+        // Fact ingestion
         for fact in facts {
             p.monomorphizer.add_fact(fact);
         }
-        p.monomorphizer.match_monomorphs(&goal_context.goal.value());
+        for fact in p.monomorphizer.take_facts() {
+            p.add_monomorphic_fact(fact);
+        }
 
-        // Load facts into the prover
+        // Goal handling
+        p.monomorphizer.match_monomorphs(&goal_context.goal.value());
         for fact in p.monomorphizer.take_facts() {
             p.add_monomorphic_fact(fact);
         }
