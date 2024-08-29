@@ -50,10 +50,9 @@ pub struct Monomorphizer {
     // Facts that are fully monomorphized.
     monomorphic_facts: Vec<Fact>,
 
-    // The monomorphic types that we need/want for each proposition.
-    // Parallel to input_facts.
-    // The entry is None if the fact is not polymorphic.
-    monomorphs_for_fact: Vec<Option<Vec<ParamList>>>,
+    // The parameters we use to monomorphize each fact.
+    // Parallel to polymorphic_facts.
+    monomorphs_for_fact: Vec<Vec<ParamList>>,
 
     // Indexed by constant id
     monomorphs_for_constant: HashMap<ConstantKey, Vec<ParamList>>,
@@ -103,7 +102,7 @@ impl Monomorphizer {
         }
 
         self.polymorphic_facts.push(fact);
-        self.monomorphs_for_fact.push(Some(vec![]));
+        self.monomorphs_for_fact.push(vec![]);
         for (constant_key, params) in instances {
             let params = ParamList::new(params);
             self.parametric_instances
@@ -132,11 +131,7 @@ impl Monomorphizer {
             .iter()
             .zip(graph.monomorphs_for_fact)
         {
-            if monomorph_keys.is_none() {
-                graph.monomorphic_facts.push(fact.clone());
-                continue;
-            }
-            for monomorph_key in monomorph_keys.unwrap() {
+            for monomorph_key in monomorph_keys {
                 graph
                     .monomorphic_facts
                     .push(fact.specialize(&monomorph_key.params));
@@ -185,10 +180,7 @@ impl Monomorphizer {
                 fact_params.sort();
                 let fact_params = ParamList::new(fact_params);
 
-                let monomorphs_for_fact = self.monomorphs_for_fact[fact_id]
-                    .as_mut()
-                    .expect("Should have been Some");
-                if monomorphs_for_fact.contains(&fact_params) {
+                if self.monomorphs_for_fact[fact_id].contains(&fact_params) {
                     // We already have this monomorph
                     continue;
                 }
@@ -202,7 +194,7 @@ impl Monomorphizer {
                     // TODO: instead of bailing out, partially monomorphize, and continue.
                     continue;
                 }
-                monomorphs_for_fact.push(fact_params);
+                self.monomorphs_for_fact[fact_id].push(fact_params);
                 self.inspect_value(&monomorph);
             }
         }
