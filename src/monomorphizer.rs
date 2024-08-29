@@ -7,7 +7,7 @@ use crate::constant_map::ConstantKey;
 use crate::fact::Fact;
 use crate::goal::Goal;
 
-// A parameter lists corresponds to a monomorphization.
+// A parameter list corresponds to a monomorphization.
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct ParamList {
     // Sorted
@@ -68,18 +68,14 @@ pub struct Monomorphizer {
 impl Monomorphizer {
     // Populates monomorphs_for_constant, and puts None vs Some([]) in the right place for
     // monomorphs_for_fact.
-    fn new(input_facts: Vec<Fact>) -> Monomorphizer {
-        let mut m = Monomorphizer {
+    fn new() -> Monomorphizer {
+        Monomorphizer {
             polymorphic_facts: vec![],
             monomorphic_facts: vec![],
             monomorphs_for_fact: vec![],
             monomorphs_for_constant: HashMap::new(),
             polymorphic_instances: HashMap::new(),
-        };
-        for fact in input_facts {
-            m.add_fact(fact);
         }
-        m
     }
 
     // Adds a fact that could be either polymorphic or monomorphic.
@@ -130,11 +126,12 @@ impl Monomorphizer {
 
     // Do all monomorphization in one big batch.
     pub fn batch(input_facts: Vec<Fact>, goal: &Goal) -> Vec<Fact> {
-        let mut graph = Monomorphizer::new(input_facts.clone());
-
-        graph.match_monomorphs(&goal.value());
-
-        graph.monomorphic_facts
+        let mut m = Monomorphizer::new();
+        for fact in input_facts {
+            m.add_fact(fact);
+        }
+        m.match_monomorphs(&goal.value());
+        m.monomorphic_facts
     }
 
     // Monomorphizes a polymorphic constant.
