@@ -124,19 +124,6 @@ impl Monomorphizer {
         }
         graph.inspect_value(&goal.value());
 
-        assert!(graph.polymorphic_facts.len() == graph.monomorphs_for_fact.len());
-
-        for (fact, monomorph_keys) in graph
-            .polymorphic_facts
-            .iter()
-            .zip(graph.monomorphs_for_fact)
-        {
-            for monomorph_key in monomorph_keys {
-                graph
-                    .monomorphic_facts
-                    .push(fact.specialize(&monomorph_key.params));
-            }
-        }
         graph.monomorphic_facts
     }
 
@@ -185,17 +172,17 @@ impl Monomorphizer {
                     continue;
                 }
 
-                let monomorph = self.polymorphic_facts[fact_id]
-                    .value
-                    .specialize(&fact_params.params);
-                if monomorph.is_parametric() {
+                let monomorphic_fact =
+                    self.polymorphic_facts[fact_id].specialize(&fact_params.params);
+                if monomorphic_fact.value.is_parametric() {
                     // This is a little awkward. Completely monomorphizing this instance
                     // still doesn't monomorphize the whole fact.
                     // TODO: instead of bailing out, partially monomorphize, and continue.
                     continue;
                 }
                 self.monomorphs_for_fact[fact_id].push(fact_params);
-                self.inspect_value(&monomorph);
+                self.inspect_value(&monomorphic_fact.value);
+                self.monomorphic_facts.push(monomorphic_fact);
             }
         }
     }
