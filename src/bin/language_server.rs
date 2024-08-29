@@ -149,7 +149,7 @@ impl SearchTask {
             let status = match outcome {
                 Outcome::Success => {
                     let proof = prover.get_proof().unwrap();
-                    let steps = prover.to_proof_info(&project, &proof);
+                    let steps = prover.to_proof_info(&project, &env.bindings, &proof);
 
                     let (code, error) = match proof.to_code(&env.bindings) {
                         Ok(code) => (Some(code), None),
@@ -571,7 +571,13 @@ impl Backend {
         }
         let project = self.project.read().await;
         let prover = task.prover.read().await;
-        let result = prover.info_result(&project, params.clause_id);
+        let env = match project.get_env_by_name(&task.module_name) {
+            Some(env) => env,
+            None => {
+                return self.info_fail(params, "no environment available");
+            }
+        };
+        let result = prover.info_result(&project, &env.bindings, params.clause_id);
         let failure = match result {
             Some(_) => None,
             None => Some(format!("no info available for clause {}", params.clause_id)),

@@ -15,7 +15,6 @@ use crate::fact::Fact;
 use crate::goal::{Goal, GoalContext};
 use crate::interfaces::{ClauseInfo, InfoResult, Location, ProofStepInfo};
 use crate::literal::Literal;
-use crate::module::ModuleId;
 use crate::monomorphizer::Monomorphizer;
 use crate::normalizer::{Normalization, NormalizationError, Normalizer};
 use crate::passive_set::PassiveSet;
@@ -27,8 +26,6 @@ use crate::term::Term;
 use crate::term_graph::TermGraphContradiction;
 
 pub struct Prover {
-    module_id: ModuleId,
-
     // The normalizer is used when we are turning the facts and goals from the environment into
     // clauses that we can use internally.
     normalizer: Normalizer,
@@ -118,7 +115,6 @@ impl Prover {
         let mut p = Prover {
             normalizer: Normalizer::new(),
             monomorphizer: Monomorphizer::new(),
-            module_id: goal_context.module_id,
             active_set: ActiveSet::new(),
             passive_set: PassiveSet::new(),
             verbose,
@@ -728,13 +724,10 @@ impl Prover {
     }
 
     // Attempts to convert this clause to code, but shows the clause form if that's all we can.
-    fn clause_to_code(&self, bindings: Option<&BindingMap>, clause: &Clause) -> String {
-        if let Some(bindings) = bindings {
-            let denormalized = self.normalizer.denormalize(clause);
-
-            if let Ok(code) = bindings.value_to_code(&denormalized) {
-                return code;
-            }
+    fn clause_to_code(&self, bindings: &BindingMap, clause: &Clause) -> String {
+        let denormalized = self.normalizer.denormalize(clause);
+        if let Ok(code) = bindings.value_to_code(&denormalized) {
+            return code;
         }
         self.display(clause).to_string()
     }
@@ -744,7 +737,7 @@ impl Prover {
     // If we are given a binding map, use it to make a nicer-looking display.
     pub fn to_clause_info(
         &self,
-        bindings: Option<&BindingMap>,
+        bindings: &BindingMap,
         id: Option<usize>,
         clause: &Clause,
     ) -> ClauseInfo {
@@ -759,10 +752,10 @@ impl Prover {
     fn to_proof_step_info(
         &self,
         project: &Project,
+        bindings: &BindingMap,
         active_id: Option<usize>,
         step: &ProofStep,
     ) -> ProofStepInfo {
-        let bindings = project.get_env(self.module_id).map(|env| &env.bindings);
         let clause = self.to_clause_info(bindings, active_id, &step.clause);
         let mut premises = vec![];
         for (description, id) in self.descriptive_dependencies(&step) {
@@ -793,22 +786,33 @@ impl Prover {
         }
     }
 
-    pub fn to_proof_info(&self, project: &Project, proof: &Proof) -> Vec<ProofStepInfo> {
+    pub fn to_proof_info(
+        &self,
+        project: &Project,
+        bindings: &BindingMap,
+        proof: &Proof,
+    ) -> Vec<ProofStepInfo> {
         let mut result = vec![];
         for (step_id, step) in &proof.all_steps {
-            result.push(self.to_proof_step_info(project, step_id.active_id(), step));
+            result.push(self.to_proof_step_info(project, bindings, step_id.active_id(), step));
         }
         result
     }
 
     // Generates information about a clause in jsonable format.
     // Returns None if we don't have any information about this clause.
-    pub fn info_result(&self, project: &Project, id: usize) -> Option<InfoResult> {
+    pub fn info_result(
+        &self,
+        project: &Project,
+        bindings: &BindingMap,
+        id: usize,
+    ) -> Option<InfoResult> {
         // Information for the step that proved this clause
         if !self.active_set.has_step(id) {
             return None;
         }
-        let step = self.to_proof_step_info(project, Some(id), self.active_set.get_step(id));
+        let step =
+            self.to_proof_step_info(project, bindings, Some(id), self.active_set.get_step(id));
         let mut consequences = vec![];
         let mut num_consequences = 0;
         let limit = 100;
@@ -816,7 +820,7 @@ impl Prover {
         // Check if the final step is a consequence of this clause
         if let Some(final_step) = &self.final_step {
             if final_step.depends_on_active(id) {
-                consequences.push(self.to_proof_step_info(project, None, &final_step));
+                consequences.push(self.to_proof_step_info(project, bindings, None, &final_step));
                 num_consequences += 1;
             }
         }
@@ -824,7 +828,7 @@ impl Prover {
         // Check the active set for consequences
         for (i, step) in self.active_set.find_consequences(id) {
             if consequences.len() < limit {
-                consequences.push(self.to_proof_step_info(project, Some(i), step));
+                consequences.push(self.to_proof_step_info(project, bindings, Some(i), step));
             }
             num_consequences += 1;
         }
@@ -832,7 +836,7 @@ impl Prover {
         // Check the passive set for consequences
         for step in self.passive_set.find_consequences(id) {
             if consequences.len() < limit {
-                consequences.push(self.to_proof_step_info(project, None, step));
+                consequences.push(self.to_proof_step_info(project, bindings, None, step));
             }
             num_consequences += 1;
         }
