@@ -127,20 +127,6 @@ impl Prover {
         }
     }
 
-    pub fn batch(
-        project: &Project,
-        facts: Vec<Fact>,
-        goal_context: &GoalContext,
-        verbose: bool,
-    ) -> Prover {
-        let mut p = Prover::new(project, verbose);
-        for fact in facts {
-            p.add_fact(fact);
-        }
-        p.set_goal(&goal_context);
-        p
-    }
-
     // Add a fact to the prover.
     // The fact can be either polymorphic or monomorphic.
     pub fn add_fact(&mut self, fact: Fact) {

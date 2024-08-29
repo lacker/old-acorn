@@ -17,7 +17,11 @@ mod prover_test {
         let node = env.get_node_by_name(goal_name);
         let facts = node.get_facts(project);
         let goal_context = node.goal_context().unwrap();
-        let mut prover = Prover::batch(&project, facts, &goal_context, false);
+        let mut prover = Prover::new(&project, false);
+        for fact in facts {
+            prover.add_fact(fact);
+        }
+        prover.set_goal(&goal_context);
         prover.verbose = true;
         let outcome = prover.quick_search();
         if outcome == Outcome::Error {
@@ -55,7 +59,11 @@ mod prover_test {
             let facts = node.get_facts(&project);
             let goal_context = node.goal_context().unwrap();
             println!("proving: {}", goal_context.name);
-            let mut prover = Prover::batch(&project, facts, &goal_context, false);
+            let mut prover = Prover::new(&project, false);
+            for fact in facts {
+                prover.add_fact(fact);
+            }
+            prover.set_goal(&goal_context);
             prover.verbose = true;
             let outcome = prover.quick_verification_search();
             if outcome != Outcome::Success {

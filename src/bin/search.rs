@@ -34,11 +34,14 @@ async fn main() {
     };
 
     let node = NodeCursor::from_path(env, &path);
-    let facts = node.get_facts(&project);
     let goal_context = node.goal_context().unwrap();
     println!("proving {} ...", goal_context.name);
     let verbose = true;
-    let mut prover = Prover::batch(&project, facts, &goal_context, verbose);
+    let mut prover = Prover::new(&project, verbose);
+    for fact in node.get_facts(&project) {
+        prover.add_fact(fact);
+    }
+    prover.set_goal(&goal_context);
 
     loop {
         let outcome = prover.partial_search();
