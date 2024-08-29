@@ -51,14 +51,16 @@ pub struct Monomorphizer {
     // The Monomorphizer only writes to this, never reads.
     monomorphic_facts: Vec<Fact>,
 
-    // The parameters we use to monomorphize each fact.
+    // The parameters we have already used to monomorphize each fact.
     // Parallel to polymorphic_facts.
     monomorphs_for_fact: Vec<Vec<ParamList>>,
 
-    // Indexed by constant id
+    // The parameters we have already used to monomorphize each constant.
+    // Indexed by constant id.
     monomorphs_for_constant: HashMap<ConstantKey, Vec<ParamList>>,
 
     // An index tracking how each polymorphic constant is used in the polymorphic facts.
+    // This is updated whenever we add a fact.
     // Lists (index in polymorphic facts, params for the constant) for each occurrence.
     polymorphic_instances: HashMap<ConstantKey, Vec<(usize, ParamList)>>,
 }
@@ -103,12 +105,24 @@ impl Monomorphizer {
 
         self.polymorphic_facts.push(fact);
         self.monomorphs_for_fact.push(vec![]);
-        for (constant_key, params) in instances {
+
+        // Store a reference to our polymorphic instances in the index
+        for (constant_key, params) in instances.clone() {
             let params = ParamList::new(params);
             self.polymorphic_instances
                 .entry(constant_key)
                 .or_insert(vec![])
                 .push((i, params));
+        }
+
+        // Check how this new polymorphic fact should be monomorphized
+        for (constant_key, params) in instances {
+            let instance_params = ParamList::new(params);
+            if let Some(monomorphs) = self.monomorphs_for_constant.get(&constant_key) {
+                for monomorph_params in monomorphs.clone() {
+                    self.try_monomorphize(i, &monomorph_params, &instance_params);
+                }
+            }
         }
     }
 
@@ -120,9 +134,9 @@ impl Monomorphizer {
             fact.value.validate().unwrap_or_else(|e| {
                 panic!("bad fact: {} ({})", &fact.value, e);
             });
-            graph.match_value(&fact.value);
+            graph.match_monomorphs(&fact.value);
         }
-        graph.match_value(&goal.value());
+        graph.match_monomorphs(&goal.value());
 
         graph.monomorphic_facts
     }
@@ -193,12 +207,14 @@ impl Monomorphizer {
             return;
         }
         self.monomorphs_for_fact[fact_id].push(fact_params);
-        self.match_value(&monomorphic_fact.value);
+
+        // This monomorphization might have created new monomorphs, that in turn we need to match.
+        self.match_monomorphs(&monomorphic_fact.value);
         self.monomorphic_facts.push(monomorphic_fact);
     }
 
     // Make sure that we are generating any monomorphizations that are used in this value.
-    fn match_value(&mut self, value: &AcornValue) {
+    fn match_monomorphs(&mut self, value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {
