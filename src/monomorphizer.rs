@@ -84,6 +84,8 @@ impl Monomorphizer {
 
     // Adds a fact that could be either polymorphic or monomorphic.
     fn add_fact(&mut self, fact: Fact) {
+        self.match_monomorphs(&fact.value);
+
         let i = self.polymorphic_facts.len();
         let mut instances = vec![];
         fact.value.find_parametric(&mut instances);
@@ -130,12 +132,6 @@ impl Monomorphizer {
     pub fn batch(input_facts: Vec<Fact>, goal: &Goal) -> Vec<Fact> {
         let mut graph = Monomorphizer::new(input_facts.clone());
 
-        for fact in &input_facts {
-            fact.value.validate().unwrap_or_else(|e| {
-                panic!("bad fact: {} ({})", &fact.value, e);
-            });
-            graph.match_monomorphs(&fact.value);
-        }
         graph.match_monomorphs(&goal.value());
 
         graph.monomorphic_facts
