@@ -46,10 +46,9 @@ pub struct Prover {
     // A verbose prover prints out a lot of stuff.
     pub verbose: bool,
 
-    // The result of the proof search, if there is one.
-    // If we haven't found a result yet, this is None. The prover can still return an Outcome
-    // that indicates a temporary outcome, like a timeout.
-    result: Option<ProofStep>,
+    // The last step of the proof search that leads to a contradiction.
+    // If we haven't finished the search, this is None.
+    final_step: Option<ProofStep>,
 
     // Clauses that we never activated, but we did use to find a contradiction.
     useful_passive: Vec<ProofStep>,
@@ -123,7 +122,7 @@ impl Prover {
             active_set: ActiveSet::new(),
             passive_set: PassiveSet::new(),
             verbose,
-            result: None,
+            final_step: None,
             stop_flags: vec![project.build_stopped.clone()],
             inconsistency_okay: goal_context.inconsistency_okay,
             error: None,
@@ -425,7 +424,7 @@ impl Prover {
 
     // Returns a condensed proof, if we have a proof.
     pub fn get_proof(&self) -> Option<Proof> {
-        let final_step = match &self.result {
+        let final_step = match &self.final_step {
             Some(step) => step,
             None => return None,
         };
@@ -466,14 +465,14 @@ impl Prover {
 
     // Handle the case when we found a contradiction
     fn report_contradiction(&mut self, step: ProofStep) -> Outcome {
-        assert!(self.result.is_none());
+        assert!(self.final_step.is_none());
         let outcome = if step.truthiness != Truthiness::Counterfactual && !self.inconsistency_okay {
             Outcome::Inconsistent
         } else {
             Outcome::Success
         };
 
-        self.result = Some(step);
+        self.final_step = Some(step);
         outcome
     }
 
@@ -545,7 +544,7 @@ impl Prover {
     // Activates the next clause from the queue, unless we're already done.
     // Returns whether the prover finished.
     pub fn activate_next(&mut self) -> bool {
-        if self.result.is_some() {
+        if self.final_step.is_some() {
             return true;
         }
 
@@ -689,7 +688,7 @@ impl Prover {
             }
             if self.activate_next() {
                 // The prover terminated. Determine which outcome that is.
-                return if let Some(final_step) = &self.result {
+                return if let Some(final_step) = &self.final_step {
                     if final_step.truthiness == Truthiness::Counterfactual {
                         // The normal success case
                         Outcome::Success
@@ -738,7 +737,7 @@ impl Prover {
             ProofStepId::Active(i) => self.active_set.get_clause(i),
             ProofStepId::Passive(i) => &self.useful_passive[i as usize].clause,
             ProofStepId::Final => {
-                let final_step = self.result.as_ref().unwrap();
+                let final_step = self.final_step.as_ref().unwrap();
                 &final_step.clause
             }
         }
@@ -831,7 +830,7 @@ impl Prover {
         let limit = 100;
 
         // Check if the final step is a consequence of this clause
-        if let Some(final_step) = &self.result {
+        if let Some(final_step) = &self.final_step {
             if final_step.depends_on_active(id) {
                 consequences.push(self.to_proof_step_info(project, None, &final_step));
                 num_consequences += 1;
