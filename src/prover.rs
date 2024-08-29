@@ -464,22 +464,13 @@ impl Prover {
     }
 
     // Handle the case when we found a contradiction
-    fn report_contradiction(&mut self, step: ProofStep) -> Outcome {
+    fn report_contradiction(&mut self, step: ProofStep) {
         assert!(self.final_step.is_none());
-        let outcome = if step.truthiness != Truthiness::Counterfactual && !self.inconsistency_okay {
-            Outcome::Inconsistent
-        } else {
-            Outcome::Success
-        };
 
         self.final_step = Some(step);
-        outcome
     }
 
-    fn report_term_graph_contradiction(
-        &mut self,
-        contradiction: TermGraphContradiction,
-    ) -> Outcome {
+    fn report_term_graph_contradiction(&mut self, contradiction: TermGraphContradiction) {
         let mut active_ids = vec![];
         let mut passive_ids = vec![];
         let mut new_clauses = HashSet::new();
@@ -531,7 +522,7 @@ impl Prover {
         self.report_contradiction(step)
     }
 
-    fn report_passive_contradiction(&mut self, passive_steps: Vec<ProofStep>) -> Outcome {
+    fn report_passive_contradiction(&mut self, passive_steps: Vec<ProofStep>) {
         assert!(self.useful_passive.is_empty());
         for mut passive_step in passive_steps {
             passive_step.printable = false;
@@ -584,7 +575,7 @@ impl Prover {
             };
             println!("activating{}: {}", prefix, self.display(&step.clause));
         }
-        self.activate(step).is_some()
+        self.activate(step)
     }
 
     // Generates new passive clauses, simplifying appropriately, and adds them to the passive set.
@@ -596,8 +587,8 @@ impl Prover {
     // This double simplification ensures that every passive clause is always simplified with
     // respect to every active clause.
     //
-    // Returns the outcome if the prover finished, otherwise None.
-    fn activate(&mut self, activated_step: ProofStep) -> Option<Outcome> {
+    // Returns whether the prover finished.
+    fn activate(&mut self, activated_step: ProofStep) -> bool {
         // Use the step for simplification
         let activated_id = self.active_set.next_id();
         if activated_step.clause.literals.len() == 1 {
@@ -619,7 +610,8 @@ impl Prover {
         }
         for step in generated_clauses {
             if step.finishes_proof() {
-                return Some(self.report_contradiction(step));
+                self.report_contradiction(step);
+                return true;
             }
 
             if step.automatic_reject() {
@@ -628,7 +620,8 @@ impl Prover {
 
             if let Some(simple_step) = self.active_set.simplify(step) {
                 if simple_step.clause.is_impossible() {
-                    return Some(self.report_contradiction(simple_step));
+                    self.report_contradiction(simple_step);
+                    return true;
                 }
                 self.passive_set.push(simple_step);
             }
@@ -640,10 +633,11 @@ impl Prover {
         // First regular contradictions (in the loop above), then term graph.
 
         if let Some(contradiction) = self.active_set.graph.get_contradiction() {
-            return Some(self.report_term_graph_contradiction(contradiction));
+            self.report_term_graph_contradiction(contradiction);
+            return true;
         }
 
-        None
+        false
     }
 
     // Searches with a short duration.
