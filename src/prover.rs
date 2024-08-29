@@ -174,13 +174,12 @@ impl Prover {
             Normalization::Clauses(clauses) => clauses,
             Normalization::Impossible => {
                 // We have a false assumption, so we're done already.
-                let final_step = ProofStep::new_assumption(
+                self.final_step = Some(ProofStep::new_assumption(
                     Clause::impossible(),
                     fact.truthiness,
                     &fact.source,
                     None,
-                );
-                self.report_contradiction(final_step);
+                ));
                 return;
             }
             Normalization::Error(s) => {
@@ -463,13 +462,6 @@ impl Prover {
         Some(proof)
     }
 
-    // Handle the case when we found a contradiction
-    fn report_contradiction(&mut self, step: ProofStep) {
-        assert!(self.final_step.is_none());
-
-        self.final_step = Some(step);
-    }
-
     fn report_term_graph_contradiction(&mut self, contradiction: TermGraphContradiction) {
         let mut active_ids = vec![];
         let mut passive_ids = vec![];
@@ -512,14 +504,13 @@ impl Prover {
         active_ids.sort();
         active_ids.dedup();
 
-        let step = ProofStep::new_multiple_rewrite(
+        self.final_step = Some(ProofStep::new_multiple_rewrite(
             contradiction.inequality_id,
             active_ids,
             passive_ids,
             truthiness,
             max_depth,
-        );
-        self.report_contradiction(step)
+        ));
     }
 
     fn report_passive_contradiction(&mut self, passive_steps: Vec<ProofStep>) {
@@ -528,8 +519,7 @@ impl Prover {
             passive_step.printable = false;
             self.useful_passive.push(passive_step);
         }
-        let final_step = ProofStep::new_passive_contradiction(&self.useful_passive);
-        self.report_contradiction(final_step)
+        self.final_step = Some(ProofStep::new_passive_contradiction(&self.useful_passive));
     }
 
     // Activates the next clause from the queue, unless we're already done.
@@ -557,7 +547,7 @@ impl Prover {
         }
 
         if step.clause.is_impossible() {
-            self.report_contradiction(step);
+            self.final_step = Some(step);
             return true;
         }
 
@@ -610,7 +600,7 @@ impl Prover {
         }
         for step in generated_clauses {
             if step.finishes_proof() {
-                self.report_contradiction(step);
+                self.final_step = Some(step);
                 return true;
             }
 
@@ -620,7 +610,7 @@ impl Prover {
 
             if let Some(simple_step) = self.active_set.simplify(step) {
                 if simple_step.clause.is_impossible() {
-                    self.report_contradiction(simple_step);
+                    self.final_step = Some(simple_step);
                     return true;
                 }
                 self.passive_set.push(simple_step);
