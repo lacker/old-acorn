@@ -65,42 +65,49 @@ impl Monomorphizer {
     // Populates monomorphs_for_constant, and puts None vs Some([]) in the right place for
     // monomorphs_for_fact.
     fn new(input_facts: Vec<Fact>) -> Monomorphizer {
-        let mut monomorphs_for_fact = vec![];
-        let mut parametric_instances = HashMap::new();
-        for (i, fact) in input_facts.iter().enumerate() {
-            let mut instances = vec![];
-            fact.value.find_parametric(&mut instances);
-            if instances.is_empty() {
-                if let AcornValue::ForAll(args, _) = &fact.value {
-                    if args.iter().any(|arg| arg.is_parametric()) {
-                        // This is a polymorphic fact with no polymorphic functions.
-                        // It could be something trivial and purely propositional, like
-                        // forall(x: T) { x = x }
-                        // Just skip it.
-                        monomorphs_for_fact.push(Some(vec![]));
-                        continue;
-                    }
-                }
+        let mut m = Monomorphizer {
+            input_facts: vec![],
+            output_facts: vec![],
+            monomorphs_for_fact: vec![],
+            monomorphs_for_constant: HashMap::new(),
+            parametric_instances: HashMap::new(),
+        };
+        for fact in input_facts {
+            m.add_fact(fact);
+        }
+        m
+    }
 
-                monomorphs_for_fact.push(None);
-                continue;
+    fn add_fact(&mut self, fact: Fact) {
+        let i = self.input_facts.len();
+        let mut instances = vec![];
+        fact.value.find_parametric(&mut instances);
+        if instances.is_empty() {
+            if let AcornValue::ForAll(args, _) = &fact.value {
+                if args.iter().any(|arg| arg.is_parametric()) {
+                    // This is a polymorphic fact with no polymorphic functions.
+                    // It could be something trivial and purely propositional, like
+                    // forall(x: T) { x = x }
+                    // Just skip it.
+                    self.input_facts.push(fact);
+                    self.monomorphs_for_fact.push(Some(vec![]));
+                    return;
+                }
             }
-            monomorphs_for_fact.push(Some(vec![]));
-            for (constant_key, params) in instances {
-                let params = ParamList::new(params);
-                parametric_instances
-                    .entry(constant_key)
-                    .or_insert(vec![])
-                    .push((i, params));
-            }
+
+            self.input_facts.push(fact);
+            self.monomorphs_for_fact.push(None);
+            return;
         }
 
-        Monomorphizer {
-            input_facts,
-            output_facts: vec![],
-            monomorphs_for_fact,
-            monomorphs_for_constant: HashMap::new(),
-            parametric_instances,
+        self.input_facts.push(fact);
+        self.monomorphs_for_fact.push(Some(vec![]));
+        for (constant_key, params) in instances {
+            let params = ParamList::new(params);
+            self.parametric_instances
+                .entry(constant_key)
+                .or_insert(vec![])
+                .push((i, params));
         }
     }
 
