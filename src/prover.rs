@@ -134,10 +134,7 @@ impl Prover {
 
         // Fact ingestion
         for fact in facts {
-            p.monomorphizer.add_fact(fact);
-        }
-        for fact in p.monomorphizer.take_facts() {
-            p.add_monomorphic_fact(fact);
+            p.add_fact(fact);
         }
 
         // Goal handling
@@ -151,8 +148,11 @@ impl Prover {
 
     // Add a fact to the prover.
     // The fact can be either polymorphic or monomorphic.
-    pub fn add_fact(&mut self, _fact: Fact) {
-        todo!();
+    pub fn add_fact(&mut self, fact: Fact) {
+        self.monomorphizer.add_fact(fact);
+        for fact in self.monomorphizer.take_facts() {
+            self.add_monomorphic_fact(fact);
+        }
     }
 
     // Used to add facts internally, after the fact has already been monomorphized.
