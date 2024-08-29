@@ -5,7 +5,6 @@ use crate::acorn_type::AcornType;
 use crate::acorn_value::AcornValue;
 use crate::constant_map::ConstantKey;
 use crate::fact::Fact;
-use crate::goal::Goal;
 
 // A parameter list corresponds to a monomorphization.
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -68,7 +67,7 @@ pub struct Monomorphizer {
 impl Monomorphizer {
     // Populates monomorphs_for_constant, and puts None vs Some([]) in the right place for
     // monomorphs_for_fact.
-    fn new() -> Monomorphizer {
+    pub fn new() -> Monomorphizer {
         Monomorphizer {
             polymorphic_facts: vec![],
             monomorphic_facts: vec![],
@@ -79,7 +78,7 @@ impl Monomorphizer {
     }
 
     // Adds a fact that could be either polymorphic or monomorphic.
-    fn add_fact(&mut self, fact: Fact) {
+    pub fn add_fact(&mut self, fact: Fact) {
         self.match_monomorphs(&fact.value);
 
         let i = self.polymorphic_facts.len();
@@ -124,14 +123,9 @@ impl Monomorphizer {
         }
     }
 
-    // Do all monomorphization in one big batch.
-    pub fn batch(input_facts: Vec<Fact>, goal: &Goal) -> Vec<Fact> {
-        let mut m = Monomorphizer::new();
-        for fact in input_facts {
-            m.add_fact(fact);
-        }
-        m.match_monomorphs(&goal.value());
-        m.monomorphic_facts
+    // Extract monomorphic facts from the prover.
+    pub fn take_facts(&mut self) -> Vec<Fact> {
+        std::mem::take(&mut self.monomorphic_facts)
     }
 
     // Monomorphizes a polymorphic constant.
@@ -207,7 +201,7 @@ impl Monomorphizer {
     }
 
     // Make sure that we are generating any monomorphizations that are used in this value.
-    fn match_monomorphs(&mut self, value: &AcornValue) {
+    pub fn match_monomorphs(&mut self, value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {

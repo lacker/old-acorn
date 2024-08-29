@@ -33,6 +33,9 @@ pub struct Prover {
     // clauses that we can use internally.
     normalizer: Normalizer,
 
+    // The monomorphizer turns possibly-polymorphic facts into monomorphic facts that we use internally.
+    monomorphizer: Monomorphizer,
+
     // The "active" clauses are the ones we use for reasoning.
     active_set: ActiveSet,
 
@@ -115,6 +118,7 @@ impl Prover {
     ) -> Prover {
         let mut p = Prover {
             normalizer: Normalizer::new(),
+            monomorphizer: Monomorphizer::new(),
             module_id: goal_context.module_id,
             active_set: ActiveSet::new(),
             passive_set: PassiveSet::new(),
@@ -128,21 +132,27 @@ impl Prover {
             negated_goal: None,
             non_factual_activated: 0,
         };
-
-        let facts = Monomorphizer::batch(facts, &goal_context.goal);
+        for fact in facts {
+            p.monomorphizer.add_fact(fact);
+        }
+        p.monomorphizer.match_monomorphs(&goal_context.goal.value());
 
         // Load facts into the prover
-        for fact in facts {
-            p.add_fact(fact);
+        for fact in p.monomorphizer.take_facts() {
+            p.add_monomorphic_fact(fact);
         }
         p.set_goal(&goal_context.goal);
         p
     }
 
-    pub fn add_fact(&mut self, fact: Fact) {
-        // The sequencing should be, first add facts, then set the goal, then prove.
-        assert!(!self.has_goal());
+    // Add a fact to the prover.
+    // The fact can be either polymorphic or monomorphic.
+    pub fn add_fact(&mut self, _fact: Fact) {
+        todo!();
+    }
 
+    // Used to add facts internally, after the fact has already been monomorphized.
+    fn add_monomorphic_fact(&mut self, fact: Fact) {
         let local = fact.local();
         let defined_atom = match &fact.source.source_type {
             SourceType::ConstantDefinition(value) => {
@@ -193,9 +203,12 @@ impl Prover {
                 // Negate the goal and add it as a counterfactual assumption.
                 let (hypo, counter) = prop.value.to_placeholder().negate_goal();
                 if let Some(hypo) = hypo {
-                    self.add_fact(Fact::new(prop.with_value(hypo), Truthiness::Hypothetical));
+                    self.add_monomorphic_fact(Fact::new(
+                        prop.with_value(hypo),
+                        Truthiness::Hypothetical,
+                    ));
                 }
-                self.add_fact(Fact::new(
+                self.add_monomorphic_fact(Fact::new(
                     prop.with_negated_goal(counter.clone()),
                     Truthiness::Counterfactual,
                 ));
