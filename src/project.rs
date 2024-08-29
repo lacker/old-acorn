@@ -303,7 +303,7 @@ impl Project {
             ..BuildEvent::default()
         });
 
-        // On the first pass we just look for errors.
+        // On the first pass we load modules and look for errors.
         // If there are errors, we won't even try to do proving.
         // But, we will still go through and look for any other errors.
         let mut module_errors = false;
@@ -370,7 +370,7 @@ impl Project {
         // On the second pass we do the actual proving.
         let mut build_warnings: bool = false;
         let mut done: i32 = 0;
-        for (target, env) in targets.iter().zip(envs) {
+        for (target, env) in targets.into_iter().zip(envs) {
             let mut target_warnings = false;
             for node in env.iter_goals() {
                 let start = std::time::Instant::now();
