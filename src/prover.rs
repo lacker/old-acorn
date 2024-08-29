@@ -49,7 +49,7 @@ pub struct Prover {
     // The result of the proof search, if there is one.
     // If we haven't found a result yet, this is None. The prover can still return an Outcome
     // that indicates a temporary outcome, like a timeout.
-    result: Option<(ProofStep, Outcome)>,
+    result: Option<ProofStep>,
 
     // Clauses that we never activated, but we did use to find a contradiction.
     useful_passive: Vec<ProofStep>,
@@ -425,10 +425,9 @@ impl Prover {
 
     // Returns a condensed proof, if we have a proof.
     pub fn get_proof(&self) -> Option<Proof> {
-        let final_step = if let Some((final_step, _)) = &self.result {
-            final_step
-        } else {
-            return None;
+        let final_step = match &self.result {
+            Some(step) => step,
+            None => return None,
         };
         let mut useful_active = HashSet::new();
         self.active_set
@@ -474,7 +473,7 @@ impl Prover {
             Outcome::Success
         };
 
-        self.result = Some((step, outcome));
+        self.result = Some(step);
         outcome
     }
 
@@ -690,7 +689,7 @@ impl Prover {
             }
             if self.activate_next() {
                 // The prover terminated. Determine which outcome that is.
-                return if let Some((final_step, _)) = &self.result {
+                return if let Some(final_step) = &self.result {
                     if final_step.truthiness == Truthiness::Counterfactual {
                         // The normal success case
                         Outcome::Success
@@ -739,7 +738,7 @@ impl Prover {
             ProofStepId::Active(i) => self.active_set.get_clause(i),
             ProofStepId::Passive(i) => &self.useful_passive[i as usize].clause,
             ProofStepId::Final => {
-                let (final_step, _) = self.result.as_ref().unwrap();
+                let final_step = self.result.as_ref().unwrap();
                 &final_step.clause
             }
         }
@@ -832,7 +831,7 @@ impl Prover {
         let limit = 100;
 
         // Check if the final step is a consequence of this clause
-        if let Some((final_step, _)) = &self.result {
+        if let Some(final_step) = &self.result {
             if final_step.depends_on_active(id) {
                 consequences.push(self.to_proof_step_info(project, None, &final_step));
                 num_consequences += 1;
