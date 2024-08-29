@@ -58,18 +58,23 @@ pub struct Prover {
     // It's better to catch errors before proving, but sometimes we don't.
     pub error: Option<String>,
 
-    // Whether we expect an inconsistency in this scope.
-    // This determines whether we treat a contradiction between facts as a success or a failure.
-    inconsistency_okay: bool,
-
     // Number of proof steps activated, not counting Factual ones.
     non_factual_activated: usize,
 
-    // The normalized term we are solving for, if there is one.
-    solve: Option<Term>,
+    // The goal of the prover.
+    // If this is None, the goal hasn't been set yet.
+    goal: Option<NormalizedGoal>,
+}
 
-    // A value expressing the negation of the goal we are trying to prove, if there is one.
-    negated_goal: Option<AcornValue>,
+enum NormalizedGoal {
+    // The value expresses the negation of the goal we are trying to prove.
+    // It is normalized in the sense that we would use this form to generate code.
+    // The flag indicates whether inconsistencies are okay.
+    // Ie, if we find a contradiction, is that Outcome::Success or Outcome::Inconsistent?
+    ProveNegated(AcornValue, bool),
+
+    // The normalized term we are solving for, if there is one.
+    Solve(Term),
 }
 
 // The outcome of a prover operation.
@@ -120,12 +125,10 @@ impl Prover {
             verbose,
             final_step: None,
             stop_flags: vec![project.build_stopped.clone()],
-            inconsistency_okay: goal_context.inconsistency_okay,
             error: None,
-            solve: None,
             useful_passive: vec![],
-            negated_goal: None,
             non_factual_activated: 0,
+            goal: None,
         };
 
         // Fact ingestion
@@ -138,7 +141,7 @@ impl Prover {
         for fact in p.monomorphizer.take_facts() {
             p.add_monomorphic_fact(fact);
         }
-        p.set_goal(&goal_context.goal);
+        p.set_goal(&goal_context);
         p
     }
 
@@ -190,14 +193,9 @@ impl Prover {
         }
     }
 
-    // Whether a goal has been set yet
-    pub fn has_goal(&self) -> bool {
-        self.negated_goal.is_some() || self.solve.is_some()
-    }
-
-    pub fn set_goal(&mut self, goal: &Goal) {
-        assert!(!self.has_goal());
-        match goal {
+    pub fn set_goal(&mut self, goal_context: &GoalContext) {
+        assert!(self.goal.is_none());
+        match &goal_context.goal {
             Goal::Prove(prop) => {
                 // Negate the goal and add it as a counterfactual assumption.
                 let (hypo, counter) = prop.value.to_placeholder().negate_goal();
@@ -211,11 +209,14 @@ impl Prover {
                     prop.with_negated_goal(counter.clone()),
                     Truthiness::Counterfactual,
                 ));
-                self.negated_goal = Some(counter);
+                self.goal = Some(NormalizedGoal::ProveNegated(
+                    counter,
+                    goal_context.inconsistency_okay,
+                ));
             }
             Goal::Solve(value, _) => match self.normalizer.term_from_value(value, true) {
                 Ok(term) => {
-                    self.solve = Some(term);
+                    self.goal = Some(NormalizedGoal::Solve(term));
                 }
                 Err(NormalizationError(s)) => {
                     self.error = Some(s);
@@ -236,6 +237,18 @@ impl Prover {
     }
 
     pub fn print_stats(&self) {
+        // Kinda only printing this so that Solve(term) isn't unused
+        match &self.goal {
+            Some(NormalizedGoal::ProveNegated(v, _)) => {
+                println!("goal: disprove {}", v);
+            }
+            Some(NormalizedGoal::Solve(t)) => {
+                println!("goal: solve for {}", t);
+            }
+            None => {
+                println!("no goal set");
+            }
+        }
         println!("{} clauses in the active set", self.active_set.len());
         println!("{} clauses in the passive set", self.passive_set.len());
     }
@@ -429,9 +442,9 @@ impl Prover {
         for step in &self.useful_passive {
             self.active_set.find_upstream(step, &mut useful_active);
         }
-        let negated_goal = match &self.negated_goal {
-            Some(negated_goal) => negated_goal,
-            None => return None,
+        let negated_goal = match &self.goal {
+            Some(NormalizedGoal::ProveNegated(negated_goal, _)) => negated_goal,
+            _ => return None,
         };
 
         let difficulty = if !self.passive_set.verification_phase {
@@ -668,20 +681,19 @@ impl Prover {
             }
             if self.activate_next() {
                 // The prover terminated. Determine which outcome that is.
-                return if let Some(final_step) = &self.final_step {
+                if let Some(final_step) = &self.final_step {
                     if final_step.truthiness == Truthiness::Counterfactual {
                         // The normal success case
-                        Outcome::Success
-                    } else if !self.inconsistency_okay {
-                        // We found an inconsistency in our assumptions
-                        Outcome::Inconsistent
-                    } else {
-                        // We found an inconsistency in our assumptions, but it's okay
-                        Outcome::Success
+                        return Outcome::Success;
                     }
-                } else {
-                    Outcome::Exhausted
-                };
+                    if let Some(NormalizedGoal::ProveNegated(_, true)) = self.goal {
+                        // We found an inconsistency in our assumptions, but it's okay
+                        return Outcome::Success;
+                    }
+                    // We found an inconsistency and it's not okay
+                    return Outcome::Inconsistent;
+                }
+                return Outcome::Exhausted;
             }
             for stop_flag in &self.stop_flags {
                 if stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
