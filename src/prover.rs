@@ -131,15 +131,8 @@ impl Prover {
             goal: None,
         };
 
-        // Fact ingestion
         for fact in facts {
             p.add_fact(fact);
-        }
-
-        // Goal handling
-        p.monomorphizer.match_monomorphs(&goal_context.goal.value());
-        for fact in p.monomorphizer.take_facts() {
-            p.add_monomorphic_fact(fact);
         }
         p.set_goal(&goal_context);
         p
@@ -195,6 +188,16 @@ impl Prover {
 
     pub fn set_goal(&mut self, goal_context: &GoalContext) {
         assert!(self.goal.is_none());
+
+        // Add any monomorphic facts needed to match the goal.
+        // We don't need to add the goal as as polymorphic fact since goals themselves
+        // cannot be polymorphic.
+        self.monomorphizer
+            .match_monomorphs(&goal_context.goal.value());
+        for fact in self.monomorphizer.take_facts() {
+            self.add_monomorphic_fact(fact);
+        }
+
         match &goal_context.goal {
             Goal::Prove(prop) => {
                 // Negate the goal and add it as a counterfactual assumption.
