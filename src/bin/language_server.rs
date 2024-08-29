@@ -240,14 +240,13 @@ impl Backend {
             let project = project.read().await;
 
             tokio::task::block_in_place(move || {
-                let success = project.build(&mut |event| {
+                let status = project.build(&mut |event| {
                     tx.send(event).unwrap();
                 });
 
                 let duration = chrono::Local::now() - start_time;
                 let seconds = duration.num_milliseconds() as f64 / 1000.0;
-                let verb = if success { "succeeded" } else { "failed" };
-                log(&format!("build {} after {:.2}s", verb, seconds));
+                log(&format!("build {} after {:.2}s", status.verb(), seconds));
             });
         });
 

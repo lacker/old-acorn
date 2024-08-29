@@ -95,6 +95,28 @@ impl BuildEvent {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum BuildStatus {
+    // No problems of any kind
+    Good,
+
+    // Warnings indicate code that parses okay but can't be verified
+    Warning,
+
+    // Errors indicate the user entered bad code
+    Error,
+}
+
+impl BuildStatus {
+    pub fn verb(&self) -> &str {
+        match self {
+            BuildStatus::Good => "succeeded",
+            BuildStatus::Warning => "warned",
+            BuildStatus::Error => "errored",
+        }
+    }
+}
+
 fn new_modules() -> Vec<(Option<String>, Module)> {
     let mut modules = vec![];
     while modules.len() < FIRST_NORMAL as usize {
@@ -286,14 +308,8 @@ impl Project {
     }
 
     // Builds all open modules, and calls the event handler on any build events.
-    //
-    // There are two levels of severity, for problems with the build.
-    // An error is a problem in the code, like a syntax error or a type error.
-    // A warning is a problem in the mathematics.
-    // Either the prover could not prove something, or the proof was not simple enough.
-    //
-    // Returns whether the build was entirely good, no errors or warnings.
-    pub fn build(&self, handler: &mut impl FnMut(BuildEvent)) -> bool {
+    // Returns the build status.
+    pub fn build(&self, handler: &mut impl FnMut(BuildEvent)) -> BuildStatus {
         // Build in alphabetical order by module name for consistency.
         let mut targets = self.targets.iter().collect::<Vec<_>>();
         targets.sort();
@@ -359,7 +375,7 @@ impl Project {
         }
 
         if module_errors {
-            return false;
+            return BuildStatus::Error;
         }
 
         handler(BuildEvent {
@@ -368,7 +384,8 @@ impl Project {
         });
 
         // On the second pass we do the actual proving.
-        let mut build_warnings: bool = false;
+        // Build status is good until we find a problem.
+        let mut build_status = BuildStatus::Good;
         let mut done: i32 = 0;
         for (target, env) in targets.into_iter().zip(envs) {
             let mut target_warnings = false;
@@ -434,7 +451,7 @@ impl Project {
                         message: message.clone(),
                         ..Diagnostic::default()
                     };
-                    build_warnings = true;
+                    build_status = BuildStatus::Warning;
                     (Some((target.to_string(), Some(diagnostic))), Some(message))
                 } else {
                     (None, None)
@@ -447,7 +464,7 @@ impl Project {
                         is_slow_warning,
                         diagnostic,
                     });
-                    return false;
+                    return BuildStatus::Error;
                 }
 
                 handler(BuildEvent {
@@ -465,16 +482,16 @@ impl Project {
                 });
             }
         }
-        !build_warnings
+        build_status
     }
 
     // Does the build and returns all events when it's done, rather than asynchronously.
-    pub fn sync_build(&self) -> (bool, Vec<BuildEvent>) {
+    pub fn sync_build(&self) -> (BuildStatus, Vec<BuildEvent>) {
         let mut events = vec![];
-        let success = self.build(&mut |event| {
+        let status = self.build(&mut |event| {
             events.push(event);
         });
-        (success, events)
+        (status, events)
     }
 
     // Set the file content. This has priority over the actual filesystem.
@@ -758,8 +775,8 @@ impl Project {
 
     #[cfg(test)]
     fn expect_build_fails(&mut self) {
-        let (success, _) = self.sync_build();
-        assert!(!success, "expected build to fail");
+        let (status, _) = self.sync_build();
+        assert_ne!(status, BuildStatus::Good, "expected build to fail");
     }
 }
 
@@ -940,9 +957,12 @@ mod tests {
         p.add_target("foo");
         p.add_target("main");
         let mut events = vec![];
-        assert!(p.build(&mut |event| {
-            events.push(event);
-        }));
+        assert_eq!(
+            p.build(&mut |event| {
+                events.push(event);
+            }),
+            BuildStatus::Good
+        );
 
         // Testing this is annoying because I keep changing it for UI purposes.
         assert!(events.len() > 0);
