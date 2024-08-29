@@ -375,7 +375,7 @@ impl Project {
             for node in env.iter_goals() {
                 let start = std::time::Instant::now();
                 let goal_context = node.goal_context().expect("no goal context");
-                let mut prover = Prover::new(&self, node.get_facts(&self), &goal_context, false);
+                let mut prover = Prover::batch(&self, node.get_facts(&self), &goal_context, false);
                 let outcome = prover.verification_search();
                 let elapsed = duration_as_f64_secs(start.elapsed());
                 let elapsed_str = format!("{:.3}s", elapsed);

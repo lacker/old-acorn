@@ -111,13 +111,8 @@ impl fmt::Display for Outcome {
 }
 
 impl Prover {
-    pub fn new<'a>(
-        project: &'a Project,
-        facts: Vec<Fact>,
-        goal_context: &GoalContext,
-        verbose: bool,
-    ) -> Prover {
-        let mut p = Prover {
+    pub fn new(project: &Project, verbose: bool) -> Prover {
+        Prover {
             normalizer: Normalizer::new(),
             monomorphizer: Monomorphizer::new(),
             active_set: ActiveSet::new(),
@@ -129,8 +124,16 @@ impl Prover {
             useful_passive: vec![],
             non_factual_activated: 0,
             goal: None,
-        };
+        }
+    }
 
+    pub fn batch(
+        project: &Project,
+        facts: Vec<Fact>,
+        goal_context: &GoalContext,
+        verbose: bool,
+    ) -> Prover {
+        let mut p = Prover::new(project, verbose);
         for fact in facts {
             p.add_fact(fact);
         }

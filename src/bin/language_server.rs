@@ -516,7 +516,7 @@ impl Backend {
             Err(s) => return self.search_fail(params, &s),
         };
         let superseded = Arc::new(AtomicBool::new(false));
-        let mut prover = Prover::new(&project, node.get_facts(&project), &goal_context, false);
+        let mut prover = Prover::batch(&project, node.get_facts(&project), &goal_context, false);
         prover.stop_flags.push(superseded.clone());
         let status = SearchStatus::pending(&prover);
 
