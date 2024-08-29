@@ -48,6 +48,7 @@ pub struct Monomorphizer {
     polymorphic_facts: Vec<Fact>,
 
     // Facts that are fully monomorphized.
+    // The Monomorphizer only writes to this, never reads.
     monomorphic_facts: Vec<Fact>,
 
     // The parameters we use to monomorphize each fact.
@@ -120,16 +121,15 @@ impl Monomorphizer {
             fact.value.validate().unwrap_or_else(|e| {
                 panic!("bad fact: {} ({})", &fact.value, e);
             });
-            graph.inspect_value(&fact.value);
+            graph.match_value(&fact.value);
         }
-        graph.inspect_value(&goal.value());
+        graph.match_value(&goal.value());
 
         graph.monomorphic_facts
     }
 
-    // Called when we realize that we need to monomorphize the constant specified by constant_key
-    // using the types in monomorph_key.
-    fn add_monomorph(&mut self, constant_key: ConstantKey, monomorph_params: &ParamList) {
+    // Monomorphizes a polymorphic constant, everywhere it appears.
+    fn monomorphize_constant(&mut self, constant_key: ConstantKey, monomorph_params: &ParamList) {
         monomorph_params.assert_monomorph();
         let monomorphs = self
             .monomorphs_for_constant
@@ -181,18 +181,18 @@ impl Monomorphizer {
                     continue;
                 }
                 self.monomorphs_for_fact[fact_id].push(fact_params);
-                self.inspect_value(&monomorphic_fact.value);
+                self.match_value(&monomorphic_fact.value);
                 self.monomorphic_facts.push(monomorphic_fact);
             }
         }
     }
 
     // Make sure that we are generating any monomorphizations that are used in this value.
-    fn inspect_value(&mut self, value: &AcornValue) {
+    fn match_value(&mut self, value: &AcornValue) {
         let mut monomorphs = vec![];
         value.find_monomorphs(&mut monomorphs);
         for (constant_key, params) in monomorphs {
-            self.add_monomorph(constant_key, &ParamList::new(params));
+            self.monomorphize_constant(constant_key, &ParamList::new(params));
         }
     }
 }
