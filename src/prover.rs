@@ -544,21 +544,22 @@ impl Prover {
     }
 
     // Activates the next clause from the queue, unless we're already done.
-    // Returns the outcome if the prover finished, otherwise None.
-    pub fn activate_next(&mut self) -> Option<Outcome> {
-        if let Some((_, outcome)) = &self.result {
-            return Some(*outcome);
+    // Returns whether the prover finished.
+    pub fn activate_next(&mut self) -> bool {
+        if self.result.is_some() {
+            return true;
         }
 
         if let Some(passive_steps) = self.passive_set.get_contradiction() {
-            return Some(self.report_passive_contradiction(passive_steps));
+            self.report_passive_contradiction(passive_steps);
+            return true;
         }
 
         let step = match self.passive_set.pop() {
             Some(step) => step,
             None => {
                 // We're out of clauses to process, so we can't make any more progress.
-                return Some(Outcome::Exhausted);
+                return true;
             }
         };
 
@@ -567,7 +568,8 @@ impl Prover {
         }
 
         if step.clause.is_impossible() {
-            return Some(self.report_contradiction(step));
+            self.report_contradiction(step);
+            return true;
         }
 
         if self.verbose {
@@ -584,7 +586,7 @@ impl Prover {
             };
             println!("activating{}: {}", prefix, self.display(&step.clause));
         }
-        self.activate(step)
+        self.activate(step).is_some()
     }
 
     // Generates new passive clauses, simplifying appropriately, and adds them to the passive set.
@@ -686,8 +688,22 @@ impl Prover {
             if verification && !self.passive_set.verification_phase {
                 return Outcome::Exhausted;
             }
-            if let Some(outcome) = self.activate_next() {
-                return outcome;
+            if self.activate_next() {
+                // The prover terminated. Determine which outcome that is.
+                return if let Some((final_step, _)) = &self.result {
+                    if final_step.truthiness == Truthiness::Counterfactual {
+                        // The normal success case
+                        Outcome::Success
+                    } else if !self.inconsistency_okay {
+                        // We found an inconsistency in our assumptions
+                        Outcome::Inconsistent
+                    } else {
+                        // We found an inconsistency in our assumptions, but it's okay
+                        Outcome::Success
+                    }
+                } else {
+                    Outcome::Exhausted
+                };
             }
             for stop_flag in &self.stop_flags {
                 if stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
