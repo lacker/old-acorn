@@ -418,7 +418,7 @@ impl Project {
         total: i32,
         handler: &mut impl FnMut(BuildEvent),
     ) -> BuildStatus {
-        let build_status = self.for_each_prover_slow(env, &mut |prover, goal_context| {
+        let build_status = self.for_each_prover_fast(env, &mut |prover, goal_context| {
             self.prove(target, prover, goal_context, done, total, handler)
         });
 
