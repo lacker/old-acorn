@@ -1293,6 +1293,19 @@ mod tests {
 
         let env = p.get_env_by_name("main").unwrap();
 
-        // TODO: measure iteration type things
+        let mut fast_count = 0;
+        let mut slow_count = 0;
+
+        p.for_each_prover_slow(env, &mut |_, _| {
+            slow_count += 1;
+            BuildStatus::Good
+        });
+
+        p.for_each_prover_fast(env, &mut |_, _| {
+            fast_count += 1;
+            BuildStatus::Good
+        });
+
+        assert_eq!(fast_count, slow_count);
     }
 }
