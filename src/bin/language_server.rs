@@ -516,7 +516,7 @@ impl Backend {
         };
         let superseded = Arc::new(AtomicBool::new(false));
         let mut prover = Prover::new(&project, false);
-        for fact in node.get_facts(&project) {
+        for fact in node.usable_facts(&project) {
             prover.add_fact(fact);
         }
         prover.set_goal(&goal_context);

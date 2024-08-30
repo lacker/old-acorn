@@ -15,7 +15,7 @@ mod prover_test {
         let module_id = project.load_module(module_name).expect("load failed");
         let env = project.get_env(module_id).unwrap();
         let node = env.get_node_by_name(goal_name);
-        let facts = node.get_facts(project);
+        let facts = node.usable_facts(project);
         let goal_context = node.goal_context().unwrap();
         let mut prover = Prover::new(&project, false);
         for fact in facts {
@@ -56,7 +56,7 @@ mod prover_test {
             _ => panic!("no module"),
         };
         for node in env.iter_goals() {
-            let facts = node.get_facts(&project);
+            let facts = node.usable_facts(&project);
             let goal_context = node.goal_context().unwrap();
             println!("proving: {}", goal_context.name);
             let mut prover = Prover::new(&project, false);

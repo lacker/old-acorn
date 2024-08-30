@@ -441,9 +441,19 @@ impl<'a> NodeCursor<'a> {
         self.annotated_path.pop();
     }
 
+    // The fact at the current node.
+    pub fn get_fact(&self) -> Fact {
+        let truthiness = if self.env().top_level {
+            Truthiness::Factual
+        } else {
+            Truthiness::Hypothetical
+        };
+        Fact::new(self.current().claim.clone(), truthiness)
+    }
+
     // All facts that can be used to prove the current node.
     // This includes imported facts.
-    pub fn get_facts(&self, project: &Project) -> Vec<Fact> {
+    pub fn usable_facts(&self, project: &Project) -> Vec<Fact> {
         let mut facts = project.imported_facts(self.env().module_id);
         for (env, i) in &self.annotated_path {
             for prop in &env.nodes[0..*i] {

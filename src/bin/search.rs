@@ -38,7 +38,7 @@ async fn main() {
     println!("proving {} ...", goal_context.name);
     let verbose = true;
     let mut prover = Prover::new(&project, verbose);
-    for fact in node.get_facts(&project) {
+    for fact in node.usable_facts(&project) {
         prover.add_fact(fact);
     }
     prover.set_goal(&goal_context);

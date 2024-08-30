@@ -446,7 +446,7 @@ impl Project {
         for node in env.iter_goals() {
             let goal_context = node.goal_context().expect("no goal context");
             let mut prover = Prover::new(&self, false);
-            for fact in node.get_facts(&self) {
+            for fact in node.usable_facts(&self) {
                 prover.add_fact(fact);
             }
             prover.set_goal(&goal_context);
