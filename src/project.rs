@@ -1309,5 +1309,7 @@ mod tests {
         });
 
         assert_eq!(fast_count, slow_count);
+
+        // I could test more here. But do I need to?
     }
 }
