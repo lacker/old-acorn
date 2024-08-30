@@ -425,7 +425,7 @@ impl Project {
                 prover.add_fact(fact);
             }
             prover.set_goal(&goal_context);
-            let new_status = self.prove(target, prover, &goal_context, done, total, handler);
+            let new_status = self.prove(target, prover, goal_context, done, total, handler);
             build_status = build_status.combine(&new_status);
             if build_status == BuildStatus::Error {
                 break;
@@ -443,6 +443,31 @@ impl Project {
         build_status
     }
 
+    // Create a prover for each goal in this environment, and call the callback on it.
+    // An error status makes us stop early.
+    // Return the combined build status.
+    fn for_each_prover_slow(
+        &self,
+        env: &Environment,
+        callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
+    ) -> BuildStatus {
+        let mut build_status = BuildStatus::Good;
+        for node in env.iter_goals() {
+            let goal_context = node.goal_context().expect("no goal context");
+            let mut prover = Prover::new(&self, false);
+            for fact in node.get_facts(&self) {
+                prover.add_fact(fact);
+            }
+            prover.set_goal(&goal_context);
+            let new_status = callback(prover, goal_context);
+            build_status = build_status.combine(&new_status);
+            if build_status == BuildStatus::Error {
+                break;
+            }
+        }
+        build_status
+    }
+
     // Proves a single goal in the target, using the provided prover.
     // Reports using the handler as appropriate.
     // Returns the status for this goal alone.
@@ -450,7 +475,7 @@ impl Project {
         &self,
         target: &str,
         mut prover: Prover,
-        goal_context: &GoalContext,
+        goal_context: GoalContext,
         done: &mut i32,
         total: i32,
         handler: &mut impl FnMut(BuildEvent),
