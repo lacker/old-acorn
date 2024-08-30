@@ -419,14 +419,13 @@ impl Project {
     ) -> BuildStatus {
         let mut build_status = BuildStatus::Good;
         for node in env.iter_goals() {
-            let start = std::time::Instant::now();
             let goal_context = node.goal_context().expect("no goal context");
             let mut prover = Prover::new(&self, false);
             for fact in node.get_facts(&self) {
                 prover.add_fact(fact);
             }
             prover.set_goal(&goal_context);
-            let new_status = self.prove(target, start, prover, &goal_context, done, total, handler);
+            let new_status = self.prove(target, prover, &goal_context, done, total, handler);
             build_status = build_status.combine(&new_status);
             if build_status == BuildStatus::Error {
                 break;
@@ -450,13 +449,13 @@ impl Project {
     fn prove(
         &self,
         target: &str,
-        start: std::time::Instant,
         mut prover: Prover,
         goal_context: &GoalContext,
         done: &mut i32,
         total: i32,
         handler: &mut impl FnMut(BuildEvent),
     ) -> BuildStatus {
+        let start = std::time::Instant::now();
         let outcome = prover.verification_search();
         let elapsed = duration_as_f64_secs(start.elapsed());
         let elapsed_str = format!("{:.3}s", elapsed);
