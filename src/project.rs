@@ -417,20 +417,9 @@ impl Project {
         total: i32,
         handler: &mut impl FnMut(BuildEvent),
     ) -> BuildStatus {
-        let mut build_status = BuildStatus::Good;
-        for node in env.iter_goals() {
-            let goal_context = node.goal_context().expect("no goal context");
-            let mut prover = Prover::new(&self, false);
-            for fact in node.get_facts(&self) {
-                prover.add_fact(fact);
-            }
-            prover.set_goal(&goal_context);
-            let new_status = self.prove(target, prover, goal_context, done, total, handler);
-            build_status = build_status.combine(&new_status);
-            if build_status == BuildStatus::Error {
-                break;
-            }
-        }
+        let build_status = self.for_each_prover_slow(env, &mut |prover, goal_context| {
+            self.prove(target, prover, goal_context, done, total, handler)
+        });
 
         if build_status == BuildStatus::Good {
             // Report a None diagnostic to indicate that this target had no problems
