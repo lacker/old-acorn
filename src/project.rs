@@ -493,12 +493,23 @@ impl Project {
         }
 
         let mut prover = prover.clone();
+        let mut status = BuildStatus::Good;
         if node.num_children() > 0 {
             // We need to recurse into children
-            todo!();
+            node.descend(0);
+            loop {
+                status = status.combine(&self.for_each_prover_helper(&prover, node, callback));
+                if status == BuildStatus::Error {
+                    break;
+                }
+
+                todo!("add the fact for the current node");
+                todo!("if there's more nodes, advance. else, break");
+            }
+            todo!("ascend");
         }
 
-        todo!();
+        todo!("prove the goal for this node");
     }
 
     // Proves a single goal in the target, using the provided prover.
