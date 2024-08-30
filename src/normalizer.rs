@@ -60,6 +60,7 @@ impl Normalization {
     }
 }
 
+#[derive(Clone)]
 pub struct Normalizer {
     // Types of the skolem functions produced
     // Some of them are just constants, so we store an AcornType rather than a FunctionType

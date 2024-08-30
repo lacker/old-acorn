@@ -14,6 +14,7 @@ use crate::unifier::{Scope, Unifier};
 // The goal is that, given a new clause, it is efficient to determine what can be concluded
 // given that clause and one clause from the active set.
 // "Efficient" is relative - this still may take time roughly linear to the size of the active set.
+#[derive(Clone)]
 pub struct ActiveSet {
     // A vector for indexed reference
     steps: Vec<ProofStep>,
@@ -48,6 +49,7 @@ pub struct ActiveSet {
 }
 
 // A ResolutionTarget represents a literal that we could do resolution with.
+#[derive(Clone)]
 struct ResolutionTarget {
     // Which proof step the resolution target is in.
     step_index: usize,
@@ -61,6 +63,7 @@ struct ResolutionTarget {
 }
 
 // Information about a subterm that appears in an activated concrete literal.
+#[derive(Clone)]
 struct SubtermInfo {
     // The subterm itself
     term: Term,
@@ -80,6 +83,7 @@ struct SubtermInfo {
 
 // A SubtermLocation describes somewhere that the subterm exists among the activated clauses.
 // Subterm locations always refer to concrete single-literal clauses.
+#[derive(Clone)]
 struct SubtermLocation {
     // Which proof step the subterm is in.
     // The literal can be either positive or negative.

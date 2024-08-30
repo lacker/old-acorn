@@ -42,6 +42,7 @@ impl ParamList {
 // A helper structure to determine which monomorphs are necessary.
 // Doesn't include facts in order to make memory ownership easier.
 // This only handles a single parametric type.
+#[derive(Clone)]
 pub struct Monomorphizer {
     // Facts that are not yet monomorphized.
     polymorphic_facts: Vec<Fact>,

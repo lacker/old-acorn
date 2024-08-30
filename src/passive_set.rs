@@ -11,6 +11,7 @@ use std::collections::{BTreeSet, HashMap};
 // The PassiveSet stores a bunch of clauses.
 // A clause in the passive set can be activated, and it can be simplified, but to do
 // anything more complicated it needs to be activated first.
+#[derive(Clone)]
 pub struct PassiveSet {
     // Stores clauses in the passive set, along with their score.
     // We never shrink this vector, we just replace its entries with None.

@@ -118,7 +118,7 @@ impl TermFingerprint {
 }
 
 // A data structure designed to quickly find which terms unify with a query term.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FingerprintUnifier<T> {
     tree: BTreeMap<TermFingerprint, Vec<T>>,
 }
@@ -175,6 +175,7 @@ impl LiteralFingerprint {
 
 // A data structure designed to quickly find which literals are a specialization of a query literal.
 // Identifies literals by a usize id.
+#[derive(Clone)]
 pub struct FingerprintSpecializer<T> {
     trees: HashMap<TypeId, BTreeMap<LiteralFingerprint, Vec<T>>>,
 }

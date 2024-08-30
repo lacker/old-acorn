@@ -9,6 +9,7 @@ use crate::type_map::TypeId;
 
 // Each term can correspond with multiple RewriteValues.
 // This is the internal representation of the pattern, before it has been applied to a term.
+#[derive(Clone)]
 struct RewriteValue {
     // Which rule this rewrite is generated from
     pattern_id: usize,
@@ -22,6 +23,7 @@ struct RewriteValue {
 }
 
 // The external representation of a rewrite, after it has been applied to a particular term.
+#[derive(Clone)]
 pub struct Rewrite {
     // Which rule this rewrite is generated from
     pub pattern_id: usize,
@@ -33,6 +35,7 @@ pub struct Rewrite {
     pub term: Term,
 }
 
+#[derive(Clone)]
 pub struct RewriteTree {
     tree: PatternTree<Vec<RewriteValue>>,
 }

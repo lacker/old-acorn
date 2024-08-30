@@ -505,6 +505,7 @@ where
     true
 }
 
+#[derive(Clone, Debug)]
 pub struct PatternTree<T> {
     // Maps to an index into values.
     // The values are stored separately because subtrie lifetimes get weird.
@@ -599,6 +600,7 @@ impl PatternTree<()> {
 
 // The LiteralSet stores a bunch of literals in a way that makes it quick to check whether
 // the set contains a generalization for a new literal.
+#[derive(Clone)]
 pub struct LiteralSet {
     // Stores (sign, id) for each literal.
     tree: PatternTree<(bool, usize)>,

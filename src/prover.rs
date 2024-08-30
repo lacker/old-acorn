@@ -25,6 +25,7 @@ use crate::proposition::SourceType;
 use crate::term::Term;
 use crate::term_graph::TermGraphContradiction;
 
+#[derive(Clone)]
 pub struct Prover {
     // The normalizer is used when we are turning the facts and goals from the environment into
     // clauses that we can use internally.
@@ -66,6 +67,7 @@ pub struct Prover {
     goal: Option<NormalizedGoal>,
 }
 
+#[derive(Clone)]
 enum NormalizedGoal {
     // The value expresses the negation of the goal we are trying to prove.
     // It is normalized in the sense that we would use this form to generate code.

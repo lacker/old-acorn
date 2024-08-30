@@ -50,6 +50,7 @@ enum Decomposition {
     Compound(TermId, Vec<TermId>),
 }
 
+#[derive(Clone)]
 struct TermInfo {
     term: Term,
     group: GroupId,
@@ -64,6 +65,7 @@ struct TermInfo {
 // Terms that belong to the same group are equal.
 type GroupId = u32;
 
+#[derive(Clone)]
 struct GroupInfo {
     // All of the terms that belong to this group, in the order they were added.
     terms: Vec<TermId>,
@@ -140,6 +142,7 @@ impl fmt::Display for CompoundKey {
     }
 }
 
+#[derive(Clone)]
 struct CompoundInfo {
     key: CompoundKey,
     result_term: TermId,
@@ -153,6 +156,7 @@ impl fmt::Display for CompoundInfo {
 
 // The TermGraph stores concrete terms, along with relationships between them that represent
 // equality, inequality, and subterm relationships.
+#[derive(Clone)]
 pub struct TermGraph {
     // terms maps TermId to TermInfo.
     terms: Vec<TermInfo>,

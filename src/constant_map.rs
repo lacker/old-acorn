@@ -14,6 +14,7 @@ pub struct ConstantKey {
 // The low-level prover, on the other hand, just wants each constant to have a
 // numerical id.
 // The ConstantMap is a mapping between the two.
+#[derive(Clone)]
 pub struct ConstantMap {
     // For global constant i in the prover, global_constants[i] is the corresponding ConstantKey.
     // The AtomId -> ConstantKey lookup direction.

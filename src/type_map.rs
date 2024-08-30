@@ -25,6 +25,7 @@ struct MonomorphKey {
 // The low-level prover only understands simple typing, where each value has a TypeId, and there
 // is no polymorphism.
 // The TypeMap is a mapping between the two.
+#[derive(Clone)]
 pub struct TypeMap {
     // type_map[acorn_type] is the TypeId
     type_map: HashMap<AcornType, TypeId>,

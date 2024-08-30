@@ -9,6 +9,7 @@ use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 use walkdir::WalkDir;
 
 use crate::binding_map::BindingMap;
+use crate::block::NodeCursor;
 use crate::environment::Environment;
 use crate::fact::Fact;
 use crate::goal::GoalContext;
@@ -435,6 +436,7 @@ impl Project {
     // Create a prover for each goal in this environment, and call the callback on it.
     // An error status makes us stop early.
     // Return the combined build status.
+    // Slow version that is more simple, for debugging.
     fn for_each_prover_slow(
         &self,
         env: &Environment,
@@ -455,6 +457,48 @@ impl Project {
             }
         }
         build_status
+    }
+
+    // Create a prover for each goal in this environment, and call the callback on it.
+    // An error status makes us stop early.
+    // Return the combined build status.
+    // Fast version that tries to clone prover state rather than rebuilding.
+    fn for_each_prover_fast(
+        &self,
+        env: &Environment,
+        callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
+    ) -> BuildStatus {
+        if env.nodes.is_empty() {
+            // Nothing to prove
+            return BuildStatus::Good;
+        }
+
+        todo!();
+    }
+
+    // Create a prover for every goal within this node, and call the callback on it.
+    // An error status makes us stop early.
+    // Prover should have all facts loaded before node, but nothing for node itself.
+    // This should leave node the same way it found it, although it can mutate it
+    // mid-operation.
+    fn for_each_prover_helper(
+        &self,
+        prover: &Prover,
+        node: &mut NodeCursor,
+        callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
+    ) -> BuildStatus {
+        if node.num_children() == 0 && !node.current().has_goal() {
+            // There's nothing to do here
+            return BuildStatus::Good;
+        }
+
+        let mut prover = prover.clone();
+        if node.num_children() > 0 {
+            // We need to recurse into children
+            todo!();
+        }
+
+        todo!();
     }
 
     // Proves a single goal in the target, using the provided prover.
