@@ -418,6 +418,8 @@ impl Project {
         total: i32,
         handler: &mut impl FnMut(BuildEvent),
     ) -> BuildStatus {
+        // Fast and slow modes should be interchangeable here.
+        // If we run into a bug with fast mode, try using slow mode to debug.
         let build_status = self.for_each_prover_fast(env, &mut |prover, goal_context| {
             self.prove(target, prover, goal_context, done, total, handler)
         });
