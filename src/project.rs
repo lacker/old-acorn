@@ -1291,6 +1291,8 @@ mod tests {
             "#,
         );
 
+        let env = p.get_env_by_name("main").unwrap();
+
         // TODO: measure iteration type things
     }
 }
