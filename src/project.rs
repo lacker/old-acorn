@@ -1258,4 +1258,39 @@ mod tests {
         p.check_code_into("main", "Nat.suc(Nat.0)", "0.suc");
         p.check_code_into("main", "Nat.add(Nat.0, Nat.0)", "0 + 0");
     }
+
+    #[test]
+    fn test_prover_iteration_methods() {
+        let mut p = Project::new_mock();
+        p.mock(
+            "/mock/nat.ac",
+            r#"
+            inductive Nat {
+                0
+                suc(Nat)
+            }
+            "#,
+        );
+        p.mock(
+            "/mock/main.ac",
+            r#"
+            from nat import Nat
+            let x: Nat = axiom
+            let y: Nat = axiom
+            theorem goal(a: Nat) {
+                a != x or a != y or x = y
+            } by {
+                if a = x {
+                    if a = y {
+                        x = y
+                    }
+                    a != y or x = y
+                }
+                a != x or a != y or x = y
+            }
+            "#,
+        );
+
+        // TODO: measure iteration type things
+    }
 }
