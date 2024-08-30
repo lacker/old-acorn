@@ -417,7 +417,6 @@ impl Project {
         handler: &mut impl FnMut(BuildEvent),
     ) -> BuildStatus {
         let mut build_status = BuildStatus::Good;
-        let mut target_warnings = false;
         for node in env.iter_goals() {
             let start = std::time::Instant::now();
             let goal_context = node.goal_context().expect("no goal context");
@@ -469,7 +468,6 @@ impl Project {
                 } else {
                     DiagnosticSeverity::WARNING
                 });
-                target_warnings = true;
                 let mut message = format!("{}{}", goal_context.name, description);
                 if let Some(e) = prover.error {
                     message.push_str(&format!(": {}", e));
@@ -504,8 +502,8 @@ impl Project {
             });
         }
 
-        if !target_warnings {
-            // Report a None diagnostic to indicate that this target is okay
+        if build_status == BuildStatus::Good {
+            // Report a None diagnostic to indicate that this target had no problems
             handler(BuildEvent {
                 diagnostic: Some((target.to_string(), None)),
                 ..BuildEvent::default()
