@@ -11,6 +11,7 @@ use walkdir::WalkDir;
 use crate::binding_map::BindingMap;
 use crate::environment::Environment;
 use crate::fact::Fact;
+use crate::goal::GoalContext;
 use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::prover::{Outcome, Prover};
 use crate::token::{self, Token};
@@ -425,81 +426,11 @@ impl Project {
                 prover.add_fact(fact);
             }
             prover.set_goal(&goal_context);
-            let outcome = prover.verification_search();
-            let elapsed = duration_as_f64_secs(start.elapsed());
-            let elapsed_str = format!("{:.3}s", elapsed);
-            *done += 1;
-            let mut exit_early = false;
-            let mut success = false;
-            let mut is_slow_warning = false;
-            let description = match outcome {
-                Outcome::Success => match prover.get_proof() {
-                    None => " had a missing proof".to_string(),
-                    Some(proof) => {
-                        if proof.needs_simplification() {
-                            " needs simplification".to_string()
-                        } else if self.warn_when_slow && elapsed > 0.1 {
-                            is_slow_warning = true;
-                            format!(" took {}", elapsed_str)
-                        } else {
-                            success = true;
-                            "".to_string()
-                        }
-                    }
-                },
-                Outcome::Exhausted => " could not be verified".to_string(),
-                Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
-                Outcome::Timeout => format!(" timed out after {}", elapsed_str),
-                Outcome::Interrupted => {
-                    exit_early = true;
-                    " was interrupted".to_string()
-                }
-                Outcome::Error => {
-                    exit_early = true;
-                    " had an error".to_string()
-                }
-                Outcome::Constrained => " stopped after hitting constraints".to_string(),
-            };
-
-            let (diagnostic, log_message) = if !success {
-                // This is a problem that needs to be reported
-                let severity = Some(if exit_early {
-                    DiagnosticSeverity::ERROR
-                } else {
-                    DiagnosticSeverity::WARNING
-                });
-                let mut message = format!("{}{}", goal_context.name, description);
-                if let Some(e) = prover.error {
-                    message.push_str(&format!(": {}", e));
-                }
-                let diagnostic = Diagnostic {
-                    range: goal_context.goal.range(),
-                    severity,
-                    message: message.clone(),
-                    ..Diagnostic::default()
-                };
-                build_status = BuildStatus::Warning;
-                (Some((target.to_string(), Some(diagnostic))), Some(message))
-            } else {
-                (None, None)
-            };
-
-            if exit_early {
-                handler(BuildEvent {
-                    progress: Some((total, total)),
-                    log_message,
-                    is_slow_warning,
-                    diagnostic,
-                });
-                return BuildStatus::Error;
+            let new_status = self.prove(target, start, prover, &goal_context, done, total, handler);
+            build_status = build_status.combine(&new_status);
+            if build_status == BuildStatus::Error {
+                break;
             }
-
-            handler(BuildEvent {
-                progress: Some((*done, total)),
-                log_message,
-                is_slow_warning,
-                diagnostic,
-            });
         }
 
         if build_status == BuildStatus::Good {
@@ -510,6 +441,96 @@ impl Project {
             });
         }
 
+        build_status
+    }
+
+    // Proves a single goal in the target, using the provided prover.
+    // Reports using the handler as appropriate.
+    // Returns the status for this goal alone.
+    fn prove(
+        &self,
+        target: &str,
+        start: std::time::Instant,
+        mut prover: Prover,
+        goal_context: &GoalContext,
+        done: &mut i32,
+        total: i32,
+        handler: &mut impl FnMut(BuildEvent),
+    ) -> BuildStatus {
+        let outcome = prover.verification_search();
+        let elapsed = duration_as_f64_secs(start.elapsed());
+        let elapsed_str = format!("{:.3}s", elapsed);
+        *done += 1;
+        let mut exit_early = false;
+        let mut build_status = BuildStatus::Warning;
+        let mut is_slow_warning = false;
+        let description = match outcome {
+            Outcome::Success => match prover.get_proof() {
+                None => " had a missing proof".to_string(),
+                Some(proof) => {
+                    if proof.needs_simplification() {
+                        " needs simplification".to_string()
+                    } else if self.warn_when_slow && elapsed > 0.1 {
+                        is_slow_warning = true;
+                        format!(" took {}", elapsed_str)
+                    } else {
+                        build_status = BuildStatus::Good;
+                        "".to_string()
+                    }
+                }
+            },
+            Outcome::Exhausted => " could not be verified".to_string(),
+            Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
+            Outcome::Timeout => format!(" timed out after {}", elapsed_str),
+            Outcome::Interrupted => {
+                exit_early = true;
+                " was interrupted".to_string()
+            }
+            Outcome::Error => {
+                exit_early = true;
+                " had an error".to_string()
+            }
+            Outcome::Constrained => " stopped after hitting constraints".to_string(),
+        };
+
+        let (diagnostic, log_message) = if build_status != BuildStatus::Good {
+            // This is a problem that needs to be reported
+            let severity = Some(if exit_early {
+                DiagnosticSeverity::ERROR
+            } else {
+                DiagnosticSeverity::WARNING
+            });
+            let mut message = format!("{}{}", goal_context.name, description);
+            if let Some(e) = prover.error {
+                message.push_str(&format!(": {}", e));
+            }
+            let diagnostic = Diagnostic {
+                range: goal_context.goal.range(),
+                severity,
+                message: message.clone(),
+                ..Diagnostic::default()
+            };
+            (Some((target.to_string(), Some(diagnostic))), Some(message))
+        } else {
+            (None, None)
+        };
+
+        if exit_early {
+            handler(BuildEvent {
+                progress: Some((total, total)),
+                log_message,
+                is_slow_warning,
+                diagnostic,
+            });
+            return BuildStatus::Error;
+        }
+
+        handler(BuildEvent {
+            progress: Some((*done, total)),
+            log_message,
+            is_slow_warning,
+            diagnostic,
+        });
         build_status
     }
 
