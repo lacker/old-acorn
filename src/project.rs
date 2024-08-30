@@ -437,7 +437,7 @@ impl Project {
     // An error status makes us stop early.
     // Return the combined build status.
     // Slow version that is more simple, for debugging.
-    fn for_each_prover_slow(
+    pub fn for_each_prover_slow(
         &self,
         env: &Environment,
         callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
@@ -463,7 +463,7 @@ impl Project {
     // An error status makes us stop early.
     // Return the combined build status.
     // Fast version that tries to clone prover state rather than rebuilding.
-    fn for_each_prover_fast(
+    pub fn for_each_prover_fast(
         &self,
         env: &Environment,
         callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
@@ -472,8 +472,26 @@ impl Project {
             // Nothing to prove
             return BuildStatus::Good;
         }
+        let mut prover = Prover::new(&self, false);
+        for fact in self.imported_facts(env.module_id) {
+            prover.add_fact(fact);
+        }
+        let mut node = NodeCursor::new(&env, 0);
+        let mut status = BuildStatus::Good;
 
-        todo!();
+        loop {
+            status = status.combine(&self.for_each_prover_helper(&prover, &mut node, callback));
+            if status == BuildStatus::Error {
+                break;
+            }
+            if !node.has_next() {
+                break;
+            }
+            prover.add_fact(node.get_fact());
+            node.next();
+        }
+
+        status
     }
 
     // Create a prover for every goal within this node, and call the callback on it.
@@ -503,13 +521,23 @@ impl Project {
                     break;
                 }
 
-                todo!("add the fact for the current node");
-                todo!("if there's more nodes, advance. else, break");
+                prover.add_fact(node.get_fact());
+                if node.has_next() {
+                    node.next();
+                } else {
+                    break;
+                }
             }
-            todo!("ascend");
+            node.ascend();
         }
 
-        todo!("prove the goal for this node");
+        if node.current().has_goal() {
+            let goal_context = node.goal_context().unwrap();
+            prover.set_goal(&goal_context);
+            status = status.combine(&callback(prover, goal_context));
+        }
+
+        status
     }
 
     // Proves a single goal in the target, using the provided prover.
