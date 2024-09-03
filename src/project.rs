@@ -5,7 +5,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{fmt, io};
 
-use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 use walkdir::WalkDir;
 
 use crate::binding_map::BindingMap;
@@ -91,7 +90,7 @@ impl BuildStatus {
         }
     }
 
-    fn combine(&self, other: &BuildStatus) -> BuildStatus {
+    pub fn combine(&self, other: &BuildStatus) -> BuildStatus {
         match (self, other) {
             (BuildStatus::Error, _) => BuildStatus::Error,
             (_, BuildStatus::Error) => BuildStatus::Error,
@@ -340,9 +339,8 @@ impl Project {
 
         // The second pass is the "proving phase".
         let mut build_status = BuildStatus::Good;
-        let mut done: i32 = 0;
         for (target, env) in targets.into_iter().zip(envs) {
-            let new_status = self.verify_target(target, env, &mut done, logger.total, logger);
+            let new_status = self.verify_target(target, env, logger);
             build_status = build_status.combine(&new_status);
             if build_status == BuildStatus::Error {
                 break;
@@ -353,18 +351,11 @@ impl Project {
 
     // Verifies all goals within this target.
     // Returns the status for this file alone.
-    fn verify_target(
-        &self,
-        target: &str,
-        env: &Environment,
-        done: &mut i32,
-        total: i32,
-        logger: &mut Logger,
-    ) -> BuildStatus {
+    fn verify_target(&self, target: &str, env: &Environment, logger: &mut Logger) -> BuildStatus {
         // Fast and slow modes should be interchangeable here.
         // If we run into a bug with fast mode, try using slow mode to debug.
         let build_status = self.for_each_prover_fast(env, &mut |prover, goal_context| {
-            self.prove(target, prover, goal_context, done, total, logger)
+            self.prove(target, prover, goal_context, logger)
         });
 
         if build_status == BuildStatus::Good {
@@ -493,15 +484,13 @@ impl Project {
         target: &str,
         mut prover: Prover,
         goal_context: GoalContext,
-        done: &mut i32,
-        total: i32,
         logger: &mut Logger,
     ) -> BuildStatus {
         let start = std::time::Instant::now();
         let outcome = prover.verification_search();
         let elapsed = duration_as_f64_secs(start.elapsed());
         let elapsed_str = format!("{:.3}s", elapsed);
-        *done += 1;
+        logger.search_finished();
         let mut build_status = BuildStatus::Warning;
         let mut is_slow_warning = false;
         let description = match outcome {
@@ -533,30 +522,19 @@ impl Project {
             Outcome::Constrained => " stopped after hitting constraints".to_string(),
         };
 
-        let (diagnostic, log_message) = if build_status != BuildStatus::Good {
-            // This is a problem that needs to be reported
-            let mut message = format!("{}{}", goal_context.name, description);
-            if let Some(e) = prover.error {
-                message.push_str(&format!(": {}", e));
-            }
-            let diagnostic = Diagnostic {
-                range: goal_context.goal.range(),
-                severity: Some(DiagnosticSeverity::WARNING),
-                message: message.clone(),
-                ..Diagnostic::default()
-            };
-            (Some((target.to_string(), Some(diagnostic))), Some(message))
-        } else {
-            (None, None)
-        };
+        if build_status != BuildStatus::Good {
+            logger.log_proving_warning(
+                target,
+                &goal_context,
+                &prover,
+                &description,
+                is_slow_warning,
+            );
+            return BuildStatus::Warning;
+        }
 
-        logger.handle_event(BuildEvent {
-            progress: Some((*done, total)),
-            log_message,
-            is_slow_warning,
-            diagnostic,
-        });
-        build_status
+        logger.log_proving_success();
+        BuildStatus::Good
     }
 
     // Does the build and returns all events when it's done, rather than asynchronously.

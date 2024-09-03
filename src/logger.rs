@@ -44,6 +44,10 @@ pub struct Logger<'a> {
     // The total number of goals to be verified.
     // Counted up during the loading phase.
     pub total: i32,
+
+    // The number of goals for which the proof search finished.
+    // This includes both successful and unsuccessful searches.
+    pub done: i32,
 }
 
 impl<'a> Logger<'a> {
@@ -53,6 +57,7 @@ impl<'a> Logger<'a> {
             event_handler,
             status: BuildStatus::Good,
             total: 0,
+            done: 0,
         }
     }
 
@@ -71,6 +76,11 @@ impl<'a> Logger<'a> {
             progress: Some((0, self.total)),
             ..BuildEvent::default()
         });
+    }
+
+    // Called when a single proof search completes
+    pub fn search_finished(&mut self) {
+        self.done += 1;
     }
 
     // Logs an informational message that doesn't change build status.
@@ -95,6 +105,42 @@ impl<'a> Logger<'a> {
             ..BuildEvent::default()
         });
         self.status = BuildStatus::Error;
+    }
+
+    // Logs a successful proof.
+    pub fn log_proving_success(&mut self) {
+        self.handle_event(BuildEvent {
+            progress: Some((self.done, self.total)),
+            ..BuildEvent::default()
+        })
+    }
+
+    // Logs a warning. Warnings can only happen during the proving phase.
+    pub fn log_proving_warning(
+        &mut self,
+        module: &str,
+        goal_context: &GoalContext,
+        prover: &Prover,
+        message: &str,
+        is_slow_warning: bool,
+    ) {
+        let mut full_message = format!("{} {}", goal_context.name, message);
+        if let Some(e) = &prover.error {
+            full_message.push_str(&format!(": {}", e));
+        }
+        let diagnostic = Diagnostic {
+            range: goal_context.goal.range(),
+            severity: Some(DiagnosticSeverity::WARNING),
+            message: full_message.clone(),
+            ..Diagnostic::default()
+        };
+        self.handle_event(BuildEvent {
+            progress: Some((self.done, self.total)),
+            log_message: Some(full_message),
+            is_slow_warning,
+            diagnostic: Some((module.to_string(), Some(diagnostic))),
+        });
+        self.status = self.status.combine(&BuildStatus::Warning);
     }
 
     // Logs an error during the proving phase.
@@ -122,5 +168,6 @@ impl<'a> Logger<'a> {
             diagnostic: Some((module.to_string(), Some(diagnostic))),
             ..BuildEvent::default()
         });
+        self.status = BuildStatus::Error;
     }
 }
