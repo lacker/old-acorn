@@ -13,6 +13,7 @@ use crate::block::NodeCursor;
 use crate::environment::Environment;
 use crate::fact::Fact;
 use crate::goal::GoalContext;
+use crate::logger::Logger;
 use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::prover::{Outcome, Prover};
 use crate::token::{self, Token};
@@ -319,14 +320,14 @@ impl Project {
         Ok(())
     }
 
-    // Builds all open modules, and calls the event handler on any build events.
+    // Builds all open modules, logging build events.
     // Returns the build status.
-    pub fn build(&self, handler: &mut impl FnMut(BuildEvent)) -> BuildStatus {
+    pub fn build(&self, logger: &mut Logger) -> BuildStatus {
         // Build in alphabetical order by module name for consistency.
         let mut targets = self.targets.iter().collect::<Vec<_>>();
         targets.sort();
 
-        handler(BuildEvent {
+        logger.handle_event(BuildEvent {
             log_message: Some(format!("building targets: {:?}", targets)),
             ..BuildEvent::default()
         });
@@ -348,7 +349,7 @@ impl Project {
                     if e.external {
                         // The real problem is in a different module.
                         // So we don't want to report a diagnostic for this module.
-                        handler(BuildEvent {
+                        logger.handle_event(BuildEvent {
                             log_message: Some(format!("error: {}", e)),
                             ..BuildEvent::default()
                         });
@@ -359,7 +360,7 @@ impl Project {
                             message: e.to_string(),
                             ..Diagnostic::default()
                         };
-                        handler(BuildEvent {
+                        logger.handle_event(BuildEvent {
                             log_message: Some(format!("fatal error: {}", e)),
                             diagnostic: Some((target.to_string(), Some(diagnostic))),
                             ..BuildEvent::default()
@@ -369,7 +370,7 @@ impl Project {
                 }
                 Module::None => {
                     // Targets are supposed to be loaded already.
-                    handler(BuildEvent {
+                    logger.handle_event(BuildEvent {
                         log_message: Some(format!("error: module {} is not loaded", target)),
                         ..BuildEvent::default()
                     });
@@ -378,7 +379,7 @@ impl Project {
                 Module::Loading => {
                     // Happens if there's a circular import. A more localized error should
                     // show up elsewhere, so let's just log.
-                    handler(BuildEvent {
+                    logger.handle_event(BuildEvent {
                         log_message: Some(format!("error: module {} stuck in loading", target)),
                         ..BuildEvent::default()
                     });
@@ -390,7 +391,7 @@ impl Project {
             return BuildStatus::Error;
         }
 
-        handler(BuildEvent {
+        logger.handle_event(BuildEvent {
             progress: Some((0, total)),
             ..BuildEvent::default()
         });
@@ -399,7 +400,7 @@ impl Project {
         let mut build_status = BuildStatus::Good;
         let mut done: i32 = 0;
         for (target, env) in targets.into_iter().zip(envs) {
-            let new_status = self.verify_target(target, env, &mut done, total, handler);
+            let new_status = self.verify_target(target, env, &mut done, total, logger);
             build_status = build_status.combine(&new_status);
             if build_status == BuildStatus::Error {
                 break;
@@ -416,17 +417,17 @@ impl Project {
         env: &Environment,
         done: &mut i32,
         total: i32,
-        handler: &mut impl FnMut(BuildEvent),
+        logger: &mut Logger,
     ) -> BuildStatus {
         // Fast and slow modes should be interchangeable here.
         // If we run into a bug with fast mode, try using slow mode to debug.
         let build_status = self.for_each_prover_fast(env, &mut |prover, goal_context| {
-            self.prove(target, prover, goal_context, done, total, handler)
+            self.prove(target, prover, goal_context, done, total, logger)
         });
 
         if build_status == BuildStatus::Good {
             // Report a None diagnostic to indicate that this target had no problems
-            handler(BuildEvent {
+            logger.handle_event(BuildEvent {
                 diagnostic: Some((target.to_string(), None)),
                 ..BuildEvent::default()
             });
@@ -552,7 +553,7 @@ impl Project {
         goal_context: GoalContext,
         done: &mut i32,
         total: i32,
-        handler: &mut impl FnMut(BuildEvent),
+        logger: &mut Logger,
     ) -> BuildStatus {
         let start = std::time::Instant::now();
         let outcome = prover.verification_search();
@@ -614,7 +615,7 @@ impl Project {
         };
 
         if exit_early {
-            handler(BuildEvent {
+            logger.handle_event(BuildEvent {
                 progress: Some((total, total)),
                 log_message,
                 is_slow_warning,
@@ -623,7 +624,7 @@ impl Project {
             return BuildStatus::Error;
         }
 
-        handler(BuildEvent {
+        logger.handle_event(BuildEvent {
             progress: Some((*done, total)),
             log_message,
             is_slow_warning,
@@ -635,9 +636,10 @@ impl Project {
     // Does the build and returns all events when it's done, rather than asynchronously.
     pub fn sync_build(&self) -> (BuildStatus, Vec<BuildEvent>) {
         let mut events = vec![];
-        let status = self.build(&mut |event| {
-            events.push(event);
-        });
+        let status = {
+            let mut logger = Logger::new(|event| events.push(event));
+            self.build(&mut logger)
+        };
         (status, events)
     }
 
@@ -1103,15 +1105,8 @@ mod tests {
         p.load_module("main").expect("loading main failed");
         p.add_target("foo");
         p.add_target("main");
-        let mut events = vec![];
-        assert_eq!(
-            p.build(&mut |event| {
-                events.push(event);
-            }),
-            BuildStatus::Good
-        );
-
-        // Testing this is annoying because I keep changing it for UI purposes.
+        let (status, events) = p.sync_build();
+        assert_eq!(status, BuildStatus::Good);
         assert!(events.len() > 0);
     }
 

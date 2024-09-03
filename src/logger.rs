@@ -1,12 +1,14 @@
 use crate::project::BuildEvent;
 
 // The Logger collects information about what happens during a build.
-pub struct Logger {
-    event_handler: Box<dyn FnMut(BuildEvent)>,
+// A single logger is used across all modules.
+pub struct Logger<'a> {
+    event_handler: Box<dyn FnMut(BuildEvent) + 'a>,
 }
 
-impl Logger {
-    pub fn new(event_handler: Box<dyn FnMut(BuildEvent)>) -> Logger {
+impl<'a> Logger<'a> {
+    pub fn new(event_handler: impl FnMut(BuildEvent) + 'a) -> Self {
+        let event_handler = Box::new(event_handler);
         Logger { event_handler }
     }
 

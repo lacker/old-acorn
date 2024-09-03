@@ -7,6 +7,7 @@ use acorn::interfaces::{
     InfoParams, InfoResponse, ProgressParams, ProgressResponse, SearchParams, SearchResponse,
     SearchStatus,
 };
+use acorn::logger::Logger;
 use acorn::module::Module;
 use acorn::project::Project;
 use acorn::prover::{Outcome, Prover};
@@ -240,9 +241,10 @@ impl Backend {
             let project = project.read().await;
 
             tokio::task::block_in_place(move || {
-                let status = project.build(&mut |event| {
+                let mut logger = Logger::new(move |event| {
                     tx.send(event).unwrap();
                 });
+                let status = project.build(&mut logger);
 
                 let duration = chrono::Local::now() - start_time;
                 let seconds = duration.num_milliseconds() as f64 / 1000.0;
