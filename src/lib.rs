@@ -15,6 +15,7 @@ pub mod fingerprint;
 pub mod goal;
 pub mod interfaces;
 pub mod literal;
+pub mod logger;
 pub mod module;
 pub mod monomorphizer;
 pub mod normalizer;
