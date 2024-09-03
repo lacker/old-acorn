@@ -301,9 +301,8 @@ impl Project {
 
         logger.log_info(format!("building targets: {:?}", targets));
 
-        // On the first pass we load modules and look for errors.
-        // If there are errors, we won't even try to do proving.
-        // But, we will still go through and look for any other errors.
+        // The first pass is the "loading pass". We load modules and look for errors.
+        // If there are errors, we won't try to do proving.
         let mut total: i32 = 0;
         let mut envs = vec![];
         for target in &targets {
@@ -343,7 +342,7 @@ impl Project {
             ..BuildEvent::default()
         });
 
-        // On the second pass we do the actual proving.
+        // The second pass is the "proving pass".
         let mut build_status = BuildStatus::Good;
         let mut done: i32 = 0;
         for (target, env) in targets.into_iter().zip(envs) {
