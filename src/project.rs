@@ -304,7 +304,6 @@ impl Project {
         // On the first pass we load modules and look for errors.
         // If there are errors, we won't even try to do proving.
         // But, we will still go through and look for any other errors.
-        let mut module_errors = false;
         let mut total: i32 = 0;
         let mut envs = vec![];
         for target in &targets {
@@ -320,40 +319,22 @@ impl Project {
                         // So we don't want to locate the error in this module.
                         logger.log_info(format!("error: {}", e));
                     } else {
-                        let diagnostic = Diagnostic {
-                            range: e.token.range(),
-                            severity: Some(DiagnosticSeverity::ERROR),
-                            message: e.to_string(),
-                            ..Diagnostic::default()
-                        };
-                        logger.handle_event(BuildEvent {
-                            log_message: Some(format!("fatal error: {}", e)),
-                            diagnostic: Some((target.to_string(), Some(diagnostic))),
-                            ..BuildEvent::default()
-                        });
+                        logger.log_error(target, e);
                     }
-                    module_errors = true;
                 }
                 Module::None => {
                     // Targets are supposed to be loaded already.
-                    logger.handle_event(BuildEvent {
-                        log_message: Some(format!("error: module {} is not loaded", target)),
-                        ..BuildEvent::default()
-                    });
-                    module_errors = true;
+                    logger.log_info(format!("error: module {} is not loaded", target));
                 }
                 Module::Loading => {
                     // Happens if there's a circular import. A more localized error should
                     // show up elsewhere, so let's just log.
-                    logger.handle_event(BuildEvent {
-                        log_message: Some(format!("error: module {} stuck in loading", target)),
-                        ..BuildEvent::default()
-                    });
+                    logger.log_info(format!("error: module {} stuck in loading", target));
                 }
             }
         }
 
-        if module_errors {
+        if logger.status == BuildStatus::Error {
             return BuildStatus::Error;
         }
 

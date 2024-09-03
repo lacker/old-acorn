@@ -1,4 +1,7 @@
-use tower_lsp::lsp_types::Diagnostic;
+use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
+
+use crate::project::BuildStatus;
+use crate::token::Error;
 
 // The build process generates a number of build events
 #[derive(Debug)]
@@ -32,12 +35,17 @@ impl BuildEvent {
 // A single logger is used across all modules.
 pub struct Logger<'a> {
     event_handler: Box<dyn FnMut(BuildEvent) + 'a>,
+
+    pub status: BuildStatus,
 }
 
 impl<'a> Logger<'a> {
     pub fn new(event_handler: impl FnMut(BuildEvent) + 'a) -> Self {
         let event_handler = Box::new(event_handler);
-        Logger { event_handler }
+        Logger {
+            event_handler,
+            status: BuildStatus::Good,
+        }
     }
 
     pub fn handle_event(&mut self, event: BuildEvent) {
@@ -50,5 +58,22 @@ impl<'a> Logger<'a> {
             log_message: Some(message),
             ..BuildEvent::default()
         });
+    }
+
+    // Logs an error that can be localized to a particular place.
+    // This sort of error is fatal to the build.
+    pub fn log_error(&mut self, module: &str, error: &Error) {
+        let diagnostic = Diagnostic {
+            range: error.token.range(),
+            severity: Some(DiagnosticSeverity::ERROR),
+            message: error.to_string(),
+            ..Diagnostic::default()
+        };
+        self.handle_event(BuildEvent {
+            log_message: Some(format!("fatal error: {}", error)),
+            diagnostic: Some((module.to_string(), Some(diagnostic))),
+            ..BuildEvent::default()
+        });
+        self.status = BuildStatus::Error;
     }
 }
