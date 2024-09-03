@@ -317,11 +317,8 @@ impl Project {
                 Module::Error(e) => {
                     if e.external {
                         // The real problem is in a different module.
-                        // So we don't want to report a diagnostic for this module.
-                        logger.handle_event(BuildEvent {
-                            log_message: Some(format!("error: {}", e)),
-                            ..BuildEvent::default()
-                        });
+                        // So we don't want to locate the error in this module.
+                        logger.log_info(format!("error: {}", e));
                     } else {
                         let diagnostic = Diagnostic {
                             range: e.token.range(),
