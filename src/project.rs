@@ -299,10 +299,7 @@ impl Project {
         let mut targets = self.targets.iter().collect::<Vec<_>>();
         targets.sort();
 
-        logger.handle_event(BuildEvent {
-            log_message: Some(format!("building targets: {:?}", targets)),
-            ..BuildEvent::default()
-        });
+        logger.log_info(format!("building targets: {:?}", targets));
 
         // On the first pass we load modules and look for errors.
         // If there are errors, we won't even try to do proving.

@@ -43,4 +43,12 @@ impl<'a> Logger<'a> {
     pub fn handle_event(&mut self, event: BuildEvent) {
         (self.event_handler)(event);
     }
+
+    // Logs an informational message that doesn't change build status.
+    pub fn log_info(&mut self, message: String) {
+        self.handle_event(BuildEvent {
+            log_message: Some(message),
+            ..BuildEvent::default()
+        });
+    }
 }
