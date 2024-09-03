@@ -1,7 +1,9 @@
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
 use crate::environment::Environment;
+use crate::goal::GoalContext;
 use crate::project::BuildStatus;
+use crate::prover::Prover;
 use crate::token::Error;
 
 // The build process generates a number of build events
@@ -79,9 +81,8 @@ impl<'a> Logger<'a> {
         });
     }
 
-    // Logs an error that can be localized to a particular place.
-    // This sort of error is fatal to the build.
-    pub fn log_error(&mut self, module: &str, error: &Error) {
+    // Logs an error during the loading phase, that can be localized to a particular place.
+    pub fn log_loading_error(&mut self, module: &str, error: &Error) {
         let diagnostic = Diagnostic {
             range: error.token.range(),
             severity: Some(DiagnosticSeverity::ERROR),
@@ -94,5 +95,32 @@ impl<'a> Logger<'a> {
             ..BuildEvent::default()
         });
         self.status = BuildStatus::Error;
+    }
+
+    // Logs an error during the proving phase.
+    pub fn log_proving_error(
+        &mut self,
+        module: &str,
+        goal_context: &GoalContext,
+        prover: &Prover,
+        message: &str,
+    ) {
+        let mut full_message = format!("{} {}", goal_context.name, message);
+        if let Some(e) = &prover.error {
+            full_message.push_str(&format!(": {}", e));
+        }
+        let diagnostic = Diagnostic {
+            range: goal_context.goal.range(),
+            severity: Some(DiagnosticSeverity::ERROR),
+            message: full_message.clone(),
+            ..Diagnostic::default()
+        };
+        // Set progress as complete, because an error will halt the build
+        self.handle_event(BuildEvent {
+            progress: Some((self.total, self.total)),
+            log_message: Some(full_message),
+            diagnostic: Some((module.to_string(), Some(diagnostic))),
+            ..BuildEvent::default()
+        });
     }
 }

@@ -317,7 +317,7 @@ impl Project {
                         // So we don't want to locate the error in this module.
                         logger.log_info(format!("error: {}", e));
                     } else {
-                        logger.log_error(target, e);
+                        logger.log_loading_error(target, e);
                     }
                 }
                 Module::None => {
@@ -502,7 +502,6 @@ impl Project {
         let elapsed = duration_as_f64_secs(start.elapsed());
         let elapsed_str = format!("{:.3}s", elapsed);
         *done += 1;
-        let mut exit_early = false;
         let mut build_status = BuildStatus::Warning;
         let mut is_slow_warning = false;
         let description = match outcome {
@@ -524,30 +523,25 @@ impl Project {
             Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
             Outcome::Timeout => format!(" timed out after {}", elapsed_str),
             Outcome::Interrupted => {
-                exit_early = true;
-                " was interrupted".to_string()
+                logger.log_proving_error(target, &goal_context, &prover, "was interrupted");
+                return BuildStatus::Error;
             }
             Outcome::Error => {
-                exit_early = true;
-                " had an error".to_string()
+                logger.log_proving_error(target, &goal_context, &prover, "had an error");
+                return BuildStatus::Error;
             }
             Outcome::Constrained => " stopped after hitting constraints".to_string(),
         };
 
         let (diagnostic, log_message) = if build_status != BuildStatus::Good {
             // This is a problem that needs to be reported
-            let severity = Some(if exit_early {
-                DiagnosticSeverity::ERROR
-            } else {
-                DiagnosticSeverity::WARNING
-            });
             let mut message = format!("{}{}", goal_context.name, description);
             if let Some(e) = prover.error {
                 message.push_str(&format!(": {}", e));
             }
             let diagnostic = Diagnostic {
                 range: goal_context.goal.range(),
-                severity,
+                severity: Some(DiagnosticSeverity::WARNING),
                 message: message.clone(),
                 ..Diagnostic::default()
             };
@@ -555,16 +549,6 @@ impl Project {
         } else {
             (None, None)
         };
-
-        if exit_early {
-            logger.handle_event(BuildEvent {
-                progress: Some((total, total)),
-                log_message,
-                is_slow_warning,
-                diagnostic,
-            });
-            return BuildStatus::Error;
-        }
 
         logger.handle_event(BuildEvent {
             progress: Some((*done, total)),
