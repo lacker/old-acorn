@@ -85,6 +85,12 @@ pub struct Builder<'a> {
 
     // When this flag is set, we emit warnings when we are slow, for some definition of "slow".
     pub warn_when_slow: bool,
+
+    // The current module we are proving.
+    pub current_module: Option<String>,
+
+    // Whether the current module is good so far.
+    pub current_module_good: bool,
 }
 
 impl<'a> Builder<'a> {
@@ -96,6 +102,8 @@ impl<'a> Builder<'a> {
             total: 0,
             done: 0,
             warn_when_slow: false,
+            current_module: None,
+            current_module_good: true,
         }
     }
 
@@ -110,6 +118,47 @@ impl<'a> Builder<'a> {
             progress: Some((0, self.total)),
             ..BuildEvent::default()
         });
+    }
+
+    // Logs an informational message that doesn't change build status.
+    pub fn log_info(&mut self, message: String) {
+        (self.event_handler)(BuildEvent {
+            log_message: Some(message),
+            ..BuildEvent::default()
+        });
+    }
+
+    // Logs an error during the loading phase, that can be localized to a particular place.
+    pub fn log_loading_error(&mut self, module: &str, error: &Error) {
+        let diagnostic = Diagnostic {
+            range: error.token.range(),
+            severity: Some(DiagnosticSeverity::ERROR),
+            message: error.to_string(),
+            ..Diagnostic::default()
+        };
+        (self.event_handler)(BuildEvent {
+            log_message: Some(format!("fatal error: {}", error)),
+            diagnostic: Some((module.to_string(), Some(diagnostic))),
+            ..BuildEvent::default()
+        });
+        self.status = BuildStatus::Error;
+    }
+
+    // Called when we start proving a module.
+    pub fn module_proving_started(&mut self, module: &str) {
+        self.current_module = Some(module.to_string());
+        self.current_module_good = true;
+    }
+
+    pub fn module_proving_complete(&mut self, module: &str) {
+        assert_eq!(self.current_module, Some(module.to_string()));
+        if self.current_module_good {
+            // Send a no-problems diagnostic, so that the IDE knows to clear squiggles.
+            (self.event_handler)(BuildEvent {
+                diagnostic: Some((module.to_string(), None)),
+                ..BuildEvent::default()
+            });
+        }
     }
 
     // Called when a single proof search completes.
@@ -198,38 +247,6 @@ impl<'a> Builder<'a> {
         }
     }
 
-    // Called when a module completes with no errors.
-    pub fn module_verified(&mut self, module: &str) {
-        (self.event_handler)(BuildEvent {
-            diagnostic: Some((module.to_string(), None)),
-            ..BuildEvent::default()
-        });
-    }
-
-    // Logs an informational message that doesn't change build status.
-    pub fn log_info(&mut self, message: String) {
-        (self.event_handler)(BuildEvent {
-            log_message: Some(message),
-            ..BuildEvent::default()
-        });
-    }
-
-    // Logs an error during the loading phase, that can be localized to a particular place.
-    pub fn log_loading_error(&mut self, module: &str, error: &Error) {
-        let diagnostic = Diagnostic {
-            range: error.token.range(),
-            severity: Some(DiagnosticSeverity::ERROR),
-            message: error.to_string(),
-            ..Diagnostic::default()
-        };
-        (self.event_handler)(BuildEvent {
-            log_message: Some(format!("fatal error: {}", error)),
-            diagnostic: Some((module.to_string(), Some(diagnostic))),
-            ..BuildEvent::default()
-        });
-        self.status = BuildStatus::Error;
-    }
-
     // Logs a successful proof.
     fn log_proving_success(&mut self) -> BuildStatus {
         (self.event_handler)(BuildEvent {
@@ -264,6 +281,7 @@ impl<'a> Builder<'a> {
             is_slow_warning,
             diagnostic: Some((module.to_string(), Some(diagnostic))),
         });
+        self.current_module_good = false;
         self.status = self.status.combine(&BuildStatus::Warning);
         return BuildStatus::Warning;
     }
@@ -293,6 +311,7 @@ impl<'a> Builder<'a> {
             diagnostic: Some((module.to_string(), Some(diagnostic))),
             ..BuildEvent::default()
         });
+        self.current_module_good = false;
         self.status = BuildStatus::Error;
         return BuildStatus::Error;
     }

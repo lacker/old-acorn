@@ -309,15 +309,15 @@ impl Project {
     // Verifies all goals within this target.
     // Returns the status for this file alone.
     fn verify_target(&self, target: &str, env: &Environment, builder: &mut Builder) -> BuildStatus {
+        builder.module_proving_started(&target);
+
         // Fast and slow modes should be interchangeable here.
         // If we run into a bug with fast mode, try using slow mode to debug.
         let module_status = self.for_each_prover_fast(env, &mut |prover, goal_context| {
             self.prove(target, prover, goal_context, builder)
         });
 
-        if module_status == BuildStatus::Good {
-            builder.module_verified(target);
-        }
+        builder.module_proving_complete(&target);
 
         module_status
     }
