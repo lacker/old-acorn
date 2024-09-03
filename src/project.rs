@@ -250,7 +250,7 @@ impl Project {
 
     // Builds all open modules, logging build events.
     // Returns the build status.
-    pub fn build(&self, builder: &mut Builder) -> BuildStatus {
+    pub fn build(&self, builder: &mut Builder) {
         // Build in alphabetical order by module name for consistency.
         let mut targets = self.targets.iter().collect::<Vec<_>>();
         targets.sort();
@@ -289,7 +289,7 @@ impl Project {
         }
 
         if builder.status == BuildStatus::Error {
-            return BuildStatus::Error;
+            return;
         }
 
         builder.loading_phase_complete();
@@ -303,7 +303,6 @@ impl Project {
                 break;
             }
         }
-        build_status
     }
 
     // Verifies all goals within this target.
@@ -450,7 +449,8 @@ impl Project {
         let mut events = vec![];
         let status = {
             let mut builder = Builder::new(|event| events.push(event));
-            self.build(&mut builder)
+            self.build(&mut builder);
+            builder.status
         };
         (status, events)
     }

@@ -241,14 +241,18 @@ impl Backend {
             let project = project.read().await;
 
             tokio::task::block_in_place(move || {
-                let mut logger = Builder::new(move |event| {
+                let mut builder = Builder::new(move |event| {
                     tx.send(event).unwrap();
                 });
-                let status = project.build(&mut logger);
+                project.build(&mut builder);
 
                 let duration = chrono::Local::now() - start_time;
                 let seconds = duration.num_milliseconds() as f64 / 1000.0;
-                log(&format!("build {} after {:.2}s", status.verb(), seconds));
+                log(&format!(
+                    "build {} after {:.2}s",
+                    builder.status.verb(),
+                    seconds
+                ));
             });
         });
 
