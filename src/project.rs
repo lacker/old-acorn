@@ -14,7 +14,7 @@ use crate::fact::Fact;
 use crate::goal::GoalContext;
 use crate::logger::{BuildEvent, Logger};
 use crate::module::{Module, ModuleId, FIRST_NORMAL};
-use crate::prover::{Outcome, Prover};
+use crate::prover::Prover;
 use crate::token::{self, Token};
 
 // The Project is responsible for importing different files and assigning them module ids.
@@ -47,9 +47,6 @@ pub struct Project {
 
     // Used as a flag to stop a build in progress.
     pub build_stopped: Arc<AtomicBool>,
-
-    // When this flag is set, we emit warnings when we are slow, for some definition of "slow".
-    pub warn_when_slow: bool,
 }
 
 // An error found while importing a module.
@@ -154,7 +151,6 @@ impl Project {
             module_map: HashMap::new(),
             targets: HashSet::new(),
             build_stopped: Arc::new(AtomicBool::new(false)),
-            warn_when_slow: false,
         }
     }
 
@@ -485,52 +481,8 @@ impl Project {
         let start = std::time::Instant::now();
         let outcome = prover.verification_search();
         let elapsed = duration_as_f64_secs(start.elapsed());
-        let elapsed_str = format!("{:.3}s", elapsed);
-        logger.search_finished();
-        let mut build_status = BuildStatus::Warning;
-        let mut is_slow_warning = false;
-        let description = match outcome {
-            Outcome::Success => match prover.get_proof() {
-                None => " had a missing proof".to_string(),
-                Some(proof) => {
-                    if proof.needs_simplification() {
-                        " needs simplification".to_string()
-                    } else if self.warn_when_slow && elapsed > 0.1 {
-                        is_slow_warning = true;
-                        format!(" took {}", elapsed_str)
-                    } else {
-                        build_status = BuildStatus::Good;
-                        "".to_string()
-                    }
-                }
-            },
-            Outcome::Exhausted => " could not be verified".to_string(),
-            Outcome::Inconsistent => " - prover found an inconsistency".to_string(),
-            Outcome::Timeout => format!(" timed out after {}", elapsed_str),
-            Outcome::Interrupted => {
-                logger.log_proving_error(target, &goal_context, &prover, "was interrupted");
-                return BuildStatus::Error;
-            }
-            Outcome::Error => {
-                logger.log_proving_error(target, &goal_context, &prover, "had an error");
-                return BuildStatus::Error;
-            }
-            Outcome::Constrained => " stopped after hitting constraints".to_string(),
-        };
 
-        if build_status != BuildStatus::Good {
-            logger.log_proving_warning(
-                target,
-                &goal_context,
-                &prover,
-                &description,
-                is_slow_warning,
-            );
-            return BuildStatus::Warning;
-        }
-
-        logger.log_proving_success();
-        BuildStatus::Good
+        logger.search_finished(target, &goal_context, &prover, outcome, elapsed)
     }
 
     // Does the build and returns all events when it's done, rather than asynchronously.
