@@ -301,15 +301,14 @@ impl Project {
 
         logger.log_info(format!("building targets: {:?}", targets));
 
-        // The first pass is the "loading pass". We load modules and look for errors.
+        // The first phase is the "loading phase". We load modules and look for errors.
         // If there are errors, we won't try to do proving.
-        let mut total: i32 = 0;
         let mut envs = vec![];
         for target in &targets {
             let module = self.get_module_by_name(target);
             match module {
                 Module::Ok(env) => {
-                    total += env.iter_goals().count() as i32;
+                    logger.module_loaded(&env);
                     envs.push(env);
                 }
                 Module::Error(e) => {
@@ -337,16 +336,13 @@ impl Project {
             return BuildStatus::Error;
         }
 
-        logger.handle_event(BuildEvent {
-            progress: Some((0, total)),
-            ..BuildEvent::default()
-        });
+        logger.loading_phase_complete();
 
-        // The second pass is the "proving pass".
+        // The second pass is the "proving phase".
         let mut build_status = BuildStatus::Good;
         let mut done: i32 = 0;
         for (target, env) in targets.into_iter().zip(envs) {
-            let new_status = self.verify_target(target, env, &mut done, total, logger);
+            let new_status = self.verify_target(target, env, &mut done, logger.total, logger);
             build_status = build_status.combine(&new_status);
             if build_status == BuildStatus::Error {
                 break;

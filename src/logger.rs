@@ -1,5 +1,6 @@
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
+use crate::environment::Environment;
 use crate::project::BuildStatus;
 use crate::token::Error;
 
@@ -37,6 +38,10 @@ pub struct Logger<'a> {
     event_handler: Box<dyn FnMut(BuildEvent) + 'a>,
 
     pub status: BuildStatus,
+
+    // The total number of goals to be verified.
+    // Counted up during the loading phase.
+    pub total: i32,
 }
 
 impl<'a> Logger<'a> {
@@ -45,11 +50,25 @@ impl<'a> Logger<'a> {
         Logger {
             event_handler,
             status: BuildStatus::Good,
+            total: 0,
         }
     }
 
     pub fn handle_event(&mut self, event: BuildEvent) {
         (self.event_handler)(event);
+    }
+
+    // Called when a single module is loaded successfully.
+    pub fn module_loaded(&mut self, env: &Environment) {
+        self.total += env.iter_goals().count() as i32;
+    }
+
+    // Called when the entire loading phase is done.
+    pub fn loading_phase_complete(&mut self) {
+        self.handle_event(BuildEvent {
+            progress: Some((0, self.total)),
+            ..BuildEvent::default()
+        });
     }
 
     // Logs an informational message that doesn't change build status.
