@@ -13,7 +13,7 @@ use crate::block::NodeCursor;
 use crate::environment::Environment;
 use crate::fact::Fact;
 use crate::goal::GoalContext;
-use crate::logger::Logger;
+use crate::logger::{BuildEvent, Logger};
 use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::prover::{Outcome, Prover};
 use crate::token::{self, Token};
@@ -67,34 +67,6 @@ impl From<io::Error> for LoadError {
 impl fmt::Display for LoadError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
-    }
-}
-
-// The build process generates a number of build events
-#[derive(Debug)]
-pub struct BuildEvent {
-    // Current progress is done / total.
-    // This is across all modules.
-    pub progress: Option<(i32, i32)>,
-
-    // Human-readable
-    pub log_message: Option<String>,
-
-    // Whether this event is a slowness warning
-    pub is_slow_warning: bool,
-
-    // Whenever we run into a problem, report the module name, plus the diagnostic itself.
-    pub diagnostic: Option<(String, Option<Diagnostic>)>,
-}
-
-impl BuildEvent {
-    fn default() -> BuildEvent {
-        BuildEvent {
-            progress: None,
-            log_message: None,
-            is_slow_warning: false,
-            diagnostic: None,
-        }
     }
 }
 

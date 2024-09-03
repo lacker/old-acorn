@@ -1,4 +1,32 @@
-use crate::project::BuildEvent;
+use tower_lsp::lsp_types::Diagnostic;
+
+// The build process generates a number of build events
+#[derive(Debug)]
+pub struct BuildEvent {
+    // Current progress is done / total.
+    // This is across all modules.
+    pub progress: Option<(i32, i32)>,
+
+    // Human-readable
+    pub log_message: Option<String>,
+
+    // Whether this event is a slowness warning
+    pub is_slow_warning: bool,
+
+    // Whenever we run into a problem, report the module name, plus the diagnostic itself.
+    pub diagnostic: Option<(String, Option<Diagnostic>)>,
+}
+
+impl BuildEvent {
+    pub fn default() -> BuildEvent {
+        BuildEvent {
+            progress: None,
+            log_message: None,
+            is_slow_warning: false,
+            diagnostic: None,
+        }
+    }
+}
 
 // The Logger collects information about what happens during a build.
 // A single logger is used across all modules.
