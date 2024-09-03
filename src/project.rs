@@ -9,10 +9,10 @@ use walkdir::WalkDir;
 
 use crate::binding_map::BindingMap;
 use crate::block::NodeCursor;
+use crate::build::{BuildEvent, BuildStatus, Builder};
 use crate::environment::Environment;
 use crate::fact::Fact;
 use crate::goal::GoalContext;
-use crate::logger::{BuildEvent, Logger};
 use crate::module::{Module, ModuleId, FIRST_NORMAL};
 use crate::prover::Prover;
 use crate::token::{self, Token};
@@ -63,38 +63,6 @@ impl From<io::Error> for LoadError {
 impl fmt::Display for LoadError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum BuildStatus {
-    // No problems of any kind
-    Good,
-
-    // Warnings indicate code that parses okay but can't be verified
-    Warning,
-
-    // Errors indicate the user entered bad code
-    Error,
-}
-
-impl BuildStatus {
-    pub fn verb(&self) -> &str {
-        match self {
-            BuildStatus::Good => "succeeded",
-            BuildStatus::Warning => "warned",
-            BuildStatus::Error => "errored",
-        }
-    }
-
-    pub fn combine(&self, other: &BuildStatus) -> BuildStatus {
-        match (self, other) {
-            (BuildStatus::Error, _) => BuildStatus::Error,
-            (_, BuildStatus::Error) => BuildStatus::Error,
-            (BuildStatus::Warning, _) => BuildStatus::Warning,
-            (_, BuildStatus::Warning) => BuildStatus::Warning,
-            _ => BuildStatus::Good,
-        }
     }
 }
 
@@ -289,12 +257,12 @@ impl Project {
 
     // Builds all open modules, logging build events.
     // Returns the build status.
-    pub fn build(&self, logger: &mut Logger) -> BuildStatus {
+    pub fn build(&self, builder: &mut Builder) -> BuildStatus {
         // Build in alphabetical order by module name for consistency.
         let mut targets = self.targets.iter().collect::<Vec<_>>();
         targets.sort();
 
-        logger.log_info(format!("building targets: {:?}", targets));
+        builder.log_info(format!("building targets: {:?}", targets));
 
         // The first phase is the "loading phase". We load modules and look for errors.
         // If there are errors, we won't try to do proving.
@@ -303,40 +271,40 @@ impl Project {
             let module = self.get_module_by_name(target);
             match module {
                 Module::Ok(env) => {
-                    logger.module_loaded(&env);
+                    builder.module_loaded(&env);
                     envs.push(env);
                 }
                 Module::Error(e) => {
                     if e.external {
                         // The real problem is in a different module.
                         // So we don't want to locate the error in this module.
-                        logger.log_info(format!("error: {}", e));
+                        builder.log_info(format!("error: {}", e));
                     } else {
-                        logger.log_loading_error(target, e);
+                        builder.log_loading_error(target, e);
                     }
                 }
                 Module::None => {
                     // Targets are supposed to be loaded already.
-                    logger.log_info(format!("error: module {} is not loaded", target));
+                    builder.log_info(format!("error: module {} is not loaded", target));
                 }
                 Module::Loading => {
                     // Happens if there's a circular import. A more localized error should
                     // show up elsewhere, so let's just log.
-                    logger.log_info(format!("error: module {} stuck in loading", target));
+                    builder.log_info(format!("error: module {} stuck in loading", target));
                 }
             }
         }
 
-        if logger.status == BuildStatus::Error {
+        if builder.status == BuildStatus::Error {
             return BuildStatus::Error;
         }
 
-        logger.loading_phase_complete();
+        builder.loading_phase_complete();
 
         // The second pass is the "proving phase".
         let mut build_status = BuildStatus::Good;
         for (target, env) in targets.into_iter().zip(envs) {
-            let new_status = self.verify_target(target, env, logger);
+            let new_status = self.verify_target(target, env, builder);
             build_status = build_status.combine(&new_status);
             if build_status == BuildStatus::Error {
                 break;
@@ -347,15 +315,15 @@ impl Project {
 
     // Verifies all goals within this target.
     // Returns the status for this file alone.
-    fn verify_target(&self, target: &str, env: &Environment, logger: &mut Logger) -> BuildStatus {
+    fn verify_target(&self, target: &str, env: &Environment, builder: &mut Builder) -> BuildStatus {
         // Fast and slow modes should be interchangeable here.
         // If we run into a bug with fast mode, try using slow mode to debug.
         let module_status = self.for_each_prover_fast(env, &mut |prover, goal_context| {
-            self.prove(target, prover, goal_context, logger)
+            self.prove(target, prover, goal_context, builder)
         });
 
         if module_status == BuildStatus::Good {
-            logger.module_verified(target);
+            builder.module_verified(target);
         }
 
         module_status
@@ -476,21 +444,21 @@ impl Project {
         target: &str,
         mut prover: Prover,
         goal_context: GoalContext,
-        logger: &mut Logger,
+        builder: &mut Builder,
     ) -> BuildStatus {
         let start = std::time::Instant::now();
         let outcome = prover.verification_search();
         let elapsed = duration_as_f64_secs(start.elapsed());
 
-        logger.search_finished(target, &goal_context, &prover, outcome, elapsed)
+        builder.search_finished(target, &goal_context, &prover, outcome, elapsed)
     }
 
     // Does the build and returns all events when it's done, rather than asynchronously.
     pub fn sync_build(&self) -> (BuildStatus, Vec<BuildEvent>) {
         let mut events = vec![];
         let status = {
-            let mut logger = Logger::new(|event| events.push(event));
-            self.build(&mut logger)
+            let mut builder = Builder::new(|event| events.push(event));
+            self.build(&mut builder)
         };
         (status, events)
     }

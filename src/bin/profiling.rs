@@ -2,7 +2,7 @@
 // Try:
 //   cargo flamegraph --bin=profiling
 
-use acorn::logger::Logger;
+use acorn::build::Builder;
 use acorn::project::Project;
 
 fn main() {
@@ -11,7 +11,7 @@ fn main() {
         assert!(project.add_target("nat"));
         assert!(project.add_target("nat_gcd"));
         assert!(project.add_target("int"));
-        let mut logger = Logger::new(|event| {
+        let mut logger = Builder::new(|event| {
             if let Some(m) = event.log_message {
                 println!("{}", m);
             }

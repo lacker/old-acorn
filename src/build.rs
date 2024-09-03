@@ -2,7 +2,6 @@ use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
 use crate::environment::Environment;
 use crate::goal::GoalContext;
-use crate::project::BuildStatus;
 use crate::prover::{Outcome, Prover};
 use crate::token::Error;
 
@@ -24,7 +23,7 @@ pub struct BuildEvent {
 }
 
 impl BuildEvent {
-    pub fn default() -> BuildEvent {
+    fn default() -> BuildEvent {
         BuildEvent {
             progress: None,
             log_message: None,
@@ -34,9 +33,42 @@ impl BuildEvent {
     }
 }
 
-// The Logger collects information about what happens during a build.
+#[derive(Debug, PartialEq, Eq)]
+pub enum BuildStatus {
+    // No problems of any kind
+    Good,
+
+    // Warnings indicate code that parses okay but can't be verified
+    Warning,
+
+    // Errors indicate the user entered bad code
+    Error,
+}
+
+impl BuildStatus {
+    pub fn verb(&self) -> &str {
+        match self {
+            BuildStatus::Good => "succeeded",
+            BuildStatus::Warning => "warned",
+            BuildStatus::Error => "errored",
+        }
+    }
+
+    pub fn combine(&self, other: &BuildStatus) -> BuildStatus {
+        match (self, other) {
+            (BuildStatus::Error, _) => BuildStatus::Error,
+            (_, BuildStatus::Error) => BuildStatus::Error,
+            (BuildStatus::Warning, _) => BuildStatus::Warning,
+            (_, BuildStatus::Warning) => BuildStatus::Warning,
+            _ => BuildStatus::Good,
+        }
+    }
+}
+
+// The Builder exists to manage a single build.
+// A single Project can correspond to many builds.
 // A single logger is used across all modules.
-pub struct Logger<'a> {
+pub struct Builder<'a> {
     event_handler: Box<dyn FnMut(BuildEvent) + 'a>,
 
     pub status: BuildStatus,
@@ -53,20 +85,16 @@ pub struct Logger<'a> {
     pub warn_when_slow: bool,
 }
 
-impl<'a> Logger<'a> {
+impl<'a> Builder<'a> {
     pub fn new(event_handler: impl FnMut(BuildEvent) + 'a) -> Self {
         let event_handler = Box::new(event_handler);
-        Logger {
+        Builder {
             event_handler,
             status: BuildStatus::Good,
             total: 0,
             done: 0,
             warn_when_slow: false,
         }
-    }
-
-    pub fn handle_event(&mut self, event: BuildEvent) {
-        (self.event_handler)(event);
     }
 
     // Called when a single module is loaded successfully.
@@ -76,7 +104,7 @@ impl<'a> Logger<'a> {
 
     // Called when the entire loading phase is done.
     pub fn loading_phase_complete(&mut self) {
-        self.handle_event(BuildEvent {
+        (self.event_handler)(BuildEvent {
             progress: Some((0, self.total)),
             ..BuildEvent::default()
         });
@@ -165,7 +193,7 @@ impl<'a> Logger<'a> {
 
     // Called when a module completes with no errors.
     pub fn module_verified(&mut self, module: &str) {
-        self.handle_event(BuildEvent {
+        (self.event_handler)(BuildEvent {
             diagnostic: Some((module.to_string(), None)),
             ..BuildEvent::default()
         });
@@ -173,7 +201,7 @@ impl<'a> Logger<'a> {
 
     // Logs an informational message that doesn't change build status.
     pub fn log_info(&mut self, message: String) {
-        self.handle_event(BuildEvent {
+        (self.event_handler)(BuildEvent {
             log_message: Some(message),
             ..BuildEvent::default()
         });
@@ -187,7 +215,7 @@ impl<'a> Logger<'a> {
             message: error.to_string(),
             ..Diagnostic::default()
         };
-        self.handle_event(BuildEvent {
+        (self.event_handler)(BuildEvent {
             log_message: Some(format!("fatal error: {}", error)),
             diagnostic: Some((module.to_string(), Some(diagnostic))),
             ..BuildEvent::default()
@@ -197,7 +225,7 @@ impl<'a> Logger<'a> {
 
     // Logs a successful proof.
     fn log_proving_success(&mut self) -> BuildStatus {
-        self.handle_event(BuildEvent {
+        (self.event_handler)(BuildEvent {
             progress: Some((self.done, self.total)),
             ..BuildEvent::default()
         });
@@ -223,7 +251,7 @@ impl<'a> Logger<'a> {
             message: full_message.clone(),
             ..Diagnostic::default()
         };
-        self.handle_event(BuildEvent {
+        (self.event_handler)(BuildEvent {
             progress: Some((self.done, self.total)),
             log_message: Some(full_message),
             is_slow_warning,
@@ -252,7 +280,7 @@ impl<'a> Logger<'a> {
             ..Diagnostic::default()
         };
         // Set progress as complete, because an error will halt the build
-        self.handle_event(BuildEvent {
+        (self.event_handler)(BuildEvent {
             progress: Some((self.total, self.total)),
             log_message: Some(full_message),
             diagnostic: Some((module.to_string(), Some(diagnostic))),
