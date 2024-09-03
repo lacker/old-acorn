@@ -354,19 +354,15 @@ impl Project {
     fn verify_target(&self, target: &str, env: &Environment, logger: &mut Logger) -> BuildStatus {
         // Fast and slow modes should be interchangeable here.
         // If we run into a bug with fast mode, try using slow mode to debug.
-        let build_status = self.for_each_prover_fast(env, &mut |prover, goal_context| {
+        let module_status = self.for_each_prover_fast(env, &mut |prover, goal_context| {
             self.prove(target, prover, goal_context, logger)
         });
 
-        if build_status == BuildStatus::Good {
-            // Report a None diagnostic to indicate that this target had no problems
-            logger.handle_event(BuildEvent {
-                diagnostic: Some((target.to_string(), None)),
-                ..BuildEvent::default()
-            });
+        if module_status == BuildStatus::Good {
+            logger.module_verified(target);
         }
 
-        build_status
+        module_status
     }
 
     // Create a prover for each goal in this environment, and call the callback on it.

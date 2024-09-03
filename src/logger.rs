@@ -83,6 +83,14 @@ impl<'a> Logger<'a> {
         self.done += 1;
     }
 
+    // Called when a module completes with no errors.
+    pub fn module_verified(&mut self, module: &str) {
+        self.handle_event(BuildEvent {
+            diagnostic: Some((module.to_string(), None)),
+            ..BuildEvent::default()
+        });
+    }
+
     // Logs an informational message that doesn't change build status.
     pub fn log_info(&mut self, message: String) {
         self.handle_event(BuildEvent {
