@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
 use crate::environment::Environment;
@@ -118,10 +120,15 @@ impl<'a> Builder<'a> {
         goal_context: &GoalContext,
         prover: &Prover,
         outcome: Outcome,
-        elapsed: f64,
+        elapsed: Duration,
     ) -> BuildStatus {
         self.done += 1;
-        let elapsed_str = format!("{:.3}s", elapsed);
+
+        // Standard messing around with times
+        let secs = elapsed.as_secs() as f64;
+        let subsec_nanos = elapsed.subsec_nanos() as f64;
+        let elapsed_f64 = secs + subsec_nanos * 1e-9;
+        let elapsed_str = format!("{:.3}s", elapsed_f64);
 
         match outcome {
             Outcome::Success => match prover.get_proof() {
@@ -141,7 +148,7 @@ impl<'a> Builder<'a> {
                             "needs simplification",
                             false,
                         )
-                    } else if self.warn_when_slow && elapsed > 0.1 {
+                    } else if self.warn_when_slow && elapsed_f64 > 0.1 {
                         self.log_proving_warning(
                             module,
                             &goal_context,

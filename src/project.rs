@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::time::Duration;
 use std::{fmt, io};
 
 use walkdir::WalkDir;
@@ -93,12 +92,6 @@ fn check_valid_module_part(s: &str, error_name: &str) -> Result<(), LoadError> {
         }
     }
     Ok(())
-}
-
-fn duration_as_f64_secs(duration: Duration) -> f64 {
-    let secs = duration.as_secs() as f64; // Whole seconds as f64
-    let subsec_nanos = duration.subsec_nanos() as f64; // Fractional part in nanoseconds as f64
-    secs + subsec_nanos * 1e-9 // Combine them to get total seconds as f64
 }
 
 impl Project {
@@ -448,9 +441,8 @@ impl Project {
     ) -> BuildStatus {
         let start = std::time::Instant::now();
         let outcome = prover.verification_search();
-        let elapsed = duration_as_f64_secs(start.elapsed());
 
-        builder.search_finished(target, &goal_context, &prover, outcome, elapsed)
+        builder.search_finished(target, &goal_context, &prover, outcome, start.elapsed())
     }
 
     // Does the build and returns all events when it's done, rather than asynchronously.
