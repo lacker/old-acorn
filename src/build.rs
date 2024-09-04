@@ -93,10 +93,10 @@ pub struct Builder<'a> {
     pub log_when_slow: bool,
 
     // The current module we are proving. Not set when we are loading.
-    pub current_module: Option<String>,
+    current_module: Option<String>,
 
     // Whether the current module is good so far.
-    pub current_module_good: bool,
+    current_module_good: bool,
 }
 
 impl<'a> Builder<'a> {
