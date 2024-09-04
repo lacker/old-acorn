@@ -56,13 +56,9 @@ impl BuildStatus {
         }
     }
 
-    pub fn combine(&self, other: &BuildStatus) -> BuildStatus {
-        match (self, other) {
-            (BuildStatus::Error, _) => BuildStatus::Error,
-            (_, BuildStatus::Error) => BuildStatus::Error,
-            (BuildStatus::Warning, _) => BuildStatus::Warning,
-            (_, BuildStatus::Warning) => BuildStatus::Warning,
-            _ => BuildStatus::Good,
+    pub fn warn(&mut self) {
+        if *self == BuildStatus::Good {
+            *self = BuildStatus::Warning;
         }
     }
 
@@ -288,7 +284,7 @@ impl<'a> Builder<'a> {
             diagnostic: Some((module.to_string(), Some(diagnostic))),
         });
         self.current_module_good = false;
-        self.status = self.status.combine(&BuildStatus::Warning);
+        self.status.warn();
         return BuildStatus::Warning;
     }
 
