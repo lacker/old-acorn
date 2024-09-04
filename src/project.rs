@@ -311,7 +311,7 @@ impl Project {
         // Fast and slow modes should be interchangeable here.
         // If we run into a bug with fast mode, try using slow mode to debug.
         self.for_each_prover_fast(env, &mut |prover, goal_context| {
-            self.prove(target, prover, goal_context, builder)
+            self.prove(prover, goal_context, builder)
         });
 
         builder.module_proving_complete(&target);
@@ -417,13 +417,7 @@ impl Project {
     // Proves a single goal in the target, using the provided prover.
     // Reports using the handler as appropriate.
     // Returns true if we should keep building, false if we should stop.
-    fn prove(
-        &self,
-        target: &str,
-        mut prover: Prover,
-        goal_context: GoalContext,
-        builder: &mut Builder,
-    ) -> bool {
+    fn prove(&self, mut prover: Prover, goal_context: GoalContext, builder: &mut Builder) -> bool {
         let start = std::time::Instant::now();
         let outcome = prover.verification_search();
 
