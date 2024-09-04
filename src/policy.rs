@@ -21,6 +21,27 @@ pub struct Score {
     heuristic3: i32,
 }
 
+impl Score {
+    fn new(clause: &Clause, depth: u32) -> Score {
+        if clause.is_impossible() {
+            return Score {
+                contradiction: true,
+                usable_for_verification: true,
+                heuristic1: 0,
+                heuristic2: 0,
+                heuristic3: 0,
+            };
+        }
+        Score {
+            contradiction: false,
+            usable_for_verification: usable_for_verification(depth),
+            heuristic1: 0,
+            heuristic2: 0,
+            heuristic3: 0,
+        }
+    }
+}
+
 // We want the definition of "usable for verification" to be the same for different policies.
 fn usable_for_verification(depth: u32) -> bool {
     depth < 2
@@ -53,18 +74,13 @@ impl ManualPolicy {
         proof_size: u32,
         depth: u32,
     ) -> Score {
-        if clause.is_impossible() {
-            return Score {
-                contradiction: true,
-                usable_for_verification: true,
-                heuristic1: 0,
-                heuristic2: 0,
-                heuristic3: 0,
-            };
+        let mut score = Score::new(clause, depth);
+        if score.contradiction {
+            return score;
         }
 
         // The first heuristic is 0 for zero depth, -1 for depth 1, -2 for anything deeper.
-        let heuristic1 = match depth {
+        score.heuristic1 = match depth {
             0 => 0,
             1 => -1,
             _ => -2,
@@ -72,7 +88,7 @@ impl ManualPolicy {
 
         // The second heuristic is based on truthiness.
         // Higher = more important.
-        let heuristic2 = match truthiness {
+        score.heuristic2 = match truthiness {
             Truthiness::Counterfactual => {
                 if rule.is_negated_goal() {
                     3
@@ -91,19 +107,12 @@ impl ManualPolicy {
         };
 
         // The third heuristic is a hodgepodge.
-        let mut heuristic3 = 0;
-        heuristic3 -= clause.atom_count() as i32;
-        heuristic3 -= 2 * proof_size as i32;
+        score.heuristic3 = 0;
+        score.heuristic3 -= clause.atom_count() as i32;
+        score.heuristic3 -= 2 * proof_size as i32;
         if truthiness == Truthiness::Hypothetical {
-            heuristic3 -= 3;
+            score.heuristic3 -= 3;
         }
-
-        Score {
-            contradiction: false,
-            usable_for_verification: usable_for_verification(depth),
-            heuristic1,
-            heuristic2,
-            heuristic3,
-        }
+        score
     }
 }
