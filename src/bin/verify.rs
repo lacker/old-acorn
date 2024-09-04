@@ -51,7 +51,7 @@ async fn main() {
     builder.log_when_slow = true;
     project.build(&mut builder);
     if builder.status.is_good() {
-        println!("{}/{} OK", builder.done, builder.total);
+        println!("{}/{} OK", builder.goals_done, builder.goals_total);
     } else {
         println!("FAILED");
     }

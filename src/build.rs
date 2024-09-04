@@ -83,11 +83,11 @@ pub struct Builder<'a> {
 
     // The total number of goals to be verified.
     // Counted up during the loading phase.
-    pub total: i32,
+    pub goals_total: i32,
 
     // The number of goals for which the proof search finished.
     // This includes both successful and unsuccessful searches.
-    pub done: i32,
+    pub goals_done: i32,
 
     // When this flag is set, we emit build events when a goal is slow.
     pub log_when_slow: bool,
@@ -97,6 +97,12 @@ pub struct Builder<'a> {
 
     // Whether the current module is good so far.
     current_module_good: bool,
+
+    // The total number of clauses activated.
+    pub num_activated: i32,
+
+    // The total amount of time spent proving, in seconds.
+    pub proving_time: f64,
 }
 
 impl<'a> Builder<'a> {
@@ -105,11 +111,13 @@ impl<'a> Builder<'a> {
         Builder {
             event_handler,
             status: BuildStatus::Good,
-            total: 0,
-            done: 0,
+            goals_total: 0,
+            goals_done: 0,
             log_when_slow: false,
             current_module: None,
             current_module_good: true,
+            num_activated: 0,
+            proving_time: 0.0,
         }
     }
 
@@ -122,13 +130,13 @@ impl<'a> Builder<'a> {
 
     // Called when a single module is loaded successfully.
     pub fn module_loaded(&mut self, env: &Environment) {
-        self.total += env.iter_goals().count() as i32;
+        self.goals_total += env.iter_goals().count() as i32;
     }
 
     // Called when the entire loading phase is done.
     pub fn loading_phase_complete(&mut self) {
         (self.event_handler)(BuildEvent {
-            progress: Some((0, self.total)),
+            progress: Some((0, self.goals_total)),
             ..BuildEvent::default()
         });
     }
@@ -183,13 +191,16 @@ impl<'a> Builder<'a> {
         outcome: Outcome,
         elapsed: Duration,
     ) {
-        self.done += 1;
-
-        // Standard messing around with times
+        // Time conversion
         let secs = elapsed.as_secs() as f64;
         let subsec_nanos = elapsed.subsec_nanos() as f64;
         let elapsed_f64 = secs + subsec_nanos * 1e-9;
         let elapsed_str = format!("{:.3}s", elapsed_f64);
+
+        // Tracking statistics
+        self.goals_done += 1;
+        self.proving_time += elapsed_f64;
+        self.num_activated += prover.num_activated() as i32;
 
         match outcome {
             Outcome::Success => match prover.get_proof() {
@@ -236,7 +247,7 @@ impl<'a> Builder<'a> {
     // Logs a successful proof.
     fn log_proving_success(&mut self) {
         (self.event_handler)(BuildEvent {
-            progress: Some((self.done, self.total)),
+            progress: Some((self.goals_done, self.goals_total)),
             ..BuildEvent::default()
         });
     }
@@ -261,7 +272,7 @@ impl<'a> Builder<'a> {
             ..Diagnostic::default()
         };
         BuildEvent {
-            progress: Some((self.done, self.total)),
+            progress: Some((self.goals_done, self.goals_total)),
             log_message: Some(full_message),
             diagnostic: Some((module, Some(diagnostic))),
         }
@@ -290,7 +301,7 @@ impl<'a> Builder<'a> {
         let mut event = self.make_event(prover, goal_context, message, DiagnosticSeverity::WARNING);
 
         // Set progress as complete, because an error will halt the build
-        event.progress = Some((self.total, self.total));
+        event.progress = Some((self.goals_total, self.goals_total));
         (self.event_handler)(event);
         self.current_module_good = false;
         self.status = BuildStatus::Error;
