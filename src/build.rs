@@ -216,15 +216,18 @@ impl<'a> Builder<'a> {
                 Some(proof) => {
                     if proof.needs_simplification() {
                         self.log_proving_warning(&prover, &goal_context, "needs simplification");
-                    } else if self.log_when_slow && elapsed_f64 > 0.1 {
-                        self.log_proving_info(
-                            &prover,
-                            &goal_context,
-                            &format!("took {}", elapsed_str),
-                        );
                     } else {
+                        // Both of these count as a success.
                         self.num_success += 1;
-                        self.log_proving_success();
+                        if self.log_when_slow && elapsed_f64 > 0.1 {
+                            self.log_proving_info(
+                                &prover,
+                                &goal_context,
+                                &format!("took {}", elapsed_str),
+                            );
+                        } else {
+                            self.log_proving_success();
+                        }
                     }
                 }
             },
@@ -314,5 +317,31 @@ impl<'a> Builder<'a> {
         (self.event_handler)(event);
         self.current_module_good = false;
         self.status = BuildStatus::Error;
+    }
+
+    pub fn print_stats(&self) {
+        match self.status {
+            BuildStatus::Error => {
+                println!("Build failed.");
+                return;
+            }
+            BuildStatus::Warning => {
+                println!("Build completed with warnings.");
+            }
+            BuildStatus::Good => {
+                println!("Build completed successfully.");
+            }
+        }
+        println!("{}/{} OK", self.num_success, self.goals_total);
+        let success_percent = 100.0 * self.num_success as f64 / self.goals_total as f64;
+        if success_percent < 100.0 {
+            println!("Success rate: {:.1}%", success_percent);
+        }
+
+        println!("\nAverage performance:");
+        let num_activated = self.num_activated as f64 / self.num_success as f64;
+        println!("{:.2} activations", num_activated);
+        let proving_time_ms = 1000.0 * self.proving_time / self.num_success as f64;
+        println!("{:.1} ms proving time", proving_time_ms);
     }
 }
