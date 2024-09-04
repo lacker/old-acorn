@@ -148,7 +148,7 @@ impl PassiveSet {
             return false;
         }
         if let Some((score, _)) = self.queue.iter().next_back() {
-            score.usable_for_verification
+            score.is_usable_for_verification()
         } else {
             false
         }
@@ -157,7 +157,7 @@ impl PassiveSet {
     pub fn pop(&mut self) -> Option<ProofStep> {
         // Remove the largest entry from queue
         let (score, id) = self.queue.pop_last()?;
-        if !score.usable_for_verification {
+        if !score.is_usable_for_verification() {
             self.verification_phase = false;
         }
         match self.clauses[id].take() {

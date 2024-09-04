@@ -13,7 +13,7 @@ pub struct Score {
     // Verification steps should always be activated before non-verification steps.
     // Otherwise, we might discover a proof using non-verification steps, and then be
     // unsure whether the proof is simple enough to pass verification or not.
-    pub usable_for_verification: bool,
+    usable_for_verification: bool,
 
     // Higher scores are preferred, using subsequent heuristics for tiebreaks.
     heuristic1: i32,
@@ -39,6 +39,10 @@ impl Score {
             heuristic2: 0,
             heuristic3: 0,
         }
+    }
+
+    pub fn is_usable_for_verification(&self) -> bool {
+        self.usable_for_verification
     }
 }
 
