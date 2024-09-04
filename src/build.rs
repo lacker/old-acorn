@@ -172,7 +172,7 @@ impl<'a> Builder<'a> {
         prover: &Prover,
         outcome: Outcome,
         elapsed: Duration,
-    ) -> BuildStatus {
+    ) {
         self.done += 1;
 
         // Standard messing around with times
@@ -198,7 +198,7 @@ impl<'a> Builder<'a> {
                             &prover,
                             "needs simplification",
                             false,
-                        )
+                        );
                     } else if self.warn_when_slow && elapsed_f64 > 0.1 {
                         self.log_proving_warning(
                             module,
@@ -206,9 +206,9 @@ impl<'a> Builder<'a> {
                             &prover,
                             &format!("took {}", elapsed_str),
                             true,
-                        )
+                        );
                     } else {
-                        self.log_proving_success()
+                        self.log_proving_success();
                     }
                 }
             },
@@ -234,10 +234,10 @@ impl<'a> Builder<'a> {
                 false,
             ),
             Outcome::Interrupted => {
-                self.log_proving_error(module, &goal_context, &prover, "was interrupted")
+                self.log_proving_error(module, &goal_context, &prover, "was interrupted");
             }
             Outcome::Error => {
-                self.log_proving_error(module, &goal_context, &prover, "had an error")
+                self.log_proving_error(module, &goal_context, &prover, "had an error");
             }
             Outcome::Constrained => self.log_proving_warning(
                 module,
@@ -250,12 +250,11 @@ impl<'a> Builder<'a> {
     }
 
     // Logs a successful proof.
-    fn log_proving_success(&mut self) -> BuildStatus {
+    fn log_proving_success(&mut self) {
         (self.event_handler)(BuildEvent {
             progress: Some((self.done, self.total)),
             ..BuildEvent::default()
         });
-        BuildStatus::Good
     }
 
     // Logs a warning. Warnings can only happen during the proving phase.
@@ -266,7 +265,7 @@ impl<'a> Builder<'a> {
         prover: &Prover,
         message: &str,
         is_slow_warning: bool,
-    ) -> BuildStatus {
+    ) {
         let mut full_message = format!("{} {}", goal_context.name, message);
         if let Some(e) = &prover.error {
             full_message.push_str(&format!(": {}", e));
@@ -285,7 +284,6 @@ impl<'a> Builder<'a> {
         });
         self.current_module_good = false;
         self.status.warn();
-        return BuildStatus::Warning;
     }
 
     // Logs an error during the proving phase.
@@ -295,7 +293,7 @@ impl<'a> Builder<'a> {
         goal_context: &GoalContext,
         prover: &Prover,
         message: &str,
-    ) -> BuildStatus {
+    ) {
         let mut full_message = format!("{} {}", goal_context.name, message);
         if let Some(e) = &prover.error {
             full_message.push_str(&format!(": {}", e));
@@ -315,6 +313,5 @@ impl<'a> Builder<'a> {
         });
         self.current_module_good = false;
         self.status = BuildStatus::Error;
-        return BuildStatus::Error;
     }
 }
