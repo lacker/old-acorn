@@ -324,9 +324,8 @@ impl Project {
     pub fn for_each_prover_slow(
         &self,
         env: &Environment,
-        callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
+        callback: &mut impl FnMut(Prover, GoalContext) -> bool,
     ) {
-        let mut build_status = BuildStatus::Good;
         for node in env.iter_goals() {
             let goal_context = node.goal_context().expect("no goal context");
             let mut prover = Prover::new(&self, false);
@@ -334,10 +333,8 @@ impl Project {
                 prover.add_fact(fact);
             }
             prover.set_goal(&goal_context);
-            let new_status = callback(prover, goal_context);
-            build_status = build_status.combine(&new_status);
-            if build_status == BuildStatus::Error {
-                break;
+            if !callback(prover, goal_context) {
+                return;
             }
         }
     }
@@ -349,7 +346,7 @@ impl Project {
     pub fn for_each_prover_fast(
         &self,
         env: &Environment,
-        callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
+        callback: &mut impl FnMut(Prover, GoalContext) -> bool,
     ) {
         if env.nodes.is_empty() {
             // Nothing to prove
@@ -360,14 +357,8 @@ impl Project {
             prover.add_fact(fact);
         }
         let mut node = NodeCursor::new(&env, 0);
-        let mut status = BuildStatus::Good;
 
-        loop {
-            status =
-                status.combine(&self.for_each_prover_fast_helper(&prover, &mut node, callback));
-            if status == BuildStatus::Error {
-                break;
-            }
+        while self.for_each_prover_fast_helper(&prover, &mut node, callback) {
             if !node.has_next() {
                 break;
             }
@@ -377,30 +368,29 @@ impl Project {
     }
 
     // Create a prover for every goal within this node, and call the callback on it.
-    // An error status makes us stop early.
+    // Returns true if we should keep building, false if we should stop.
     // Prover should have all facts loaded before node, but nothing for node itself.
     // This should leave node the same way it found it, although it can mutate it
     // mid-operation.
+    // If we return false, node can be left in some unusable state.
     fn for_each_prover_fast_helper(
         &self,
         prover: &Prover,
         node: &mut NodeCursor,
-        callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
-    ) -> BuildStatus {
+        callback: &mut impl FnMut(Prover, GoalContext) -> bool,
+    ) -> bool {
         if node.num_children() == 0 && !node.current().has_goal() {
             // There's nothing to do here
-            return BuildStatus::Good;
+            return true;
         }
 
         let mut prover = prover.clone();
-        let mut status = BuildStatus::Good;
         if node.num_children() > 0 {
             // We need to recurse into children
             node.descend(0);
             loop {
-                status = status.combine(&self.for_each_prover_fast_helper(&prover, node, callback));
-                if status == BuildStatus::Error {
-                    break;
+                if !self.for_each_prover_fast_helper(&prover, node, callback) {
+                    return false;
                 }
 
                 prover.add_fact(node.get_fact());
@@ -416,26 +406,30 @@ impl Project {
         if node.current().has_goal() {
             let goal_context = node.goal_context().unwrap();
             prover.set_goal(&goal_context);
-            status = status.combine(&callback(prover, goal_context));
+            if !callback(prover, goal_context) {
+                return false;
+            }
         }
 
-        status
+        true
     }
 
     // Proves a single goal in the target, using the provided prover.
     // Reports using the handler as appropriate.
-    // Returns the status for this goal alone.
+    // Returns true if we should keep building, false if we should stop.
     fn prove(
         &self,
         target: &str,
         mut prover: Prover,
         goal_context: GoalContext,
         builder: &mut Builder,
-    ) -> BuildStatus {
+    ) -> bool {
         let start = std::time::Instant::now();
         let outcome = prover.verification_search();
 
-        builder.search_finished(target, &goal_context, &prover, outcome, start.elapsed())
+        builder.search_finished(target, &goal_context, &prover, outcome, start.elapsed());
+
+        !builder.status.is_error()
     }
 
     // Does the build and returns all events when it's done, rather than asynchronously.
@@ -1101,12 +1095,12 @@ mod tests {
 
         p.for_each_prover_slow(env, &mut |_, _| {
             slow_count += 1;
-            BuildStatus::Good
+            true
         });
 
         p.for_each_prover_fast(env, &mut |_, _| {
             fast_count += 1;
-            BuildStatus::Good
+            true
         });
 
         assert_eq!(fast_count, slow_count);
