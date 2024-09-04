@@ -305,18 +305,16 @@ impl Project {
 
     // Verifies all goals within this target.
     // Returns the status for this file alone.
-    fn verify_target(&self, target: &str, env: &Environment, builder: &mut Builder) -> BuildStatus {
+    fn verify_target(&self, target: &str, env: &Environment, builder: &mut Builder) {
         builder.module_proving_started(&target);
 
         // Fast and slow modes should be interchangeable here.
         // If we run into a bug with fast mode, try using slow mode to debug.
-        let module_status = self.for_each_prover_fast(env, &mut |prover, goal_context| {
+        self.for_each_prover_fast(env, &mut |prover, goal_context| {
             self.prove(target, prover, goal_context, builder)
         });
 
         builder.module_proving_complete(&target);
-
-        module_status
     }
 
     // Create a prover for each goal in this environment, and call the callback on it.
@@ -327,7 +325,7 @@ impl Project {
         &self,
         env: &Environment,
         callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
-    ) -> BuildStatus {
+    ) {
         let mut build_status = BuildStatus::Good;
         for node in env.iter_goals() {
             let goal_context = node.goal_context().expect("no goal context");
@@ -342,7 +340,6 @@ impl Project {
                 break;
             }
         }
-        build_status
     }
 
     // Create a prover for each goal in this environment, and call the callback on it.
@@ -353,10 +350,10 @@ impl Project {
         &self,
         env: &Environment,
         callback: &mut impl FnMut(Prover, GoalContext) -> BuildStatus,
-    ) -> BuildStatus {
+    ) {
         if env.nodes.is_empty() {
             // Nothing to prove
-            return BuildStatus::Good;
+            return;
         }
         let mut prover = Prover::new(&self, false);
         for fact in self.imported_facts(env.module_id) {
@@ -377,8 +374,6 @@ impl Project {
             prover.add_fact(node.get_fact());
             node.next();
         }
-
-        status
     }
 
     // Create a prover for every goal within this node, and call the callback on it.
