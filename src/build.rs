@@ -98,6 +98,12 @@ pub struct Builder<'a> {
     // Whether the current module is good so far.
     current_module_good: bool,
 
+    // The Builder also tracks statistics.
+    // Think of these as having a "goal_done" denominator.
+
+    // Number of goals successfully proven
+    pub num_success: i32,
+
     // The total number of clauses activated.
     pub num_activated: i32,
 
@@ -116,6 +122,7 @@ impl<'a> Builder<'a> {
             log_when_slow: false,
             current_module: None,
             current_module_good: true,
+            num_success: 0,
             num_activated: 0,
             proving_time: 0.0,
         }
@@ -184,6 +191,7 @@ impl<'a> Builder<'a> {
     }
 
     // Called when a single proof search completes.
+    // Statistics are tracked here.
     pub fn search_finished(
         &mut self,
         prover: &Prover,
@@ -215,6 +223,7 @@ impl<'a> Builder<'a> {
                             &format!("took {}", elapsed_str),
                         );
                     } else {
+                        self.num_success += 1;
                         self.log_proving_success();
                     }
                 }
