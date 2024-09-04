@@ -39,7 +39,7 @@ pub enum BuildStatus {
     // Warnings indicate code that parses okay but can't be verified
     Warning,
 
-    // Errors indicate the user entered bad code
+    // Errors indicate either the user entered bad code, or we ran into a bug in the build process
     Error,
 }
 
