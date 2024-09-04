@@ -1,56 +1,6 @@
 use crate::clause::Clause;
 use crate::proof_step::{Rule, Truthiness};
 
-// Each proof step has a score, which encapsulates all heuristic judgments about
-// the proof step.
-// The better the score, the more we want to activate this proof step.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Score {
-    // Contradictions are the most important thing
-    contradiction: bool,
-
-    // Whether this step can be used during verification.
-    // Verification steps should always be activated before non-verification steps.
-    // Otherwise, we might discover a proof using non-verification steps, and then be
-    // unsure whether the proof is simple enough to pass verification or not.
-    usable_for_verification: bool,
-
-    // Higher scores are preferred, using subsequent heuristics for tiebreaks.
-    heuristic1: i32,
-    heuristic2: i32,
-    heuristic3: i32,
-}
-
-impl Score {
-    fn new(clause: &Clause, depth: u32) -> Score {
-        if clause.is_impossible() {
-            return Score {
-                contradiction: true,
-                usable_for_verification: true,
-                heuristic1: 0,
-                heuristic2: 0,
-                heuristic3: 0,
-            };
-        }
-        Score {
-            contradiction: false,
-            usable_for_verification: usable_for_verification(depth),
-            heuristic1: 0,
-            heuristic2: 0,
-            heuristic3: 0,
-        }
-    }
-
-    pub fn is_usable_for_verification(&self) -> bool {
-        self.usable_for_verification
-    }
-}
-
-// We want the definition of "usable for verification" to be the same for different policies.
-fn usable_for_verification(depth: u32) -> bool {
-    depth < 2
-}
-
 pub struct ManualPolicy {}
 
 impl ManualPolicy {
@@ -58,17 +8,17 @@ impl ManualPolicy {
         ManualPolicy {}
     }
 
-    // The first heuristic is the negative depth.
-    // It's bounded at -MAX_DEPTH so after that we don't use depth for scoring any more.
+    // The first heuristic is like negative depth.
+    // It's bounded at -2 so after that we don't use depth for scoring any more.
     //
-    // The second heuristic of the score is an ordering by the type
+    // The second heuristic is an ordering by the type
     //
     //   Global facts, both explicit and deductions
     //   The negated goal
     //   Explicit hypotheses
     //   Local deductions
     //
-    // The third element of the score is a combination of a bunch of stuff, roughly to discourage
+    // The third heuristic is a combination of a bunch of stuff, roughly to discourage
     // complexity.
     pub fn score(
         &self,
@@ -77,14 +27,9 @@ impl ManualPolicy {
         rule: &Rule,
         proof_size: u32,
         depth: u32,
-    ) -> Score {
-        let mut score = Score::new(clause, depth);
-        if score.contradiction {
-            return score;
-        }
-
+    ) -> (i32, i32, i32) {
         // The first heuristic is 0 for zero depth, -1 for depth 1, -2 for anything deeper.
-        score.heuristic1 = match depth {
+        let heuristic1 = match depth {
             0 => 0,
             1 => -1,
             _ => -2,
@@ -92,7 +37,7 @@ impl ManualPolicy {
 
         // The second heuristic is based on truthiness.
         // Higher = more important.
-        score.heuristic2 = match truthiness {
+        let heuristic2 = match truthiness {
             Truthiness::Counterfactual => {
                 if rule.is_negated_goal() {
                     3
@@ -111,12 +56,12 @@ impl ManualPolicy {
         };
 
         // The third heuristic is a hodgepodge.
-        score.heuristic3 = 0;
-        score.heuristic3 -= clause.atom_count() as i32;
-        score.heuristic3 -= 2 * proof_size as i32;
+        let mut heuristic3 = 0;
+        heuristic3 -= clause.atom_count() as i32;
+        heuristic3 -= 2 * proof_size as i32;
         if truthiness == Truthiness::Hypothetical {
-            score.heuristic3 -= 3;
+            heuristic3 -= 3;
         }
-        score
+        (heuristic1, heuristic2, heuristic3)
     }
 }

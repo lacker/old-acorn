@@ -1,8 +1,9 @@
 use crate::clause::Clause;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
-use crate::policy::{ManualPolicy, Score};
+use crate::policy::ManualPolicy;
 use crate::proof_step::ProofStep;
+use crate::score::Score;
 use crate::specializer::Specializer;
 use crate::term::Term;
 use std::collections::hash_map::Entry;
@@ -107,7 +108,8 @@ impl PassiveSet {
 
     pub fn push(&mut self, step: ProofStep) {
         let policy = ManualPolicy::new();
-        let score = policy.score(
+        let score = Score::new(
+            &policy,
             &step.clause,
             step.truthiness,
             &step.rule,

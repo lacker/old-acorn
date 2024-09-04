@@ -28,6 +28,7 @@ pub mod proof_step;
 pub mod proposition;
 pub mod prover;
 pub mod rewrite_tree;
+pub mod score;
 pub mod specializer;
 pub mod statement;
 pub mod term;
