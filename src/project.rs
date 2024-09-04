@@ -427,7 +427,7 @@ impl Project {
         let start = std::time::Instant::now();
         let outcome = prover.verification_search();
 
-        builder.search_finished(target, &goal_context, &prover, outcome, start.elapsed());
+        builder.search_finished(&prover, &goal_context, outcome, start.elapsed());
 
         !builder.status.is_error()
     }
