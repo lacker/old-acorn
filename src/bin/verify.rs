@@ -30,14 +30,10 @@ async fn main() {
         }
     }
 
-    let mut failures = 0;
-    let mut logger = Builder::new(|event| {
+    let mut builder = Builder::new(|event| {
         if let Some(m) = event.log_message {
             if let Some((target, diagnostic)) = event.diagnostic {
                 if let Some(diagnostic) = diagnostic {
-                    if !event.is_slow_warning {
-                        failures += 1;
-                    }
                     println!(
                         "{}, line {}: {}",
                         target,
@@ -51,16 +47,12 @@ async fn main() {
                 println!("{}", m);
             }
         }
-        if let Some((d, t)) = event.progress {
-            if d == t {
-                if failures == 0 {
-                    println!("{}/{} OK", d, t);
-                } else {
-                    println!("FAILED");
-                }
-            }
-        }
     });
-    logger.warn_when_slow = true;
-    project.build(&mut logger);
+    builder.log_when_slow = true;
+    project.build(&mut builder);
+    if builder.status.is_good() {
+        println!("{}/{} OK", builder.done, builder.total);
+    } else {
+        println!("FAILED");
+    }
 }

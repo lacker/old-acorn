@@ -17,9 +17,6 @@ pub struct BuildEvent {
     // Human-readable
     pub log_message: Option<String>,
 
-    // Whether this event is a slowness warning
-    pub is_slow_warning: bool,
-
     // Whenever we run into a problem, report the module name, plus the diagnostic itself.
     pub diagnostic: Option<(String, Option<Diagnostic>)>,
 }
@@ -29,7 +26,6 @@ impl BuildEvent {
         BuildEvent {
             progress: None,
             log_message: None,
-            is_slow_warning: false,
             diagnostic: None,
         }
     }
@@ -68,6 +64,13 @@ impl BuildStatus {
             _ => false,
         }
     }
+
+    pub fn is_good(&self) -> bool {
+        match self {
+            BuildStatus::Good => true,
+            _ => false,
+        }
+    }
 }
 
 // The Builder exists to manage a single build.
@@ -86,8 +89,8 @@ pub struct Builder<'a> {
     // This includes both successful and unsuccessful searches.
     pub done: i32,
 
-    // When this flag is set, we emit warnings when we are slow, for some definition of "slow".
-    pub warn_when_slow: bool,
+    // When this flag is set, we emit build events when a goal is slow.
+    pub log_when_slow: bool,
 
     // The current module we are proving. Not set when we are loading.
     pub current_module: Option<String>,
@@ -104,7 +107,7 @@ impl<'a> Builder<'a> {
             status: BuildStatus::Good,
             total: 0,
             done: 0,
-            warn_when_slow: false,
+            log_when_slow: false,
             current_module: None,
             current_module_good: true,
         }
@@ -190,23 +193,15 @@ impl<'a> Builder<'a> {
 
         match outcome {
             Outcome::Success => match prover.get_proof() {
-                None => {
-                    self.log_proving_warning(&prover, &goal_context, "had a missing proof", false)
-                }
+                None => self.log_proving_warning(&prover, &goal_context, "had a missing proof"),
                 Some(proof) => {
                     if proof.needs_simplification() {
-                        self.log_proving_warning(
-                            &prover,
-                            &goal_context,
-                            "needs simplification",
-                            false,
-                        );
-                    } else if self.warn_when_slow && elapsed_f64 > 0.1 {
-                        self.log_proving_warning(
+                        self.log_proving_warning(&prover, &goal_context, "needs simplification");
+                    } else if self.log_when_slow && elapsed_f64 > 0.1 {
+                        self.log_proving_info(
                             &prover,
                             &goal_context,
                             &format!("took {}", elapsed_str),
-                            true,
                         );
                     } else {
                         self.log_proving_success();
@@ -214,19 +209,15 @@ impl<'a> Builder<'a> {
                 }
             },
             Outcome::Exhausted => {
-                self.log_proving_warning(&prover, &goal_context, "could not be verified", false)
+                self.log_proving_warning(&prover, &goal_context, "could not be verified")
             }
-            Outcome::Inconsistent => self.log_proving_warning(
-                &prover,
-                &goal_context,
-                "- prover found an inconsistency",
-                false,
-            ),
+            Outcome::Inconsistent => {
+                self.log_proving_warning(&prover, &goal_context, "- prover found an inconsistency")
+            }
             Outcome::Timeout => self.log_proving_warning(
                 &prover,
                 &goal_context,
                 &format!("timed out after {}", elapsed_str),
-                false,
             ),
             Outcome::Interrupted => {
                 self.log_proving_error(&prover, &goal_context, "was interrupted");
@@ -238,7 +229,6 @@ impl<'a> Builder<'a> {
                 &prover,
                 &goal_context,
                 "stopped after hitting constraints",
-                false,
             ),
         }
     }
@@ -251,14 +241,14 @@ impl<'a> Builder<'a> {
         });
     }
 
-    // Logs a warning. Warnings can only happen during the proving phase.
-    fn log_proving_warning(
+    // Create a build event for a proof that was other than successful.
+    fn make_event(
         &mut self,
         prover: &Prover,
         goal_context: &GoalContext,
         message: &str,
-        is_slow_warning: bool,
-    ) {
+        sev: DiagnosticSeverity,
+    ) -> BuildEvent {
         let module = self.module().to_string();
         let mut full_message = format!("{} {}", goal_context.name, message);
         if let Some(e) = &prover.error {
@@ -266,40 +256,42 @@ impl<'a> Builder<'a> {
         }
         let diagnostic = Diagnostic {
             range: goal_context.goal.range(),
-            severity: Some(DiagnosticSeverity::WARNING),
+            severity: Some(sev),
             message: full_message.clone(),
             ..Diagnostic::default()
         };
-        (self.event_handler)(BuildEvent {
+        BuildEvent {
             progress: Some((self.done, self.total)),
             log_message: Some(full_message),
-            is_slow_warning,
             diagnostic: Some((module, Some(diagnostic))),
-        });
+        }
+    }
+
+    fn log_proving_info(&mut self, prover: &Prover, goal_context: &GoalContext, message: &str) {
+        let event = self.make_event(
+            prover,
+            goal_context,
+            message,
+            DiagnosticSeverity::INFORMATION,
+        );
+        (self.event_handler)(event);
+    }
+
+    // Logs a warning. Warnings can only happen during the proving phase.
+    fn log_proving_warning(&mut self, prover: &Prover, goal_context: &GoalContext, message: &str) {
+        let event = self.make_event(prover, goal_context, message, DiagnosticSeverity::WARNING);
+        (self.event_handler)(event);
         self.current_module_good = false;
         self.status.warn();
     }
 
     // Logs an error during the proving phase.
     fn log_proving_error(&mut self, prover: &Prover, goal_context: &GoalContext, message: &str) {
-        let module = self.module().to_string();
-        let mut full_message = format!("{} {}", goal_context.name, message);
-        if let Some(e) = &prover.error {
-            full_message.push_str(&format!(": {}", e));
-        }
-        let diagnostic = Diagnostic {
-            range: goal_context.goal.range(),
-            severity: Some(DiagnosticSeverity::ERROR),
-            message: full_message.clone(),
-            ..Diagnostic::default()
-        };
+        let mut event = self.make_event(prover, goal_context, message, DiagnosticSeverity::WARNING);
+
         // Set progress as complete, because an error will halt the build
-        (self.event_handler)(BuildEvent {
-            progress: Some((self.total, self.total)),
-            log_message: Some(full_message),
-            diagnostic: Some((module, Some(diagnostic))),
-            ..BuildEvent::default()
-        });
+        event.progress = Some((self.total, self.total));
+        (self.event_handler)(event);
         self.current_module_good = false;
         self.status = BuildStatus::Error;
     }
