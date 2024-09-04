@@ -110,6 +110,13 @@ impl<'a> Builder<'a> {
         }
     }
 
+    fn module(&self) -> &str {
+        match self.current_module {
+            None => "<no module>",
+            Some(ref s) => s,
+        }
+    }
+
     // Called when a single module is loaded successfully.
     pub fn module_loaded(&mut self, env: &Environment) {
         self.total += env.iter_goals().count() as i32;
@@ -154,7 +161,7 @@ impl<'a> Builder<'a> {
     }
 
     pub fn module_proving_complete(&mut self, module: &str) {
-        assert_eq!(self.current_module, Some(module.to_string()));
+        assert_eq!(self.module(), module);
         if self.current_module_good {
             // Send a no-problems diagnostic, so that the IDE knows to clear squiggles.
             (self.event_handler)(BuildEvent {
@@ -162,6 +169,7 @@ impl<'a> Builder<'a> {
                 ..BuildEvent::default()
             });
         }
+        self.current_module = None;
     }
 
     // Called when a single proof search completes.
