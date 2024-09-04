@@ -65,6 +65,13 @@ impl BuildStatus {
             _ => BuildStatus::Good,
         }
     }
+
+    pub fn is_error(&self) -> bool {
+        match self {
+            BuildStatus::Error => true,
+            _ => false,
+        }
+    }
 }
 
 // The Builder exists to manage a single build.
@@ -162,7 +169,6 @@ impl<'a> Builder<'a> {
     }
 
     // Called when a single proof search completes.
-    // Returns the status for just this proof search.
     pub fn search_finished(
         &mut self,
         module: &str,

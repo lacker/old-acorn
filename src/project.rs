@@ -295,11 +295,9 @@ impl Project {
         builder.loading_phase_complete();
 
         // The second pass is the "proving phase".
-        let mut build_status = BuildStatus::Good;
         for (target, env) in targets.into_iter().zip(envs) {
-            let new_status = self.verify_target(target, env, builder);
-            build_status = build_status.combine(&new_status);
-            if build_status == BuildStatus::Error {
+            self.verify_target(target, env, builder);
+            if builder.status.is_error() {
                 break;
             }
         }
@@ -368,7 +366,8 @@ impl Project {
         let mut status = BuildStatus::Good;
 
         loop {
-            status = status.combine(&self.for_each_prover_helper(&prover, &mut node, callback));
+            status =
+                status.combine(&self.for_each_prover_fast_helper(&prover, &mut node, callback));
             if status == BuildStatus::Error {
                 break;
             }
@@ -387,7 +386,7 @@ impl Project {
     // Prover should have all facts loaded before node, but nothing for node itself.
     // This should leave node the same way it found it, although it can mutate it
     // mid-operation.
-    fn for_each_prover_helper(
+    fn for_each_prover_fast_helper(
         &self,
         prover: &Prover,
         node: &mut NodeCursor,
@@ -404,7 +403,7 @@ impl Project {
             // We need to recurse into children
             node.descend(0);
             loop {
-                status = status.combine(&self.for_each_prover_helper(&prover, node, callback));
+                status = status.combine(&self.for_each_prover_fast_helper(&prover, node, callback));
                 if status == BuildStatus::Error {
                     break;
                 }
