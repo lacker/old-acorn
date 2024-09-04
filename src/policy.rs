@@ -21,6 +21,11 @@ pub struct Score {
     heuristic3: i32,
 }
 
+// We want the definition of "usable for verification" to be the same for different policies.
+fn usable_for_verification(depth: u32) -> bool {
+    depth < 2
+}
+
 pub struct ManualPolicy {}
 
 impl ManualPolicy {
@@ -58,11 +63,15 @@ impl ManualPolicy {
             };
         }
 
-        let min_heuristic1 = -2;
+        // The first heuristic is 0 for zero depth, -1 for depth 1, -2 for anything deeper.
+        let heuristic1 = match depth {
+            0 => 0,
+            1 => -1,
+            _ => -2,
+        };
 
-        let heuristic1 = -(depth as i32).max(min_heuristic1);
-
-        // Higher = more important, for the deterministic tier.
+        // The second heuristic is based on truthiness.
+        // Higher = more important.
         let heuristic2 = match truthiness {
             Truthiness::Counterfactual => {
                 if rule.is_negated_goal() {
@@ -81,6 +90,7 @@ impl ManualPolicy {
             Truthiness::Factual => 4,
         };
 
+        // The third heuristic is a hodgepodge.
         let mut heuristic3 = 0;
         heuristic3 -= clause.atom_count() as i32;
         heuristic3 -= 2 * proof_size as i32;
@@ -88,11 +98,9 @@ impl ManualPolicy {
             heuristic3 -= 3;
         }
 
-        let usable_for_verification = heuristic1 > min_heuristic1;
-
         Score {
             contradiction: false,
-            usable_for_verification,
+            usable_for_verification: usable_for_verification(depth),
             heuristic1,
             heuristic2,
             heuristic3,
