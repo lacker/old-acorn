@@ -288,7 +288,7 @@ impl Project {
             }
         }
 
-        if builder.status == BuildStatus::Error {
+        if builder.status.is_error() {
             return;
         }
 
@@ -298,7 +298,7 @@ impl Project {
         for (target, env) in targets.into_iter().zip(envs) {
             self.verify_target(target, env, builder);
             if builder.status.is_error() {
-                break;
+                return;
             }
         }
     }
