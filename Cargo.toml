@@ -12,6 +12,7 @@ dashmap = "5.5.3"
 fxhash = "0.2.1"
 indoc = "1.0.8"
 nohash-hasher = "0.2.0"
+ordered-float = "4.2.2"
 qp-trie = "0.8.2"
 serde = "1.0.188"
 tokio = { version = "1.32.0", features = ["full"] }

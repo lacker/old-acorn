@@ -27,7 +27,7 @@ impl ManualPolicy {
         rule: &Rule,
         proof_size: u32,
         depth: u32,
-    ) -> (i32, i32, i32) {
+    ) -> f32 {
         // The first heuristic is 0 for zero depth, -1 for depth 1, -2 for anything deeper.
         let heuristic1 = match depth {
             0 => 0,
@@ -62,6 +62,8 @@ impl ManualPolicy {
         if truthiness == Truthiness::Hypothetical {
             heuristic3 -= 3;
         }
-        (heuristic1, heuristic2, heuristic3)
+
+        // Essentially lexicographical
+        1000000.0 * (heuristic1 as f32) + 100000.0 * (heuristic2 as f32) + heuristic3 as f32
     }
 }
