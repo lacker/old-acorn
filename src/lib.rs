@@ -12,6 +12,7 @@ pub mod display;
 pub mod environment;
 pub mod expression;
 pub mod fact;
+pub mod features;
 pub mod fingerprint;
 pub mod goal;
 pub mod interfaces;
