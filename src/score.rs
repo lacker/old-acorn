@@ -40,7 +40,7 @@ impl Score {
             };
         }
         let usable_for_verification = depth < 2;
-        let score = policy.score(clause, truthiness, rule, proof_size, depth);
+        let score = policy.old_score(clause, truthiness, rule, proof_size, depth);
         Score {
             contradiction: false,
             usable_for_verification,

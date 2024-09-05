@@ -15,6 +15,7 @@ pub struct Features {
     pub is_factual: bool,
 
     // Features from the rule
+    pub is_assumption: bool,
     pub is_negated_goal: bool,
 
     // Features from the search process
@@ -36,6 +37,7 @@ impl Features {
             is_counterfactual: truthiness == Truthiness::Counterfactual,
             is_hypothetical: truthiness == Truthiness::Hypothetical,
             is_factual: truthiness == Truthiness::Factual,
+            is_assumption: rule.is_assumption(),
             is_negated_goal: rule.is_negated_goal(),
             proof_size,
             depth,
