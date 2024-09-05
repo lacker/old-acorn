@@ -1,8 +1,7 @@
 use ordered_float::OrderedFloat;
 
-use crate::clause::Clause;
+use crate::features::Features;
 use crate::policy::ManualPolicy;
-use crate::proof_step::{Rule, Truthiness};
 
 // Each proof step has a score, which encapsulates all heuristic judgments about
 // the proof step.
@@ -24,23 +23,16 @@ pub struct Score {
 
 impl Score {
     // The logic here is logic that we want to use regardless of the policy.
-    pub fn new(
-        policy: &ManualPolicy,
-        clause: &Clause,
-        truthiness: Truthiness,
-        rule: &Rule,
-        proof_size: u32,
-        depth: u32,
-    ) -> Score {
-        if clause.is_impossible() {
+    pub fn new(policy: &ManualPolicy, features: &Features) -> Score {
+        if features.is_contradiction {
             return Score {
                 contradiction: true,
                 usable_for_verification: true,
                 score: OrderedFloat(0.0),
             };
         }
-        let usable_for_verification = depth < 2;
-        let score = policy.old_score(clause, truthiness, rule, proof_size, depth);
+        let usable_for_verification = features.depth < 2;
+        let score = policy.score(features);
         Score {
             contradiction: false,
             usable_for_verification,

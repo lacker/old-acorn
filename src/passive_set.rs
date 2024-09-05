@@ -1,4 +1,5 @@
 use crate::clause::Clause;
+use crate::features::Features;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
 use crate::policy::ManualPolicy;
@@ -107,15 +108,15 @@ impl PassiveSet {
     }
 
     pub fn push(&mut self, step: ProofStep) {
-        let policy = ManualPolicy::new();
-        let score = Score::new(
-            &policy,
+        let features = Features::new(
             &step.clause,
             step.truthiness,
             &step.rule,
             step.proof_size,
             step.depth,
         );
+        let policy = ManualPolicy::new();
+        let score = Score::new(&policy, &features);
         let id = self.clauses.len();
 
         for (i, literal) in step.clause.literals.iter().enumerate() {

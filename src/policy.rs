@@ -1,6 +1,4 @@
-use crate::clause::Clause;
 use crate::features::Features;
-use crate::proof_step::{Rule, Truthiness};
 
 pub struct ManualPolicy {}
 
@@ -52,53 +50,6 @@ impl ManualPolicy {
         heuristic3 -= features.atom_count;
         heuristic3 -= 2 * features.proof_size;
         if features.is_hypothetical {
-            heuristic3 -= 3;
-        }
-
-        // Essentially lexicographical
-        1000000.0 * (heuristic1 as f32) + 100000.0 * (heuristic2 as f32) + heuristic3 as f32
-    }
-
-    pub fn old_score(
-        &self,
-        clause: &Clause,
-        truthiness: Truthiness,
-        rule: &Rule,
-        proof_size: u32,
-        depth: u32,
-    ) -> f32 {
-        // The first heuristic is 0 for zero depth, -1 for depth 1, -2 for anything deeper.
-        let heuristic1 = match depth {
-            0 => 0,
-            1 => -1,
-            _ => -2,
-        };
-
-        // The second heuristic is based on truthiness.
-        // Higher = more important.
-        let heuristic2 = match truthiness {
-            Truthiness::Counterfactual => {
-                if rule.is_negated_goal() {
-                    3
-                } else {
-                    1
-                }
-            }
-            Truthiness::Hypothetical => {
-                if let Rule::Assumption(_) = rule {
-                    2
-                } else {
-                    1
-                }
-            }
-            Truthiness::Factual => 4,
-        };
-
-        // The third heuristic is a hodgepodge.
-        let mut heuristic3 = 0;
-        heuristic3 -= clause.atom_count() as i32;
-        heuristic3 -= 2 * proof_size as i32;
-        if truthiness == Truthiness::Hypothetical {
             heuristic3 -= 3;
         }
 
