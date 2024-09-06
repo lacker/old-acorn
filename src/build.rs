@@ -107,6 +107,9 @@ pub struct Builder<'a> {
     // The total number of clauses activated.
     pub num_activated: i32,
 
+    // Total sum of square num_activated.
+    pub sum_square_activated: u64,
+
     // The total amount of time spent proving, in seconds.
     pub proving_time: f64,
 }
@@ -124,6 +127,7 @@ impl<'a> Builder<'a> {
             current_module_good: true,
             num_success: 0,
             num_activated: 0,
+            sum_square_activated: 0,
             proving_time: 0.0,
         }
     }
@@ -208,7 +212,9 @@ impl<'a> Builder<'a> {
         // Tracking statistics
         self.goals_done += 1;
         self.proving_time += elapsed_f64;
-        self.num_activated += prover.num_activated() as i32;
+        let num_activated = prover.num_activated();
+        self.num_activated += num_activated as i32;
+        self.sum_square_activated += (num_activated * num_activated) as u64;
 
         match outcome {
             Outcome::Success => match prover.get_proof() {
@@ -320,6 +326,7 @@ impl<'a> Builder<'a> {
     }
 
     pub fn print_stats(&self) {
+        println!();
         match self.status {
             BuildStatus::Error => {
                 println!("Build failed.");
@@ -334,14 +341,12 @@ impl<'a> Builder<'a> {
         }
         println!("{}/{} OK", self.num_success, self.goals_total);
         let success_percent = 100.0 * self.num_success as f64 / self.goals_total as f64;
-        if success_percent < 100.0 {
-            println!("Success rate: {:.1}%", success_percent);
-        }
-
-        println!("\nAverage performance:");
+        println!("{:.1}% success rate", success_percent);
         let num_activated = self.num_activated as f64 / self.num_success as f64;
-        println!("{:.2} activations", num_activated);
+        println!("{:.2} average activations", num_activated);
+        let mean_square_activated = self.sum_square_activated as f64 / self.num_success as f64;
+        println!("{:.2} mean square activations", mean_square_activated);
         let proving_time_ms = 1000.0 * self.proving_time / self.num_success as f64;
-        println!("{:.1} ms proving time", proving_time_ms);
+        println!("{:.1} ms average proving time", proving_time_ms);
     }
 }

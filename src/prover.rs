@@ -644,7 +644,7 @@ impl Prover {
     // The time-based limit is set high enough so that hopefully it will not apply,
     // because we don't want the result of verification to be machine-dependent.
     pub fn verification_search(&mut self) -> Outcome {
-        self.search_for_contradiction(3000, 4.0, true)
+        self.search_for_contradiction(2000, 5.0, true)
     }
 
     // A single fast search, intended for unit testing.
