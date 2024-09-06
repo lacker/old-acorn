@@ -4,6 +4,10 @@ pub trait Policy {
     fn score(&self, features: &Features) -> f32;
 }
 
+pub fn default_policy() -> impl Policy {
+    HandcraftedPolicy
+}
+
 // Developed before I had any other framework for policies.
 pub struct HandcraftedPolicy;
 
