@@ -1,7 +1,7 @@
 use ordered_float::OrderedFloat;
 
 use crate::features::Features;
-use crate::policy::HandcraftedPolicy;
+use crate::policy::Policy;
 
 // Each proof step has a score, which encapsulates all heuristic judgments about
 // the proof step.
@@ -23,7 +23,7 @@ pub struct Score {
 
 impl Score {
     // The logic here is logic that we want to use regardless of the policy.
-    pub fn new(policy: &HandcraftedPolicy, features: &Features) -> Score {
+    pub fn new(policy: &dyn Policy, features: &Features) -> Score {
         if features.is_contradiction {
             return Score {
                 contradiction: true,

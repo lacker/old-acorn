@@ -1,9 +1,13 @@
 use crate::features::Features;
 
+pub trait Policy {
+    fn score(&self, features: &Features) -> f32;
+}
+
 // Developed before I had any other framework for policies.
 pub struct HandcraftedPolicy;
 
-impl HandcraftedPolicy {
+impl Policy for HandcraftedPolicy {
     // The first heuristic is like negative depth.
     // It's bounded at -2 so after that we don't use depth for scoring any more.
     //
@@ -16,7 +20,7 @@ impl HandcraftedPolicy {
     //
     // The third heuristic is a combination of a bunch of stuff, roughly to discourage
     // complexity.
-    pub fn score(&self, features: &Features) -> f32 {
+    fn score(&self, features: &Features) -> f32 {
         // The first heuristic is 0 for zero depth, -1 for depth 1, -2 for anything deeper.
         let heuristic1 = match features.depth {
             0 => 0,
@@ -57,8 +61,8 @@ impl HandcraftedPolicy {
 
 pub struct DepthFirstPolicy;
 
-impl DepthFirstPolicy {
-    pub fn score(&self, _features: &Features) -> f32 {
+impl Policy for DepthFirstPolicy {
+    fn score(&self, _features: &Features) -> f32 {
         0.0
     }
 }
