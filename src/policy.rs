@@ -1,13 +1,9 @@
 use crate::features::Features;
 
 // Developed before I had any other framework for policies.
-pub struct HandcraftedPolicy {}
+pub struct HandcraftedPolicy;
 
 impl HandcraftedPolicy {
-    pub fn new() -> HandcraftedPolicy {
-        HandcraftedPolicy {}
-    }
-
     // The first heuristic is like negative depth.
     // It's bounded at -2 so after that we don't use depth for scoring any more.
     //
@@ -56,5 +52,13 @@ impl HandcraftedPolicy {
 
         // Essentially lexicographical
         1000000.0 * (heuristic1 as f32) + 100000.0 * (heuristic2 as f32) + heuristic3 as f32
+    }
+}
+
+pub struct DepthFirstPolicy;
+
+impl DepthFirstPolicy {
+    pub fn score(&self, _features: &Features) -> f32 {
+        0.0
     }
 }

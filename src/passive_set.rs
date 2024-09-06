@@ -115,7 +115,7 @@ impl PassiveSet {
             step.proof_size,
             step.depth,
         );
-        let policy = HandcraftedPolicy::new();
+        let policy = HandcraftedPolicy;
         let score = Score::new(&policy, &features);
         let id = self.clauses.len();
 
