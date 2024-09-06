@@ -2,7 +2,7 @@ use crate::clause::Clause;
 use crate::features::Features;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
-use crate::policy::ManualPolicy;
+use crate::policy::HandcraftedPolicy;
 use crate::proof_step::ProofStep;
 use crate::score::Score;
 use crate::specializer::Specializer;
@@ -115,7 +115,7 @@ impl PassiveSet {
             step.proof_size,
             step.depth,
         );
-        let policy = ManualPolicy::new();
+        let policy = HandcraftedPolicy::new();
         let score = Score::new(&policy, &features);
         let id = self.clauses.len();
 

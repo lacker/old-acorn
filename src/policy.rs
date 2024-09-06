@@ -1,10 +1,11 @@
 use crate::features::Features;
 
-pub struct ManualPolicy {}
+// Developed before I had any other framework for policies.
+pub struct HandcraftedPolicy {}
 
-impl ManualPolicy {
-    pub fn new() -> ManualPolicy {
-        ManualPolicy {}
+impl HandcraftedPolicy {
+    pub fn new() -> HandcraftedPolicy {
+        HandcraftedPolicy {}
     }
 
     // The first heuristic is like negative depth.
