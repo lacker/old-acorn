@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
+use crate::dataset::Dataset;
 use crate::environment::Environment;
 use crate::goal::GoalContext;
 use crate::prover::{Outcome, Prover};
@@ -98,6 +99,9 @@ pub struct Builder<'a> {
     // Whether the current module is good so far.
     current_module_good: bool,
 
+    // If dataset is not None, we are gathering data for training.
+    dataset: Option<Dataset>,
+
     // The Builder also tracks statistics.
     // Think of these as having a "goal_done" denominator.
 
@@ -125,6 +129,7 @@ impl<'a> Builder<'a> {
             log_when_slow: false,
             current_module: None,
             current_module_good: true,
+            dataset: None,
             num_success: 0,
             num_activated: 0,
             sum_square_activated: 0,
@@ -142,6 +147,10 @@ impl<'a> Builder<'a> {
     // Called when a single module is loaded successfully.
     pub fn module_loaded(&mut self, env: &Environment) {
         self.goals_total += env.iter_goals().count() as i32;
+    }
+
+    pub fn gather_data(&mut self) {
+        self.dataset = Some(Dataset::new());
     }
 
     // Called when the entire loading phase is done.

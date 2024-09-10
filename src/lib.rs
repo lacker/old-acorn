@@ -8,6 +8,7 @@ pub mod build;
 pub mod clause;
 pub mod code_gen_error;
 pub mod constant_map;
+pub mod dataset;
 pub mod display;
 pub mod environment;
 pub mod expression;
