@@ -1,4 +1,4 @@
-use ndarray::Array1;
+use ndarray::{Array1, Array2, Axis};
 
 use crate::clause::Clause;
 use crate::proof_step::{Rule, Truthiness};
@@ -59,5 +59,22 @@ impl Features {
             self.proof_size as f32,
             self.depth as f32,
         ])
+    }
+
+    pub fn to_array2(features_slice: &[Features]) -> Array2<f32> {
+        let num_rows = features_slice.len();
+        assert_ne!(num_rows, 0);
+
+        let num_cols = features_slice[0].to_array().len();
+
+        let mut array2 = Array2::zeros((num_rows, num_cols));
+
+        // Fill the Array2 with the feature vectors
+        for (i, features) in features_slice.iter().enumerate() {
+            let feature_row = features.to_array();
+            array2.index_axis_mut(Axis(0), i).assign(&feature_row);
+        }
+
+        array2
     }
 }
