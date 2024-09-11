@@ -7,7 +7,7 @@ use ndarray_npy::NpzWriter;
 
 use crate::features::Features;
 
-// Data tracked from a build to use for training a
+// Data tracked from a build to use for training
 pub struct Dataset {
     pub features: Vec<Features>,
     pub labels: Vec<bool>,

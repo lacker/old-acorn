@@ -15,9 +15,9 @@ struct Args {
     #[clap(long)]
     module: Option<String>,
 
-    // Save prover logs for training.
+    // Create a dataset from the prover logs.
     #[clap(long)]
-    log: bool,
+    dataset: bool,
 }
 
 #[tokio::main]
@@ -34,6 +34,7 @@ async fn main() {
         }
     }
 
+    // Set up the builder
     let mut builder = Builder::new(|event| {
         if let Some(m) = event.log_message {
             if let Some((target, diagnostic)) = event.diagnostic {
@@ -53,7 +54,14 @@ async fn main() {
         }
     });
     builder.log_when_slow = true;
+    if args.dataset {
+        builder.create_dataset();
+    }
 
+    // Build
     project.build(&mut builder);
     builder.print_stats();
+    if let Some(dataset) = builder.dataset {
+        dataset.save();
+    }
 }

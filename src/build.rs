@@ -101,7 +101,7 @@ pub struct Builder<'a> {
     current_module_good: bool,
 
     // If dataset is not None, we are gathering data for training.
-    dataset: Option<Dataset>,
+    pub dataset: Option<Dataset>,
 
     // The Builder also tracks statistics.
     // Think of these as having a "goal_done" denominator.
@@ -150,9 +150,9 @@ impl<'a> Builder<'a> {
         self.goals_total += env.iter_goals().count() as i32;
     }
 
-    // When gather_data is called, that tells the Builder to gather data for training.
+    // When create_dataset is called, that tells the Builder to gather data for training.
     // Only call this before the build starts.
-    pub fn gather_data(&mut self) {
+    pub fn create_dataset(&mut self) {
         assert_eq!(self.goals_done, 0);
         self.dataset = Some(Dataset::new());
     }
