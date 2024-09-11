@@ -258,8 +258,9 @@ impl<'a> Proof<'a> {
         self.all_steps.push((id, step));
     }
 
-    pub fn has_id(&self, id: &ProofStepId) -> bool {
-        self.id_map.contains_key(id)
+    pub fn has_active_id(&self, active_id: usize) -> bool {
+        let id = ProofStepId::Active(active_id);
+        self.id_map.contains_key(&id)
     }
 
     // Contracts this node if possible.

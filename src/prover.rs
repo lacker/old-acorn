@@ -230,6 +230,10 @@ impl Prover {
         self.normalizer.normalize(proposition, local)
     }
 
+    pub fn iter_active_steps(&self) -> impl Iterator<Item = (usize, &ProofStep)> {
+        self.active_set.iter_steps()
+    }
+
     pub fn print_stats(&self) {
         // Kinda only printing this so that Solve(term) isn't unused
         match &self.goal {

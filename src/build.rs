@@ -4,6 +4,7 @@ use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity};
 
 use crate::dataset::Dataset;
 use crate::environment::Environment;
+use crate::features::Features;
 use crate::goal::GoalContext;
 use crate::prover::{Outcome, Prover};
 use crate::token::Error;
@@ -250,7 +251,11 @@ impl<'a> Builder<'a> {
 
                     // As long as we have a proof, we can collect data for our dataset.
                     if let Some(ref mut dataset) = self.dataset {
-                        // TODO
+                        for (id, step) in prover.iter_active_steps() {
+                            let features = Features::new(step);
+                            let label = proof.has_active_id(id);
+                            dataset.add(features, label);
+                        }
                     }
                 }
             },
