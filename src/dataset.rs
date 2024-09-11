@@ -1,3 +1,9 @@
+use std::fs::File;
+use std::path::PathBuf;
+
+use ndarray::Array1;
+use ndarray_npy::NpzWriter;
+
 use crate::features::Features;
 
 // Data tracked from a build to use for training a
@@ -17,5 +23,24 @@ impl Dataset {
     pub fn add(&mut self, features: Features, label: bool) {
         self.features.push(features);
         self.labels.push(label);
+    }
+
+    // This doesn't mess with the filename, but it would make sense to add npz.
+    pub fn save_with_name(
+        &self,
+        relative_filename: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Always save to the logs directory
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("logs");
+        d.push(relative_filename);
+        let file = File::create(d)?;
+        let mut npz = NpzWriter::new(file);
+        let features = Features::to_array2(&self.features);
+        let labels = Array1::from(self.labels.clone());
+        npz.add_array("features", &features)?;
+        npz.add_array("labels", &labels)?;
+        npz.finish()?;
+        Ok(())
     }
 }
