@@ -7,26 +7,28 @@
 
 use acorn::build::Builder;
 use acorn::project::Project;
+use clap::Parser;
 
-const USAGE: &str = "Usage: cargo run --bin=verify [module name]";
+#[derive(Parser)]
+struct Args {
+    // Just verify a single module.
+    module: Option<String>,
+
+    // Save prover logs for training.
+    log: bool,
+}
 
 #[tokio::main]
 async fn main() {
     let mut project = Project::new("math");
 
-    // Parse command line arguments
-    let args = std::env::args();
-    match args.len() {
-        1 => {
-            project.add_all_targets();
-        }
-        2 => {
-            let module_name = args.skip(1).next().unwrap();
+    let args = Args::parse();
+    match args.module {
+        Some(module_name) => {
             project.add_target(&module_name);
         }
-        _ => {
-            eprintln!("{}", USAGE);
-            return;
+        None => {
+            project.add_all_targets();
         }
     }
 
