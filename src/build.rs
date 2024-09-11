@@ -247,6 +247,11 @@ impl<'a> Builder<'a> {
                             self.log_proving_success();
                         }
                     }
+
+                    // As long as we have a proof, we can collect data for our dataset.
+                    if let Some(ref mut dataset) = self.dataset {
+                        // TODO
+                    }
                 }
             },
             Outcome::Exhausted => {

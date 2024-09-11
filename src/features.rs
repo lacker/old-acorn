@@ -1,7 +1,6 @@
 use ndarray::{Array1, Array2, Axis};
 
-use crate::clause::Clause;
-use crate::proof_step::{Rule, Truthiness};
+use crate::proof_step::{ProofStep, Truthiness};
 
 // Features of a proof step that can be used to score it.
 // This is like a feature vector but in struct rather than vector form.
@@ -27,23 +26,17 @@ pub struct Features {
 }
 
 impl Features {
-    pub fn new(
-        clause: &Clause,
-        truthiness: Truthiness,
-        rule: &Rule,
-        proof_size: u32,
-        depth: u32,
-    ) -> Self {
+    pub fn new(step: &ProofStep) -> Self {
         Features {
-            is_contradiction: clause.is_impossible(),
-            atom_count: clause.atom_count() as i32,
-            is_counterfactual: truthiness == Truthiness::Counterfactual,
-            is_hypothetical: truthiness == Truthiness::Hypothetical,
-            is_factual: truthiness == Truthiness::Factual,
-            is_assumption: rule.is_assumption(),
-            is_negated_goal: rule.is_negated_goal(),
-            proof_size: proof_size as i32,
-            depth: depth as i32,
+            is_contradiction: step.clause.is_impossible(),
+            atom_count: step.clause.atom_count() as i32,
+            is_counterfactual: step.truthiness == Truthiness::Counterfactual,
+            is_hypothetical: step.truthiness == Truthiness::Hypothetical,
+            is_factual: step.truthiness == Truthiness::Factual,
+            is_assumption: step.rule.is_assumption(),
+            is_negated_goal: step.rule.is_negated_goal(),
+            proof_size: step.proof_size as i32,
+            depth: step.depth as i32,
         }
     }
 

@@ -108,13 +108,7 @@ impl PassiveSet {
     }
 
     pub fn push(&mut self, step: ProofStep) {
-        let features = Features::new(
-            &step.clause,
-            step.truthiness,
-            &step.rule,
-            step.proof_size,
-            step.depth,
-        );
+        let features = Features::new(&step);
         let policy = default_policy();
         let score = Score::new(&policy, &features);
         let id = self.clauses.len();
