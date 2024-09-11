@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::path::PathBuf;
 
+use chrono::Local;
 use ndarray::Array1;
 use ndarray_npy::NpzWriter;
 
@@ -42,5 +43,12 @@ impl Dataset {
         npz.add_array("labels", &labels)?;
         npz.finish()?;
         Ok(())
+    }
+
+    // Pick a default name and die on errors.
+    pub fn save(&self) {
+        let now = Local::now();
+        let filename = now.format("dataset-%Y-%m-%d-%H:%M:%S.npz").to_string();
+        self.save_with_name(&filename).unwrap();
     }
 }
