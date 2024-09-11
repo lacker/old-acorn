@@ -149,7 +149,10 @@ impl<'a> Builder<'a> {
         self.goals_total += env.iter_goals().count() as i32;
     }
 
+    // When gather_data is called, that tells the Builder to gather data for training.
+    // Only call this before the build starts.
     pub fn gather_data(&mut self) {
+        assert_eq!(self.goals_done, 0);
         self.dataset = Some(Dataset::new());
     }
 
