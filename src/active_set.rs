@@ -585,10 +585,7 @@ impl ActiveSet {
     }
 
     // Iterate over all proof steps that depend on this id.
-    pub fn find_consequences<'a>(
-        &'a self,
-        id: usize,
-    ) -> impl Iterator<Item = (usize, &'a ProofStep)> {
+    pub fn find_consequences(&self, id: usize) -> impl Iterator<Item = (usize, &ProofStep)> {
         self.steps
             .iter()
             .enumerate()
