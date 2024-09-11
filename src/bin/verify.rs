@@ -12,9 +12,11 @@ use clap::Parser;
 #[derive(Parser)]
 struct Args {
     // Just verify a single module.
+    #[clap(long)]
     module: Option<String>,
 
     // Save prover logs for training.
+    #[clap(long)]
     log: bool,
 }
 
@@ -51,6 +53,7 @@ async fn main() {
         }
     });
     builder.log_when_slow = true;
+
     project.build(&mut builder);
     builder.print_stats();
 }
