@@ -33,7 +33,7 @@ impl Dataset {
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Always save to the logs directory
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("logs");
+        d.push("data");
         d.push(relative_filename);
         let file = File::create(d)?;
         let mut npz = NpzWriter::new(file);
@@ -49,6 +49,11 @@ impl Dataset {
     pub fn save(&self) {
         let now = Local::now();
         let filename = now.format("dataset-%Y-%m-%d-%H:%M:%S.npz").to_string();
+        println!(
+            "Saving dataset with {} items to {}",
+            self.features.len(),
+            filename
+        );
         self.save_with_name(&filename).unwrap();
     }
 }
