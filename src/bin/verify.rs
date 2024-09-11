@@ -25,13 +25,10 @@ async fn main() {
     let mut project = Project::new("math");
 
     let args = Args::parse();
-    match args.module {
-        Some(module_name) => {
-            project.add_target(&module_name);
-        }
-        None => {
-            project.add_all_targets();
-        }
+    if let Some(module_name) = args.module {
+        project.add_target(&module_name);
+    } else {
+        project.add_all_targets();
     }
 
     // Set up the builder
