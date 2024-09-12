@@ -26,5 +26,9 @@ def dataloader():
     features_tensor = torch.tensor(features, dtype=torch.float32).to(config.device)
     labels_tensor = torch.tensor(labels, dtype=torch.float32).to(config.device)
 
+    nbytes = features_tensor.nbytes + labels_tensor.nbytes
+    mib = nbytes / (2**20)
+    print(f"data loaded with {mib:.1f} MiB")
+
     dataset = TensorDataset(features_tensor, labels_tensor)
     return DataLoader(dataset, batch_size=32, shuffle=True)
