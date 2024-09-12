@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import config
 
 
-def dataloader():
+def dataloaders():
     """
     Create two DataLoaders from a file, one train and one validation.
     """
