@@ -7,7 +7,7 @@ import config
 
 def dataloader():
     """
-    Create a DataLoader with all the data from one particular log file in it.
+    Create two DataLoaders from a file, one train and one validation.
     """
     # Load the .npz file
     data = np.load("../data/dataset-2024-09-11-15:11:57.npz")
@@ -30,5 +30,21 @@ def dataloader():
     mib = nbytes / (2**20)
     print(f"data loaded with {mib:.1f} MiB")
 
-    dataset = TensorDataset(features_tensor, labels_tensor)
-    return DataLoader(dataset, batch_size=32, shuffle=True)
+    # Split into train and val
+    num_datapoints = len(features)
+    indices = torch.randperm(num_datapoints)
+    train_size = int(num_datapoints * 0.9)
+    train_indices = indices[:train_size]
+    val_indices = indices[train_size:]
+    train_features = features_tensor[train_indices]
+    train_labels = labels_tensor[train_indices]
+    val_features = features_tensor[val_indices]
+    val_labels = labels_tensor[val_indices]
+
+    train_dataset = TensorDataset(train_features, train_labels)
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+
+    val_dataset = TensorDataset(val_features, val_labels)
+    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
+
+    return train_loader, val_loader
