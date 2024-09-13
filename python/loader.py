@@ -14,6 +14,9 @@ def dataloaders():
 
     # Access the "features" and "labels"
     features = data["features"]
+    assert (
+        features.shape[1] == config.num_features
+    ), f"Expected {config.num_features} features, got {features.shape[1]}"
     labels = data["labels"]
 
     # Display their shapes to verify

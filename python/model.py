@@ -5,11 +5,15 @@ import config
 
 # Define the model
 class SimpleNN(nn.Module):
+    hidden1 = 32
+    hidden2 = 16
+
     def __init__(self):
         super(SimpleNN, self).__init__()
-        self.fc1 = nn.Linear(9, 32)  # 9 input features, 32 hidden units
-        self.fc2 = nn.Linear(32, 16)  # 32 hidden units, 16 hidden units in second layer
-        self.fc3 = nn.Linear(16, 1)  # 16 hidden units, 1 output unit
+
+        self.fc1 = nn.Linear(config.num_features, self.hidden1)
+        self.fc2 = nn.Linear(self.hidden1, self.hidden2)
+        self.fc3 = nn.Linear(self.hidden2, 1)
         self.relu = nn.ReLU()  # Activation function
         self.sigmoid = nn.Sigmoid()  # Sigmoid for binary classification
 
