@@ -1,3 +1,5 @@
+from datetime import datetime
+import torch
 from torch import nn, optim
 
 import config
@@ -22,6 +24,18 @@ class SimpleNN(nn.Module):
         x = self.relu(self.fc2(x))
         x = self.sigmoid(self.fc3(x))
         return x
+
+    def save(self):
+        """
+        Saves the model to a file chosen by timestamp.
+        """
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+        path = f"../files/model-{timestamp}.onnx"
+
+        # The dummy input has just a single feature vector
+        dummy_input = torch.randn(1, config.num_features, device=config.device)
+        torch.onnx.export(self, dummy_input, path)
+        print(f"Model saved to {path}")
 
 
 def create():

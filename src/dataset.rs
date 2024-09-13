@@ -33,7 +33,7 @@ impl Dataset {
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Always save to the logs directory
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("data");
+        d.push("files");
         d.push(relative_filename);
         let file = File::create(d)?;
         let mut npz = NpzWriter::new(file);

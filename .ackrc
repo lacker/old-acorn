@@ -3,3 +3,4 @@
 --ignore-dir=dist
 --ignore-file=match:/[.]svg$
 --ignore-dir=target
+--ignore-dir=.venv

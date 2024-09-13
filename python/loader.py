@@ -10,7 +10,7 @@ def dataloaders():
     Create two DataLoaders from a file, one train and one validation.
     """
     # Load the .npz file
-    data = np.load("../data/dataset-2024-09-11-15:11:57.npz")
+    data = np.load(config.dataset_filename)
 
     # Access the "features" and "labels"
     features = data["features"]
