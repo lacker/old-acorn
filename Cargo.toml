@@ -16,6 +16,7 @@ ndarray = "0.15.6"
 ndarray-npy = "0.8.1"
 nohash-hasher = "0.2.0"
 ordered-float = "4.2.2"
+ort = "2.0.0-rc.6"
 qp-trie = "0.8.2"
 serde = "1.0.188"
 tokio = { version = "1.32.0", features = ["full"] }
