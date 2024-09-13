@@ -1,17 +1,17 @@
 use crate::features::Features;
 
-pub trait Policy {
+pub trait Scorer {
     fn score(&self, features: &Features) -> f32;
 }
 
-pub fn default_policy() -> impl Policy {
-    HandcraftedPolicy
+pub fn default_scorer() -> impl Scorer {
+    HandcraftedScorer
 }
 
 // Developed before I had any other framework for policies.
-pub struct HandcraftedPolicy;
+pub struct HandcraftedScorer;
 
-impl Policy for HandcraftedPolicy {
+impl Scorer for HandcraftedScorer {
     // The first heuristic is like negative depth.
     // It's bounded at -2 so after that we don't use depth for scoring any more.
     //
@@ -63,18 +63,11 @@ impl Policy for HandcraftedPolicy {
     }
 }
 
-pub struct DepthFirstPolicy;
+pub struct DepthFirstScorer;
 
-impl Policy for DepthFirstPolicy {
+impl Scorer for DepthFirstScorer {
+    // Always scoring zero will make it do depth-first search.
     fn score(&self, _features: &Features) -> f32 {
         0.0
-    }
-}
-
-pub struct ModelBasedPolicy;
-
-impl Policy for ModelBasedPolicy {
-    fn score(&self, features: &Features) -> f32 {
-        todo!();
     }
 }

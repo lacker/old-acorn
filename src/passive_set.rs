@@ -2,13 +2,14 @@ use crate::clause::Clause;
 use crate::features::Features;
 use crate::fingerprint::FingerprintSpecializer;
 use crate::literal::Literal;
-use crate::policy::default_policy;
 use crate::proof_step::ProofStep;
 use crate::score::Score;
+use crate::scorer::{default_scorer, Scorer};
 use crate::specializer::Specializer;
 use crate::term::Term;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeSet, HashMap};
+use std::sync::Arc;
 
 // The PassiveSet stores a bunch of clauses.
 // A clause in the passive set can be activated, and it can be simplified, but to do
@@ -42,6 +43,9 @@ pub struct PassiveSet {
     // verification.
     // This flag starts as true and flips to false once we exit that phase.
     pub verification_phase: bool,
+
+    // We do reference counting so that we don't have to clone the scorer when we clone the prover.
+    scorer: Arc<dyn Scorer + Send + Sync>,
 }
 
 // Whether (left1, right2) can be specialized to get (left2, right2).
@@ -97,6 +101,7 @@ fn make_simplified(
 
 impl PassiveSet {
     pub fn new() -> PassiveSet {
+        let scorer = Arc::new(default_scorer());
         PassiveSet {
             clauses: vec![],
             queue: BTreeSet::new(),
@@ -104,13 +109,13 @@ impl PassiveSet {
             singles: HashMap::new(),
             contradiction: None,
             verification_phase: true,
+            scorer,
         }
     }
 
     pub fn push(&mut self, step: ProofStep) {
         let features = Features::new(&step);
-        let policy = default_policy();
-        let score = Score::new(&policy, &features);
+        let score = Score::new(self.scorer.as_ref(), &features);
         let id = self.clauses.len();
 
         for (i, literal) in step.clause.literals.iter().enumerate() {
