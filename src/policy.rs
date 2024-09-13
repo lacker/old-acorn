@@ -70,3 +70,11 @@ impl Policy for DepthFirstPolicy {
         0.0
     }
 }
+
+pub struct ModelBasedPolicy;
+
+impl Policy for ModelBasedPolicy {
+    fn score(&self, features: &Features) -> f32 {
+        todo!();
+    }
+}
