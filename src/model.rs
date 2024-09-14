@@ -30,9 +30,8 @@ impl Model {
 
 impl Scorer for Model {
     fn score(&self, features: &Features) -> f32 {
-        let arr: Array1<f32> = Array1::from_vec(vec![0.0, 0.0]);
-        let inputs = ort::inputs![arr];
-
+        let inputs = ort::inputs![features.to_array()].unwrap();
+        let outputs = self.session.run(inputs).unwrap();
         todo!();
     }
 }
