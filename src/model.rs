@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use ndarray::Array1;
 use ort::{Error, GraphOptimizationLevel, Session};
 
 use crate::features::Features;
@@ -28,7 +29,10 @@ impl Model {
 }
 
 impl Scorer for Model {
-    fn score(&self, _features: &Features) -> f32 {
+    fn score(&self, features: &Features) -> f32 {
+        let arr: Array1<f32> = Array1::from_vec(vec![0.0, 0.0]);
+        let inputs = ort::inputs![arr];
+
         todo!();
     }
 }

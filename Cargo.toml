@@ -12,8 +12,8 @@ clap = { version = "4.5.17", features = ["derive"] }
 dashmap = "5.5.3"
 fxhash = "0.2.1"
 indoc = "1.0.8"
-ndarray = "0.15.6"
-ndarray-npy = "0.8.1"
+ndarray = "0.16"
+ndarray-npy = { git = "https://github.com/Dirreke/ndarray-npy", branch = "bump-ndarray" }
 nohash-hasher = "0.2.0"
 ordered-float = "4.2.2"
 ort = "2.0.0-rc.6"
