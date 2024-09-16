@@ -115,6 +115,9 @@ pub struct Builder<'a> {
     // Total sum of square num_activated.
     pub sum_square_activated: u64,
 
+    // Total number of clauses scored, both active and passive.
+    pub num_clauses: i32,
+
     // The total amount of time spent proving, in seconds.
     pub proving_time: f64,
 }
@@ -134,6 +137,7 @@ impl<'a> Builder<'a> {
             num_success: 0,
             num_activated: 0,
             sum_square_activated: 0,
+            num_clauses: 0,
             proving_time: 0.0,
         }
     }
@@ -225,8 +229,10 @@ impl<'a> Builder<'a> {
         // Tracking statistics
         self.goals_done += 1;
         self.proving_time += elapsed_f64;
-        let num_activated = prover.num_activated();
-        self.num_activated += num_activated as i32;
+        let num_activated = prover.num_activated() as i32;
+        self.num_activated += num_activated;
+        let num_passive = prover.num_passive() as i32;
+        self.num_clauses += num_activated + num_passive;
         self.sum_square_activated += (num_activated * num_activated) as u64;
 
         match outcome {
@@ -367,7 +373,9 @@ impl<'a> Builder<'a> {
         let num_activated = self.num_activated as f64 / self.num_success as f64;
         println!("{:.2} average activations", num_activated);
         let mean_square_activated = self.sum_square_activated as f64 / self.num_success as f64;
-        println!("{:.2} mean square activations", mean_square_activated);
+        println!("{:.1} mean square activations", mean_square_activated);
+        let num_clauses = self.num_clauses as f64 / self.num_success as f64;
+        println!("{:.2} average clauses", num_clauses);
         let proving_time_ms = 1000.0 * self.proving_time / self.num_success as f64;
         println!("{:.1} ms average proving time", proving_time_ms);
     }

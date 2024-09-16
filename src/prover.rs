@@ -395,6 +395,10 @@ impl Prover {
         self.active_set.len()
     }
 
+    pub fn num_passive(&self) -> usize {
+        self.passive_set.len()
+    }
+
     pub fn get_and_print_proof(&self) -> Option<Proof> {
         let proof = match self.get_proof() {
             Some(proof) => proof,
