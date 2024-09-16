@@ -1,5 +1,6 @@
 use std::error::Error;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use ndarray::{Axis, IxDyn};
 use ort::{GraphOptimizationLevel, Session};
@@ -13,19 +14,43 @@ pub struct ScoringModel {
     session: Session,
 }
 
-// We just support one hard-coded model.
-const FILENAME: &str = "model-2024-09-13-09:55:03.onnx";
-
 impl ScoringModel {
-    pub fn load() -> Result<Self, ort::Error> {
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("files");
-        d.push(FILENAME);
+    // Loads a model from a specific file.
+    pub fn load_file(p: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
         let session = Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .commit_from_file(d)?;
-
+            .commit_from_file(p)?;
         Ok(ScoringModel { session })
+    }
+
+    // Loads the most recent model.
+    pub fn load(verbose: bool) -> Result<Self, Box<dyn Error>> {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("files");
+
+        // Naming is by timestamp, so the largest is the most recent
+        let filename = match fs::read_dir(d.clone())?
+            .filter_map(|entry| entry.ok())
+            .filter_map(|entry| {
+                let path = entry.path();
+                if let Some(filename) = path.file_name()?.to_str() {
+                    if filename.starts_with("model-") && filename.ends_with(".onnx") {
+                        return Some(filename.to_string());
+                    }
+                }
+                None
+            })
+            .max()
+        {
+            Some(filename) => filename,
+            None => return Err("No model files found".into()),
+        };
+
+        if verbose {
+            println!("Loading model from {}", filename);
+        }
+
+        ScoringModel::load_file(d.join(filename))
     }
 }
 
@@ -55,7 +80,7 @@ mod tests {
 
     #[test]
     fn test_onnx_scoring() {
-        let model = ScoringModel::load().unwrap();
+        let model = ScoringModel::load(true).unwrap();
         let step = ProofStep::mock("c0(c3) = c2");
         let features = Features::new(&step);
         let score = model.score(&features).unwrap();

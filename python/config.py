@@ -2,7 +2,7 @@ import torch
 
 device = torch.device("cuda")
 
-dataset_filename = "../files/dataset-2024-09-11-15:11:57.npz"
+dataset_filename = "../files/dataset-2024-09-16-09:54:56.npz"
 
 num_features = 9
 

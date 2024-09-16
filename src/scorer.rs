@@ -9,7 +9,7 @@ pub trait Scorer {
 
 pub fn default_scorer() -> Box<dyn Scorer + Send + Sync> {
     if false {
-        Box::new(ScoringModel::load().unwrap())
+        Box::new(ScoringModel::load(true).unwrap())
     } else {
         Box::new(HandcraftedScorer)
     }
