@@ -1,9 +1,10 @@
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Once;
 
 use ndarray::{Axis, IxDyn};
-use ort::{GraphOptimizationLevel, Session};
+use ort::{CPUExecutionProvider, GraphOptimizationLevel, Session};
 
 use crate::features::Features;
 use crate::scorer::Scorer;
@@ -14,11 +15,22 @@ pub struct ScoringModel {
     session: Session,
 }
 
+static ORT_INIT: Once = Once::new();
+
 impl ScoringModel {
     // Loads a model from a specific file.
     pub fn load_file(p: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
+        ORT_INIT.call_once(|| {
+            ort::init()
+                .with_execution_providers([CPUExecutionProvider::default()
+                    .build()
+                    .error_on_failure()])
+                .commit()
+                .unwrap();
+        });
+
         let session = Session::builder()?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
+            .with_optimization_level(GraphOptimizationLevel::Disable)?
             .commit_from_file(p)?;
         Ok(ScoringModel { session })
     }
