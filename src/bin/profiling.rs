@@ -1,6 +1,6 @@
 // A representative run of the prover, to use for profiling.
-// Try:
-//   cargo flamegraph --bin=profiling
+// Recommended for sampling:
+//   https://github.com/mstange/samply
 
 use acorn::build::Builder;
 use acorn::project::Project;

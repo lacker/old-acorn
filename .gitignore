@@ -1,3 +1,5 @@
 /target
 math/foo*
 /files
+perf.data*
+profile.json*
