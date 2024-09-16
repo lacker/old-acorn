@@ -32,7 +32,7 @@ impl Score {
             };
         }
         let usable_for_verification = features.depth < 2;
-        let score = policy.score(features);
+        let score = policy.score(features).unwrap();
         Score {
             contradiction: false,
             usable_for_verification,

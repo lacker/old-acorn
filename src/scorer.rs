@@ -1,7 +1,9 @@
+use std::error::Error;
+
 use crate::features::Features;
 
 pub trait Scorer {
-    fn score(&self, features: &Features) -> f32;
+    fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>>;
 }
 
 pub fn default_scorer() -> impl Scorer {
@@ -24,7 +26,7 @@ impl Scorer for HandcraftedScorer {
     //
     // The third heuristic is a combination of a bunch of stuff, roughly to discourage
     // complexity.
-    fn score(&self, features: &Features) -> f32 {
+    fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>> {
         // The first heuristic is 0 for zero depth, -1 for depth 1, -2 for anything deeper.
         let heuristic1 = match features.depth {
             0 => 0,
@@ -59,7 +61,9 @@ impl Scorer for HandcraftedScorer {
         }
 
         // Essentially lexicographical
-        1000000.0 * (heuristic1 as f32) + 100000.0 * (heuristic2 as f32) + heuristic3 as f32
+        let score =
+            1000000.0 * (heuristic1 as f32) + 100000.0 * (heuristic2 as f32) + heuristic3 as f32;
+        Ok(score)
     }
 }
 
@@ -67,7 +71,7 @@ pub struct DepthFirstScorer;
 
 impl Scorer for DepthFirstScorer {
     // Always scoring zero will make it do depth-first search.
-    fn score(&self, _features: &Features) -> f32 {
-        0.0
+    fn score(&self, _features: &Features) -> Result<f32, Box<dyn Error>> {
+        Ok(0.0)
     }
 }
