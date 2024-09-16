@@ -1,6 +1,8 @@
 // A representative run of the prover, to use for profiling.
-// Recommended for sampling:
-//   https://github.com/mstange/samply
+// To profile using samply:
+//
+//   cargo build --bin=profiling --profile profiling
+//   samply record target/profiling/profiling
 
 use acorn::build::Builder;
 use acorn::project::Project;

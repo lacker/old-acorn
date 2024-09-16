@@ -37,3 +37,7 @@ test = false
 [[bin]]
 name = "profiling"
 test = false
+
+[profile.profiling]
+inherits = "release"
+debug = true
