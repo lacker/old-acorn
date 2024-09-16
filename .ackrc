@@ -4,3 +4,4 @@
 --ignore-file=match:/[.]svg$
 --ignore-dir=target
 --ignore-dir=.venv
+--ignore-file=match:/[.]ipynb$
