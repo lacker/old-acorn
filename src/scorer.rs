@@ -7,8 +7,10 @@ pub trait Scorer {
     fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>>;
 }
 
+const EXPERIMENT: bool = false;
+
 pub fn default_scorer() -> Box<dyn Scorer + Send + Sync> {
-    if false {
+    if EXPERIMENT {
         Box::new(ScoringModel::load(true).unwrap())
     } else {
         Box::new(HandcraftedScorer)
