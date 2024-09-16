@@ -7,8 +7,8 @@ use ort::{GraphOptimizationLevel, Session};
 use crate::features::Features;
 use crate::scorer::Scorer;
 
-// The Model loads a model that was trained in Python and uses it to score feature vectors.
-pub struct Model {
+// The ScoringModel loads a model that was trained in Python and uses it to score feature vectors.
+pub struct ScoringModel {
     // The ONNX model.
     session: Session,
 }
@@ -16,7 +16,7 @@ pub struct Model {
 // We just support one hard-coded model.
 const FILENAME: &str = "model-2024-09-13-09:55:03.onnx";
 
-impl Model {
+impl ScoringModel {
     pub fn load() -> Result<Self, ort::Error> {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("files");
@@ -25,11 +25,11 @@ impl Model {
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .commit_from_file(d)?;
 
-        Ok(Model { session })
+        Ok(ScoringModel { session })
     }
 }
 
-impl Scorer for Model {
+impl Scorer for ScoringModel {
     // This assumes that the model is calculating a probability of the positive class,
     // where the positive class is a step that was actually taken in a proof.
     // There's a lot of unwrapping - it would be nice to handle errors more gracefully.
@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn test_onnx_scoring() {
-        let model = Model::load().unwrap();
+        let model = ScoringModel::load().unwrap();
         let step = ProofStep::mock("c0(c3) = c2");
         let features = Features::new(&step);
         let score = model.score(&features).unwrap();

@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use crate::features::Features;
-use crate::model::Model;
+use crate::model::ScoringModel;
 
 pub trait Scorer {
     fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>>;
@@ -9,7 +9,7 @@ pub trait Scorer {
 
 pub fn default_scorer() -> Box<dyn Scorer + Send + Sync> {
     if false {
-        Box::new(Model::load().unwrap())
+        Box::new(ScoringModel::load().unwrap())
     } else {
         Box::new(HandcraftedScorer)
     }
