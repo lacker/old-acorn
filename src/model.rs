@@ -35,12 +35,15 @@ impl Scorer for Model {
     // There's a lot of unwrapping - it would be nice to handle errors more gracefully.
     fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>> {
         let array = features.to_array().insert_axis(Axis(0));
-        let inputs = ort::inputs![array].unwrap();
-        let outputs = self.session.run(inputs).unwrap();
-        let extracted = outputs[0].try_extract_tensor::<f32>().unwrap();
+        let inputs = ort::inputs![array]?;
+        let outputs = self.session.run(inputs)?;
+        let extracted = outputs[0].try_extract_tensor::<f32>()?;
         let ix = IxDyn(&[0, 0]);
-        let score = extracted.get(ix).unwrap();
-        Ok(*score)
+        if let Some(score) = extracted.get(ix) {
+            Ok(*score)
+        } else {
+            Err("No score at [0, 0]. Maybe the model is the wrong shape?".into())
+        }
     }
 }
 
