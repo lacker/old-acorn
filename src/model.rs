@@ -30,7 +30,7 @@ impl ScoringModel {
         });
 
         let session = Session::builder()?
-            .with_optimization_level(GraphOptimizationLevel::Disable)?
+            .with_optimization_level(GraphOptimizationLevel::Level3)?
             .commit_from_file(p)?;
         Ok(ScoringModel { session })
     }
