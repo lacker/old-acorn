@@ -103,7 +103,6 @@ fn make_simplified(
 
 impl PassiveSet {
     pub fn new() -> PassiveSet {
-        let scorer = Arc::new(default_scorer());
         PassiveSet {
             clauses: vec![],
             queue: BTreeSet::new(),
@@ -111,7 +110,7 @@ impl PassiveSet {
             singles: HashMap::new(),
             contradiction: None,
             verification_phase: true,
-            scorer,
+            scorer: default_scorer().into(),
         }
     }
 

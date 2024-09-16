@@ -1,13 +1,18 @@
 use std::error::Error;
 
 use crate::features::Features;
+use crate::model::Model;
 
 pub trait Scorer {
     fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>>;
 }
 
-pub fn default_scorer() -> impl Scorer {
-    HandcraftedScorer
+pub fn default_scorer() -> Box<dyn Scorer + Send + Sync> {
+    if false {
+        Box::new(Model::load().unwrap())
+    } else {
+        Box::new(HandcraftedScorer)
+    }
 }
 
 // Developed before I had any other framework for policies.
