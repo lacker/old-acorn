@@ -1,8 +1,8 @@
 // A representative run of the prover, to use for profiling.
 // To profile using samply:
 //
-//   cargo build --bin=profiling --profile profiling
-//   samply record target/profiling/profiling
+//   cargo build --bin=profile_prover --profile=profiling
+//   samply record target/profiling/profile_prover
 
 use acorn::build::Builder;
 use acorn::project::Project;

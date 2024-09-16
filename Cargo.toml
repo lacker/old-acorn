@@ -35,7 +35,11 @@ name = "language_server"
 test = false
 
 [[bin]]
-name = "profiling"
+name = "profile_prover"
+test = false
+
+[[bin]]
+name = "profile_scorer"
 test = false
 
 [profile.profiling]
