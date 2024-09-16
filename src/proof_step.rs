@@ -7,9 +7,6 @@ use crate::literal::Literal;
 use crate::proposition::{Source, SourceType};
 use crate::term::Term;
 
-// Use this to toggle experimental algorithm mode
-pub const EXPERIMENT: bool = false;
-
 // The different sorts of proof steps.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 pub enum ProofStepId {
