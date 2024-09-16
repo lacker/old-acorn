@@ -45,6 +45,8 @@ pub struct PassiveSet {
     pub verification_phase: bool,
 
     // We do reference counting so that we don't have to clone the scorer when we clone the prover.
+    // For now this doesn't really matter, but maybe in the future the scorer will have a large model,
+    // some affiliated GPU state, something like that.
     scorer: Arc<dyn Scorer + Send + Sync>,
 }
 

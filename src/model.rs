@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ndarray::Array1;
+use ndarray::{Axis, IxDyn};
 use ort::{Error, GraphOptimizationLevel, Session};
 
 use crate::features::Features;
@@ -8,7 +8,7 @@ use crate::scorer::Scorer;
 
 // The Model loads a model that was trained in Python and uses it to score feature vectors.
 pub struct Model {
-    // The ONNX .
+    // The ONNX model.
     session: Session,
 }
 
@@ -29,10 +29,17 @@ impl Model {
 }
 
 impl Scorer for Model {
+    // This assumes that the model is calculating a probability of the positive class,
+    // where the positive class is a step that was actually taken in a proof.
+    // There's a lot of unwrapping - it would be nice to handle errors more gracefully.
     fn score(&self, features: &Features) -> f32 {
-        let inputs = ort::inputs![features.to_array()].unwrap();
+        let array = features.to_array().insert_axis(Axis(0));
+        let inputs = ort::inputs![array].unwrap();
         let outputs = self.session.run(inputs).unwrap();
-        todo!();
+        let extracted = outputs[0].try_extract_tensor::<f32>().unwrap();
+        let ix = IxDyn(&[0, 0]);
+        let score = extracted.get(ix).unwrap();
+        *score
     }
 }
 
