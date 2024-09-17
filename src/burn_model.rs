@@ -35,7 +35,9 @@ impl BurnModel {
 impl Scorer for BurnModel {
     fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>> {
         let floats = [features.to_floats()];
-        let tensor = Tensor::<B, 2>::from_floats(floats, &self.device);
-        todo!();
+        let inputs = Tensor::<B, 2>::from_floats(floats, &self.device);
+        let outputs = self.model.forward(inputs);
+        let score = outputs.into_scalar();
+        Ok(score)
     }
 }

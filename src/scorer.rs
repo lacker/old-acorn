@@ -106,5 +106,6 @@ mod tests {
         assert!(burn_score.is_finite());
 
         // Then check they match
+        assert!((ort_score - burn_score).abs() < 1e-6);
     }
 }
