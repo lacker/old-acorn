@@ -5,3 +5,4 @@
 --ignore-dir=target
 --ignore-dir=.venv
 --ignore-file=match:/[.]ipynb$
+--ignore-file=match:profile.json$
