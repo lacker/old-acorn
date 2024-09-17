@@ -6,7 +6,6 @@ use std::error::Error;
 
 use burn::backend::ndarray::NdArrayDevice;
 use burn::backend::NdArray;
-use ndarray::Axis;
 
 use crate::common;
 use crate::features::Features;
@@ -35,7 +34,8 @@ impl BurnModel {
 
 impl Scorer for BurnModel {
     fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>> {
-        let array = features.to_array().insert_axis(Axis(0));
+        let floats = [features.to_floats()];
+        let tensor = Tensor::<B, 2>::from_floats(floats, &self.device);
         todo!();
     }
 }

@@ -82,3 +82,29 @@ impl Scorer for DepthFirstScorer {
         Ok(0.0)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::burn_model::BurnModel;
+    use crate::proof_step::ProofStep;
+
+    use super::*;
+
+    #[test]
+    fn test_loading_models() {
+        let step = ProofStep::mock("c0(c3) = c2");
+        let features = Features::new(&step);
+
+        // First ort
+        let ort_model = OrtModel::load(true).unwrap();
+        let ort_score = ort_model.score(&features).unwrap();
+        assert!(ort_score.is_finite());
+
+        // Then burn
+        let burn_model = BurnModel::load().unwrap();
+        let burn_score = burn_model.score(&features).unwrap();
+        assert!(burn_score.is_finite());
+
+        // Then check they match
+    }
+}
