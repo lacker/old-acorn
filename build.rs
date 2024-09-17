@@ -1,4 +1,4 @@
-use burn_import::onnx::ModelGen;
+use burn_import::onnx::{ModelGen, RecordType};
 
 include!("src/common.rs");
 
@@ -33,6 +33,8 @@ fn main() {
     ModelGen::new()
         .input(tmp_onnx.to_str().unwrap())
         .out_dir(out_dir.to_str().unwrap())
+        .record_type(RecordType::Bincode)
+        .embed_states(true)
         .run_from_script();
 
     println!("cargo:warning=Model compiled.");

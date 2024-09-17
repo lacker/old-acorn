@@ -7,7 +7,6 @@ use std::error::Error;
 use burn::backend::ndarray::NdArrayDevice;
 use burn::backend::NdArray;
 
-use crate::common;
 use crate::features::Features;
 use crate::scorer::Scorer;
 
@@ -26,8 +25,7 @@ impl BurnModel {
     // The filename is figured out at compile time, so we don't have to do it here
     pub fn load() -> Result<Self, Box<dyn Error>> {
         let device = Device::default();
-        let weights_file = common::files_dir().join("burn").join("model.mpk");
-        let model = Model::<B>::from_file(&weights_file.to_str().unwrap(), &device);
+        let model = Model::<B>::from_embedded(&device);
         Ok(BurnModel { device, model })
     }
 }
