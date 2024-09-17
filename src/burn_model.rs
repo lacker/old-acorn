@@ -38,4 +38,8 @@ impl Scorer for BurnModel {
         let score = outputs.into_scalar();
         Ok(score)
     }
+
+    fn batch_score(&self, features: &[Features]) -> Result<Vec<f32>, Box<dyn Error>> {
+        Ok(features.iter().map(|f| self.score(f).unwrap()).collect())
+    }
 }

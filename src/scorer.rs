@@ -5,6 +5,8 @@ use crate::ort_model::OrtModel;
 
 pub trait Scorer {
     fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>>;
+
+    fn batch_score(&self, features: &[Features]) -> Result<Vec<f32>, Box<dyn Error>>;
 }
 
 const EXPERIMENT: bool = false;
@@ -72,6 +74,10 @@ impl Scorer for HandcraftedScorer {
             1000000.0 * (heuristic1 as f32) + 100000.0 * (heuristic2 as f32) + heuristic3 as f32;
         Ok(score)
     }
+
+    fn batch_score(&self, features: &[Features]) -> Result<Vec<f32>, Box<dyn Error>> {
+        Ok(features.iter().map(|f| self.score(f).unwrap()).collect())
+    }
 }
 
 pub struct DepthFirstScorer;
@@ -80,6 +86,10 @@ impl Scorer for DepthFirstScorer {
     // Always scoring zero will make it do depth-first search.
     fn score(&self, _features: &Features) -> Result<f32, Box<dyn Error>> {
         Ok(0.0)
+    }
+
+    fn batch_score(&self, features: &[Features]) -> Result<Vec<f32>, Box<dyn Error>> {
+        Ok(features.iter().map(|f| self.score(f).unwrap()).collect())
     }
 }
 
