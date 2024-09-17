@@ -1,38 +1,13 @@
 use std::error::Error;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Once;
 
 use ndarray::{Axis, IxDyn};
 use ort::{CPUExecutionProvider, GraphOptimizationLevel, Session};
 
+use crate::common;
 use crate::features::Features;
 use crate::scorer::Scorer;
-
-// Finds the most recent onnx model file.
-fn most_recent_onnx_model() -> Result<PathBuf, Box<dyn Error>> {
-    let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    d.push("files");
-
-    // Naming is by timestamp, so the largest is the most recent
-    let filename = match fs::read_dir(d.clone())?
-        .filter_map(|entry| entry.ok())
-        .filter_map(|entry| {
-            let path = entry.path();
-            if let Some(filename) = path.file_name()?.to_str() {
-                if filename.starts_with("model-") && filename.ends_with(".onnx") {
-                    return Some(filename.to_string());
-                }
-            }
-            None
-        })
-        .max()
-    {
-        Some(filename) => filename,
-        None => return Err("No model files found".into()),
-    };
-    Ok(d.join(filename))
-}
 
 // The OrtModel uses ort to load an onnx model and uses it to score feature vectors.
 pub struct OrtModel {
@@ -62,11 +37,10 @@ impl OrtModel {
 
     // Loads the most recent model.
     pub fn load(verbose: bool) -> Result<Self, Box<dyn Error>> {
-        let filename = most_recent_onnx_model()?;
+        let filename = common::most_recent_onnx_model()?;
         if verbose {
             println!("Loading model from {}", filename.display());
         }
-
         OrtModel::load_file(filename)
     }
 }
