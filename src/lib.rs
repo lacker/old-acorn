@@ -17,6 +17,7 @@ pub mod fact;
 pub mod features;
 pub mod fingerprint;
 pub mod goal;
+pub mod include_burn;
 pub mod interfaces;
 pub mod literal;
 pub mod model;
