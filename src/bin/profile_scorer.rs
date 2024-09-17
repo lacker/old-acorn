@@ -5,7 +5,7 @@
 //   samply record target/profiling/profile_scorer
 
 use acorn::features::Features;
-use acorn::model::ScoringModel;
+use acorn::model::OrtModel;
 use acorn::proof_step::ProofStep;
 use acorn::scorer::Scorer;
 
@@ -14,7 +14,7 @@ fn main() {
     let n = 100000;
     let mut total_seconds = 0.0;
     for i in 1..(m + 1) {
-        let scorer = ScoringModel::load(true).unwrap();
+        let scorer = OrtModel::load(true).unwrap();
         let step = ProofStep::mock("c0(c3) = c2");
         let features = Features::new(&step);
         let start = std::time::Instant::now();

@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use crate::features::Features;
-use crate::model::ScoringModel;
+use crate::model::OrtModel;
 
 pub trait Scorer {
     fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>>;
@@ -11,7 +11,7 @@ const EXPERIMENT: bool = false;
 
 pub fn default_scorer() -> Box<dyn Scorer + Send + Sync> {
     if EXPERIMENT {
-        Box::new(ScoringModel::load(true).unwrap())
+        Box::new(OrtModel::load(true).unwrap())
     } else {
         Box::new(HandcraftedScorer)
     }
