@@ -26,8 +26,12 @@ fn main() {
         }
     }
 
+    // Make a copy so that we have a sane name
+    let tmp_onnx = out_dir.join("model.onnx");
+    fs::copy(onnx_filename.clone(), tmp_onnx.clone()).expect("Could not copy file");
+
     ModelGen::new()
-        .input(onnx_filename.to_str().unwrap())
+        .input(tmp_onnx.to_str().unwrap())
         .out_dir(out_dir.to_str().unwrap())
         .run_from_script();
 
