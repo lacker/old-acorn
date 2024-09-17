@@ -40,8 +40,8 @@ impl Features {
         }
     }
 
-    pub fn to_array(&self) -> Array1<f32> {
-        Array1::from(vec![
+    pub fn to_vec(&self) -> Vec<f32> {
+        vec![
             self.is_contradiction as i8 as f32,
             self.atom_count as f32,
             self.is_counterfactual as i8 as f32,
@@ -51,7 +51,11 @@ impl Features {
             self.is_negated_goal as i8 as f32,
             self.proof_size as f32,
             self.depth as f32,
-        ])
+        ]
+    }
+
+    pub fn to_array(&self) -> Array1<f32> {
+        Array1::from(self.to_vec())
     }
 
     pub fn to_array2(features_slice: &[Features]) -> Array2<f32> {
