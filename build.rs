@@ -4,6 +4,7 @@ include!("src/common.rs");
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=files/models/");
 
     let onnx_filename = most_recent_onnx_model().unwrap();
 

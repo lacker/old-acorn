@@ -1,10 +1,10 @@
 use std::fs::File;
-use std::path::PathBuf;
 
 use chrono::Local;
 use ndarray::Array1;
 use ndarray_npy::NpzWriter;
 
+use crate::common;
 use crate::features::Features;
 
 // Data tracked from a build to use for training
@@ -32,8 +32,8 @@ impl Dataset {
         relative_filename: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Always save to the logs directory
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("files");
+        let mut d = common::files_dir();
+        d.push("datasets");
         d.push(relative_filename);
         let file = File::create(d)?;
         let mut npz = NpzWriter::new(file);

@@ -12,7 +12,7 @@ pub fn files_dir() -> PathBuf {
 
 // Finds the most recent onnx model file.
 pub fn most_recent_onnx_model() -> Result<PathBuf, Box<dyn Error>> {
-    let d = files_dir();
+    let d = files_dir().join("models");
 
     // Naming is by timestamp, so the largest is the most recent
     let filename = match fs::read_dir(d.clone())?
