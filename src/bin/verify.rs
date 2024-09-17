@@ -5,7 +5,7 @@
 // Try:
 //   cargo build --release --bin=verify; time ~/acorn/target/release/verify
 
-use acorn::build::Builder;
+use acorn::builder::Builder;
 use acorn::project::Project;
 use clap::Parser;
 

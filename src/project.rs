@@ -8,7 +8,7 @@ use walkdir::WalkDir;
 
 use crate::binding_map::BindingMap;
 use crate::block::NodeCursor;
-use crate::build::{BuildEvent, BuildStatus, Builder};
+use crate::builder::{BuildEvent, BuildStatus, Builder};
 use crate::environment::Environment;
 use crate::fact::Fact;
 use crate::goal::GoalContext;

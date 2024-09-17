@@ -89,6 +89,11 @@ impl Scorer for OrtModel {
     }
 }
 
+// The BurnModel uses burn to load an onnx model and uses it to score feature vectors.
+pub struct BurnModel {
+    // TODO
+}
+
 #[cfg(test)]
 mod tests {
     use crate::proof_step::ProofStep;
@@ -96,7 +101,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_onnx_scoring() {
+    fn test_ort_model_runs() {
         let model = OrtModel::load(true).unwrap();
         let step = ProofStep::mock("c0(c3) = c2");
         let features = Features::new(&step);

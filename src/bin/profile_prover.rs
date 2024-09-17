@@ -4,7 +4,7 @@
 //   cargo build --bin=profile_prover --profile=profiling
 //   samply record target/profiling/profile_prover
 
-use acorn::build::Builder;
+use acorn::builder::Builder;
 use acorn::project::Project;
 
 fn main() {
