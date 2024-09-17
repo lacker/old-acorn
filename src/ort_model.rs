@@ -2,14 +2,12 @@ use std::error::Error;
 use std::path::Path;
 use std::sync::Once;
 
-use burn::backend::ndarray::NdArrayDevice;
-use burn::backend::NdArray;
 use ndarray::{Axis, IxDyn};
 use ort::{CPUExecutionProvider, GraphOptimizationLevel, Session};
 
+use crate::common;
 use crate::features::Features;
 use crate::scorer::Scorer;
-use crate::{common, include_burn};
 
 // The OrtModel uses ort to load an onnx model and uses it to score feature vectors.
 pub struct OrtModel {
@@ -62,32 +60,6 @@ impl Scorer for OrtModel {
         } else {
             Err("No score at [0, 0]. Maybe the model is the wrong shape?".into())
         }
-    }
-}
-
-type Backend = NdArray;
-type Device = NdArrayDevice;
-
-// The BurnModel uses burn to load an onnx model and uses it to score feature vectors.
-pub struct BurnModel {
-    device: Device,
-    model: include_burn::Model<Backend>,
-}
-
-impl BurnModel {
-    // The filename is figured out at compile time, so we don't have to do it here
-    pub fn load() -> Result<Self, Box<dyn Error>> {
-        let device = Device::default();
-        let weights_file = common::files_dir().join("burn").join("model.mpk");
-        let model =
-            include_burn::Model::<Backend>::from_file(&weights_file.to_str().unwrap(), &device);
-        Ok(BurnModel { device, model })
-    }
-}
-
-impl Scorer for BurnModel {
-    fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>> {
-        todo!();
     }
 }
 

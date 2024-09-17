@@ -5,7 +5,7 @@
 //   samply record target/profiling/profile_scorer
 
 use acorn::features::Features;
-use acorn::model::OrtModel;
+use acorn::ort_model::OrtModel;
 use acorn::proof_step::ProofStep;
 use acorn::scorer::Scorer;
 
