@@ -1,13 +1,18 @@
 // Code that is available both for build hooks, and for the main program.
+// Don't use crate stuff in here.
 
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 
+pub fn files_dir() -> PathBuf {
+    let d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    d.join("files")
+}
+
 // Finds the most recent onnx model file.
 pub fn most_recent_onnx_model() -> Result<PathBuf, Box<dyn Error>> {
-    let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    d.push("files");
+    let d = files_dir();
 
     // Naming is by timestamp, so the largest is the most recent
     let filename = match fs::read_dir(d.clone())?

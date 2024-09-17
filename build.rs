@@ -1,3 +1,6 @@
+include!("src/common.rs");
+
 fn main() {
-    println!("cargo:warning=Running custom build hook...");
+    let filename = most_recent_onnx_model().unwrap();
+    println!("cargo:warning=Compiling model: {}", filename.display());
 }
