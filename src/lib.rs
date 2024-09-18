@@ -5,7 +5,6 @@ pub mod atom;
 pub mod binding_map;
 pub mod block;
 pub mod builder;
-pub mod burn_model;
 pub mod clause;
 pub mod code_gen_error;
 pub mod common;
