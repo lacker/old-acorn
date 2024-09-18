@@ -79,4 +79,18 @@ mod tests {
         let ort_score = ort_model.score(&features).unwrap();
         assert!(ort_score.is_finite());
     }
+
+    #[test]
+    fn test_ort_model_batch_score() {
+        let step1 = ProofStep::mock("c0(c3) = c2");
+        let features1 = Features::new(&step1);
+        let step2 = ProofStep::mock("c4(c1, c1) = c4(c2, c2)");
+        let features2 = Features::new(&step2);
+        let ort_model = OrtModel::load(true).unwrap();
+        let score1 = ort_model.score(&features1).unwrap();
+        let score2 = ort_model.score(&features2).unwrap();
+
+        // The scores should be different, even up to floating point error
+        assert!((score1 - score2).abs() > 1e-6);
+    }
 }
