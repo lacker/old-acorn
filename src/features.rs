@@ -25,6 +25,8 @@ pub struct Features {
     pub depth: i32,
 }
 
+const NUM_FEATURES: usize = 9;
+
 impl Features {
     pub fn new(step: &ProofStep) -> Self {
         Features {
@@ -40,7 +42,7 @@ impl Features {
         }
     }
 
-    pub fn to_floats(&self) -> [f32; 9] {
+    pub fn to_floats(&self) -> [f32; NUM_FEATURES] {
         [
             self.is_contradiction as i8 as f32,
             self.atom_count as f32,
@@ -58,13 +60,13 @@ impl Features {
         Array1::from(self.to_floats().to_vec())
     }
 
+    // Create an array of size (number of items, number of features) from a slice of features.
+    // Each row is a feature vector.
     pub fn to_array2(features_slice: &[Features]) -> Array2<f32> {
         let num_rows = features_slice.len();
         assert_ne!(num_rows, 0);
 
-        let num_cols = features_slice[0].to_array().len();
-
-        let mut array2 = Array2::zeros((num_rows, num_cols));
+        let mut array2 = Array2::zeros((num_rows, NUM_FEATURES));
 
         // Fill the Array2 with the feature vectors
         for (i, features) in features_slice.iter().enumerate() {

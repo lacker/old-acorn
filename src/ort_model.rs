@@ -61,6 +61,22 @@ impl Scorer for OrtModel {
             Err("No score at [0, 0]. Maybe the model is the wrong shape?".into())
         }
     }
+
+    fn batch_score(&self, features: &[Features]) -> Result<Vec<f32>, Box<dyn Error>> {
+        let array = Features::to_array2(features);
+        let inputs = ort::inputs![array]?;
+
+        // Get input information
+        for (i, input) in self.session.inputs.iter().enumerate() {
+            println!(
+                "Input {}: name = {}, type = {:?}",
+                i, input.name, input.input_type
+            );
+        }
+
+        let _outputs = self.session.run(inputs)?;
+        todo!();
+    }
 }
 
 #[cfg(test)]
@@ -87,6 +103,7 @@ mod tests {
         let step2 = ProofStep::mock("c4(c1, c1) = c4(c2, c2)");
         let features2 = Features::new(&step2);
         let ort_model = OrtModel::load(true).unwrap();
+
         let score1 = ort_model.score(&features1).unwrap();
         let score2 = ort_model.score(&features2).unwrap();
 

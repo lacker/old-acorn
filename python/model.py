@@ -34,7 +34,18 @@ class SimpleNN(nn.Module):
 
         # The dummy input has just a single feature vector
         dummy_input = torch.randn(1, config.num_features, device=config.device)
-        torch.onnx.export(self, dummy_input, path)
+        dynamic_axes = {
+            "input": {0: "batch_size"},
+            "output": {0: "batch_size"},
+        }
+        torch.onnx.export(
+            self,
+            dummy_input,
+            path,
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes=dynamic_axes,
+        )
         print(f"Model saved to {path}")
 
 
