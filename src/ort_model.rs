@@ -65,17 +65,10 @@ impl Scorer for OrtModel {
     fn batch_score(&self, features: &[Features]) -> Result<Vec<f32>, Box<dyn Error>> {
         let array = Features::to_array2(features);
         let inputs = ort::inputs![array]?;
-
-        // Get input information
-        for (i, input) in self.session.inputs.iter().enumerate() {
-            println!(
-                "Input {}: name = {}, type = {:?}",
-                i, input.name, input.input_type
-            );
-        }
-
-        let _outputs = self.session.run(inputs)?;
-        todo!();
+        let outputs = self.session.run(inputs)?;
+        let extracted = outputs[0].try_extract_tensor::<f32>()?;
+        let scores: Vec<f32> = extracted.iter().copied().collect();
+        Ok(scores)
     }
 }
 
