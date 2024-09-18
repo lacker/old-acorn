@@ -62,3 +62,21 @@ impl Scorer for OrtModel {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::proof_step::ProofStep;
+
+    use super::*;
+
+    #[test]
+    fn test_ort_model_score() {
+        let step = ProofStep::mock("c0(c3) = c2");
+        let features = Features::new(&step);
+
+        // First ort
+        let ort_model = OrtModel::load(true).unwrap();
+        let ort_score = ort_model.score(&features).unwrap();
+        assert!(ort_score.is_finite());
+    }
+}
