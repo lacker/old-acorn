@@ -61,8 +61,4 @@ impl Scorer for OrtModel {
             Err("No score at [0, 0]. Maybe the model is the wrong shape?".into())
         }
     }
-
-    fn batch_score(&self, features: &[Features]) -> Result<Vec<f32>, Box<dyn Error>> {
-        Ok(features.iter().map(|f| self.score(f).unwrap()).collect())
-    }
 }
