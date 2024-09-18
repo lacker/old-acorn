@@ -2,6 +2,11 @@ import torch
 
 device = torch.device("cuda")
 
+# Deterministic behavior
+torch.manual_seed(42)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
 dataset_filename = "../files/datasets/dataset-2024-09-16-09:54:56.npz"
 
 num_features = 9
