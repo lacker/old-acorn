@@ -92,5 +92,11 @@ mod tests {
 
         // The scores should be different, even up to floating point error
         assert!((score1 - score2).abs() > 1e-6);
+
+        // Recalculate the scores in a batch
+        let scores = ort_model.batch_score(&[features1, features2]).unwrap();
+        assert_eq!(scores.len(), 2);
+        assert!((scores[0] - score1).abs() < 1e-6);
+        assert!((scores[1] - score2).abs() < 1e-6);
     }
 }
