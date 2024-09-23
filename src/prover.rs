@@ -141,7 +141,7 @@ impl Prover {
     // Used to add facts internally, after the fact has already been monomorphized.
     fn add_monomorphic_fact(&mut self, fact: Fact) {
         let local = fact.local();
-        let defined_atom = match &fact.source.source_type {
+        let defined = match &fact.source.source_type {
             SourceType::ConstantDefinition(value) => {
                 match self.normalizer.term_from_value(&value, local) {
                     Ok(term) => Some(term.get_head().clone()),
@@ -170,11 +170,12 @@ impl Prover {
                 return;
             }
         };
+        let mut steps = vec![];
         for clause in clauses {
-            let step =
-                ProofStep::new_assumption(clause, fact.truthiness, &fact.source, defined_atom);
-            self.passive_set.push_one(step);
+            let step = ProofStep::new_assumption(clause, fact.truthiness, &fact.source, defined);
+            steps.push(step);
         }
+        self.passive_set.push_batch(steps);
     }
 
     pub fn set_goal(&mut self, goal_context: &GoalContext) {
