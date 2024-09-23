@@ -114,9 +114,15 @@ impl PassiveSet {
         }
     }
 
+    // Adding a new step when we haven't already scored it.
     pub fn push(&mut self, step: ProofStep) {
         let features = Features::new(&step);
         let score = Score::new(self.scorer.as_ref(), &features);
+        self.push_with_score(step, score);
+    }
+
+    // Adding a new step when we have already scored it.
+    fn push_with_score(&mut self, step: ProofStep, score: Score) {
         let id = self.clauses.len();
 
         for (i, literal) in step.clause.literals.iter().enumerate() {
