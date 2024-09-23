@@ -36,7 +36,7 @@ fn main() {
 
         let start = std::time::Instant::now();
         for _ in 0..n {
-            let scores = scorer.batch_score(&features).unwrap();
+            let scores = scorer.score_batch(&features).unwrap();
             for score in scores {
                 assert!(score.is_finite());
             }

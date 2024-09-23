@@ -23,7 +23,7 @@ pub struct Score {
 
 impl Score {
     // The logic here is logic that we want to use regardless of the policy.
-    pub fn new(policy: &dyn Scorer, features: &Features) -> Score {
+    pub fn new(scorer: &dyn Scorer, features: &Features) -> Score {
         if features.is_contradiction {
             return Score {
                 contradiction: true,
@@ -32,12 +32,26 @@ impl Score {
             };
         }
         let usable_for_verification = features.depth < 2;
-        let score = policy.score(features).unwrap();
+        let score = scorer.score(features).unwrap();
         Score {
             contradiction: false,
             usable_for_verification,
             score: OrderedFloat(score),
         }
+    }
+
+    // Do a whole batch of scoring at once.
+    pub fn batch(scorer: &dyn Scorer, features: &[Features]) -> Vec<Score> {
+        let floats = scorer.score_batch(features).unwrap();
+        features
+            .iter()
+            .zip(floats.iter())
+            .map(|(f, &s)| Score {
+                contradiction: f.is_contradiction,
+                usable_for_verification: f.depth < 2,
+                score: OrderedFloat(s),
+            })
+            .collect()
     }
 
     pub fn is_usable_for_verification(&self) -> bool {

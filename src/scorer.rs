@@ -6,7 +6,7 @@ use crate::ort_model::OrtModel;
 pub trait Scorer {
     fn score(&self, features: &Features) -> Result<f32, Box<dyn Error>>;
 
-    fn batch_score(&self, features: &[Features]) -> Result<Vec<f32>, Box<dyn Error>> {
+    fn score_batch(&self, features: &[Features]) -> Result<Vec<f32>, Box<dyn Error>> {
         Ok(features.iter().map(|f| self.score(f).unwrap()).collect())
     }
 }

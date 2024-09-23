@@ -173,7 +173,7 @@ impl Prover {
         for clause in clauses {
             let step =
                 ProofStep::new_assumption(clause, fact.truthiness, &fact.source, defined_atom);
-            self.passive_set.push(step);
+            self.passive_set.push_one(step);
         }
     }
 
@@ -624,7 +624,7 @@ impl Prover {
                     self.final_step = Some(simple_step);
                     return true;
                 }
-                self.passive_set.push(simple_step);
+                self.passive_set.push_one(simple_step);
             }
         }
 
