@@ -121,6 +121,15 @@ impl PassiveSet {
         self.push_with_score(step, score);
     }
 
+    // Adding many new steps at once.
+    pub fn push_batch(&mut self, steps: Vec<ProofStep>) {
+        let features = steps.iter().map(Features::new).collect::<Vec<_>>();
+        let scores = Score::batch(self.scorer.as_ref(), &features);
+        for (step, score) in steps.into_iter().zip(scores.into_iter()) {
+            self.push_with_score(step, score);
+        }
+    }
+
     // Adding a new step when we have already scored it.
     fn push_with_score(&mut self, step: ProofStep, score: Score) {
         let id = self.clauses.len();
