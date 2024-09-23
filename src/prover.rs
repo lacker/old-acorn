@@ -597,11 +597,11 @@ impl Prover {
         }
 
         // Generate new clauses
-        let (alt_activated_id, generated_clauses) = self.active_set.activate(activated_step);
+        let (alt_activated_id, generated_steps) = self.active_set.activate(activated_step);
         assert_eq!(activated_id, alt_activated_id);
 
         let print_limit = 30;
-        let len = generated_clauses.len();
+        let len = generated_steps.len();
         if self.verbose && len > 0 {
             println!(
                 "generated {} new clauses{}:",
@@ -609,7 +609,8 @@ impl Prover {
                 if len > print_limit { ", eg" } else { "" }
             );
         }
-        for step in generated_clauses {
+        let mut new_steps = vec![];
+        for step in generated_steps {
             if step.finishes_proof() {
                 self.final_step = Some(step);
                 return true;
@@ -624,9 +625,10 @@ impl Prover {
                     self.final_step = Some(simple_step);
                     return true;
                 }
-                self.passive_set.push_one(simple_step);
+                new_steps.push(simple_step);
             }
         }
+        self.passive_set.push_batch(new_steps);
 
         // Sometimes we find a bunch of contradictions at once.
         // It doesn't really matter what we pick, so we guess which is most likely

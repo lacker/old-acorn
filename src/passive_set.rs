@@ -244,9 +244,8 @@ impl PassiveSet {
             let short_steps = &[(activated_id, activated_step)];
             new_steps.push(ProofStep::new_simplified(step, short_steps, new_clause));
         }
-        for step in new_steps {
-            self.push_one(step);
-        }
+
+        self.push_batch(new_steps);
     }
 
     // If we don't have both of the clauses, we just return the ones we have.
