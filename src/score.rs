@@ -48,7 +48,7 @@ impl Score {
             .zip(floats.iter())
             .map(|(f, &s)| Score {
                 contradiction: f.is_contradiction,
-                usable_for_verification: f.depth < 2,
+                usable_for_verification: f.depth < 2 || f.is_contradiction,
                 score: OrderedFloat(s),
             })
             .collect()
