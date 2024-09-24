@@ -15,7 +15,7 @@ const EXPERIMENT: bool = false;
 
 pub fn default_scorer() -> Box<dyn Scorer + Send + Sync> {
     if EXPERIMENT {
-        Box::new(OrtModel::load(true).unwrap())
+        Box::new(OrtModel::load(cfg!(test)).unwrap())
     } else {
         Box::new(HandcraftedScorer)
     }
