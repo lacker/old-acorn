@@ -4,11 +4,7 @@ version = "0.1.0"
 edition = "2021"
 default-run = "verify"
 
-[build-dependencies]
-burn-import = "0.14.0"
-
 [dependencies]
-burn = { version = "0.14.0", features = ["ndarray"] }
 chrono = "0.4.31"
 clap = { version = "4.5.17", features = ["derive"] }
 dashmap = "5.5.3"
