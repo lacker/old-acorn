@@ -11,14 +11,8 @@ pub trait Scorer {
     }
 }
 
-const EXPERIMENT: bool = false;
-
 pub fn default_scorer() -> Box<dyn Scorer + Send + Sync> {
-    if EXPERIMENT {
-        Box::new(OrtModel::load(cfg!(test)).unwrap())
-    } else {
-        Box::new(HandcraftedScorer)
-    }
+    Box::new(OrtModel::load(cfg!(test)).unwrap())
 }
 
 // Developed before I had any other framework for policies.

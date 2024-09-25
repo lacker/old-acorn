@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod prover_test {
+    use core::panic;
+
     use acorn::code_gen_error::CodeGenError;
     use acorn::module::Module;
     use acorn::project::Project;
@@ -1008,7 +1010,24 @@ mod prover_test {
             axiom fimpnh(x: Nat) { f(x) -> not h(x) }
             theorem goal(x: Nat) { not f(x) }
         "#;
-        expect_proof(text, "goal", &["if f(x) {", "\tg(x)", "\tfalse", "}"]);
+
+        let (outcome, code) = prove_as_main(text, "goal");
+        assert_eq!(outcome, Outcome::Success);
+        let actual = code.expect("code generation failed");
+
+        // There's multiple things it could be that would be fine.
+        if actual == &["if f(x) {", "\tg(x)", "\tfalse", "}"] {
+            return;
+        }
+        if actual == &["if f(x) {", "\tnot h(x)", "\tfalse", "}"] {
+            return;
+        }
+
+        println!("unexpected code:");
+        for line in &actual {
+            println!("{}", line);
+        }
+        panic!("as vec: {:?}", actual);
     }
 
     #[test]
