@@ -114,13 +114,6 @@ impl PassiveSet {
         }
     }
 
-    // Adding a single new step.
-    pub fn push_one(&mut self, step: ProofStep) {
-        let features = Features::new(&step);
-        let score = Score::new(self.scorer.as_ref(), &features);
-        self.push_with_score(step, score);
-    }
-
     // Adding many new steps at once.
     pub fn push_batch(&mut self, steps: Vec<ProofStep>) {
         if steps.is_empty() {
@@ -319,7 +312,7 @@ mod tests {
     #[test]
     fn test_passive_set_simplification() {
         let mut passive_set = PassiveSet::new();
-        passive_set.push_one(ProofStep::mock("c0(c1) or c0(c2)"));
+        passive_set.push_batch(vec![ProofStep::mock("c0(c1) or c0(c2)")]);
         // This should match *both* the literals in our existing clause
         passive_set.simplify(3, &ProofStep::mock("not c0(x0)"));
         let step = passive_set.pop().unwrap();

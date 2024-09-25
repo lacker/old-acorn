@@ -660,12 +660,12 @@ impl Prover {
 
     // A single fast search, intended for unit testing.
     pub fn quick_search(&mut self) -> Outcome {
-        self.search_for_contradiction(500, 0.05, false)
+        self.search_for_contradiction(500, 0.1, false)
     }
 
     // A restricted verification search, intended for unit testing.
     pub fn quick_verification_search(&mut self) -> Outcome {
-        self.search_for_contradiction(500, 0.05, true)
+        self.search_for_contradiction(500, 0.1, true)
     }
 
     // When 'verification' flag is set, the prover doesn't have to do arbitrarily deeply.
