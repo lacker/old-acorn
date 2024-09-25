@@ -90,6 +90,26 @@ mod prover_test {
         assert_eq!(actual, expected);
     }
 
+    // Expects the prover to find a proof that's one of the provided ones.
+    fn expect_proof_in(text: &str, goal_name: &str, expected: &[&[&str]]) {
+        let (outcome, code) = prove_as_main(text, goal_name);
+        assert_eq!(outcome, Outcome::Success);
+        let actual = code.expect("code generation failed");
+
+        // There's multiple things it could be that would be fine.
+        for e in expected {
+            if actual == *e {
+                return;
+            }
+        }
+
+        println!("unexpected code:");
+        for line in &actual {
+            println!("{}", line);
+        }
+        panic!("as vec: {:?}", actual);
+    }
+
     // Expects the prover to find a proof but then fail to generate code.
     // fn expect_code_gen_error(text: &str, goal_name: &str, expected: &str) {
     //     let (outcome, code) = prove_as_main(text, goal_name);
@@ -336,7 +356,9 @@ mod prover_test {
             define add(a: Nat, b: Nat) -> Nat { recursion(suc, a, b) }
             theorem add_zero_right(a: Nat) { add(a, zero) = a }
         "#;
-        expect_proof(text, "add_zero_right", &[]);
+
+        let expected = &[&[][..], &["recursion(suc, a, zero) = a"][..]];
+        expect_proof_in(text, "add_zero_right", expected);
     }
 
     #[test]
@@ -1011,23 +1033,11 @@ mod prover_test {
             theorem goal(x: Nat) { not f(x) }
         "#;
 
-        let (outcome, code) = prove_as_main(text, "goal");
-        assert_eq!(outcome, Outcome::Success);
-        let actual = code.expect("code generation failed");
-
-        // There's multiple things it could be that would be fine.
-        if actual == &["if f(x) {", "\tg(x)", "\tfalse", "}"] {
-            return;
-        }
-        if actual == &["if f(x) {", "\tnot h(x)", "\tfalse", "}"] {
-            return;
-        }
-
-        println!("unexpected code:");
-        for line in &actual {
-            println!("{}", line);
-        }
-        panic!("as vec: {:?}", actual);
+        let expected = &[
+            &["if f(x) {", "\tg(x)", "\tfalse", "}"][..],
+            &["if f(x) {", "\tnot h(x)", "\tfalse", "}"][..],
+        ];
+        expect_proof_in(text, "goal", expected);
     }
 
     #[test]

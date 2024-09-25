@@ -7,7 +7,7 @@ import config
 
 # Define the model
 class SimpleNN(nn.Module):
-    hidden1 = 32
+    hidden1 = 16
     hidden2 = 16
 
     def __init__(self):
