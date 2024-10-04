@@ -1,2 +1,2 @@
 # acorn
-A language for mathematics.
+This has moved to github.com/acornprover
